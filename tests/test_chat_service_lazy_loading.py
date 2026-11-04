@@ -44,6 +44,8 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
         "What did I ask you first in this conversation?")
     assert chat._is_earliest_session_recall_request(
         "What did I ask you first in this conversation?")
+    assert chat._is_recent_session_recall_request("What did you just say?")
+    assert not chat._is_earliest_session_recall_request("What did you just say?")
     assert not chat._is_earliest_session_recall_request(
         "What was the first part of my last message?")
     assert chat._is_recent_session_recall_request(
@@ -685,6 +687,37 @@ def test_recent_assistant_reply_recall_includes_same_session_answer_only(tmp_pat
     assert "MEMORY_DATA:" not in prompt
     assert second.json()["context"]["selected_turn_count"] == 2
     assert second.json()["context"]["selected_memory_count"] == 0
+
+
+def test_what_did_you_just_say_selects_latest_assistant_reply(tmp_path, monkeypatch):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    first = client.post("/chat", json={"message": "Can you see my screen?"})
+    sid = first.json()["session_id"]
+    latest = client.post("/chat", json={"session_id": sid,
+        "message": "Please focus on Cronos frame pacing."})
+    recall = client.post("/chat", json={"session_id": sid,
+        "message": "What did you just say?"})
+
+    assert first.status_code == latest.status_code == recall.status_code == 200
+    assert memory_queries == ["", "Please focus on Cronos frame pacing.", ""]
+    prompt = invoker.prompts[-1]
+    assert "What did you just say?" in prompt
+    assert "Please focus on Cronos frame pacing." in prompt
+    assert "Can you see my screen?" not in prompt
+    assert "explicit simulation" in prompt
+    assert "use the immediately following ASSISTANT_DATA turn" in prompt
+    assert recall.json()["context"]["selected_turn_count"] == 2
+    assert recall.json()["context"]["selected_memory_count"] == 0
 
 
 def test_recent_user_recall_uses_only_immediately_previous_user_turn(tmp_path):

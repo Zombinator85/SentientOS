@@ -814,9 +814,9 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
     if recent_session_recall:
         instruction_index = lines.index("[VERIFIED_RUNTIME_CONTEXT]")
         recall_instruction = (
-            "These turns are ordered oldest to newest. For this recall, use only the first prior USER_DATA turn; include the immediately following ASSISTANT_DATA turn only if asked what the assistant answered to the first message. Do not substitute later turns or infer missing messages, and do not use MEMORY_DATA."
+            "These turns are ordered oldest to newest. For this recall, use only the first prior USER_DATA turn; include the immediately following ASSISTANT_DATA turn only if asked what the assistant answered or said in response to the first message. Do not substitute later turns or infer missing messages, and do not use MEMORY_DATA."
             if earliest_session_recall else
-            "These turns are ordered oldest to newest. For this recall, use only the final prior USER_DATA turn; include the immediately following ASSISTANT_DATA turn only if asked what the assistant answered. Do not substitute older turns or infer missing messages, and do not use MEMORY_DATA."
+            "These turns are ordered oldest to newest. For user-message recall, use only the final prior USER_DATA turn. For questions about what the assistant just said or answered, use the immediately following ASSISTANT_DATA turn with its preceding USER_DATA turn. Do not substitute older turns or infer missing messages, and do not use MEMORY_DATA."
         )
         lines.insert(instruction_index, recall_instruction)
     for turn in history.turns:
