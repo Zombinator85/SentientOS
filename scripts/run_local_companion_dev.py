@@ -204,6 +204,31 @@ class _LatestScreenObservation:
             raise RuntimeError("screen_observation_drain_shutdown_timeout")
 
 
+def _host_resource_log_payload(evaluation: Any, summary: Mapping[str, Any]) -> dict[str, Any]:
+    """Expose bounded read-only utilization data with its collection timestamp."""
+    snapshot = evaluation.snapshot
+    epoch = evaluation.epoch
+    return {
+        "event": "host_resource_observation",
+        "evaluation_id": summary["evaluation_id"],
+        "status": summary["status"],
+        "observed_at": epoch.observed_at,
+        "pressure_labels": list(evaluation.pressure_report.pressure_labels),
+        "collectors_called": epoch.collectors_called,
+        "collector_status_counts": dict(epoch.status_counts),
+        "cpu_utilization_percent": snapshot.cpu_utilization_percent,
+        "ram_utilization_percent": snapshot.ram_utilization_percent,
+        "gpu_utilization_percent": snapshot.gpu_utilization_percent,
+        "vram_utilization_percent": snapshot.vram_utilization_percent,
+        "gpu_telemetry_available": (
+            snapshot.gpu_utilization_percent is not None
+            or snapshot.vram_utilization_percent is not None
+        ),
+        "no_effect_authority": evaluation.no_effect_authority is True,
+        "host_mutation_performed": False,
+    }
+
+
 class _HostResourceSampler:
     """Feed fresh, read-only host telemetry to the live runtime governor."""
 
@@ -238,15 +263,8 @@ class _HostResourceSampler:
                 evaluation = self._coordinator.run_cycle(correlation_id=correlation_id)
                 if evaluation is not None:
                     report = self._summary(evaluation)
-                    print(json.dumps({
-                        "event": "host_resource_observation",
-                        "evaluation_id": report["evaluation_id"],
-                        "status": report["status"],
-                        "pressure_labels": report["pressure_labels"],
-                        "collectors_called": evaluation.epoch.collectors_called,
-                        "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
-                        "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
-                    }), flush=True)
+                    print(json.dumps(_host_resource_log_payload(evaluation, report)),
+                          flush=True)
                 else:
                     print(json.dumps({"event": "host_resource_observation",
                                       "status": "admission_deferred"}), flush=True)
