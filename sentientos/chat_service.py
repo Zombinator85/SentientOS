@@ -151,7 +151,19 @@ def _is_social_checkin_request(message: str) -> bool:
         "say you are here", "say you're here", "here with me",
         "keep me company", "company while i play", "company while i game",
     )
-    return any(marker in normalized for marker in markers)
+    companion_roles = r"(?:gaming )?(?:co[- ]?pilot|sidekick|companion)"
+    companion_shift_checkin = re.search(
+        rf"\bhow(?:'s| is) (?:the|your) {companion_roles}(?: shift)? going\b",
+        normalized,
+    )
+    companion_day_checkin = re.search(
+        rf"\bhow(?:'s| is) your (?:day|night|evening) going as "
+        rf"(?:my )?{companion_roles}\b",
+        normalized,
+    )
+    return (any(marker in normalized for marker in markers)
+            or companion_shift_checkin is not None
+            or companion_day_checkin is not None)
 
 
 APP = FastAPI(title="SentientOS Chat", version="1.0")

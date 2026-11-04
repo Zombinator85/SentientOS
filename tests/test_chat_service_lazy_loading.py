@@ -1069,6 +1069,27 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     assert explicit_checkin.json()["context"]["selected_memory_count"] == 0
     assert chat.GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION in invoker.prompts[-1]
 
+    grounded_checkin_message = (
+        "How is the co-pilot shift going? Tell me one thing you can verify about my setup "
+        "and one thing you cannot currently see. Keep it friendly and brief."
+    )
+    grounded_checkin = client.post("/chat", json={"session_id": session_id,
+        "message": grounded_checkin_message})
+    assert grounded_checkin.status_code == 200
+    assert memory_queries[-1] == ""
+    assert grounded_checkin.json()["context"]["selected_turn_count"] == 0
+    assert grounded_checkin.json()["context"]["selected_memory_count"] == 0
+    assert grounded_checkin_message in invoker.prompts[-1]
+    assert "MEMORY_DATA:" not in invoker.prompts[-1]
+    assert chat.GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION in invoker.prompts[-1]
+
+    assert chat._is_social_checkin_request(
+        "How is the co-pilot shift going? Tell me one verified thing about my setup."
+    ) is True
+    assert chat._is_social_checkin_request(
+        "So, how's your night going as my gaming sidekick?"
+    ) is True
+
 
 def test_gaming_chat_trims_history_to_the_complete_input_ceiling(tmp_path):
     from sentientos.gaming_workload_policy import GamingWorkloadPolicy
