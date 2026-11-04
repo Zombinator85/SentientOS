@@ -10,8 +10,9 @@ from sentientos.perception.game_screen_capture import (
     GameScreenCaptureConsent,
     LocalTesseractOCR,
     WindowsGameScreenCapture,
+    build_windows_game_screen_ocr,
 )
-from sentientos.perception.screen_ocr import ScreenCaptureError
+from sentientos.perception.screen_ocr import ScreenCaptureError, ScreenConfig
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -24,6 +25,27 @@ CONSENT = GameScreenCaptureConsent(
 )
 WINDOW = ForegroundGameWindow("ExampleGame.exe", 10, 20, 110, 70)
 FRAME = CapturedGameFrame(100, 50, bytes(100 * 50 * 3))
+
+
+def test_screen_ocr_builder_uses_explicit_local_tesseract_executable(monkeypatch) -> None:
+    from sentientos.perception import game_screen_capture
+
+    observed = {}
+    monkeypatch.setattr(game_screen_capture, "WindowsGameScreenCapture",
+                        lambda **_kwargs: (lambda: None))
+    def make_ocr(*, executable):
+        observed["executable"] = executable
+        return lambda _payload: ""
+
+    monkeypatch.setattr(game_screen_capture, "LocalTesseractOCR", make_ocr)
+
+    build_windows_game_screen_ocr(
+        config=ScreenConfig(enable=True),
+        consent_provider=lambda: CONSENT,
+        tesseract_executable=r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+    )
+
+    assert observed["executable"] == r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 
 def test_capture_requires_current_explicit_consent_before_window_query() -> None:

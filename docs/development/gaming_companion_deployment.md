@@ -651,14 +651,26 @@ box for each message. Screen observation is rejected on non-Windows systems
 and the launcher refuses non-loopback binds while this feature is configured.
 The host must have the project's `runtime` and `windows` extras installed and a
 local `tesseract` executable on `PATH`; the launcher does not install or
-download these components.
+download these components. The supervised local development runner also accepts
+`--screen-observation-tesseract-executable PATH` when screen observation is
+explicitly enabled; an absolute Windows path avoids changing the global PATH.
 
 OCR text enters only the current governed inference prompt, labeled as
 untrusted screen data. It is not added to the user's transcript or memory. The
 session and invocation linkage retain only bounded capture and text digests,
 capture time and scope, optional process and consent digests, and the
-raw-frame-retention marker. This feature does not start ambient capture,
-publish to a remote provider, or grant action authority.
+raw-frame-retention marker. The request-driven production path does not start
+ambient capture, publish to a remote provider, or grant action authority.
+
+The supervised local development runner has a separate, explicit opt-in mode.
+When started with `--screen-observation-process GAME.exe`, its Windows edge
+samples only the allowlisted foreground game client area during the bounded
+consent window. It checks frames every 2.5 seconds, skips OCR for identical
+frames, discards raw frames, and holds only the newest bounded OCR result in
+short-lived memory. The model receives OCR text only on messages that opt in
+through the screen-observation checkbox. This development sampling mode also
+does not publish to a remote provider or grant action authority.
+
 Linux fixtures can test request routing and privacy behavior; actual Windows
 capture, local Tesseract availability, and gameplay impact still require GLORP
 validation.

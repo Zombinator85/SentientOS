@@ -249,7 +249,8 @@ class _TemporaryCompanionEdge:
                  godot_executable: Path, godot_project: Path,
                  game_process_names: tuple[str, ...] = (),
                  screen_observation_process_names: tuple[str, ...] = (),
-                 screen_observation_consent_minutes: int = 60) -> None:
+                 screen_observation_consent_minutes: int = 60,
+                 screen_observation_tesseract_executable: str | None = None) -> None:
         from scripts.gaming_companion_cross_host_smoke import (
             _addresses, _contexts, _test_identities, _win_path, _win_temp,
             _secret_free_environment,
@@ -371,6 +372,12 @@ class _TemporaryCompanionEdge:
                     "consent_id": "chat-screen-" + uuid.uuid4().hex,
                     "consent_expires_at": consent_expires.isoformat().replace("+00:00", "Z"),
                 }
+                if screen_observation_tesseract_executable is not None:
+                    executable = screen_observation_tesseract_executable
+                    if (not isinstance(executable, str) or not executable
+                            or len(executable) > 1024 or "\0" in executable):
+                        raise ValueError("screen_observation_ocr_executable_invalid")
+                    config["screen_observation"]["tesseract_executable"] = executable
             self._edge_process = subprocess.Popen(
                 [str(windows_python), _win_path(worker), _win_path(windows_source)],
                 cwd=str(ROOT), env=_secret_free_environment(), stdin=subprocess.PIPE,
@@ -521,6 +528,8 @@ def main() -> int:
                               "this allowlisted foreground game"))
     parser.add_argument("--screen-observation-consent-minutes", type=int, default=60,
                         help="Expire opt-in screen OCR consent after 1 to 240 minutes")
+    parser.add_argument("--screen-observation-tesseract-executable",
+                        help="Use an explicit local Tesseract executable for screen OCR")
     args = parser.parse_args()
     if args.host != "127.0.0.1" or not 1 <= args.port <= 65535:
         parser.error("development chat must bind only to 127.0.0.1")
@@ -531,6 +540,9 @@ def main() -> int:
     if args.screen_observation_process and not all(
             value is not None for value in edge_args):
         parser.error("screen observation requires the supervised Windows edge")
+    if (args.screen_observation_tesseract_executable is not None
+            and not args.screen_observation_process):
+        parser.error("a Tesseract executable requires screen observation opt-in")
     if not 1 <= args.screen_observation_consent_minutes <= 240:
         parser.error("screen observation consent minutes must be between 1 and 240")
     config_path = os.environ.get("SENTIENTOS_MODEL_CONFIG")
@@ -633,7 +645,9 @@ def main() -> int:
                 godot_project=args.godot_project,
                 game_process_names=tuple(args.game_process_name),
                 screen_observation_process_names=tuple(args.screen_observation_process),
-                screen_observation_consent_minutes=args.screen_observation_consent_minutes)
+                screen_observation_consent_minutes=args.screen_observation_consent_minutes,
+                screen_observation_tesseract_executable=(
+                    args.screen_observation_tesseract_executable))
         configure_development_chat(invoker=invoker, data_root=chat_state,
             avatar_output_emitter=edge.emitter if edge else None,
             model_profiles=model_profiles,
