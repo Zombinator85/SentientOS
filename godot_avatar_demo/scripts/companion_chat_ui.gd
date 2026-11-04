@@ -8,10 +8,12 @@ const MAX_VISIBLE_MESSAGES := 40
 var _request: HTTPRequest
 var _history: RichTextLabel
 var _start_button: Button
+var _resume_button: Button
 var _message_input: LineEdit
 var _send_button: Button
 var _session_id := ""
 var _pending_action := ""
+var _next_after_profile := ""
 var _messages := PackedStringArray()
 
 
@@ -22,7 +24,7 @@ func _ready() -> void:
 	_request.use_threads = true
 	add_child(_request)
 	_request.request_completed.connect(_on_request_completed)
-	_append_message("SentientOS", "Local development chat. Screen observation is off; turns are not retained as memories. The game-safe profile is selected before each session.")
+	_append_message("SentientOS", "Local development chat. Screen observation is off; turns are not retained as memories. Choose New chat or Resume latest.")
 
 
 func _build_interface() -> void:
@@ -63,9 +65,13 @@ func _build_interface() -> void:
 	row.add_theme_constant_override("separation", 8)
 	layout.add_child(row)
 	_start_button = Button.new()
-	_start_button.text = "Start chat"
+	_start_button.text = "New chat"
 	_start_button.pressed.connect(_start_chat)
 	row.add_child(_start_button)
+	_resume_button = Button.new()
+	_resume_button.text = "Resume latest"
+	_resume_button.pressed.connect(_resume_chat)
+	row.add_child(_resume_button)
 	_message_input = LineEdit.new()
 	_message_input.placeholder_text = "Message SentientOS…"
 	_message_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -80,10 +86,20 @@ func _build_interface() -> void:
 
 
 func _start_chat() -> void:
+	_select_profile_then("create_session")
+
+
+func _resume_chat() -> void:
+	_select_profile_then("load_sessions")
+
+
+func _select_profile_then(next_action: String) -> void:
 	if not _pending_action.is_empty():
 		return
+	_next_after_profile = next_action
 	_pending_action = "set_gaming_mode"
 	_start_button.disabled = true
+	_resume_button.disabled = true
 	_start_button.text = "Selecting game-safe profile…"
 	var headers := PackedStringArray(["Content-Type: application/json"])
 	var body_text := JSON.stringify({"mode": "gaming"})
@@ -119,7 +135,8 @@ func _send_message(submitted_text: String = "") -> void:
 
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
-	if result != HTTPRequest.RESULT_SUCCESS or response_code < 200 or response_code >= 300 or not parsed is Dictionary:
+	var array_response_allowed := _pending_action == "load_sessions" and parsed is Array
+	if result != HTTPRequest.RESULT_SUCCESS or response_code < 200 or response_code >= 300 or (not parsed is Dictionary and not array_response_allowed):
 		var detail := "SentientOS request failed (HTTP %d, result %d)." % [response_code, result]
 		if parsed is Dictionary and parsed.get("detail") is String:
 			detail = "SentientOS: " + str(parsed["detail"])
@@ -130,25 +147,70 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 			if parsed.get("effective_mode") != "gaming":
 				_fail_request("SentientOS did not confirm the game-safe profile.")
 				return
-			_pending_action = "create_session"
-			var error := _request.request(API_BASE + "/sessions", PackedStringArray(), HTTPClient.METHOD_POST, "")
+			if _next_after_profile == "load_sessions":
+				_pending_action = "load_sessions"
+				var error := _request.request(API_BASE + "/sessions")
+				if error != OK:
+					_fail_request("Could not list recent conversations (%s)." % error_string(error))
+			else:
+				_pending_action = "create_session"
+				var error := _request.request(API_BASE + "/sessions", PackedStringArray(), HTTPClient.METHOD_POST, "")
+				if error != OK:
+					_fail_request("Could not create a conversation (%s)." % error_string(error))
+		"load_sessions":
+			var sessions: Array = parsed
+			var recent: Dictionary = {}
+			for entry in sessions:
+				if entry is Dictionary and entry.get("lifecycle_state") == "active":
+					recent = entry
+					break
+			_session_id = str(recent.get("session_id", ""))
+			if _session_id.is_empty():
+				_fail_request("There is no recent active conversation to resume.")
+				return
+			_pending_action = "load_turns"
+			var error := _request.request(API_BASE + "/sessions/" + _session_id + "/turns")
 			if error != OK:
-				_fail_request("Could not create a conversation (%s)." % error_string(error))
+				_fail_request("Could not load the recent conversation (%s)." % error_string(error))
+		"load_turns":
+			var turns: Variant = parsed.get("turns", [])
+			if not turns is Array:
+				_fail_request("The recent conversation transcript was unavailable.")
+				return
+			_messages.clear()
+			for turn in turns:
+				if turn is Dictionary:
+					var role := str(turn.get("role", ""))
+					var text := str(turn.get("text", ""))
+					if role == "user":
+						_append_message("You", text)
+					elif role == "assistant":
+						_append_message("SentientOS", text)
+			_pending_action = "enable_avatar"
+			var output_body := JSON.stringify({"session_id": _session_id, "enabled": true})
+			var headers := PackedStringArray(["Content-Type: application/json"])
+			var error := _request.request(API_BASE + "/avatar-output", headers, HTTPClient.METHOD_POST, output_body)
+			if error != OK:
+				_fail_request("The visual companion connection could not resume (%s)." % error_string(error))
 		"create_session":
 			_session_id = str(parsed.get("session_id", ""))
 			if _session_id.is_empty():
 				_fail_request("SentientOS did not return a conversation session.")
 				return
+			_messages.clear()
 			_pending_action = "enable_avatar"
-			var body_text := JSON.stringify({"session_id": _session_id, "enabled": true})
+			var output_body := JSON.stringify({"session_id": _session_id, "enabled": true})
 			var headers := PackedStringArray(["Content-Type: application/json"])
-			var error := _request.request(API_BASE + "/avatar-output", headers, HTTPClient.METHOD_POST, body_text)
+			var error := _request.request(API_BASE + "/avatar-output", headers, HTTPClient.METHOD_POST, output_body)
 			if error != OK:
 				_fail_request("The visual companion connection could not start (%s)." % error_string(error))
 		"enable_avatar":
 			_pending_action = ""
-			_start_button.text = "Connected"
-			_start_button.disabled = true
+			_next_after_profile = ""
+			_start_button.text = "New chat"
+			_resume_button.text = "Resumed"
+			_start_button.disabled = false
+			_resume_button.disabled = true
 			_message_input.editable = true
 			_send_button.disabled = false
 			_message_input.grab_focus()
@@ -166,8 +228,11 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 
 func _fail_request(message: String) -> void:
 	_pending_action = ""
+	_next_after_profile = ""
 	_start_button.disabled = false
-	_start_button.text = "Start chat"
+	_resume_button.disabled = false
+	_start_button.text = "New chat"
+	_resume_button.text = "Resume latest"
 	_message_input.editable = not _session_id.is_empty()
 	_send_button.disabled = _session_id.is_empty()
 	_append_message("Status", message)
@@ -178,5 +243,4 @@ func _append_message(speaker: String, text: String) -> void:
 	while _messages.size() > MAX_VISIBLE_MESSAGES:
 		_messages.remove_at(0)
 	if _history != null:
-		_history.text = "
-".join(_messages)
+		_history.text = char(10).join(_messages)
