@@ -65,7 +65,7 @@ def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
     assert result.index(GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION) < result.index(
         "[VERIFIED_RUNTIME_CONTEXT]")
     assert result.endswith("[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
-    assert "For company, be warm" in result
+    assert "do not ask follow-ups unless asked" in result
     assert "Do not offer game help unless asked" in result
     assert "claim you are playing, or claim screen access" in result
     assert GamingWorkloadPolicy.apply_chat_response_style(prompt, "normal") == prompt

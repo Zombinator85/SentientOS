@@ -31,9 +31,59 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
     chat = _reload()
     assert chat._is_current_runtime_context_question(
         "In one concise sentence, tell me what you can observe about the current game and what you cannot.")
+    assert chat._is_current_runtime_context_question(
+        "Hey, how is your evening going? What can you verify about the game that is currently open, and what details can you not observe? Keep it natural and brief.")
     assert not chat._is_current_runtime_context_question(
         "What do you think about the story in Cronos?")
+    assert chat._is_recent_session_recall_request(
+        "What exact phrase did I ask you to repeat before the restart?")
+    assert chat._is_self_contained_text_echo_request(
+        "Please repeat this exact test phrase once: cobalt lantern 73.")
 
+
+def test_mixed_greeting_and_verified_game_question_skips_memory(tmp_path, monkeypatch):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    response = client.post("/chat", json={
+        "message": ("Hey, how is your evening going? What can you verify about the game "
+                    "that is currently open, and what details can you not observe? "
+                    "Keep it natural and brief.")
+    })
+
+    assert response.status_code == 200
+    assert memory_queries == [""]
+    assert response.json()["context"]["selected_memory_count"] == 0
+    assert "MEMORY_DATA:" not in invoker.prompts[-1]
+
+def test_self_contained_exact_echo_skips_lexical_memory(tmp_path, monkeypatch):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    response = client.post("/chat", json={
+        "message": "Please repeat this exact test phrase once: cobalt lantern 73."
+    })
+
+    assert response.status_code == 200
+    assert memory_queries == [""]
+    assert response.json()["context"]["selected_memory_count"] == 0
+    assert "MEMORY_DATA:" not in invoker.prompts[-1]
 
 def test_health_paths_do_not_load_model(monkeypatch):
     calls = []
