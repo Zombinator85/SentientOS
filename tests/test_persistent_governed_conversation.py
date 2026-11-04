@@ -134,7 +134,8 @@ def test_malicious_recalled_memory_cannot_become_system_authority(tmp_path: Path
     screen_prompt = assemble_local_chat_context(history=history,
         memory_snapshot={"memories": []}, current_message="what is on screen?",
         screen_observation={"text": "quest objective", "capture_digest": "a" * 64,
-            "capture_scope": "allowlisted_foreground_game_client_area"})
+            "capture_scope": "allowlisted_foreground_game_client_area",
+            "text_change_kind": "changed", "captured_at": "2026-01-01T00:00:00Z"})
     assert "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]" in screen_prompt
     assert '"text":"quest objective"' in screen_prompt
 
@@ -171,7 +172,8 @@ def test_explicit_screen_observation_is_ephemeral_and_idempotent(tmp_path: Path)
         observations.append(True)
         return {"modality": "screen", "text": "SECRET QUEST OBJECTIVE",
             "capture_digest": "a" * 64, "capture_scope": "allowlisted_foreground_game_client_area",
-            "captured_at": "2026-01-01T00:00:00Z", "raw_frame_retained": False}
+            "captured_at": "2026-01-01T00:00:00Z", "raw_frame_retained": False,
+            "text_change_kind": "initial", "previous_text_digest": None}
 
     app = service(tmp_path, invoker, observe)
     session_id = app.create_session()
@@ -186,6 +188,8 @@ def test_explicit_screen_observation_is_ephemeral_and_idempotent(tmp_path: Path)
     assistant_linkage = turns[-1]["linkage"]
     assert assistant_linkage["screen_observation_provenance"]["capture_digest"] == "a" * 64
     assert assistant_linkage["screen_observation_provenance"]["captured_at"] == "2026-01-01T00:00:00Z"
+    assert assistant_linkage["screen_observation_provenance"]["text_change_kind"] == "initial"
+    assert "previous_text_digest" not in assistant_linkage["screen_observation_provenance"]
     assert result.context["screen_observation_provenance"]["raw_frame_retained"] is False
     recovered = app.chat("what am I supposed to do?", session_id=session_id,
         request_id="screen-observe-1", observe_screen=True, retain=True)
@@ -212,6 +216,7 @@ def test_chat_endpoint_and_local_ui_expose_per_message_screen_opt_in(
         "modality": "screen", "text": "quest objective", "capture_digest": "d" * 64,
         "capture_scope": "allowlisted_foreground_game_client_area",
         "captured_at": "2026-01-01T00:00:00Z", "raw_frame_retained": False,
+        "text_change_kind": "initial", "previous_text_digest": None,
     })
     session_id = app.create_session()
     monkeypatch.setattr(chat_service, "_CONVERSATION_SERVICE", app)
