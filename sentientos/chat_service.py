@@ -136,6 +136,7 @@ def _is_current_runtime_context_question(message: str) -> bool:
             "on screen", "in cronos", "in the game", "in gameplay"))
     )
     return (any(marker in normalized for marker in markers) or screen_activity_question
+            or is_direct_screen_activity_question(message)
             or is_verified_current_game_context_question(message))
 
 

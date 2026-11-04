@@ -36,6 +36,9 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
     assert chat._is_current_runtime_context_question(
         "Which game is open, and can you see its screen?")
     assert chat._is_current_runtime_context_question(
+        "Hey SentientOS, I am playing Cronos. Give me a quick friendly check-in, "
+        "and be clear if you cannot see the gameplay.")
+    assert chat._is_current_runtime_context_question(
         "You said Cronos is open and that you cannot see the screen. "
         "What can you tell from your live connection?")
     grounded_current_question = (
@@ -546,6 +549,42 @@ def test_unconfigured_screen_activity_question_uses_verified_capability_fallback
     assert response.json()["context"]["inference_timing"]["backend_metrics_status"] == "not_applicable"
     assert invoker.calls == 1
     assert len(invoker.prompts) == 1
+
+
+def test_visibility_clarification_request_gets_grounded_without_model_inference(tmp_path):
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload()
+    client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation("available", True, "d" * 64,
+                "2026-11-04T16:00:00+00:00")
+
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic",
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+        foreground_game_detector=Detector())
+    response = client.post("/chat", json={
+        "message": (
+            "Hey SentientOS, I am playing Cronos. Give me a quick friendly check-in, "
+            "and be clear if you cannot see the gameplay."
+        ),
+        "observe_screen": False,
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["response"] == (
+        "I\'m here with you, but screen observation isn\'t configured, "
+        "so I can\'t see the gameplay."
+    )
+    assert body["context"]["response_origin"] == "deterministic_grounding_policy"
+    assert body["context"]["selected_memory_count"] == 0
+    assert body["context"]["selected_turn_count"] == 0
+    assert invoker.calls == 0
 
 
 def test_verified_current_situation_uses_only_foreground_and_screen_evidence(
