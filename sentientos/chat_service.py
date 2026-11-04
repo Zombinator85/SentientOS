@@ -979,9 +979,9 @@ class PersistentConversationService:
             isinstance(self._inference, DevelopmentLocalChatInference)
             and self._inference.current_workload_mode() == "gaming")
         if gaming_development_turn:
-            # Start with a modest history window, then account for the complete
-            # trusted gaming instruction and prompt structure before invocation.
-            history_budget = min(history_budget, 2000)
+            # Start with room for recent conversation, then trim only as needed
+            # to fit the complete trusted prompt under the gaming input ceiling.
+            history_budget = min(history_budget, 3000)
         recent_session_recall = _is_recent_session_recall_request(message)
         social_checkin = _is_social_checkin_request(message)
         self_contained_echo = _is_self_contained_text_echo_request(message)
