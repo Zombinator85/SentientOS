@@ -44,10 +44,13 @@ class _Opener:
 
 
 class _HTTPResponse:
-    def __init__(self, payload: dict) -> None:
-        self.payload = json.dumps(payload).encode()
+    def __init__(self, payload: dict | list[dict]) -> None:
+        chunks = payload if isinstance(payload, list) else [payload]
+        self.lines = [json.dumps(chunk).encode() + b"\n" for chunk in chunks]
     def read(self, _size: int = -1) -> bytes:
-        return self.payload
+        return b"".join(self.lines)
+    def readline(self, _size: int = -1) -> bytes:
+        return self.lines.pop(0) if self.lines else b""
 
 
 class _HTTPConnection:
@@ -63,10 +66,14 @@ class _HTTPConnection:
         request = json.loads(self.body)
         if self.path == "/api/generate" and request.get("prompt") == "" and request.get("keep_alive") == "0":
             return _HTTPResponse({"done": True, "response": "", "done_reason": "unload"})
-        return _HTTPResponse({"done": True, "message": {"role": "assistant", "content": "A real local answer."},
-            "total_duration": 123, "load_duration": 23,
-            "prompt_eval_duration": 34, "eval_duration": 56,
-            "eval_count": 7, "prompt_eval_count": 9})
+        return _HTTPResponse([
+            {"done": False, "message": {"role": "assistant", "content": "A real "}},
+            {"done": False, "message": {"role": "assistant", "content": "local answer."}},
+            {"done": True, "message": {"role": "assistant", "content": ""},
+                "done_reason": "stop", "total_duration": 123, "load_duration": 23,
+                "prompt_eval_duration": 34, "eval_duration": 56,
+                "eval_count": 7, "prompt_eval_count": 9},
+        ])
     def close(self) -> None:
         pass
 
@@ -112,7 +119,7 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
     assert backend.generate(prompt, (), {"max_new_tokens": 96}) == "A real local answer."
     sent = json.loads(_HTTPConnection.last_body)
     assert sent["model"] == "qwen3:8b"
-    assert sent["stream"] is False
+    assert sent["stream"] is True
     assert sent["options"]["num_ctx"] == 4096
     assert sent["options"]["num_gpu"] == 99
     assert sent["messages"] == [
@@ -120,12 +127,23 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
         {"role": "user", "content": "[SESSION_HISTORY_DATA]\nUSER_DATA: hello"},
     ]
 
+    ticks = iter((1_000_000, 1_075_000, 2_000_000, 2_075_000))
+    monkeypatch.setattr("sentientos.local_model.time.monotonic_ns", lambda: next(ticks))
     text, completion = backend.generate_with_metadata("Say hello", (), {"max_new_tokens": 96})
     assert text == "A real local answer."
     assert completion["total_duration_ns"] == 123
     assert completion["load_duration_ns"] == 23
     assert completion["completion_tokens"] == 7
+    assert completion["schema_version"] == "sentientos.ollama_completion_observation:v2"
+    assert type(completion["first_token_duration_ns"]) is int
+    assert completion["first_token_duration_ns"] == 75_000
     assert validate_backend_completion_observation(completion)
+    invalid_completion = {**completion, "first_token_duration_ns": -1}
+    assert not validate_backend_completion_observation(invalid_completion)
+    legacy_completion = {key: value for key, value in completion.items()
+        if key != "first_token_duration_ns"}
+    legacy_completion["schema_version"] = "sentientos.ollama_completion_observation:v1"
+    assert validate_backend_completion_observation(legacy_completion)
     assert backend.is_resident() is True
 
     released = backend.release_residency()
@@ -155,13 +173,17 @@ def test_ollama_active_request_can_be_cancelled(monkeypatch: pytest.MonkeyPatch,
         def shutdown(self, _how: int) -> None:
             stopped.set()
 
+    class _BlockingResponse:
+        def readline(self, _size: int = -1) -> bytes:
+            entered.set()
+            stopped.wait(2)
+            raise OSError("response stream closed")
+
     class _BlockingConnection(_HTTPConnection):
         def __init__(self, *_args, **_kwargs) -> None:
             self.sock = _Socket()
         def getresponse(self):
-            entered.set()
-            stopped.wait(2)
-            raise OSError("request socket closed")
+            return _BlockingResponse()
 
     monkeypatch.setattr("sentientos.local_model.http.client.HTTPConnection", _BlockingConnection)
     backend, _ = LocalModel._initialise_backend(candidate, config)

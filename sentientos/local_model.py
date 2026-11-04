@@ -7,6 +7,7 @@ import json
 import ipaddress
 import http.client
 import threading
+import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -260,7 +261,7 @@ class _OllamaBackend(_ModelBackend):
             "repeat_penalty": max(0.8, min(float(generation.get("repetition_penalty") or 1.1), 1.5)),
         }
         messages = _ollama_chat_messages(prompt)
-        body = json.dumps({"model": self._model, "messages": messages, "stream": False,
+        body = json.dumps({"model": self._model, "messages": messages, "stream": True,
                            "think": self._think, "keep_alive": keep_alive,
                            "options": options}, separators=(",", ":")).encode("utf-8")
         parsed = urllib.parse.urlsplit(self._base)
@@ -273,14 +274,48 @@ class _OllamaBackend(_ModelBackend):
             if self._active_connection is not None:
                 raise ModelLoadError("ollama_request_already_active")
             self._active_connection = connection
+        started_ns = time.monotonic_ns()
+        first_token_duration_ns: int | None = None
+        content_parts: list[str] = []
+        content_size = 0
+        payload: dict[str, Any] | None = None
+        total_stream_bytes = 0
         try:
             connection.request("POST", "/api/chat", body=body,
                 headers={"Content-Type": "application/json"})
             response = connection.getresponse()
-            raw = response.read(1024 * 1024 + 1)
-            if len(raw) > 1024 * 1024:
-                raise ModelLoadError("ollama_response_oversized")
-            payload = json.loads(raw.decode("utf-8"))
+            while True:
+                raw_line = response.readline(1024 * 1024 + 1)
+                if not raw_line:
+                    break
+                total_stream_bytes += len(raw_line)
+                if len(raw_line) > 1024 * 1024 or total_stream_bytes > 4 * 1024 * 1024:
+                    raise ModelLoadError("ollama_response_oversized")
+                try:
+                    chunk = json.loads(raw_line.decode("utf-8"))
+                except (UnicodeError, ValueError, TypeError) as exc:
+                    raise ModelLoadError("ollama_stream_chunk_invalid") from exc
+                if not isinstance(chunk, dict):
+                    raise ModelLoadError("ollama_stream_chunk_invalid")
+                if isinstance(chunk.get("error"), str):
+                    raise ModelLoadError("ollama_local_generation_failed")
+                message = chunk.get("message")
+                content = message.get("content") if isinstance(message, dict) else None
+                if content is not None:
+                    if not isinstance(content, str):
+                        raise ModelLoadError("ollama_stream_chunk_invalid")
+                    if content:
+                        if first_token_duration_ns is None:
+                            # Ollama streams content chunks, which may contain more than one
+                            # token; this is the governed first-content / TTFT proxy.
+                            first_token_duration_ns = max(0, time.monotonic_ns() - started_ns)
+                        content_parts.append(content)
+                        content_size += len(content)
+                        if content_size > 1024 * 1024:
+                            raise ModelLoadError("ollama_response_oversized")
+                if chunk.get("done") is True:
+                    payload = chunk
+                    break
         except ModelLoadError:
             raise
         except Exception as exc:
@@ -290,9 +325,8 @@ class _OllamaBackend(_ModelBackend):
             with self._active_request_lock:
                 if self._active_connection is connection:
                     self._active_connection = None
-        message = payload.get("message")
-        answer = message.get("content") if isinstance(message, dict) else None
-        if payload.get("done") is not True or not isinstance(answer, str) or not answer.strip():
+        answer = "".join(content_parts)
+        if payload is None or not answer.strip():
             raise ModelLoadError("ollama_local_generation_invalid")
         def bounded_metric(name: str, maximum: int) -> int | None:
             value = payload.get(name)
@@ -300,7 +334,7 @@ class _OllamaBackend(_ModelBackend):
         raw_finish_reason = payload.get("done_reason")
         finish_reason = raw_finish_reason if raw_finish_reason in {"stop", "length"} else "unknown"
         completion = {
-            "schema_version": "sentientos.ollama_completion_observation:v1",
+            "schema_version": "sentientos.ollama_completion_observation:v2",
             "backend": "ollama", "finish_reason": finish_reason,
             "completion_tokens": bounded_metric("eval_count", 131072),
             "prompt_tokens": bounded_metric("prompt_eval_count", 131072),
@@ -310,6 +344,7 @@ class _OllamaBackend(_ModelBackend):
             "load_duration_ns": bounded_metric("load_duration", 3_600_000_000_000),
             "prompt_eval_duration_ns": bounded_metric("prompt_eval_duration", 3_600_000_000_000),
             "eval_duration_ns": bounded_metric("eval_duration", 3_600_000_000_000),
+            "first_token_duration_ns": first_token_duration_ns,
         }
         return answer.strip(), completion
 
