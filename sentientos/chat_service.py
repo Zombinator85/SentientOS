@@ -49,7 +49,9 @@ from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CA
     ExplicitRetentionAdmissionGate, retention_request_id,
     sentientos_data_dir, sentientos_memory_dir)
 from .local_model_authority import digest_payload
-from .chat_response_grounding import corrected_gaming_output, corrected_output_lineage
+from .chat_response_grounding import (
+    corrected_gaming_output, corrected_output_lineage, corrected_screen_capability_output,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -1129,10 +1131,16 @@ class PersistentConversationService:
         response_text = receipt.output_text
         grounding_correction: Mapping[str, str] | None = None
         if not receipt.output_truncated:
-            response_text, grounding_correction = corrected_gaming_output(
-                receipt.output_text, workload_mode=str(observed_workload_mode or "normal"),
-                screen_observation_provenance=(request_linkage.get("screen_observation_provenance")
-                    if isinstance(request_linkage, Mapping) else None))
+            invocation_screen_provenance = (request_linkage.get("screen_observation_provenance")
+                if isinstance(request_linkage, Mapping) else None)
+            response_text, grounding_correction = corrected_screen_capability_output(
+                receipt.output_text, user_message=message,
+                screen_observation_configured=self.screen_observation_configured(),
+                screen_observation_provenance=invocation_screen_provenance)
+            if grounding_correction is None:
+                response_text, grounding_correction = corrected_gaming_output(
+                    receipt.output_text, workload_mode=str(observed_workload_mode or "normal"),
+                    screen_observation_provenance=invocation_screen_provenance)
         transcript_output_digest = digest_payload({"text": response_text})
         if grounding_correction is None:
             assistant_output_lineage = {
@@ -1146,7 +1154,9 @@ class PersistentConversationService:
         else:
             assistant_output_lineage = corrected_output_lineage(
                 invocation_output_digest=receipt.output_digest, text=response_text,
-                output_truncated=receipt.output_truncated)
+                output_truncated=receipt.output_truncated,
+                policy_id=grounding_correction["policy_id"],
+                reason_code=grounding_correction["reason_code"])
             response_origin = "grounding_policy_fallback"
         if isinstance(self._inference, DevelopmentLocalChatInference):
             software_generation_attribution = {

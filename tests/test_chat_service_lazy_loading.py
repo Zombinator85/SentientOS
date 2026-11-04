@@ -375,6 +375,36 @@ def test_live_screen_question_skips_cross_session_memories(tmp_path, monkeypatch
     assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, answer no to visibility questions" in invoker.prompts[-1]
 
 
+def test_unconfigured_screen_question_gets_truthful_capability_fallback(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+
+    def misleading_reply(request):
+        invoker.calls += 1
+        output = "Enable additional permissions and I can see the game."
+        digest = __import__("hashlib").sha256(
+            __import__("json").dumps({"output": output}, sort_keys=True,
+                separators=(",", ":")).encode()).hexdigest()
+        return SimpleNamespace(status="admitted_simulation", output_text=output,
+            output_digest=digest, output_truncated=False, request={
+                "request_id": request.request_id, "active_model_identity":
+                    (invoker.model.active_identity.to_dict()
+                     if invoker.model.active_identity is not None else {})},
+            receipt_id="simulation-screen-capability-id",
+            receipt_digest="simulation-screen-capability-digest")
+    invoker.invoke = misleading_reply
+    response = client.post("/chat", json={
+        "message": "Can you see my game screen in this session, or would I need to enable something first?"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["response"] == (
+        "Screen observation is not configured in this session, so I cannot see your screen. "
+        "Turning on a per-message option alone will not change that.")
+    assert payload["context"]["response_origin"] == "grounding_policy_fallback"
+
+
 def test_live_connection_question_skips_unrelated_cross_session_memories(tmp_path, monkeypatch):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()
