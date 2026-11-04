@@ -116,6 +116,8 @@ class _TemporaryCompanionEdge:
                 secrets.token_bytes(32) for _ in range(3))
             worker = root / "local_companion_edge_dev_worker.py"
             shutil.copyfile(ROOT / "scripts/local_companion_edge_dev_worker.py", worker)
+            shutil.copyfile(ROOT / "scripts/terminate_owned_process_tree.py",
+                            root / "terminate_owned_process_tree.py")
             config = {
                 "bind": windows_ip,
                 "peer_pin": wsl["pin"],

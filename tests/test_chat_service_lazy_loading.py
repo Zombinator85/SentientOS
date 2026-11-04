@@ -76,13 +76,20 @@ def test_self_contained_exact_echo_skips_lexical_memory(tmp_path, monkeypatch):
         return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
 
     monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    prior = client.post("/chat", json={
+        "message": "This is an older unrelated Cronos question."
+    })
+    assert prior.status_code == 200
     response = client.post("/chat", json={
+        "session_id": prior.json()["session_id"],
         "message": "Please repeat this exact test phrase once: cobalt lantern 73."
     })
 
     assert response.status_code == 200
-    assert memory_queries == [""]
+    assert memory_queries == ["This is an older unrelated Cronos question.", ""]
     assert response.json()["context"]["selected_memory_count"] == 0
+    assert response.json()["context"]["selected_turn_count"] == 0
+    assert "This is an older unrelated Cronos question." not in invoker.prompts[-1]
     assert "MEMORY_DATA:" not in invoker.prompts[-1]
 
 def test_health_paths_do_not_load_model(monkeypatch):

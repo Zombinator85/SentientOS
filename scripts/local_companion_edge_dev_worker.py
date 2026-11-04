@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(ROOT))
 
+from terminate_owned_process_tree import terminate_owned_process_tree
 from avatar_state import AvatarStateEmitter
 from godot_avatar_receiver import AvatarStateForwarder
 from sentientos.gaming_companion_avatar_output import (
@@ -162,11 +163,10 @@ def main():
                 try:
                     runtime.close()
                 finally:
-                    if godot and godot.poll() is None:
-                        godot.terminate()
-                        try: godot.wait(timeout=8)
-                        except subprocess.TimeoutExpired:
-                            godot.kill();godot.wait(timeout=3)
+                    if godot is not None:
+                        system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+                        terminate_owned_process_tree(
+                            godot, taskkill_executable=system_root / "System32" / "taskkill.exe")
     return 0
 
 if __name__=="__main__": raise SystemExit(main())

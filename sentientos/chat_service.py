@@ -972,6 +972,7 @@ class PersistentConversationService:
             history_budget = min(history_budget, 2000)
         recent_session_recall = _is_recent_session_recall_request(message)
         social_checkin = _is_social_checkin_request(message)
+        self_contained_echo = _is_self_contained_text_echo_request(message)
         history_roles: tuple[str, ...] | None
         history_turn_limit: int | None = None
         if recent_session_recall:
@@ -982,9 +983,9 @@ class PersistentConversationService:
                     "what was your response", "what did you reply"))
             history_roles = ("user", "assistant") if asks_for_assistant_reply else ("user",)
             history_turn_limit = 2 if asks_for_assistant_reply else 1
-        elif social_checkin:
-            # A self-contained greeting should not inherit topic from an older
-            # user question and mistake the check-in for another request.
+        elif social_checkin or self_contained_echo:
+            # Self-contained check-ins and exact echo requests should not inherit
+            # unrelated transcript context and mistake it for the current request.
             history_roles = ()
         else:
             history_roles = None
@@ -995,7 +996,6 @@ class PersistentConversationService:
         # relevant transcript or verified runtime facts. Lexical retrieval can
         # over-weight old prompts (for example, prior screen-visibility questions).
         current_runtime_question = _is_current_runtime_context_question(message)
-        self_contained_echo = _is_self_contained_text_echo_request(message)
         memory_query = ("" if recent_session_recall or social_checkin
                         or current_runtime_question or self_contained_echo else message)
         memory = self.memories.retrieve(memory_query, budget_chars=self.memory_budget_chars)
