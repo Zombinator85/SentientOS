@@ -115,7 +115,10 @@ class WindowsEdgeAvatarCommandDispatchOwner:
                  renderer_sink: RendererCommandSink,
                  poll_interval_seconds: float = 0.05,
                  max_consumed_receipts: int = 8192,
-                 receipt_replay_guard: AdmissionReceiptReplayGuard | None = None) -> None:
+                 receipt_replay_guard: AdmissionReceiptReplayGuard | None = None,
+                 additional_message_handlers: Mapping[
+                     str, Callable[[VerifiedBridgeMessage], bool]
+                 ] | None = None) -> None:
         if not callable(getattr(runtime, "receive", None)):
             raise CompanionBridgeError("avatar_command_runtime_required")
         if not callable(receipt_verifier) or not callable(renderer_sink):
@@ -128,6 +131,12 @@ class WindowsEdgeAvatarCommandDispatchOwner:
                 or not isinstance(max_consumed_receipts, int)
                 or max_consumed_receipts < 1):
             raise CompanionBridgeError("avatar_command_receipt_window_invalid")
+        if additional_message_handlers is not None and (
+                not isinstance(additional_message_handlers, Mapping)
+                or any(kind != "screen_capture_request" or not callable(handler)
+                       for kind, handler in additional_message_handlers.items())):
+            raise CompanionBridgeError("avatar_command_additional_handlers_invalid")
+        self._additional_message_handlers = dict(additional_message_handlers or {})
         self._runtime = runtime
         self._verify = receipt_verifier
         self._sink = renderer_sink
@@ -193,6 +202,16 @@ class WindowsEdgeAvatarCommandDispatchOwner:
             self._received += 1
             self._last_message_id = message.message_id
         try:
+            additional_handler = self._additional_message_handlers.get(message.kind)
+            if additional_handler is not None:
+                if message.admission is not None:
+                    raise CompanionBridgeError("bridge_admission_unexpected")
+                if additional_handler(message) is not True:
+                    raise CompanionBridgeError("bridge_additional_message_rejected")
+                with self._lock:
+                    self._accepted += 1
+                    self._last_failure = None
+                return True
             if message.kind != "avatar_command" or not isinstance(message.admission, Mapping):
                 raise CompanionBridgeError("avatar_command_message_required")
             receipt_id = message.admission.get("receipt_id")

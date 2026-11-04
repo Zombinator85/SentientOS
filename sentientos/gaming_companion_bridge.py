@@ -20,7 +20,11 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 SCHEMA_VERSION = "sentientos.gaming_companion_bridge_envelope:v1"
-MESSAGE_KINDS = frozenset({"observation", "avatar_command", "acknowledgment", "renderer_report", "consequence"})
+MESSAGE_KINDS = frozenset({
+    "observation", "avatar_command", "acknowledgment", "renderer_report",
+    "consequence", "screen_capture_request",
+})
+SCREEN_CAPTURE_REQUEST_FIELDS = frozenset({"capture_request_id"})
 AVATAR_COMMAND_FIELDS = frozenset({"output_mode", "phrase", "expression", "motion", "mood",
                                    "intensity", "workload_mode", "output_digest", "turn_id",
                                    "speech_timing"})
@@ -180,6 +184,13 @@ def _validate_message(kind: str, payload: Mapping[str, Any], admission: Mapping[
             raise CompanionBridgeError("avatar_command_field_invalid:output_digest")
         if payload.get("turn_id") is not None:
             _identifier(payload["turn_id"], "avatar_command_turn_id")
+    elif kind == "screen_capture_request":
+        if admission is not None:
+            raise CompanionBridgeError("bridge_admission_unexpected")
+        if (set(payload) != SCREEN_CAPTURE_REQUEST_FIELDS
+                or not isinstance(payload.get("capture_request_id"), str)
+                or re.fullmatch(r"[0-9a-f]{32}", payload["capture_request_id"]) is None):
+            raise CompanionBridgeError("screen_capture_request_invalid")
     elif admission is not None:
         raise CompanionBridgeError("bridge_admission_unexpected")
     if kind == "acknowledgment":

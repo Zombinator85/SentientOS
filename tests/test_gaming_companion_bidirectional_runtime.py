@@ -17,6 +17,7 @@ from sentientos.gaming_companion_tls_transport import (
     CompanionBridgeMutualTLSClient,
     CompanionBridgeMutualTLSRuntime,
 )
+from sentientos.screen_observation_bridge import ScreenCaptureRequestSender
 from tests.test_gaming_companion_tls_transport import _certificate_bundle
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -35,6 +36,7 @@ def test_windows_edge_and_wsl_core_exchange_observations_and_governed_avatar_out
     observation_key = b"windows-edge-observation-key-material-32-bytes"
     core_ack_key = b"wsl-core-observation-ack-key-material-32-bytes"
     avatar_key = b"wsl-core-avatar-output-key-material-32-bytes"
+    screen_request_key = b"wsl-screen-request-key-material-32-bytes"
     edge_ack_key = b"windows-edge-avatar-ack-key-material-32-bytes"
 
     core = CompanionBridgeMutualTLSRuntime(
@@ -51,8 +53,10 @@ def test_windows_edge_and_wsl_core_exchange_observations_and_governed_avatar_out
         bind_address="127.0.0.1", port=0, tls_context=server_context,
         expected_peer_certificate_sha256=peer_certificate_digest,
         receiver=CompanionBridgeReceiver(
-            source_keys={"wsl-core": avatar_key},
-            expected_generations={"wsl-core": "core-avatar-generation-1"}),
+            source_keys={"wsl-core": avatar_key,
+                         "wsl-screen-request": screen_request_key},
+            expected_generations={"wsl-core": "core-avatar-generation-1",
+                                  "wsl-screen-request": "screen-request-generation-1"}),
         acknowledgment_source_id="windows-edge",
         acknowledgment_generation_id="edge-avatar-generation-1",
         acknowledgment_key=edge_ack_key,
@@ -61,12 +65,17 @@ def test_windows_edge_and_wsl_core_exchange_observations_and_governed_avatar_out
     delivered: list[dict[str, object]] = []
     admission = {"receipt_id": "operator-admission-fixture",
         "semantic_digest": "a" * 64}
+    requested_captures: list[str] = []
     dispatcher = WindowsEdgeAvatarCommandDispatchOwner(
         runtime=edge,
         receipt_verifier=lambda receipt_id, digest, _message:
             (receipt_id, digest) == (admission["receipt_id"], admission["semantic_digest"]),
         renderer_sink=lambda payload, _message: delivered.append(dict(payload)) is None,
         poll_interval_seconds=0.05,
+        additional_message_handlers={
+            "screen_capture_request": lambda message:
+                requested_captures.append(message.payload["capture_request_id"]) is None,
+        },
     )
 
     core_port = core.start()
@@ -91,6 +100,19 @@ def test_windows_edge_and_wsl_core_exchange_observations_and_governed_avatar_out
         client=avatar_client, source_id="wsl-core", session_id="chat-session-1",
         generation_id="core-avatar-generation-1", source_key=avatar_key,
         admission_receipt_builder=lambda _authorization: admission,
+    )
+    screen_request_client = CompanionBridgeMutualTLSClient(
+        address="127.0.0.1", port=edge_port, server_hostname="127.0.0.1",
+        tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"windows-edge": edge_ack_key},
+            expected_generations={"windows-edge": "edge-avatar-generation-1"}),
+        expected_server_certificate_sha256=server_pin,
+    )
+    screen_request_sender = ScreenCaptureRequestSender(
+        client=screen_request_client, source_id="wsl-screen-request",
+        session_id="wsl-screen-session",
+        generation_id="screen-request-generation-1", source_key=screen_request_key,
     )
 
     try:
@@ -128,6 +150,13 @@ def test_windows_edge_and_wsl_core_exchange_observations_and_governed_avatar_out
         assert delivered[0]["phrase"].startswith("I see that frame pacing dipped")
         assert delivered[0]["turn_id"] == "turn-1"
         assert dispatcher.status().renderer_effect_proven is False
+        request_id = "0123456789abcdef0123456789abcdef"
+        request_ack = screen_request_sender(request_id)
+        received_request = edge.receive(timeout=1.0)
+        assert request_ack.payload["disposition"] == "accepted"
+        assert received_request.kind == "screen_capture_request"
+        assert dispatcher.dispatch_one(received_request) is True
+        assert requested_captures == [request_id]
     finally:
         sender.close()
         dispatcher.close()

@@ -36,7 +36,6 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from sentientos.perception.screen_text_delta import build_ocr_text_line_delta
 
 
 def _parse_edge_ready(line: str) -> tuple[int, int]:
@@ -168,72 +167,6 @@ class _LatestForegroundObservation:
         self._detector.close()
 
 
-class _LatestScreenObservation:
-    """Drain authenticated screen OCR events and expose only a fresh latest value."""
-    def __init__(self, *, provider: Callable[[], Mapping[str, object]],
-                 max_age_seconds: float = 5.0) -> None:
-        if not callable(provider):
-            raise TypeError("screen_observation_provider_required")
-        if not 0 < max_age_seconds <= 30:
-            raise ValueError("screen_observation_cache_ttl_invalid")
-        self._provider = provider
-        self._max_age = float(max_age_seconds)
-        self._lock = threading.Lock()
-        self._stop = threading.Event()
-        self._sample: Mapping[str, object] | None = None
-        self._sampled_monotonic = 0.0
-        self._thread = threading.Thread(target=self._run,
-            name="sentientos-dev-screen-observation-drain", daemon=True)
-        self._thread.start()
-
-    def __call__(self, _process_names: tuple[str, ...] | list[str] = ()
-                 ) -> Mapping[str, object] | None:
-        now = time.monotonic()
-        with self._lock:
-            sample = self._sample
-            sampled = self._sampled_monotonic
-            if sample is None:
-                return None
-            if now - sampled > self._max_age:
-                self._sample = None
-                self._sampled_monotonic = 0.0
-                return None
-            return dict(sample)
-
-    def _run(self) -> None:
-        while not self._stop.is_set():
-            try:
-                sample = self._provider()
-            except Exception:
-                sample = None
-            now = time.monotonic()
-            with self._lock:
-                if sample is None:
-                    if (self._sample is not None
-                            and now - self._sampled_monotonic > self._max_age):
-                        self._sample = None
-                        self._sampled_monotonic = 0.0
-                elif isinstance(sample, Mapping):
-                    enriched = dict(sample)
-                    enriched.pop("text_delta", None)
-                    current_text = enriched.get("text")
-                    previous_text = (self._sample.get("text")
-                        if isinstance(self._sample, Mapping)
-                        and now - self._sampled_monotonic <= self._max_age else None)
-                    if (isinstance(previous_text, str) and isinstance(current_text, str)
-                            and previous_text != current_text):
-                        enriched["text_delta"] = build_ocr_text_line_delta(
-                            previous_text, current_text)
-                    self._sample = enriched
-                    self._sampled_monotonic = now
-            self._stop.wait(0.25)
-
-    def close(self) -> None:
-        self._stop.set()
-        self._thread.join(timeout=2.0)
-        if self._thread.is_alive():
-            raise RuntimeError("screen_observation_drain_shutdown_timeout")
-
 
 def _host_resource_log_payload(evaluation: Any, summary: Mapping[str, Any]) -> dict[str, Any]:
     """Expose bounded read-only utilization data with its collection timestamp."""
@@ -333,7 +266,10 @@ class _TemporaryCompanionEdge:
         from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackRuntime
         from sentientos.foreground_game_bridge import BridgeForegroundGameDetector
         from sentientos.foreground_game_detection import normalize_game_process_names
-        from sentientos.screen_observation_bridge import BridgeScreenObservationProvider
+        from sentientos.screen_observation_bridge import (
+            BridgeScreenObservationProvider, RequestDrivenScreenObservation,
+            ScreenCaptureRequestSender,
+        )
         from sentientos.gaming_companion_tls_transport import (
             CompanionBridgeMutualTLSClient,
         )
@@ -410,6 +346,7 @@ class _TemporaryCompanionEdge:
                         or not 1 <= screen_observation_consent_minutes <= 240):
                     raise ValueError("screen_observation_consent_minutes_out_of_range")
                 screen_source_key = secrets.token_bytes(32)
+                screen_request_key = secrets.token_bytes(32)
                 screen_ack_key = secrets.token_bytes(32)
                 screen_source_id = "windows-game-screen"
                 screen_source_generation = "windows-game-screen-dev-1"
@@ -428,7 +365,7 @@ class _TemporaryCompanionEdge:
                     runtime=self._screen_runtime, source_id=screen_source_id,
                     generation_id=screen_source_generation,
                     max_observation_age_seconds=5.0)
-                self.screen_observer = _LatestScreenObservation(provider=screen_provider)
+                screen_request_material = (screen_provider, screen_request_key)
                 consent_expires = (datetime.now(timezone.utc)
                     + timedelta(minutes=screen_observation_consent_minutes))
                 config["screen_observation"] = {
@@ -437,6 +374,9 @@ class _TemporaryCompanionEdge:
                     "ack_key": base64.b64encode(screen_ack_key).decode("ascii"),
                     "source_id": screen_source_id,
                     "source_generation_id": screen_source_generation,
+                    "request_key": base64.b64encode(screen_request_key).decode("ascii"),
+                    "request_source_id": "wsl-screen-request-dev",
+                    "request_generation_id": "wsl-screen-request-dev-1",
                     "ack_source_id": screen_ack_id,
                     "ack_generation_id": screen_ack_generation,
                     "process_names": list(allowed_screen_processes),
@@ -484,6 +424,26 @@ class _TemporaryCompanionEdge:
                 digest = hmac.new(receipt_key, receipt_id.encode("utf-8"),
                                   hashlib.sha256).hexdigest()
                 return {"receipt_id": receipt_id, "semantic_digest": digest}
+            if screen_observation_process_names:
+                screen_provider, screen_request_key = screen_request_material
+                screen_request_client = CompanionBridgeMutualTLSClient(
+                    address=windows_ip, port=port, server_hostname="windows-edge.test",
+                    tls_context=client_context,
+                    acknowledgment_receiver=CompanionBridgeReceiver(
+                        source_keys={"windows-edge-dev": avatar_ack},
+                        expected_generations={"windows-edge-dev":
+                            "windows-avatar-ack-dev-1"}),
+                    expected_server_certificate_sha256=edge["pin"],
+                    timeout_seconds=4.0)
+                request_sender = ScreenCaptureRequestSender(
+                    client=screen_request_client,
+                    source_id="wsl-screen-request-dev",
+                    session_id="wsl-screen-request-dev",
+                    generation_id="wsl-screen-request-dev-1",
+                    source_key=screen_request_key)
+                self.screen_observer = RequestDrivenScreenObservation(
+                    request_sender=request_sender, provider=screen_provider,
+                    timeout_seconds=12.0)
             self._sender = MutualTLSAvatarCommandSender(
                 client=client, source_id="wsl-core-dev", session_id=None,
                 generation_id="wsl-avatar-dev-1", source_key=avatar_key,
@@ -514,8 +474,7 @@ class _TemporaryCompanionEdge:
             if rendered.startswith("FOREGROUND_PUMP "):
                 print("WINDOWS_EDGE "+rendered,flush=True)
                 continue
-            if rendered.startswith(("SCREEN_PUMP_STARTED ", "SCREEN_PUMP_FAILURE ",
-                                    "EDGE_STARTUP ")):
+            if rendered.startswith(("SCREEN_CAPTURE_READY ", "EDGE_STARTUP ")):
                 print("WINDOWS_EDGE "+rendered,flush=True)
             elif ready_seen and rendered and not rendered.startswith("READY "):
                 # Keep post-startup edge diagnostics visible. The queue is only
@@ -588,7 +547,7 @@ def main() -> int:
     parser.add_argument("--godot-project", type=Path)
     parser.add_argument("--screen-observation-process", action="append", default=[],
                         metavar="GAME.exe",
-                        help=("Explicitly opt in to 2.5-second local OCR polling for "
+                        help=("Configure launch-scoped consent for per-message local OCR on "
                               "this allowlisted foreground game"))
     parser.add_argument("--screen-observation-consent-minutes", type=int, default=60,
                         help="Expire opt-in screen OCR consent after 1 to 240 minutes")
@@ -720,8 +679,7 @@ def main() -> int:
             game_process_names=tuple(args.game_process_name),
             gaming_keep_alive=args.gaming_keep_alive,
             screen_observer=edge.screen_observer if edge else None,
-            screen_capture_policy=("allowlisted_session_polling"
-                if args.screen_observation_process else "request_driven"))
+            screen_capture_policy="request_driven")
         host_resource_sampler = _HostResourceSampler()
         initial_profile = ("gaming" if args.initial_workload_mode == "automatic"
                            else args.initial_workload_mode)

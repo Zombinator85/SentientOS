@@ -4,7 +4,6 @@ import io
 import queue
 
 from scripts.run_local_companion_dev import (
-    _LatestScreenObservation,
     _TemporaryCompanionEdge,
     _kill_windows_process_tree,
     _parse_edge_ready,
@@ -86,7 +85,7 @@ def test_wait_for_edge_ready_skips_screen_startup_diagnostics() -> None:
             return None
 
     lines: queue.Queue[str] = queue.Queue()
-    lines.put("SCREEN_PUMP_STARTED interval_seconds=2.5 raw_frame_retained=false")
+    lines.put("SCREEN_CAPTURE_READY policy=per-message raw_frame_retained=false")
     lines.put("READY 12345 67890")
 
     assert _wait_for_edge_ready(lines, Process()) == "READY 12345 67890"
@@ -127,9 +126,9 @@ def test_wait_for_edge_ready_reports_worker_exit_before_ready() -> None:
             return 1
 
     lines: queue.Queue[str] = queue.Queue()
-    lines.put("SCREEN_PUMP_FAILURE game_screen_capture_backend_unavailable")
+    lines.put("SCREEN_CAPTURE_READY policy=per-message raw_frame_retained=false")
 
-    with pytest.raises(RuntimeError, match="exited_before_ready.*SCREEN_PUMP_FAILURE"):
+    with pytest.raises(RuntimeError, match="exited_before_ready.*SCREEN_CAPTURE_READY"):
         _wait_for_edge_ready(lines, Process(), timeout_seconds=0.2)
 
 def test_parse_edge_ready_rejects_missing_or_invalid_godot_pid() -> None:
@@ -214,83 +213,13 @@ def test_screen_observation_opt_in_requires_supervised_windows_edge(monkeypatch)
         main()
     assert error.value.code == 2
 
-def test_latest_screen_observation_drains_and_expires_cached_sample(monkeypatch):
-    import threading
-    import time
 
-    now = [10.0]
-    monkeypatch.setattr("scripts.run_local_companion_dev.time.monotonic",
-                        lambda: now[0])
-    sampled = threading.Event()
+def test_supervised_screen_capture_uses_explicit_request_mode():
+    from pathlib import Path
 
-    def provider():
-        if not sampled.is_set():
-            sampled.set()
-            return {"text": "objective changed"}
-        raise RuntimeError("bridge_receive_timeout")
-
-    observer = _LatestScreenObservation(provider=provider, max_age_seconds=5.0)
-    try:
-        assert sampled.wait(timeout=1.0)
-        deadline = time.perf_counter() + 1.0
-        while observer() is None and time.perf_counter() < deadline:
-            time.sleep(0.01)
-        assert observer() == {"text": "objective changed"}
-        now[0] += 6.0
-        assert observer() is None
-    finally:
-        observer.close()
-
-
-
-def test_latest_screen_observation_adds_bounded_delta_and_drops_expired_baseline(monkeypatch):
-    import threading
-    import time
-
-    now = [10.0]
-    monkeypatch.setattr("scripts.run_local_companion_dev.time.monotonic",
-                        lambda: now[0])
-    samples = [
-        {"text": "Quest\nFind the key"},
-        {"text": "Quest\nOpen the gate"},
-        {"text": "Quest\nEnter the hall"},
-    ]
-    changed = threading.Event()
-
-    def provider():
-        if samples:
-            sample = samples.pop(0)
-            if not samples:
-                changed.set()
-            return sample
-        raise RuntimeError("bridge_receive_timeout")
-
-    observer = _LatestScreenObservation(provider=provider, max_age_seconds=5.0)
-    try:
-        deadline = time.perf_counter() + 1.0
-        first = None
-        while first is None and time.perf_counter() < deadline:
-            first = observer()
-            time.sleep(0.01)
-        assert first == {"text": "Quest\nFind the key"}
-
-        deadline = time.perf_counter() + 1.0
-        second = None
-        while (second is None or "text_delta" not in second) and time.perf_counter() < deadline:
-            second = observer()
-            time.sleep(0.01)
-        assert second["text_delta"]["added_lines"] == ["Open the gate"]
-        assert second["text_delta"]["removed_lines"] == ["Find the key"]
-
-        now[0] += 6.0
-        samples.append({"text": "Quest\nBoss room"})
-        deadline = time.perf_counter() + 1.0
-        third = None
-        while third is None or third.get("text") != "Quest\nBoss room":
-            if time.perf_counter() >= deadline:
-                raise AssertionError("new OCR sample was not observed")
-            third = observer()
-            time.sleep(0.01)
-        assert "text_delta" not in third
-    finally:
-        observer.close()
+    worker = Path("scripts/local_companion_edge_dev_worker.py").read_text()
+    runner = Path("scripts/run_local_companion_dev.py").read_text()
+    assert "SCREEN_CAPTURE_READY policy=per-message" in worker
+    assert "screen_publisher.publish_once(capture_request_id=request_id)" in worker
+    assert "SCREEN_PUMP_STARTED" not in worker
+    assert "sentientos-dev-screen-observation-drain" not in runner

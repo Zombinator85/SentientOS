@@ -663,16 +663,17 @@ raw-frame-retention marker. The request-driven production path does not start
 ambient capture, publish to a remote provider, or grant action authority.
 
 The supervised local development runner has a separate, explicit opt-in mode.
-When started with `--screen-observation-process GAME.exe`, its Windows edge
-samples only the allowlisted foreground game client area during the bounded
-consent window. It checks frames every 2.5 seconds, skips OCR for identical
-frames, discards raw frames, and holds only the newest bounded OCR result in
-short-lived memory. The model receives OCR text only on messages that opt in
-through the screen-observation checkbox. The `/screen-observation` status reports
-whether the source is configured, whether capture is request-driven or uses
-allowlisted session polling, and that message-level inclusion still requires an
-explicit checkbox. This development sampling mode also
-does not publish to a remote provider or grant action authority.
+When started with `--screen-observation-process GAME.exe`, it creates a
+launch-scoped consent record for that exact foreground process. The Windows
+edge does not capture or run OCR in the background. Only a chat message with
+`observe_screen: true` sends an authenticated, request-correlated capture
+request across the supervised mTLS edge. Windows verifies the foreground game
+and consent, captures once, runs local OCR, discards raw pixels, and returns
+bounded text over the authenticated loopback bridge. The WSL provider accepts
+only the response matching that message's request ID and fails closed on
+timeouts or mismatches. The `/screen-observation` status reports the
+request-driven policy and the per-message checkbox requirement. This development
+path does not publish to a remote provider or grant action authority.
 
 Linux fixtures can test request routing and privacy behavior; actual Windows
 capture, local Tesseract availability, and gameplay impact still require GLORP

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import hashlib
+import threading
 
 import pytest
 
@@ -12,6 +13,8 @@ from sentientos.gaming_companion_bridge_runtime import (
 )
 from sentientos.screen_observation_bridge import (
     BridgeScreenObservationProvider,
+    RequestDrivenScreenObservation,
+    ScreenCaptureRequestSender,
     ScreenObservationBridgeError,
     WindowsScreenObservationBridgePublisher,
 )
@@ -104,6 +107,7 @@ def test_screen_ocr_observation_crosses_authenticated_bridge_as_bounded_text():
     ({"visual_change_kind": "event_detected", "visual_change_score": 0.5},
      "screen_observation_contract_invalid"),
     ({"visual_change_score": 1.5}, "screen_observation_contract_invalid"),
+    ({"capture_request_id": "invalid"}, "screen_observation_request_id_invalid"),
     ({"unexpected": "field"}, "screen_observation_shape_invalid"),
 ])
 def test_publisher_rejects_invalid_or_unbounded_observation(changes, code):
@@ -118,6 +122,91 @@ def test_publisher_rejects_invalid_or_unbounded_observation(changes, code):
         with pytest.raises(ScreenObservationBridgeError, match=code):
             publisher.publish_once()
     finally:
+        runtime.close()
+
+
+
+def test_request_driven_capture_publishes_only_the_matching_message_observation():
+    runtime, observation_client, provider = _setup()
+    request_key = b"screen-request-key-material-32-bytes"
+    request_ack_key = b"screen-request-ack-key-material-32-bytes"
+    request_runtime = CompanionBridgeLoopbackRuntime(
+        receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-screen-request": request_key},
+            expected_generations={"wsl-screen-request": "screen-request-generation-1"}),
+        acknowledgment_source_id="windows-screen-request-ack",
+        acknowledgment_generation_id="windows-screen-request-ack-generation-1",
+        acknowledgment_key=request_ack_key)
+    request_port = request_runtime.start()
+    request_client = CompanionBridgeLoopbackClient(
+        port=request_port,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"windows-screen-request-ack": request_ack_key},
+            expected_generations={"windows-screen-request-ack":
+                                  "windows-screen-request-ack-generation-1"}),
+        timeout_seconds=1)
+    request_sender = ScreenCaptureRequestSender(
+        client=request_client, source_id="wsl-screen-request",
+        session_id="wsl-screen-session",
+        generation_id="screen-request-generation-1", source_key=request_key)
+    capture_calls = []
+    samples = ["Quest\nOld screen", "Quest\nFind the key", "Quest\nOpen the gate"]
+    previous_text = []
+    def capture_once():
+        capture_calls.append(True)
+        observation = _payload()
+        observation["text"] = samples.pop(0)
+        observation["text_change_kind"] = "initial" if not previous_text else "changed"
+        observation["previous_text_digest"] = (
+            None if not previous_text else hashlib.sha256(
+                previous_text[-1].encode("utf-8")).hexdigest())
+        previous_text.append(observation["text"])
+        return observation
+
+    publisher = WindowsScreenObservationBridgePublisher(
+        observe=capture_once,
+        client=observation_client, source_id=SOURCE_ID,
+        session_id="screen-session-1", generation_id=SOURCE_GENERATION,
+        source_key=SOURCE_KEY)
+    stale_request_id = "a" * 32
+    assert publisher.publish_once(capture_request_id=stale_request_id) is not None
+    failures = []
+
+    def capture_requests():
+        try:
+            for _ in range(2):
+                request = request_runtime.receive(timeout=2)
+                assert request.kind == "screen_capture_request"
+                publisher.publish_once(
+                    capture_request_id=request.payload["capture_request_id"])
+        except Exception as exc:
+            failures.append(exc)
+
+    worker = threading.Thread(target=capture_requests)
+    worker.start()
+    request_driven = RequestDrivenScreenObservation(
+        request_sender=request_sender, provider=provider, timeout_seconds=0.1)
+    try:
+        observed = request_driven()
+        assert not failures
+        assert len(capture_calls) == 2
+        first_request_id = observed["capture_request_id"]
+        assert first_request_id and first_request_id != stale_request_id
+        assert observed["text"] == "Quest\nFind the key"
+        changed = request_driven()
+        worker.join(timeout=2)
+        assert not worker.is_alive()
+        assert len(capture_calls) == 3
+        assert changed["capture_request_id"] != first_request_id
+        assert changed["text"] == "Quest\nOpen the gate"
+        assert changed["text_delta"]["added_lines"] == ["Open the gate"]
+        assert changed["text_delta"]["removed_lines"] == ["Find the key"]
+        with pytest.raises(ScreenObservationBridgeError,
+                           match="screen_observation_request_timeout"):
+            request_driven()
+    finally:
+        request_driven.close()
+        request_runtime.close()
         runtime.close()
 
 

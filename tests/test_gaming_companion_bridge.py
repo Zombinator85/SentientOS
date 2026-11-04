@@ -148,3 +148,15 @@ def test_receiver_requires_explicit_key_and_generation_pairing():
     with pytest.raises(CompanionBridgeError, match="bridge_key_too_short"):
         CompanionBridgeReceiver(source_keys={"windows-observer": b"short"},
                                 expected_generations={"windows-observer": "run-1"})
+
+
+def test_screen_capture_request_requires_exact_bounded_request_id():
+    encoded = message(kind="screen_capture_request",
+        payload={"capture_request_id": "0123456789abcdef0123456789abcdef"},
+        admission=None)
+    accepted = receiver().accept(encoded)
+    assert accepted.kind == "screen_capture_request"
+
+    with pytest.raises(CompanionBridgeError, match="screen_capture_request_invalid"):
+        message(kind="screen_capture_request",
+            payload={"capture_request_id": "too-short"}, admission=None)
