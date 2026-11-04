@@ -127,7 +127,8 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
         {"role": "user", "content": "[SESSION_HISTORY_DATA]\nUSER_DATA: hello"},
     ]
 
-    ticks = iter((1_000_000, 1_075_000, 2_000_000, 2_075_000))
+    ticks = iter((1_000_000, 1_075_000, 2_000_000, 2_075_000,
+        3_000_000, 3_075_000))
     monkeypatch.setattr("sentientos.local_model.time.monotonic_ns", lambda: next(ticks))
     text, completion = backend.generate_with_metadata("Say hello", (), {"max_new_tokens": 96})
     assert text == "A real local answer."
@@ -155,6 +156,8 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
 
     backend.generate("Say hello", (), {"max_new_tokens": 96, "keep_alive": "0"})
     assert json.loads(_HTTPConnection.last_body)["keep_alive"] == "0"
+    backend.generate("Say hello", (), {"max_new_tokens": 96, "keep_alive": "5s"})
+    assert json.loads(_HTTPConnection.last_body)["keep_alive"] == "5s"
     request_count = len(opener.requests)
     with pytest.raises(ModelLoadError, match="ollama_keep_alive_invalid"):
         backend.generate("Say hello", (), {"keep_alive": "unbounded"})

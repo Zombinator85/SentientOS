@@ -111,9 +111,13 @@ class SimulationInvoker:
         self.model = SimpleNamespace(active_identity=None)
         self.calls = 0
         self.prompts = []
+        self.requests = []
     def build_request(self, **kwargs):
         self.prompts.append(kwargs["prompt"])
+        self.requests.append(kwargs)
         return SimpleNamespace(request_id="simulation-request", **kwargs)
+    def release_model_residency(self):
+        return SimpleNamespace(status="released", to_dict=lambda: {"status": "released"})
     def invoke(self, request):
         self.calls += 1
         identity = self.model.active_identity
@@ -125,6 +129,31 @@ class SimulationInvoker:
             output_truncated=False, request={"request_id": request.request_id,
                 "active_model_identity": identity_payload}, receipt_id="simulation-receipt-id",
             receipt_digest="simulation-receipt")
+
+
+@pytest.mark.parametrize(("configured_window", "expected_window"), [
+    (None, "0"), ("5s", "5s"),
+])
+def test_development_gaming_residency_window_is_opt_in(
+        tmp_path, configured_window, expected_window):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    identity = {"engine": "ollama", "semantic_artifact_identity": "sha256:" + "a" * 64,
+        "posture": "development_only", "fallback": False}
+    invoker.model.active_identity = SimpleNamespace(engine="ollama",
+        to_dict=lambda: identity)
+    options = {} if configured_window is None else {
+        "gaming_keep_alive": configured_window}
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path, **options)
+    mode = client.post("/workload-mode", json={"mode": "gaming"})
+    response = client.post("/chat", json={"message": "hello"})
+
+    assert mode.status_code == 200
+    assert response.status_code == 200
+    assert invoker.requests[-1]["linkage"]["ollama_keep_alive"] == expected_window
+    if configured_window is not None:
+        with pytest.raises(ValueError, match="unsupported_development_gaming_keep_alive"):
+            chat.DevelopmentLocalChatInference(invoker, gaming_keep_alive="5m")
 
 
 def test_model_work_requires_explicit_simulation_composition(tmp_path):

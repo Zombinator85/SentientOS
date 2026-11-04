@@ -343,6 +343,8 @@ def main() -> int:
                         default="normal")
     parser.add_argument("--game-process-name", action="append", default=[],
                         help="Allowlisted Windows game executable basename for automatic mode")
+    parser.add_argument("--gaming-keep-alive", choices=("0", "5s"), default="0",
+                        help="Development experiment: unload immediately or retain gaming model for 5 seconds")
     parser.add_argument("--windows-python", type=Path)
     parser.add_argument("--godot-exe", type=Path)
     parser.add_argument("--godot-project", type=Path)
@@ -456,7 +458,8 @@ def main() -> int:
             model_profiles=model_profiles,
             initial_workload_mode=args.initial_workload_mode,
             foreground_game_detector=(edge.foreground_game_detector if edge else None),
-            game_process_names=tuple(args.game_process_name))
+            game_process_names=tuple(args.game_process_name),
+            gaming_keep_alive=args.gaming_keep_alive)
         initial_profile = ("gaming" if args.initial_workload_mode == "automatic"
                            else args.initial_workload_mode)
         initial_model = model_profiles[initial_profile]

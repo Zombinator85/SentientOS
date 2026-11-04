@@ -152,10 +152,14 @@ class DevelopmentLocalChatInference:
     """Affirmative local development adapter; never selected by production."""
     __slots__ = ("_delegate", "_workload_mode", "_workload_lock",
                  "_residency_release", "_model_profiles", "_foreground_game_detector",
-                 "_game_process_names", "_effective_workload_mode")
+                 "_game_process_names", "_effective_workload_mode", "_gaming_keep_alive")
     def __init__(self, invoker: GovernedLocalModelInvoker,
                  model_profiles: Mapping[str, Any] | None = None,
-                 foreground_game_detector: Any | None = None) -> None:
+                 foreground_game_detector: Any | None = None,
+                 gaming_keep_alive: str = "0") -> None:
+        if gaming_keep_alive not in {"0", "5s"}:
+            raise ValueError("unsupported_development_gaming_keep_alive")
+        self._gaming_keep_alive = gaming_keep_alive
         self._delegate = invoker
         self._workload_mode: WorkloadMode = "normal"
         self._workload_lock = threading.RLock()
@@ -308,7 +312,7 @@ class DevelopmentLocalChatInference:
                 "workload_evidence": workload_state["workload_evidence"]}
             identity = getattr(self._delegate.model, "active_identity", None)
             if mode == "gaming" and getattr(identity, "engine", None) == "ollama":
-                linkage["ollama_keep_alive"] = "0"
+                linkage["ollama_keep_alive"] = self._gaming_keep_alive
             request = self._delegate.build_request(purpose="local_user_chat",
                 prompt=effective_prompt, caller=caller, correlation_id=correlation_id,
                 budget=effective_budget, linkage=linkage)
@@ -1491,7 +1495,8 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                model_profiles: Mapping[str, Any] | None = None,
                                initial_workload_mode: str = "normal",
                                foreground_game_detector: Any | None = None,
-                               game_process_names: tuple[str, ...] | list[str] = ()) -> None:
+                               game_process_names: tuple[str, ...] | list[str] = (),
+                               gaming_keep_alive: str = "0") -> None:
     """Explicitly install governed local development chat inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     root = data_root or sentientos_data_dir()
@@ -1509,7 +1514,8 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
             avatar_output_emitter, admission_provider=admit_request)
     close_production_chat()
     inference = DevelopmentLocalChatInference(
-        invoker, model_profiles, foreground_game_detector=foreground_game_detector)
+        invoker, model_profiles, foreground_game_detector=foreground_game_detector,
+        gaming_keep_alive=gaming_keep_alive)
     if initial_workload_mode != "normal":
         inference.set_workload_mode(initial_workload_mode, game_process_names)
     _CONVERSATION_SERVICE = PersistentConversationService(
