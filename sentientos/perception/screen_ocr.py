@@ -13,6 +13,7 @@ import json
 import math
 import re
 import time
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
@@ -36,6 +37,7 @@ class ScreenConfig:
     interval_s: float = 2.0
     ocr_backend: str = "tesseract"
     max_chars_per_minute: int = 5000
+    refresh_unchanged_observation: bool = False
 
 
 class ScreenCaptureError(RuntimeError):
@@ -59,6 +61,7 @@ class ScreenOCR:
         self._metrics = metrics or MetricsRegistry()
         self._last_hash: str | None = None
         self._last_text_digest: str | None = None
+        self._last_observation: dict[str, Any] | None = None
         self._last_attempt_monotonic: float | None = None
         self._chars_window: list[tuple[float, int]] = []
         self._last_failure_code: str | None = None
@@ -112,7 +115,20 @@ class ScreenOCR:
                 raise ScreenCaptureError(self._last_failure_code)
         digest = hashlib.sha256(raw_bytes).hexdigest()
         if digest == self._last_hash:
-            return None
+            if not self._config.refresh_unchanged_observation or self._last_observation is None:
+                return None
+            refreshed = dict(self._last_observation)
+            captured_at = payload.get("captured_at")
+            if (not isinstance(captured_at, str)
+                    or not _UTC_TIMESTAMP.fullmatch(captured_at)):
+                captured_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            refreshed["captured_at"] = captured_at
+            for key in ("process_name_digest", "consent_id_digest"):
+                value = payload.get(key)
+                if isinstance(value, str) and re.fullmatch(r"[a-f0-9]{64}", value):
+                    refreshed[key] = value
+            self._last_observation = refreshed
+            return dict(refreshed)
         self._last_hash = digest
         try:
             text = self._ocr_fn(payload)
@@ -163,6 +179,7 @@ class ScreenOCR:
                 observation[key] = value
         self._metrics.increment("sos_screen_captures_total")
         self._metrics.increment("sos_screen_ocr_chars_total", len(text))
+        self._last_observation = dict(observation)
         return observation
 
     def _prune_window(self, now: float) -> None:

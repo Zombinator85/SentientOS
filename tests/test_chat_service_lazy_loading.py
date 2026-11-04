@@ -169,8 +169,6 @@ def test_model_work_requires_explicit_simulation_composition(tmp_path):
     assert gaming.json()["effective_mode"] == "gaming"
     assert invoker.calls == 1
 
-
-
 def test_development_workload_mode_switches_authorized_model_profiles(tmp_path):
     chat = _reload()
 
@@ -801,6 +799,42 @@ def test_development_automatic_mode_falls_back_to_gaming_when_observation_stale(
         caller="test", correlation_id="stale-automatic-mode",
         budget=LocalModelInvocationBudget(), caller_linkage={})
     assert invoker.model is gaming
+
+def test_development_chat_only_uses_explicit_per_message_screen_observation(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    observations = []
+    screen_observation = {
+        "modality": "screen",
+        "text": "objective: reach the observatory",
+        "captured_at": "2026-11-04T12:00:00Z",
+        "backend": "local-ocr-fixture",
+        "capture_digest": "a" * 64,
+        "process_name_digest": "b" * 64,
+        "consent_id_digest": "c" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "raw_frame_retained": False,
+        "text_truncated": False,
+        "bridge_message_provenance": {"source_id": "test-screen"},
+    }
+
+    def observe_screen():
+        observations.append("requested")
+        return screen_observation
+
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        screen_observer=observe_screen)
+    assert client.get("/screen-observation").json() == {
+        "configured": True, "per_message_opt_in_required": True}
+    without_screen = client.post("/chat", json={"message": "Hello"})
+    assert without_screen.status_code == 200
+    assert observations == []
+    with_screen = client.post("/chat", json={
+        "message": "What does the objective say?", "observe_screen": True})
+    assert with_screen.status_code == 200
+    assert observations == ["requested"]
+    assert "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]" in invoker.prompts[-1]
+    assert "objective: reach the observatory" in invoker.prompts[-1]
 
 
 def test_unobserved_gaming_companion_claim_is_corrected_and_attributed(tmp_path):

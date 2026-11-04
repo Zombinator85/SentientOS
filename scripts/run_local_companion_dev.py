@@ -5,6 +5,10 @@ Requires SENTIENTOS_MODEL_CONFIG to point at one digest-pinned Ollama candidate
 or an ordered normal/gaming pair. All transcripts, invocation receipts, and
 process coordination stay in --state-dir.
 This process is a supervised development composition, never production serving.
+Screen OCR is disabled unless an allowlisted process and consent lifetime are
+passed on the CLI. When enabled, the Windows edge samples at 2.5-second
+intervals, keeps raw frames local and transient, and sends bounded OCR text
+over the authenticated bridge; each chat message still needs the UI checkbox.
 """
 from __future__ import annotations
 
@@ -24,9 +28,9 @@ import tempfile
 import threading
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -131,12 +135,61 @@ class _LatestForegroundObservation:
         self._detector.close()
 
 
+class _LatestScreenObservation:
+    """Drain authenticated screen OCR events and expose only a fresh latest value."""
+    def __init__(self, *, provider: Callable[[], Mapping[str, object]],
+                 max_age_seconds: float = 5.0) -> None:
+        if not callable(provider):
+            raise TypeError("screen_observation_provider_required")
+        if not 0 < max_age_seconds <= 30:
+            raise ValueError("screen_observation_cache_ttl_invalid")
+        self._provider = provider
+        self._max_age = float(max_age_seconds)
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._sample: Mapping[str, object] | None = None
+        self._sampled_monotonic = 0.0
+        self._thread = threading.Thread(target=self._run,
+            name="sentientos-dev-screen-observation-drain", daemon=True)
+        self._thread.start()
+
+    def __call__(self, _process_names: tuple[str, ...] | list[str] = ()
+                 ) -> Mapping[str, object] | None:
+        now = time.monotonic()
+        with self._lock:
+            sample = self._sample
+            sampled = self._sampled_monotonic
+        if sample is None or now - sampled > self._max_age:
+            return None
+        return sample
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            try:
+                sample = self._provider()
+            except Exception:
+                sample = None
+            if sample is not None:
+                with self._lock:
+                    self._sample = sample
+                    self._sampled_monotonic = time.monotonic()
+            self._stop.wait(0.25)
+
+    def close(self) -> None:
+        self._stop.set()
+        self._thread.join(timeout=2.0)
+        if self._thread.is_alive():
+            raise RuntimeError("screen_observation_drain_shutdown_timeout")
+
+
 class _TemporaryCompanionEdge:
     """Own test-only Windows mTLS edge, Godot process, and sender."""
 
     def __init__(self, *, windows_python: Path,
                  godot_executable: Path, godot_project: Path,
-                 game_process_names: tuple[str, ...] = ()) -> None:
+                 game_process_names: tuple[str, ...] = (),
+                 screen_observation_process_names: tuple[str, ...] = (),
+                 screen_observation_consent_minutes: int = 60) -> None:
         from scripts.gaming_companion_cross_host_smoke import (
             _addresses, _contexts, _test_identities, _win_path, _win_temp,
             _secret_free_environment,
@@ -147,6 +200,8 @@ class _TemporaryCompanionEdge:
         from sentientos.gaming_companion_bridge import CompanionBridgeReceiver
         from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackRuntime
         from sentientos.foreground_game_bridge import BridgeForegroundGameDetector
+        from sentientos.foreground_game_detection import normalize_game_process_names
+        from sentientos.screen_observation_bridge import BridgeScreenObservationProvider
         from sentientos.gaming_companion_tls_transport import (
             CompanionBridgeMutualTLSClient,
         )
@@ -159,6 +214,8 @@ class _TemporaryCompanionEdge:
         self._sender: Any | None = None
         self._foreground_runtime: Any | None = None
         self.foreground_game_detector: Any | None = None
+        self._screen_runtime: Any | None = None
+        self.screen_observer: Any | None = None
         self._lines: queue.Queue[str] = queue.Queue()
         self._report_file: Path | None = None
         try:
@@ -213,6 +270,46 @@ class _TemporaryCompanionEdge:
                     "ack_source_id": observer_ack_id,
                     "ack_generation_id": observer_ack_generation,
                     "process_names": list(game_process_names),
+                }
+            if screen_observation_process_names:
+                allowed_screen_processes = normalize_game_process_names(
+                    screen_observation_process_names)
+                if (type(screen_observation_consent_minutes) is not int
+                        or not 1 <= screen_observation_consent_minutes <= 240):
+                    raise ValueError("screen_observation_consent_minutes_out_of_range")
+                screen_source_key = secrets.token_bytes(32)
+                screen_ack_key = secrets.token_bytes(32)
+                screen_source_id = "windows-game-screen"
+                screen_source_generation = "windows-game-screen-dev-1"
+                screen_ack_id = "wsl-game-screen-ack"
+                screen_ack_generation = "wsl-game-screen-ack-dev-1"
+                self._screen_runtime = CompanionBridgeLoopbackRuntime(
+                    receiver=CompanionBridgeReceiver(
+                        source_keys={screen_source_id: screen_source_key},
+                        expected_generations={screen_source_id: screen_source_generation}),
+                    acknowledgment_source_id=screen_ack_id,
+                    acknowledgment_generation_id=screen_ack_generation,
+                    acknowledgment_key=screen_ack_key, queue_capacity=8,
+                    socket_timeout_seconds=1.5)
+                screen_port = self._screen_runtime.start()
+                screen_provider = BridgeScreenObservationProvider(
+                    runtime=self._screen_runtime, source_id=screen_source_id,
+                    generation_id=screen_source_generation,
+                    max_observation_age_seconds=5.0)
+                self.screen_observer = _LatestScreenObservation(provider=screen_provider)
+                consent_expires = (datetime.now(timezone.utc)
+                    + timedelta(minutes=screen_observation_consent_minutes))
+                config["screen_observation"] = {
+                    "port": screen_port,
+                    "source_key": base64.b64encode(screen_source_key).decode("ascii"),
+                    "ack_key": base64.b64encode(screen_ack_key).decode("ascii"),
+                    "source_id": screen_source_id,
+                    "source_generation_id": screen_source_generation,
+                    "ack_source_id": screen_ack_id,
+                    "ack_generation_id": screen_ack_generation,
+                    "process_names": list(allowed_screen_processes),
+                    "consent_id": "chat-screen-" + uuid.uuid4().hex,
+                    "consent_expires_at": consent_expires.isoformat().replace("+00:00", "Z"),
                 }
             self._edge_process = subprocess.Popen(
                 [str(windows_python), _win_path(worker), _win_path(windows_source)],
@@ -331,7 +428,17 @@ class _TemporaryCompanionEdge:
                 self._foreground_runtime.close()
                 self._foreground_runtime = None
         finally:
-            self._temporary.cleanup()
+            try:
+                if self.screen_observer is not None:
+                    self.screen_observer.close()
+                    self.screen_observer = None
+            finally:
+                try:
+                    if self._screen_runtime is not None:
+                        self._screen_runtime.close()
+                        self._screen_runtime = None
+                finally:
+                    self._temporary.cleanup()
 
 
 def main() -> int:
@@ -348,6 +455,12 @@ def main() -> int:
     parser.add_argument("--windows-python", type=Path)
     parser.add_argument("--godot-exe", type=Path)
     parser.add_argument("--godot-project", type=Path)
+    parser.add_argument("--screen-observation-process", action="append", default=[],
+                        metavar="GAME.exe",
+                        help=("Explicitly opt in to 2.5-second local OCR polling for "
+                              "this allowlisted foreground game"))
+    parser.add_argument("--screen-observation-consent-minutes", type=int, default=60,
+                        help="Expire opt-in screen OCR consent after 1 to 240 minutes")
     args = parser.parse_args()
     if args.host != "127.0.0.1" or not 1 <= args.port <= 65535:
         parser.error("development chat must bind only to 127.0.0.1")
@@ -355,6 +468,11 @@ def main() -> int:
     if any(value is not None for value in edge_args) and not all(
             value is not None for value in edge_args):
         parser.error("the temporary edge requires Windows Python, Godot, and project")
+    if args.screen_observation_process and not all(
+            value is not None for value in edge_args):
+        parser.error("screen observation requires the supervised Windows edge")
+    if not 1 <= args.screen_observation_consent_minutes <= 240:
+        parser.error("screen observation consent minutes must be between 1 and 240")
     config_path = os.environ.get("SENTIENTOS_MODEL_CONFIG")
     if not config_path or not Path(config_path).is_file():
         parser.error("SENTIENTOS_MODEL_CONFIG must identify the pinned local Ollama model")
@@ -452,14 +570,17 @@ def main() -> int:
             edge = _TemporaryCompanionEdge(
                 windows_python=args.windows_python, godot_executable=args.godot_exe,
                 godot_project=args.godot_project,
-                game_process_names=tuple(args.game_process_name))
+                game_process_names=tuple(args.game_process_name),
+                screen_observation_process_names=tuple(args.screen_observation_process),
+                screen_observation_consent_minutes=args.screen_observation_consent_minutes)
         configure_development_chat(invoker=invoker, data_root=chat_state,
             avatar_output_emitter=edge.emitter if edge else None,
             model_profiles=model_profiles,
             initial_workload_mode=args.initial_workload_mode,
             foreground_game_detector=(edge.foreground_game_detector if edge else None),
             game_process_names=tuple(args.game_process_name),
-            gaming_keep_alive=args.gaming_keep_alive)
+            gaming_keep_alive=args.gaming_keep_alive,
+            screen_observer=edge.screen_observer if edge else None)
         initial_profile = ("gaming" if args.initial_workload_mode == "automatic"
                            else args.initial_workload_mode)
         initial_model = model_profiles[initial_profile]
@@ -477,6 +598,7 @@ def main() -> int:
             "initial_effective_profile": initial_profile,
             "companion_output": ("temporary_mtls_windows_edge_and_godot"
                                  if edge else "not_configured"),
+            "screen_observation_configured": bool(edge and edge.screen_observer),
             "companion_identity_posture": (
                 edge.identity_posture if edge else "unavailable"),
             "production_serving": False,

@@ -62,6 +62,7 @@ def main():
     dispatcher=WindowsEdgeAvatarCommandDispatchOwner(
         runtime=runtime,receipt_verifier=verify_receipt,renderer_sink=render)
     godot=None;forwarder=None;foreground_pump=None
+    screen_stop=None;screen_thread=None
     try:
         port=runtime.start();dispatcher.start()
         observer=cfg.get("foreground_observation")
@@ -84,6 +85,61 @@ def main():
                 publisher=publisher,process_names=observer["process_names"],
                 interval_seconds=1.0)
             foreground_pump.start()
+        screen_cfg=cfg.get("screen_observation")
+        if isinstance(screen_cfg,dict):
+            from sentientos.screen_observation_bridge import (
+                WindowsScreenObservationBridgePublisher,
+            )
+            from sentientos.perception.game_screen_capture import (
+                GameScreenCaptureConsent, build_windows_game_screen_ocr,
+            )
+            from sentientos.perception.screen_ocr import ScreenConfig
+            if (not isinstance(screen_cfg.get("process_names"),list)
+                    or not screen_cfg["process_names"]
+                    or not isinstance(screen_cfg.get("consent_id"),str)
+                    or not isinstance(screen_cfg.get("consent_expires_at"),str)):
+                raise RuntimeError("screen_observation_configuration_invalid")
+            consent=GameScreenCaptureConsent(
+                consent_id=screen_cfg["consent_id"],
+                allowed_process_names=tuple(screen_cfg["process_names"]),
+                expires_at=screen_cfg["consent_expires_at"])
+            screen_owner=build_windows_game_screen_ocr(
+                config=ScreenConfig(enable=True,interval_s=2.0,ocr_backend="tesseract",
+                    refresh_unchanged_observation=True),
+                consent_provider=lambda: consent)
+            screen_ack_key=base64.b64decode(screen_cfg["ack_key"])
+            screen_source_key=base64.b64decode(screen_cfg["source_key"])
+            screen_ack_receiver=CompanionBridgeReceiver(
+                source_keys={screen_cfg["ack_source_id"]:screen_ack_key},
+                expected_generations={screen_cfg["ack_source_id"]:
+                    screen_cfg["ack_generation_id"]})
+            screen_client=CompanionBridgeLoopbackClient(
+                port=int(screen_cfg["port"]),
+                acknowledgment_receiver=screen_ack_receiver,timeout_seconds=1.5)
+            screen_publisher=WindowsScreenObservationBridgePublisher(
+                observe=screen_owner.snapshot,client=screen_client,
+                source_id=screen_cfg["source_id"],session_id="windows-game-screen-dev",
+                generation_id=screen_cfg["source_generation_id"],
+                source_key=screen_source_key)
+            screen_stop=threading.Event()
+            def publish_screen_observations():
+                last_failure=None
+                while not screen_stop.is_set():
+                    try:
+                        screen_publisher.publish_once()
+                    except Exception as exc:
+                        code=(str(exc.args[0])[:128] if exc.args
+                              and isinstance(exc.args[0],str) else type(exc).__name__)
+                        if code!=last_failure:
+                            print("SCREEN_PUMP_FAILURE "+code,flush=True)
+                            last_failure=code
+                    else:
+                        last_failure=None
+                    screen_stop.wait(2.5)
+            screen_thread=threading.Thread(target=publish_screen_observations,
+                name="sentientos-screen-observation-pump",daemon=True)
+            screen_thread.start()
+            print("SCREEN_PUMP_STARTED interval_seconds=2.5 raw_frame_retained=false",flush=True)
         env={key:value for key,value in os.environ.items()
              if not any(marker in key.upper() for marker in
                 ("API_KEY","TOKEN","SECRET","PASSWORD","CREDENTIAL","AUTH","PRIVATE_KEY","BEARER"))}
@@ -148,6 +204,12 @@ def main():
             status_stop.set()
             if status_thread is not None:
                 status_thread.join(timeout=1.0)
+        if screen_stop is not None:
+            screen_stop.set()
+        if screen_thread is not None:
+            screen_thread.join(timeout=5.0)
+            if screen_thread.is_alive():
+                print("SCREEN_PUMP_SHUTDOWN_TIMEOUT",flush=True)
         if forwarder: forwarder.stop()
         if "report_stop" in locals():
             report_stop.set()

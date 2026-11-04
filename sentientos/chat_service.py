@@ -1523,13 +1523,18 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                initial_workload_mode: str = "normal",
                                foreground_game_detector: Any | None = None,
                                game_process_names: tuple[str, ...] | list[str] = (),
-                               gaming_keep_alive: str = "0") -> None:
+                               gaming_keep_alive: str = "0",
+                               screen_observer: Callable[
+                                   [], Mapping[str, object] | None
+                               ] | None = None) -> None:
     """Explicitly install governed local development chat inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     root = data_root or sentientos_data_dir()
     # data_root selects development transcript custody only; user memory stays
     # on the one process-wide root shared with the authorized legacy manager.
     memory_root = sentientos_memory_dir()
+    if screen_observer is not None and not callable(screen_observer):
+        raise TypeError("callable_screen_observer_required")
     conversation_root = root / "conversations"
     if _storage_roots_overlap(memory_root, conversation_root):
         raise ValueError("user_memory_root_overlaps_transcript_custody")
@@ -1549,7 +1554,7 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
         inference=inference,
         session_store=ConversationSessionStore(conversation_root),
         memory_store=CanonicalMemoryStore(memory_root),
-        avatar_output=avatar_output)
+        avatar_output=avatar_output, screen_observer=screen_observer)
     _PRODUCTION_COMPOSITION = None
 
 
