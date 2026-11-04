@@ -83,11 +83,13 @@ def test_gaming_social_checkin_guidance_is_specific_and_precedes_history() -> No
     guidance = GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION
     assert guidance in result
     assert result.index(guidance) < result.index("[VERIFIED_RUNTIME_CONTEXT]")
-    assert "Never ask what help is needed" in result
-    assert "one short friendly sentence to say you are here in SentientOS and ready to chat" in result
-    assert "How's your session going?" in result
-    assert "Do not mention models, AI, feelings, emotions, physical sensations, or screen access" in result
-    assert "claim you are playing or seeing the game" in result
+    assert "Do not ask what help is needed" in result
+    assert "In one warm sentence, say you are here in SentientOS" in result
+    assert "Ask how the session is going only if a follow-up fits" in result
+    assert "acknowledge one game detail the user just shared" in result
+    assert "mention that detail instead of generic gaming praise" in result
+    assert "claim to play, see, watch, or monitor the game" in result
+    assert "imply live observation without CURRENT_SCREEN_OBSERVATION_UNTRUSTED" in result
 
 
 def test_gaming_chat_style_rejects_an_unrecognized_prompt_layout() -> None:
