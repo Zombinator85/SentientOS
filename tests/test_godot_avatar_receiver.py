@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import json
+import sys
 
 import pytest
 
@@ -37,6 +39,35 @@ def test_forwarder_emits_bounded_renderer_fields_only(tmp_path):
     assert payload["intensity"] == 1.0
     assert payload["viseme_timeline"] == [{"time": 0.0, "duration": 0.1, "viseme": "A"}]
     assert "metadata" not in payload
+
+
+def test_forwarder_sends_unicode_phrase_without_logging_conversation_text(
+    tmp_path, monkeypatch
+) -> None:
+    state_path = tmp_path / "avatar_state.json"
+    state_path.write_text(json.dumps(_state(current_phrase="Cronos \U0001f3ae")), encoding="utf-8")
+    forwarder = AvatarStateForwarder(state_path)
+    payload = forwarder._read_state()
+    assert payload is not None
+
+    output = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(output, encoding="cp1252", errors="strict"))
+
+    class CapturingSocket:
+        message: bytes | None = None
+
+        def sendto(self, message: bytes, _address: object) -> None:
+            self.message = message
+
+    sock = CapturingSocket()
+    forwarder._send(sock, payload)
+    assert sock.message is not None
+    forwarded = json.loads(sock.message.decode("utf-8"))
+    assert forwarded["current_phrase"] == "Cronos \U0001f3ae"
+    logged = output.getvalue().decode("cp1252")
+    assert "phrase_present=True" in logged
+    assert "phrase_chars=8" in logged
+    assert "Cronos" not in logged
 
 
 def test_forwarder_preserves_only_chat_command_correlation_for_renderer_report(tmp_path):
