@@ -19,6 +19,17 @@ from .storage import get_state_file
 LOGGER = logging.getLogger(__name__)
 
 _SINCE_PATTERN = re.compile(r"since\s+([^?.!]+)")
+_CHANGE_SUMMARY_PATTERNS = (
+    re.compile(r"^what(?: has)? changed(?: since\b.*)?[?!.]*$"),
+    re.compile(
+        r"^(?:can|could|would) you (?:please )?(?:summari[sz]e|share|show|list|tell me about) "
+        r"(?:the )?(?:(?:latest|recent|newest) )?(?:sentientos |repo(?:sitory)? |project )?changes?\b"
+    ),
+    re.compile(
+        r"^(?:share|show|list|summari[sz]e) (?:the )?(?:codex|sentientos|repo(?:sitory)?|project) changes?\b"
+    ),
+    re.compile(r"^what (?:are|were) the (?:latest|recent|newest) changes?\b"),
+)
 _DURATION_PATTERN = re.compile(
     r"(?:(?:last|past)\s+)?(\d+)\s*(minute|minutes|hour|hours|day|days|week|weeks)"
 )
@@ -29,6 +40,12 @@ _MODULE_KEYWORDS = {
 _TYPE_KEYWORDS = {
     "self_healing": {"self-healing", "self healing", "healing"},
 }
+
+
+def _requests_change_summary(text: str) -> bool:
+    """Recognize repository-change questions without matching conversational uses of "change."""
+    normalized = " ".join(text.lower().split())
+    return any(pattern.search(normalized) for pattern in _CHANGE_SUMMARY_PATTERNS)
 
 
 def _ensure_utc(value: datetime) -> datetime:
@@ -122,7 +139,7 @@ class ScopeFilter:
     @classmethod
     def from_text(cls, text: str, *, now: datetime | None = None) -> "ScopeFilter":
         lowered = text.lower()
-        request = any(keyword in lowered for keyword in ("change", "changes", "updated", "update", "diff"))
+        request = _requests_change_summary(lowered)
         since = cls._extract_since(lowered, now=now)
         modules: set[str] = set()
         for module, keywords in _MODULE_KEYWORDS.items():
