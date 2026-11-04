@@ -49,6 +49,32 @@ def _parse_edge_ready(line: str) -> tuple[int, int]:
     return port, godot_pid
 
 
+def _wait_for_edge_ready(
+        lines: queue.Queue[str], process: Any,
+        *, timeout_seconds: float = 20.0) -> str:
+    """Wait for READY while allowing bounded startup diagnostics before it."""
+    deadline = time.monotonic() + timeout_seconds
+    diagnostics: list[str] = []
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            state = "temporary_windows_edge_ready_timeout"
+            break
+        try:
+            line = lines.get(timeout=min(0.25, remaining))
+        except queue.Empty:
+            if process.poll() is not None:
+                state = "temporary_windows_edge_exited_before_ready"
+                break
+            continue
+        if line.startswith("READY "):
+            return line
+        diagnostics.append(line)
+    detail = " | ".join(diagnostics[-8:])[:768]
+    return_error = state + (":" + detail if detail else "")
+    raise RuntimeError(return_error)
+
+
 def _kill_windows_process_tree(pid: int) -> None:
     if pid <= 0:
         raise ValueError("pid must be positive")
@@ -432,21 +458,9 @@ class _TemporaryCompanionEdge:
             threading.Thread(target=self._forward_lines,
                 args=(self._edge_process.stdout, self._lines, self._report_file),
                 daemon=True).start()
-            ready = self._lines.get(timeout=20)
-            if not ready.startswith("READY "):
-                if self._edge_process is not None:
-                    try:
-                        self._edge_process.wait(timeout=2)
-                    except subprocess.TimeoutExpired:
-                        pass
-                diagnostics = [ready]
-                while True:
-                    try:
-                        diagnostics.append(self._lines.get_nowait())
-                    except queue.Empty:
-                        break
-                detail = " | ".join(diagnostics[-8:])[:768]
-                raise RuntimeError("temporary_windows_edge_failed:" + detail)
+            if self._edge_process is None:
+                raise RuntimeError("temporary_windows_edge_process_unavailable")
+            ready = _wait_for_edge_ready(self._lines, self._edge_process)
             port, self._godot_pid = _parse_edge_ready(ready)
             _server_context, client_context = _contexts(ca, wsl["cert"], wsl["key"])
             client = CompanionBridgeMutualTLSClient(
@@ -493,7 +507,9 @@ class _TemporaryCompanionEdge:
             if rendered.startswith("FOREGROUND_PUMP "):
                 print("WINDOWS_EDGE "+rendered,flush=True)
                 continue
-            if ready_seen and rendered and not rendered.startswith("READY "):
+            if rendered.startswith(("SCREEN_PUMP_STARTED ", "SCREEN_PUMP_FAILURE ")):
+                print("WINDOWS_EDGE "+rendered,flush=True)
+            elif ready_seen and rendered and not rendered.startswith("READY "):
                 # Keep post-startup edge diagnostics visible. The queue is only
                 # consumed while waiting for READY, so otherwise worker errors
                 # disappear and bridge failures look like unexplained timeouts.

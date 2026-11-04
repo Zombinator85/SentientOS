@@ -9,6 +9,7 @@ from scripts.run_local_companion_dev import (
     _kill_windows_process_tree,
     _parse_edge_ready,
     _stage_windows_edge_source,
+    _wait_for_edge_ready,
     main,
 )
 from scripts.terminate_owned_process_tree import (
@@ -76,6 +77,33 @@ def test_terminate_owned_process_tree_stops_windows_descendants(
 def test_parse_edge_ready_includes_exact_godot_pid() -> None:
     assert _parse_edge_ready("READY 12345 67890") == (12345, 67890)
 
+
+
+
+def test_wait_for_edge_ready_skips_screen_startup_diagnostics() -> None:
+    class Process:
+        def poll(self):
+            return None
+
+    lines: queue.Queue[str] = queue.Queue()
+    lines.put("SCREEN_PUMP_STARTED interval_seconds=2.5 raw_frame_retained=false")
+    lines.put("READY 12345 67890")
+
+    assert _wait_for_edge_ready(lines, Process()) == "READY 12345 67890"
+
+
+def test_wait_for_edge_ready_reports_worker_exit_before_ready() -> None:
+    import pytest
+
+    class Process:
+        def poll(self):
+            return 1
+
+    lines: queue.Queue[str] = queue.Queue()
+    lines.put("SCREEN_PUMP_FAILURE game_screen_capture_backend_unavailable")
+
+    with pytest.raises(RuntimeError, match="exited_before_ready.*SCREEN_PUMP_FAILURE"):
+        _wait_for_edge_ready(lines, Process(), timeout_seconds=0.2)
 
 def test_parse_edge_ready_rejects_missing_or_invalid_godot_pid() -> None:
     import pytest
