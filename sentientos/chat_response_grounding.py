@@ -177,7 +177,9 @@ def corrected_system_identity_output(
     verified_runtime_context: Mapping[str, Any],
 ) -> tuple[str, dict[str, str] | None]:
     """Keep the companion identity distinct from its configured inference backend."""
-    if not _SYSTEM_IDENTITY_QUESTION.search(user_message):
+    identity_question = _SYSTEM_IDENTITY_QUESTION.search(user_message) is not None
+    social_check_in = _SOCIAL_CHECK_IN.search(user_message) is not None
+    if not identity_question and not social_check_in:
         return output, None
     active_model = verified_runtime_context.get("active_model")
     label = (active_model.get("configured_candidate_label")
@@ -186,9 +188,14 @@ def corrected_system_identity_output(
         return output, None
     lowered = output.casefold()
     label_index = -1
-    for word_count in range(min(3, len(label.split())), 0, -1):
-        label_prefix = " ".join(label.split()[:word_count])
-        candidate_index = lowered.find(label_prefix.casefold())
+    label_words = label.split()
+    candidates = {
+        " ".join(label_words[start:start + count])
+        for count in range(1, min(3, len(label_words)) + 1)
+        for start in range(len(label_words) - count + 1)
+    }
+    for candidate in sorted(candidates, key=lambda value: (-len(value.split()), -len(value))):
+        candidate_index = lowered.find(candidate.casefold())
         if (candidate_index >= 0
                 and _MODEL_SELF_REFERENCE.search(output[:candidate_index]) is not None):
             label_index = candidate_index
@@ -197,6 +204,8 @@ def corrected_system_identity_output(
         return output, None
 
     parts = ["I'm SentientOS, your local companion."]
+    if social_check_in:
+        parts.append("I'm here and ready to chat. What's on your mind?")
     if _ACTIVE_MODEL_QUESTION.search(user_message):
         parts.append(f"The configured model powering this conversation is {label}.")
     if _GAME_OPEN_QUESTION.search(user_message) or _GAME_STATUS_QUESTION.search(user_message):
