@@ -60,6 +60,7 @@ def _is_recent_session_recall_request(message: str) -> bool:
         "in this conversation", "in this chat", "earlier in this chat",
         "earlier in this conversation", "just before", "before you asked",
         "what did i just say", "what did i ask you", "what did i ask",
+        "what exact phrase did i ask you to repeat",
         "what did i tell you", "what did you answer", "what did you say",
         "what was your answer", "what was your response", "what did you reply",
         "what did i say i was", "what was i doing",
@@ -67,6 +68,14 @@ def _is_recent_session_recall_request(message: str) -> bool:
     )
     return any(marker in normalized for marker in markers)
 
+
+def _is_self_contained_text_echo_request(message: str) -> bool:
+    """Avoid cross-session memories when the user supplies the exact text to echo."""
+    normalized = " ".join(re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
+    return any(marker in normalized for marker in (
+        "repeat this exact phrase", "repeat this exact test phrase",
+        "copy this exact text", "echo this exact text",
+    ))
 
 def _is_current_runtime_context_question(message: str) -> bool:
     """Keep lexical memories from competing with verified live app and screen facts."""
@@ -986,8 +995,9 @@ class PersistentConversationService:
         # relevant transcript or verified runtime facts. Lexical retrieval can
         # over-weight old prompts (for example, prior screen-visibility questions).
         current_runtime_question = _is_current_runtime_context_question(message)
+        self_contained_echo = _is_self_contained_text_echo_request(message)
         memory_query = ("" if recent_session_recall or social_checkin
-                        or current_runtime_question else message)
+                        or current_runtime_question or self_contained_echo else message)
         memory = self.memories.retrieve(memory_query, budget_chars=self.memory_budget_chars)
         # Keep casual check-ins independent of old transcript and retrieved
         # memories while still grounding the model in current, verified system
