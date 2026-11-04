@@ -135,7 +135,7 @@ def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_pa
     instruction = GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION
     assert (instruction in observed_prompt) is style_expected
     assert receipt.request["linkage"].get("workload_response_style") == (
-        "gaming_chat_style_v2" if style_expected else None)
+        "gaming_chat_style_v3" if style_expected else None)
     assert receipt.request["linkage"].get("max_backend_threads") == (2 if style_expected else None)
     assert receipt.generation_config["actual_generation_parameters"].get(
         "max_backend_threads") == (2 if style_expected else None)

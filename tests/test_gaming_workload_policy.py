@@ -45,7 +45,7 @@ def test_effective_mode_and_budget_are_recorded_in_invocation_lineage() -> None:
 
     assert budget.max_new_tokens == 64
     assert lineage == {"serving_session_id": "session-1", "workload_mode": "gaming",
-        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v2",
+        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v3",
         "max_backend_threads": 2}
 
 
@@ -70,6 +70,8 @@ def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
     assert "never infer screen/gameplay details from process names" in result
     assert "offer game help" in result
     assert "claim to see or play" in result
+    assert "do not repeat a question the user already answered" in result
+    assert "give one practical check grounded only in the user's latest description" in result
     assert GamingWorkloadPolicy.apply_chat_response_style(prompt, "normal") == prompt
 
 
