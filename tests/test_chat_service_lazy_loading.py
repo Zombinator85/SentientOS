@@ -27,6 +27,14 @@ def test_import_does_not_autoload_model(monkeypatch):
     assert chat._CONVERSATION_SERVICE is None
 
 
+def test_current_game_observation_question_skips_lexical_memory_retrieval():
+    chat = _reload()
+    assert chat._is_current_runtime_context_question(
+        "In one concise sentence, tell me what you can observe about the current game and what you cannot.")
+    assert not chat._is_current_runtime_context_question(
+        "What do you think about the story in Cronos?")
+
+
 def test_health_paths_do_not_load_model(monkeypatch):
     calls = []
     monkeypatch.setattr("sentientos.local_model.LocalModel.autoload", lambda: calls.append("autoload"))
