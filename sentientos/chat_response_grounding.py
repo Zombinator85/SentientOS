@@ -76,6 +76,13 @@ _GAME_STATUS_QUESTION = re.compile(
     r"(?:cronos|game|gameplay|screen)\b",
     re.IGNORECASE,
 )
+_GAME_SCREEN_ACTIVITY_QUESTION = re.compile(
+    r"\b(?:what(?:'s| is)\s+(?:happening|going on)|"
+    r"can you (?:tell|describe|see)\s+what(?:'s| is)\s+"
+    r"(?:happening|going on))\b.{0,100}\b"
+    r"(?:cronos|game|gameplay|screen)\b",
+    re.IGNORECASE,
+)
 SCREEN_CAPABILITY_CORRECTION = (
     "I can’t see the game in this session because screen observation isn’t configured; "
     "the per-message option alone won’t change that. I can still reason from what you "
@@ -126,7 +133,10 @@ def corrected_unobserved_game_status(
     screen_observation_provenance: Mapping[str, Any] | None,
 ) -> tuple[str, dict[str, str] | None]:
     """Answer live game-status questions from foreground evidence only."""
-    activity_question = _GAME_ACTIVITY_QUESTION.search(user_message) is not None
+    activity_question = (
+        _GAME_ACTIVITY_QUESTION.search(user_message) is not None
+        or _GAME_SCREEN_ACTIVITY_QUESTION.search(user_message) is not None
+    )
     if (not (_GAME_STATUS_QUESTION.search(user_message)
              or activity_question
              or _GAME_RUNNING_QUESTION.search(user_message))
@@ -156,15 +166,28 @@ def corrected_unobserved_game_status(
         running = workload.get("game_process_running")
         if type(running) is not bool:
             return output, None
+        capabilities = verified_runtime_context.get("capabilities")
+        screen = capabilities.get("screen_observation") if isinstance(
+            capabilities, Mapping) else None
+        screen_unconfigured = (isinstance(screen, Mapping)
+            and screen.get("configured") is False)
         foreground = workload.get("game_foreground") is True
         if running:
             status = "is running in the foreground" if foreground else "is still running in the background"
-            response = (f"{label} {status}. I don’t have a screen observation for this turn, "
-                        "so I can’t describe the gameplay.")
+            observation_limit = (
+                "Screen observation isn’t configured in this session, so I can’t describe the gameplay."
+                if screen_unconfigured else
+                "I don’t have a screen observation for this turn, so I can’t describe the gameplay."
+            )
+            response = f"{label} {status}. {observation_limit}"
             reason = "allowlisted_game_process_running_no_screen_observation"
         else:
-            response = (f"I don’t detect {label} running right now. "
-                        "I don’t have a screen observation for this turn.")
+            observation_limit = (
+                "Screen observation isn’t configured in this session."
+                if screen_unconfigured else
+                "I don’t have a screen observation for this turn."
+            )
+            response = f"I don’t detect {label} running right now. {observation_limit}"
             reason = "allowlisted_game_process_not_running_no_screen_observation"
         return response, {
             "policy_id": GAME_PROCESS_STATUS_POLICY_ID,
@@ -177,6 +200,18 @@ def corrected_unobserved_game_status(
                    flags=re.IGNORECASE)
     label = re.sub(r"[-_]+", " ", label).strip().title() or process_name
     if activity_question:
+        capabilities = verified_runtime_context.get("capabilities")
+        screen = capabilities.get("screen_observation") if isinstance(
+            capabilities, Mapping) else None
+        if isinstance(screen, Mapping) and screen.get("configured") is False:
+            return (
+                f"I can confirm {label} is the foreground app, but screen observation "
+                "isn’t configured in this session, so I can’t tell what’s happening on screen.",
+                {
+                    "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+                    "reason_code": "foreground_only_screen_observation_unconfigured",
+                },
+            )
         return (
             f"I can confirm {label} is the foreground app, but I can’t tell what you’re "
             "doing in it because I don’t have a screen observation this turn.",

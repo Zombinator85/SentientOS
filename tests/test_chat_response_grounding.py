@@ -115,6 +115,29 @@ def test_live_game_status_uses_verified_foreground_without_inventing_scene_detai
     }
 
 
+def test_live_screen_activity_question_reports_unconfigured_source_accurately():
+    corrected, attribution = corrected_unobserved_game_status(
+        "Screen observation requires your permission.",
+        user_message="Can you tell what's happening on screen in Cronos right now?",
+        verified_runtime_context={
+            "workload": {
+                "game_foreground": True,
+                "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+            },
+            "capabilities": {"screen_observation": {"configured": False}},
+        },
+        screen_observation_provenance=None,
+    )
+    assert corrected == (
+        "I can confirm Cronos is the foreground app, but screen observation "
+        "isn’t configured in this session, so I can’t tell what’s happening on screen."
+    )
+    assert attribution == {
+        "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+        "reason_code": "foreground_only_screen_observation_unconfigured",
+    }
+
+
 def test_live_game_status_fallback_requires_foreground_evidence_and_no_screen_evidence():
     output = "The game is open."
     assert corrected_unobserved_game_status(
