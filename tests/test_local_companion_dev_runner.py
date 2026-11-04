@@ -4,10 +4,12 @@ import io
 import queue
 
 from scripts.run_local_companion_dev import (
+    _LatestScreenObservation,
     _TemporaryCompanionEdge,
     _kill_windows_process_tree,
     _parse_edge_ready,
     _stage_windows_edge_source,
+    main,
 )
 from scripts.terminate_owned_process_tree import (
     terminate_owned_process_tree,
@@ -130,3 +132,42 @@ def test_stage_windows_edge_source_uses_only_reviewed_python_source(tmp_path) ->
         assert bundle.read("terminate_owned_process_tree.py").decode() == "cleanup source"
         assert "unreviewed.env" not in names
         assert "sentientos/private.json" not in names
+
+def test_screen_observation_opt_in_requires_supervised_windows_edge(monkeypatch):
+    import sys
+    import pytest
+
+    monkeypatch.setattr(sys, "argv", [
+        "run_local_companion_dev", "--state-dir", "/tmp/sentientos-screen-test",
+        "--screen-observation-process", "Cronos.exe",
+    ])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+
+def test_latest_screen_observation_drains_and_expires_cached_sample(monkeypatch):
+    import threading
+    import time
+
+    now = [10.0]
+    monkeypatch.setattr("scripts.run_local_companion_dev.time.monotonic",
+                        lambda: now[0])
+    sampled = threading.Event()
+
+    def provider():
+        if not sampled.is_set():
+            sampled.set()
+            return {"text": "objective changed"}
+        raise RuntimeError("bridge_receive_timeout")
+
+    observer = _LatestScreenObservation(provider=provider, max_age_seconds=5.0)
+    try:
+        assert sampled.wait(timeout=1.0)
+        deadline = time.perf_counter() + 1.0
+        while observer() is None and time.perf_counter() < deadline:
+            time.sleep(0.01)
+        assert observer() == {"text": "objective changed"}
+        now[0] += 6.0
+        assert observer() is None
+    finally:
+        observer.close()

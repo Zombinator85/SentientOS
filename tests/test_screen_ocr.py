@@ -84,3 +84,31 @@ def test_screen_ocr_enforces_sampling_interval_and_returns_provenance_only(
     assert ocr.snapshot() is None
     second = ocr.snapshot()
     assert second is not None and second["captured_at"] == "2026-01-01T00:00:03Z"
+
+def test_screen_ocr_can_refresh_identical_capture_without_rerunning_ocr():
+    captures = iter([
+        {"rgb": b"one", "width": 1, "height": 1, "capture_digest": "a" * 64,
+         "captured_at": "2026-11-04T12:00:00Z",
+         "capture_scope": "allowlisted_foreground_game_client_area",
+         "process_name_digest": "b" * 64, "consent_id_digest": "c" * 64},
+        {"rgb": b"one", "width": 1, "height": 1, "capture_digest": "a" * 64,
+         "captured_at": "2026-11-04T12:00:02Z",
+         "capture_scope": "allowlisted_foreground_game_client_area",
+         "process_name_digest": "b" * 64, "consent_id_digest": "c" * 64},
+    ])
+    calls = []
+    ocr = ScreenOCR(
+        ScreenConfig(enable=True, interval_s=0, refresh_unchanged_observation=True),
+        capture_fn=lambda: next(captures),
+        ocr_fn=lambda _payload: calls.append("ocr") or "objective: observatory",
+    )
+
+    first = ocr.snapshot()
+    second = ocr.snapshot()
+
+    assert first is not None and second is not None
+    assert first["text"] == second["text"] == "objective: observatory"
+    assert second["captured_at"] == "2026-11-04T12:00:02Z"
+    assert second["capture_digest"] == "a" * 64
+    assert calls == ["ocr"]
+    assert "rgb" not in second
