@@ -33,6 +33,58 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+def _parse_edge_ready(line: str) -> tuple[int, int]:
+    parts = line.split()
+    if len(parts) != 3 or parts[0] != "READY":
+        raise RuntimeError("temporary_windows_edge_ready_missing_godot_pid")
+    port, godot_pid = int(parts[1]), int(parts[2])
+    if not 1 <= port <= 65535 or godot_pid <= 0:
+        raise RuntimeError("temporary_windows_edge_invalid_ready_values")
+    return port, godot_pid
+
+
+def _kill_windows_process_tree(pid: int) -> None:
+    if pid <= 0:
+        raise ValueError("pid must be positive")
+    taskkill = shutil.which("taskkill.exe") or "/mnt/c/Windows/System32/taskkill.exe"
+    try:
+        subprocess.run(
+            [taskkill, "/T", "/F", "/PID", str(pid)],
+            check=False, capture_output=True, timeout=8,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
+def _stage_windows_edge_source(repo_root: Path, destination: Path) -> Path:
+    """Stage reviewed Python source only as one isolated Windows import archive."""
+    import os
+    import zipfile
+
+    destination.mkdir(parents=True, exist_ok=True)
+    archive = destination / "windows_edge_source.zip"
+    excluded = {
+        ".git", ".venv", ".pytest_cache", ".mypy_cache", "__pycache__",
+        "glow", "tests", "docs", "artifacts", "audio_logs", "logs",
+        "sentientos_data", ".codex_task",
+    }
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED,
+                         compresslevel=6) as bundle:
+        for current, directories, filenames in os.walk(repo_root):
+            directories[:] = [
+                name for name in directories
+                if name not in excluded and not name.startswith(".")
+            ]
+            current_path = Path(current)
+            for filename in filenames:
+                if filename.endswith(".py"):
+                    source = current_path / filename
+                    bundle.write(source, source.relative_to(repo_root).as_posix())
+        helper = repo_root / "scripts/terminate_owned_process_tree.py"
+        bundle.write(helper, "terminate_owned_process_tree.py")
+    return archive
+
+
 class _LatestForegroundObservation:
     """Drain verified bridge samples continuously and expose only a fresh latest value."""
     def __init__(self, *, detector: Any, process_names: tuple[str, ...]) -> None:
@@ -82,7 +134,7 @@ class _LatestForegroundObservation:
 class _TemporaryCompanionEdge:
     """Own test-only Windows mTLS edge, Godot process, and sender."""
 
-    def __init__(self, *, windows_python: Path, windows_checkout: Path,
+    def __init__(self, *, windows_python: Path,
                  godot_executable: Path, godot_project: Path,
                  game_process_names: tuple[str, ...] = ()) -> None:
         from scripts.gaming_companion_cross_host_smoke import (
@@ -103,6 +155,7 @@ class _TemporaryCompanionEdge:
             prefix="sentientos-companion-dev-", dir=_win_temp())
         root = Path(self._temporary.name)
         self._edge_process: subprocess.Popen[str] | None = None
+        self._godot_pid: int | None = None
         self._sender: Any | None = None
         self._foreground_runtime: Any | None = None
         self.foreground_game_detector: Any | None = None
@@ -114,10 +167,9 @@ class _TemporaryCompanionEdge:
             wsl_ip, windows_ip = _addresses()
             avatar_key, avatar_ack, receipt_key = (
                 secrets.token_bytes(32) for _ in range(3))
+            windows_source = _stage_windows_edge_source(ROOT, root)
             worker = root / "local_companion_edge_dev_worker.py"
             shutil.copyfile(ROOT / "scripts/local_companion_edge_dev_worker.py", worker)
-            shutil.copyfile(ROOT / "scripts/terminate_owned_process_tree.py",
-                            root / "terminate_owned_process_tree.py")
             config = {
                 "bind": windows_ip,
                 "peer_pin": wsl["pin"],
@@ -163,7 +215,7 @@ class _TemporaryCompanionEdge:
                     "process_names": list(game_process_names),
                 }
             self._edge_process = subprocess.Popen(
-                [str(windows_python), _win_path(worker), _win_path(windows_checkout)],
+                [str(windows_python), _win_path(worker), _win_path(windows_source)],
                 cwd=str(ROOT), env=_secret_free_environment(), stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                 encoding="utf-8", errors="replace", bufsize=1)
@@ -178,8 +230,20 @@ class _TemporaryCompanionEdge:
                 daemon=True).start()
             ready = self._lines.get(timeout=20)
             if not ready.startswith("READY "):
-                raise RuntimeError("temporary_windows_edge_failed:" + ready[:128])
-            port = int(ready.split()[1])
+                if self._edge_process is not None:
+                    try:
+                        self._edge_process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        pass
+                diagnostics = [ready]
+                while True:
+                    try:
+                        diagnostics.append(self._lines.get_nowait())
+                    except queue.Empty:
+                        break
+                detail = " | ".join(diagnostics[-8:])[:768]
+                raise RuntimeError("temporary_windows_edge_failed:" + detail)
+            port, self._godot_pid = _parse_edge_ready(ready)
             _server_context, client_context = _contexts(ca, wsl["cert"], wsl["key"])
             client = CompanionBridgeMutualTLSClient(
                 address=windows_ip, port=port, server_hostname="windows-edge.test",
@@ -252,6 +316,13 @@ class _TemporaryCompanionEdge:
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait(timeout=3)
+        # The worker can be force-stopped before its Python finally block has
+        # finished. Kill only the exact Windows Godot PID it reported at READY,
+        # before deleting the temporary profile that Godot holds open.
+        godot_pid = self._godot_pid
+        self._godot_pid = None
+        if godot_pid is not None:
+            _kill_windows_process_tree(godot_pid)
         try:
             if self.foreground_game_detector is not None:
                 self.foreground_game_detector.close()
@@ -273,17 +344,15 @@ def main() -> int:
     parser.add_argument("--game-process-name", action="append", default=[],
                         help="Allowlisted Windows game executable basename for automatic mode")
     parser.add_argument("--windows-python", type=Path)
-    parser.add_argument("--windows-checkout", type=Path)
     parser.add_argument("--godot-exe", type=Path)
     parser.add_argument("--godot-project", type=Path)
     args = parser.parse_args()
     if args.host != "127.0.0.1" or not 1 <= args.port <= 65535:
         parser.error("development chat must bind only to 127.0.0.1")
-    edge_args = (args.windows_python, args.windows_checkout, args.godot_exe,
-                 args.godot_project)
+    edge_args = (args.windows_python, args.godot_exe, args.godot_project)
     if any(value is not None for value in edge_args) and not all(
             value is not None for value in edge_args):
-        parser.error("the temporary edge requires Windows Python, checkout, Godot, and project")
+        parser.error("the temporary edge requires Windows Python, Godot, and project")
     config_path = os.environ.get("SENTIENTOS_MODEL_CONFIG")
     if not config_path or not Path(config_path).is_file():
         parser.error("SENTIENTOS_MODEL_CONFIG must identify the pinned local Ollama model")
@@ -375,13 +444,12 @@ def main() -> int:
     try:
         if all(value is not None for value in edge_args):
             if (not args.windows_python.is_file()
-                    or not args.windows_checkout.is_dir()
                     or not args.godot_exe.is_file()
                     or not (args.godot_project / "project.godot").is_file()):
                 parser.error("a temporary companion edge executable or project is missing")
             edge = _TemporaryCompanionEdge(
-                windows_python=args.windows_python, windows_checkout=args.windows_checkout,
-                godot_executable=args.godot_exe, godot_project=args.godot_project,
+                windows_python=args.windows_python, godot_executable=args.godot_exe,
+                godot_project=args.godot_project,
                 game_process_names=tuple(args.game_process_name))
         configure_development_chat(invoker=invoker, data_root=chat_state,
             avatar_output_emitter=edge.emitter if edge else None,
