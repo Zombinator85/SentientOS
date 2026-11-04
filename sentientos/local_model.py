@@ -223,7 +223,7 @@ class _OllamaBackend(_ModelBackend):
         if type(self._num_gpu) is not int or not 0 <= self._num_gpu <= 128:
             raise ModelLoadError("ollama_gpu_layer_limit_invalid")
         self._keep_alive = options.get("keep_alive", "15m")
-        if self._keep_alive not in {"0", "5m", "15m"}:
+        if self._keep_alive not in {"0", "5s", "5m", "15m"}:
             raise ModelLoadError("ollama_keep_alive_invalid")
         self._think = options.get("think", False)
         if type(self._think) is not bool:
@@ -250,7 +250,7 @@ class _OllamaBackend(_ModelBackend):
     def generate_with_metadata(self, prompt: str, history: Sequence[str],
                                generation: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
         keep_alive = generation.get("keep_alive", self._keep_alive)
-        if keep_alive not in {"0", "5m", "15m"}:
+        if keep_alive not in {"0", "5s", "5m", "15m"}:
             raise ModelLoadError("ollama_keep_alive_invalid")
         options = {
             "num_ctx": self._context,

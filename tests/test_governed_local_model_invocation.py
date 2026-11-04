@@ -166,7 +166,9 @@ def test_backend_thread_ceiling_fails_closed_before_unsupported_generation(
     assert expected_reason in receipt.reason_codes
 
 
-def test_gaming_ollama_keep_alive_is_governed_and_forwarded(tmp_path: Path) -> None:
+@pytest.mark.parametrize("residency", ["0", "5s"])
+def test_gaming_ollama_keep_alive_is_governed_and_forwarded(
+        tmp_path: Path, residency: str) -> None:
     import hashlib
 
     manifest = tmp_path / "ollama-manifest.json"
@@ -195,12 +197,12 @@ def test_gaming_ollama_keep_alive_is_governed_and_forwarded(tmp_path: Path) -> N
         runtime_root=tmp_path / "runtime")
     request = invoker.build_request(purpose="local_user_chat", prompt="hello",
         caller="test", correlation_id="gaming-unload",
-        linkage={"workload_mode": "gaming", "ollama_keep_alive": "0"})
+        linkage={"workload_mode": "gaming", "ollama_keep_alive": residency})
 
     receipt = invoker.invoke(request)
 
     assert receipt.status == "admitted_completed"
-    assert model.generation["keep_alive"] == "0"
+    assert model.generation["keep_alive"] == residency
 
 
 def test_ollama_keep_alive_override_is_rejected_for_other_engines(tmp_path: Path) -> None:
