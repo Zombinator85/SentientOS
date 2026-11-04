@@ -16,6 +16,7 @@ var _pending_action := ""
 var _next_after_profile := ""
 var _messages := PackedStringArray()
 var _chat_request_started_usec := 0
+var _first_ui_update_ms := -1
 var _stream_client: HTTPClient
 var _stream_request_sent := false
 var _stream_seen_body := false
@@ -171,6 +172,7 @@ func _send_message(submitted_text: String = "") -> void:
 	_send_button.disabled = true
 	_pending_action = "chat"
 	_chat_request_started_usec = Time.get_ticks_usec()
+	_first_ui_update_ms = -1
 	var request_body := JSON.stringify({
 		"message": message,
 		"session_id": _session_id,
@@ -316,22 +318,28 @@ func _handle_stream_event(event: Dictionary) -> void:
 			var text := str(event.get("text", ""))
 			if text.is_empty():
 				return
+			var first_ui_update := _stream_reply_message_index < 0
 			if _stream_reply_message_index < 0:
 				_stream_reply_message_index = _messages.size()
 				_messages.append("SentientOS: ")
 			_stream_reply_text += text
 			_messages[_stream_reply_message_index] = "SentientOS: " + _stream_reply_text
 			_render_history()
+			if first_ui_update and _chat_request_started_usec > 0:
+				_first_ui_update_ms = int((Time.get_ticks_usec() - _chat_request_started_usec) / 1000)
 		"complete":
 			var response_value: Variant = event.get("response", {})
 			var response: Dictionary = response_value if response_value is Dictionary else {}
 			var answer := str(response.get("response", _stream_reply_text))
+			var first_ui_update := _stream_reply_message_index < 0
 			if _stream_reply_message_index < 0:
 				_stream_reply_message_index = _messages.size()
 				_messages.append("")
 			_stream_reply_text = answer
 			_messages[_stream_reply_message_index] = "SentientOS: " + answer
 			_render_history()
+			if first_ui_update and _chat_request_started_usec > 0:
+				_first_ui_update_ms = int((Time.get_ticks_usec() - _chat_request_started_usec) / 1000)
 			var context_value: Variant = response.get("context", {})
 			var context: Dictionary = context_value if context_value is Dictionary else {}
 			var timing_value: Variant = context.get("inference_timing", {})
@@ -339,7 +347,8 @@ func _handle_stream_event(event: Dictionary) -> void:
 			if _chat_request_started_usec > 0:
 				round_trip_ms = int((Time.get_ticks_usec() - _chat_request_started_usec) / 1000)
 			if timing_value is Dictionary:
-				var timing_summary := _format_inference_timing(timing_value, round_trip_ms)
+				var timing_summary := _format_inference_timing(
+					timing_value, round_trip_ms, _first_ui_update_ms)
 				if not timing_summary.is_empty():
 					_append_message("Timing", timing_summary)
 			_finish_stream_success()
@@ -403,10 +412,13 @@ func _finish_non_streamed_chat(parsed: Dictionary) -> void:
 	_chat_request_started_usec = 0
 
 
-func _format_inference_timing(timing: Dictionary, round_trip_ms: int) -> String:
+func _format_inference_timing(timing: Dictionary, round_trip_ms: int,
+		first_ui_update_ms: int = -1) -> String:
 	var parts := PackedStringArray()
 	if round_trip_ms > 0:
 		parts.append("round trip %.1fs" % (float(round_trip_ms) / 1000.0))
+	if first_ui_update_ms >= 0:
+		parts.append("first UI update %.1fs" % (float(first_ui_update_ms) / 1000.0))
 	var invocation_ms: Variant = timing.get("invocation_latency_ms")
 	if invocation_ms is int:
 		parts.append("invocation %.1fs" % (float(invocation_ms) / 1000.0))
