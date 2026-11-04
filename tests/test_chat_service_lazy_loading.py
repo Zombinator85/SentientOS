@@ -296,8 +296,9 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
 
     assert response.status_code == 200
     prompt = invoker.prompts[-1]
-    assert "You are the active local conversational model inside SentientOS" in prompt
-    assert "use the configured model label when asked" in prompt
+    assert "You are SentientOS, the local companion" in prompt
+    assert "configured model label names the backend, not you" in prompt
+    assert "if asked the model, give its configured label" in prompt
     assert "For check-ins, answer briefly as SentientOS" in prompt
     assert "without claiming moods or lived experiences" in prompt
     assert "except a brief reciprocal greeting" in prompt

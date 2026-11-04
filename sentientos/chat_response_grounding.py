@@ -15,6 +15,7 @@ SCREEN_CAPABILITY_POLICY_ID = "screen_observation_unconfigured_correction_v2"
 SOCIAL_INSTRUCTION_ECHO_POLICY_ID = "social_instruction_echo_correction_v1"
 SOCIAL_CHECK_IN_POLICY_ID = "social_check_in_grounding_correction_v1"
 CURRENT_GAME_STATUS_POLICY_ID = "verified_foreground_only_game_status_v1"
+SYSTEM_IDENTITY_POLICY_ID = "sentientos_companion_identity_grounding_v1"
 _UNSUPPORTED_SELF_STATE = re.compile(
     r"\bI(?:'m| am)\s+(?:doing\s+(?:well|great|fine)|"
     r"(?:pretty\s+)?(?:good|great|fine|happy|excited|sad|tired))\b",
@@ -28,6 +29,26 @@ _SOCIAL_INSTRUCTION_ECHO = re.compile(
 _SOCIAL_CHECK_IN = re.compile(
     r"\bhow\s+(?:are you|(?:is|'s)\s+your\s+(?:day|evening|morning|night))\b"
     r"|\bhow(?:'s| is)\s+it\s+going\b",
+    re.IGNORECASE,
+)
+_SYSTEM_IDENTITY_QUESTION = re.compile(
+    r"\b(?:who are you|what(?:'s| is) your name|what can I call you|"
+    r"what are you called|what should I call you)\b",
+    re.IGNORECASE,
+)
+_ACTIVE_MODEL_QUESTION = re.compile(
+    r"\b(?:which|what)\s+(?:model|checkpoint)\b|"
+    r"\bwhat model (?:are you|is active|powers you)\b",
+    re.IGNORECASE,
+)
+_GAME_OPEN_QUESTION = re.compile(
+    r"\b(?:what|which) game (?:is|\'s) open\b|"
+    r"\bwhat game are we (?:playing|looking at)\b",
+    re.IGNORECASE,
+)
+_MODEL_SELF_REFERENCE = re.compile(
+    r"\b(?:i am|i\'m|my name is)\s+(?:currently\s+)?"
+    r"(?:called\s+)?$",
     re.IGNORECASE,
 )
 _GAME_STATUS_QUESTION = re.compile(
@@ -107,6 +128,55 @@ def corrected_unobserved_game_status(
             "reason_code": "foreground_only_no_screen_observation",
         },
     )
+
+
+
+
+def corrected_system_identity_output(
+    output: str, *, user_message: str,
+    verified_runtime_context: Mapping[str, Any],
+) -> tuple[str, dict[str, str] | None]:
+    """Keep the companion identity distinct from its configured inference backend."""
+    if not _SYSTEM_IDENTITY_QUESTION.search(user_message):
+        return output, None
+    active_model = verified_runtime_context.get("active_model")
+    label = (active_model.get("configured_candidate_label")
+             if isinstance(active_model, Mapping) else None)
+    if not isinstance(label, str) or not label:
+        return output, None
+    lowered = output.casefold()
+    label_index = -1
+    for word_count in range(min(3, len(label.split())), 0, -1):
+        label_prefix = " ".join(label.split()[:word_count])
+        candidate_index = lowered.find(label_prefix.casefold())
+        if (candidate_index >= 0
+                and _MODEL_SELF_REFERENCE.search(output[:candidate_index]) is not None):
+            label_index = candidate_index
+            break
+    if label_index < 0:
+        return output, None
+
+    parts = ["I'm SentientOS, your local companion."]
+    if _ACTIVE_MODEL_QUESTION.search(user_message):
+        parts.append(f"The configured model powering this conversation is {label}.")
+    if _GAME_OPEN_QUESTION.search(user_message) or _GAME_STATUS_QUESTION.search(user_message):
+        workload = verified_runtime_context.get("workload")
+        names = (workload.get("configured_game_process_names")
+                 if isinstance(workload, Mapping) else None)
+        if (isinstance(workload, Mapping) and workload.get("game_foreground") is True
+                and isinstance(names, list) and names and isinstance(names[0], str)):
+            process_name = names[0]
+            game = re.sub(r"[-_]win64[-_]shipping$", "",
+                process_name.rsplit(".", 1)[0], flags=re.IGNORECASE)
+            game = re.sub(r"[-_]+", " ", game).strip().title() or process_name
+            parts.append(f"{game} is the foreground app.")
+        if verified_runtime_context.get("capabilities", {}).get(
+                "screen_observation", {}).get("included_this_turn") is not True:
+            parts.append("I don't have a screen observation for this turn, so I can't describe the gameplay.")
+    return " ".join(parts), {
+        "policy_id": SYSTEM_IDENTITY_POLICY_ID,
+        "reason_code": "backend_model_misidentified_as_companion",
+    }
 
 
 def corrected_social_instruction_echo(
