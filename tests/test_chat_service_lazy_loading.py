@@ -298,9 +298,8 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
     prompt = invoker.prompts[-1]
     assert "You are the active local conversational model inside SentientOS" in prompt
     assert "use the configured model label when asked" in prompt
-    assert "For social greetings, do not echo or offer game advice" in prompt
-    assert "you are here as SentientOS and ready to chat" in prompt
-    assert "do not claim feelings or infer user activity from a foreground app" in prompt
+    assert "For check-ins, answer briefly as SentientOS" in prompt
+    assert "without claiming moods or lived experiences" in prompt
     assert "except a brief reciprocal greeting" in prompt
     assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, say you cannot see gameplay" in prompt
     assert "Answer all parts directly" in prompt
@@ -405,6 +404,33 @@ def test_unconfigured_screen_question_gets_truthful_capability_fallback(tmp_path
         "I can’t see the game in this session because screen observation isn’t configured; "
         "the per-message option alone won’t change that. I can still reason from what you "
         "describe, suggest next checks, and use clues you share in this conversation.")
+    assert payload["context"]["response_origin"] == "grounding_policy_fallback"
+
+
+def test_social_system_instruction_echo_is_corrected_in_live_chat_path(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+
+    def echoed_instruction(request):
+        invoker.calls += 1
+        output = "I'm doing well, thanks for asking. How about you?"
+        digest = __import__("hashlib").sha256(
+            __import__("json").dumps({"output": output}, sort_keys=True,
+                separators=(",", ":")).encode()).hexdigest()
+        return SimpleNamespace(status="admitted_simulation", output_text=output,
+            output_digest=digest, output_truncated=False, request={
+                "request_id": request.request_id, "active_model_identity":
+                    (invoker.model.active_identity.to_dict()
+                     if invoker.model.active_identity is not None else {})},
+            receipt_id="simulation-echo-receipt", receipt_digest="simulation-echo-digest")
+    invoker.invoke = echoed_instruction
+    response = client.post("/chat", json={
+        "message": "Hi, how is your evening going?"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["response"] == "I’m here and ready to chat. How’s your evening going?"
     assert payload["context"]["response_origin"] == "grounding_policy_fallback"
 
 
@@ -895,5 +921,5 @@ def test_unobserved_gaming_companion_claim_is_corrected_and_attributed(tmp_path)
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["response"].startswith("SentientOS correction:")
+    assert payload["response"] == "I can’t see the game this turn, but I’m here with you."
     assert payload["context"]["response_origin"] == "grounding_policy_fallback"

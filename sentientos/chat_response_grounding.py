@@ -8,10 +8,33 @@ from .governed_local_model_invocation import digest_payload
 
 GROUNDING_POLICY_ID = "gaming_unobserved_claim_correction_v1"
 GROUNDING_CORRECTION = (
-    "SentientOS correction: I can’t see the game in this turn, but I’m here with you."
+    "I can’t see the game this turn, but I’m here with you."
 )
 
 SCREEN_CAPABILITY_POLICY_ID = "screen_observation_unconfigured_correction_v2"
+SOCIAL_INSTRUCTION_ECHO_POLICY_ID = "social_instruction_echo_correction_v1"
+SOCIAL_CHECK_IN_POLICY_ID = "social_check_in_grounding_correction_v1"
+CURRENT_GAME_STATUS_POLICY_ID = "verified_foreground_only_game_status_v1"
+_UNSUPPORTED_SELF_STATE = re.compile(
+    r"\bI(?:'m| am)\s+(?:doing\s+(?:well|great|fine)|"
+    r"(?:pretty\s+)?(?:good|great|fine|happy|excited|sad|tired))\b",
+    re.IGNORECASE,
+)
+_SOCIAL_INSTRUCTION_ECHO = re.compile(
+    r"\bdo not claim feelings\b|\binfer user activity from (?:a )?foreground app\b"
+    r"|\bready to chat;\s*do not\b",
+    re.IGNORECASE,
+)
+_SOCIAL_CHECK_IN = re.compile(
+    r"\bhow\s+(?:are you|(?:is|'s)\s+your\s+(?:day|evening|morning|night))\b"
+    r"|\bhow(?:'s| is)\s+it\s+going\b",
+    re.IGNORECASE,
+)
+_GAME_STATUS_QUESTION = re.compile(
+    r"\bwhat\b.{0,48}\b(?:tell|know|see|notice)\b.{0,64}\b"
+    r"(?:cronos|game|gameplay|screen)\b",
+    re.IGNORECASE,
+)
 SCREEN_CAPABILITY_CORRECTION = (
     "I can’t see the game in this session because screen observation isn’t configured; "
     "the per-message option alone won’t change that. I can still reason from what you "
@@ -54,6 +77,62 @@ def unobserved_gameplay_claim(output: str, *, workload_mode: str,
     if workload_mode != "gaming" or isinstance(screen_observation_provenance, Mapping):
         return False
     return any(pattern.search(output) for pattern in _UNOBSERVED_CLAIM_PATTERNS)
+
+
+def corrected_unobserved_game_status(
+    output: str, *, user_message: str,
+    verified_runtime_context: Mapping[str, Any],
+    screen_observation_provenance: Mapping[str, Any] | None,
+) -> tuple[str, dict[str, str] | None]:
+    """Answer live game-status questions from foreground evidence only."""
+    if (not _GAME_STATUS_QUESTION.search(user_message)
+            or isinstance(screen_observation_provenance, Mapping)):
+        return output, None
+    workload = verified_runtime_context.get("workload")
+    if not isinstance(workload, Mapping) or workload.get("game_foreground") is not True:
+        return output, None
+    names = workload.get("configured_game_process_names")
+    if (not isinstance(names, list) or not names
+            or not isinstance(names[0], str) or not names[0]):
+        return output, None
+    process_name = names[0]
+    label = re.sub(r"[-_]win64[-_]shipping$", "", process_name.rsplit(".", 1)[0],
+                   flags=re.IGNORECASE)
+    label = re.sub(r"[-_]+", " ", label).strip().title() or process_name
+    return (
+        f"{label} is the foreground app. I don’t have a screen observation for this turn, "
+        "so I can’t describe the gameplay.",
+        {
+            "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+            "reason_code": "foreground_only_no_screen_observation",
+        },
+    )
+
+
+def corrected_social_instruction_echo(
+    output: str, *, user_message: str,
+) -> tuple[str, dict[str, str] | None]:
+    """Replace a leaked rule or unsupported self-state claim with a natural reply."""
+    check_in = _SOCIAL_CHECK_IN.search(user_message) is not None
+    instruction_echo = _SOCIAL_INSTRUCTION_ECHO.search(output) is not None
+    unsupported_state = check_in and _UNSUPPORTED_SELF_STATE.search(output) is not None
+    if not instruction_echo and not unsupported_state:
+        return output, None
+    if check_in:
+        corrected = "I’m here and ready to chat. How’s your evening going?"
+    elif _GAME_STATUS_QUESTION.search(user_message):
+        corrected = (
+            "I can confirm the game is in the foreground, but I can’t see its gameplay "
+            "in this turn."
+        )
+    else:
+        corrected = "I’m here as SentientOS and ready to chat. What would you like to know?"
+    return corrected, {
+        "policy_id": (SOCIAL_CHECK_IN_POLICY_ID if unsupported_state
+                      else SOCIAL_INSTRUCTION_ECHO_POLICY_ID),
+        "reason_code": ("unsupported_subjective_self_state" if unsupported_state
+                        else "model_repeated_system_instruction"),
+    }
 
 
 def corrected_screen_capability_output(

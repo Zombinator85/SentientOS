@@ -51,6 +51,7 @@ from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CA
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
     corrected_gaming_output, corrected_output_lineage, corrected_screen_capability_output,
+    corrected_social_instruction_echo, corrected_unobserved_game_status,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -1159,9 +1160,17 @@ class PersistentConversationService:
                 screen_observation_configured=self.screen_observation_configured(),
                 screen_observation_provenance=invocation_screen_provenance)
             if grounding_correction is None:
+                response_text, grounding_correction = corrected_unobserved_game_status(
+                    receipt.output_text, user_message=message,
+                    verified_runtime_context=runtime_context,
+                    screen_observation_provenance=invocation_screen_provenance)
+            if grounding_correction is None:
                 response_text, grounding_correction = corrected_gaming_output(
                     receipt.output_text, workload_mode=str(observed_workload_mode or "normal"),
                     screen_observation_provenance=invocation_screen_provenance)
+            if grounding_correction is None:
+                response_text, grounding_correction = corrected_social_instruction_echo(
+                    receipt.output_text, user_message=message)
         transcript_output_digest = digest_payload({"text": response_text})
         if grounding_correction is None:
             assistant_output_lineage = {

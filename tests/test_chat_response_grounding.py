@@ -6,6 +6,9 @@ from sentientos.chat_response_grounding import (
     SCREEN_CAPABILITY_CORRECTION, SCREEN_CAPABILITY_POLICY_ID,
     corrected_screen_capability_output,
     GROUNDING_CORRECTION, corrected_gaming_output, corrected_output_lineage,
+    CURRENT_GAME_STATUS_POLICY_ID, SOCIAL_CHECK_IN_POLICY_ID,
+    SOCIAL_INSTRUCTION_ECHO_POLICY_ID, corrected_social_instruction_echo,
+    corrected_unobserved_game_status,
     unobserved_gameplay_claim,
 )
 
@@ -88,6 +91,80 @@ def test_combined_visibility_and_help_question_gets_both_parts_answered():
     )
     assert text == SCREEN_CAPABILITY_CORRECTION
     assert correction is not None
+
+
+
+def test_live_game_status_uses_verified_foreground_without_inventing_scene_details():
+    corrected, attribution = corrected_unobserved_game_status(
+        "I'm unable to provide specific details about the current state of Cronos without observing the game screen. Let me know if you'd like to discuss gameplay strategies.",
+        user_message="What can you actually tell me about Cronos right now?",
+        verified_runtime_context={"workload": {
+            "game_foreground": True,
+            "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+        }},
+        screen_observation_provenance=None,
+    )
+    assert corrected == (
+        "Cronos is the foreground app. I don’t have a screen observation for this turn, "
+        "so I can’t describe the gameplay."
+    )
+    assert attribution == {
+        "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+        "reason_code": "foreground_only_no_screen_observation",
+    }
+
+
+def test_live_game_status_fallback_requires_foreground_evidence_and_no_screen_evidence():
+    output = "The game is open."
+    assert corrected_unobserved_game_status(
+        output, user_message="What can you tell me about Cronos right now?",
+        verified_runtime_context={"workload": {"game_foreground": False}},
+        screen_observation_provenance=None,
+    ) == (output, None)
+    assert corrected_unobserved_game_status(
+        output, user_message="What can you tell me about Cronos right now?",
+        verified_runtime_context={"workload": {
+            "game_foreground": True,
+            "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+        }},
+        screen_observation_provenance={"capture_digest": "a" * 64},
+    ) == (output, None)
+
+def test_social_instruction_echo_is_replaced_with_a_natural_reciprocal_greeting():
+    corrected, attribution = corrected_social_instruction_echo(
+        "I am here as SentientOS and ready to chat; do not claim feelings or infer user activity from a foreground app.",
+        user_message="Hi, how is your evening going?",
+    )
+    assert corrected == "I’m here and ready to chat. How’s your evening going?"
+    assert attribution == {
+        "policy_id": SOCIAL_INSTRUCTION_ECHO_POLICY_ID,
+        "reason_code": "model_repeated_system_instruction",
+    }
+
+
+
+def test_social_check_in_does_not_claim_an_unverified_subjective_state():
+    corrected, attribution = corrected_social_instruction_echo(
+        "I'm doing well, thanks for asking. How about you?",
+        user_message="Hi, how is your evening going?",
+    )
+    assert corrected == "I’m here and ready to chat. How’s your evening going?"
+    assert attribution == {
+        "policy_id": SOCIAL_CHECK_IN_POLICY_ID,
+        "reason_code": "unsupported_subjective_self_state",
+    }
+
+def test_social_instruction_echo_answers_game_status_without_claiming_visual_access():
+    corrected, attribution = corrected_social_instruction_echo(
+        "I am here as SentientOS and ready to chat; do not claim feelings or infer user activity from a foreground app.",
+        user_message="What can you actually tell me about Cronos right now?",
+    )
+    assert corrected == (
+        "I can confirm the game is in the foreground, but I can’t see its gameplay "
+        "in this turn."
+    )
+    assert attribution is not None
+    assert attribution["reason_code"] == "model_repeated_system_instruction"
 
 
 def test_screen_capability_correction_respects_configured_source_and_current_evidence():
