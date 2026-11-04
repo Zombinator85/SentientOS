@@ -162,6 +162,8 @@ def test_historical_runner_question_cannot_override_current_game_question(tmp_pa
     assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, say you cannot see gameplay" in system_instruction
     assert 'MEMORY_DATA: "' + old_question + '"' in prompt
     assert "Can you see what I am doing in the game?" in prompt
+    assert "You are SentientOS, the local companion" in system_instruction
+    assert "configured model label names the backend, not you" in system_instruction
 
 
 def test_explicit_screen_observation_is_ephemeral_and_idempotent(tmp_path: Path) -> None:

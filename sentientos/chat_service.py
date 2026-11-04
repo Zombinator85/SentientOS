@@ -51,7 +51,8 @@ from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CA
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
     corrected_gaming_output, corrected_output_lineage, corrected_screen_capability_output,
-    corrected_social_instruction_echo, corrected_unobserved_game_status,
+    corrected_social_instruction_echo, corrected_system_identity_output,
+    corrected_unobserved_game_status,
 )
 from .perception.screen_text_delta import validate_ocr_text_line_delta
 
@@ -1189,6 +1190,10 @@ class PersistentConversationService:
                 receipt.output_text, user_message=message,
                 screen_observation_configured=self.screen_observation_configured(),
                 screen_observation_provenance=invocation_screen_provenance)
+            if grounding_correction is None:
+                response_text, grounding_correction = corrected_system_identity_output(
+                    receipt.output_text, user_message=message,
+                    verified_runtime_context=runtime_context)
             if grounding_correction is None:
                 response_text, grounding_correction = corrected_unobserved_game_status(
                     receipt.output_text, user_message=message,

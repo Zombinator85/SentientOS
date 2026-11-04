@@ -7,7 +7,8 @@ from sentientos.chat_response_grounding import (
     corrected_screen_capability_output,
     GROUNDING_CORRECTION, corrected_gaming_output, corrected_output_lineage,
     CURRENT_GAME_STATUS_POLICY_ID, SOCIAL_CHECK_IN_POLICY_ID,
-    SOCIAL_INSTRUCTION_ECHO_POLICY_ID, corrected_social_instruction_echo,
+    SOCIAL_INSTRUCTION_ECHO_POLICY_ID, SYSTEM_IDENTITY_POLICY_ID,
+    corrected_social_instruction_echo, corrected_system_identity_output,
     corrected_unobserved_game_status,
     unobserved_gameplay_claim,
 )
@@ -178,3 +179,62 @@ def test_screen_capability_correction_respects_configured_source_and_current_evi
         screen_observation_configured=False,
         screen_observation_provenance={"capture_digest": "a" * 64}
     ) == (model_output, None)
+
+
+def test_companion_name_is_not_misidentified_as_its_backend_model():
+    output = (
+        "I am currently called Qwen3 1.7B Q4_K_M gaming comparison "
+        "(development only), and the open game is Cronos."
+    )
+    corrected, attribution = corrected_system_identity_output(
+        output,
+        user_message="What can I call you, and what game is open right now?",
+        verified_runtime_context={
+            "system": {"name": "SentientOS"},
+            "active_model": {"configured_candidate_label":
+                "Qwen3 1.7B Q4_K_M gaming comparison (development only)"},
+            "workload": {"game_foreground": True,
+                "configured_game_process_names": ["Cronos-Win64-Shipping.exe"]},
+            "capabilities": {"screen_observation": {"included_this_turn": False}},
+        },
+    )
+
+    assert corrected == (
+        "I'm SentientOS, your local companion. Cronos is the foreground app. "
+        "I don't have a screen observation for this turn, so I can't describe the gameplay."
+    )
+    assert attribution == {
+        "policy_id": SYSTEM_IDENTITY_POLICY_ID,
+        "reason_code": "backend_model_misidentified_as_companion",
+    }
+
+
+def test_companion_identity_correction_names_model_only_when_model_is_asked():
+    output = "I'm Qwen3 1.7B."
+    corrected, attribution = corrected_system_identity_output(
+        output,
+        user_message="Who are you, and which model is active?",
+        verified_runtime_context={"active_model": {
+            "configured_candidate_label": "Qwen3 1.7B Q4_K_M"}},
+    )
+
+    assert corrected == (
+        "I'm SentientOS, your local companion. "
+        "The configured model powering this conversation is Qwen3 1.7B Q4_K_M."
+    )
+    assert attribution is not None
+    assert attribution["reason_code"] == "backend_model_misidentified_as_companion"
+
+
+def test_correct_identity_or_non_identity_answers_are_preserved():
+    context = {"active_model": {"configured_candidate_label": "Qwen3 1.7B"}}
+    assert corrected_system_identity_output(
+        "I'm SentientOS, your local companion.",
+        user_message="Who are you?",
+        verified_runtime_context=context,
+    ) == ("I'm SentientOS, your local companion.", None)
+    assert corrected_system_identity_output(
+        "Qwen3 1.7B is the active backend.",
+        user_message="Which model is active?",
+        verified_runtime_context=context,
+    ) == ("Qwen3 1.7B is the active backend.", None)
