@@ -298,11 +298,13 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
     prompt = invoker.prompts[-1]
     assert "You are the active local conversational model inside SentientOS" in prompt
     assert "use the configured model label when asked" in prompt
-    assert "without generic limitations; do not claim feelings or personal experiences" in prompt
-    assert "do not claim feelings or personal experiences" in prompt
-    assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, answer no to visibility questions" in prompt
-    assert "Answer the current message directly and cover every requested part" in prompt
-    assert "A foreground process confirms only the app is open" in prompt
+    assert "For social greetings, do not echo or offer game advice" in prompt
+    assert "you are here as SentientOS and ready to chat" in prompt
+    assert "do not claim feelings or infer user activity from a foreground app" in prompt
+    assert "except a brief reciprocal greeting" in prompt
+    assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, say you cannot see gameplay" in prompt
+    assert "Answer all parts directly" in prompt
+    assert "Foreground confirms only the app is open" in prompt
     runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
         "\n[SESSION_HISTORY_DATA]", 1)[0]
     runtime = json.loads(runtime_block)
@@ -340,7 +342,7 @@ def test_verified_workload_context_names_only_confirmed_allowlisted_game(tmp_pat
 
     assert response.status_code == 200
     prompt = invoker.prompts[-1]
-    assert "Use configured_game_process_names only to identify the foreground app" in prompt
+    assert "configured_game_process_names only to identify the foreground app" in prompt
     runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
         "\n[SESSION_HISTORY_DATA]", 1)[0]
     workload = json.loads(runtime_block)["workload"]
@@ -348,7 +350,7 @@ def test_verified_workload_context_names_only_confirmed_allowlisted_game(tmp_pat
     assert workload["configured_game_process_names"] == ["cronos-win64-shipping.exe"]
     assert "[VERIFIED_CURRENT_WORKLOAD_FACTS]" in prompt
     assert "Verified foreground game: Cronos (cronos-win64-shipping.exe)" in prompt
-    assert "Use configured_game_process_names only to identify the foreground app" in prompt
+    assert "configured_game_process_names only to identify the foreground app" in prompt
     assert "game screen and actions are not observed this turn" in prompt
 
 
@@ -371,8 +373,8 @@ def test_live_screen_question_skips_cross_session_memories(tmp_path, monkeypatch
     assert response.status_code == 200
     assert memory_queries == [""]
     assert "MEMORY_DATA:" not in invoker.prompts[-1]
-    assert "A foreground process confirms only the app is open" in invoker.prompts[-1]
-    assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, answer no to visibility questions" in invoker.prompts[-1]
+    assert "Foreground confirms only the app is open" in invoker.prompts[-1]
+    assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, say you cannot see gameplay" in invoker.prompts[-1]
 
 
 def test_unconfigured_screen_question_gets_truthful_capability_fallback(tmp_path):

@@ -28,6 +28,11 @@ _UNOBSERVED_CLAIM_PATTERNS = (
     re.compile(r"\b(?:watch(?:ing)?|monitor(?:ing)?)\b.{0,48}\b(?:game|gameplay|screen|session)\b", re.IGNORECASE),
     re.compile(r"\b(?:game|gameplay|screen|session)\b.{0,48}\b(?:watch(?:ing)?|monitor(?:ing)?)\b", re.IGNORECASE),
     re.compile(r"\bI(?:'m| am) enjoying (?:your |the )?(?:game|gameplay|session)\b", re.IGNORECASE),
+    re.compile(
+        r"\bI(?: can| could| will)\s+(?:share|describe|tell you)\s+"
+        r"(?:what you(?:'re| are) experiencing|what(?:'s| is) happening)\b",
+        re.IGNORECASE,
+    ),
     re.compile(r"\byou(?:'re| are) doing great\b", re.IGNORECASE),
     re.compile(
         r"\b(?:your|the)\s+(?:gameplay|play|performance)\s+"
