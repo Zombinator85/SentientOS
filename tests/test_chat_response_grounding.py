@@ -21,6 +21,20 @@ def test_unsupported_gaming_claim_gets_explicitly_attributed_correction():
     assert lineage["transcript_text_digest"]
 
 
+def test_live_observed_unseen_gameplay_praise_gets_grounded_correction():
+    text, correction = corrected_gaming_output(
+        "Your gameplay is engaging; keep up the good work!",
+        workload_mode="gaming", screen_observation_provenance=None)
+    assert text == GROUNDING_CORRECTION
+    assert correction is not None
+    assert correction["reason_code"] == "unobserved_gameplay_claim"
+
+
+def test_unseen_specific_gameplay_event_praise_gets_grounded_correction():
+    assert unobserved_gameplay_claim(
+        "Nice dodge!", workload_mode="gaming", screen_observation_provenance=None)
+
+
 def test_grounding_guard_preserves_supported_or_non_gaming_replies():
     assert not unobserved_gameplay_claim(
         "I heard you are saving batteries; I am here with you.",
