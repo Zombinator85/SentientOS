@@ -7,6 +7,7 @@ from scripts.run_local_companion_dev import (
     _TemporaryCompanionEdge,
     _kill_windows_process_tree,
     _parse_edge_ready,
+    _stage_windows_edge_source,
 )
 from scripts.terminate_owned_process_tree import (
     terminate_owned_process_tree,
@@ -100,3 +101,23 @@ def test_kill_windows_process_tree_targets_only_reported_godot_pid(monkeypatch) 
         "/mnt/c/Windows/System32/taskkill.exe", "/T", "/F", "/PID", "67890"
     ]
     assert calls[0][1]["timeout"] == 8
+
+
+def test_stage_windows_edge_source_uses_only_reviewed_runtime_modules(tmp_path) -> None:
+    repo = tmp_path / "repo"
+    (repo / "sentientos").mkdir(parents=True)
+    (repo / "scripts").mkdir()
+    (repo / "sentientos" / "__init__.py").write_text("", encoding="utf-8")
+    for name in ("avatar_state.py", "godot_avatar_receiver.py", "runtime_mode.py"):
+        (repo / name).write_text(name, encoding="utf-8")
+    for name in ("local_companion_edge_dev_worker.py", "terminate_owned_process_tree.py"):
+        (repo / "scripts" / name).write_text(name, encoding="utf-8")
+    (repo / "unreviewed.env").write_text("must not be staged", encoding="utf-8")
+
+    staged = _stage_windows_edge_source(repo, tmp_path / "temporary-edge")
+
+    assert (staged / "sentientos" / "__init__.py").is_file()
+    assert (staged / "avatar_state.py").read_text(encoding="utf-8") == "avatar_state.py"
+    assert (staged / "scripts" / "local_companion_edge_dev_worker.py").read_text(encoding="utf-8") == "local_companion_edge_dev_worker.py"
+    assert (staged / "terminate_owned_process_tree.py").read_text(encoding="utf-8") == "terminate_owned_process_tree.py"
+    assert not (staged / "unreviewed.env").exists()
