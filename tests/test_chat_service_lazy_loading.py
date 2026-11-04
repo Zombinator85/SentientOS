@@ -620,8 +620,8 @@ def test_verified_current_situation_uses_only_foreground_and_screen_evidence(
     assert response.status_code == 200
     body = response.json()
     assert body["response"] == (
-        "I can confirm Cronos is the foreground app, but screen observation "
-        "isn’t configured in this session, so I can’t tell what’s happening on screen."
+        "I can verify Cronos is the foreground app, and SentientOS is in gaming mode. "
+        "Screen observation isn’t configured in this session, so I can’t describe the gameplay."
     )
     assert body["context"]["response_origin"] == "deterministic_grounding_policy"
     assert body["context"]["selected_memory_count"] == 0
@@ -1417,3 +1417,36 @@ def test_unobserved_gaming_companion_claim_is_corrected_and_attributed(tmp_path)
     payload = response.json()
     assert payload["response"] == "I can’t see the game this turn, but I’m here with you."
     assert payload["context"]["response_origin"] == "grounding_policy_fallback"
+
+
+def test_verified_workload_and_screen_limits_are_grounded_for_background_game(tmp_path):
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload()
+    client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation("available", False, "d" * 64,
+                "2026-11-04T19:40:00+00:00",
+                game_process_running=True, running_process_name_digests=("e" * 64,))
+
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic",
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+        foreground_game_detector=Detector())
+    response = client.post("/chat", json={"message": (
+        "What can you verify about my current workload right now, and what can you "
+        "not observe? Please answer briefly and do not guess about the game screen."
+    )})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["response"] == (
+        "I can verify Cronos is running in the background, and SentientOS is in gaming mode. "
+        "Screen observation isn’t configured in this session, so I can’t describe the gameplay."
+    )
+    assert body["context"]["response_origin"] == "deterministic_grounding_policy"
+    assert body["context"]["inference_timing"]["backend_metrics_status"] == "not_applicable"
+    assert invoker.calls == 0

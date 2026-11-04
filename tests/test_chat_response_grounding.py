@@ -438,3 +438,35 @@ def test_game_running_question_is_not_corrected_without_process_evidence():
         }},
         screen_observation_provenance=None,
     ) == (output, None)
+
+
+def test_current_workload_question_reports_verified_background_game_and_mode():
+    message = (
+        "What can you verify about my current workload right now, and what can you "
+        "not observe? Please answer briefly and do not guess about the game screen."
+    )
+    corrected, attribution = corrected_unobserved_game_status(
+        "The game is running, but I cannot see what is on screen.",
+        user_message=message,
+        verified_runtime_context={
+            "workload": {
+                "observation_status": "available",
+                "configured_game_process_names": ["cronos-win64-shipping.exe"],
+                "game_foreground": False,
+                "game_process_running": True,
+                "effective_mode": "gaming",
+            },
+            "capabilities": {
+                "screen_observation": {"configured": False},
+            },
+        },
+        screen_observation_provenance=None,
+    )
+    assert corrected == (
+        "I can verify Cronos is running in the background, and SentientOS is in gaming mode. "
+        "Screen observation isn’t configured in this session, so I can’t describe the gameplay."
+    )
+    assert attribution == {
+        "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+        "reason_code": "verified_workload_context_screen_unavailable",
+    }

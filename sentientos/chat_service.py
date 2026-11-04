@@ -1521,6 +1521,7 @@ class PersistentConversationService:
                     and policy_correction.get("reason_code") in {
                         "foreground_only_screen_observation_unconfigured",
                         "foreground_only_no_screen_observation",
+                        "verified_workload_context_screen_unavailable",
                     }):
                 return self._complete_deterministic_grounding_response(
                     session_id=session["session_id"], user_turn=user_turn,
@@ -1680,10 +1681,16 @@ class PersistentConversationService:
         if not receipt.output_truncated:
             invocation_screen_provenance = (request_linkage.get("screen_observation_provenance")
                 if isinstance(request_linkage, Mapping) else None)
-            response_text, grounding_correction = corrected_screen_capability_output(
-                receipt.output_text, user_message=message,
-                screen_observation_configured=self.screen_observation_configured(),
-                screen_observation_provenance=invocation_screen_provenance)
+            if is_verified_current_game_context_question(message):
+                response_text, grounding_correction = corrected_unobserved_game_status(
+                    receipt.output_text, user_message=message,
+                    verified_runtime_context=runtime_context,
+                    screen_observation_provenance=invocation_screen_provenance)
+            if grounding_correction is None:
+                response_text, grounding_correction = corrected_screen_capability_output(
+                    receipt.output_text, user_message=message,
+                    screen_observation_configured=self.screen_observation_configured(),
+                    screen_observation_provenance=invocation_screen_provenance)
             if grounding_correction is None:
                 response_text, grounding_correction = corrected_system_identity_output(
                     receipt.output_text, user_message=message,
