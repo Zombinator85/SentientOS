@@ -412,7 +412,8 @@ class PersistentConversationService:
                  memory_budget_chars: int = 1600, admission_gate: ExplicitRetentionAdmissionGate | None = None,
                  avatar_output: ChatAvatarOutput | None = None,
                  speech_output: ChatSpeechOutput | None = None,
-                 screen_observer: Callable[[], Mapping[str, object] | None] | None = None) -> None:
+                 screen_observer: Callable[[], Mapping[str, object] | None] | None = None,
+                 screen_capture_policy: str = "request_driven") -> None:
         self._inference = inference; self.sessions = session_store; self.memories = memory_store
         self._avatar_output = avatar_output
         self._avatar_workload_sync_lock = threading.Lock()
@@ -420,7 +421,10 @@ class PersistentConversationService:
         self._avatar_workload_sync: dict[str, tuple[threading.Event, threading.Thread]] = {}
         self._avatar_workload_modes_observed: dict[str, str] = {}
         self._speech_output = speech_output
+        if screen_capture_policy not in {"request_driven", "allowlisted_session_polling"}:
+            raise ValueError("screen_capture_policy_invalid")
         self._screen_observer = screen_observer
+        self._screen_capture_policy = screen_capture_policy
         self.admission_gate = admission_gate or ExplicitRetentionAdmissionGate()
         self.retention_writer = AdmittedRetentionWriter(
             memory_store, admission_gate=self.admission_gate)
@@ -460,6 +464,14 @@ class PersistentConversationService:
 
     def screen_observation_configured(self) -> bool:
         return self._screen_observer is not None
+
+    def screen_observation_status(self) -> dict[str, Any]:
+        configured = self.screen_observation_configured()
+        return {
+            "configured": configured,
+            "capture_policy": (self._screen_capture_policy if configured else "disabled"),
+            "per_message_opt_in_required": True,
+        }
 
     def _verified_runtime_context(self, *, identity: Mapping[str, Any],
                                   history: Any, memory: Mapping[str, Any],
@@ -1566,7 +1578,8 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                gaming_keep_alive: str = "0",
                                screen_observer: Callable[
                                    [], Mapping[str, object] | None
-                               ] | None = None) -> None:
+                               ] | None = None,
+                               screen_capture_policy: str = "request_driven") -> None:
     """Explicitly install governed local development chat inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     root = data_root or sentientos_data_dir()
@@ -1594,7 +1607,8 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
         inference=inference,
         session_store=ConversationSessionStore(conversation_root),
         memory_store=CanonicalMemoryStore(memory_root),
-        avatar_output=avatar_output, screen_observer=screen_observer)
+        avatar_output=avatar_output, screen_observer=screen_observer,
+        screen_capture_policy=screen_capture_policy)
     _PRODUCTION_COMPOSITION = None
 
 
@@ -1680,12 +1694,9 @@ async def readiness_endpoint() -> dict[str, str]:
 
 
 @APP.get("/screen-observation")
-async def screen_observation_status_endpoint() -> dict[str, bool]:
-    """Expose only whether a per-request screen observer was explicitly configured."""
-    return {
-        "configured": _get_conversation_service().screen_observation_configured(),
-        "per_message_opt_in_required": True,
-    }
+async def screen_observation_status_endpoint() -> dict[str, Any]:
+    """Distinguish capture policy from the per-message choice to include OCR."""
+    return _get_conversation_service().screen_observation_status()
 
 
 @APP.get("/workload-mode")
@@ -2010,9 +2021,13 @@ async def root_page() -> HTMLResponse:
                         if (!response.ok) throw new Error('unavailable');
                         const data = await response.json();
                         control.disabled = data.configured !== true;
-                        status.textContent = data.configured === true
-                            ? 'Configured for this server. OCR stays local and is not saved; each message still requires this checkbox.'
-                            : 'Not configured. The server needs an explicit local process allowlist and consented screen source.';
+                        if (data.configured !== true) {
+                            status.textContent = 'Not configured. The server needs an explicit local process allowlist and consented screen source.';
+                        } else if (data.capture_policy === 'allowlisted_session_polling') {
+                            status.textContent = 'Capture policy: allowlisted session polling; raw frames are discarded. This checkbox controls whether the latest OCR observation is included in a message.';
+                        } else {
+                            status.textContent = 'Capture policy: request-driven and local. This checkbox requests and includes an observation in a message.';
+                        }
                     } catch (_) {
                         control.checked = false;
                         control.disabled = true;

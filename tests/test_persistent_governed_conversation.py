@@ -227,7 +227,10 @@ def test_chat_endpoint_and_local_ui_expose_per_message_screen_opt_in(
     assert response.response == "local answer"
     assert "quest objective" in invoker.requests[0].prompt
     status = asyncio.run(chat_service.screen_observation_status_endpoint())
-    assert status == {"configured": True, "per_message_opt_in_required": True}
+    assert status == {
+        "configured": True, "capture_policy": "request_driven",
+        "per_message_opt_in_required": True,
+    }
     page = asyncio.run(chat_service.root_page())
     assert b"observe-screen" in page.body
     assert b"observe_screen: observeScreen" in page.body

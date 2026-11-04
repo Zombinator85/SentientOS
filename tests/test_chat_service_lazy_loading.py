@@ -886,7 +886,8 @@ def test_development_chat_only_uses_explicit_per_message_screen_observation(tmp_
     chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
         screen_observer=observe_screen)
     assert client.get("/screen-observation").json() == {
-        "configured": True, "per_message_opt_in_required": True}
+        "configured": True, "capture_policy": "request_driven",
+        "per_message_opt_in_required": True}
     without_screen = client.post("/chat", json={"message": "Hello"})
     assert without_screen.status_code == 200
     assert observations == []
@@ -896,6 +897,26 @@ def test_development_chat_only_uses_explicit_per_message_screen_observation(tmp_
     assert observations == ["requested"]
     assert "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]" in invoker.prompts[-1]
     assert "objective: reach the observatory" in invoker.prompts[-1]
+
+
+def test_screen_status_distinguishes_capture_policy_from_message_inclusion(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    assert client.get("/screen-observation").json() == {
+        "configured": False,
+        "capture_policy": "disabled",
+        "per_message_opt_in_required": True,
+    }
+
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        screen_observer=lambda: None,
+        screen_capture_policy="allowlisted_session_polling")
+    assert client.get("/screen-observation").json() == {
+        "configured": True,
+        "capture_policy": "allowlisted_session_polling",
+        "per_message_opt_in_required": True,
+    }
 
 
 def test_unobserved_gaming_companion_claim_is_corrected_and_attributed(tmp_path):
