@@ -655,7 +655,9 @@ def main() -> int:
             foreground_game_detector=(edge.foreground_game_detector if edge else None),
             game_process_names=tuple(args.game_process_name),
             gaming_keep_alive=args.gaming_keep_alive,
-            screen_observer=edge.screen_observer if edge else None)
+            screen_observer=edge.screen_observer if edge else None,
+            screen_capture_policy=("allowlisted_session_polling"
+                if args.screen_observation_process else "request_driven"))
         host_resource_sampler = _HostResourceSampler()
         initial_profile = ("gaming" if args.initial_workload_mode == "automatic"
                            else args.initial_workload_mode)

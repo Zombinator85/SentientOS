@@ -668,7 +668,10 @@ samples only the allowlisted foreground game client area during the bounded
 consent window. It checks frames every 2.5 seconds, skips OCR for identical
 frames, discards raw frames, and holds only the newest bounded OCR result in
 short-lived memory. The model receives OCR text only on messages that opt in
-through the screen-observation checkbox. This development sampling mode also
+through the screen-observation checkbox. The `/screen-observation` status reports
+whether the source is configured, whether capture is request-driven or uses
+allowlisted session polling, and that message-level inclusion still requires an
+explicit checkbox. This development sampling mode also
 does not publish to a remote provider or grant action authority.
 
 Linux fixtures can test request routing and privacy behavior; actual Windows
