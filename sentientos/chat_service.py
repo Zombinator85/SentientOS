@@ -875,13 +875,6 @@ class PersistentConversationService:
                     and isinstance(previous_text_digest, str)
                     and re.fullmatch(r"[0-9a-f]{64}", previous_text_digest) is not None
                     and previous_text_digest != current_text_digest))
-            text_delta = screen_observation.get("text_delta")
-            if text_delta is not None:
-                try:
-                    text_delta = validate_ocr_text_line_delta(
-                        text_delta, current_text=screen_text)
-                except ValueError as exc:
-                    raise RuntimeError("screen_observation_delta_contract_invalid") from exc
             if (screen_observation.get("modality") != "screen"
                     or not change_lineage_valid
                     or screen_observation.get("raw_frame_retained") is not False
@@ -893,6 +886,13 @@ class PersistentConversationService:
                     or not isinstance(capture_digest, str) or len(capture_digest) != 64
                     or any(character not in "0123456789abcdef" for character in capture_digest)):
                 raise RuntimeError("screen_observation_contract_invalid")
+            text_delta = screen_observation.get("text_delta")
+            if text_delta is not None:
+                try:
+                    text_delta = validate_ocr_text_line_delta(
+                        text_delta, current_text=screen_text)
+                except ValueError as exc:
+                    raise RuntimeError("screen_observation_delta_contract_invalid") from exc
         identity_payload = self._inference.current_conversation_model_identity()
         session = self.sessions.create(model_identity=identity_payload) if session_id is None else self.sessions.load(session_id)
         if request_id is None:
