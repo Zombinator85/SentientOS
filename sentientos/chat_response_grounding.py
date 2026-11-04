@@ -11,6 +11,17 @@ GROUNDING_CORRECTION = (
     "SentientOS correction: I can’t see the game in this turn, but I’m here with you."
 )
 
+SCREEN_CAPABILITY_POLICY_ID = "screen_observation_unconfigured_correction_v1"
+SCREEN_CAPABILITY_CORRECTION = (
+    "Screen observation is not configured in this session, so I cannot see your screen. "
+    "Turning on a per-message option alone will not change that."
+)
+_SCREEN_CAPABILITY_QUESTION = re.compile(
+    r"\b(?:can|could|do|would|are)\s+you\b.{0,120}\b"
+    r"(?:see|view|observe|access|watch)\b.{0,120}\b"
+    r"(?:screen|display|game|gameplay)\b", re.IGNORECASE
+)
+
 _UNOBSERVED_CLAIM_PATTERNS = (
     re.compile(r"\bkeep(?:ing)? an eye on\b", re.IGNORECASE),
     re.compile(r"\b(?:watch(?:ing)?|monitor(?:ing)?)\b.{0,48}\b(?:game|gameplay|screen|session)\b", re.IGNORECASE),
@@ -39,6 +50,21 @@ def unobserved_gameplay_claim(output: str, *, workload_mode: str,
     return any(pattern.search(output) for pattern in _UNOBSERVED_CLAIM_PATTERNS)
 
 
+def corrected_screen_capability_output(
+    output: str, *, user_message: str, screen_observation_configured: bool,
+    screen_observation_provenance: Mapping[str, Any] | None,
+) -> tuple[str, dict[str, str] | None]:
+    """Answer direct visibility questions from actual screen-source configuration."""
+    if (screen_observation_configured
+            or isinstance(screen_observation_provenance, Mapping)
+            or not _SCREEN_CAPABILITY_QUESTION.search(user_message)):
+        return output, None
+    return SCREEN_CAPABILITY_CORRECTION, {
+        "policy_id": SCREEN_CAPABILITY_POLICY_ID,
+        "reason_code": "screen_observation_not_configured",
+    }
+
+
 def corrected_gaming_output(output: str, *, workload_mode: str,
                             screen_observation_provenance: Mapping[str, Any] | None
                             ) -> tuple[str, dict[str, str] | None]:
@@ -53,12 +79,13 @@ def corrected_gaming_output(output: str, *, workload_mode: str,
 
 
 def corrected_output_lineage(*, invocation_output_digest: str, text: str,
-                             output_truncated: bool) -> dict[str, Any]:
+                             output_truncated: bool, policy_id: str = GROUNDING_POLICY_ID,
+                             reason_code: str = "unobserved_gameplay_claim") -> dict[str, Any]:
     return {
         "status": "grounding_policy_fallback",
         "invocation_output_digest": invocation_output_digest,
         "transcript_text_digest": digest_payload({"text": text}),
         "output_truncated": output_truncated,
-        "policy_id": GROUNDING_POLICY_ID,
-        "reason_code": "unobserved_gameplay_claim",
+        "policy_id": policy_id,
+        "reason_code": reason_code,
     }

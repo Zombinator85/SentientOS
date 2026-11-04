@@ -1,4 +1,6 @@
 from sentientos.chat_response_grounding import (
+    SCREEN_CAPABILITY_CORRECTION, SCREEN_CAPABILITY_POLICY_ID,
+    corrected_screen_capability_output,
     GROUNDING_CORRECTION, corrected_gaming_output, corrected_output_lineage,
     unobserved_gameplay_claim,
 )
@@ -45,3 +47,28 @@ def test_grounding_guard_preserves_supported_or_non_gaming_replies():
     assert not unobserved_gameplay_claim(
         "I am enjoying your game.", workload_mode="gaming",
         screen_observation_provenance={"capture_digest": "b" * 64})
+
+
+def test_screen_capability_question_does_not_claim_a_missing_source_can_be_enabled():
+    text, correction = corrected_screen_capability_output(
+        "You can enable additional permissions and I will see the game.",
+        user_message="Can you see my game screen in this session?",
+        screen_observation_configured=False, screen_observation_provenance=None)
+    assert text == SCREEN_CAPABILITY_CORRECTION
+    assert correction == {
+        "policy_id": SCREEN_CAPABILITY_POLICY_ID,
+        "reason_code": "screen_observation_not_configured",
+    }
+
+
+def test_screen_capability_correction_respects_configured_source_and_current_evidence():
+    model_output = "I do not have a screen observation for this turn."
+    assert corrected_screen_capability_output(
+        model_output, user_message="Can you see my game screen?",
+        screen_observation_configured=True, screen_observation_provenance=None
+    ) == (model_output, None)
+    assert corrected_screen_capability_output(
+        model_output, user_message="Can you see my game screen?",
+        screen_observation_configured=False,
+        screen_observation_provenance={"capture_digest": "a" * 64}
+    ) == (model_output, None)
