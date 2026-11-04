@@ -75,6 +75,8 @@ def _is_current_runtime_context_question(message: str) -> bool:
     markers = (
         "can you see my screen", "can you see what i am doing",
         "what can you see", "what am i doing", "what am i looking at",
+        "what can you verify about the game that is currently open",
+        "what details can you not observe",
         "what you can observe about the current",
         "what do you observe about the current",
         "what do you know about my current", "what game am i playing",
