@@ -27,6 +27,7 @@ def _readline(stream, target):
         target.put(line.rstrip())
 
 def main():
+    print("EDGE_STARTUP phase=worker_started",flush=True)
     cfg=json.loads(sys.stdin.readline())
     ca,cert,key=(Path(cfg[name]) for name in ("ca","cert","key"))
     server=__import__("ssl").SSLContext(__import__("ssl").PROTOCOL_TLS_SERVER)
@@ -64,6 +65,7 @@ def main():
     godot=None;forwarder=None;foreground_pump=None
     screen_stop=None;screen_thread=None
     try:
+        print("EDGE_STARTUP phase=bridge_runtime",flush=True)
         port=runtime.start();dispatcher.start()
         observer=cfg.get("foreground_observation")
         if isinstance(observer,dict):
@@ -176,8 +178,10 @@ def main():
         for name in ("XDG_CACHE_HOME","XDG_CONFIG_HOME","XDG_DATA_HOME"):
             Path(env[name]).mkdir(parents=True,exist_ok=True)
         executable=cfg["godot_executable"];project=cfg["godot_project"]
+        print("EDGE_STARTUP phase=godot_process_create",flush=True)
         godot=subprocess.Popen([executable,"--path",project],env=env,
             stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        print("EDGE_STARTUP phase=godot_process_started pid="+str(godot.pid),flush=True)
         forwarder=AvatarStateForwarder(state_path,host="127.0.0.1",port=18188,poll_interval=0.05)
         forwarder.start()
         time.sleep(1.0)

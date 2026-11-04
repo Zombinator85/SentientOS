@@ -92,6 +92,33 @@ def test_wait_for_edge_ready_skips_screen_startup_diagnostics() -> None:
     assert _wait_for_edge_ready(lines, Process()) == "READY 12345 67890"
 
 
+def test_forward_lines_surfaces_edge_startup_progress_before_ready(tmp_path, capsys) -> None:
+    lines: queue.Queue[str] = queue.Queue()
+
+    _TemporaryCompanionEdge._forward_lines(
+        io.StringIO("EDGE_STARTUP phase=worker_started\nREADY 12345 67890\n"),
+        lines,
+        tmp_path / "renderer-reports.jsonl",
+    )
+
+    assert lines.get_nowait() == "EDGE_STARTUP phase=worker_started"
+    assert lines.get_nowait() == "READY 12345 67890"
+    assert capsys.readouterr().out == (
+        "WINDOWS_EDGE EDGE_STARTUP phase=worker_started\n"
+    )
+
+
+def test_wait_for_edge_ready_timeout_reports_live_worker() -> None:
+    import pytest
+
+    class Process:
+        def poll(self):
+            return None
+
+    with pytest.raises(RuntimeError, match="ready_timeout.*edge_process_still_running"):
+        _wait_for_edge_ready(queue.Queue(), Process(), timeout_seconds=0.01)
+
+
 def test_wait_for_edge_ready_reports_worker_exit_before_ready() -> None:
     import pytest
 

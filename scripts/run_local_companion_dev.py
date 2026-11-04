@@ -51,7 +51,7 @@ def _parse_edge_ready(line: str) -> tuple[int, int]:
 
 def _wait_for_edge_ready(
         lines: queue.Queue[str], process: Any,
-        *, timeout_seconds: float = 20.0) -> str:
+        *, timeout_seconds: float = 45.0) -> str:
     """Wait for READY while allowing bounded startup diagnostics before it."""
     deadline = time.monotonic() + timeout_seconds
     diagnostics: list[str] = []
@@ -70,6 +70,11 @@ def _wait_for_edge_ready(
         if line.startswith("READY "):
             return line
         diagnostics.append(line)
+    process_status = process.poll()
+    if process_status is None:
+        diagnostics.append("edge_process_still_running")
+    else:
+        diagnostics.append(f"edge_process_exit_code={process_status}")
     detail = " | ".join(diagnostics[-8:])[:768]
     return_error = state + (":" + detail if detail else "")
     raise RuntimeError(return_error)
@@ -460,7 +465,8 @@ class _TemporaryCompanionEdge:
                 daemon=True).start()
             if self._edge_process is None:
                 raise RuntimeError("temporary_windows_edge_process_unavailable")
-            ready = _wait_for_edge_ready(self._lines, self._edge_process)
+            ready = _wait_for_edge_ready(
+                self._lines, self._edge_process, timeout_seconds=45.0)
             port, self._godot_pid = _parse_edge_ready(ready)
             _server_context, client_context = _contexts(ca, wsl["cert"], wsl["key"])
             client = CompanionBridgeMutualTLSClient(
@@ -507,7 +513,8 @@ class _TemporaryCompanionEdge:
             if rendered.startswith("FOREGROUND_PUMP "):
                 print("WINDOWS_EDGE "+rendered,flush=True)
                 continue
-            if rendered.startswith(("SCREEN_PUMP_STARTED ", "SCREEN_PUMP_FAILURE ")):
+            if rendered.startswith(("SCREEN_PUMP_STARTED ", "SCREEN_PUMP_FAILURE ",
+                                    "EDGE_STARTUP ")):
                 print("WINDOWS_EDGE "+rendered,flush=True)
             elif ready_seen and rendered and not rendered.startswith("READY "):
                 # Keep post-startup edge diagnostics visible. The queue is only
