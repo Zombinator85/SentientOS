@@ -202,7 +202,19 @@ class _TemporaryCompanionEdge:
                 daemon=True).start()
             ready = self._lines.get(timeout=20)
             if not ready.startswith("READY "):
-                raise RuntimeError("temporary_windows_edge_failed:" + ready[:128])
+                if self._edge_process is not None:
+                    try:
+                        self._edge_process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        pass
+                diagnostics = [ready]
+                while True:
+                    try:
+                        diagnostics.append(self._lines.get_nowait())
+                    except queue.Empty:
+                        break
+                detail = " | ".join(diagnostics[-8:])[:768]
+                raise RuntimeError("temporary_windows_edge_failed:" + detail)
             port, self._godot_pid = _parse_edge_ready(ready)
             _server_context, client_context = _contexts(ca, wsl["cert"], wsl["key"])
             client = CompanionBridgeMutualTLSClient(
