@@ -84,6 +84,8 @@ def _is_recent_session_recall_request(message: str) -> bool:
         "in this conversation", "in this chat", "earlier in this chat",
         "earlier in this conversation", "just before", "before you asked",
         "what did i just say", "what did i ask you", "what did i ask",
+        "what did you just say", "what did you just tell me",
+        "what did you just answer", "what did you just reply",
         "what exact phrase did i ask you to repeat",
         "what did i tell you", "what did you answer", "what did you say",
         "what was your answer", "what was your response", "what did you reply",
@@ -1126,6 +1128,8 @@ class PersistentConversationService:
             asks_for_assistant_reply = any(marker in " ".join(
                 re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
                 for marker in ("what did you answer", "what did you say",
+                    "what did you just answer", "what did you just say",
+                    "what did you just reply", "what did you just tell me",
                     "what did you tell me", "what was your answer",
                     "what was your response", "what did you reply"))
             history_roles = ("user", "assistant") if asks_for_assistant_reply else ("user",)
