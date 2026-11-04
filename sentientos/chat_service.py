@@ -2,19 +2,21 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import ipaddress
 import logging
 import hashlib
 import json
 import os
 import re
+import queue
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Protocol
 
-from .fastapi_stub import FastAPI, HTMLResponse, HTTPException, Request
+from .fastapi_stub import FastAPI, HTMLResponse, HTTPException, Request, StreamingResponse
 
 if TYPE_CHECKING:
     class BaseModel:
@@ -314,7 +316,8 @@ class DevelopmentLocalChatInference:
         self._effective_workload_mode = selected
     def generate(self, *, prompt: str, caller: str, correlation_id: str,
                  budget: LocalModelInvocationBudget,
-                 caller_linkage: Mapping[str, Any]) -> LocalModelInvocationReceipt:
+                 caller_linkage: Mapping[str, Any],
+                 on_content_chunk: Callable[[str], None] | None = None) -> LocalModelInvocationReceipt:
         workload_state = self.current_workload_state()
         with self._workload_lock:
             if workload_state["mode"] != self._workload_mode:
@@ -334,7 +337,18 @@ class DevelopmentLocalChatInference:
             request = self._delegate.build_request(purpose="local_user_chat",
                 prompt=effective_prompt, caller=caller, correlation_id=correlation_id,
                 budget=effective_budget, linkage=linkage)
-            return self._delegate.invoke(request)
+            if on_content_chunk is None:
+                return self._delegate.invoke(request)
+            if getattr(identity, "engine", None) != "ollama":
+                raise RuntimeError("local_streaming_backend_unsupported")
+            return self._delegate.invoke(request, on_content_chunk=on_content_chunk)
+
+    def generate_streaming(self, **kwargs: Any) -> LocalModelInvocationReceipt:
+        return self.generate(**kwargs)
+
+    def cancel_pending_generation(self) -> bool:
+        cancel = getattr(self._delegate, "cancel_pending_generation", None)
+        return bool(cancel()) if callable(cancel) else False
 
 
 # Backwards-compatible name for callers that used this adapter with test-only
@@ -591,6 +605,13 @@ class PersistentConversationService:
                 },
             },
         }
+
+    def streaming_available(self) -> bool:
+        return callable(getattr(self._inference, "generate_streaming", None))
+
+    def cancel_active_generation(self) -> bool:
+        cancel = getattr(self._inference, "cancel_pending_generation", None)
+        return bool(cancel()) if callable(cancel) else False
 
     def avatar_output_state(self, session_id: str | None) -> dict[str, Any]:
         if self._avatar_output is None:
@@ -862,20 +883,24 @@ class PersistentConversationService:
         )
 
     def chat(self, message: str, *, session_id: str | None = None, retain: bool = False,
-             request_id: str | None = None, observe_screen: bool = False) -> ChatResponse:
+             request_id: str | None = None, observe_screen: bool = False,
+             on_content_chunk: Callable[[str], None] | None = None) -> ChatResponse:
         if session_id is None:
             return self._chat_unlocked(message, session_id=None, retain=retain,
-                request_id=request_id, observe_screen=observe_screen)
+                request_id=request_id, observe_screen=observe_screen,
+                on_content_chunk=on_content_chunk)
         try:
             with self.sessions.serialize_chat_requests(session_id):
                 return self._chat_unlocked(message, session_id=session_id,
-                    retain=retain, request_id=request_id, observe_screen=observe_screen)
+                    retain=retain, request_id=request_id, observe_screen=observe_screen,
+                    on_content_chunk=on_content_chunk)
         except ConversationChatLockTimeout as exc:
             raise ChatRequestStateError("chat_session_request_lock_timeout") from exc
 
     def _chat_unlocked(self, message: str, *, session_id: str | None = None,
                        retain: bool = False, request_id: str | None = None,
-                       observe_screen: bool = False) -> ChatResponse:
+                       observe_screen: bool = False,
+                       on_content_chunk: Callable[[str], None] | None = None) -> ChatResponse:
         if type(observe_screen) is not bool:
             raise ChatRequestStateError("screen_observation_request_invalid")
         request_options_digest = (hashlib.sha256(json.dumps(
@@ -1202,9 +1227,28 @@ class PersistentConversationService:
             if isinstance(user_turn.get("linkage"), Mapping) else None)
         if isinstance(client_request_digest, str):
             linkage["client_request_id_digest"] = client_request_digest
-        receipt = self._inference.generate(prompt=prompt, caller="chat_service",
-            correlation_id=f"chat:{session['session_id']}:{user_turn['turn_id']}",
-            budget=LocalModelInvocationBudget(max_input_chars=8000), caller_linkage=linkage)
+        invocation_correlation_id = f"chat:{session['session_id']}:{user_turn['turn_id']}"
+        invocation_budget = LocalModelInvocationBudget(max_input_chars=8000)
+        if on_content_chunk is None:
+            receipt = self._inference.generate(
+                prompt=prompt,
+                caller="chat_service",
+                correlation_id=invocation_correlation_id,
+                budget=invocation_budget,
+                caller_linkage=linkage,
+            )
+        else:
+            stream_generator = getattr(self._inference, "generate_streaming", None)
+            if not callable(stream_generator):
+                raise RuntimeError("chat_streaming_not_supported")
+            receipt = stream_generator(
+                prompt=prompt,
+                caller="chat_service",
+                correlation_id=invocation_correlation_id,
+                budget=invocation_budget,
+                caller_linkage=linkage,
+                on_content_chunk=on_content_chunk,
+            )
         accepted_statuses = {"admitted_completed"}
         if isinstance(self._inference, DevelopmentLocalChatInference):
             accepted_statuses.add("admitted_simulation")
@@ -1711,6 +1755,96 @@ async def _startup_event() -> None:
 @APP.on_event("shutdown")
 async def _shutdown_event() -> None:
     close_production_chat()
+
+
+def _chat_stream_event(event: Mapping[str, object]) -> str:
+    event_type = str(event.get("type", "message"))
+    data = json.dumps(dict(event), ensure_ascii=True, separators=(",", ":"))
+    return f"event: {event_type}\ndata: {data}\n\n"
+
+
+@APP.post("/chat/stream")
+async def chat_stream_endpoint(request: ChatRequest, http_request: Request) -> StreamingResponse:
+    message = request.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message must not be empty")
+    service = _get_conversation_service()
+    if not service.streaming_available():
+        raise HTTPException(status_code=503, detail="Streaming is unavailable for this model backend")
+    if _CHANGE_NARRATOR is not None:
+        summary = _CHANGE_NARRATOR.maybe_respond(message)
+        if summary is not None:
+            raise HTTPException(status_code=409, detail=summary)
+
+    events: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=128)
+    disconnected = threading.Event()
+    worker_finished = threading.Event()
+
+    def publish(event: dict[str, Any]) -> bool:
+        while not disconnected.is_set():
+            try:
+                events.put(event, timeout=0.1)
+                return True
+            except queue.Full:
+                continue
+        return False
+
+    def on_content_chunk(text: str) -> None:
+        if not publish({"type": "delta", "text": text}):
+            raise RuntimeError("chat_stream_client_disconnected")
+
+    def run_chat() -> None:
+        try:
+            response = service.chat(message, session_id=request.session_id,
+                retain=request.retain, request_id=request.request_id,
+                observe_screen=request.observe_screen,
+                on_content_chunk=on_content_chunk)
+            payload = {
+                "response": response.response,
+                "session_id": response.session_id,
+                "turn_id": response.turn_id,
+                "context": response.context,
+                "retention": response.retention,
+            }
+            publish({"type": "complete", "response": payload})
+        except ChatRequestStateError:
+            publish({"type": "error", "code": "chat_request_conflict"})
+        except FileNotFoundError:
+            publish({"type": "error", "code": "chat_session_not_found"})
+        except Exception as exc:
+            if not disconnected.is_set():
+                LOGGER.warning("Streaming chat failed: %s", type(exc).__name__)
+                publish({"type": "error", "code": "chat_generation_failed"})
+        finally:
+            worker_finished.set()
+
+    async def stream_events():
+        worker = threading.Thread(target=run_chat, name="chat-stream-inference", daemon=True)
+        worker.start()
+        terminal_event = False
+        try:
+            while True:
+                try:
+                    event = await asyncio.to_thread(events.get, True, 0.15)
+                except queue.Empty:
+                    if await http_request.is_disconnected():
+                        disconnected.set()
+                        service.cancel_active_generation()
+                        return
+                    if worker_finished.is_set():
+                        return
+                    continue
+                yield _chat_stream_event(event)
+                if event.get("type") in {"complete", "error"}:
+                    terminal_event = True
+                    return
+        finally:
+            if not terminal_event:
+                disconnected.set()
+                service.cancel_active_generation()
+
+    return StreamingResponse(stream_events(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @APP.post("/chat", response_model=ChatResponse)

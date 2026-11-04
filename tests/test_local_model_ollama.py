@@ -130,8 +130,11 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
     ticks = iter((1_000_000, 1_075_000, 2_000_000, 2_075_000,
         3_000_000, 3_075_000))
     monkeypatch.setattr("sentientos.local_model.time.monotonic_ns", lambda: next(ticks))
-    text, completion = backend.generate_with_metadata("Say hello", (), {"max_new_tokens": 96})
+    streamed_parts = []
+    text, completion = backend.generate_with_metadata("Say hello", (),
+        {"max_new_tokens": 96, "on_content_chunk": streamed_parts.append})
     assert text == "A real local answer."
+    assert streamed_parts == ["A real ", "local answer."]
     assert completion["total_duration_ns"] == 123
     assert completion["load_duration_ns"] == 23
     assert completion["completion_tokens"] == 7

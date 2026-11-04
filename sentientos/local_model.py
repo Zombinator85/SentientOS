@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, cast
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig, load_model_config
 from .optional_deps import dependency_available, optional_import
@@ -249,6 +249,9 @@ class _OllamaBackend(_ModelBackend):
 
     def generate_with_metadata(self, prompt: str, history: Sequence[str],
                                generation: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
+        on_content_chunk = generation.pop("on_content_chunk", None)
+        if on_content_chunk is not None and not callable(on_content_chunk):
+            raise ModelLoadError("ollama_content_callback_invalid")
         keep_alive = generation.get("keep_alive", self._keep_alive)
         if keep_alive not in {"0", "5s", "5m", "15m"}:
             raise ModelLoadError("ollama_keep_alive_invalid")
@@ -313,6 +316,8 @@ class _OllamaBackend(_ModelBackend):
                         content_size += len(content)
                         if content_size > 1024 * 1024:
                             raise ModelLoadError("ollama_response_oversized")
+                        if on_content_chunk is not None:
+                            on_content_chunk(content)
                 if chunk.get("done") is True:
                     payload = chunk
                     break

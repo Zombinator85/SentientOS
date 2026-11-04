@@ -16,6 +16,57 @@ var _pending_action := ""
 var _next_after_profile := ""
 var _messages := PackedStringArray()
 var _chat_request_started_usec := 0
+var _stream_client: HTTPClient
+var _stream_request_sent := false
+var _stream_seen_body := false
+var _stream_response_code := 0
+var _stream_buffer := ""
+var _stream_error_body := PackedByteArray()
+var _stream_reply_text := ""
+var _stream_reply_message_index := -1
+var _stream_request_body := ""
+
+
+func _process(_delta: float) -> void:
+	if _stream_client == null:
+		return
+	var poll_error := _stream_client.poll()
+	if poll_error != OK:
+		_finish_stream_failure("The streaming connection failed (%s)." % error_string(poll_error))
+		return
+	var status := _stream_client.get_status()
+	if status == HTTPClient.STATUS_CONNECTED and not _stream_request_sent:
+		var headers := PackedStringArray([
+			"Content-Type: application/json",
+			"Accept: text/event-stream",
+		])
+		var error := _stream_client.request(HTTPClient.METHOD_POST, "/chat/stream",
+			headers, _stream_request_body)
+		if error != OK:
+			_finish_stream_failure("The streaming chat request could not start (%s)." % error_string(error))
+			return
+		_stream_request_sent = true
+	elif status == HTTPClient.STATUS_BODY:
+		_stream_seen_body = true
+		_stream_response_code = _stream_client.get_response_code()
+		while _stream_client.get_status() == HTTPClient.STATUS_BODY:
+			var chunk := _stream_client.read_response_body_chunk()
+			if chunk.is_empty():
+				break
+			if _stream_response_code >= 400:
+				_stream_error_body.append_array(chunk)
+			else:
+				_consume_stream_bytes(chunk)
+				if _stream_client == null:
+					return
+	elif status in [HTTPClient.STATUS_CANT_RESOLVE, HTTPClient.STATUS_CANT_CONNECT,
+		HTTPClient.STATUS_CONNECTION_ERROR, HTTPClient.STATUS_TLS_HANDSHAKE_ERROR]:
+		_finish_stream_failure("The streaming connection could not be established.")
+		return
+	if _stream_client != null and _stream_seen_body and status in [
+		HTTPClient.STATUS_CONNECTED, HTTPClient.STATUS_DISCONNECTED,
+	]:
+		_finish_stream_transport()
 
 
 func _ready() -> void:
@@ -127,10 +178,18 @@ func _send_message(submitted_text: String = "") -> void:
 		"request_id": "godot-ui-%d-%d" % [Time.get_ticks_usec(), randi()],
 		"observe_screen": false,
 	})
-	var headers := PackedStringArray(["Content-Type: application/json"])
-	var error := _request.request(API_BASE + "/chat", headers, HTTPClient.METHOD_POST, request_body)
+	_stream_request_body = request_body
+	_stream_client = HTTPClient.new()
+	_stream_request_sent = false
+	_stream_seen_body = false
+	_stream_response_code = 0
+	_stream_buffer = ""
+	_stream_error_body = PackedByteArray()
+	_stream_reply_text = ""
+	_stream_reply_message_index = -1
+	var error := _stream_client.connect_to_host("127.0.0.1", 5000)
 	if error != OK:
-		_fail_request("The chat request could not start (%s)." % error_string(error))
+		_finish_stream_failure("The streaming connection could not start (%s)." % error_string(error))
 
 
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
@@ -230,25 +289,118 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 			_message_input.grab_focus()
 			_append_message("SentientOS", "Connected. Your replies will also appear beside the companion.")
 		"chat":
-			_pending_action = ""
-			_message_input.editable = true
-			_send_button.disabled = false
-			var answer := str(parsed.get("response", ""))
-			_append_message("SentientOS", answer if not answer.is_empty() else "I couldn't produce a reply.")
+			_finish_non_streamed_chat(parsed)
+		_:
+			_fail_request("The local chat service returned an unexpected response.")
+
+
+func _consume_stream_bytes(chunk: PackedByteArray) -> void:
+	_stream_buffer += chunk.get_string_from_utf8()
+	while true:
+		var separator := _stream_buffer.find("\n\n")
+		if separator < 0:
+			return
+		var event_text := _stream_buffer.substr(0, separator)
+		_stream_buffer = _stream_buffer.substr(separator + 2)
+		for line in event_text.split("\n"):
+			if not line.begins_with("data:"):
+				continue
+			var parsed: Variant = JSON.parse_string(line.substr(5).strip_edges())
+			if parsed is Dictionary:
+				_handle_stream_event(parsed)
+
+
+func _handle_stream_event(event: Dictionary) -> void:
+	match str(event.get("type", "")):
+		"delta":
+			var text := str(event.get("text", ""))
+			if text.is_empty():
+				return
+			if _stream_reply_message_index < 0:
+				_stream_reply_message_index = _messages.size()
+				_messages.append("SentientOS: ")
+			_stream_reply_text += text
+			_messages[_stream_reply_message_index] = "SentientOS: " + _stream_reply_text
+			_render_history()
+		"complete":
+			var response_value: Variant = event.get("response", {})
+			var response: Dictionary = response_value if response_value is Dictionary else {}
+			var answer := str(response.get("response", _stream_reply_text))
+			if _stream_reply_message_index < 0:
+				_stream_reply_message_index = _messages.size()
+				_messages.append("")
+			_stream_reply_text = answer
+			_messages[_stream_reply_message_index] = "SentientOS: " + answer
+			_render_history()
+			var context_value: Variant = response.get("context", {})
+			var context: Dictionary = context_value if context_value is Dictionary else {}
+			var timing_value: Variant = context.get("inference_timing", {})
 			var round_trip_ms := 0
 			if _chat_request_started_usec > 0:
 				round_trip_ms = int((Time.get_ticks_usec() - _chat_request_started_usec) / 1000)
-			_chat_request_started_usec = 0
-			var context_value: Variant = parsed.get("context", {})
-			var context: Dictionary = context_value if context_value is Dictionary else {}
-			var timing_value: Variant = context.get("inference_timing", {})
 			if timing_value is Dictionary:
 				var timing_summary := _format_inference_timing(timing_value, round_trip_ms)
 				if not timing_summary.is_empty():
 					_append_message("Timing", timing_summary)
-			_message_input.grab_focus()
+			_finish_stream_success()
+		"error":
+			_finish_stream_failure("The streamed reply was not completed (%s)." % str(event.get("code", "unknown")))
 		_:
-			_fail_request("The local chat service returned an unexpected response.")
+			return
+
+
+func _finish_stream_success() -> void:
+	_pending_action = ""
+	_message_input.editable = true
+	_send_button.disabled = false
+	_chat_request_started_usec = 0
+	_close_stream_client()
+	_message_input.grab_focus()
+
+
+func _finish_stream_failure(message: String) -> void:
+	if _stream_reply_message_index >= 0 and _stream_reply_message_index < _messages.size():
+		_messages[_stream_reply_message_index] = "SentientOS (not committed): " + _stream_reply_text
+		_render_history()
+	_close_stream_client()
+	_fail_request(message)
+
+
+func _finish_stream_transport() -> void:
+	if _stream_response_code >= 400:
+		var parsed: Variant = JSON.parse_string(_stream_error_body.get_string_from_utf8())
+		var detail := "HTTP %d" % _stream_response_code
+		if parsed is Dictionary and parsed.get("detail") is String:
+			detail = str(parsed["detail"])
+		_finish_stream_failure("SentientOS: " + detail)
+		return
+	_finish_stream_failure("The stream closed before SentientOS committed a complete reply.")
+
+
+func _close_stream_client() -> void:
+	if _stream_client != null:
+		_stream_client.close()
+		_stream_client = null
+	_stream_request_sent = false
+	_stream_seen_body = false
+	_stream_buffer = ""
+	_stream_error_body = PackedByteArray()
+
+
+func _finish_non_streamed_chat(parsed: Dictionary) -> void:
+	var answer := str(parsed.get("response", ""))
+	_append_message("SentientOS", answer if not answer.is_empty() else "I couldn't produce a reply.")
+	var context_value: Variant = parsed.get("context", {})
+	var context: Dictionary = context_value if context_value is Dictionary else {}
+	var timing_value: Variant = context.get("inference_timing", {})
+	var round_trip_ms := 0
+	if _chat_request_started_usec > 0:
+		round_trip_ms = int((Time.get_ticks_usec() - _chat_request_started_usec) / 1000)
+	if timing_value is Dictionary:
+		var timing_summary := _format_inference_timing(timing_value, round_trip_ms)
+		if not timing_summary.is_empty():
+			_append_message("Timing", timing_summary)
+	_chat_request_started_usec = 0
 
 
 func _format_inference_timing(timing: Dictionary, round_trip_ms: int) -> String:
@@ -291,5 +443,9 @@ func _append_message(speaker: String, text: String) -> void:
 	_messages.append("%s: %s" % [speaker, text])
 	while _messages.size() > MAX_VISIBLE_MESSAGES:
 		_messages.remove_at(0)
+	_render_history()
+
+
+func _render_history() -> void:
 	if _history != null:
 		_history.text = char(10).join(_messages)

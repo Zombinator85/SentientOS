@@ -610,7 +610,8 @@ class GovernedLocalModelInvoker:
     def invoke(self, request: LocalModelInvocationRequest, *, persist: bool = True, include_output_in_receipt: bool = False,
                pre_effect_guard: Callable[[], None] | None = None,
                post_effect_guard: Callable[[], None] | None = None,
-               resource_context: GovernedLocalModelResourceInvocationContext | None = None) -> LocalModelInvocationReceipt:
+               resource_context: GovernedLocalModelResourceInvocationContext | None = None,
+               on_content_chunk: Callable[[str], None] | None = None) -> LocalModelInvocationReceipt:
         started = time.monotonic(); status = "blocked_invalid"; reasons: list[str] = [] ; output: str | None = None; admitted_ref = None; fallback = False; truncated = False; backend_completion: Mapping[str, Any] | None = None
         decision_payload: dict[str, Any] = {}; attempt_id: str | None = None; backend_entered = False
         receipt_persistence_confirmed = False
@@ -631,6 +632,10 @@ class GovernedLocalModelInvoker:
         if request.expected_output_format not in {"text", "json"}: reasons.append("expected_output_format_invalid")
         thread_limit = request.linkage.get("max_backend_threads")
         keep_alive_override = request.linkage.get("ollama_keep_alive")
+        if on_content_chunk is not None and not callable(on_content_chunk):
+            reasons.append("stream_content_callback_invalid")
+        elif on_content_chunk is not None and record is not None and record.engine != "ollama":
+            reasons.append("streaming_backend_unsupported")
         if "ollama_keep_alive" in request.linkage and (
                 request.purpose != "local_user_chat"
                 or type(keep_alive_override) is not str
@@ -727,11 +732,13 @@ class GovernedLocalModelInvoker:
                 if resource_context is None or attempt_id is not None:
                     try:
                         self.invocation_counts[request.correlation_id] = self.invocation_counts.get(request.correlation_id, 0) + 1
-                        generation = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke", INTERVENTION_PURPOSE, MODEL_REPLACEMENT_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None, "use_model_chat_template": request.purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE}
+                        generation: dict[str, Any] = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke", INTERVENTION_PURPOSE, MODEL_REPLACEMENT_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None, "use_model_chat_template": request.purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE}
                         if thread_limit is not None:
                             generation["max_backend_threads"] = thread_limit
                         if "ollama_keep_alive" in request.linkage:
                             generation["keep_alive"] = keep_alive_override
+                        if on_content_chunk is not None:
+                            generation["on_content_chunk"] = on_content_chunk
                         gen_kwargs: dict[str, Any] = {k: v for k, v in generation.items() if v is not None}
                         if pre_effect_guard is not None:
                             try: pre_effect_guard()
@@ -855,7 +862,9 @@ class GovernedLocalModelInvoker:
         if status == "blocked_invalid" and not reasons: reasons.append("blocked_invalid")
         effect_occurred = inference_attempted.is_set()
         receipt_output = generated_output if generated_output is not None else output
-        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": gen_kwargs if "gen_kwargs" in locals() else {}}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=INVOCATION_RECEIPT_SCHEMA_V3 if backend_completion is not None else INVOCATION_RECEIPT_SCHEMA, backend_completion=backend_completion)
+        actual_generation_parameters = ({key: value for key, value in gen_kwargs.items()
+            if key != "on_content_chunk"} if "gen_kwargs" in locals() else {})
+        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": actual_generation_parameters}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=INVOCATION_RECEIPT_SCHEMA_V3 if backend_completion is not None else INVOCATION_RECEIPT_SCHEMA, backend_completion=backend_completion)
         if persist:
             try:
                 self._persist(request, receipt, decision_payload,
