@@ -244,11 +244,12 @@ class LocalTesseractOCR:
 
 
 def build_windows_game_screen_ocr(*, config: ScreenConfig,
-                                  consent_provider: ConsentProvider) -> ScreenOCR:
+                                  consent_provider: ConsentProvider,
+                                  tesseract_executable: str = "tesseract") -> ScreenOCR:
     """Build the disabled-by-default screen OCR owner with local Windows adapters."""
 
     return ScreenOCR(config, capture_fn=WindowsGameScreenCapture(consent_provider=consent_provider),
-                     ocr_fn=LocalTesseractOCR())
+                     ocr_fn=LocalTesseractOCR(executable=tesseract_executable))
 
 
 __all__ = [

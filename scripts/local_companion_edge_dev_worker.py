@@ -99,6 +99,10 @@ def main():
                     or not isinstance(screen_cfg.get("consent_id"),str)
                     or not isinstance(screen_cfg.get("consent_expires_at"),str)):
                 raise RuntimeError("screen_observation_configuration_invalid")
+            tesseract_executable=screen_cfg.get("tesseract_executable","tesseract")
+            if (not isinstance(tesseract_executable,str) or not tesseract_executable
+                    or len(tesseract_executable)>1024 or "\0" in tesseract_executable):
+                raise RuntimeError("screen_observation_ocr_executable_invalid")
             consent=GameScreenCaptureConsent(
                 consent_id=screen_cfg["consent_id"],
                 allowed_process_names=tuple(screen_cfg["process_names"]),
@@ -106,7 +110,8 @@ def main():
             screen_owner=build_windows_game_screen_ocr(
                 config=ScreenConfig(enable=True,interval_s=2.0,ocr_backend="tesseract",
                     refresh_unchanged_observation=True),
-                consent_provider=lambda: consent)
+                consent_provider=lambda: consent,
+                tesseract_executable=tesseract_executable)
             screen_ack_key=base64.b64decode(screen_cfg["ack_key"])
             screen_source_key=base64.b64decode(screen_cfg["source_key"])
             screen_ack_receiver=CompanionBridgeReceiver(

@@ -133,6 +133,20 @@ def test_stage_windows_edge_source_uses_only_reviewed_python_source(tmp_path) ->
         assert "unreviewed.env" not in names
         assert "sentientos/private.json" not in names
 
+def test_explicit_tesseract_executable_requires_screen_observation_opt_in(monkeypatch, tmp_path):
+    import sys
+    import pytest
+
+    monkeypatch.setattr(sys, "argv", [
+        "run_local_companion_dev", "--state-dir", str(tmp_path),
+        "--screen-observation-tesseract-executable",
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+    ])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+
+
 def test_screen_observation_opt_in_requires_supervised_windows_edge(monkeypatch):
     import sys
     import pytest
