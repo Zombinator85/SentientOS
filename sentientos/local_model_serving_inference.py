@@ -486,6 +486,9 @@ class ProductionServingInferenceController:
                 "output_truncated": value.get("output_truncated"),
             }
             if output_posture == "grounding_policy_fallback":
+                if correction is None:
+                    raise ProductionServingInferenceError(
+                        "stored_invocation_grounding_lineage_missing")
                 assistant_output_lineage.update({
                     "policy_id": correction["policy_id"],
                     "reason_code": correction["reason_code"],
