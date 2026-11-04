@@ -38,6 +38,7 @@ class ScreenConfig:
     ocr_backend: str = "tesseract"
     max_chars_per_minute: int = 5000
     refresh_unchanged_observation: bool = False
+    visual_change_threshold: float = 0.0
 
 
 class ScreenCaptureError(RuntimeError):
@@ -65,6 +66,21 @@ class ScreenOCR:
         self._last_attempt_monotonic: float | None = None
         self._chars_window: list[tuple[float, int]] = []
         self._last_failure_code: str | None = None
+        self._last_visual_sample: tuple[int, ...] | None = None
+
+    @staticmethod
+    def _visual_sample(rgb: bytes, width: int, height: int) -> tuple[int, ...]:
+        """Return a small deterministic luminance grid; never retain the frame."""
+        columns, rows = 32, 18
+        values: list[int] = []
+        for row in range(rows):
+            y = min(height - 1, (row * height + height // (2 * rows)) // rows)
+            for column in range(columns):
+                x = min(width - 1, (column * width + width // (2 * columns)) // columns)
+                offset = (y * width + x) * 3
+                red, green, blue = rgb[offset:offset + 3]
+                values.append((77 * red + 150 * green + 29 * blue) >> 8)
+        return tuple(values)
 
     def snapshot(self) -> Optional[Mapping[str, object]]:
         if not self._config.enable:
@@ -114,11 +130,49 @@ class ScreenOCR:
                 self._last_failure_code = "screen_capture_payload_size_invalid"
                 raise ScreenCaptureError(self._last_failure_code)
         digest = hashlib.sha256(raw_bytes).hexdigest()
+        threshold = self._config.visual_change_threshold
+        if (isinstance(threshold, bool) or not isinstance(threshold, (int, float))
+                or not math.isfinite(float(threshold)) or not 0.0 <= threshold <= 1.0):
+            raise ScreenCaptureError("screen_visual_change_threshold_invalid")
+        visual_sample: tuple[int, ...] | None = None
+        visual_change_score: float | None = None
+        if isinstance(rgb, bytes):
+            assert type(width) is int and type(height) is int
+            visual_sample = self._visual_sample(rgb, width, height)
+            if self._last_visual_sample is not None:
+                visual_change_score = sum(
+                    abs(current - previous) >= 24
+                    for current, previous in zip(visual_sample, self._last_visual_sample)
+                ) / len(visual_sample)
+        if (threshold > 0 and visual_sample is not None
+                and self._last_observation is not None
+                and visual_change_score is not None
+                and visual_change_score < threshold):
+            if not self._config.refresh_unchanged_observation:
+                return None
+            refreshed = dict(self._last_observation)
+            captured_at = payload.get("captured_at")
+            if not isinstance(captured_at, str) or not _UTC_TIMESTAMP.fullmatch(captured_at):
+                captured_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            refreshed["captured_at"] = captured_at
+            capture_digest = payload.get("capture_digest")
+            if isinstance(capture_digest, str) and re.fullmatch(r"[a-f0-9]{64}", capture_digest):
+                refreshed["capture_digest"] = capture_digest
+            refreshed["visual_change_kind"] = "stable"
+            refreshed["visual_change_score"] = visual_change_score
+            self._last_observation = refreshed
+            return dict(refreshed)
         if digest == self._last_hash:
             if not self._config.refresh_unchanged_observation or self._last_observation is None:
                 return None
             refreshed = dict(self._last_observation)
             refreshed["text_change_kind"] = "unchanged"
+            if visual_sample is not None:
+                refreshed["visual_change_kind"] = "stable"
+                refreshed["visual_change_score"] = 0.0
+            capture_digest = payload.get("capture_digest")
+            if isinstance(capture_digest, str) and re.fullmatch(r"[a-f0-9]{64}", capture_digest):
+                refreshed["capture_digest"] = capture_digest
             if self._last_text_digest is not None:
                 refreshed["previous_text_digest"] = self._last_text_digest
             captured_at = payload.get("captured_at")
@@ -179,6 +233,10 @@ class ScreenOCR:
             "text_truncated": text_truncated,
             "text_change_kind": text_change_kind,
         }
+        if visual_sample is not None:
+            observation["visual_change_kind"] = (
+                "initial" if self._last_visual_sample is None else "changed")
+            observation["visual_change_score"] = visual_change_score
         if previous_text_digest is not None:
             observation["previous_text_digest"] = previous_text_digest
         if payload.get("capture_scope") == "allowlisted_foreground_game_client_area":
@@ -190,6 +248,8 @@ class ScreenOCR:
         self._metrics.increment("sos_screen_captures_total")
         self._metrics.increment("sos_screen_ocr_chars_total", len(text))
         self._last_observation = dict(observation)
+        if visual_sample is not None:
+            self._last_visual_sample = visual_sample
         return observation
 
     def _prune_window(self, now: float) -> None:

@@ -39,6 +39,8 @@ def _payload(*, captured_at: datetime = NOW) -> dict[str, object]:
         "text_truncated": False,
         "text_change_kind": "initial",
         "previous_text_digest": None,
+        "visual_change_kind": "initial",
+        "visual_change_score": None,
     }
 
 
@@ -73,7 +75,7 @@ def test_screen_ocr_observation_crosses_authenticated_bridge_as_bounded_text():
         assert acknowledgment.payload["disposition"] == "accepted"
 
         observed = provider()
-        assert observed["schema_version"] == "sentientos.game_screen_observation:v2"
+        assert observed["schema_version"] == "sentientos.game_screen_observation:v3"
         assert observed["text"] == "quest objective: find the observatory"
         assert observed["raw_frame_retained"] is False
         assert "rgb" not in observed
@@ -99,6 +101,9 @@ def test_screen_ocr_observation_crosses_authenticated_bridge_as_bounded_text():
           b"quest objective: find the observatory").hexdigest()},
      "screen_observation_change_lineage_invalid"),
     ({"capture_digest": "not-a-digest"}, "screen_observation_digest_invalid"),
+    ({"visual_change_kind": "event_detected", "visual_change_score": 0.5},
+     "screen_observation_contract_invalid"),
+    ({"visual_change_score": 1.5}, "screen_observation_contract_invalid"),
     ({"unexpected": "field"}, "screen_observation_shape_invalid"),
 ])
 def test_publisher_rejects_invalid_or_unbounded_observation(changes, code):

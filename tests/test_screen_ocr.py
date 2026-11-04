@@ -167,3 +167,44 @@ def test_screen_ocr_can_refresh_identical_capture_without_rerunning_ocr():
     assert second["previous_text_digest"]
     assert calls == ["ocr"]
     assert "rgb" not in second
+
+
+def test_visual_change_gate_skips_small_changes_and_ocr_runs_after_cumulative_change():
+    width, height = 64, 36
+    base = bytearray(width * height * 3)
+
+    def paint_sample(frame, index):
+        row, column = divmod(index, 32)
+        x, y = column * 2, row * 2
+        offset = (y * width + x) * 3
+        frame[offset:offset + 3] = bytes((255, 255, 255))
+
+    tiny = bytearray(base)
+    paint_sample(tiny, 0)
+    cumulative = bytearray(base)
+    for index in range(25):
+        paint_sample(cumulative, index)
+
+    frames = iter([bytes(base), bytes(tiny), bytes(cumulative)])
+    ocr_calls = []
+    owner = ScreenOCR(
+        ScreenConfig(enable=True, interval_s=0, refresh_unchanged_observation=True,
+                     visual_change_threshold=0.035),
+        capture_fn=lambda: {"rgb": next(frames), "width": width, "height": height,
+                            "captured_at": "2026-11-04T12:00:00Z",
+                            "capture_scope": "allowlisted_foreground_game_client_area"},
+        ocr_fn=lambda _payload: ocr_calls.append("ocr") or "quest objective",
+    )
+
+    initial = owner.snapshot()
+    stable = owner.snapshot()
+    changed = owner.snapshot()
+
+    assert initial is not None and initial["visual_change_kind"] == "initial"
+    assert initial["visual_change_score"] is None
+    assert stable is not None and stable["visual_change_kind"] == "stable"
+    assert stable["visual_change_score"] == pytest.approx(1 / 576)
+    assert changed is not None and changed["visual_change_kind"] == "changed"
+    assert changed["visual_change_score"] == pytest.approx(25 / 576)
+    assert ocr_calls == ["ocr", "ocr"]
+    assert "rgb" not in stable and "rgb" not in changed

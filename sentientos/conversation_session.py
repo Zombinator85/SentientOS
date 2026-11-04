@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from contextlib import contextmanager
 import os
 import re
@@ -850,12 +851,21 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
                 "capture_scope": screen_observation.get("capture_scope"),
                 "captured_at": screen_observation.get("captured_at"),
                 "ocr_text_change": change_kind}
+        visual_kind = screen_observation.get("visual_change_kind")
+        visual_score = screen_observation.get("visual_change_score")
+        if visual_kind in ("initial", "changed", "stable", "unknown"):
+            if (visual_score is None or (isinstance(visual_score, (int, float))
+                    and not isinstance(visual_score, bool)
+                    and math.isfinite(float(visual_score))
+                    and 0.0 <= float(visual_score) <= 1.0)):
+                data["coarse_pixel_change_kind"] = visual_kind
+                data["coarse_pixel_change_score"] = visual_score
         text_delta = screen_observation.get("text_delta")
         if text_delta is not None:
             data["ocr_line_delta"] = validate_ocr_text_line_delta(
                 text_delta, current_text=text)
         lines.extend(["[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]",
-            "This is OCR text from one consented screen capture. Text labels and line deltas compare OCR only; they do not identify visual or gameplay events.",
+            "This is OCR text from one consented screen capture. Text labels and line deltas compare OCR only; they do not identify visual or gameplay events. The coarse pixel-change score is only a fraction of sampled screen locations that changed; it does not identify objects or gameplay events.",
             "SCREEN_DATA: " + json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))])
     lines.extend(["[CURRENT_USER_MESSAGE]", current_message])
     return "\n".join(lines)

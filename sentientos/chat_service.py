@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import ipaddress
-import logging
 import hashlib
+import ipaddress
 import json
+import logging
+import math
 import os
 import re
 import queue
@@ -944,7 +945,17 @@ class PersistentConversationService:
                     and isinstance(previous_text_digest, str)
                     and re.fullmatch(r"[0-9a-f]{64}", previous_text_digest) is not None
                     and previous_text_digest != current_text_digest))
+            visual_kind = screen_observation.get("visual_change_kind", "unknown")
+            visual_score = screen_observation.get("visual_change_score")
+            visual_valid = (
+                visual_kind in ("initial", "changed", "stable", "unknown")
+                and (visual_score is None or (
+                    isinstance(visual_score, (int, float))
+                    and not isinstance(visual_score, bool)
+                    and math.isfinite(float(visual_score))
+                    and 0.0 <= float(visual_score) <= 1.0)))
             if (screen_observation.get("modality") != "screen"
+                    or not visual_valid
                     or not change_lineage_valid
                     or screen_observation.get("raw_frame_retained") is not False
                     or not isinstance(screen_text, str) or not screen_text.strip()
@@ -1179,6 +1190,9 @@ class PersistentConversationService:
                 "text_change_kind": screen_observation["text_change_kind"],
                 "raw_frame_retained": False,
             }
+            if visual_kind in ("initial", "changed", "stable", "unknown"):
+                screen_provenance["visual_change_kind"] = visual_kind
+                screen_provenance["visual_change_score"] = visual_score
             previous_text_digest = screen_observation.get("previous_text_digest")
             if (isinstance(previous_text_digest, str)
                     and re.fullmatch(r"[0-9a-f]{64}", previous_text_digest) is not None):
