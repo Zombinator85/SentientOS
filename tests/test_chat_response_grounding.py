@@ -209,6 +209,28 @@ def test_companion_name_is_not_misidentified_as_its_backend_model():
     }
 
 
+def test_social_check_in_correction_catches_configured_model_misidentification():
+    output = "I'm Hermes 4. I don't have feelings, but my training cutoff is 2023."
+    corrected, attribution = corrected_system_identity_output(
+        output,
+        user_message="Hey, how are you doing in there?",
+        verified_runtime_context={
+            "assistant_role": "the active local model providing conversation inside SentientOS",
+            "active_model": {"configured_candidate_label":
+                "Nous Hermes 4 14B local development model"},
+        },
+    )
+
+    assert corrected == (
+        "I'm SentientOS, your local companion. "
+        "I'm here and ready to chat. What's on your mind?"
+    )
+    assert attribution == {
+        "policy_id": SYSTEM_IDENTITY_POLICY_ID,
+        "reason_code": "backend_model_misidentified_as_companion",
+    }
+
+
 def test_companion_identity_correction_names_model_only_when_model_is_asked():
     output = "I'm Qwen3 1.7B."
     corrected, attribution = corrected_system_identity_output(

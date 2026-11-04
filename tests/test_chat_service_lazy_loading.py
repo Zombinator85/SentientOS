@@ -114,6 +114,7 @@ class SimulationInvoker:
         self.requests = []
         self.latency_ms = None
         self.backend_completion = None
+        self.output_text = "explicit simulation"
     def build_request(self, **kwargs):
         self.prompts.append(kwargs["prompt"])
         self.requests.append(kwargs)
@@ -124,9 +125,9 @@ class SimulationInvoker:
         self.calls += 1
         identity = self.model.active_identity
         identity_payload = identity.to_dict() if identity is not None else {}
-        return SimpleNamespace(status="admitted_simulation", output_text="explicit simulation",
+        return SimpleNamespace(status="admitted_simulation", output_text=self.output_text,
             output_digest=__import__("hashlib").sha256(
-                __import__("json").dumps({"output": "explicit simulation"},
+                __import__("json").dumps({"output": self.output_text},
                     sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
             output_truncated=False, request={"request_id": request.request_id,
                 "active_model_identity": identity_payload}, receipt_id="simulation-receipt-id",
@@ -314,6 +315,9 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
 
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()
+    invoker.output_text = (
+        "I'm Hermes 4. I don't have feelings, but my training cutoff is 2023."
+    )
     identity = {
         "engine": "ollama",
         "semantic_artifact_identity": "sha256:" + "a" * 64,
@@ -330,6 +334,10 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
     response = client.post("/chat", json={"message": "How are you doing in there?"})
 
     assert response.status_code == 200
+    assert response.json()["response"] == (
+        "I'm SentientOS, your local companion. "
+        "I'm here and ready to chat. What's on your mind?"
+    )
     prompt = invoker.prompts[-1]
     assert "You are SentientOS, the local companion" in prompt
     assert "configured model label names the backend, not you" in prompt
