@@ -25,6 +25,19 @@ def test_presentmon_csv_filters_pid_and_reports_hitches_without_retaining_names(
     assert summarize_frame_times_ms(values) == (16.6, 53.0, 53.0, 1)
 
 
+def test_presentmon_csv_prefers_displayed_frame_intervals() -> None:
+    raw = b"\n".join((
+        b"ProcessID,MsBetweenPresents,MsBetweenDisplayChange",
+        b"12,16.6,33.3",
+        b"12,16.7,50.1",
+        b"13,200.0,300.0",
+    )) + b"\n"
+    values, source_digest = parse_presentmon_csv(raw, process_id=12)
+    assert values == (33.3, 50.1)
+    assert source_digest == hashlib.sha256(raw).hexdigest()
+    assert summarize_frame_times_ms(values) == (33.3, 50.1, 50.1, 1)
+
+
 def test_presentmon_csv_rejects_unsupported_or_empty_schema() -> None:
     with pytest.raises(GamePerformanceObservationError, match="presentmon_columns_missing"):
         parse_presentmon_csv(b"pid,frame\n1,16\n", process_id=1)

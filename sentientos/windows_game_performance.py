@@ -71,7 +71,13 @@ def summarize_frame_times_ms(values: Sequence[float]) -> tuple[float, float, flo
 
 
 def parse_presentmon_csv(raw: bytes, *, process_id: int) -> tuple[tuple[float, ...], str]:
-    """Parse a bounded PresentMon export without retaining executable names or paths."""
+    """Parse displayed-frame pacing from bounded PresentMon output.
+
+    PresentMon 2.x exports both present-call intervals and display-change
+    intervals. Prefer the latter because it describes frames reaching the
+    display; fall back to the legacy present-call column when it is absent.
+    Executable names and paths are never retained.
+    """
     if not isinstance(raw, bytes) or not raw or len(raw) > MAX_PRESENTMON_BYTES:
         raise GamePerformanceObservationError("presentmon_input_size_invalid")
     if type(process_id) is not int or process_id < 1:
@@ -80,7 +86,14 @@ def parse_presentmon_csv(raw: bytes, *, process_id: int) -> tuple[tuple[float, .
         text = raw.decode("utf-8-sig")
         reader = csv.DictReader(io.StringIO(text, newline=""))
         headers = set(reader.fieldnames or ())
-        if not {"ProcessID", "MsBetweenPresents"}.issubset(headers):
+        if "ProcessID" not in headers:
+            raise GamePerformanceObservationError("presentmon_columns_missing")
+        frame_time_column = (
+            "MsBetweenDisplayChange" if "MsBetweenDisplayChange" in headers
+            else "MsBetweenPresents" if "MsBetweenPresents" in headers
+            else None
+        )
+        if frame_time_column is None:
             raise GamePerformanceObservationError("presentmon_columns_missing")
         times: list[float] = []
         rows_seen = 0
@@ -95,7 +108,7 @@ def parse_presentmon_csv(raw: bytes, *, process_id: int) -> tuple[tuple[float, .
             if row_pid != process_id:
                 continue
             try:
-                sample = float(row["MsBetweenPresents"] or "")
+                sample = float(row[frame_time_column] or "")
             except (TypeError, ValueError) as exc:
                 raise GamePerformanceObservationError("presentmon_frame_time_invalid") from exc
             if not math.isfinite(sample) or sample <= 0 or sample > 10_000:
