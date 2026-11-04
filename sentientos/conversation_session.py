@@ -638,15 +638,20 @@ class ConversationSessionStore:
 
     def reconstruct(self, session_id: str, *, budget_chars: int,
                     exclude_turn_id: str | None = None,
-                    include_roles: tuple[str, ...] | None = None) -> ContextSnapshot:
+                    include_roles: tuple[str, ...] | None = None,
+                    max_turns: int | None = None) -> ContextSnapshot:
         session = self.load(session_id)
         if include_roles is not None and any(role not in {"user", "assistant"}
                                              for role in include_roles):
             raise ValueError("conversation_context_role_filter_invalid")
+        if max_turns is not None and (type(max_turns) is not int or max_turns < 1):
+            raise ValueError("conversation_context_turn_limit_invalid")
         role_filter = set(include_roles) if include_roles is not None else None
         candidates = [t for t in session["turns"]
                       if t["turn_id"] != exclude_turn_id
                       and (role_filter is None or t["role"] in role_filter)]
+        if max_turns is not None:
+            candidates = candidates[-max_turns:]
         selected: list[Mapping[str, Any]] = []; used = 0
         for turn in reversed(candidates):
             cost = len(turn["text"]) + len(turn["role"]) + 2
@@ -794,7 +799,7 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
     if recent_session_recall:
         instruction_index = lines.index("[VERIFIED_RUNTIME_CONTEXT]")
         lines.insert(instruction_index,
-            "For this recall, answer from relevant speaker-labeled turns included in SESSION_HISTORY_DATA; do not infer missing messages or use MEMORY_DATA.")
+            "These turns are ordered oldest to newest. For this recall, use only the final prior USER_DATA turn; include the immediately following ASSISTANT_DATA turn only if asked what the assistant answered. Do not substitute older turns or infer missing messages, and do not use MEMORY_DATA.")
     for turn in history.turns:
         linkage = turn.get("linkage", {})
         provenance = {}
