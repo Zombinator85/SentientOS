@@ -41,6 +41,12 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
     assert not chat._is_current_runtime_context_question(
         "What do you think about the story in Cronos?")
     assert chat._is_recent_session_recall_request(
+        "What did I ask you first in this conversation?")
+    assert chat._is_earliest_session_recall_request(
+        "What did I ask you first in this conversation?")
+    assert not chat._is_earliest_session_recall_request(
+        "What was the first part of my last message?")
+    assert chat._is_recent_session_recall_request(
         "What exact phrase did I ask you to repeat before the restart?")
     assert chat._is_self_contained_text_echo_request(
         "Please repeat this exact test phrase once: cobalt lantern 73.")
@@ -544,6 +550,22 @@ def test_social_system_instruction_echo_is_corrected_in_live_chat_path(tmp_path)
     assert payload["context"]["response_origin"] == "grounding_policy_fallback"
 
 
+def test_live_chat_corrects_elliptical_gaming_checkin_before_general_grounding(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    invoker.output_text = (
+        "I am here in SentientOS. How about you enjoy your gaming session with Cronos?"
+    )
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+
+    response = client.post("/chat", json={"message": "Hey, how are you doing in there?"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["response"] == "I’m here and ready to chat. How are you doing?"
+    assert payload["context"]["response_origin"] == "grounding_policy_fallback"
+
+
 def test_live_connection_question_skips_unrelated_cross_session_memories(tmp_path, monkeypatch):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()
@@ -598,6 +620,39 @@ def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_
     assert "MEMORY_DATA:" not in invoker.prompts[-1]
     assert "final prior USER_DATA turn" in invoker.prompts[-1]
     assert "Do not substitute older turns" in invoker.prompts[-1]
+
+
+def test_earliest_session_recall_selects_first_user_turn(tmp_path, monkeypatch):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    session_id = client.post("/sessions").json()["session_id"]
+    first = client.post("/chat", json={"session_id": session_id,
+        "message": "For my opening request, greet me and ask about Cronos."})
+    second = client.post("/chat", json={"session_id": session_id,
+        "message": "Later I asked whether the game screen was visible."})
+    recall = client.post("/chat", json={"session_id": session_id,
+        "message": "What did I ask you first in this conversation?"})
+
+    assert first.status_code == second.status_code == recall.status_code == 200
+    assert memory_queries == [
+        "For my opening request, greet me and ask about Cronos.",
+        "Later I asked whether the game screen was visible.",
+        "",
+    ]
+    prompt = invoker.prompts[-1]
+    assert "first prior USER_DATA turn" in prompt
+    assert "For my opening request, greet me and ask about Cronos." in prompt
+    assert "Later I asked whether the game screen was visible." not in prompt
+    assert recall.json()["context"]["selected_turn_count"] == 1
 
 
 def test_recent_assistant_reply_recall_includes_same_session_answer_only(tmp_path, monkeypatch):

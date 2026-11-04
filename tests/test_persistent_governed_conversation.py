@@ -77,6 +77,20 @@ def test_bounded_context_reconstruction(tmp_path: Path) -> None:
     assert snapshot.truncated and snapshot.snapshot_digest == store.reconstruct(session["session_id"], budget_chars=60).snapshot_digest
 
 
+def test_bounded_context_can_select_the_earliest_turn(tmp_path: Path) -> None:
+    store = ConversationSessionStore(tmp_path / "sessions")
+    session = store.create(model_identity={})
+    store.append_turn(session["session_id"], role="user", text="first request")
+    store.append_turn(session["session_id"], role="user", text="later request")
+    snapshot = store.reconstruct(
+        session["session_id"], budget_chars=100, include_roles=("user",),
+        max_turns=1, oldest_first=True,
+    )
+    assert [turn["text"] for turn in snapshot.turns] == ["first request"]
+    with pytest.raises(ValueError, match="conversation_context_order_invalid"):
+        store.reconstruct(session["session_id"], budget_chars=100, oldest_first=1)
+
+
 def test_context_identity_binds_turn_model_provenance(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Equal transcript text with different serving provenance is distinct context."""
     import hashlib

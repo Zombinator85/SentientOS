@@ -131,6 +131,27 @@ def test_live_game_status_fallback_requires_foreground_evidence_and_no_screen_ev
         screen_observation_provenance={"capture_digest": "a" * 64},
     ) == (output, None)
 
+
+def test_direct_game_activity_question_uses_foreground_only_evidence():
+    corrected, attribution = corrected_unobserved_game_status(
+        "I'm enjoying your gaming session with Cronos.",
+        user_message="Can you tell what I am doing in Cronos right now, or only that the game is open?",
+        verified_runtime_context={"workload": {
+            "game_foreground": True,
+            "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+        }},
+        screen_observation_provenance=None,
+    )
+    assert corrected == (
+        "I can confirm Cronos is the foreground app, but I can’t tell what you’re "
+        "doing in it because I don’t have a screen observation this turn."
+    )
+    assert attribution == {
+        "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+        "reason_code": "foreground_only_no_screen_observation",
+    }
+
+
 def test_social_instruction_echo_is_replaced_with_a_natural_reciprocal_greeting():
     corrected, attribution = corrected_social_instruction_echo(
         "I am here as SentientOS and ready to chat; do not claim feelings or infer user activity from a foreground app.",
@@ -154,6 +175,31 @@ def test_social_check_in_does_not_claim_an_unverified_subjective_state():
         "policy_id": SOCIAL_CHECK_IN_POLICY_ID,
         "reason_code": "unsupported_subjective_self_state",
     }
+
+
+def test_elliptical_social_check_in_does_not_claim_enjoyment():
+    corrected, attribution = corrected_social_instruction_echo(
+        "Enjoying your gaming session with Cronos. How can I assist further?",
+        user_message="Hey, how are you doing in there?",
+    )
+    assert corrected == "I’m here and ready to chat. How are you doing?"
+    assert attribution == {
+        "policy_id": SOCIAL_CHECK_IN_POLICY_ID,
+        "reason_code": "unsupported_subjective_self_state",
+    }
+
+
+def test_social_checkin_does_not_deflect_into_assumed_gaming_enjoyment():
+    corrected, attribution = corrected_social_instruction_echo(
+        "I am here in SentientOS. How about you enjoy your gaming session with Cronos?",
+        user_message="Hey, how are you doing in there?",
+    )
+    assert corrected == "I’m here and ready to chat. How are you doing?"
+    assert attribution == {
+        "policy_id": SOCIAL_CHECK_IN_POLICY_ID,
+        "reason_code": "nonresponsive_gaming_checkin",
+    }
+
 
 def test_social_instruction_echo_answers_game_status_without_claiming_visual_access():
     corrected, attribution = corrected_social_instruction_echo(

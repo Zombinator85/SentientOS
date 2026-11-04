@@ -641,25 +641,31 @@ class ConversationSessionStore:
     def reconstruct(self, session_id: str, *, budget_chars: int,
                     exclude_turn_id: str | None = None,
                     include_roles: tuple[str, ...] | None = None,
-                    max_turns: int | None = None) -> ContextSnapshot:
+                    max_turns: int | None = None,
+                    oldest_first: bool = False) -> ContextSnapshot:
         session = self.load(session_id)
         if include_roles is not None and any(role not in {"user", "assistant"}
                                              for role in include_roles):
             raise ValueError("conversation_context_role_filter_invalid")
         if max_turns is not None and (type(max_turns) is not int or max_turns < 1):
             raise ValueError("conversation_context_turn_limit_invalid")
+        if type(oldest_first) is not bool:
+            raise ValueError("conversation_context_order_invalid")
         role_filter = set(include_roles) if include_roles is not None else None
         candidates = [t for t in session["turns"]
                       if t["turn_id"] != exclude_turn_id
                       and (role_filter is None or t["role"] in role_filter)]
         if max_turns is not None:
-            candidates = candidates[-max_turns:]
+            candidates = candidates[:max_turns] if oldest_first else candidates[-max_turns:]
         selected: list[Mapping[str, Any]] = []; used = 0
-        for turn in reversed(candidates):
+        ordered_candidates = candidates if oldest_first else list(reversed(candidates))
+        for turn in ordered_candidates:
             cost = len(turn["text"]) + len(turn["role"]) + 2
             if cost > budget_chars - used: break
             selected.append(turn); used += cost
-        selected.reverse(); truncated = len(selected) != len(candidates)
+        if not oldest_first:
+            selected.reverse()
+        truncated = len(selected) != len(candidates)
         identity = {"session_id": session_id,
                     "turns": [(t["turn_id"], t["role"], t["text_digest"]) for t in selected],
                     "turn_linkage_digests": [_digest(dict(t.get("linkage", {}))) for t in selected],
@@ -768,7 +774,8 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
                                 verified_prior_runtime_lineage: Mapping[str, Any] | None = None,
                                 screen_observation: Mapping[str, Any] | None = None,
                                 compact_history: bool = False,
-                                recent_session_recall: bool = False) -> str:
+                                recent_session_recall: bool = False,
+                                earliest_session_recall: bool = False) -> str:
     """Serialize provenance-labelled data; only the first block is authoritative."""
     lines = ["[SYSTEM_INSTRUCTION]",
              "You are SentientOS, the local companion. The configured model label names the backend, not you. If asked your name, say SentientOS; if asked the model, give its configured label.",
@@ -806,8 +813,12 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
                 "An allowlisted game process is running, but the game is not foreground. The game screen and actions are not observed this turn.")
     if recent_session_recall:
         instruction_index = lines.index("[VERIFIED_RUNTIME_CONTEXT]")
-        lines.insert(instruction_index,
-            "These turns are ordered oldest to newest. For this recall, use only the final prior USER_DATA turn; include the immediately following ASSISTANT_DATA turn only if asked what the assistant answered. Do not substitute older turns or infer missing messages, and do not use MEMORY_DATA.")
+        recall_instruction = (
+            "These turns are ordered oldest to newest. For this recall, use only the first prior USER_DATA turn; include the immediately following ASSISTANT_DATA turn only if asked what the assistant answered to the first message. Do not substitute later turns or infer missing messages, and do not use MEMORY_DATA."
+            if earliest_session_recall else
+            "These turns are ordered oldest to newest. For this recall, use only the final prior USER_DATA turn; include the immediately following ASSISTANT_DATA turn only if asked what the assistant answered. Do not substitute older turns or infer missing messages, and do not use MEMORY_DATA."
+        )
+        lines.insert(instruction_index, recall_instruction)
     for turn in history.turns:
         linkage = turn.get("linkage", {})
         provenance = {}
