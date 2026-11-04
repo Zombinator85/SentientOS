@@ -168,12 +168,15 @@ def test_explicit_screen_observation_is_ephemeral_and_idempotent(tmp_path: Path)
     invoker = FakeInvoker()
     observations: list[bool] = []
 
+    from sentientos.perception.screen_text_delta import build_ocr_text_line_delta
+
     def observe():
         observations.append(True)
         return {"modality": "screen", "text": "SECRET QUEST OBJECTIVE",
             "capture_digest": "a" * 64, "capture_scope": "allowlisted_foreground_game_client_area",
             "captured_at": "2026-01-01T00:00:00Z", "raw_frame_retained": False,
-            "text_change_kind": "initial", "previous_text_digest": None}
+            "text_change_kind": "changed", "previous_text_digest": "b" * 64,
+            "text_delta": build_ocr_text_line_delta("OLD QUEST OBJECTIVE", "SECRET QUEST OBJECTIVE")}
 
     app = service(tmp_path, invoker, observe)
     session_id = app.create_session()
@@ -188,8 +191,10 @@ def test_explicit_screen_observation_is_ephemeral_and_idempotent(tmp_path: Path)
     assistant_linkage = turns[-1]["linkage"]
     assert assistant_linkage["screen_observation_provenance"]["capture_digest"] == "a" * 64
     assert assistant_linkage["screen_observation_provenance"]["captured_at"] == "2026-01-01T00:00:00Z"
-    assert assistant_linkage["screen_observation_provenance"]["text_change_kind"] == "initial"
-    assert "previous_text_digest" not in assistant_linkage["screen_observation_provenance"]
+    assert assistant_linkage["screen_observation_provenance"]["text_change_kind"] == "changed"
+    assert assistant_linkage["screen_observation_provenance"]["text_delta"]["previous_text_digest"]
+    assert "added_lines" not in assistant_linkage["screen_observation_provenance"]["text_delta"]
+    assert "SECRET QUEST OBJECTIVE" not in str(assistant_linkage["screen_observation_provenance"])
     assert result.context["screen_observation_provenance"]["raw_frame_retained"] is False
     recovered = app.chat("what am I supposed to do?", session_id=session_id,
         request_id="screen-observe-1", observe_screen=True, retain=True)

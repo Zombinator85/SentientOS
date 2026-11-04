@@ -36,6 +36,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from sentientos.perception.screen_text_delta import build_ocr_text_line_delta
+
 
 def _parse_edge_ready(line: str) -> tuple[int, int]:
     parts = line.split()
@@ -159,9 +161,13 @@ class _LatestScreenObservation:
         with self._lock:
             sample = self._sample
             sampled = self._sampled_monotonic
-        if sample is None or now - sampled > self._max_age:
-            return None
-        return sample
+            if sample is None:
+                return None
+            if now - sampled > self._max_age:
+                self._sample = None
+                self._sampled_monotonic = 0.0
+                return None
+            return dict(sample)
 
     def _run(self) -> None:
         while not self._stop.is_set():
@@ -169,10 +175,26 @@ class _LatestScreenObservation:
                 sample = self._provider()
             except Exception:
                 sample = None
-            if sample is not None:
-                with self._lock:
-                    self._sample = sample
-                    self._sampled_monotonic = time.monotonic()
+            now = time.monotonic()
+            with self._lock:
+                if sample is None:
+                    if (self._sample is not None
+                            and now - self._sampled_monotonic > self._max_age):
+                        self._sample = None
+                        self._sampled_monotonic = 0.0
+                elif isinstance(sample, Mapping):
+                    enriched = dict(sample)
+                    enriched.pop("text_delta", None)
+                    current_text = enriched.get("text")
+                    previous_text = (self._sample.get("text")
+                        if isinstance(self._sample, Mapping)
+                        and now - self._sampled_monotonic <= self._max_age else None)
+                    if (isinstance(previous_text, str) and isinstance(current_text, str)
+                            and previous_text != current_text):
+                        enriched["text_delta"] = build_ocr_text_line_delta(
+                            previous_text, current_text)
+                    self._sample = enriched
+                    self._sampled_monotonic = now
             self._stop.wait(0.25)
 
     def close(self) -> None:
