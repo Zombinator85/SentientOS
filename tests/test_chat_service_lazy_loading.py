@@ -301,7 +301,6 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
     assert "You are the active local conversational model inside SentientOS" in prompt
     assert "use the configured model label when asked" in prompt
     assert "without generic limitations; do not claim feelings or personal experiences" in prompt
-    assert "For current screen/game questions, if workload.game_foreground is true, name configured_game_process_names" in prompt
     assert "do not claim feelings or personal experiences" in prompt
     assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, answer no to visibility questions" in prompt
     assert "Answer the current message directly and cover every requested part" in prompt
@@ -343,7 +342,7 @@ def test_verified_workload_context_names_only_confirmed_allowlisted_game(tmp_pat
 
     assert response.status_code == 200
     prompt = invoker.prompts[-1]
-    assert "For current screen/game questions, if workload.game_foreground is true, name configured_game_process_names" in prompt
+    assert "Use configured_game_process_names only to identify the foreground app" in prompt
     runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
         "\n[SESSION_HISTORY_DATA]", 1)[0]
     workload = json.loads(runtime_block)["workload"]
@@ -351,6 +350,7 @@ def test_verified_workload_context_names_only_confirmed_allowlisted_game(tmp_pat
     assert workload["configured_game_process_names"] == ["cronos-win64-shipping.exe"]
     assert "[VERIFIED_CURRENT_WORKLOAD_FACTS]" in prompt
     assert "Verified foreground game: Cronos (cronos-win64-shipping.exe)" in prompt
+    assert "Use configured_game_process_names only to identify the foreground app" in prompt
     assert "game screen and actions are not observed this turn" in prompt
 
 
@@ -537,6 +537,9 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     assert runtime["capabilities"]["retrieved_memories_included"] == 0
     assert runtime["capabilities"]["screen_observation"]["included_this_turn"] is False
     assert chat.GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION in prompt
+    assert len(prompt) <= chat.GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS
+    assert chat._is_social_checkin_request(
+        "I am saving healing items. Keep me company.") is True
     assert checkin.json()["context"]["selected_turn_count"] == 0
 
     explicit_checkin = client.post("/chat", json={"session_id": session_id,
@@ -798,3 +801,30 @@ def test_development_automatic_mode_falls_back_to_gaming_when_observation_stale(
         caller="test", correlation_id="stale-automatic-mode",
         budget=LocalModelInvocationBudget(), caller_linkage={})
     assert invoker.model is gaming
+
+
+def test_unobserved_gaming_companion_claim_is_corrected_and_attributed(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    assert client.post("/workload-mode", json={"mode": "gaming"}).status_code == 200
+
+    def unsupported_reply(request):
+        invoker.calls += 1
+        output = "Sure, keeping an eye on your gaming session."
+        digest = __import__("hashlib").sha256(
+            __import__("json").dumps({"output": output}, sort_keys=True,
+                separators=(",", ":")).encode()).hexdigest()
+        return SimpleNamespace(status="admitted_simulation", output_text=output,
+            output_digest=digest, output_truncated=False, request={
+                "request_id": request.request_id, "active_model_identity":
+                    (invoker.model.active_identity.to_dict()
+                     if invoker.model.active_identity is not None else {})},
+            receipt_id="simulation-receipt-id", receipt_digest="simulation-receipt")
+    invoker.invoke = unsupported_reply
+    response = client.post("/chat", json={"message": "Keep me company while I play."})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["response"].startswith("SentientOS correction:")
+    assert payload["context"]["response_origin"] == "grounding_policy_fallback"

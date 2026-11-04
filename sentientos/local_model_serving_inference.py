@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Mapping, Protocol
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig
+from .chat_response_grounding import corrected_gaming_output
 from .governed_local_model_invocation import (
     GovernedLocalModelInvoker,
     GovernedLocalModelResourceInvocationContext,
@@ -461,9 +462,21 @@ class ProductionServingInferenceController:
                 raise ProductionServingInferenceError("stored_invocation_transcript_text_invalid")
             transcript_text_digest = digest_payload({"text": assistant_text})
             if not value.get("output_truncated"):
-                if digest_payload({"output": assistant_text}) != value.get("output_digest"):
-                    raise ProductionServingInferenceError("stored_invocation_transcript_output_mismatch")
-                output_posture = "exact_invocation_output_match"
+                if digest_payload({"output": assistant_text}) == value.get("output_digest"):
+                    output_posture = "exact_invocation_output_match"
+                else:
+                    original_output = value.get("output_text")
+                    request_linkage = request.get("linkage")
+                    serving_mode = lifetime.get("workload_mode")
+                    expected_output, correction = corrected_gaming_output(
+                        original_output if isinstance(original_output, str) else "",
+                        workload_mode=str(serving_mode or "normal"),
+                        screen_observation_provenance=(request_linkage.get("screen_observation_provenance")
+                            if isinstance(request_linkage, Mapping) else None))
+                    if (correction is None or expected_output != assistant_text
+                            or digest_payload({"output": original_output}) != value.get("output_digest")):
+                        raise ProductionServingInferenceError("stored_invocation_transcript_output_mismatch")
+                    output_posture = "grounding_policy_fallback"
             else:
                 output_posture = "truncated_transcript_original_output_relation_unknown"
             assistant_output_lineage = {
@@ -472,6 +485,11 @@ class ProductionServingInferenceController:
                 "transcript_text_digest": transcript_text_digest,
                 "output_truncated": value.get("output_truncated"),
             }
+            if output_posture == "grounding_policy_fallback":
+                assistant_output_lineage.update({
+                    "policy_id": correction["policy_id"],
+                    "reason_code": correction["reason_code"],
+                })
         identity_keys: tuple[str, ...] = ("installation_identity", "activation_state_semantic_digest", "activation_generation",
             "activation_predecessor_state_digest", "activation_receipt_id", "activation_receipt_semantic_digest",
             "model_id", "observed_loaded_model_identity", "artifact_id", "artifact_sha256", "runtime_id",

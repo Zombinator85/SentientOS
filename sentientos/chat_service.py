@@ -49,6 +49,7 @@ from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CA
     ExplicitRetentionAdmissionGate, retention_request_id,
     sentientos_data_dir, sentientos_memory_dir)
 from .local_model_authority import digest_payload
+from .chat_response_grounding import corrected_gaming_output, corrected_output_lineage
 
 LOGGER = logging.getLogger(__name__)
 
@@ -107,6 +108,7 @@ def _is_social_checkin_request(message: str) -> bool:
         "just saying hello", "how about you", "ask me one easy question",
         "ask one easy question", "tell me you are here", "tell me you're here",
         "say you are here", "say you're here", "here with me",
+        "keep me company", "company while i play", "company while i game",
     )
     return any(marker in normalized for marker in markers)
 
@@ -794,6 +796,7 @@ class PersistentConversationService:
                 "active_model_identity_digest": linkage.get("active_model_identity_digest"),
                 "loaded_model_identity_digest": linkage.get("loaded_model_identity_digest"),
                 "recovered_without_inference": True,
+                "response_origin": linkage.get("response_origin", "model_generated"),
             },
             retention=retention,
         )
@@ -1111,18 +1114,40 @@ class PersistentConversationService:
             raise RuntimeError(f"governed_inference_not_completed:{receipt.status}")
         if not isinstance(receipt.output_digest, str):
             raise RuntimeError("invocation_output_digest_missing")
-        transcript_output_digest = digest_payload({"text": receipt.output_text})
         if (not receipt.output_truncated
                 and digest_payload({"output": receipt.output_text}) != receipt.output_digest):
             raise RuntimeError("invocation_output_transcript_mismatch")
-        assistant_output_lineage = {
-            "status": ("exact_invocation_output_match" if not receipt.output_truncated
-                       else "truncated_transcript_original_output_relation_unknown"),
-            "invocation_output_digest": receipt.output_digest,
-            "transcript_text_digest": transcript_output_digest,
-            "output_truncated": receipt.output_truncated,
-        }
         request_linkage = receipt.request.get("linkage", {})
+        upstream_evidence = receipt.request.get("upstream_evidence", {})
+        current_lifetime = (upstream_evidence.get("current_serving_lifetime")
+            if isinstance(upstream_evidence, Mapping) else None)
+        observed_workload_mode = (current_lifetime.get("workload_mode")
+            if isinstance(current_lifetime, Mapping) else None)
+        if observed_workload_mode not in {"normal", "gaming"}:
+            mode_getter = getattr(self._inference, "current_workload_mode", None)
+            observed_workload_mode = mode_getter() if callable(mode_getter) else "normal"
+        response_text = receipt.output_text
+        grounding_correction: Mapping[str, str] | None = None
+        if not receipt.output_truncated:
+            response_text, grounding_correction = corrected_gaming_output(
+                receipt.output_text, workload_mode=str(observed_workload_mode or "normal"),
+                screen_observation_provenance=(request_linkage.get("screen_observation_provenance")
+                    if isinstance(request_linkage, Mapping) else None))
+        transcript_output_digest = digest_payload({"text": response_text})
+        if grounding_correction is None:
+            assistant_output_lineage = {
+                "status": ("exact_invocation_output_match" if not receipt.output_truncated
+                           else "truncated_transcript_original_output_relation_unknown"),
+                "invocation_output_digest": receipt.output_digest,
+                "transcript_text_digest": transcript_output_digest,
+                "output_truncated": receipt.output_truncated,
+            }
+            response_origin = "model_generated"
+        else:
+            assistant_output_lineage = corrected_output_lineage(
+                invocation_output_digest=receipt.output_digest, text=response_text,
+                output_truncated=receipt.output_truncated)
+            response_origin = "grounding_policy_fallback"
         if isinstance(self._inference, DevelopmentLocalChatInference):
             software_generation_attribution = {
                 "status": "development_only",
@@ -1140,7 +1165,7 @@ class PersistentConversationService:
                 verified_current = verifier(receipt_id=receipt.receipt_id,
                     receipt_digest=receipt.receipt_digest,
                     session_id=session["session_id"], user_turn_id=user_turn["turn_id"],
-                    assistant_text=receipt.output_text,
+                    assistant_text=response_text,
                     client_request_id_digest=request_client_digest)
             except Exception as exc:
                 raise RuntimeError("chat_process_current_invocation_verification_failed") from exc
@@ -1194,7 +1219,7 @@ class PersistentConversationService:
                     and type(prior_generation) is int and type(current_generation) is int
                     and current_generation == prior_generation + 1):
                 continuity_posture = "activation_predecessor_bound_to_prior_observed_invocation"
-        assistant = self.sessions.append_turn(session["session_id"], role="assistant", text=receipt.output_text,
+        assistant = self.sessions.append_turn(session["session_id"], role="assistant", text=response_text,
             linkage={"request_id": receipt.request.get("request_id"),
                      "invocation_receipt_id": receipt.receipt_id,
                      "invocation_receipt_digest": receipt.receipt_digest,
@@ -1206,6 +1231,7 @@ class PersistentConversationService:
                      "software_generation_attribution": compact_runtime_generation_attribution(
                          software_generation_attribution),
                      "assistant_output_lineage": assistant_output_lineage,
+                     "response_origin": response_origin,
                      "predecessor_model_identity_digest": predecessor_identity_digest,
                      "predecessor_invocation_reference": (
                          dict(predecessor_invocation_reference)
@@ -1226,7 +1252,7 @@ class PersistentConversationService:
                 avatar_publication: dict[str, Any] = {
                     "session_id": session["session_id"],
                     "turn_id": str(assistant["turn_id"]),
-                    "text": receipt.output_text,
+                    "text": response_text,
                     "output_digest": transcript_output_digest,
                 }
                 if workload_mode is not None:
@@ -1242,7 +1268,7 @@ class PersistentConversationService:
             try:
                 self._speech_output.publish_response(
                     session_id=session["session_id"], turn_id=str(assistant["turn_id"]),
-                    text=receipt.output_text, output_digest=transcript_output_digest)
+                    text=response_text, output_digest=transcript_output_digest)
             except Exception as exc:
                 LOGGER.warning("Local speech publication failed: %s", type(exc).__name__)
         retention_result: dict[str, object] = {"status": "not_requested"}
@@ -1290,7 +1316,7 @@ class PersistentConversationService:
                     self.sessions.update_turn_retention(
                         session["session_id"], user_turn["turn_id"],
                         state="retention_failed", receipt=retention_result)
-        return ChatResponse(response=receipt.output_text, session_id=session["session_id"], turn_id=assistant["turn_id"],
+        return ChatResponse(response=response_text, session_id=session["session_id"], turn_id=assistant["turn_id"],
                             context={"conversation_snapshot_digest": history.snapshot_digest,
                                      "memory_snapshot_digest": memory["snapshot_digest"],
                                      "memory_retrieval_posture": memory["retrieval_posture"],
@@ -1300,6 +1326,7 @@ class PersistentConversationService:
                                      "active_model_identity_digest": serving_identity_digest,
                                      "loaded_model_identity_digest": loaded_identity_digest,
                                      "model_identity_continuity_posture": continuity_posture,
+                                     "response_origin": response_origin,
                                      "screen_observation_provenance": (
                                          dict(linkage["screen_observation_provenance"])
                                          if isinstance(linkage.get("screen_observation_provenance"), Mapping)

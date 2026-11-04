@@ -21,14 +21,12 @@ class GamingWorkloadPolicy:
         "names, claim to see or play, offer game help, or ask follow-ups unless asked."
     )
     GAMING_SOCIAL_CHECKIN_INSTRUCTION = (
-        "This is friendly small talk, not a help request. Use one short friendly "
-        "sentence to say you are here in SentientOS and ready to chat. If you ask "
-        "a question, ask how the user's session is going; do not assume they are "
-        "taking a break. Do not mention models, "
-        "AI, feelings, emotions, physical sensations, or screen access. Never ask "
-        "what help is needed or claim you are playing or seeing the game. Example "
-        "(vary naturally): 'I'm here in SentientOS and ready to chat. How's your "
-        "session going?'"
+        "This is casual companionship, not a help request. In one warm sentence, say you "
+        "are here in SentientOS and acknowledge one game detail the user just shared. In a "
+        "company reply, mention that detail instead of generic gaming praise. Do not "
+        "claim to play, see, watch, or monitor the game, or imply live observation without "
+        "CURRENT_SCREEN_OBSERVATION_UNTRUSTED. Do not ask what help is needed. Ask how the "
+        "session is going only if a follow-up fits."
     )
     GAMING_MAX_INPUT_CHARS = 4000
     GAMING_MAX_OUTPUT_CHARS = 1200
