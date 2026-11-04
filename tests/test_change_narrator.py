@@ -47,6 +47,32 @@ def test_change_narrator_handles_no_changes(tmp_path: Path, monkeypatch: pytest.
     assert reply == "No changes since the last update."
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "How does that change your next suggestion?",
+        "What would you change about your advice?",
+        "The situation changed after I found a clue.",
+        "Can you update your suggestion?",
+    ],
+)
+def test_conversational_change_words_do_not_trigger_change_narrator(text: str) -> None:
+    assert ScopeFilter.from_text(text).requested is False
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "What changed?",
+        "What changed since yesterday?",
+        "Can you summarise the latest changes?",
+        "Share Codex changes",
+    ],
+)
+def test_explicit_repository_change_questions_trigger_change_narrator(text: str) -> None:
+    assert ScopeFilter.from_text(text).requested is True
+
+
 def test_change_narrator_summarises_commits_and_ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     data_root = tmp_path / "data"
     monkeypatch.setenv("SENTIENTOS_DATA_DIR", str(data_root))
