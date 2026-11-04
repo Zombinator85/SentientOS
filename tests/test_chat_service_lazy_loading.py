@@ -35,6 +35,9 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
         "Hey, how is your evening going? What can you verify about the game that is currently open, and what details can you not observe? Keep it natural and brief.")
     assert chat._is_current_runtime_context_question(
         "Which game is open, and can you see its screen?")
+    assert chat._is_current_runtime_context_question(
+        "You said Cronos is open and that you cannot see the screen. "
+        "What can you tell from your live connection?")
     assert not chat._is_current_runtime_context_question(
         "What do you think about the story in Cronos?")
     assert chat._is_recent_session_recall_request(
@@ -343,6 +346,31 @@ def test_live_screen_question_skips_cross_session_memories(tmp_path, monkeypatch
     assert "MEMORY_DATA:" not in invoker.prompts[-1]
     assert "A foreground process confirms only the app is open" in invoker.prompts[-1]
     assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, answer no to visibility questions" in invoker.prompts[-1]
+
+
+def test_live_connection_question_skips_unrelated_cross_session_memories(tmp_path, monkeypatch):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    response = client.post("/chat", json={
+        "message": ("You said Cronos is open and that you cannot see the screen. "
+                    "What can you tell from your live connection?")
+    })
+
+    assert response.status_code == 200
+    assert memory_queries == [""]
+    assert response.json()["context"]["selected_memory_count"] == 0
+    assert "MEMORY_DATA:" not in invoker.prompts[-1]
+    assert "configured_game_process_names" in invoker.prompts[-1]
+    assert "screen_observation" in invoker.prompts[-1]
 
 
 def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_path, monkeypatch):
