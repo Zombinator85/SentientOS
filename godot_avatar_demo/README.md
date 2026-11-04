@@ -27,3 +27,7 @@ This demo is not a production renderer and does not activate or adopt an avatar 
 The demo receiver binds its UDP port to `127.0.0.1` explicitly. It is a
 same-host convenience channel, not an authenticated network bridge; do not
 change its bind address or expose the port to a LAN.
+
+## Supervised local chat UI
+
+The companion scene includes a development-only text composer. Keep the supervised WSL chat service running on `127.0.0.1:5000`, choose **New chat** to begin or **Resume latest** after a restart, then send messages in the bottom panel. The panel sends only to the local loopback service; it selects the bounded gaming profile first and sets `retain=false` and `observe_screen=false` on every chat request. Starting a chat explicitly enables visual avatar output for that new conversation. The panel does not enable speech or screen capture, and the development API must not be exposed to a network.
