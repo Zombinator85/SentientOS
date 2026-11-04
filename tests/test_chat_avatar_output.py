@@ -144,6 +144,18 @@ def test_workload_mode_update_is_admitted_and_preserves_current_caption(tmp_path
     output.close()
 
 
+def test_initial_workload_mode_update_reaches_renderer_without_chat_caption(tmp_path) -> None:
+    target = tmp_path / "avatar_state.json"
+    output = _controller(target, _AdmissionStub())
+    assert output.set_enabled("session-1", True)["enabled"] is True
+    assert output.set_workload_mode("session-1", "gaming") == {
+        "status": "updated", "workload_mode": "gaming"}
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["current_phrase"] == ""
+    assert payload["metadata"]["workload_mode"] == "gaming"
+    output.close()
+
+
 def test_denied_workload_mode_update_leaves_avatar_state_unchanged(tmp_path) -> None:
     target = tmp_path / "avatar_state.json"
     output = _controller(target, _AdmissionStub((Decision.ALLOW, Decision.ALLOW, Decision.DENY)))

@@ -342,7 +342,7 @@ def test_verified_workload_context_names_only_confirmed_allowlisted_game(tmp_pat
 
     assert response.status_code == 200
     prompt = invoker.prompts[-1]
-    assert "configured_game_process_names only to identify the foreground app" in prompt
+    assert "configured_game_process_names only to identify a confirmed foreground app" in prompt
     runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
         "\n[SESSION_HISTORY_DATA]", 1)[0]
     workload = json.loads(runtime_block)["workload"]
@@ -350,7 +350,73 @@ def test_verified_workload_context_names_only_confirmed_allowlisted_game(tmp_pat
     assert workload["configured_game_process_names"] == ["cronos-win64-shipping.exe"]
     assert "[VERIFIED_CURRENT_WORKLOAD_FACTS]" in prompt
     assert "Verified foreground game: Cronos (cronos-win64-shipping.exe)" in prompt
-    assert "configured_game_process_names only to identify the foreground app" in prompt
+    assert "configured_game_process_names only to identify a confirmed foreground app" in prompt
+    assert "game screen and actions are not observed this turn" in prompt
+
+
+def test_background_game_presence_is_grounded_without_claiming_screen_access(tmp_path):
+    import json
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload()
+    client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation("available", False, "b" * 64,
+                "2026-11-03T17:00:00+00:00",
+                game_process_running=True, running_process_name_digests=("c" * 64,))
+
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic",
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+        foreground_game_detector=Detector())
+    response = client.post("/chat", json={"message": "Is Cronos still running?"})
+
+    assert response.status_code == 200
+    prompt = invoker.prompts[-1]
+    runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
+        "\n[SESSION_HISTORY_DATA]", 1)[0]
+    workload = json.loads(runtime_block)["workload"]
+    assert workload["game_foreground"] is False
+    assert workload["game_process_running"] is True
+    assert workload["configured_game_process_names"] == ["cronos-win64-shipping.exe"]
+    assert workload["effective_mode"] == "gaming"
+    assert "An allowlisted game process is running, but the game is not foreground." in prompt
+    assert "game screen and actions are not observed this turn" in prompt
+
+
+def test_background_game_presence_is_grounded_without_claiming_screen_access(tmp_path):
+    import json
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload()
+    client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation("available", False, "b" * 64,
+                "2026-11-03T17:00:00+00:00",
+                game_process_running=True, running_process_name_digests=("c" * 64,))
+
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic",
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+        foreground_game_detector=Detector())
+    response = client.post("/chat", json={"message": "Is Cronos still running?"})
+
+    assert response.status_code == 200
+    prompt = invoker.prompts[-1]
+    runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
+        "\n[SESSION_HISTORY_DATA]", 1)[0]
+    workload = json.loads(runtime_block)["workload"]
+    assert workload["game_foreground"] is False
+    assert workload["game_process_running"] is True
+    assert workload["configured_game_process_names"] == ["cronos-win64-shipping.exe"]
+    assert workload["effective_mode"] == "gaming"
+    assert "An allowlisted game process is running, but the game is not foreground." in prompt
     assert "game screen and actions are not observed this turn" in prompt
 
 
@@ -667,9 +733,13 @@ def test_development_automatic_mode_switches_profiles_from_fresh_observations():
     class MutableDetector:
         def __init__(self):
             self.foreground = True
+            self.process_running = False
         def observe(self, _names):
             return ForegroundGameObservation("available", self.foreground,
-                "a" * 64, "2026-11-03T17:00:00+00:00", {"source_id": "windows"})
+                "a" * 64, "2026-11-03T17:00:00+00:00", {"source_id": "windows"},
+                game_process_running=self.process_running,
+                running_process_name_digests=(("c" * 64,) if self.process_running else
+                    (() if self.process_running is False else None)))
 
     normal = SimpleNamespace(active_identity=SimpleNamespace(
         engine="ollama", semantic_artifact_identity="hermes"))
@@ -688,11 +758,19 @@ def test_development_automatic_mode_switches_profiles_from_fresh_observations():
     assert active_state["game_foreground"] is True
     assert active_state["configured_game_process_names"] == ["cronos-win64-shipping.exe"]
     detector.foreground = False
+    detector.process_running = True
+    background_state = inference.current_workload_state()
+    assert background_state["mode"] == "automatic"
+    assert background_state["effective_mode"] == "gaming"
+    assert background_state["game_foreground"] is False
+    assert background_state["game_process_running"] is True
+    assert background_state["mode_source"] == "allowlisted_game_process_running"
+
+    detector.process_running = False
     state = inference.current_workload_state()
-    assert state["mode"] == "automatic"
     assert state["effective_mode"] == "normal"
     assert state["foreground_game_detected"] is False
-    assert "configured_game_process_names" not in state
+    assert state["configured_game_process_names"] == ["cronos-win64-shipping.exe"]
     assert state["workload_evidence"]["process_name_digest"] == "a" * 64
 
     inference.generate(prompt="[SYSTEM_INSTRUCTION]\nrole\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\nhello",
@@ -710,7 +788,8 @@ def test_automatic_workload_poll_releases_previous_model_when_game_enters_foregr
             self.foreground = False
         def observe(self, _names):
             return ForegroundGameObservation("available", self.foreground,
-                "b" * 64, "2026-11-03T20:00:00+00:00", {"source_id": "windows"})
+                "b" * 64, "2026-11-03T20:00:00+00:00", {"source_id": "windows"},
+                game_process_running=False, running_process_name_digests=())
 
     class Invoker:
         def __init__(self, model):
@@ -777,7 +856,8 @@ def test_failed_automatic_model_release_is_visible_and_does_not_switch_profiles(
         foreground = False
         def observe(self, _names):
             return ForegroundGameObservation("available", self.foreground,
-                "c" * 64, "2026-11-03T20:00:00+00:00", {"source_id": "windows"})
+                "c" * 64, "2026-11-03T20:00:00+00:00", {"source_id": "windows"},
+                game_process_running=False, running_process_name_digests=())
 
     class Invoker:
         def __init__(self, model):

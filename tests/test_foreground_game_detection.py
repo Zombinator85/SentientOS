@@ -63,6 +63,22 @@ def test_game_allowlist_rejects_empty_paths_invalid_names_and_duplicates(names) 
         normalize_game_process_names(names)
 
 
+def test_automatic_mode_fails_safe_when_background_process_observation_is_unknown() -> None:
+    detector = ForegroundGameDetector(
+        process_name_provider=lambda: "godot.exe",
+        running_process_names_provider=lambda: None,
+        system_provider=lambda: "Windows", clock=lambda: STAMP)
+    controller = _workload_controller(detector)
+    controller.set_workload_mode("automatic", ("ExampleGame.exe",))
+
+    state = controller.current_workload_state()
+
+    assert state["game_foreground"] is False
+    assert state["game_process_running"] is None
+    assert state["effective_mode"] == "gaming"
+    assert state["mode_source"] == "game_process_observation_unavailable_conservative_gaming"
+
+
 def _workload_controller(detector: ForegroundGameDetector) -> ProductionServingInferenceController:
     controller = object.__new__(ProductionServingInferenceController)
     controller._workload_lock = Lock()
@@ -75,6 +91,7 @@ def _workload_controller(detector: ForegroundGameDetector) -> ProductionServingI
 def test_automatic_mode_tightens_only_for_allowlisted_foreground_game() -> None:
     detector = ForegroundGameDetector(
         process_name_provider=lambda: "ExampleGame.exe",
+        running_process_names_provider=lambda: (),
         system_provider=lambda: "Windows", clock=lambda: STAMP)
     controller = _workload_controller(detector)
 
@@ -90,6 +107,7 @@ def test_automatic_mode_tightens_only_for_allowlisted_foreground_game() -> None:
 def test_automatic_mode_uses_normal_profile_for_other_foreground_apps() -> None:
     detector = ForegroundGameDetector(
         process_name_provider=lambda: "explorer.exe",
+        running_process_names_provider=lambda: (),
         system_provider=lambda: "Windows", clock=lambda: STAMP)
     controller = _workload_controller(detector)
     controller.set_workload_mode("automatic", ("ExampleGame.exe",))
@@ -98,6 +116,7 @@ def test_automatic_mode_uses_normal_profile_for_other_foreground_apps() -> None:
 
     assert state["effective_mode"] == "normal"
     assert state["mode_source"] == "foreground_allowlist_no_match"
+    assert state["configured_game_process_names"] == ["examplegame.exe"]
 
 
 def test_automatic_mode_falls_back_to_low_work_profile_when_detection_fails() -> None:
@@ -110,3 +129,38 @@ def test_automatic_mode_falls_back_to_low_work_profile_when_detection_fails() ->
     assert state["effective_mode"] == "gaming"
     assert state["mode_source"] == "foreground_observation_unavailable_conservative_gaming"
     assert state["game_foreground"] is None
+
+
+def test_background_allowlisted_game_process_is_reported_without_claiming_foreground() -> None:
+    detector = ForegroundGameDetector(
+        process_name_provider=lambda: "godot.exe",
+        running_process_names_provider=lambda: ("Cronos-Win64-Shipping.exe", "godot.exe"),
+        system_provider=lambda: "Windows",
+        clock=lambda: STAMP,
+    )
+
+    observation = detector.observe(("cronos-win64-shipping.exe",))
+
+    assert observation.status == "available"
+    assert observation.game_foreground is False
+    assert observation.game_process_running is True
+    assert observation.running_process_name_digests == (
+        hashlib.sha256(b"cronos-win64-shipping.exe").hexdigest(),)
+    serialized = str(observation.to_dict())
+    assert "Cronos" not in serialized
+    assert "godot.exe" not in serialized
+
+
+def test_unavailable_process_list_does_not_claim_no_game_running() -> None:
+    detector = ForegroundGameDetector(
+        process_name_provider=lambda: "godot.exe",
+        running_process_names_provider=lambda: None,
+        system_provider=lambda: "Windows",
+        clock=lambda: STAMP,
+    )
+
+    observation = detector.observe(("cronos.exe",))
+
+    assert observation.game_foreground is False
+    assert observation.game_process_running is None
+    assert observation.running_process_name_digests is None

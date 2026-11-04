@@ -15,6 +15,7 @@ SCREEN_CAPABILITY_POLICY_ID = "screen_observation_unconfigured_correction_v2"
 SOCIAL_INSTRUCTION_ECHO_POLICY_ID = "social_instruction_echo_correction_v1"
 SOCIAL_CHECK_IN_POLICY_ID = "social_check_in_grounding_correction_v1"
 CURRENT_GAME_STATUS_POLICY_ID = "verified_foreground_only_game_status_v1"
+GAME_PROCESS_STATUS_POLICY_ID = "verified_game_process_status_v1"
 SYSTEM_IDENTITY_POLICY_ID = "sentientos_companion_identity_grounding_v1"
 _UNSUPPORTED_SELF_STATE = re.compile(
     r"\bI(?:'m| am)\s+(?:doing\s+(?:well|great|fine)|"
@@ -44,6 +45,11 @@ _ACTIVE_MODEL_QUESTION = re.compile(
 _GAME_OPEN_QUESTION = re.compile(
     r"\b(?:what|which) game (?:is|\'s) open\b|"
     r"\bwhat game are we (?:playing|looking at)\b",
+    re.IGNORECASE,
+)
+_GAME_RUNNING_QUESTION = re.compile(
+    r"\b(?:is|are)\b.{0,48}\b(?:cronos|the game|my game|this game)\b"
+    r".{0,48}\b(?:still )?(?:running|open|active)\b",
     re.IGNORECASE,
 )
 _MODEL_SELF_REFERENCE = re.compile(
@@ -106,15 +112,49 @@ def corrected_unobserved_game_status(
     screen_observation_provenance: Mapping[str, Any] | None,
 ) -> tuple[str, dict[str, str] | None]:
     """Answer live game-status questions from foreground evidence only."""
-    if (not _GAME_STATUS_QUESTION.search(user_message)
+    if (not (_GAME_STATUS_QUESTION.search(user_message)
+             or _GAME_RUNNING_QUESTION.search(user_message))
             or isinstance(screen_observation_provenance, Mapping)):
         return output, None
     workload = verified_runtime_context.get("workload")
-    if not isinstance(workload, Mapping) or workload.get("game_foreground") is not True:
+    if not isinstance(workload, Mapping):
         return output, None
     names = workload.get("configured_game_process_names")
     if (not isinstance(names, list) or not names
-            or not isinstance(names[0], str) or not names[0]):
+            or any(not isinstance(name, str) or not name for name in names)):
+        return output, None
+    mentioned = [name for name in names
+        if re.sub(r"[-_]win64[-_]shipping$", "", name.rsplit(".", 1)[0],
+                  flags=re.IGNORECASE).replace("-", " ").replace("_", " ").strip().casefold()
+        in user_message.casefold()]
+    if _GAME_RUNNING_QUESTION.search(user_message):
+        if len(mentioned) == 1:
+            process_name = mentioned[0]
+        elif len(names) == 1:
+            process_name = names[0]
+        else:
+            return output, None
+        label = re.sub(r"[-_]win64[-_]shipping$", "", process_name.rsplit(".", 1)[0],
+                       flags=re.IGNORECASE)
+        label = re.sub(r"[-_]+", " ", label).strip().title() or process_name
+        running = workload.get("game_process_running")
+        if type(running) is not bool:
+            return output, None
+        foreground = workload.get("game_foreground") is True
+        if running:
+            status = "is running in the foreground" if foreground else "is still running in the background"
+            response = (f"{label} {status}. I don’t have a screen observation for this turn, "
+                        "so I can’t describe the gameplay.")
+            reason = "allowlisted_game_process_running_no_screen_observation"
+        else:
+            response = (f"I don’t detect {label} running right now. "
+                        "I don’t have a screen observation for this turn.")
+            reason = "allowlisted_game_process_not_running_no_screen_observation"
+        return response, {
+            "policy_id": GAME_PROCESS_STATUS_POLICY_ID,
+            "reason_code": reason,
+        }
+    if workload.get("game_foreground") is not True:
         return output, None
     process_name = names[0]
     label = re.sub(r"[-_]win64[-_]shipping$", "", process_name.rsplit(".", 1)[0],

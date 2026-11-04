@@ -104,7 +104,8 @@ def test_authenticated_windows_sample_drives_existing_automatic_workload_decisio
 
 def test_non_game_observation_returns_to_normal_and_preserves_source_lineage():
     runtime = _publish(ForegroundGameObservation(
-        "available", False, hashlib.sha256(b"desktop.exe").hexdigest(), STAMP))
+        "available", False, hashlib.sha256(b"desktop.exe").hexdigest(), STAMP,
+        game_process_running=False, running_process_name_digests=()))
     detector = BridgeForegroundGameDetector(runtime=runtime, source_id=SOURCE_ID,
         generation_id=SOURCE_GENERATION, clock=lambda: NOW)
     controller = _automatic_controller(detector)
@@ -282,3 +283,37 @@ def test_pump_takes_a_new_sample_after_indeterminate_delivery_instead_of_replayi
     finally:
         pump.close()
         runtime.close()
+
+
+def test_authenticated_background_game_presence_keeps_automatic_workload_game_safe():
+    digest = hashlib.sha256(b"game.exe").hexdigest()
+    runtime = _publish(ForegroundGameObservation(
+        "available", False, hashlib.sha256(b"desktop.exe").hexdigest(), STAMP,
+        game_process_running=True, running_process_name_digests=(digest,)))
+    detector = BridgeForegroundGameDetector(runtime=runtime, source_id=SOURCE_ID,
+        generation_id=SOURCE_GENERATION, clock=lambda: NOW)
+    controller = _automatic_controller(detector)
+    try:
+        state = controller.current_workload_state()
+        assert state["game_foreground"] is False
+        assert state["game_process_running"] is True
+        assert state["effective_mode"] == "gaming"
+        assert state["mode_source"] == "allowlisted_game_process_running"
+        assert state["running_process_name_digests"] == [digest]
+    finally:
+        detector.close()
+
+
+def test_authenticated_background_game_digest_must_match_allowlist():
+    runtime = _publish(ForegroundGameObservation(
+        "available", False, hashlib.sha256(b"desktop.exe").hexdigest(), STAMP,
+        game_process_running=True,
+        running_process_name_digests=(hashlib.sha256(b"other.exe").hexdigest(),)))
+    detector = BridgeForegroundGameDetector(runtime=runtime, source_id=SOURCE_ID,
+        generation_id=SOURCE_GENERATION, clock=lambda: NOW)
+    try:
+        observation = detector.observe(("game.exe",))
+        assert observation.status == "bridge_observation_invalid"
+        assert observation.game_process_running is None
+    finally:
+        detector.close()

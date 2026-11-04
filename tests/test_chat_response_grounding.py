@@ -238,3 +238,41 @@ def test_correct_identity_or_non_identity_answers_are_preserved():
         user_message="Which model is active?",
         verified_runtime_context=context,
     ) == ("Qwen3 1.7B is the active backend.", None)
+
+
+def test_game_running_question_uses_verified_background_process_presence():
+    from sentientos.chat_response_grounding import GAME_PROCESS_STATUS_POLICY_ID
+
+    corrected, attribution = corrected_unobserved_game_status(
+        "Cronos is not currently running while you talk to me.",
+        user_message="Hey SentientOS, is Cronos still running while I talk to you?",
+        verified_runtime_context={"workload": {
+            "game_foreground": False,
+            "game_process_running": True,
+            "configured_game_process_names": ["cronos-win64-shipping.exe"],
+        }},
+        screen_observation_provenance=None,
+    )
+
+    assert corrected == (
+        "Cronos is still running in the background. I don’t have a screen observation for "
+        "this turn, so I can’t describe the gameplay."
+    )
+    assert attribution == {
+        "policy_id": GAME_PROCESS_STATUS_POLICY_ID,
+        "reason_code": "allowlisted_game_process_running_no_screen_observation",
+    }
+
+
+def test_game_running_question_is_not_corrected_without_process_evidence():
+    output = "Cronos may be running."
+    assert corrected_unobserved_game_status(
+        output,
+        user_message="Is Cronos still running?",
+        verified_runtime_context={"workload": {
+            "game_foreground": False,
+            "game_process_running": None,
+            "configured_game_process_names": ["cronos-win64-shipping.exe"],
+        }},
+        screen_observation_provenance=None,
+    ) == (output, None)
