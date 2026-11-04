@@ -11,10 +11,11 @@ GROUNDING_CORRECTION = (
     "SentientOS correction: I can’t see the game in this turn, but I’m here with you."
 )
 
-SCREEN_CAPABILITY_POLICY_ID = "screen_observation_unconfigured_correction_v1"
+SCREEN_CAPABILITY_POLICY_ID = "screen_observation_unconfigured_correction_v2"
 SCREEN_CAPABILITY_CORRECTION = (
-    "Screen observation is not configured in this session, so I cannot see your screen. "
-    "Turning on a per-message option alone will not change that."
+    "I can’t see the game in this session because screen observation isn’t configured; "
+    "the per-message option alone won’t change that. I can still reason from what you "
+    "describe, suggest next checks, and use clues you share in this conversation."
 )
 _SCREEN_CAPABILITY_QUESTION = re.compile(
     r"\b(?:can|could|do|would|are)\s+you\b.{0,120}\b"

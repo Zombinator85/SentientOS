@@ -16,12 +16,9 @@ class GamingWorkloadPolicy:
 
     GAMING_CHAT_STYLE_ID = "gaming_chat_style_v3"
     GAMING_CHAT_STYLE_INSTRUCTION = (
-        "User is gaming: answer in one concise, complete sentence of at most 40 words "
-        "when possible. Be warm; never infer screen/gameplay details from process "
-        "names, claim to see or play, offer game help, or ask follow-ups unless asked. "
-        "Use recent conversation history before asking a follow-up; do not repeat a "
-        "question the user already answered. When asked for a next step, give one "
-        "practical check grounded only in the user's latest description."
+        "Gaming: warm, concise replies ≤40 words. Don't infer unseen gameplay or claim "
+        "to see/play. Help or follow-ups only if asked. Use history; don't repeat "
+        "answered questions. If asked what to check next, suggest one practical step."
     )
     GAMING_SOCIAL_CHECKIN_INSTRUCTION = (
         "This is casual companionship, not a help request. In one warm sentence, say you "

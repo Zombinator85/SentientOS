@@ -400,8 +400,9 @@ def test_unconfigured_screen_question_gets_truthful_capability_fallback(tmp_path
     assert response.status_code == 200
     payload = response.json()
     assert payload["response"] == (
-        "Screen observation is not configured in this session, so I cannot see your screen. "
-        "Turning on a per-message option alone will not change that.")
+        "I can’t see the game in this session because screen observation isn’t configured; "
+        "the per-message option alone won’t change that. I can still reason from what you "
+        "describe, suggest next checks, and use clues you share in this conversation.")
     assert payload["context"]["response_origin"] == "grounding_policy_fallback"
 
 
