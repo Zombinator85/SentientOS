@@ -45,7 +45,7 @@ def test_effective_mode_and_budget_are_recorded_in_invocation_lineage() -> None:
 
     assert budget.max_new_tokens == 64
     assert lineage == {"serving_session_id": "session-1", "workload_mode": "gaming",
-        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v6",
+        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v7",
         "max_backend_threads": 2}
 
 
@@ -65,11 +65,14 @@ def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
     assert result.index(GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION) < result.index(
         "[VERIFIED_RUNTIME_CONTEXT]")
     assert result.endswith("[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
-    assert "one sentence, ideally 20 words" in result
+    assert "one direct sentence, about 20 words" in result
     assert "verified foreground app" in result
     assert "without screen evidence" in result
     assert "Honor corrections and rule-outs" in result
     assert "one action and why" in result
+    assert "Fulfill requested form" in result
+    assert "joke requests get jokes, not trivia or offers" in result
+    assert "No unasked follow-up" in result
     assert GamingWorkloadPolicy.apply_chat_response_style(prompt, "normal") == prompt
 
 

@@ -14,12 +14,12 @@ SUPPORTED_WORKLOAD_MODES = frozenset({"normal", "gaming", "automatic"})
 class GamingWorkloadPolicy:
     """Apply conservative per-turn ceilings without changing model authority."""
 
-    GAMING_CHAT_STYLE_ID = "gaming_chat_style_v6"
+    GAMING_CHAT_STYLE_ID = "gaming_chat_style_v7"
     GAMING_CHAT_STYLE_INSTRUCTION = (
-        "Gaming: answer directly in one sentence, ideally 20 words. Distinguish proposals "
-        "from current capabilities. Identify a verified foreground app only; claim no "
-        "gameplay details without screen evidence. Honor corrections and rule-outs. For a "
-        "new next step, give one action and why."
+        "Gaming: one direct sentence, about 20 words. Separate proposals from capabilities. "
+        "Name verified foreground app only; no gameplay claims without screen evidence. "
+        "Honor corrections and rule-outs. Fulfill requested form: joke requests get jokes, "
+        "not trivia or offers. No unasked follow-up; next step gets one action and why."
     )
     GAMING_SOCIAL_CHECKIN_INSTRUCTION = (
         "This is casual companionship, not a help request. In one warm sentence, say you "
