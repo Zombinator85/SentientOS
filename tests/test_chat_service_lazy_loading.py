@@ -33,6 +33,8 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
         "In one concise sentence, tell me what you can observe about the current game and what you cannot.")
     assert chat._is_current_runtime_context_question(
         "Hey, how is your evening going? What can you verify about the game that is currently open, and what details can you not observe? Keep it natural and brief.")
+    assert chat._is_current_runtime_context_question(
+        "Which game is open, and can you see its screen?")
     assert not chat._is_current_runtime_context_question(
         "What do you think about the story in Cronos?")
     assert chat._is_recent_session_recall_request(

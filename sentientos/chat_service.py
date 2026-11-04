@@ -89,7 +89,7 @@ def _is_current_runtime_context_question(message: str) -> bool:
         "what you can observe about the current",
         "what do you observe about the current",
         "what do you know about my current", "what game am i playing",
-        "what game is open", "what is on my screen", "is my screen visible",
+        "what game is open", "which game is open", "what is on my screen", "is my screen visible",
         "my current game", "current cronos session",
     )
     return any(marker in normalized for marker in markers)
