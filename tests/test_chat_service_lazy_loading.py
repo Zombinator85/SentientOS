@@ -312,10 +312,8 @@ def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_
     assert "USER_DATA:" in invoker.prompts[-1]
     assert "ASSISTANT_DATA:" not in invoker.prompts[-1]
     assert "MEMORY_DATA:" not in invoker.prompts[-1]
-    assert (
-        "For this recall, answer from relevant speaker-labeled turns included in "
-        "SESSION_HISTORY_DATA; do not infer missing messages or use MEMORY_DATA."
-    ) in invoker.prompts[-1]
+    assert "final prior USER_DATA turn" in invoker.prompts[-1]
+    assert "Do not substitute older turns" in invoker.prompts[-1]
 
 
 def test_recent_assistant_reply_recall_includes_same_session_answer_only(tmp_path, monkeypatch):
@@ -332,18 +330,42 @@ def test_recent_assistant_reply_recall_includes_same_session_answer_only(tmp_pat
     monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
     first = client.post("/chat", json={"message": "Can you see my screen?"})
     sid = first.json()["session_id"]
+    recent = client.post("/chat", json={"session_id": sid,
+        "message": "What is the immediate game focus? Cronos."})
     second = client.post("/chat", json={"session_id": sid,
         "message": "What did I ask, and what did you answer?"})
 
-    assert second.status_code == 200
-    assert memory_queries == ["", ""]
+    assert recent.status_code == second.status_code == 200
+    assert memory_queries == ["", "What is the immediate game focus? Cronos.", ""]
     prompt = invoker.prompts[-1]
-    assert "USER_DATA: " in prompt and "Can you see my screen?" in prompt
+    assert "USER_DATA: " in prompt and "What is the immediate game focus? Cronos." in prompt
+    assert "Can you see my screen?" not in prompt
     assert "ASSISTANT_DATA: " in prompt and "explicit simulation" in prompt
-    assert "do not infer missing messages or use MEMORY_DATA" in prompt
+    assert "final prior USER_DATA turn" in prompt
+    assert "Do not substitute older turns" in prompt
     assert "MEMORY_DATA:" not in prompt
     assert second.json()["context"]["selected_turn_count"] == 2
     assert second.json()["context"]["selected_memory_count"] == 0
+
+
+def test_recent_user_recall_uses_only_immediately_previous_user_turn(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    first = client.post("/chat", json={"message": "Can you see my screen?"})
+    sid = first.json()["session_id"]
+    recent = client.post("/chat", json={"session_id": sid,
+        "message": "Please focus on Cronos frame pacing."})
+    recall = client.post("/chat", json={"session_id": sid,
+        "message": "What did I ask you about just before this?"})
+
+    assert recent.status_code == recall.status_code == 200
+    prompt = invoker.prompts[-1]
+    assert "Please focus on Cronos frame pacing." in prompt
+    assert "Can you see my screen?" not in prompt
+    assert "final prior USER_DATA turn" in prompt
+    assert recall.json()["context"]["selected_turn_count"] == 1
+    assert recall.json()["context"]["selected_memory_count"] == 0
 
 
 def test_social_checkin_uses_only_current_message_without_stale_context(

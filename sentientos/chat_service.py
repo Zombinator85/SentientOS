@@ -962,12 +962,15 @@ class PersistentConversationService:
         recent_session_recall = _is_recent_session_recall_request(message)
         social_checkin = _is_social_checkin_request(message)
         history_roles: tuple[str, ...] | None
+        history_turn_limit: int | None = None
         if recent_session_recall:
             asks_for_assistant_reply = any(marker in " ".join(
                 re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
                 for marker in ("what did you answer", "what did you say",
-                    "what was your answer", "what was your response", "what did you reply"))
+                    "what did you tell me", "what was your answer",
+                    "what was your response", "what did you reply"))
             history_roles = ("user", "assistant") if asks_for_assistant_reply else ("user",)
+            history_turn_limit = 2 if asks_for_assistant_reply else 1
         elif social_checkin:
             # A self-contained greeting should not inherit topic from an older
             # user question and mistake the check-in for another request.
@@ -975,7 +978,8 @@ class PersistentConversationService:
         else:
             history_roles = None
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
-            exclude_turn_id=user_turn["turn_id"], include_roles=history_roles)
+            exclude_turn_id=user_turn["turn_id"], include_roles=history_roles,
+            max_turns=history_turn_limit)
         # Exact recall, casual check-ins, and live runtime questions rely on the
         # relevant transcript or verified runtime facts. Lexical retrieval can
         # over-weight old prompts (for example, prior screen-visibility questions).
