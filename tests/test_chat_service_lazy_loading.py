@@ -942,6 +942,31 @@ def test_what_did_you_just_say_selects_latest_assistant_reply(tmp_path, monkeypa
     assert invoker.calls == 2
 
 
+def test_recent_semantic_assistant_recall_uses_transcript_without_memories(tmp_path, monkeypatch):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    first = client.post("/chat", json={"message": "Can you see my screen?"})
+    session_id = first.json()["session_id"]
+    followup = client.post("/chat", json={"session_id": session_id,
+        "message": "What was the thing you said you could not see?"})
+
+    assert first.status_code == followup.status_code == 200
+    assert memory_queries == ["", ""]
+    assert "ASSISTANT_DATA: " in invoker.prompts[-1]
+    assert "Can you see my screen?" in invoker.prompts[-1]
+    assert followup.json()["context"]["selected_turn_count"] == 2
+    assert followup.json()["context"]["selected_memory_count"] == 0
+
+
 def test_direct_recent_assistant_recall_returns_verified_transcript_and_recovers_idempotently(tmp_path):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()

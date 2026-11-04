@@ -90,6 +90,7 @@ def _is_recent_session_recall_request(message: str) -> bool:
         "what exact phrase did i ask you to repeat",
         "what did i tell you", "what did you answer", "what did you say",
         "what was your answer", "what was your response", "what did you reply",
+        "what was the thing you said", "what was the thing you told me",
         "what did i say i was", "what was i doing",
         "what was my last message", "what was my previous message",
     )
@@ -1498,7 +1499,8 @@ class PersistentConversationService:
                     "what did you just answer", "what did you just say",
                     "what did you just reply", "what did you just tell me",
                     "what did you tell me", "what was your answer",
-                    "what was your response", "what did you reply"))
+                    "what was your response", "what did you reply",
+                    "what was the thing you said", "what was the thing you told me"))
             history_roles = ("user", "assistant") if asks_for_assistant_reply else ("user",)
             history_turn_limit = 2 if asks_for_assistant_reply else 1
         elif social_checkin or self_contained_echo or current_runtime_question:
