@@ -17,6 +17,17 @@ _UNOBSERVED_CLAIM_PATTERNS = (
     re.compile(r"\b(?:game|gameplay|screen|session)\b.{0,48}\b(?:watch(?:ing)?|monitor(?:ing)?)\b", re.IGNORECASE),
     re.compile(r"\bI(?:'m| am) enjoying (?:your |the )?(?:game|gameplay|session)\b", re.IGNORECASE),
     re.compile(r"\byou(?:'re| are) doing great\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:your|the)\s+(?:gameplay|play|performance)\s+"
+        r"(?:is|looks|seems|feels)\s+(?:great|good|excellent|impressive|"
+        r"engaging|fun|smooth|strong|fantastic|amazing)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:nice|great|good|impressive)\s+(?:shot|move|play|dodge|"
+        r"parry|kill|combo|run)\b",
+        re.IGNORECASE,
+    ),
 )
 
 
