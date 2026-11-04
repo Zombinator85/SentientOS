@@ -14,21 +14,21 @@ SUPPORTED_WORKLOAD_MODES = frozenset({"normal", "gaming", "automatic"})
 class GamingWorkloadPolicy:
     """Apply conservative per-turn ceilings without changing model authority."""
 
-    GAMING_CHAT_STYLE_ID = "gaming_chat_style_v1"
+    GAMING_CHAT_STYLE_ID = "gaming_chat_style_v2"
     GAMING_CHAT_STYLE_INSTRUCTION = (
-        "User is gaming: answer the current intent in two short sentences at most. "
-        "For company, be warm; do not ask follow-ups unless asked. Do not offer game "
-        "help unless asked, repeat, rephrase, infer game details, claim "
-        "you are playing, or claim screen access."
+        "User is gaming: answer in one concise, complete sentence of at most 40 words "
+        "when possible. Be warm; never infer screen/gameplay details from process "
+        "names, claim to see or play, offer game help, or ask follow-ups unless asked."
     )
     GAMING_SOCIAL_CHECKIN_INSTRUCTION = (
         "This is friendly small talk, not a help request. Use one short friendly "
-        "sentence to say you are here in SentientOS and ready to chat, then ask "
-        "at most one easy question about the user's break. Do not mention models, "
+        "sentence to say you are here in SentientOS and ready to chat. If you ask "
+        "a question, ask how the user's session is going; do not assume they are "
+        "taking a break. Do not mention models, "
         "AI, feelings, emotions, physical sensations, or screen access. Never ask "
         "what help is needed or claim you are playing or seeing the game. Example "
-        "(vary naturally): 'I'm here in SentientOS and ready to chat. How's the "
-        "break going?'"
+        "(vary naturally): 'I'm here in SentientOS and ready to chat. How's your "
+        "session going?'"
     )
     GAMING_MAX_INPUT_CHARS = 4000
     GAMING_MAX_OUTPUT_CHARS = 1200

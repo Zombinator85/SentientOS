@@ -45,7 +45,7 @@ def test_effective_mode_and_budget_are_recorded_in_invocation_lineage() -> None:
 
     assert budget.max_new_tokens == 64
     assert lineage == {"serving_session_id": "session-1", "workload_mode": "gaming",
-        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v1",
+        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v2",
         "max_backend_threads": 2}
 
 
@@ -65,9 +65,11 @@ def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
     assert result.index(GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION) < result.index(
         "[VERIFIED_RUNTIME_CONTEXT]")
     assert result.endswith("[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
-    assert "do not ask follow-ups unless asked" in result
-    assert "Do not offer game help unless asked" in result
-    assert "claim you are playing, or claim screen access" in result
+    assert "ask follow-ups unless asked" in result
+    assert "one concise, complete sentence" in result
+    assert "never infer screen/gameplay details from process names" in result
+    assert "offer game help" in result
+    assert "claim to see or play" in result
     assert GamingWorkloadPolicy.apply_chat_response_style(prompt, "normal") == prompt
 
 
@@ -83,6 +85,7 @@ def test_gaming_social_checkin_guidance_is_specific_and_precedes_history() -> No
     assert result.index(guidance) < result.index("[VERIFIED_RUNTIME_CONTEXT]")
     assert "Never ask what help is needed" in result
     assert "one short friendly sentence to say you are here in SentientOS and ready to chat" in result
+    assert "How's your session going?" in result
     assert "Do not mention models, AI, feelings, emotions, physical sensations, or screen access" in result
     assert "claim you are playing or seeing the game" in result
 
