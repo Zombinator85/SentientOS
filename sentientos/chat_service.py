@@ -62,6 +62,21 @@ from .perception.screen_text_delta import validate_ocr_text_line_delta
 LOGGER = logging.getLogger(__name__)
 
 
+def _is_earliest_session_recall_request(message: str) -> bool:
+    """Whether a same-session recall explicitly targets its earliest user turn."""
+    normalized = " ".join(message.casefold().split())
+    markers = (
+        "what did i ask you first", "what did i ask first",
+        "the first thing i asked", "my first message", "my first question",
+        "my first request", "my opening message", "my opening question",
+        "at the beginning of this conversation", "at the beginning of this chat",
+        "from the beginning of this conversation", "from the beginning of this chat",
+        "earliest message", "earliest question", "earliest request",
+        "initial message", "initial question", "initial request",
+    )
+    return any(marker in normalized for marker in markers)
+
+
 def _is_recent_session_recall_request(message: str) -> bool:
     """Keep cross-session memories out of explicit recent-turn questions."""
     normalized = " ".join(message.casefold().split())
@@ -1100,6 +1115,9 @@ class PersistentConversationService:
             # to fit the complete trusted prompt under the gaming input ceiling.
             history_budget = min(history_budget, 3000)
         recent_session_recall = _is_recent_session_recall_request(message)
+        earliest_session_recall = (
+            recent_session_recall and _is_earliest_session_recall_request(message)
+        )
         social_checkin = _is_social_checkin_request(message)
         self_contained_echo = _is_self_contained_text_echo_request(message)
         history_roles: tuple[str, ...] | None
@@ -1120,7 +1138,7 @@ class PersistentConversationService:
             history_roles = None
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
             exclude_turn_id=user_turn["turn_id"], include_roles=history_roles,
-            max_turns=history_turn_limit)
+            max_turns=history_turn_limit, oldest_first=earliest_session_recall)
         # Exact recall, casual check-ins, and live runtime questions rely on the
         # relevant transcript or verified runtime facts. Lexical retrieval can
         # over-weight old prompts (for example, prior screen-visibility questions).
@@ -1142,7 +1160,8 @@ class PersistentConversationService:
             verified_prior_runtime_lineage=predecessor_runtime_lineage,
             screen_observation=screen_observation,
             compact_history=gaming_development_turn,
-            recent_session_recall=recent_session_recall)
+            recent_session_recall=recent_session_recall,
+            earliest_session_recall=earliest_session_recall)
         if gaming_development_turn:
             while history_budget > 0:
                 effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
@@ -1168,7 +1187,8 @@ class PersistentConversationService:
                     verified_prior_runtime_lineage=predecessor_runtime_lineage,
                     screen_observation=screen_observation,
                     compact_history=True,
-                    recent_session_recall=recent_session_recall)
+                    recent_session_recall=recent_session_recall,
+            earliest_session_recall=earliest_session_recall)
         linkage = {"session_id": session["session_id"], "user_turn_id": user_turn["turn_id"],
                    "chat_response_style": ("social_checkin" if social_checkin else "default"),
                    "conversation_context_snapshot_digest": history.snapshot_digest,
@@ -1301,12 +1321,12 @@ class PersistentConversationService:
                     verified_runtime_context=runtime_context,
                     screen_observation_provenance=invocation_screen_provenance)
             if grounding_correction is None:
+                response_text, grounding_correction = corrected_social_instruction_echo(
+                    receipt.output_text, user_message=message)
+            if grounding_correction is None:
                 response_text, grounding_correction = corrected_gaming_output(
                     receipt.output_text, workload_mode=str(observed_workload_mode or "normal"),
                     screen_observation_provenance=invocation_screen_provenance)
-            if grounding_correction is None:
-                response_text, grounding_correction = corrected_social_instruction_echo(
-                    receipt.output_text, user_message=message)
         transcript_output_digest = digest_payload({"text": response_text})
         if grounding_correction is None:
             assistant_output_lineage = {

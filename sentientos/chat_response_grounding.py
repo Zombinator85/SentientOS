@@ -19,7 +19,8 @@ GAME_PROCESS_STATUS_POLICY_ID = "verified_game_process_status_v1"
 SYSTEM_IDENTITY_POLICY_ID = "sentientos_companion_identity_grounding_v1"
 _UNSUPPORTED_SELF_STATE = re.compile(
     r"\bI(?:'m| am)\s+(?:doing\s+(?:well|great|fine)|"
-    r"(?:pretty\s+)?(?:good|great|fine|happy|excited|sad|tired))\b",
+    r"(?:pretty\s+)?(?:good|great|fine|happy|excited|sad|tired))\b|"
+    r"\bEnjoying your gaming session\b",
     re.IGNORECASE,
 )
 _SOCIAL_INSTRUCTION_ECHO = re.compile(
@@ -30,6 +31,11 @@ _SOCIAL_INSTRUCTION_ECHO = re.compile(
 _SOCIAL_CHECK_IN = re.compile(
     r"\bhow\s+(?:are you|(?:is|'s)\s+your\s+(?:day|evening|morning|night))\b"
     r"|\bhow(?:'s| is)\s+it\s+going\b",
+    re.IGNORECASE,
+)
+_NONRESPONSIVE_GAMING_CHECK_IN = re.compile(
+    r"\b(?:how about you|hope you)\s+(?:enjoy|have fun with)\s+"
+    r"(?:your\s+)?(?:gaming session|game|gameplay)\b",
     re.IGNORECASE,
 )
 _SYSTEM_IDENTITY_QUESTION = re.compile(
@@ -50,6 +56,14 @@ _GAME_OPEN_QUESTION = re.compile(
 _GAME_RUNNING_QUESTION = re.compile(
     r"\b(?:is|are)\b.{0,48}\b(?:cronos|the game|my game|this game)\b"
     r".{0,48}\b(?:still )?(?:running|open|active)\b",
+    re.IGNORECASE,
+)
+_GAME_ACTIVITY_QUESTION = re.compile(
+    r"\b(?:what|how)\b.{0,64}\b(?:I am|I'm|you are|you're)\s+"
+    r"(?:doing|playing|seeing|experiencing)\b.{0,64}\b"
+    r"(?:cronos|game|gameplay|screen)\b|"
+    r"\bwhat\s+(?:am I|are you)\s+doing\s+(?:in|on)\s+"
+    r"(?:cronos|the game|this game)\b",
     re.IGNORECASE,
 )
 _MODEL_SELF_REFERENCE = re.compile(
@@ -112,7 +126,9 @@ def corrected_unobserved_game_status(
     screen_observation_provenance: Mapping[str, Any] | None,
 ) -> tuple[str, dict[str, str] | None]:
     """Answer live game-status questions from foreground evidence only."""
+    activity_question = _GAME_ACTIVITY_QUESTION.search(user_message) is not None
     if (not (_GAME_STATUS_QUESTION.search(user_message)
+             or activity_question
              or _GAME_RUNNING_QUESTION.search(user_message))
             or isinstance(screen_observation_provenance, Mapping)):
         return output, None
@@ -160,6 +176,15 @@ def corrected_unobserved_game_status(
     label = re.sub(r"[-_]win64[-_]shipping$", "", process_name.rsplit(".", 1)[0],
                    flags=re.IGNORECASE)
     label = re.sub(r"[-_]+", " ", label).strip().title() or process_name
+    if activity_question:
+        return (
+            f"I can confirm {label} is the foreground app, but I can’t tell what you’re "
+            "doing in it because I don’t have a screen observation this turn.",
+            {
+                "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+                "reason_code": "foreground_only_no_screen_observation",
+            },
+        )
     return (
         f"{label} is the foreground app. I don’t have a screen observation for this turn, "
         "so I can’t describe the gameplay.",
@@ -235,10 +260,21 @@ def corrected_social_instruction_echo(
     check_in = _SOCIAL_CHECK_IN.search(user_message) is not None
     instruction_echo = _SOCIAL_INSTRUCTION_ECHO.search(output) is not None
     unsupported_state = check_in and _UNSUPPORTED_SELF_STATE.search(output) is not None
-    if not instruction_echo and not unsupported_state:
+    nonresponsive_gaming = (
+        check_in and _NONRESPONSIVE_GAMING_CHECK_IN.search(output) is not None
+    )
+    if not instruction_echo and not unsupported_state and not nonresponsive_gaming:
         return output, None
     if check_in:
-        corrected = "I’m here and ready to chat. How’s your evening going?"
+        period = re.search(
+            r"\byour (day|evening|morning|night)\b", user_message,
+            re.IGNORECASE,
+        )
+        reciprocal = (
+            f"How’s your {period.group(1).lower()} going?"
+            if period is not None else "How are you doing?"
+        )
+        corrected = f"I’m here and ready to chat. {reciprocal}"
     elif _GAME_STATUS_QUESTION.search(user_message):
         corrected = (
             "I can confirm the game is in the foreground, but I can’t see its gameplay "
@@ -247,10 +283,16 @@ def corrected_social_instruction_echo(
     else:
         corrected = "I’m here as SentientOS and ready to chat. What would you like to know?"
     return corrected, {
-        "policy_id": (SOCIAL_CHECK_IN_POLICY_ID if unsupported_state
-                      else SOCIAL_INSTRUCTION_ECHO_POLICY_ID),
-        "reason_code": ("unsupported_subjective_self_state" if unsupported_state
-                        else "model_repeated_system_instruction"),
+        "policy_id": (
+            SOCIAL_CHECK_IN_POLICY_ID
+            if unsupported_state or nonresponsive_gaming
+            else SOCIAL_INSTRUCTION_ECHO_POLICY_ID
+        ),
+        "reason_code": (
+            "unsupported_subjective_self_state" if unsupported_state else
+            "nonresponsive_gaming_checkin" if nonresponsive_gaming else
+            "model_repeated_system_instruction"
+        ),
     }
 
 
