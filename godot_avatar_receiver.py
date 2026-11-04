@@ -186,21 +186,19 @@ class AvatarStateForwarder:
     def _send(self, sock: socket.socket, payload: Dict[str, Any]) -> None:
         message = json.dumps(payload).encode("utf-8")
         sock.sendto(message, (self.host, self.port))
-        mood = payload.get("mood")
-        expression = payload.get("expression")
-        motion = payload.get("motion")
         intensity = payload.get("intensity")
         phrase_value = payload.get("phrase")
         phrase_info: dict[str, Any] = phrase_value if isinstance(phrase_value, dict) else {}
         phrase = phrase_info.get("text") or payload.get("current_phrase")
-        speaking = payload.get("speaking")
-        status = ""
-        if phrase:
-            status = f" phrase='{phrase}'"
-            if phrase_info.get("muted"):
-                status += " [muted]"
+        phrase_chars = len(phrase) if isinstance(phrase, str) else 0
+        speaking = bool(payload.get("speaking"))
+        # Never write conversation text to the host console. Apart from avoiding
+        # transcript leakage, this keeps the Windows forwarder alive when a
+        # response contains characters the active console encoding cannot emit.
         print(
-            "[avatar-forwarder] mood={mood} expression={expression} motion={motion} intensity={intensity}" + status
+            f"[avatar-forwarder] state_sent intensity={intensity} "
+            f"phrase_present={phrase_chars > 0} phrase_chars={phrase_chars} speaking={speaking}",
+            flush=True,
         )
 
 
