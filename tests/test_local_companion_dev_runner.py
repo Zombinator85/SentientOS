@@ -103,21 +103,30 @@ def test_kill_windows_process_tree_targets_only_reported_godot_pid(monkeypatch) 
     assert calls[0][1]["timeout"] == 8
 
 
-def test_stage_windows_edge_source_uses_only_reviewed_runtime_modules(tmp_path) -> None:
+def test_stage_windows_edge_source_uses_only_reviewed_python_source(tmp_path) -> None:
+    import zipfile
+
     repo = tmp_path / "repo"
     (repo / "sentientos").mkdir(parents=True)
     (repo / "scripts").mkdir()
     (repo / "sentientos" / "__init__.py").write_text("", encoding="utf-8")
-    for name in ("avatar_state.py", "godot_avatar_receiver.py", "runtime_mode.py"):
-        (repo / name).write_text(name, encoding="utf-8")
-    for name in ("local_companion_edge_dev_worker.py", "terminate_owned_process_tree.py"):
-        (repo / "scripts" / name).write_text(name, encoding="utf-8")
+    (repo / "sentientos" / "chat.py").write_text("reviewed module", encoding="utf-8")
+    (repo / "avatar_state.py").write_text("reviewed root module", encoding="utf-8")
+    (repo / "scripts" / "local_companion_edge_dev_worker.py").write_text(
+        "worker source", encoding="utf-8")
+    (repo / "scripts" / "terminate_owned_process_tree.py").write_text(
+        "cleanup source", encoding="utf-8")
     (repo / "unreviewed.env").write_text("must not be staged", encoding="utf-8")
+    (repo / "sentientos" / "private.json").write_text(
+        "non-source data must not be staged", encoding="utf-8")
 
-    staged = _stage_windows_edge_source(repo, tmp_path / "temporary-edge")
+    archive = _stage_windows_edge_source(repo, tmp_path / "temporary-edge")
 
-    assert (staged / "sentientos" / "__init__.py").is_file()
-    assert (staged / "avatar_state.py").read_text(encoding="utf-8") == "avatar_state.py"
-    assert (staged / "scripts" / "local_companion_edge_dev_worker.py").read_text(encoding="utf-8") == "local_companion_edge_dev_worker.py"
-    assert (staged / "terminate_owned_process_tree.py").read_text(encoding="utf-8") == "terminate_owned_process_tree.py"
-    assert not (staged / "unreviewed.env").exists()
+    with zipfile.ZipFile(archive) as bundle:
+        names = set(bundle.namelist())
+        assert "sentientos/__init__.py" in names
+        assert bundle.read("sentientos/chat.py").decode() == "reviewed module"
+        assert bundle.read("avatar_state.py").decode() == "reviewed root module"
+        assert bundle.read("terminate_owned_process_tree.py").decode() == "cleanup source"
+        assert "unreviewed.env" not in names
+        assert "sentientos/private.json" not in names

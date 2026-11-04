@@ -57,36 +57,32 @@ def _kill_windows_process_tree(pid: int) -> None:
 
 
 def _stage_windows_edge_source(repo_root: Path, destination: Path) -> Path:
-    """Stage reviewed Python source only into the isolated Windows edge workspace."""
+    """Stage reviewed Python source only as one isolated Windows import archive."""
     import os
+    import zipfile
 
-    source_root = destination / "source"
-    source_root.mkdir(parents=True, exist_ok=True)
+    destination.mkdir(parents=True, exist_ok=True)
+    archive = destination / "windows_edge_source.zip"
     excluded = {
         ".git", ".venv", ".pytest_cache", ".mypy_cache", "__pycache__",
         "glow", "tests", "docs", "artifacts", "audio_logs", "logs",
         "sentientos_data", ".codex_task",
     }
-    for current, directories, filenames in os.walk(repo_root):
-        directories[:] = [
-            name for name in directories
-            if name not in excluded and not name.startswith(".")
-        ]
-        current_path = Path(current)
-        relative_dir = current_path.relative_to(repo_root)
-        for filename in filenames:
-            if not filename.endswith(".py"):
-                continue
-            source = current_path / filename
-            relative = relative_dir / filename
-            target = source_root / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, target)
-    shutil.copyfile(
-        repo_root / "scripts/terminate_owned_process_tree.py",
-        source_root / "terminate_owned_process_tree.py",
-    )
-    return source_root
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED,
+                         compresslevel=6) as bundle:
+        for current, directories, filenames in os.walk(repo_root):
+            directories[:] = [
+                name for name in directories
+                if name not in excluded and not name.startswith(".")
+            ]
+            current_path = Path(current)
+            for filename in filenames:
+                if filename.endswith(".py"):
+                    source = current_path / filename
+                    bundle.write(source, source.relative_to(repo_root).as_posix())
+        helper = repo_root / "scripts/terminate_owned_process_tree.py"
+        bundle.write(helper, "terminate_owned_process_tree.py")
+    return archive
 
 
 class _LatestForegroundObservation:
@@ -172,7 +168,8 @@ class _TemporaryCompanionEdge:
             avatar_key, avatar_ack, receipt_key = (
                 secrets.token_bytes(32) for _ in range(3))
             windows_source = _stage_windows_edge_source(ROOT, root)
-            worker = windows_source / "scripts/local_companion_edge_dev_worker.py"
+            worker = root / "local_companion_edge_dev_worker.py"
+            shutil.copyfile(ROOT / "scripts/local_companion_edge_dev_worker.py", worker)
             config = {
                 "bind": windows_ip,
                 "peer_pin": wsl["pin"],
