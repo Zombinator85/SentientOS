@@ -95,10 +95,22 @@ def validate_backend_completion_observation(value: object) -> bool:
     keys = {"schema_version", "backend", "finish_reason", "completion_tokens",
         "prompt_tokens", "token_limit_reached", "total_duration_ns",
         "load_duration_ns", "prompt_eval_duration_ns", "eval_duration_ns"}
-    if not isinstance(value, Mapping) or set(value) != keys:
+    if not isinstance(value, Mapping):
         return False
-    if (value.get("schema_version") != "sentientos.ollama_completion_observation:v1"
-            or value.get("backend") != "ollama"
+    schema = value.get("schema_version")
+    if schema == "sentientos.ollama_completion_observation:v1":
+        if set(value) != keys:
+            return False
+    elif schema == "sentientos.ollama_completion_observation:v2":
+        if set(value) != keys | {"first_token_duration_ns"}:
+            return False
+        first_token = value.get("first_token_duration_ns")
+        if (first_token is not None and (type(first_token) is not int
+                or not 0 <= first_token <= 3_600_000_000_000)):
+            return False
+    else:
+        return False
+    if (value.get("backend") != "ollama"
             or value.get("finish_reason") not in {"stop", "length", "unknown"}
             or value.get("token_limit_reached") is not (
                 True if value.get("finish_reason") == "length" else
