@@ -322,6 +322,9 @@ class BridgeChatAvatarOutputEmitter:
             "output_digest": hashlib.sha256(b"sentientos-avatar-idle-v1").hexdigest(),
             "turn_id": turn_id if isinstance(turn_id, str) and turn_id else "clear-" + uuid4().hex,
         }
+        workload_mode = metadata.get("workload_mode")
+        if workload_mode in {"normal", "gaming"}:
+            payload["workload_mode"] = workload_mode
         acknowledgment = self._sender.send_command(payload, authorization, session_id=session_id)
         return {"status": "sent", "acknowledgment_message_id": acknowledgment.message_id,
                 "renderer_effect_proven": False}

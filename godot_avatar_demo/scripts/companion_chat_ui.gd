@@ -97,15 +97,13 @@ func _select_profile_then(next_action: String) -> void:
 	if not _pending_action.is_empty():
 		return
 	_next_after_profile = next_action
-	_pending_action = "set_gaming_mode"
+	_pending_action = "read_workload_mode"
 	_start_button.disabled = true
 	_resume_button.disabled = true
-	_start_button.text = "Selecting game-safe profile…"
-	var headers := PackedStringArray(["Content-Type: application/json"])
-	var body_text := JSON.stringify({"mode": "gaming"})
-	var error := _request.request(API_BASE + "/workload-mode", headers, HTTPClient.METHOD_POST, body_text)
+	_start_button.text = "Selecting game-aware profile…"
+	var error := _request.request(API_BASE + "/workload-mode")
 	if error != OK:
-		_fail_request("Could not select the game-safe profile (%s)." % error_string(error))
+		_fail_request("Could not read the game profile configuration (%s)." % error_string(error))
 
 
 func _send_message(submitted_text: String = "") -> void:
@@ -143,9 +141,23 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 		_fail_request(detail)
 		return
 	match _pending_action:
-		"set_gaming_mode":
-			if parsed.get("effective_mode") != "gaming":
-				_fail_request("SentientOS did not confirm the game-safe profile.")
+		"read_workload_mode":
+			var process_names: Variant = parsed.get("configured_game_process_names", [])
+			if not process_names is Array or process_names.is_empty():
+				_fail_request("No game process allowlist is configured for automatic mode.")
+				return
+			_pending_action = "set_workload_mode"
+			var headers := PackedStringArray(["Content-Type: application/json"])
+			var body_text := JSON.stringify({
+				"mode": "automatic",
+				"game_process_names": process_names,
+			})
+			var error := _request.request(API_BASE + "/workload-mode", headers, HTTPClient.METHOD_POST, body_text)
+			if error != OK:
+				_fail_request("Could not select the automatic profile (%s)." % error_string(error))
+		"set_workload_mode":
+			if parsed.get("effective_mode") not in ["gaming", "normal"]:
+				_fail_request("SentientOS did not confirm a workload profile.")
 				return
 			if _next_after_profile == "load_sessions":
 				_pending_action = "load_sessions"

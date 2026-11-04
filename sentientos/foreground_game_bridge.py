@@ -52,6 +52,7 @@ class WindowsForegroundBridgePublisher:
             generation_id=generation_id, sequence=1,
             payload={"schema_version": _SCHEMA, "status": "observation_unavailable",
                      "game_foreground": None, "process_name_digest": None,
+                     "game_process_running": None, "running_process_name_digests": None,
                      "observed_at": "2000-01-01T00:00:00+00:00"},
             key=source_key, created_at="2000-01-01T00:00:00+00:00")
         self._detector = detector
@@ -267,7 +268,9 @@ class BridgeForegroundGameDetector:
                 or not isinstance(generation_id, str) or message.generation_id != generation_id):
             return None
         payload = message.payload
-        required = {"schema_version", "status", "game_foreground", "process_name_digest", "observed_at"}
+        required = {"schema_version", "status", "game_foreground",
+                    "process_name_digest", "game_process_running",
+                    "running_process_name_digests", "observed_at"}
         if set(payload) != required or payload.get("schema_version") != _SCHEMA:
             return None
         status = payload.get("status")
@@ -302,11 +305,28 @@ class BridgeForegroundGameDetector:
             # the sender's boolean cannot broaden the operator's process list.
             if foreground != (digest in allowed_digests):
                 return None
+            running = payload.get("game_process_running")
+            running_value = payload.get("running_process_name_digests")
+            running_digests = None
+            if running is None and running_value is None:
+                pass
+            elif (type(running) is not bool or not isinstance(running_value, list)
+                  or len(running_value) > len(allowed_digests)
+                  or any(not isinstance(item, str) or _DIGEST.fullmatch(item) is None
+                         or item not in allowed_digests for item in running_value)
+                  or len(set(running_value)) != len(running_value)
+                  or running != bool(running_value)):
+                return None
+            else:
+                running_digests = tuple(running_value)
             return ForegroundGameObservation("available", foreground, digest, observed_at,
-                                             transport_provenance=provenance)
+                transport_provenance=provenance, game_process_running=running,
+                running_process_name_digests=running_digests)
         if status not in _ALLOWED_FAILURES:
             return None
-        if payload.get("game_foreground") is not None or payload.get("process_name_digest") is not None:
+        if any(payload.get(key) is not None for key in (
+                "game_foreground", "process_name_digest", "game_process_running",
+                "running_process_name_digests")):
             return None
         return ForegroundGameObservation(str(status), None, None, observed_at,
                                          transport_provenance=provenance)

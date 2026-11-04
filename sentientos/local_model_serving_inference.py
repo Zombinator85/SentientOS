@@ -117,8 +117,14 @@ class ProductionServingInferenceController:
         else:
             observed = self._foreground_game_detector.observe(names)
             if observed.status == "available":
-                effective = "gaming" if observed.game_foreground is True else "normal"
-                source = "foreground_allowlist_match" if observed.game_foreground else "foreground_allowlist_no_match"
+                if observed.game_foreground is True:
+                    effective, source = "gaming", "foreground_allowlist_match"
+                elif observed.game_process_running is True:
+                    effective, source = "gaming", "allowlisted_game_process_running"
+                elif observed.game_process_running is False:
+                    effective, source = "normal", "foreground_allowlist_no_match"
+                else:
+                    effective, source = "gaming", "game_process_observation_unavailable_conservative_gaming"
             else:
                 # If automatic detection is unavailable, keep the safer low-work profile.
                 effective = "gaming"
@@ -127,14 +133,17 @@ class ProductionServingInferenceController:
                 "configured_mode": "automatic", "mode_source": source,
                 "observation_status": observed.status,
                 "game_foreground": observed.game_foreground,
+                "game_process_running": observed.game_process_running,
+                "running_process_name_digests": (
+                    list(observed.running_process_name_digests)
+                    if observed.running_process_name_digests is not None else None),
                 "process_name_digest": observed.process_name_digest,
                 "observed_at": observed.observed_at,
                 "transport_provenance": (dict(observed.transport_provenance)
                     if observed.transport_provenance is not None else None),
             }
         state = {"mode": configured_mode, "effective_mode": effective, **evidence}
-        if (configured_mode == "automatic" and evidence.get("observation_status") == "available"
-                and evidence.get("game_foreground") is True):
+        if configured_mode == "automatic":
             state["configured_game_process_names"] = list(names)
         return state
 
@@ -254,9 +263,10 @@ class ProductionServingInferenceController:
             "runtime_id": binding["runtime_id"],
             "caller_context": dict(caller_linkage or {}),
             "software_generation_attribution": software_generation_attribution,
-        }, workload_evidence={key: workload_state[key] for key in (
+        }, workload_evidence={key: workload_state.get(key) for key in (
             "configured_mode", "mode_source", "observation_status", "game_foreground",
-            "process_name_digest", "observed_at", "transport_provenance")})
+            "process_name_digest", "game_process_running", "running_process_name_digests",
+            "observed_at", "transport_provenance")})
         invoker = GovernedLocalModelInvoker(
             model=model, authority_map=authority, kernel=self._serving._kernel,
             runtime_root=self._serving._handle.root / "local-model" / "inference")

@@ -210,12 +210,22 @@ class DevelopmentLocalChatInference:
                 observed = None
             if observed is not None and observed.status == "available":
                 foreground = observed.game_foreground
-                effective = "gaming" if foreground is True else "normal"
-                source = ("foreground_allowlist_match" if foreground is True
-                          else "foreground_allowlist_no_match")
+                process_running = observed.game_process_running
+                if foreground is True:
+                    effective, source = "gaming", "foreground_allowlist_match"
+                elif process_running is True:
+                    effective, source = "gaming", "allowlisted_game_process_running"
+                elif process_running is False:
+                    effective, source = "normal", "foreground_allowlist_no_match"
+                else:
+                    effective, source = "gaming", "game_process_observation_unavailable_conservative_gaming"
                 evidence = {
                     "status": observed.status, "source": source,
                     "game_foreground": foreground,
+                    "game_process_running": process_running,
+                    "running_process_name_digests": (
+                        list(observed.running_process_name_digests)
+                        if observed.running_process_name_digests is not None else None),
                     "process_name_digest": observed.process_name_digest,
                     "observed_at": observed.observed_at,
                     "transport_provenance": (dict(observed.transport_provenance)
@@ -227,7 +237,8 @@ class DevelopmentLocalChatInference:
                     "status": (getattr(observed, "status", None)
                                or "observation_unavailable"),
                     "source": "foreground_observation_unavailable_conservative_gaming",
-                    "game_foreground": None, "process_name_digest": None,
+                    "game_foreground": None, "game_process_running": None,
+                    "running_process_name_digests": None, "process_name_digest": None,
                     "observed_at": getattr(observed, "observed_at", None),
                     "transport_provenance": None,
                 }
@@ -244,11 +255,11 @@ class DevelopmentLocalChatInference:
             "mode_source": source,
             "observation_status": evidence["status"],
             "game_foreground": evidence["game_foreground"],
+            "game_process_running": evidence.get("game_process_running"),
             "foreground_game_detected": evidence["game_foreground"] is True,
             "workload_evidence": evidence,
         }
-        if (configured == "automatic" and evidence["status"] == "available"
-                and evidence["game_foreground"] is True):
+        if configured == "automatic":
             state["configured_game_process_names"] = list(names)
         if release is not None:
             state["residency_release"] = release
@@ -500,8 +511,11 @@ class PersistentConversationService:
             observation_status = workload.get("observation_status")
             if observation_status == "available" and type(workload.get("game_foreground")) is bool:
                 workload_context["game_foreground"] = workload["game_foreground"]
+                if type(workload.get("game_process_running")) is bool:
+                    workload_context["game_process_running"] = workload["game_process_running"]
                 names = workload.get("configured_game_process_names")
-                if (workload["game_foreground"] is True
+                if ((workload["game_foreground"] is True
+                     or workload.get("game_process_running") is True)
                         and isinstance(names, (tuple, list))
                         and all(isinstance(name, str) for name in names)):
                     workload_context["configured_game_process_names"] = list(names)
