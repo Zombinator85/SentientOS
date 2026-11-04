@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.no_legacy_skip
+
 from sentientos.chat_response_grounding import (
     SCREEN_CAPABILITY_CORRECTION, SCREEN_CAPABILITY_POLICY_ID,
     corrected_screen_capability_output,
@@ -30,6 +34,17 @@ def test_live_observed_unseen_gameplay_praise_gets_grounded_correction():
     assert text == GROUNDING_CORRECTION
     assert correction is not None
     assert correction["reason_code"] == "unobserved_gameplay_claim"
+
+
+def test_claim_to_share_unobserved_gameplay_gets_grounded_correction():
+    output = "I can share what you are experiencing in Cronos."
+    assert unobserved_gameplay_claim(
+        output, workload_mode="gaming", screen_observation_provenance=None)
+    corrected, attribution = corrected_gaming_output(
+        output, workload_mode="gaming", screen_observation_provenance=None)
+    assert corrected == GROUNDING_CORRECTION
+    assert attribution is not None
+    assert attribution["reason_code"] == "unobserved_gameplay_claim"
 
 
 def test_unseen_specific_gameplay_event_praise_gets_grounded_correction():
