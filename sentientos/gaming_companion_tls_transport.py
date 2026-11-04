@@ -464,12 +464,19 @@ class CompanionBridgeMutualTLSClient(CompanionBridgeLoopbackClient):
             raw = socket.socket(self._family, socket.SOCK_STREAM)
             raw.settimeout(self._timeout)
             raw.connect((self._address, self._port))
-            connection = self._context.wrap_socket(raw, server_hostname=self._server_hostname)
-        except (OSError, ssl.SSLError) as exc:
+        except OSError as exc:
             if raw is not None:
                 raw.close()
             raise CompanionBridgeTransportError("bridge_tls_connection_unavailable",
-                delivery_state="not_sent") from exc
+                delivery_state="not_sent", failure_phase="tcp_connect",
+                failure_type=type(exc).__name__, failure_errno=exc.errno) from exc
+        try:
+            connection = self._context.wrap_socket(raw, server_hostname=self._server_hostname)
+        except (OSError, ssl.SSLError) as exc:
+            raw.close()
+            raise CompanionBridgeTransportError("bridge_tls_connection_unavailable",
+                delivery_state="not_sent", failure_phase="tls_handshake",
+                failure_type=type(exc).__name__, failure_errno=exc.errno) from exc
         if self._expected_server_certificate_sha256 is not None:
             peer_certificate = connection.getpeercert(binary_form=True)
             observed_pin = hashlib.sha256(peer_certificate).hexdigest() if peer_certificate else ""

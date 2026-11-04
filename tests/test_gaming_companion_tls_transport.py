@@ -6,6 +6,7 @@ import json
 import os
 import socket
 import ssl
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -373,3 +374,62 @@ def test_protected_transport_rejects_wildcard_public_and_link_local_addresses(ad
     from sentientos.gaming_companion_tls_transport import _validate_private_address
     with pytest.raises(ValueError):
         _validate_private_address(address)
+
+
+def test_mtls_client_distinguishes_tcp_connect_failure(tmp_path: Path, monkeypatch):
+    _server_context, client_context, _peer_digest = _certificate_bundle(tmp_path)
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=1,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-core": b"k" * 32},
+            expected_generations={"wsl-core": "core-generation-1"}))
+
+    def refused(_self, _address):
+        raise ConnectionRefusedError(111, "connection refused")
+
+    monkeypatch.setattr(socket.socket, "connect", refused)
+    encoded = encode_message(kind="observation", source_id="windows-edge",
+        session_id="session-connect-failure", generation_id="edge-generation-1",
+        sequence=1, payload={}, key=b"s" * 32)
+    with pytest.raises(CompanionBridgeTransportError,
+                       match="bridge_tls_connection_unavailable") as caught:
+        client.send(encoded)
+    assert caught.value.delivery_state == "not_sent"
+    assert caught.value.failure_phase == "tcp_connect"
+    assert caught.value.failure_type == "ConnectionRefusedError"
+    assert caught.value.failure_errno == 111
+
+
+def test_mtls_client_distinguishes_tls_handshake_failure(tmp_path: Path):
+    _server_context, client_context, _peer_digest = _certificate_bundle(tmp_path)
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = int(listener.getsockname()[1])
+
+    def send_non_tls_response():
+        connection, _address = listener.accept()
+        with connection:
+            connection.sendall(b"not a TLS handshake")
+        listener.close()
+
+    peer = threading.Thread(target=send_non_tls_response, daemon=True)
+    peer.start()
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-core": b"k" * 32},
+            expected_generations={"wsl-core": "core-generation-1"}))
+    encoded = encode_message(kind="observation", source_id="windows-edge",
+        session_id="session-handshake-failure", generation_id="edge-generation-1",
+        sequence=1, payload={}, key=b"s" * 32)
+    try:
+        with pytest.raises(CompanionBridgeTransportError,
+                           match="bridge_tls_connection_unavailable") as caught:
+            client.send(encoded)
+        assert caught.value.delivery_state == "not_sent"
+        assert caught.value.failure_phase == "tls_handshake"
+        assert caught.value.failure_type in {"SSLError", "SSLEOFError"}
+    finally:
+        peer.join(timeout=2)
+        listener.close()

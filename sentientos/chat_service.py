@@ -686,7 +686,14 @@ class PersistentConversationService:
                     if result.get("status") == "admission_denied":
                         LOGGER.warning("Avatar workload update was denied by admission")
             except Exception as exc:
-                LOGGER.warning("Avatar workload synchronization failed: %s", getattr(exc, "code", type(exc).__name__))
+                LOGGER.warning(
+                    "Avatar workload synchronization failed: code=%s phase=%s "
+                    "failure_type=%s errno=%s",
+                    getattr(exc, "code", type(exc).__name__),
+                    getattr(exc, "failure_phase", None),
+                    getattr(exc, "failure_type", type(exc).__name__),
+                    getattr(exc, "failure_errno", None),
+                )
 
     def _start_avatar_workload_sync(self, session_id: str) -> None:
         if not callable(getattr(self._avatar_output, "set_workload_mode", None)):
@@ -721,7 +728,14 @@ class PersistentConversationService:
                         return
                     self._sync_avatar_workload_mode(session_id)
                 except Exception as exc:
-                    LOGGER.warning("Avatar workload synchronization failed: %s", getattr(exc, "code", type(exc).__name__))
+                    LOGGER.warning(
+                    "Avatar workload synchronization failed: code=%s phase=%s "
+                    "failure_type=%s errno=%s",
+                    getattr(exc, "code", type(exc).__name__),
+                    getattr(exc, "failure_phase", None),
+                    getattr(exc, "failure_type", type(exc).__name__),
+                    getattr(exc, "failure_errno", None),
+                )
                 if stop_event.wait(1.0):
                     return
         finally:
@@ -1839,7 +1853,14 @@ class PersistentConversationService:
                         self._avatar_workload_modes_observed.pop(session["session_id"], None)
                     self._sync_avatar_workload_mode(session["session_id"])
             except Exception as exc:
-                LOGGER.warning("Avatar response publication failed: %s", getattr(exc, "code", type(exc).__name__))
+                LOGGER.warning(
+                    "Avatar response publication failed: code=%s phase=%s "
+                    "failure_type=%s errno=%s",
+                    getattr(exc, "code", type(exc).__name__),
+                    getattr(exc, "failure_phase", None),
+                    getattr(exc, "failure_type", type(exc).__name__),
+                    getattr(exc, "failure_errno", None),
+                )
         if self._speech_output is not None:
             try:
                 self._speech_output.publish_response(
