@@ -142,7 +142,7 @@ Every perception event payload **must** include:
   a reference field (`raw_samples_reference`) in the payload.
 
 
-#### Coarse screen-change gating
+### Coarse screen-change gating
 
 When an operator explicitly enables the consented Windows game-screen OCR worker,
 it may compare a 32-by-18 grid of sampled luminance values before running OCR. The

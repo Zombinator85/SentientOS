@@ -524,3 +524,22 @@ def test_sqlite_receipt_replay_guard_fails_closed_at_capacity(tmp_path):
     with pytest.raises(CompanionBridgeError,
                        match="avatar_command_receipt_window_exhausted"):
         guard.consume("second")
+
+
+def test_dispatcher_routes_only_authenticated_additional_message_kinds():
+    calls = []
+    dispatcher = WindowsEdgeAvatarCommandDispatchOwner(
+        runtime=_Runtime(), receipt_verifier=lambda *_: True,
+        renderer_sink=lambda *_: True,
+        additional_message_handlers={
+            "screen_capture_request": lambda message:
+                calls.append(message.payload["capture_request_id"]) is None})
+    request = VerifiedBridgeMessage(
+        "1" * 64, "screen_capture_request", "wsl-screen-request-dev",
+        "wsl-screen-request-dev", "wsl-screen-request-dev-1", 1,
+        datetime.now(timezone.utc).isoformat(),
+        {"capture_request_id": "0123456789abcdef0123456789abcdef"}, None)
+    assert dispatcher.dispatch_one(request) is True
+    assert calls == ["0123456789abcdef0123456789abcdef"]
+    assert dispatcher.status().accepted == 1
+    assert dispatcher.status().rejected == 0
