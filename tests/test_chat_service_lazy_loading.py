@@ -112,6 +112,8 @@ class SimulationInvoker:
         self.calls = 0
         self.prompts = []
         self.requests = []
+        self.latency_ms = None
+        self.backend_completion = None
     def build_request(self, **kwargs):
         self.prompts.append(kwargs["prompt"])
         self.requests.append(kwargs)
@@ -128,7 +130,8 @@ class SimulationInvoker:
                     sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
             output_truncated=False, request={"request_id": request.request_id,
                 "active_model_identity": identity_payload}, receipt_id="simulation-receipt-id",
-            receipt_digest="simulation-receipt")
+            receipt_digest="simulation-receipt", latency_ms=self.latency_ms,
+            backend_completion=self.backend_completion)
 
 
 @pytest.mark.parametrize(("configured_window", "expected_window"), [
@@ -154,6 +157,38 @@ def test_development_gaming_residency_window_is_opt_in(
     if configured_window is not None:
         with pytest.raises(ValueError, match="unsupported_development_gaming_keep_alive"):
             chat.DevelopmentLocalChatInference(invoker, gaming_keep_alive="5m")
+
+
+def test_chat_response_exposes_bounded_backend_timing_for_diagnostics(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    invoker.latency_ms = 4870
+    invoker.backend_completion = {
+        "backend": "ollama",
+        "total_duration_ns": 4_650_000_000,
+        "load_duration_ns": 1_200_000_000,
+        "prompt_eval_duration_ns": 350_000_000,
+        "eval_duration_ns": 3_100_000_000,
+        "first_token_duration_ns": 1_760_000_000,
+        "prompt_tokens": 286,
+        "completion_tokens": 42,
+    }
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+
+    response = client.post("/chat", json={"message": "hello"})
+    assert response.status_code == 200
+    assert response.json()["context"]["inference_timing"] == {
+        "backend_metrics_status": "available",
+        "invocation_latency_ms": 4870,
+        "backend": "ollama",
+        "backend_total_duration_ns": 4_650_000_000,
+        "load_duration_ns": 1_200_000_000,
+        "prompt_evaluation_duration_ns": 350_000_000,
+        "generation_duration_ns": 3_100_000_000,
+        "first_content_chunk_duration_ns": 1_760_000_000,
+        "prompt_tokens": 286,
+        "completion_tokens": 42,
+    }
 
 
 def test_model_work_requires_explicit_simulation_composition(tmp_path):

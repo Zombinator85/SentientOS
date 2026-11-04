@@ -410,6 +410,35 @@ class ChatSpeechOutputRequest(BaseModel):
     enabled: bool
 
 
+def _public_inference_timing(receipt: Any) -> dict[str, object]:
+    """Expose bounded local timing counters without prompt or model output data."""
+    result: dict[str, object] = {"backend_metrics_status": "unavailable"}
+    latency_ms = getattr(receipt, "latency_ms", None)
+    if type(latency_ms) is int and 0 <= latency_ms <= 3_600_000:
+        result["invocation_latency_ms"] = latency_ms
+    completion = getattr(receipt, "backend_completion", None)
+    if not isinstance(completion, Mapping):
+        return result
+    backend = completion.get("backend")
+    if backend in {"ollama", "llama_cpp"}:
+        result["backend"] = backend
+    for source, target, maximum in (
+        ("total_duration_ns", "backend_total_duration_ns", 3_600_000_000_000),
+        ("load_duration_ns", "load_duration_ns", 3_600_000_000_000),
+        ("prompt_eval_duration_ns", "prompt_evaluation_duration_ns", 3_600_000_000_000),
+        ("eval_duration_ns", "generation_duration_ns", 3_600_000_000_000),
+        ("first_token_duration_ns", "first_content_chunk_duration_ns", 3_600_000_000_000),
+        ("prompt_tokens", "prompt_tokens", 131072),
+        ("completion_tokens", "completion_tokens", 131072),
+    ):
+        value = completion.get(source)
+        if type(value) is int and 0 <= value <= maximum:
+            result[target] = value
+    if "backend" in result:
+        result["backend_metrics_status"] = "available"
+    return result
+
+
 class ChatRequestStateError(ValueError):
     """A replay conflict or an intentionally unreplayed interrupted request."""
 
@@ -1415,6 +1444,7 @@ class PersistentConversationService:
                                      "active_model_identity_digest": serving_identity_digest,
                                      "loaded_model_identity_digest": loaded_identity_digest,
                                      "model_identity_continuity_posture": continuity_posture,
+                                     "inference_timing": _public_inference_timing(receipt),
                                      "response_origin": response_origin,
                                      "screen_observation_provenance": (
                                          dict(linkage["screen_observation_provenance"])
