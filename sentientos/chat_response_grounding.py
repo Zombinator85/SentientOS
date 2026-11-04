@@ -86,8 +86,8 @@ _GAME_SCREEN_ACTIVITY_QUESTION = re.compile(
 _VERIFIED_CURRENT_GAME_CONTEXT_QUESTION = re.compile(
     r"\bwhat can (?:sentientos|you) (?:confidently )?"
     r"(?:say|tell|confirm|verify)\b.{0,120}\b"
-    r"(?:current situation|current moment|this moment|right now)\b"
-    r".{0,120}\bwhat can (?:it|you) (?:not|cannot|can\s+not) see\b",
+    r"(?:current situation|current workload|current setup|current moment|this moment|right now)\b"
+    r".{0,120}\bwhat can (?:it|you) (?:not|cannot|can\s+not) (?:see|observe)\b",
     re.IGNORECASE,
 )
 SCREEN_CAPABILITY_CORRECTION = (
@@ -177,13 +177,61 @@ def corrected_unobserved_game_status(
     if not isinstance(workload, Mapping):
         return output, None
     names = workload.get("configured_game_process_names")
-    if (not isinstance(names, list) or not names
+    if (not isinstance(names, list)
             or any(not isinstance(name, str) or not name for name in names)):
-        return output, None
+        names = []
     mentioned = [name for name in names
         if re.sub(r"[-_]win64[-_]shipping$", "", name.rsplit(".", 1)[0],
                   flags=re.IGNORECASE).replace("-", " ").replace("_", " ").strip().casefold()
         in user_message.casefold()]
+    if is_verified_current_game_context_question(user_message):
+        if workload.get("observation_status") != "available":
+            return output, None
+        foreground = workload.get("game_foreground")
+        running = workload.get("game_process_running")
+        if type(foreground) is not bool:
+            return output, None
+        if foreground:
+            running = True
+        elif type(running) is not bool:
+            return output, None
+        process_name = (mentioned[0] if len(mentioned) == 1 else
+                        names[0] if len(names) == 1 else None)
+        if process_name is not None:
+            label = re.sub(r"[-_]win64[-_]shipping$", "", process_name.rsplit(".", 1)[0],
+                           flags=re.IGNORECASE)
+            label = re.sub(r"[-_]+", " ", label).strip().title() or process_name
+        else:
+            label = "The allowlisted game process"
+        if foreground:
+            workload_fact = f"{label} is the foreground app"
+        elif running:
+            workload_fact = f"{label} is running in the background"
+        else:
+            workload_fact = "No allowlisted game process is running"
+        mode = workload.get("effective_mode")
+        mode_fact = (f", and SentientOS is in {mode} mode"
+                     if mode in {"normal", "gaming"} else "")
+        capabilities = verified_runtime_context.get("capabilities")
+        screen = (capabilities.get("screen_observation")
+                  if isinstance(capabilities, Mapping) else None)
+        if isinstance(screen, Mapping) and screen.get("configured") is False:
+            observation_limit = (
+                "Screen observation isn’t configured in this session, "
+                "so I can’t describe the gameplay."
+            )
+        else:
+            observation_limit = (
+                "I don’t have a screen observation for this turn, "
+                "so I can’t describe the gameplay."
+            )
+        return (
+            f"I can verify {workload_fact}{mode_fact}. {observation_limit}",
+            {
+                "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+                "reason_code": "verified_workload_context_screen_unavailable",
+            },
+        )
     if _GAME_RUNNING_QUESTION.search(user_message):
         if len(mentioned) == 1:
             process_name = mentioned[0]
