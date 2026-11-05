@@ -226,6 +226,25 @@ def test_live_game_status_fallback_requires_foreground_evidence_and_no_screen_ev
     ) == (output, None)
 
 
+def test_social_check_in_with_game_context_is_not_misread_as_a_screen_question():
+    message = (
+        "Hey SentientOS, how are you doing tonight? "
+        "I am playing Cronos and could use some company."
+    )
+    assert not is_direct_screen_activity_question(message)
+    assert corrected_unobserved_game_status(
+        "", user_message=message,
+        verified_runtime_context={"workload": {
+            "game_foreground": True,
+            "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+        }},
+        screen_observation_provenance=None,
+    ) == ("", None)
+    assert is_direct_screen_activity_question(
+        "What are you doing in Cronos right now?"
+    )
+
+
 def test_direct_game_activity_question_uses_foreground_only_evidence():
     corrected, attribution = corrected_unobserved_game_status(
         "I'm enjoying your gaming session with Cronos.",
