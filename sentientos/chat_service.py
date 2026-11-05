@@ -2808,6 +2808,9 @@ async def root_page() -> HTMLResponse:
                 #workload-controls { margin: 1rem 0; padding: 0.75rem; background: #1b1b1b; border-radius: 8px; }
                 #workload-mode, #game-process-names { width: auto; min-height: 0; margin: 0.25rem; padding: 0.4rem; }
                 #workload-status { margin-left: 0.5rem; color: #aaa; }
+                #conversation-controls { margin: 1rem 0; padding: 0.75rem; background: #1b1b1b; border-radius: 8px; }
+                #conversation-session { max-width: 100%; min-height: 0; margin: 0.25rem; padding: 0.4rem; }
+                #conversation-session-status { margin-left: 0.5rem; color: #aaa; }
                 #avatar-output-controls { margin: 1rem 0; padding: 0.75rem; background: #1b1b1b; border-radius: 8px; }
                 #avatar-output-status { margin-left: 0.5rem; color: #aaa; }
                 #screen-observation-controls { margin: 0.75rem 0; }
@@ -2835,6 +2838,12 @@ async def root_page() -> HTMLResponse:
                     <label for="game-process-names">Watched game executables</label>
                     <input id="game-process-names" type="text" placeholder="ExampleGame.exe, AnotherGame.exe" />
                     <span id="workload-status" role="status"></span>
+                </section>
+                <section id="conversation-controls" aria-label="Conversation">
+                    <label for="conversation-session">Saved conversation</label>
+                    <select id="conversation-session" aria-label="Saved conversations" disabled></select>
+                    <button id="new-conversation" type="button" disabled>New conversation</button>
+                    <span id="conversation-session-status" role="status">Loading saved conversations...</span>
                 </section>
                 <section id="avatar-output-controls" aria-label="Avatar response display">
                     <label for="avatar-output-enabled">Show replies in companion</label>
@@ -2931,8 +2940,12 @@ async def root_page() -> HTMLResponse:
                 async function sendMessage() {
                     if (chatSendInFlight) return;
                     const sendButton = document.getElementById('send');
+                    const conversationSelect = document.getElementById('conversation-session');
+                    const newConversationButton = document.getElementById('new-conversation');
                     chatSendInFlight = true;
                     sendButton.disabled = true;
+                    conversationSelect.disabled = true;
+                    newConversationButton.disabled = true;
                     sendButton.textContent = 'Sending...';
                     try {
                         const messageEl = document.getElementById('message');
@@ -2995,6 +3008,7 @@ async def root_page() -> HTMLResponse:
                         localStorage.removeItem(pendingKey);
                         responseTextEl.textContent = data.response;
                         responseEl.hidden = false;
+                        await refreshConversationSessions(data.session_id);
                         await refreshConversationTranscript();
                         refreshAvatarOutput();
                     } catch (err) {
@@ -3003,6 +3017,9 @@ async def root_page() -> HTMLResponse:
                     } finally {
                         chatSendInFlight = false;
                         sendButton.disabled = false;
+                        document.getElementById('conversation-session').disabled =
+                            !document.getElementById('conversation-session').options.length;
+                        document.getElementById('new-conversation').disabled = false;
                         sendButton.textContent = 'Send';
                     }
                 }
@@ -3027,6 +3044,118 @@ async def root_page() -> HTMLResponse:
                         status.textContent = 'Screen observation status unavailable';
                     }
                 }
+                function conversationSessionLabel(session) {
+                    const timestamp = new Date(
+                        session.latest_activity_at || session.created_at);
+                    const when = Number.isNaN(timestamp.getTime())
+                        ? 'Saved conversation' : timestamp.toLocaleString();
+                    const turns = Number.isInteger(session.revision) ? session.revision : 0;
+                    const suffix = typeof session.session_id === 'string'
+                        ? session.session_id.slice(-8) : 'unknown';
+                    return `${when} · ${turns} turns · ${suffix}`;
+                }
+                async function refreshConversationSessions(preferredSessionId = null) {
+                    const select = document.getElementById('conversation-session');
+                    const status = document.getElementById('conversation-session-status');
+                    const currentSessionId = preferredSessionId
+                        || localStorage.getItem('sentientos_session_id');
+                    try {
+                        const response = await fetch('/sessions');
+                        if (!response.ok) throw new Error('session_list_unavailable');
+                        const sessions = await response.json();
+                        if (!Array.isArray(sessions)) throw new Error('session_list_invalid');
+                        select.replaceChildren();
+                        sessions.forEach((session) => {
+                            if (typeof session.session_id !== 'string') return;
+                            const option = document.createElement('option');
+                            option.value = session.session_id;
+                            option.textContent = conversationSessionLabel(session);
+                            select.appendChild(option);
+                        });
+                        if (currentSessionId && !sessions.some(
+                                (session) => session.session_id === currentSessionId)) {
+                            const option = document.createElement('option');
+                            option.value = currentSessionId;
+                            option.textContent = 'Current saved conversation · '
+                                + currentSessionId.slice(-8);
+                            select.appendChild(option);
+                        }
+                        if (currentSessionId) select.value = currentSessionId;
+                        const selected = sessions.find(
+                            (session) => session.session_id === currentSessionId);
+                        status.textContent = selected
+                            ? `Showing saved conversation · ${conversationSessionLabel(selected)}`
+                            : (currentSessionId ? 'Showing the selected saved conversation.'
+                                : 'No conversation selected.');
+                        select.disabled = !select.options.length;
+                    } catch (_) {
+                        select.disabled = true;
+                        status.textContent = 'Saved conversation list unavailable';
+                    }
+                }
+                async function changeConversationSession() {
+                    if (chatSendInFlight) return;
+                    const select = document.getElementById('conversation-session');
+                    const sessionId = select.value;
+                    if (!sessionId) return;
+                    localStorage.setItem('sentientos_session_id', sessionId);
+                    document.getElementById('response').hidden = true;
+                    document.getElementById('response-text').textContent = '';
+                    document.getElementById('observe-screen').checked = false;
+                    await refreshConversationTranscript();
+                    await refreshAvatarOutput();
+                    await refreshSpeechOutput();
+                    await refreshConversationSessions(sessionId);
+                }
+                async function startNewConversation() {
+                    if (chatSendInFlight) return;
+                    const button = document.getElementById('new-conversation');
+                    const select = document.getElementById('conversation-session');
+                    const status = document.getElementById('conversation-session-status');
+                    button.disabled = true;
+                    select.disabled = true;
+                    status.textContent = 'Starting a new conversation...';
+                    try {
+                        const response = await fetch('/sessions', { method: 'POST' });
+                        if (!response.ok) throw new Error('session_creation_failed');
+                        const payload = await response.json();
+                        if (typeof payload.session_id !== 'string') {
+                            throw new Error('session_id_missing');
+                        }
+                        localStorage.setItem('sentientos_session_id', payload.session_id);
+                        document.getElementById('response').hidden = true;
+                        document.getElementById('response-text').textContent = '';
+                        document.getElementById('observe-screen').checked = false;
+                        await refreshConversationSessions(payload.session_id);
+                        await refreshConversationTranscript();
+                        await refreshAvatarOutput();
+                        await refreshSpeechOutput();
+                        status.textContent = 'New conversation started.';
+                        document.getElementById('message').focus();
+                    } catch (_) {
+                        status.textContent = 'Unable to start a new conversation.';
+                    } finally {
+                        button.disabled = false;
+                        select.disabled = !select.options.length;
+                    }
+                }
+                async function initializeConversationView() {
+                    try {
+                        await ensureConversationSession();
+                        await refreshConversationSessions();
+                        await refreshConversationTranscript();
+                        await refreshAvatarOutput();
+                        await refreshSpeechOutput();
+                    } catch (_) {
+                        document.getElementById('conversation-session-status').textContent =
+                            'Unable to restore a saved conversation.';
+                    } finally {
+                        document.getElementById('new-conversation').disabled = false;
+                        const select = document.getElementById('conversation-session');
+                        select.disabled = !select.options.length;
+                    }
+                }
+
                 async function ensureConversationSession() {
                     let sessionId = localStorage.getItem('sentientos_session_id');
                     if (sessionId) return sessionId;
@@ -3306,6 +3435,8 @@ async def root_page() -> HTMLResponse:
                     }
                 }
                 document.getElementById('send').addEventListener('click', sendMessage);
+                document.getElementById('conversation-session').addEventListener('change', changeConversationSession);
+                document.getElementById('new-conversation').addEventListener('click', startNewConversation);
                 document.getElementById('avatar-output-enabled').addEventListener('change', changeAvatarOutput);
                 document.getElementById('speech-output-enabled').addEventListener('change', changeSpeechOutput);
                 document.getElementById('workload-mode').addEventListener('change', changeWorkloadMode);
@@ -3319,10 +3450,8 @@ async def root_page() -> HTMLResponse:
                     }
                 });
                 refreshBootFeed();
-                refreshConversationTranscript();
+                initializeConversationView();
                 refreshWorkloadMode();
-                refreshAvatarOutput();
-                refreshSpeechOutput();
                 refreshScreenObservationStatus();
                 setInterval(refreshBootFeed, 5000);
                 setInterval(refreshWorkloadStatus, 5000);
