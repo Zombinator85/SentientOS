@@ -162,6 +162,12 @@ _SCREEN_CAPABILITY_QUESTION = re.compile(
     r"(?:see|view|observe|access|watch)\b.{0,120}\b"
     r"(?:screen|display|game|gameplay)\b", re.IGNORECASE
 )
+_SCREEN_NOT_CONFIGURED_CLAIM = re.compile(
+    r"\b(?:screen|visual|game[- ]screen) observation\b.{0,48}"
+    r"\b(?:not configured|is not configured|isn['’]t configured|"
+    r"has not been configured|hasn['’]t been configured|disabled)\b",
+    re.IGNORECASE,
+)
 _SCREEN_VISIBILITY_CLARIFICATION_REQUEST = re.compile(
     r"\b(?:be clear|tell me|let me know|explain)\b.{0,80}\b"
     r"(?:if|whether)\s+you\b.{0,24}\b(?:can(?:not|n't)?|"
@@ -539,10 +545,23 @@ def corrected_screen_capability_output(
             {"policy_id": SCREEN_CAPABILITY_POLICY_ID,
              "reason_code": "screen_capture_no_readable_text"},
         )
+    direct_question = (
+        _SCREEN_CAPABILITY_QUESTION.search(user_message) is not None or clarified_request
+    )
+    if (screen_observation_configured
+            and screen_observation_provenance is None
+            and direct_question
+            and _SCREEN_NOT_CONFIGURED_CLAIM.search(output) is not None):
+        return (
+            "Screen observation is configured for this local session, but it is "
+            "request-driven and wasn’t included in this message. I can’t describe "
+            "the game unless you request an observation.",
+            {"policy_id": SCREEN_CAPABILITY_POLICY_ID,
+             "reason_code": "screen_observation_configured_but_not_requested"},
+        )
     if (screen_observation_configured
             or _has_readable_screen_text(screen_observation_provenance)
-            or (not _SCREEN_CAPABILITY_QUESTION.search(user_message)
-                and not clarified_request)):
+            or not direct_question):
         return output, None
     if clarified_request:
         response = (
