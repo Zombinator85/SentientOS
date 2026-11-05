@@ -211,6 +211,26 @@ def test_ollama_active_request_can_be_cancelled(monkeypatch: pytest.MonkeyPatch,
 
 
 
+
+def test_ollama_cancel_event_prevents_request_after_disconnect_race(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from threading import Event
+    _manifest, digest, candidate, config = _candidate(tmp_path)
+    opener = _Opener(digest)
+    monkeypatch.setattr("sentientos.local_model.urllib.request.build_opener",
+        lambda *_args: opener)
+    monkeypatch.setattr("sentientos.local_model.http.client.HTTPConnection",
+        _HTTPConnection)
+    _HTTPConnection.last_body = None
+    backend, _ = LocalModel._initialise_backend(candidate, config)
+    cancel_event = Event()
+    cancel_event.set()
+
+    with pytest.raises(ModelLoadError, match="ollama_generation_cancelled"):
+        backend.generate("cancelled", (), {"_cancel_event": cancel_event})
+    assert _HTTPConnection.last_body is None
+
+
 def test_local_model_load_candidate_selects_exact_model_without_fallback(
         monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("SENTIENTOS_DATA_DIR", str(tmp_path / "data"))
