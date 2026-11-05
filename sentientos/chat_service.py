@@ -2851,6 +2851,47 @@ async def root_page() -> HTMLResponse:
                 }
 
                 let chatSendInFlight = false;
+                async function consumeChatStream(response, onDelta) {
+                    if (!response.body || typeof response.body.getReader !== 'function') {
+                        throw new Error('chat_stream_body_unavailable');
+                    }
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    let completed = null;
+                    let terminalError = null;
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
+                            .replace(/\\r\\n/g, '\\n');
+                        if (done) buffer += '\\n\\n';
+                        let boundary = buffer.indexOf('\\n\\n');
+                        while (boundary >= 0) {
+                            const frame = buffer.slice(0, boundary);
+                            buffer = buffer.slice(boundary + 2);
+                            const data = frame.split('\\n')
+                                .filter(line => line.startsWith('data:'))
+                                .map(line => line.slice(5).trimStart()).join('\\n');
+                            if (data) {
+                                const event = JSON.parse(data);
+                                if (event.type === 'delta' && typeof event.text === 'string') {
+                                    onDelta(event.text);
+                                } else if (event.type === 'complete'
+                                        && event.response && typeof event.response === 'object') {
+                                    completed = event.response;
+                                } else if (event.type === 'error'
+                                        && typeof event.code === 'string') {
+                                    terminalError = event.code;
+                                }
+                            }
+                            boundary = buffer.indexOf('\\n\\n');
+                        }
+                        if (done) break;
+                    }
+                    if (terminalError) throw new Error(terminalError);
+                    if (!completed) throw new Error('chat_stream_completion_missing');
+                    return completed;
+                }
                 async function sendMessage() {
                     if (chatSendInFlight) return;
                     const sendButton = document.getElementById('send');
@@ -2883,17 +2924,37 @@ async def root_page() -> HTMLResponse:
                         const requestId = pending && typeof pending.request_id === 'string'
                             ? pending.request_id : crypto.randomUUID();
                         localStorage.setItem(pendingKey, JSON.stringify({ request_id: requestId }));
-                        const res = await fetch('/chat', {
+                        let res = await fetch('/chat/stream', {
                             method: 'POST', headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ message, session_id: sessionId, request_id: requestId,
                                 observe_screen: observeScreen }),
                         });
+                        if (res.status === 503) {
+                            const failure = await res.clone().json().catch(() => ({}));
+                            if (failure.detail ===
+                                    'Streaming is unavailable for this model backend') {
+                                res = await fetch('/chat', {
+                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ message, session_id: sessionId,
+                                        request_id: requestId, observe_screen: observeScreen }),
+                                });
+                            }
+                        }
                         if (!res.ok) {
                             const detail = await res.json().catch(() => ({ detail: 'Unknown error' }));
                             alert(detail.detail || 'Unable to reach SentientOS chat. The same request identity will be reused if retried.');
                             return;
                         }
-                        const data = await res.json();
+                        let data;
+                        if (res.headers.get('content-type')?.startsWith('text/event-stream')) {
+                            responseEl.hidden = false;
+                            responseTextEl.textContent = '';
+                            data = await consumeChatStream(res, (chunk) => {
+                                responseTextEl.textContent += chunk;
+                            });
+                        } else {
+                            data = await res.json();
+                        }
                         localStorage.setItem('sentientos_session_id', data.session_id);
                         localStorage.removeItem(pendingKey);
                         responseTextEl.textContent = data.response;
