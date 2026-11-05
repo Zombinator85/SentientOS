@@ -10,6 +10,7 @@ from sentientos.chat_response_grounding import (
     SOCIAL_INSTRUCTION_ECHO_POLICY_ID, SYSTEM_IDENTITY_POLICY_ID,
     corrected_social_instruction_echo, corrected_system_identity_output,
     corrected_unobserved_game_status,
+    corrected_nonresponsive_gaming_next_step,
     is_direct_screen_activity_question,
     unobserved_gameplay_claim,
 )
@@ -659,3 +660,49 @@ def test_combined_game_status_and_visibility_reports_verified_background_process
         "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
         "reason_code": "verified_workload_context_screen_unavailable",
     }
+
+
+def test_nonresponsive_gaming_next_step_uses_the_users_explicit_clue():
+    corrected, attribution = corrected_nonresponsive_gaming_next_step(
+        "Check if the note is part of a verified foreground app. Without screen observation, "
+        "I cannot confirm gameplay.",
+        user_message=("The only clue I can share is a note that says EAST WING. "
+                      "What is one next step based only on that?"),
+        workload_mode="gaming",
+        screen_observation_provenance=None,
+    )
+    assert corrected == (
+        "You mentioned \u201cEAST WING\u201d; what nearby options or details can you share? "
+        "I\u2019ll reason from your description, not claim to see the screen."
+    )
+    assert attribution == {
+        "policy_id": "gaming_next_step_nonresponsive_fallback_v1",
+        "reason_code": "model_ignored_user_provided_game_clue",
+    }
+
+
+def test_nonresponsive_gaming_next_step_asks_for_actionable_context_when_none_was_shared():
+    corrected, attribution = corrected_nonresponsive_gaming_next_step(
+        "Without screen observation I cannot confirm gameplay.",
+        user_message=("I am not sure what to do next in Cronos, and I have not described "
+                      "the current scene. What should I check?"),
+        workload_mode="gaming",
+        screen_observation_provenance=None,
+    )
+    assert corrected == (
+        "What does the current objective or clue say, and what are you trying to reach? "
+        "I\u2019ll help from the details you share."
+    )
+    assert attribution is not None
+    assert attribution["reason_code"] == "model_returned_screen_boilerplate_for_next_step"
+
+
+def test_nonresponsive_gaming_next_step_guard_is_narrow():
+    output = "Without screen observation I cannot confirm gameplay."
+    message = "What is one next step based only on the note that says EAST WING?"
+    assert corrected_nonresponsive_gaming_next_step(
+        output, user_message=message, workload_mode="normal",
+        screen_observation_provenance=None) == (output, None)
+    assert corrected_nonresponsive_gaming_next_step(
+        output, user_message=message, workload_mode="gaming",
+        screen_observation_provenance={"text_status": "available"}) == (output, None)

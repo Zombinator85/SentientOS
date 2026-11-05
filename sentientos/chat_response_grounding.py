@@ -21,6 +21,7 @@ CURRENT_GAME_STATUS_POLICY_ID = "verified_foreground_only_game_status_v1"
 GAME_PROCESS_STATUS_POLICY_ID = "verified_game_process_status_v1"
 SYSTEM_IDENTITY_POLICY_ID = "sentientos_companion_identity_grounding_v1"
 UNPROVIDED_SOURCE_POLICY_ID = "unprovided_referenced_source_grounding_v1"
+GAMING_NEXT_STEP_POLICY_ID = "gaming_next_step_nonresponsive_fallback_v1"
 UNPROVIDED_SOURCE_CORRECTION = (
     "I don’t have the referenced source’s contents in this conversation, so I can’t "
     "summarize its recommendations or assess what the data establish. Share the source "
@@ -56,6 +57,23 @@ _SYSTEM_INSTRUCTION_ECHO = re.compile(
     r"\bforeground confirms only the app is open\b|"
     r"\b(?:CURRENT_SCREEN_OBSERVATION_UNTRUSTED|VERIFIED_RUNTIME_CONTEXT|"
     r"SYSTEM_INSTRUCTION)\b",
+    re.IGNORECASE,
+)
+_NEXT_STEP_ADVICE_REQUEST = re.compile(
+    r"\b(?:what should I do next|what do I do next|what is one next step|"
+    r"what\'s one next step|one next step based on|what should I check next|"
+    r"where should I go next|what do I do now|what should I check)\b",
+    re.IGNORECASE,
+)
+_NEXT_STEP_VISIBILITY_BOILERPLATE = re.compile(
+    r"\b(?:without screen observation|no screen observation|cannot confirm gameplay|"
+    r"can\'t confirm gameplay|verify (?:the )?foreground app|"
+    r"verified foreground app|scene description available)\b",
+    re.IGNORECASE,
+)
+_USER_SHARED_GAME_CLUE = re.compile(
+    r"\b(?:note|clue|sign|message|text|label)\s+(?:that\s+)?"
+    r"(?:says|reads|states|is)\s+[\"]?([^\"\n.!?]{2,80})",
     re.IGNORECASE,
 )
 _KEEP_IN_MIND_REQUEST = re.compile(
@@ -533,6 +551,37 @@ def corrected_screen_capability_output(
     return SCREEN_CAPABILITY_CORRECTION, {
         "policy_id": SCREEN_CAPABILITY_POLICY_ID,
         "reason_code": "screen_observation_not_configured",
+    }
+
+
+def corrected_nonresponsive_gaming_next_step(
+    output: str, *, user_message: str, workload_mode: str,
+    screen_observation_provenance: Mapping[str, Any] | None,
+) -> tuple[str, dict[str, str] | None]:
+    """Replace screen-visibility boilerplate when a gaming next-step request needs context."""
+    if (workload_mode != "gaming"
+            or _has_readable_screen_text(screen_observation_provenance)
+            or not _NEXT_STEP_ADVICE_REQUEST.search(user_message)
+            or not _NEXT_STEP_VISIBILITY_BOILERPLATE.search(output)):
+        return output, None
+
+    clue = _USER_SHARED_GAME_CLUE.search(user_message)
+    if clue is not None:
+        value = " ".join(clue.group(1).split()).strip(" \"'")
+        corrected = (
+            f"You mentioned \u201c{value}\u201d; what nearby options or details can you share? "
+            "I\u2019ll reason from your description, not claim to see the screen."
+        )
+        reason = "model_ignored_user_provided_game_clue"
+    else:
+        corrected = (
+            "What does the current objective or clue say, and what are you trying to reach? "
+            "I\u2019ll help from the details you share."
+        )
+        reason = "model_returned_screen_boilerplate_for_next_step"
+    return corrected, {
+        "policy_id": GAMING_NEXT_STEP_POLICY_ID,
+        "reason_code": reason,
     }
 
 
