@@ -78,14 +78,15 @@ def test_forward_lines_persists_dispatch_outcome_distinct_from_renderer_effect(
         "failure_code": "avatar_command_renderer_queue_rejected",
     }
 
+    event_path = tmp_path / "state" / "evidence" / "avatar-delivery-events.jsonl"
     _TemporaryCompanionEdge._forward_lines(
         io.StringIO("READY 12345 67890" + chr(10) + "AVATAR_DISPATCH "
                     + json.dumps(outcome) + chr(10)),
         lines,
         report_file,
+        event_path,
     )
 
-    event_path = tmp_path / "avatar-delivery-events.jsonl"
     event = json.loads(event_path.read_text(encoding="utf-8"))
     assert event["event"] == "windows_edge_avatar_command_dispatch"
     assert event["accepted"] is False

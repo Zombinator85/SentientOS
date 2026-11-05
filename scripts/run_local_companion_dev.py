@@ -254,7 +254,8 @@ class _TemporaryCompanionEdge:
                  game_process_names: tuple[str, ...] = (),
                  screen_observation_process_names: tuple[str, ...] = (),
                  screen_observation_consent_minutes: int = 60,
-                 screen_observation_tesseract_executable: str | None = None) -> None:
+                 screen_observation_tesseract_executable: str | None = None,
+                 delivery_event_file: Path | None = None) -> None:
         from scripts.gaming_companion_cross_host_smoke import (
             _addresses, _contexts, _test_identities, _win_path, _win_temp,
             _secret_free_environment,
@@ -286,6 +287,9 @@ class _TemporaryCompanionEdge:
         self.screen_observer: Any | None = None
         self._lines: queue.Queue[str] = queue.Queue()
         self._report_file: Path | None = None
+        self._delivery_event_file = delivery_event_file
+        if delivery_event_file is not None:
+            delivery_event_file.parent.mkdir(parents=True, exist_ok=True)
         try:
             identities = _test_identities(root)
             wsl, edge, ca = identities["wsl"], identities["windows"], identities["ca"]
@@ -401,7 +405,8 @@ class _TemporaryCompanionEdge:
             self._report_file = root / "renderer-reports.jsonl"
             self.report_file = self._report_file
             threading.Thread(target=self._forward_lines,
-                args=(self._edge_process.stdout, self._lines, self._report_file),
+                args=(self._edge_process.stdout, self._lines, self._report_file,
+                      self._delivery_event_file),
                 daemon=True).start()
             if self._edge_process is None:
                 raise RuntimeError("temporary_windows_edge_process_unavailable")
@@ -456,8 +461,18 @@ class _TemporaryCompanionEdge:
             raise
 
     @staticmethod
-    def _forward_lines(stream, target: queue.Queue[str], report_file: Path) -> None:
+    def _forward_lines(stream, target: queue.Queue[str], report_file: Path,
+                       delivery_event_file: Path | None = None) -> None:
         ready_seen = False
+        delivery_file = (delivery_event_file
+                         if delivery_event_file is not None
+                         else report_file.with_name("avatar-delivery-events.jsonl"))
+        def persist_delivery_event(event: Mapping[str, Any]) -> None:
+            delivery_file.parent.mkdir(parents=True, exist_ok=True)
+            with delivery_file.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(event, separators=(",", ":")))
+                handle.write(chr(10))
+                handle.flush()
         for line in stream:
             rendered = line.rstrip()
             if rendered.startswith("READY "):
@@ -490,11 +505,7 @@ class _TemporaryCompanionEdge:
                         "observed_at": datetime.now(timezone.utc).isoformat(),
                         **outcome,
                     }
-                    delivery_file = report_file.with_name("avatar-delivery-events.jsonl")
-                    with delivery_file.open("a", encoding="utf-8") as handle:
-                        handle.write(json.dumps(event, separators=(",", ":")))
-                        handle.write(chr(10))
-                        handle.flush()
+                    persist_delivery_event(event)
                 except (OSError, ValueError, TypeError):
                     pass
             if rendered.startswith("AVATAR_ACCEPTED "):
@@ -509,11 +520,7 @@ class _TemporaryCompanionEdge:
                         "observed_at": datetime.now(timezone.utc).isoformat(),
                         **accepted,
                     }
-                    delivery_file = report_file.with_name("avatar-delivery-events.jsonl")
-                    with delivery_file.open("a", encoding="utf-8") as handle:
-                        handle.write(json.dumps(event, separators=(",", ":")))
-                        handle.write(chr(10))
-                        handle.flush()
+                    persist_delivery_event(event)
                 except (OSError, ValueError, TypeError):
                     pass
             if rendered.startswith("FOREGROUND_PUMP "):
@@ -715,7 +722,8 @@ def main() -> int:
                 screen_observation_process_names=tuple(args.screen_observation_process),
                 screen_observation_consent_minutes=args.screen_observation_consent_minutes,
                 screen_observation_tesseract_executable=(
-                    args.screen_observation_tesseract_executable))
+                    args.screen_observation_tesseract_executable),
+                delivery_event_file=state / "evidence" / "avatar-delivery-events.jsonl")
         configure_development_chat(invoker=invoker, data_root=chat_state,
             avatar_output_emitter=edge.emitter if edge else None,
             model_profiles=model_profiles,
