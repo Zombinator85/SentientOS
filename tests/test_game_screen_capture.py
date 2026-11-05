@@ -146,14 +146,41 @@ def test_tesseract_backend_uses_bounded_in_memory_local_subprocess(monkeypatch: 
 
     def run(command, **kwargs):
         calls.append({"command": command, **kwargs})
-        return SimpleNamespace(returncode=0, stdout=b"recognized text")
+        return SimpleNamespace(returncode=0, stdout=(
+            b"level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n"
+            b"5\t1\t1\t1\t1\t1\t0\t0\t40\t12\t92.5\trecognized\n"
+            b"5\t1\t1\t1\t1\t2\t45\t0\t30\t12\t90.0\ttext\n"
+        ))
 
     monkeypatch.setattr(capture_module.importlib, "import_module", lambda _name: SimpleNamespace(
         to_png=lambda rgb, size: b"png"))
     monkeypatch.setattr(subprocess, "run", run)
     ocr = LocalTesseractOCR(timeout_seconds=1.5)
     assert ocr({"rgb": bytes(100 * 50 * 3), "width": 100, "height": 50}) == "recognized text"
-    assert calls[0]["command"] == ["tesseract", "stdin", "stdout"]
+    assert calls[0]["command"] == ["tesseract", "stdin", "stdout", "tsv"]
     assert calls[0]["input"] == b"png"
     assert calls[0]["timeout"] == 1.5
     assert "shell" not in calls[0]
+
+
+def test_tesseract_backend_discards_low_confidence_fragments(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+    from types import SimpleNamespace
+
+    from sentientos.perception import game_screen_capture as capture_module
+
+    tsv = (
+        "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\t"
+        "top\twidth\theight\tconf\ttext\n"
+        "5\t1\t1\t1\t1\t1\t0\t0\t80\t20\t91.0\tOBJECTIVE\n"
+        "5\t1\t1\t1\t1\t2\t82\t0\t16\t20\t21.0\tqe\n"
+        "5\t1\t1\t1\t2\t1\t0\t30\t40\t20\t88.0\tENTER\n"
+    ).encode()
+    monkeypatch.setattr(capture_module.importlib, "import_module", lambda _name:
+        type("Tools", (), {"to_png": staticmethod(lambda _rgb, _size: b"png")})())
+    monkeypatch.setattr(subprocess, "run", lambda *_args, **_kwargs:
+        SimpleNamespace(returncode=0, stdout=tsv))
+
+    ocr = LocalTesseractOCR()
+
+    assert ocr({"rgb": bytes(3), "width": 1, "height": 1}) == "OBJECTIVE\nENTER"
