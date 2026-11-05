@@ -39,7 +39,9 @@ _TRANSCRIPT_RECALL_STOP_WORDS = frozenset((
     "prior", "said", "say", "should", "tell", "that", "the", "their", "then",
     "there", "this", "to", "was", "were", "what", "when", "where", "which",
     "who", "why", "will", "with", "would", "you", "your", "ask", "asked",
-    "answer", "answered", "reply", "replied",
+    "answer", "answered", "briefly", "chat", "claim", "conversation", "current",
+    "exact", "foreground", "game", "gameplay", "guess", "not", "our", "reply",
+    "replied", "screen", "see", "they", "two", "word", "words",
 ))
 
 
@@ -47,18 +49,39 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
     """Return content-word anchors for selecting relevant same-session turns."""
     if not isinstance(text, str):
         raise ValueError("conversation_recall_query_invalid")
-    return frozenset(
-        token for token in re.findall(r"[a-z0-9]+", text.casefold())
-        if len(token) > 2 and token not in _TRANSCRIPT_RECALL_STOP_WORDS
-    )
+    terms: set[str] = set()
+    for token in re.findall(r"[a-z0-9]+", text.casefold()):
+        if len(token) <= 2 or token in _TRANSCRIPT_RECALL_STOP_WORDS:
+            continue
+        normalized = (
+            token[:-1]
+            if token.endswith("s") and not token.endswith("ss") and len(token) > 4
+            else token
+        )
+        if normalized not in _TRANSCRIPT_RECALL_STOP_WORDS:
+            terms.add(normalized)
+    return frozenset(terms)
 
 
 def _is_prior_message_recall_question(text: str) -> bool:
     """Avoid treating an earlier recall question as the evidence it requested."""
     normalized = " ".join(re.findall(r"[a-z0-9]+", text.casefold()))
-    return (re.search(
-        r"\bwhat did (?:i|you|the [a-z0-9]+) (?:say|tell|write)\b", normalized
-    ) is not None or re.search(r"\bwhat was written\b", normalized) is not None)
+    explicit_recall = (
+        re.search(
+            r"\bwhat did (?:i|you|the [a-z0-9]+) (?:say|tell|write)\b", normalized
+        ) is not None
+        or re.search(r"\bwhat was written\b", normalized) is not None
+    )
+    anaphoric_recall = re.search(
+        r"\bwhat (?:was|were) (?:it|they|those|these)\b", normalized
+    ) is not None
+    has_prior_reference = any(marker in normalized for marker in (
+        "earlier in our chat", "earlier in our conversation",
+        "earlier in this chat", "earlier in this conversation",
+        "i told you earlier", "earlier i told you",
+        "i mentioned earlier", "earlier i mentioned",
+    ))
+    return explicit_recall or (anaphoric_recall and has_prior_reference)
 
 
 def _now() -> str:
