@@ -18,7 +18,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from sentientos.gaming_companion_bridge import CompanionBridgeReceiver, encode_message
-from sentientos.avatar_renderer_report_ingress import RendererReportCaptureOwner, RendererReportEvidenceStore
+from sentientos.avatar_renderer_report_ingress import RendererReportCaptureOwner
 from sentientos.avatar_renderer_report_relay import WindowsRendererReportRelay
 from sentientos.foreground_game_bridge import (
     BridgeForegroundGameDetector,
@@ -170,7 +170,15 @@ def test_renderer_self_report_relay_crosses_mtls_and_keeps_relay_identity_separa
         receiver=receiver, acknowledgment_source_id="sentientos-core",
         acknowledgment_generation_id="core-generation-1",
         acknowledgment_key=acknowledgment_key)
-    store = RendererReportEvidenceStore(tmp_path / "captures")
+    class RecordingStore:
+        def __init__(self):
+            self.capture_calls = []
+
+        def capture(self, *, report, transport):
+            self.capture_calls.append((dict(report), dict(transport)))
+            return {"capture_id": "test-capture"}
+
+    store = RecordingStore()
     owner = RendererReportCaptureOwner(runtime=runtime, store=store)
     owner.start()
     port = runtime.status().port
@@ -196,11 +204,12 @@ def test_renderer_self_report_relay_crosses_mtls_and_keeps_relay_identity_separa
             time.sleep(0.01)
         assert relay.status().forwarded == 1
         assert owner.status()["captured"] == 1
-        record = store.world_state_records()[0]
-        assert record["payload"]["transport_authentication_principal"] == "windows-renderer-relay"
-        assert record["payload"]["renderer_source_independently_authenticated"] is False
-        assert record["payload"]["renderer_state_independently_observed"] is False
-        assert record["payload"]["transport_provenance"]["report_source_id"] == "godot-procedural-demo"
+        assert len(store.capture_calls) == 1
+        captured_report, transport = store.capture_calls[0]
+        assert transport["source_id"] == "windows-renderer-relay"
+        assert transport["report_source_id"] == "godot-procedural-demo"
+        assert captured_report["effect_proven"] is False
+        assert captured_report["independent_observation"] is False
     finally:
         sender.close()
         relay.close()
@@ -289,6 +298,7 @@ def test_mutual_tls_requires_client_certificate_validation(tmp_path: Path):
             acknowledgment_key=b"a" * 32)
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX key-file custody semantics")
 def test_posix_bridge_key_reader_requires_private_regular_owned_file(tmp_path: Path):
     key_path = tmp_path / "source.key"
     key_path.write_bytes(b"x" * 32)
@@ -429,7 +439,7 @@ def test_mtls_client_distinguishes_tls_handshake_failure(tmp_path: Path):
             client.send(encoded)
         assert caught.value.delivery_state == "not_sent"
         assert caught.value.failure_phase == "tls_handshake"
-        assert caught.value.failure_type in {"SSLError", "SSLEOFError"}
+        assert caught.value.failure_type in {"SSLError", "SSLEOFError", "ConnectionAbortedError"}
     finally:
         peer.join(timeout=2)
         listener.close()

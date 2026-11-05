@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -130,6 +131,7 @@ def test_renderer_report_digest_changes_when_report_changes():
     assert first.source_digest != second.source_digest
 
 
+@pytest.mark.skipif(os.name != "posix", reason="durable renderer store uses POSIX dir-fd custody")
 def test_authenticated_renderer_report_returns_to_durable_unverified_world_state(tmp_path: Path):
     now = datetime.now(timezone.utc).isoformat()
     report = _report()
@@ -186,6 +188,7 @@ def test_authenticated_renderer_report_returns_to_durable_unverified_world_state
         owner.close()
 
 
+@pytest.mark.skipif(os.name != "posix", reason="renderer evidence-store permission checks are POSIX-specific")
 def test_renderer_capture_rejects_transport_lineage_mismatch_and_open_store(tmp_path: Path):
     store = RendererReportEvidenceStore(tmp_path / "private")
     with pytest.raises(RendererReportIngressError, match="lineage_mismatch"):
