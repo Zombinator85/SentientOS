@@ -755,7 +755,7 @@ def test_verified_current_situation_uses_only_foreground_and_screen_evidence(
     assert response.status_code == 200
     body = response.json()
     assert body["response"] == (
-        "I can verify Cronos is the foreground app, and SentientOS is in gaming mode. "
+        "I can verify Cronos is running in the foreground, and SentientOS is in gaming mode. "
         "Screen observation isn’t configured in this session, so I can’t describe the gameplay."
     )
     assert body["context"]["response_origin"] == "deterministic_grounding_policy"
