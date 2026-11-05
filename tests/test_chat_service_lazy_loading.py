@@ -488,6 +488,11 @@ def test_local_ui_recovers_session_transcript_after_service_restart(tmp_path):
     assert "startNewConversation" in page
     assert "changeConversationSession" in page
     assert "initializeConversationView();" in page
+    assert "window.addEventListener('storage'" in page
+    assert "restoreConversationSession(event.newValue)" in page
+    assert "pendingExternalSessionId" in page
+    assert "document.visibilityState === 'visible'" in page
+    assert "}, 15000);" in page
     assert "content.textContent = turn.text;" in page
     listed = restarted_client.get("/sessions")
     assert listed.status_code == 200

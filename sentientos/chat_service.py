@@ -3160,6 +3160,7 @@ async def root_page() -> HTMLResponse:
                 }
 
                 let chatSendInFlight = false;
+                let pendingExternalSessionId = null;
                 async function consumeChatStream(response, onDelta) {
                     if (!response.body || typeof response.body.getReader !== 'function') {
                         throw new Error('chat_stream_body_unavailable');
@@ -3390,6 +3391,11 @@ async def root_page() -> HTMLResponse:
                             !document.getElementById('conversation-session').options.length;
                         document.getElementById('new-conversation').disabled = false;
                         sendButton.textContent = 'Send';
+                        if (pendingExternalSessionId !== null) {
+                            const externalSessionId = pendingExternalSessionId;
+                            pendingExternalSessionId = null;
+                            await restoreConversationSession(externalSessionId);
+                        }
                     }
                 }
                 async function refreshScreenObservationStatus() {
@@ -3462,20 +3468,30 @@ async def root_page() -> HTMLResponse:
                         status.textContent = 'Saved conversation list unavailable';
                     }
                 }
-                async function changeConversationSession() {
-                    if (chatSendInFlight) return;
-                    const select = document.getElementById('conversation-session');
-                    const sessionId = select.value;
+                async function restoreConversationSession(sessionId) {
                     if (!sessionId) return;
                     localStorage.setItem('sentientos_session_id', sessionId);
                     document.getElementById('response').hidden = true;
                     document.getElementById('response-text').textContent = '';
                     document.getElementById('observe-screen').checked = false;
+                    await refreshConversationSessions(sessionId);
                     await refreshConversationTranscript();
                     await refreshAvatarOutput();
                     await refreshSpeechOutput();
-                    await refreshConversationSessions(sessionId);
                 }
+                async function changeConversationSession() {
+                    if (chatSendInFlight) return;
+                    const sessionId = document.getElementById('conversation-session').value;
+                    await restoreConversationSession(sessionId);
+                }
+                window.addEventListener('storage', (event) => {
+                    if (event.key !== 'sentientos_session_id' || !event.newValue) return;
+                    if (chatSendInFlight) {
+                        pendingExternalSessionId = event.newValue;
+                        return;
+                    }
+                    restoreConversationSession(event.newValue);
+                });
                 async function startNewConversation() {
                     if (chatSendInFlight) return;
                     const button = document.getElementById('new-conversation');
@@ -3824,6 +3840,11 @@ async def root_page() -> HTMLResponse:
                 refreshScreenObservationStatus();
                 setInterval(refreshBootFeed, 5000);
                 setInterval(refreshWorkloadStatus, 5000);
+                setInterval(() => {
+                    if (document.visibilityState === 'visible' && !chatSendInFlight) {
+                        refreshConversationSessions();
+                    }
+                }, 15000);
                 setInterval(refreshAvatarOutput, 5000);
                 setInterval(refreshSpeechOutput, 5000);
             </script>
