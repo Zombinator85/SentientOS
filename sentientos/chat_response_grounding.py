@@ -64,6 +64,11 @@ _GAME_RUNNING_QUESTION = re.compile(
     r".{0,48}\b(?:still )?(?:running|open|active)\b",
     re.IGNORECASE,
 )
+_GAME_PROCESS_STATUS_DISTINCTION = re.compile(
+    r"\b(?:running|run|open)\b.{0,64}\bforeground\b|"
+    r"\bforeground\b.{0,64}\b(?:running|run|open)\b",
+    re.IGNORECASE,
+)
 _GAME_ACTIVITY_QUESTION = re.compile(
     r"\b(?:what|how)\b[^\r\n.!?]{0,64}\b(?:I am|I'm|you are|you're)\s+"
     r"(?:doing|playing|seeing|experiencing)\b[^\r\n.!?]{0,64}\b"
@@ -141,7 +146,13 @@ _UNOBSERVED_CLAIM_PATTERNS = (
 
 def is_verified_current_game_context_question(user_message: str) -> bool:
     """Whether the user asks what the current system can verify and cannot see."""
-    return _VERIFIED_CURRENT_GAME_CONTEXT_QUESTION.search(user_message) is not None
+    combined_status_question = (
+        _GAME_STATUS_QUESTION.search(user_message) is not None
+        and _GAME_PROCESS_STATUS_DISTINCTION.search(user_message) is not None
+        and _SCREEN_CAPABILITY_QUESTION.search(user_message) is not None
+    )
+    return (_VERIFIED_CURRENT_GAME_CONTEXT_QUESTION.search(user_message) is not None
+            or combined_status_question)
 
 
 def is_direct_screen_activity_question(user_message: str) -> bool:
@@ -149,6 +160,7 @@ def is_direct_screen_activity_question(user_message: str) -> bool:
     return (
         _GAME_SCREEN_ACTIVITY_QUESTION.search(user_message) is not None
         or _GAME_ACTIVITY_QUESTION.search(user_message) is not None
+        or _SCREEN_CAPABILITY_QUESTION.search(user_message) is not None
         or _SCREEN_VISIBILITY_CLARIFICATION_REQUEST.search(user_message) is not None
         or is_verified_current_game_context_question(user_message)
     )
