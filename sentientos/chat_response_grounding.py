@@ -10,6 +10,9 @@ GROUNDING_POLICY_ID = "gaming_unobserved_claim_correction_v1"
 GROUNDING_CORRECTION = (
     "I can’t see the game this turn, but I’m here with you."
 )
+SOCIAL_GAMING_GROUNDING_CORRECTION = (
+    "I’m here with you in SentientOS. How’s the session going?"
+)
 
 SCREEN_CAPABILITY_POLICY_ID = "screen_observation_unconfigured_correction_v2"
 SOCIAL_INSTRUCTION_ECHO_POLICY_ID = "social_instruction_echo_correction_v1"
@@ -519,12 +522,18 @@ def corrected_screen_capability_output(
 
 
 def corrected_gaming_output(output: str, *, workload_mode: str,
-                            screen_observation_provenance: Mapping[str, Any] | None
+                            screen_observation_provenance: Mapping[str, Any] | None,
+                            social_checkin: bool = False
                             ) -> tuple[str, dict[str, str] | None]:
-    """Replace only a known unsupported claim with a fixed, attributed correction."""
+    """Replace unsupported gameplay claims with a truthful, intent-aware reply."""
     if not unobserved_gameplay_claim(output, workload_mode=workload_mode,
             screen_observation_provenance=screen_observation_provenance):
         return output, None
+    if social_checkin:
+        return SOCIAL_GAMING_GROUNDING_CORRECTION, {
+            "policy_id": SOCIAL_CHECK_IN_POLICY_ID,
+            "reason_code": "unobserved_gameplay_claim_during_social_checkin",
+        }
     return GROUNDING_CORRECTION, {
         "policy_id": GROUNDING_POLICY_ID,
         "reason_code": "unobserved_gameplay_claim",

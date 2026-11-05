@@ -41,6 +41,19 @@ def test_live_observed_unseen_gameplay_praise_gets_grounded_correction():
     assert correction["reason_code"] == "unobserved_gameplay_claim"
 
 
+def test_social_checkin_with_unsupported_gameplay_claim_gets_conversational_reply():
+    corrected, attribution = corrected_gaming_output(
+        "Sure, keeping an eye on your gaming session.",
+        workload_mode="gaming", screen_observation_provenance=None,
+        social_checkin=True,
+    )
+    assert corrected == "I’m here with you in SentientOS. How’s the session going?"
+    assert attribution == {
+        "policy_id": SOCIAL_CHECK_IN_POLICY_ID,
+        "reason_code": "unobserved_gameplay_claim_during_social_checkin",
+    }
+
+
 def test_claim_to_share_unobserved_gameplay_gets_grounded_correction():
     output = "I can share what you are experiencing in Cronos."
     assert unobserved_gameplay_claim(

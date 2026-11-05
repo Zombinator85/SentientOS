@@ -482,7 +482,9 @@ class ProductionServingInferenceController:
                         original_output if isinstance(original_output, str) else "",
                         workload_mode=str(serving_mode or "normal"),
                         screen_observation_provenance=(request_linkage.get("screen_observation_provenance")
-                            if isinstance(request_linkage, Mapping) else None))
+                            if isinstance(request_linkage, Mapping) else None),
+                        social_checkin=(isinstance(request_linkage, Mapping)
+                            and request_linkage.get("chat_response_style") == "social_checkin"))
                     if (correction is None or expected_output != assistant_text
                             or digest_payload({"output": original_output}) != value.get("output_digest")):
                         raise ProductionServingInferenceError("stored_invocation_transcript_output_mismatch")
