@@ -29,6 +29,21 @@ _UNSUPPORTED_SELF_STATE = re.compile(
     r"\bEnjoying your gaming session\b",
     re.IGNORECASE,
 )
+_UNSOLICITED_SOCIAL_AI_BOILERPLATE = re.compile(
+    r"\b(?:as an? (?:ai|artificial intelligence)(?: language)? model|"
+    r"i(?:'m| am) (?:just )?an? (?:ai|artificial intelligence)"
+    r"(?: language)? model|"
+    r"i(?: do not| don't| cannot| can't) have (?:human )?"
+    r"(?:feelings|emotions|subjective experiences)|"
+    r"(?:my|the) (?:training|knowledge) cutoff (?:is|was)|"
+    r"(?:my|the) training (?:only )?goes up to)\b",
+    re.IGNORECASE,
+)
+_TRAINING_CUTOFF_QUESTION = re.compile(
+    r"\b(?:training|knowledge) cutoff\b|\bwhen were you trained\b|"
+    r"\bwhat (?:is|was) your training\b",
+    re.IGNORECASE,
+)
 _SOCIAL_INSTRUCTION_ECHO = re.compile(
     r"\bdo not claim feelings\b|\binfer user activity from (?:a )?foreground app\b"
     r"|\bready to chat;\s*do not\b",
@@ -423,10 +438,16 @@ def corrected_social_instruction_echo(
     check_in = _SOCIAL_CHECK_IN.search(user_message) is not None
     instruction_echo = _SOCIAL_INSTRUCTION_ECHO.search(output) is not None
     unsupported_state = check_in and _UNSUPPORTED_SELF_STATE.search(output) is not None
+    unsolicited_boilerplate = (
+        check_in
+        and _TRAINING_CUTOFF_QUESTION.search(user_message) is None
+        and _UNSOLICITED_SOCIAL_AI_BOILERPLATE.search(output) is not None
+    )
     nonresponsive_gaming = (
         check_in and _NONRESPONSIVE_GAMING_CHECK_IN.search(output) is not None
     )
-    if not instruction_echo and not unsupported_state and not nonresponsive_gaming:
+    if (not instruction_echo and not unsupported_state and not nonresponsive_gaming
+            and not unsolicited_boilerplate):
         return output, None
     if check_in:
         period = re.search(
@@ -448,11 +469,12 @@ def corrected_social_instruction_echo(
     return corrected, {
         "policy_id": (
             SOCIAL_CHECK_IN_POLICY_ID
-            if unsupported_state or nonresponsive_gaming
+            if unsupported_state or unsolicited_boilerplate or nonresponsive_gaming
             else SOCIAL_INSTRUCTION_ECHO_POLICY_ID
         ),
         "reason_code": (
             "unsupported_subjective_self_state" if unsupported_state else
+            "unsolicited_ai_disclaimer" if unsolicited_boilerplate else
             "nonresponsive_gaming_checkin" if nonresponsive_gaming else
             "model_repeated_system_instruction"
         ),
