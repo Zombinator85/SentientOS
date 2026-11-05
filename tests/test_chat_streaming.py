@@ -57,3 +57,14 @@ def test_chat_stream_rejects_backend_without_streaming_support(monkeypatch):
     response = TestClient(chat.APP).post("/chat/stream", json={"message": "hello"})
     assert response.status_code == 503
     assert response.json()["detail"] == "Streaming is unavailable for this model backend"
+
+
+def test_companion_page_renders_streamed_deltas_and_keeps_backend_fallback():
+    chat = _reload()
+
+    response = TestClient(chat.APP).get("/")
+
+    assert response.status_code == 200
+    assert "fetch('/chat/stream'" in response.text
+    assert "responseTextEl.textContent += chunk" in response.text
+    assert "fetch('/chat'," in response.text
