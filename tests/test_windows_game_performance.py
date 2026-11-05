@@ -204,6 +204,21 @@ def test_presentmon_v2_timeline_keeps_app_frame_and_actual_display_timing() -> N
     assert summary.dropped_presentation_count == 1
 
 
+def test_presentmon_qpc_time_ms_output_header_is_accepted() -> None:
+    raw = b"\n".join((
+        b"ProcessID,CPUStartQPCTimeInMs,MsBetweenDisplayChange,MsBetweenPresents",
+        b"12,2000.0,16.7,16.6",
+        b"12,2016.7,33.3,33.3",
+    )) + b"\n"
+    frames, _ = parse_presentmon_timeline(raw, process_id=12)
+    assert [frame.cpu_start_qpc_ms for frame in frames] == [2000.0, 2016.7]
+    summary = summarize_presentmon_timeline(
+        frames, target_frame_interval_ms=16.7, hitch_threshold_ms=50.0,
+    )
+    assert summary.frame_time_p50_ms == 16.7
+    assert summary.frame_time_p95_ms == 33.3
+
+
 def test_presentmon_experimental_timeline_requires_qpc_timestamp_and_valid_values() -> None:
     with pytest.raises(GamePerformanceObservationError,
                        match="presentmon_timeline_columns_missing"):

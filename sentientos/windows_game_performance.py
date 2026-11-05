@@ -190,7 +190,7 @@ def parse_presentmon_timeline(
 ) -> tuple[tuple[PresentMonFrameTiming, ...], str]:
     """Keep bounded per-frame timing for experiments that need event correlation.
 
-    Use PresentMon's qpc_time_ms option to populate CPUStartQPCTime.
+    Use PresentMon's qpc_time_ms option to populate CPUStartQPCTimeInMs.
     The operational observer remains summary-only; this separate result keeps
     the source clock and per-frame CPU/GPU/display values without process names.
     """
@@ -202,7 +202,10 @@ def parse_presentmon_timeline(
         text = _decode_presentmon_csv(raw)
         reader = csv.DictReader(io.StringIO(text, newline=""))
         headers = set(reader.fieldnames or ())
-        if not {"ProcessID", "CPUStartQPCTime"} <= headers:
+        qpc_column = next((column for column in (
+            "CPUStartQPCTimeInMs", "CPUStartQPCTime",
+        ) if column in headers), None)
+        if "ProcessID" not in headers or qpc_column is None:
             raise GamePerformanceObservationError("presentmon_timeline_columns_missing")
         display_interval_column = next((column for column in (
             "MsBetweenDisplayChange", "DisplayedTime") if column in headers
@@ -229,7 +232,7 @@ def parse_presentmon_timeline(
                 continue
 
             qpc_ms = _optional_timeline_number(
-                row, "CPUStartQPCTime", invalid_reason="presentmon_timestamp_invalid",
+                row, qpc_column, invalid_reason="presentmon_timestamp_invalid",
                 maximum=1_000_000_000_000_000.0,
             )
             if qpc_ms is None:
