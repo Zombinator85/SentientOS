@@ -88,6 +88,56 @@ def test_decision_reason_hash_is_stable(monkeypatch, tmp_path) -> None:
     assert len(decision.reason_hash) == 64
 
 
+@pytest.mark.parametrize("reason_code", ["gaming_mode_entered", "development_chat_shutdown"])
+def test_local_model_resource_release_admits_only_explicit_safe_reasons(
+    monkeypatch, tmp_path, reason_code
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.2")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    decision = governor.admit_action(
+        "local_model_resource_release",
+        "development_chat",
+        "test-release",
+        metadata={
+            "purpose": "local_model_resource_release",
+            "reason_code": reason_code,
+            "model_identity_digest": "a" * 64,
+        },
+    )
+
+    assert decision.allowed is True
+    assert decision.reason == "model_resource_release_fail_safe"
+
+
+def test_local_model_resource_release_rejects_unknown_reason(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    decision = governor.admit_action(
+        "local_model_resource_release",
+        "development_chat",
+        "test-release",
+        metadata={
+            "purpose": "local_model_resource_release",
+            "reason_code": "arbitrary_reason",
+            "model_identity_digest": "a" * 64,
+        },
+    )
+
+    assert decision.allowed is False
+    assert decision.reason == "model_resource_release_request_invalid"
+
+
 def test_federated_control_blocked_by_critical_storm(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
