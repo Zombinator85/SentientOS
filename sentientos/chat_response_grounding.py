@@ -212,6 +212,20 @@ def is_verified_current_game_context_question(user_message: str) -> bool:
             or combined_status_question)
 
 
+def is_direct_screen_configuration_status_question(user_message: str) -> bool:
+    """Whether the user asks explicitly whether screen observation is configured and included."""
+    normalized = " ".join(user_message.casefold().split())
+    asks_configuration = any(term in normalized for term in (
+        "configured", "configuration", "set up",
+    ))
+    asks_inclusion = any(term in normalized for term in (
+        "included", "include", "captured", "capture", "requested", "request-driven",
+        "this message", "this turn",
+    ))
+    return (asks_configuration and asks_inclusion
+            and _SCREEN_CAPABILITY_QUESTION.search(user_message) is not None)
+
+
 def is_direct_screen_activity_question(user_message: str) -> bool:
     """Whether the user directly asks about current game-screen activity."""
     return (
@@ -548,6 +562,19 @@ def corrected_screen_capability_output(
     direct_question = (
         _SCREEN_CAPABILITY_QUESTION.search(user_message) is not None or clarified_request
     )
+    if output == "" and direct_question and screen_observation_provenance is None:
+        if screen_observation_configured:
+            return (
+                "Screen observation is configured for this local session, but it wasn’t "
+                "included in this message. It is request-driven, so I can’t describe "
+                "the game screen from this turn.",
+                {"policy_id": SCREEN_CAPABILITY_POLICY_ID,
+                 "reason_code": "screen_observation_configured_but_not_requested"},
+            )
+        return SCREEN_CAPABILITY_CORRECTION, {
+            "policy_id": SCREEN_CAPABILITY_POLICY_ID,
+            "reason_code": "screen_observation_not_configured",
+        }
     if (screen_observation_configured
             and screen_observation_provenance is None
             and direct_question

@@ -522,6 +522,35 @@ def test_verified_workload_context_names_only_confirmed_allowlisted_game(tmp_pat
     assert "game screen and actions are not observed this turn" in prompt
 
 
+def test_configured_screen_capability_status_answers_without_model_or_capture(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    captures = []
+    chat.configure_development_chat(
+        invoker=invoker, data_root=tmp_path,
+        screen_observer=lambda: captures.append("capture"),
+    )
+
+    response = client.post("/chat", json={
+        "message": (
+            "Can you see the game screen right now? Is screen observation configured, "
+            "and was it included in this message? Distinguish those."
+        ),
+        "observe_screen": False,
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["response"] == (
+        "Screen observation is configured for this local session, but it wasn’t "
+        "included in this message. It is request-driven, so I can’t describe "
+        "the game screen from this turn."
+    )
+    assert body["context"]["response_origin"] == "deterministic_grounding_policy"
+    assert body["context"]["inference_timing"]["backend_metrics_status"] == "not_applicable"
+    assert invoker.calls == 0
+    assert captures == []
+
 def test_unconfigured_screen_activity_question_uses_verified_capability_fallback(
         tmp_path, monkeypatch):
     from sentientos.foreground_game_detection import ForegroundGameObservation
