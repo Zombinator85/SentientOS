@@ -309,6 +309,64 @@ def test_chat_response_exposes_bounded_backend_timing_for_diagnostics(tmp_path):
     }
 
 
+def test_chat_stream_reports_model_grounding_and_server_release_timings(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    identity_payload = {
+        "engine": "ollama",
+        "semantic_artifact_identity": "sha256:" + "a" * 64,
+        "posture": "development_only",
+        "fallback": False,
+    }
+    invoker.model.active_identity = SimpleNamespace(
+        engine="ollama", to_dict=lambda: identity_payload)
+    invoker.output_text = "A grounded local reply."
+    invoke = invoker.invoke
+
+    def invoke_stream(request, *, on_content_chunk=None):
+        receipt = invoke(request)
+        if on_content_chunk is not None:
+            on_content_chunk(invoker.output_text)
+        return receipt
+
+    invoker.invoke = invoke_stream
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+
+    with client.stream("POST", "/chat/stream", json={"message": "Hello."}) as response:
+        assert response.status_code == 200
+        raw = response.read()
+    text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+    events = [
+        json.loads(line.removeprefix("data:").strip())
+        for line in text.splitlines() if line.startswith("data:")
+    ]
+
+    delta = next(event for event in events if event.get("type") == "delta")
+    complete = next(event for event in events if event.get("type") == "complete")
+    context = complete["response"]["context"]
+    assert type(delta.get("server_elapsed_ns")) is int
+    assert delta["server_elapsed_ns"] >= 0
+    assert type(complete.get("server_elapsed_ns")) is int
+    assert complete["server_elapsed_ns"] >= delta["server_elapsed_ns"]
+    assert context["chat_timing"]["model_call_wall_duration_ns"] >= 0
+    assert context["chat_timing"]["post_generation_grounding_duration_ns"] >= 0
+
+
+def test_chat_page_shows_response_stage_timing_controls(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    chat.configure_development_chat(invoker=SimulationInvoker(), data_root=tmp_path)
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'id="response-timing"' in response.text
+    assert 'id="response-timing-details"' in response.text
+    assert "First browser paint opportunity (double-rAF estimate)" in response.text
+    assert "server released grounded text" in response.text
+    assert "model first content chunk" in response.text
+    assert "grounding policy checks" in response.text
+    assert "generation complete to grounded answer" in response.text
+
 def test_model_work_requires_explicit_simulation_composition(tmp_path):
     chat = _reload(); client = TestClient(chat.APP)
     assert client.post("/chat", json={"message": "hello"}).status_code == 503

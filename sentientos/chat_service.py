@@ -12,6 +12,7 @@ import os
 import re
 import queue
 import threading
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -1485,6 +1486,7 @@ class PersistentConversationService:
                        retain: bool = False, request_id: str | None = None,
                        observe_screen: bool = False,
                        on_content_chunk: Callable[[str], None] | None = None) -> ChatResponse:
+        turn_started_ns = time.monotonic_ns()
         if type(observe_screen) is not bool:
             raise ChatRequestStateError("screen_observation_request_invalid")
         request_options_digest = (hashlib.sha256(json.dumps(
@@ -1943,6 +1945,7 @@ class PersistentConversationService:
         invocation_correlation_id = f"chat:{session['session_id']}:{user_turn['turn_id']}"
         invocation_budget = LocalModelInvocationBudget(max_input_chars=8000)
         streamed_model_chunks: list[str] = []
+        inference_started_ns = time.monotonic_ns()
         if on_content_chunk is None:
             receipt = self._inference.generate(
                 prompt=prompt,
@@ -1963,6 +1966,7 @@ class PersistentConversationService:
                 caller_linkage=linkage,
                 on_content_chunk=streamed_model_chunks.append,
             )
+        inference_completed_ns = time.monotonic_ns()
         accepted_statuses = {"admitted_completed"}
         if isinstance(self._inference, DevelopmentLocalChatInference):
             accepted_statuses.add("admitted_simulation")
@@ -1983,6 +1987,7 @@ class PersistentConversationService:
             mode_getter = getattr(self._inference, "current_workload_mode", None)
             observed_workload_mode = mode_getter() if callable(mode_getter) else "normal"
         response_text = receipt.output_text
+        grounding_started_ns = time.monotonic_ns()
         grounding_correction: Mapping[str, str] | None = None
         if not receipt.output_truncated:
             invocation_screen_provenance = (request_linkage.get("screen_observation_provenance")
@@ -2032,6 +2037,7 @@ class PersistentConversationService:
                     receipt.output_text, workload_mode=str(observed_workload_mode or "normal"),
                     screen_observation_provenance=invocation_screen_provenance,
                     social_checkin=social_checkin)
+        grounding_completed_ns = time.monotonic_ns()
         transcript_output_digest = digest_payload({"text": response_text})
         if grounding_correction is None:
             assistant_output_lineage = {
@@ -2241,6 +2247,16 @@ class PersistentConversationService:
                                      "active_model_identity_digest": serving_identity_digest,
                                      "loaded_model_identity_digest": loaded_identity_digest,
                                      "model_identity_continuity_posture": continuity_posture,
+                                     "chat_timing": {
+                                         "pre_inference_setup_duration_ns": max(
+                                             0, inference_started_ns - turn_started_ns),
+                                         "model_call_wall_duration_ns": max(
+                                             0, inference_completed_ns - inference_started_ns),
+                                         "post_generation_grounding_duration_ns": max(
+                                             0, grounding_completed_ns - grounding_started_ns),
+                                         "model_completion_to_grounding_complete_duration_ns": max(
+                                             0, grounding_completed_ns - inference_completed_ns),
+                                     },
                                      "inference_timing": _public_inference_timing(receipt),
                                      "response_origin": response_origin,
                                      "screen_observation_provenance": (
@@ -2529,6 +2545,7 @@ async def chat_stream_endpoint(request: ChatRequest, http_request: Request) -> S
         if summary is not None:
             raise HTTPException(status_code=409, detail=summary)
 
+    stream_request_started_ns = time.monotonic_ns()
     events: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=128)
     disconnected = threading.Event()
     worker_finished = threading.Event()
@@ -2589,6 +2606,9 @@ async def chat_stream_endpoint(request: ChatRequest, http_request: Request) -> S
                     if worker_finished.is_set():
                         return
                     continue
+                if event.get("type") in {"delta", "complete"}:
+                    event["server_elapsed_ns"] = max(
+                        0, time.monotonic_ns() - stream_request_started_ns)
                 yield _chat_stream_event(event)
                 if event.get("type") in {"complete", "error"}:
                     terminal_event = True
@@ -2844,6 +2864,8 @@ async def root_page() -> HTMLResponse:
                 textarea { width: 100%; min-height: 120px; padding: 0.75rem; font-size: 1rem; }
                 button { margin-top: 1rem; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer; }
                 .response { margin-top: 2rem; padding: 1rem; background: #1e1e1e; border-radius: 8px; }
+                #response-timing { margin: 0.5rem 0 0; color: #aaa; font-size: 0.85rem; }
+                #response-timing p { margin-bottom: 0; }
             </style>
         </head>
         <body>
@@ -2896,6 +2918,10 @@ async def root_page() -> HTMLResponse:
                 <div id="response" class="response" hidden>
                     <strong>Response:</strong>
                     <p id="response-text"></p>
+                    <details id="response-timing" hidden>
+                        <summary>Response timing</summary>
+                        <p id="response-timing-details" role="status"></p>
+                    </details>
                 </div>
             </div>
             <script>
@@ -2946,7 +2972,7 @@ async def root_page() -> HTMLResponse:
                             if (data) {
                                 const event = JSON.parse(data);
                                 if (event.type === 'delta' && typeof event.text === 'string') {
-                                    onDelta(event.text);
+                                    onDelta(event.text, event);
                                 } else if (event.type === 'complete'
                                         && event.response && typeof event.response === 'object') {
                                     completed = event.response;
@@ -2968,6 +2994,28 @@ async def root_page() -> HTMLResponse:
                     const sendButton = document.getElementById('send');
                     const conversationSelect = document.getElementById('conversation-session');
                     const newConversationButton = document.getElementById('new-conversation');
+                    const browserRequestStartedAt = performance.now();
+                    let firstDeltaReceivedMs = null;
+                    let firstServerDeltaMs = null;
+                    let firstBrowserPaintMs = null;
+                    let firstPaintReason = null;
+                    let firstPaintScheduled = null;
+                    function scheduleFirstBrowserPaint() {
+                        if (firstBrowserPaintMs !== null || firstPaintScheduled !== null) return;
+                        if (document.visibilityState !== 'visible') {
+                            firstPaintReason = 'the chat page was hidden';
+                            return;
+                        }
+                        firstPaintScheduled = new Promise((resolve) => {
+                            requestAnimationFrame(() => requestAnimationFrame(() => {
+                                firstBrowserPaintMs = performance.now() - browserRequestStartedAt;
+                                resolve();
+                            }));
+                        });
+                    }
+                    function formatTimingMs(value) {
+                        return Math.max(0, value).toFixed(0) + ' ms';
+                    }
                     chatSendInFlight = true;
                     sendButton.disabled = true;
                     conversationSelect.disabled = true;
@@ -2977,6 +3025,11 @@ async def root_page() -> HTMLResponse:
                         const messageEl = document.getElementById('message');
                         const responseEl = document.getElementById('response');
                         const responseTextEl = document.getElementById('response-text');
+                        const responseTimingEl = document.getElementById('response-timing');
+                        const responseTimingDetailsEl = document.getElementById(
+                            'response-timing-details');
+                        responseTimingEl.hidden = true;
+                        responseTimingDetailsEl.textContent = '';
                         const message = messageEl.value.trim();
                         const observeScreen = document.getElementById('observe-screen').checked;
                         if (!message) { alert('Please enter a message before sending.'); return; }
@@ -3024,16 +3077,76 @@ async def root_page() -> HTMLResponse:
                         if (res.headers.get('content-type')?.startsWith('text/event-stream')) {
                             responseEl.hidden = false;
                             responseTextEl.textContent = '';
-                            data = await consumeChatStream(res, (chunk) => {
+                            data = await consumeChatStream(res, (chunk, event) => {
+                                if (firstDeltaReceivedMs === null) {
+                                    firstDeltaReceivedMs = performance.now()
+                                        - browserRequestStartedAt;
+                                }
+                                if (firstServerDeltaMs === null
+                                        && Number.isSafeInteger(event.server_elapsed_ns)) {
+                                    firstServerDeltaMs = event.server_elapsed_ns / 1e6;
+                                }
                                 responseTextEl.textContent += chunk;
+                                scheduleFirstBrowserPaint();
                             });
                         } else {
                             data = await res.json();
                         }
+                        const responseCompletedMs = performance.now() - browserRequestStartedAt;
                         localStorage.setItem('sentientos_session_id', data.session_id);
                         localStorage.removeItem(pendingKey);
                         responseTextEl.textContent = data.response;
                         responseEl.hidden = false;
+                        scheduleFirstBrowserPaint();
+                        if (firstPaintScheduled && document.visibilityState === 'visible') {
+                            await Promise.race([
+                                firstPaintScheduled,
+                                new Promise(resolve => setTimeout(resolve, 100)),
+                            ]);
+                        }
+                        const timingParts = [];
+                        if (firstBrowserPaintMs !== null) {
+                            timingParts.push('First browser paint opportunity (double-rAF estimate) '
+                                + formatTimingMs(firstBrowserPaintMs));
+                        } else if (firstDeltaReceivedMs !== null) {
+                            timingParts.push('First grounded text received '
+                                + formatTimingMs(firstDeltaReceivedMs)
+                                + '; browser paint not measured'
+                                + (firstPaintReason ? ' (' + firstPaintReason + ')' : ''));
+                        } else {
+                            timingParts.push('Response received '
+                                + formatTimingMs(responseCompletedMs) + ' after send');
+                        }
+                        if (firstServerDeltaMs !== null) {
+                            timingParts.push('server released grounded text '
+                                + formatTimingMs(firstServerDeltaMs) + ' after request');
+                        }
+                        const chatTiming = data.context && data.context.chat_timing
+                            ? data.context.chat_timing : {};
+                        const inferenceTiming = data.context && data.context.inference_timing
+                            ? data.context.inference_timing : {};
+                        if (Number.isSafeInteger(inferenceTiming.first_content_chunk_duration_ns)) {
+                            timingParts.push('model first content chunk '
+                                + formatTimingMs(inferenceTiming.first_content_chunk_duration_ns / 1e6)
+                                + ' after invocation start');
+                        }
+                        if (Number.isSafeInteger(chatTiming.model_call_wall_duration_ns)) {
+                            timingParts.push('model call '
+                                + formatTimingMs(chatTiming.model_call_wall_duration_ns / 1e6));
+                        }
+                        if (Number.isSafeInteger(
+                                chatTiming.model_completion_to_grounding_complete_duration_ns)) {
+                            timingParts.push('generation complete to grounded answer '
+                                + formatTimingMs(
+                                    chatTiming.model_completion_to_grounding_complete_duration_ns
+                                        / 1e6));
+                        }
+                        if (Number.isSafeInteger(chatTiming.post_generation_grounding_duration_ns)) {
+                            timingParts.push('grounding policy checks '
+                                + formatTimingMs(chatTiming.post_generation_grounding_duration_ns / 1e6));
+                        }
+                        responseTimingDetailsEl.textContent = timingParts.join(' · ');
+                        responseTimingEl.hidden = timingParts.length === 0;
                         await refreshConversationSessions(data.session_id);
                         await refreshConversationTranscript();
                         refreshAvatarOutput();
