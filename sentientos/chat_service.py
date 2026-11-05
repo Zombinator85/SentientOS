@@ -83,6 +83,65 @@ def _is_earliest_session_recall_request(message: str) -> bool:
     return any(marker in normalized for marker in markers)
 
 
+_TRANSCRIPT_RECALL_CONTENT_TARGETS = (
+    "note", "sign", "letter", "message", "label", "inscription",
+    "document", "phrase", "quote", "text", "title", "objective",
+)
+
+
+def _direct_quoted_content_recall_target(message: str) -> str | None:
+    """Return a content object for an explicit exact-quote recall request."""
+    normalized = " ".join(re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
+    if not re.search(r"\b(?:what|which)\b", normalized): return None
+    if not re.search(r"\b(?:exact|exactly|verbatim|word for word)\b", normalized): return None
+    for target in _TRANSCRIPT_RECALL_CONTENT_TARGETS:
+        if re.search(rf"\b{re.escape(target)}\b", normalized): return target
+    return None
+
+
+def _quoted_content_from_user_turn(text: str, target: str) -> str | None:
+    """Find one unambiguous quoted value explicitly attached to a named object."""
+    quote_patterns = (
+        re.compile(r"(?P<open>[\"'])(?P<value>[^\"'\n]{1,500})(?P=open)"),
+        re.compile(r"“(?P<value>[^”\n]{1,500})”"),
+        re.compile(r"‘(?P<value>[^’\n]{1,500})’"),
+    )
+    content_verbs = re.compile(
+        r"\b(?:reads?|says?|said|contains?|states?|stated|was written|is written)\b",
+        flags=re.IGNORECASE,
+    )
+    matches: list[str] = []
+    for pattern in quote_patterns:
+        for quoted in pattern.finditer(text):
+            value = quoted.group("value")
+            if not value.strip():
+                continue
+            prefix = text[max(0, quoted.start() - 160):quoted.start()]
+            target_position = prefix.casefold().rfind(target)
+            if target_position < 0:
+                continue
+            relation_text = prefix[target_position + len(target):]
+            relation = content_verbs.search(relation_text)
+            if relation is None:
+                continue
+            before_verb = relation_text[:relation.start()]
+            after_verb = relation_text[relation.end():]
+            if re.search(r"[.!?]", before_verb + after_verb) is None:
+                matches.append(value)
+    unique = list(dict.fromkeys(matches))
+    return unique[0] if len(unique) == 1 else None
+def _find_verified_quoted_user_turn(history: Any, target: str) -> tuple[Mapping[str, Any], str] | None:
+    """Find one exact quoted value in digest-verified user transcript turns."""
+    matches: list[tuple[Mapping[str, Any], str]] = []
+    for turn in reversed(history.turns):
+        text = turn.get("text")
+        text_digest = turn.get("text_digest")
+        if (turn.get("role") != "user" or not isinstance(text, str) or not isinstance(text_digest, str)
+                or text_digest != digest_payload({"text": text})): continue
+        quoted_value = _quoted_content_from_user_turn(text, target)
+        if quoted_value is not None: matches.append((turn, quoted_value))
+    return matches[0] if len(matches) == 1 else None
+
 def _is_recent_session_recall_request(message: str) -> bool:
     """Keep cross-session memories out of explicit recent-turn questions."""
     normalized = " ".join(message.casefold().split())
@@ -103,7 +162,8 @@ def _is_recent_session_recall_request(message: str) -> bool:
         "what did i say i was", "what was i doing",
         "what was my last message", "what was my previous message",
     )
-    return any(marker in normalized for marker in markers)
+    return (any(marker in normalized for marker in markers)
+            or _direct_quoted_content_recall_target(message) is not None)
 
 def _is_direct_recent_assistant_reply_request(message: str) -> bool:
     """Whether the user explicitly asks for the immediately prior assistant reply."""
@@ -913,6 +973,86 @@ class PersistentConversationService:
                 },
             }, retention={"status": "not_requested"})
 
+    def _complete_quoted_content_recall_response(
+            self, *, session_id: str, user_turn: Mapping[str, Any],
+            source_user_turn: Mapping[str, Any], quoted_value: str, history: Any,
+            memory: Mapping[str, Any], on_content_chunk: Callable[[str], None] | None
+            ) -> ChatResponse:
+        """Return an exact quoted value from a verified user transcript turn."""
+        source_turn_id = str(source_user_turn["turn_id"])
+        source_text_digest = str(source_user_turn["text_digest"])
+        quoted_text_digest = digest_payload({"text": quoted_value})
+        output_digest = quoted_text_digest
+        decision_payload = {
+            "schema": "sentientos.transcript_quote_recall_decision:v1",
+            "session_id": session_id,
+            "source_user_turn_id": str(user_turn["turn_id"]),
+            "source_user_text_digest": str(user_turn["text_digest"]),
+            "recalled_user_turn_id": source_turn_id,
+            "recalled_user_text_digest": source_text_digest,
+            "quoted_text_digest": quoted_text_digest,
+            "output_digest": output_digest,
+        }
+        decision_digest = digest_payload(decision_payload)
+        assistant = self.sessions.append_turn(session_id, role="assistant",
+            text=quoted_value, linkage={
+                "source_user_turn_id": str(user_turn["turn_id"]),
+                "response_origin": "transcript_recall",
+                "transcript_recall_kind": "quoted_content",
+                "recalled_user_turn_id": source_turn_id,
+                "recalled_user_text_digest": source_text_digest,
+                "recalled_quote_digest": quoted_text_digest,
+                "policy_decision": {"payload": decision_payload, "digest": decision_digest},
+                "assistant_output_lineage": {
+                    "status": "transcript_quote_recall_output",
+                    "policy_decision_digest": decision_digest,
+                    "transcript_text_digest": output_digest,
+                },
+                "context_snapshot_digest": history.snapshot_digest,
+                "memory_snapshot_digest": str(memory["snapshot_digest"]),
+                "memory_retrieval_posture": memory.get("retrieval_posture", "unknown"),
+                "legacy_sidecar_posture": memory.get("legacy_sidecar_posture", "unknown_legacy"),
+                "memory_selection_posture": memory.get("selection_posture", "unknown_legacy"),
+                "omitted_memory_count": memory.get("omitted_memory_count"),
+                "selected_turn_count": len(history.turns),
+                "selected_memory_count": len(memory.get("memories", [])),
+            })
+        if self._avatar_output is not None:
+            try:
+                self._avatar_output.publish_response(session_id=session_id,
+                    turn_id=str(assistant["turn_id"]), text=quoted_value,
+                    output_digest=output_digest)
+            except Exception as exc:
+                LOGGER.warning("Avatar transcript quote recall publication failed: %s",
+                    getattr(exc, "code", type(exc).__name__))
+        if self._speech_output is not None:
+            try:
+                self._speech_output.publish_response(session_id=session_id,
+                    turn_id=str(assistant["turn_id"]), text=quoted_value,
+                    output_digest=output_digest)
+            except Exception as exc:
+                LOGGER.warning("Local transcript quote recall speech failed: %s", type(exc).__name__)
+        if on_content_chunk is not None:
+            on_content_chunk(quoted_value)
+        return ChatResponse(response=quoted_value, session_id=session_id,
+            turn_id=str(assistant["turn_id"]), context={
+                "conversation_snapshot_digest": history.snapshot_digest,
+                "memory_snapshot_digest": str(memory["snapshot_digest"]),
+                "memory_retrieval_posture": memory.get("retrieval_posture", "unknown"),
+                "legacy_sidecar_posture": memory.get("legacy_sidecar_posture", "unknown_legacy"),
+                "memory_selection_posture": memory.get("selection_posture", "unknown_legacy"),
+                "omitted_memory_count": memory.get("omitted_memory_count"),
+                "selected_turn_count": len(history.turns),
+                "selected_memory_count": len(memory.get("memories", [])),
+                "response_origin": "transcript_recall",
+                "transcript_recall_kind": "quoted_content",
+                "policy_decision_digest": decision_digest,
+                "inference_timing": {
+                    "backend_metrics_status": "not_applicable",
+                    "reason_code": "transcript_quote_recall_response",
+                },
+            }, retention={"status": "not_requested"})
+
     def _complete_prior_user_turn_recall_response(
             self, *, session_id: str, user_turn: Mapping[str, Any],
             source_user_turn: Mapping[str, Any], history: Any,
@@ -1210,6 +1350,69 @@ class PersistentConversationService:
                         "inference_timing": {
                             "backend_metrics_status": "not_applicable",
                             "reason_code": "prior_user_turn_recall_response",
+                        },
+                        "recovered_without_inference": True,
+                    }, retention={"status": "not_requested"})
+            if (isinstance(payload, Mapping)
+                    and payload.get("schema") == "sentientos.transcript_quote_recall_decision:v1"):
+                prior_turns = turns[:user_index] if isinstance(user_index, int) else []
+                prior_users = [turn for turn in prior_turns if turn.get("role") == "user"]
+                source_turn_id = linkage.get("recalled_user_turn_id")
+                source_matches = [turn for turn in prior_users
+                    if turn.get("turn_id") == source_turn_id]
+                source = source_matches[0] if len(source_matches) == 1 else None
+                output_text = str(assistant.get("text", ""))
+                output_digest = digest_payload({"text": output_text})
+                target = _direct_quoted_content_recall_target(
+                    str(user_turn.get("text", ""))) if isinstance(user_turn, Mapping) else None
+                quote_source_text = source.get("text") if isinstance(source, Mapping) else None
+                quoted_value = (_quoted_content_from_user_turn(quote_source_text, target)
+                    if isinstance(quote_source_text, str) and target is not None else None)
+                valid_quote_record = (
+                    isinstance(user_turn, Mapping)
+                    and target is not None
+                    and user_turn.get("retention_state", "not_requested") == "not_requested"
+                    and isinstance(source, Mapping)
+                    and isinstance(quote_source_text, str)
+                    and source.get("text_digest") == digest_payload({"text": quote_source_text})
+                    and payload.get("session_id") == session_id
+                    and payload.get("source_user_turn_id") == user_turn_id
+                    and payload.get("source_user_text_digest") == user_turn.get("text_digest")
+                    and payload.get("recalled_user_turn_id") == source_turn_id
+                    and payload.get("recalled_user_text_digest") == source.get("text_digest")
+                    and isinstance(quoted_value, str)
+                    and quoted_value == output_text
+                    and payload.get("quoted_text_digest") == digest_payload({"text": output_text})
+                    and payload.get("output_digest") == output_digest
+                    and isinstance(decision_digest, str)
+                    and decision_digest == digest_payload(dict(payload))
+                    and linkage.get("transcript_recall_kind") == "quoted_content"
+                    and linkage.get("recalled_quote_digest") == digest_payload({"text": output_text})
+                    and isinstance(lineage, Mapping)
+                    and lineage.get("status") == "transcript_quote_recall_output"
+                    and lineage.get("policy_decision_digest") == decision_digest
+                    and lineage.get("transcript_text_digest") == output_digest
+                )
+                if not valid_quote_record:
+                    raise ChatRequestStateError(
+                        "chat_request_transcript_quote_recall_lineage_invalid")
+                return ChatResponse(response=output_text, session_id=session_id,
+                    turn_id=str(assistant["turn_id"]), context={
+                        "conversation_snapshot_digest": linkage.get("context_snapshot_digest"),
+                        "memory_snapshot_digest": linkage.get("memory_snapshot_digest"),
+                        "memory_retrieval_posture": linkage.get("memory_retrieval_posture", "unknown"),
+                        "legacy_sidecar_posture": linkage.get("legacy_sidecar_posture", "unknown_legacy"),
+                        "memory_selection_posture": linkage.get("memory_selection_posture", "unknown_legacy"),
+                        "omitted_memory_count": linkage.get("omitted_memory_count"),
+                        "selected_turn_count": linkage.get("selected_turn_count", 0),
+                        "selected_memory_count": linkage.get("selected_memory_count", 0),
+                        "response_origin": "transcript_recall",
+                        "transcript_recall_kind": "quoted_content",
+                        "recalled_user_turn_id": source_turn_id,
+                        "policy_decision_digest": decision_digest,
+                        "inference_timing": {
+                            "backend_metrics_status": "not_applicable",
+                            "reason_code": "transcript_quote_recall_response",
                         },
                         "recovered_without_inference": True,
                     }, retention={"status": "not_requested"})
@@ -1756,6 +1959,15 @@ class PersistentConversationService:
                     session_id=session["session_id"], user_turn=user_turn,
                     source_assistant_turn=prior_assistant_turn, history=history,
                     memory=memory, on_content_chunk=on_content_chunk)
+        quoted_content_target = _direct_quoted_content_recall_target(message)
+        if not retain and quoted_content_target is not None:
+            quoted_source = _find_verified_quoted_user_turn(history, quoted_content_target)
+            if quoted_source is not None:
+                source_user_turn, quoted_value = quoted_source
+                return self._complete_quoted_content_recall_response(
+                    session_id=session["session_id"], user_turn=user_turn,
+                    source_user_turn=source_user_turn, quoted_value=quoted_value,
+                    history=history, memory=memory, on_content_chunk=on_content_chunk)
         if not retain and _is_direct_recent_user_turn_recall_request(message):
             prior_user_turn = next((turn for turn in reversed(history.turns)
                 if turn.get("role") == "user"

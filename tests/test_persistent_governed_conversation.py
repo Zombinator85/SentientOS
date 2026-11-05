@@ -78,6 +78,43 @@ def test_bounded_context_reconstruction(tmp_path: Path) -> None:
     assert snapshot.truncated and snapshot.snapshot_digest == store.reconstruct(session["session_id"], budget_chars=60).snapshot_digest
 
 
+def test_exact_quoted_note_recall_uses_persisted_user_transcript(tmp_path: Path) -> None:
+    original_invoker = FakeInvoker()
+    original_app = service(tmp_path, original_invoker)
+    session_id = original_app.create_session()
+    source = original_app.chat(
+        "I found a note in Cronos that reads 'the lantern points east.' "
+        "Give me one playful theory based only on those words.",
+        session_id=session_id,
+    )
+    assert source.response == "local answer"
+    source_user_turn = original_app.sessions.load(session_id)["turns"][0]
+
+    restarted_invoker = FakeInvoker()
+    restarted_app = service(tmp_path, restarted_invoker)
+    recall_request = "What did my note say exactly? Answer with the exact words only."
+    recalled = restarted_app.chat(
+        recall_request,
+        session_id=session_id,
+        request_id="exact-note-recall",
+    )
+    retried = restarted_app.chat(
+        recall_request,
+        session_id=session_id,
+        request_id="exact-note-recall",
+    )
+
+    assert recalled.response == "the lantern points east."
+    assert retried.response == recalled.response
+    assert retried.context["recovered_without_inference"] is True
+    assert recalled.context["response_origin"] == "transcript_recall"
+    assert recalled.context["transcript_recall_kind"] == "quoted_content"
+    assert restarted_invoker.requests == []
+    assistant_turn = restarted_app.sessions.load(session_id)["turns"][-1]
+    assert assistant_turn["linkage"]["recalled_user_turn_id"] == source_user_turn["turn_id"]
+    assert assistant_turn["linkage"]["recalled_quote_digest"] == chat_service.digest_payload(
+        {"text": "the lantern points east."})
+
 def test_bounded_context_can_select_a_relevant_older_turn(tmp_path: Path) -> None:
     store = ConversationSessionStore(tmp_path / "sessions")
     session = store.create(model_identity={})
@@ -475,7 +512,7 @@ def test_gaming_chat_trims_supplemental_memory_before_recent_transcript(
         session_id=first.session_id)
 
     prompt = invoker.requests[-1].prompt
-    assert len(prompt) <= 4000
+    assert len(prompt) <= chat_service.GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS
     assert recent_text in prompt
     assert memory_text not in prompt
     assert response.context["selected_turn_count"] >= 2

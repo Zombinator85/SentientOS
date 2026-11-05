@@ -34,7 +34,7 @@ class GamingWorkloadPolicy:
         "CURRENT_SCREEN_OBSERVATION_UNTRUSTED. Do not ask what help is needed. Ask how the "
         "session is going only if a follow-up fits."
     )
-    GAMING_MAX_INPUT_CHARS = 4000
+    GAMING_MAX_INPUT_CHARS = 4600
     GAMING_MAX_OUTPUT_CHARS = 1200
     # A 48-token live reply reached the hard cap and ended mid-sentence on
     # GLORP. 64 keeps gaming replies short while leaving room for a complete
