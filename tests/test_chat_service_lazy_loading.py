@@ -1626,3 +1626,46 @@ def test_verified_workload_and_screen_limits_are_grounded_for_background_game(tm
     assert body["context"]["response_origin"] == "deterministic_grounding_policy"
     assert body["context"]["inference_timing"]["backend_metrics_status"] == "not_applicable"
     assert invoker.calls == 0
+
+
+def test_combined_status_and_screen_question_returns_verified_background_state(tmp_path):
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload()
+    client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation(
+                "available", False, "d" * 64,
+                "2026-11-05T05:00:00+00:00",
+                game_process_running=True, running_process_name_digests=("e" * 64,),
+            )
+
+    chat.configure_development_chat(
+        invoker=invoker,
+        data_root=tmp_path,
+        initial_workload_mode="automatic",
+        foreground_game_detector=Detector(),
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+    )
+    response = client.post("/chat", json={
+        "message": (
+            "What do you currently know about Cronos on this computer, and can you see "
+            "the game screen? Be concise and distinguish running from foreground."
+        ),
+        "observe_screen": False,
+    })
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["response"] == (
+        "I can verify Cronos is running in the background, and SentientOS is in gaming mode. "
+        "Screen observation isn’t configured in this session, so I can’t describe the gameplay."
+    )
+    assert body["context"]["response_origin"] == "deterministic_grounding_policy"
+    assert body["context"]["selected_turn_count"] == 0
+    assert body["context"]["selected_memory_count"] == 0
+    assert body["context"].get("screen_observation_provenance") is None
+    assert invoker.calls == 0

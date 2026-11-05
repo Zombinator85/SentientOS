@@ -542,3 +542,34 @@ def test_long_message_with_pasted_review_is_not_rejected_as_unprovided():
     )
     assert text == "The review recommends paired trials."
     assert attribution is None
+
+
+def test_combined_game_status_and_visibility_reports_verified_background_process():
+    message = (
+        "What do you currently know about Cronos on this computer, and can you see "
+        "the game screen? Be concise and distinguish running from foreground."
+    )
+    assert is_direct_screen_activity_question(message)
+    text, attribution = corrected_unobserved_game_status(
+        "I cannot see the screen.",
+        user_message=message,
+        verified_runtime_context={
+            "workload": {
+                "observation_status": "available",
+                "game_foreground": False,
+                "game_process_running": True,
+                "effective_mode": "gaming",
+                "configured_game_process_names": ["cronos-win64-shipping.exe"],
+            },
+            "capabilities": {"screen_observation": {"configured": False}},
+        },
+        screen_observation_provenance=None,
+    )
+    assert text == (
+        "I can verify Cronos is running in the background, and SentientOS is in gaming mode. "
+        "Screen observation isn’t configured in this session, so I can’t describe the gameplay."
+    )
+    assert attribution == {
+        "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+        "reason_code": "verified_workload_context_screen_unavailable",
+    }
