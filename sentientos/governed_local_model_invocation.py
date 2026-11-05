@@ -496,11 +496,27 @@ class LocalModelPostEffectCustodyError(RuntimeError):
 
 class GovernedLocalModelInvoker:
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
-        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None
+        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_cancel_reason: str | None = None
 
     def register_evidence_sink(self, sink: Callable[[Mapping[str, Any]], None] | None) -> None:
         """Install an explicit observational receipt sink owned by the runtime."""
         self._evidence_sink = sink
+
+    def cancel_pending_generation(self) -> bool:
+        """Cancel the active governed request after a client disconnect or timeout."""
+        with self._active_state_lock:
+            event = self._active_release_event
+            if event is None:
+                return False
+            self._active_cancel_reason = "client_disconnect"
+            event.set()
+        cancel = getattr(self.model, "cancel_pending_generation", None)
+        if not callable(cancel):
+            return False
+        try:
+            return cancel() is True
+        except Exception:
+            return False
 
     def release_model_residency(self, *, reason_code: str = "gaming_mode_entered",
                                  correlation_id: str | None = None
@@ -547,6 +563,7 @@ class GovernedLocalModelInvoker:
                         with self._active_state_lock:
                             active_release_event = self._active_release_event
                             if active_release_event is not None:
+                                self._active_cancel_reason = "workload_transition"
                                 active_release_event.set()
                         cancel = getattr(self.model, "cancel_pending_generation", None)
                         if callable(cancel):
@@ -760,6 +777,11 @@ class GovernedLocalModelInvoker:
                         active_release_event = threading.Event()
                         with self._active_state_lock:
                             self._active_release_event = active_release_event
+                            self._active_cancel_reason = None
+                        # Ollama supports an event check around connection setup, closing the
+                        # race where disconnect lands just before the HTTP request is installed.
+                        if getattr(identity, "engine", None) == "ollama":
+                            gen_kwargs["_cancel_event"] = active_release_event
                         lock_release_guard = threading.Lock()
                         lock_released = False
                         def _release_invocation_lock() -> None:
@@ -805,6 +827,9 @@ class GovernedLocalModelInvoker:
                         try:
                             output, backend_completion = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
                         except concurrent.futures.TimeoutError as exc:
+                            with self._active_state_lock:
+                                self._active_cancel_reason = "timeout"
+                                active_release_event.set()
                             cancel = getattr(self.model, "cancel_pending_generation", None)
                             requested = False
                             cancellation_hook_available = callable(cancel)
@@ -852,7 +877,12 @@ class GovernedLocalModelInvoker:
                     except Exception as exc:
                         if active_release_event is not None and active_release_event.is_set():
                             status = "cancelled"
-                            reasons.append("cancelled_for_workload_transition")
+                            with self._active_state_lock:
+                                cancel_reason = self._active_cancel_reason
+                            reasons.append({"workload_transition": "cancelled_for_workload_transition",
+                                "client_disconnect": "cancelled_by_client_disconnect",
+                                "timeout": "cancelled_after_timeout"}.get(cancel_reason or "unknown",
+                                    "cancelled_by_runtime"))
                         elif str(exc) == "active_model_request_identity_mismatch":
                             status = "backend_failure"
                             reasons.append("active_model_request_identity_mismatch")
@@ -863,7 +893,7 @@ class GovernedLocalModelInvoker:
         effect_occurred = inference_attempted.is_set()
         receipt_output = generated_output if generated_output is not None else output
         actual_generation_parameters = ({key: value for key, value in gen_kwargs.items()
-            if key != "on_content_chunk"} if "gen_kwargs" in locals() else {})
+            if key not in {"on_content_chunk", "_cancel_event"}} if "gen_kwargs" in locals() else {})
         receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": actual_generation_parameters}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=INVOCATION_RECEIPT_SCHEMA_V3 if backend_completion is not None else INVOCATION_RECEIPT_SCHEMA, backend_completion=backend_completion)
         if persist:
             try:

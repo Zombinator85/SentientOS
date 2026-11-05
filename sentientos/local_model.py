@@ -252,6 +252,9 @@ class _OllamaBackend(_ModelBackend):
         on_content_chunk = generation.pop("on_content_chunk", None)
         if on_content_chunk is not None and not callable(on_content_chunk):
             raise ModelLoadError("ollama_content_callback_invalid")
+        cancel_event = generation.pop("_cancel_event", None)
+        if cancel_event is not None and not isinstance(cancel_event, threading.Event):
+            raise ModelLoadError("ollama_cancel_event_invalid")
         keep_alive = generation.get("keep_alive", self._keep_alive)
         if keep_alive not in {"0", "5s", "5m", "15m"}:
             raise ModelLoadError("ollama_keep_alive_invalid")
@@ -277,6 +280,12 @@ class _OllamaBackend(_ModelBackend):
             if self._active_connection is not None:
                 raise ModelLoadError("ollama_request_already_active")
             self._active_connection = connection
+        if cancel_event is not None and cancel_event.is_set():
+            connection.close()
+            with self._active_request_lock:
+                if self._active_connection is connection:
+                    self._active_connection = None
+            raise ModelLoadError("ollama_generation_cancelled")
         started_ns = time.monotonic_ns()
         first_token_duration_ns: int | None = None
         content_parts: list[str] = []
@@ -816,8 +825,11 @@ class LocalModel:
         """Return the backend text and bounded backend-reported completion facts when available."""
         if self.active_identity.fallback:
             raise ModelLoadError("active backend is a simulation or fallback")
+        cancel_event = overrides.pop("_cancel_event", None)
         metadata_generator = getattr(self.backend, "generate_with_metadata", None)
         if callable(metadata_generator):
+            if self.active_identity.engine == "ollama" and cancel_event is not None:
+                overrides["_cancel_event"] = cancel_event
             response, metadata = metadata_generator(str(prompt).strip(), (), dict(overrides))
         else:
             response = self.backend.generate(str(prompt).strip(), (), dict(overrides))

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from threading import Event
+from threading import Event, Thread
 from time import monotonic
 
 import pytest
@@ -48,8 +48,9 @@ class CancellableBlockingModel(FakeModel):
             raise TimeoutError("test worker was not cancelled")
         raise RuntimeError("test worker stopped")
 
-    def cancel_pending_generation(self) -> None:
+    def cancel_pending_generation(self) -> bool:
         self.cancelled.set()
+        return True
 
 
 class NonCancellableBlockingModel(FakeModel):
@@ -243,6 +244,38 @@ def test_invocation_timeout_cancels_cooperative_model_worker(tmp_path: Path) -> 
     assert receipt.effects["local_model_inference"] is True
     assert model.cancelled.is_set()
     assert monotonic() - started < 0.5
+
+
+
+def test_client_disconnect_cancels_governed_generation(tmp_path: Path) -> None:
+    model_path = tmp_path / "m.gguf"
+    model_path.write_bytes(b"bytes")
+    config = ModelConfig(candidates=[ModelCandidate(
+        path=model_path, engine="llama_cpp", name="m")],
+        generation=GenerationConfig(max_new_tokens=8))
+    authority = build_local_model_authority_map(config, allowed_roots=[tmp_path])
+    model = CancellableBlockingModel()
+    invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+            decisions_path=tmp_path / "decisions.jsonl"),
+        runtime_root=tmp_path / "runtime")
+    request = invoker.build_request(purpose="local_user_chat", prompt="wait",
+        caller="test", correlation_id="client-disconnect",
+        budget=LocalModelInvocationBudget(timeout_seconds=2))
+    result = []
+    worker = Thread(target=lambda: result.append(invoker.invoke(request)))
+    worker.start()
+    deadline = monotonic() + 1
+    while model.calls == 0 and monotonic() < deadline:
+        Event().wait(0.005)
+    assert model.calls == 1
+    assert invoker.cancel_pending_generation() is True
+    worker.join(1)
+
+    assert not worker.is_alive()
+    assert result[0].status == "cancelled"
+    assert "cancelled_by_client_disconnect" in result[0].reason_codes
+    assert model.cancelled.is_set()
 
 
 def test_unconfirmed_timeout_is_bounded_and_blocks_overlapping_generation(
