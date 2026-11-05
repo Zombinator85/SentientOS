@@ -1059,8 +1059,13 @@ def test_recent_user_recall_uses_only_immediately_previous_user_turn(tmp_path):
     assert recall.json()["context"]["selected_memory_count"] == 0
 
 
+@pytest.mark.parametrize("message", [
+    "What did I say was written on the note I found?",
+    "Earlier I told you about a note I found in Cronos. "
+    "What did the note say? Please answer briefly.",
+])
 def test_referential_user_recall_selects_matching_older_turn_without_memories(
-        tmp_path, monkeypatch):
+        tmp_path, monkeypatch, message):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()
     chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
@@ -1088,7 +1093,7 @@ def test_referential_user_recall_selects_matching_older_turn_without_memories(
     assert client.post("/workload-mode", json={"mode": "gaming"}).status_code == 200
     response = client.post("/chat", json={
         "session_id": session_id,
-        "message": "What did I say was written on the note I found?",
+        "message": message,
     })
 
     assert response.status_code == 200
