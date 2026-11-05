@@ -46,7 +46,7 @@ from .production_chat_resource_context import (
 from .gaming_workload_policy import GamingWorkloadPolicy, WorkloadMode
 from .conversation_session import (
     ConversationChatLockTimeout, ConversationSessionStore, assemble_local_chat_context,
-    compact_runtime_generation_attribution,
+    compact_runtime_generation_attribution, transcript_recall_terms,
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
     ExplicitRetentionAdmissionGate, retention_request_id,
@@ -84,7 +84,7 @@ def _is_recent_session_recall_request(message: str) -> bool:
     markers = (
         "in this conversation", "in this chat", "earlier in this chat",
         "earlier in this conversation", "just before", "before you asked",
-        "what did i just say", "what did i ask you", "what did i ask",
+        "what did i just say", "what did i say", "what did i ask you", "what did i ask",
         "what did you just say", "what did you just tell me",
         "what did you just answer", "what did you just reply",
         "what exact phrase did i ask you to repeat",
@@ -1492,6 +1492,7 @@ class PersistentConversationService:
         self_contained_echo = _is_self_contained_text_echo_request(message)
         history_roles: tuple[str, ...] | None
         history_turn_limit: int | None = None
+        history_relevance_query: str | None = None
         if recent_session_recall:
             asks_for_assistant_reply = any(marker in " ".join(
                 re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
@@ -1502,7 +1503,17 @@ class PersistentConversationService:
                     "what was your response", "what did you reply",
                     "what was the thing you said", "what was the thing you told me"))
             history_roles = ("user", "assistant") if asks_for_assistant_reply else ("user",)
-            history_turn_limit = 2 if asks_for_assistant_reply else 1
+            if asks_for_assistant_reply:
+                history_turn_limit = 2
+            else:
+                recall_terms = transcript_recall_terms(message)
+                if not earliest_session_recall and recall_terms:
+                    # Select earlier user turns that mention the question's subject,
+                    # rather than silently limiting recall to the immediately prior turn.
+                    history_relevance_query = message
+                    history_turn_limit = 3
+                else:
+                    history_turn_limit = 1
         elif social_checkin or self_contained_echo or current_runtime_question:
             # Self-contained requests and live runtime questions should not inherit
             # unrelated transcript context and mistake it for current evidence.
@@ -1511,7 +1522,8 @@ class PersistentConversationService:
             history_roles = None
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
             exclude_turn_id=user_turn["turn_id"], include_roles=history_roles,
-            max_turns=history_turn_limit, oldest_first=earliest_session_recall)
+            max_turns=history_turn_limit, oldest_first=earliest_session_recall,
+            relevance_query=history_relevance_query)
         # Exact recall, casual check-ins, and live runtime questions rely on the
         # relevant transcript or verified runtime facts. Lexical retrieval can
         # over-weight old prompts (for example, prior screen-visibility questions).
@@ -1578,7 +1590,9 @@ class PersistentConversationService:
                 history_budget = next_budget
                 history = self.sessions.reconstruct(
                     session["session_id"], budget_chars=history_budget,
-                    exclude_turn_id=user_turn["turn_id"], include_roles=history_roles)
+                    exclude_turn_id=user_turn["turn_id"], include_roles=history_roles,
+                    max_turns=history_turn_limit, oldest_first=earliest_session_recall,
+                    relevance_query=history_relevance_query)
                 runtime_context = self._verified_runtime_context(
                     identity=identity_payload, history=history, memory=memory,
                     session_id=session["session_id"],

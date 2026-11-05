@@ -61,6 +61,8 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
         "What was the first part of my last message?")
     assert chat._is_recent_session_recall_request(
         "What exact phrase did I ask you to repeat before the restart?")
+    assert chat._is_recent_session_recall_request(
+        "What did I say was written on the note I found?")
     assert chat._is_self_contained_text_echo_request(
         "Please repeat this exact test phrase once: cobalt lantern 73.")
 
@@ -1055,6 +1057,48 @@ def test_recent_user_recall_uses_only_immediately_previous_user_turn(tmp_path):
     assert "final prior USER_DATA turn" in prompt
     assert recall.json()["context"]["selected_turn_count"] == 1
     assert recall.json()["context"]["selected_memory_count"] == 0
+
+
+def test_referential_user_recall_selects_matching_older_turn_without_memories(
+        tmp_path, monkeypatch):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    session_id = client.post("/sessions").json()["session_id"]
+    sessions = chat._CONVERSATION_SERVICE.sessions
+    note_turn = sessions.append_turn(
+        session_id, role="user",
+        text="I have now found a note that reads east wing.")
+    sessions.append_turn(
+        session_id, role="user",
+        text="I found an old key near the west wing.")
+    for index in range(12):
+        sessions.append_turn(
+            session_id, role="user",
+            text=f"Unrelated recent turn {index}: " + "inventory status " * 28)
+
+    assert client.post("/workload-mode", json={"mode": "gaming"}).status_code == 200
+    response = client.post("/chat", json={
+        "session_id": session_id,
+        "message": "What did I say was written on the note I found?",
+    })
+
+    assert response.status_code == 200
+    assert memory_queries == [""]
+    prompt = invoker.prompts[-1]
+    assert note_turn["text"] in prompt
+    assert "I found an old key near the west wing." not in prompt
+    assert "Unrelated recent turn" not in prompt
+    assert response.json()["context"]["selected_turn_count"] == 1
+    assert response.json()["context"]["selected_memory_count"] == 0
 
 
 def test_social_checkin_uses_only_current_message_without_stale_context(

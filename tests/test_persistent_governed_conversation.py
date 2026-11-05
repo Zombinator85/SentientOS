@@ -77,6 +77,29 @@ def test_bounded_context_reconstruction(tmp_path: Path) -> None:
     assert snapshot.truncated and snapshot.snapshot_digest == store.reconstruct(session["session_id"], budget_chars=60).snapshot_digest
 
 
+def test_bounded_context_can_select_a_relevant_older_turn(tmp_path: Path) -> None:
+    store = ConversationSessionStore(tmp_path / "sessions")
+    session = store.create(model_identity={})
+    target = store.append_turn(
+        session["session_id"], role="user",
+        text="I have now found a note that reads east wing.")
+    for index in range(4):
+        store.append_turn(session["session_id"], role="user",
+            text=f"Unrelated inventory update {index}.")
+
+    snapshot = store.reconstruct(
+        session["session_id"], budget_chars=1000, include_roles=("user",),
+        max_turns=3,
+        relevance_query="What did I say was written on the note I found?")
+
+    assert [turn["turn_id"] for turn in snapshot.turns] == [target["turn_id"]]
+    assert snapshot.turns[0]["text"] == target["text"]
+    assert snapshot.snapshot_digest == store.reconstruct(
+        session["session_id"], budget_chars=1000, include_roles=("user",),
+        max_turns=3,
+        relevance_query="What did I say was written on the note I found?").snapshot_digest
+
+
 def test_bounded_context_can_select_the_earliest_turn(tmp_path: Path) -> None:
     store = ConversationSessionStore(tmp_path / "sessions")
     session = store.create(model_identity={})
