@@ -56,6 +56,10 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
     assert chat._is_earliest_session_recall_request(
         "What did I ask you first in this conversation?")
     assert chat._is_recent_session_recall_request("What did you just say?")
+    assert chat._is_direct_recent_user_turn_recall_request("What did I just ask you?")
+    assert chat._is_direct_recent_user_turn_recall_request("What was my previous question?")
+    assert not chat._is_direct_recent_user_turn_recall_request(
+        "What did I ask you first in this conversation?")
     assert not chat._is_earliest_session_recall_request("What did you just say?")
     assert not chat._is_earliest_session_recall_request(
         "What was the first part of my last message?")
@@ -1037,6 +1041,43 @@ def test_direct_recent_assistant_recall_returns_verified_transcript_and_recovers
         if turn.get("turn_id") == body["turn_id"])
     assert assistant["linkage"]["source_assistant_turn_id"] == first.json()["turn_id"]
     assert assistant["linkage"]["assistant_output_lineage"]["status"] == "transcript_recall_output"
+
+
+def test_direct_recent_user_question_recall_uses_verified_transcript_without_inference(
+        tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    prior_message = "Hey SentientOS, how are you doing tonight? Keep it natural and brief."
+    first = client.post("/chat", json={"message": prior_message})
+    assert first.status_code == 200
+    session_id = first.json()["session_id"]
+    calls_after_first_turn = invoker.calls
+    request = {
+        "session_id": session_id,
+        "request_id": "direct-prior-user-question-recall",
+        "message": "What did I just ask you?",
+    }
+
+    recall = client.post("/chat", json=request)
+
+    assert recall.status_code == 200
+    body = recall.json()
+    assert body["response"] == f"You asked: “{prior_message}”"
+    assert body["context"]["response_origin"] == "transcript_recall"
+    assert body["context"]["inference_timing"]["backend_metrics_status"] == "not_applicable"
+    assert body["context"]["selected_memory_count"] == 0
+    prior_user_turn = chat._CONVERSATION_SERVICE.sessions.load(session_id)["turns"][0]
+    assert prior_user_turn["role"] == "user"
+    assert body["context"]["recalled_user_turn_id"] == prior_user_turn["turn_id"]
+    assert invoker.calls == calls_after_first_turn
+
+    recovered = client.post("/chat", json=request)
+
+    assert recovered.status_code == 200
+    assert recovered.json()["response"] == body["response"]
+    assert recovered.json()["context"]["recovered_without_inference"] is True
+    assert invoker.calls == calls_after_first_turn
 
 
 def test_recent_user_recall_uses_only_immediately_previous_user_turn(tmp_path):

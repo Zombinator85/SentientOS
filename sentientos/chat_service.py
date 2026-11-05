@@ -110,6 +110,16 @@ def _is_direct_recent_assistant_reply_request(message: str) -> bool:
     ))
 
 
+def _is_direct_recent_user_turn_recall_request(message: str) -> bool:
+    """Whether the user asks for their immediately preceding message."""
+    normalized = " ".join(re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
+    return any(marker in normalized for marker in (
+        "what did i just ask", "what did i ask just before",
+        "what was my last question", "what was my previous question",
+        "what was the last thing i asked", "what was the previous thing i asked",
+    ))
+
+
 def _is_self_contained_text_echo_request(message: str) -> bool:
     """Avoid cross-session memories when the user supplies the exact text to echo."""
     normalized = " ".join(re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
@@ -867,6 +877,85 @@ class PersistentConversationService:
                 },
             }, retention={"status": "not_requested"})
 
+    def _complete_prior_user_turn_recall_response(
+            self, *, session_id: str, user_turn: Mapping[str, Any],
+            source_user_turn: Mapping[str, Any], history: Any,
+            memory: Mapping[str, Any], on_content_chunk: Callable[[str], None] | None
+            ) -> ChatResponse:
+        """Answer a direct last-question query from its verified transcript turn."""
+        source_turn_id = str(source_user_turn["turn_id"])
+        source_text = str(source_user_turn["text"])
+        source_text_digest = str(source_user_turn["text_digest"])
+        response_text = f"You asked: {chr(0x201c)}{source_text}{chr(0x201d)}"
+        output_digest = digest_payload({"text": response_text})
+        decision_payload = {
+            "schema": "sentientos.prior_user_turn_recall_decision:v1",
+            "session_id": session_id,
+            "source_user_turn_id": str(user_turn["turn_id"]),
+            "source_user_text_digest": str(user_turn["text_digest"]),
+            "recalled_user_turn_id": source_turn_id,
+            "recalled_user_text_digest": source_text_digest,
+            "output_digest": output_digest,
+        }
+        decision_digest = digest_payload(decision_payload)
+        assistant = self.sessions.append_turn(session_id, role="assistant",
+            text=response_text, linkage={
+                "source_user_turn_id": str(user_turn["turn_id"]),
+                "response_origin": "transcript_recall",
+                "transcript_recall_kind": "prior_user_turn",
+                "recalled_user_turn_id": source_turn_id,
+                "recalled_user_text_digest": source_text_digest,
+                "policy_decision": {"payload": decision_payload, "digest": decision_digest},
+                "assistant_output_lineage": {
+                    "status": "prior_user_transcript_recall_output",
+                    "policy_decision_digest": decision_digest,
+                    "transcript_text_digest": output_digest,
+                },
+                "context_snapshot_digest": history.snapshot_digest,
+                "memory_snapshot_digest": str(memory["snapshot_digest"]),
+                "memory_retrieval_posture": memory.get("retrieval_posture", "unknown"),
+                "legacy_sidecar_posture": memory.get("legacy_sidecar_posture", "unknown_legacy"),
+                "memory_selection_posture": memory.get("selection_posture", "unknown_legacy"),
+                "omitted_memory_count": memory.get("omitted_memory_count"),
+                "selected_turn_count": len(history.turns),
+                "selected_memory_count": len(memory.get("memories", [])),
+            })
+        if self._avatar_output is not None:
+            try:
+                self._avatar_output.publish_response(session_id=session_id,
+                    turn_id=str(assistant["turn_id"]), text=response_text,
+                    output_digest=output_digest)
+            except Exception as exc:
+                LOGGER.warning("Avatar prior-user recall publication failed: %s",
+                    getattr(exc, "code", type(exc).__name__))
+        if self._speech_output is not None:
+            try:
+                self._speech_output.publish_response(session_id=session_id,
+                    turn_id=str(assistant["turn_id"]), text=response_text,
+                    output_digest=output_digest)
+            except Exception as exc:
+                LOGGER.warning("Local prior-user recall speech failed: %s", type(exc).__name__)
+        if on_content_chunk is not None:
+            on_content_chunk(response_text)
+        return ChatResponse(response=response_text, session_id=session_id,
+            turn_id=str(assistant["turn_id"]), context={
+                "conversation_snapshot_digest": history.snapshot_digest,
+                "memory_snapshot_digest": str(memory["snapshot_digest"]),
+                "memory_retrieval_posture": memory.get("retrieval_posture", "unknown"),
+                "legacy_sidecar_posture": memory.get("legacy_sidecar_posture", "unknown_legacy"),
+                "memory_selection_posture": memory.get("selection_posture", "unknown_legacy"),
+                "omitted_memory_count": memory.get("omitted_memory_count"),
+                "selected_turn_count": len(history.turns),
+                "selected_memory_count": len(memory.get("memories", [])),
+                "response_origin": "transcript_recall",
+                "recalled_user_turn_id": source_turn_id,
+                "policy_decision_digest": decision_digest,
+                "inference_timing": {
+                    "backend_metrics_status": "not_applicable",
+                    "reason_code": "prior_user_turn_recall_response",
+                },
+            }, retention={"status": "not_requested"})
+
     def _complete_deterministic_grounding_response(
             self, *, session_id: str, user_turn: Mapping[str, Any],
             response_text: str, correction: Mapping[str, str],
@@ -1016,6 +1105,61 @@ class PersistentConversationService:
             turns = session.get("turns", [])
             user_index = next((index for index, turn in enumerate(turns)
                 if turn.get("turn_id") == user_turn_id and turn.get("role") == "user"), None)
+            if (isinstance(payload, Mapping)
+                    and payload.get("schema") == "sentientos.prior_user_turn_recall_decision:v1"):
+                prior_turns = turns[:user_index] if isinstance(user_index, int) else []
+                prior_users = [turn for turn in prior_turns if turn.get("role") == "user"]
+                source_turn_id = linkage.get("recalled_user_turn_id")
+                source = (prior_users[-1] if prior_users
+                    and prior_users[-1].get("turn_id") == source_turn_id else None)
+                source_text = str(source.get("text", "")) if isinstance(source, Mapping) else ""
+                output_text = str(assistant.get("text", ""))
+                output_digest = digest_payload({"text": output_text})
+                valid_prior_user_record = (
+                    isinstance(user_turn, Mapping)
+                    and _is_direct_recent_user_turn_recall_request(str(user_turn.get("text", "")))
+                    and user_turn.get("retention_state", "not_requested") == "not_requested"
+                    and isinstance(source, Mapping)
+                    and isinstance(source.get("text"), str)
+                    and source.get("text_digest") == digest_payload({"text": source_text})
+                    and payload.get("session_id") == session_id
+                    and payload.get("source_user_turn_id") == user_turn_id
+                    and payload.get("source_user_text_digest") == user_turn.get("text_digest")
+                    and payload.get("recalled_user_turn_id") == source_turn_id
+                    and payload.get("recalled_user_text_digest") == source.get("text_digest")
+                    and payload.get("output_digest") == output_digest
+                    and output_text == f"You asked: {chr(0x201c)}{source_text}{chr(0x201d)}"
+                    and isinstance(decision_digest, str)
+                    and decision_digest == digest_payload(dict(payload))
+                    and linkage.get("transcript_recall_kind") == "prior_user_turn"
+                    and linkage.get("recalled_user_text_digest") == source.get("text_digest")
+                    and isinstance(lineage, Mapping)
+                    and lineage.get("status") == "prior_user_transcript_recall_output"
+                    and lineage.get("policy_decision_digest") == decision_digest
+                    and lineage.get("transcript_text_digest") == output_digest
+                )
+                if not valid_prior_user_record:
+                    raise ChatRequestStateError(
+                        "chat_request_prior_user_recall_lineage_invalid")
+                return ChatResponse(response=output_text, session_id=session_id,
+                    turn_id=str(assistant["turn_id"]), context={
+                        "conversation_snapshot_digest": linkage.get("context_snapshot_digest"),
+                        "memory_snapshot_digest": linkage.get("memory_snapshot_digest"),
+                        "memory_retrieval_posture": linkage.get("memory_retrieval_posture", "unknown"),
+                        "legacy_sidecar_posture": linkage.get("legacy_sidecar_posture", "unknown_legacy"),
+                        "memory_selection_posture": linkage.get("memory_selection_posture", "unknown_legacy"),
+                        "omitted_memory_count": linkage.get("omitted_memory_count"),
+                        "selected_turn_count": linkage.get("selected_turn_count", 0),
+                        "selected_memory_count": linkage.get("selected_memory_count", 0),
+                        "response_origin": "transcript_recall",
+                        "recalled_user_turn_id": source_turn_id,
+                        "policy_decision_digest": decision_digest,
+                        "inference_timing": {
+                            "backend_metrics_status": "not_applicable",
+                            "reason_code": "prior_user_turn_recall_response",
+                        },
+                        "recovered_without_inference": True,
+                    }, retention={"status": "not_requested"})
             source_turn_id = linkage.get("source_assistant_turn_id")
             prior_turns = turns[:user_index] if isinstance(user_index, int) else []
             prior_assistants = [turn for turn in prior_turns
@@ -1553,6 +1697,17 @@ class PersistentConversationService:
                 return self._complete_transcript_recall_response(
                     session_id=session["session_id"], user_turn=user_turn,
                     source_assistant_turn=prior_assistant_turn, history=history,
+                    memory=memory, on_content_chunk=on_content_chunk)
+        if not retain and _is_direct_recent_user_turn_recall_request(message):
+            prior_user_turn = next((turn for turn in reversed(history.turns)
+                if turn.get("role") == "user"
+                and isinstance(turn.get("text"), str)
+                and isinstance(turn.get("text_digest"), str)
+                and turn.get("text_digest") == digest_payload({"text": turn["text"]})), None)
+            if prior_user_turn is not None:
+                return self._complete_prior_user_turn_recall_response(
+                    session_id=session["session_id"], user_turn=user_turn,
+                    source_user_turn=prior_user_turn, history=history,
                     memory=memory, on_content_chunk=on_content_chunk)
         direct_screen_activity_question = is_direct_screen_activity_question(message)
         if (isinstance(self._inference, DevelopmentLocalChatInference)
