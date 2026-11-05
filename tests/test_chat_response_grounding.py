@@ -432,6 +432,24 @@ def test_screen_capability_does_not_claim_configured_source_is_unconfigured():
     }
 
 
+def test_screen_capability_hides_internal_prompt_section_echo():
+    corrected, attribution = corrected_screen_capability_output(
+        "VERIFIED_CURRENT_WORKLOAD_FACTS indicates observation is configured.",
+        user_message="Can you see the game screen?",
+        screen_observation_configured=True,
+        screen_observation_provenance=None,
+    )
+    assert corrected == (
+        "Screen observation is configured for this local session, but it is "
+        "request-driven and wasn’t included in this message. I can’t describe "
+        "the game unless you request an observation."
+    )
+    assert attribution == {
+        "policy_id": SCREEN_CAPABILITY_POLICY_ID,
+        "reason_code": "screen_capability_internal_prompt_echo",
+    }
+
+
 def test_screen_capability_correction_respects_configured_source_and_current_evidence():
     model_output = "I do not have a screen observation for this turn."
     assert corrected_screen_capability_output(

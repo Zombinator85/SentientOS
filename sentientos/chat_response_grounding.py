@@ -56,7 +56,7 @@ _SOCIAL_INSTRUCTION_ECHO = re.compile(
 _SYSTEM_INSTRUCTION_ECHO = re.compile(
     r"\bforeground confirms only the app is open\b|"
     r"\b(?:CURRENT_SCREEN_OBSERVATION_UNTRUSTED|VERIFIED_RUNTIME_CONTEXT|"
-    r"SYSTEM_INSTRUCTION)\b",
+    r"VERIFIED_CURRENT_WORKLOAD_FACTS|SYSTEM_INSTRUCTION)\b",
     re.IGNORECASE,
 )
 _NEXT_STEP_ADVICE_REQUEST = re.compile(
@@ -558,6 +558,17 @@ def corrected_screen_capability_output(
             "the game unless you request an observation.",
             {"policy_id": SCREEN_CAPABILITY_POLICY_ID,
              "reason_code": "screen_observation_configured_but_not_requested"},
+        )
+    if (screen_observation_configured
+            and screen_observation_provenance is None
+            and direct_question
+            and _SYSTEM_INSTRUCTION_ECHO.search(output) is not None):
+        return (
+            "Screen observation is configured for this local session, but it is "
+            "request-driven and wasn’t included in this message. I can’t describe "
+            "the game unless you request an observation.",
+            {"policy_id": SCREEN_CAPABILITY_POLICY_ID,
+             "reason_code": "screen_capability_internal_prompt_echo"},
         )
     if (screen_observation_configured
             or _has_readable_screen_text(screen_observation_provenance)
