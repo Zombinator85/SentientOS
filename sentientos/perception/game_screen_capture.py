@@ -7,8 +7,10 @@ digests, never the raw frame.
 """
 from __future__ import annotations
 
+import csv
 import hashlib
 import importlib
+import io
 import math
 import os
 import re
@@ -26,6 +28,43 @@ MAX_FRAME_WIDTH = 2560
 MAX_FRAME_HEIGHT = 1440
 MAX_OCR_TEXT_CHARS = 1200
 _PROCESS_NAME = re.compile(r"^[a-zA-Z0-9_. -]{1,128}$")
+MIN_TESSERACT_WORD_CONFIDENCE = 45.0
+MAX_TESSERACT_TSV_BYTES = 65_536
+
+
+def _confident_tesseract_text(tsv: str) -> str:
+    """Keep only Tesseract word rows above the bounded confidence floor."""
+    rows = csv.reader(io.StringIO(tsv), delimiter="\t")
+    try:
+        header = next(rows)
+        indexes = {name: header.index(name) for name in
+                   ("block_num", "par_num", "line_num", "conf", "text")}
+    except (StopIteration, ValueError) as exc:
+        raise ScreenCaptureError("game_screen_ocr_tsv_invalid") from exc
+    line_tokens: dict[tuple[str, str, str], list[str]] = {}
+    line_order: list[tuple[str, str, str]] = []
+    required_index = max(indexes.values())
+    for row in rows:
+        if len(row) <= required_index:
+            continue
+        token = row[indexes["text"]].strip()
+        if not token:
+            continue
+        try:
+            confidence = float(row[indexes["conf"]])
+        except ValueError:
+            continue
+        if not math.isfinite(confidence) or confidence < MIN_TESSERACT_WORD_CONFIDENCE:
+            continue
+        line = (row[indexes["block_num"]], row[indexes["par_num"]],
+                row[indexes["line_num"]])
+        if line not in line_tokens:
+            line_tokens[line] = []
+            line_order.append(line)
+        line_tokens[line].append(token)
+    return "\n".join(
+        " ".join(line_tokens[line]) for line in line_order
+    )[:MAX_OCR_TEXT_CHARS]
 
 
 @dataclass(frozen=True)
@@ -227,7 +266,7 @@ class LocalTesseractOCR:
             tools = importlib.import_module("mss.tools")
             png = tools.to_png(frame.rgb, (frame.width, frame.height))
             completed = subprocess.run(
-                [self._executable, "stdin", "stdout"], input=png, capture_output=True,
+                [self._executable, "stdin", "stdout", "tsv"], input=png, capture_output=True,
                 check=False, timeout=self._timeout_seconds,
             )
         except subprocess.TimeoutExpired as exc:
@@ -240,7 +279,10 @@ class LocalTesseractOCR:
             raise ScreenCaptureError("game_screen_ocr_failed")
         if not isinstance(completed.stdout, bytes):
             raise ScreenCaptureError("game_screen_ocr_output_invalid")
-        return completed.stdout.decode("utf-8", errors="replace")[:MAX_OCR_TEXT_CHARS]
+        if len(completed.stdout) > MAX_TESSERACT_TSV_BYTES:
+            raise ScreenCaptureError("game_screen_ocr_output_size_invalid")
+        return _confident_tesseract_text(
+            completed.stdout.decode("utf-8", errors="replace"))
 
 
 def build_windows_game_screen_ocr(*, config: ScreenConfig,
