@@ -3,7 +3,8 @@ from __future__ import annotations
 import base64, dataclasses, hashlib, hmac, json, os, socket, subprocess, sys, threading, time
 from pathlib import Path
 
-ROOT = Path(sys.argv[1]).resolve()
+ROOT = (Path(sys.argv[1]).resolve() if __name__ == "__main__"
+       else Path(__file__).resolve().parents[1])
 sys.path.insert(0, str(ROOT))
 
 from terminate_owned_process_tree import terminate_owned_process_tree
@@ -25,6 +26,13 @@ from sentientos.gaming_companion_tls_transport import (
 def _readline(stream, target):
     for line in stream:
         target.put(line.rstrip())
+
+def _godot_command(executable, project, *, headless):
+    command=[executable]
+    if headless:
+        command.append("--headless")
+    command.extend(["--path",project])
+    return command
 
 def main():
     print("EDGE_STARTUP phase=worker_started",flush=True)
@@ -203,7 +211,8 @@ def main():
             Path(env[name]).mkdir(parents=True,exist_ok=True)
         executable=cfg["godot_executable"];project=cfg["godot_project"]
         print("EDGE_STARTUP phase=godot_process_create",flush=True)
-        godot=subprocess.Popen([executable,"--path",project],env=env,
+        godot=subprocess.Popen(_godot_command(
+            executable,project,headless=cfg.get("godot_headless") is True),env=env,
             stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         print("EDGE_STARTUP phase=godot_process_started pid="+str(godot.pid),flush=True)
         forwarder=AvatarStateForwarder(state_path,host="127.0.0.1",port=18188,poll_interval=0.05)

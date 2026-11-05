@@ -675,6 +675,11 @@ timeouts or mismatches. The `/screen-observation` status reports the
 request-driven policy and the per-message checkbox requirement. This development
 path does not publish to a remote provider or grant action authority.
 
+When this supervised runner is used while the game is already foregrounded,
+`--godot-headless` starts its temporary Godot consumer without creating a
+visible window or taking game focus. This mode is limited to the development
+runner and does not replace the visible Godot companion acceptance check.
+
 Linux fixtures can test request routing and privacy behavior; actual Windows
 capture, local Tesseract availability, and gameplay impact still require GLORP
 validation.
