@@ -53,6 +53,14 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
     )
 
 
+def _is_prior_message_recall_question(text: str) -> bool:
+    """Avoid treating an earlier recall question as the evidence it requested."""
+    normalized = " ".join(re.findall(r"[a-z0-9]+", text.casefold()))
+    return (re.search(
+        r"\bwhat did (?:i|you|the [a-z0-9]+) (?:say|tell|write)\b", normalized
+    ) is not None or re.search(r"\bwhat was written\b", normalized) is not None)
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -681,16 +689,34 @@ class ConversationSessionStore:
         query_terms = (transcript_recall_terms(relevance_query)
                        if relevance_query is not None else frozenset())
         if query_terms:
-            ranked = []
-            for index, turn in enumerate(candidates):
-                text = turn.get("text")
-                if not isinstance(text, str):
-                    continue
-                overlap = query_terms.intersection(transcript_recall_terms(text))
-                if overlap:
-                    sequence = turn.get("sequence")
-                    ranked.append((len(overlap), sequence if type(sequence) is int else index,
-                                   turn))
+            def rank_turns(
+                turns: Sequence[Mapping[str, Any]],
+            ) -> list[tuple[int, int, Mapping[str, Any]]]:
+                ranked_turns = []
+                for index, turn in enumerate(turns):
+                    text = turn.get("text")
+                    if not isinstance(text, str):
+                        continue
+                    overlap = query_terms.intersection(transcript_recall_terms(text))
+                    if overlap:
+                        sequence = turn.get("sequence")
+                        ranked_turns.append((len(overlap),
+                            sequence if type(sequence) is int else index, turn))
+                return ranked_turns
+
+            source_candidates = [
+                turn for turn in candidates
+                if not (
+                    turn.get("role") == "user"
+                    and isinstance(turn.get("text"), str)
+                    and _is_prior_message_recall_question(turn["text"])
+                )
+            ]
+            ranked = rank_turns(source_candidates)
+            if ranked:
+                candidates = source_candidates
+            else:
+                ranked = rank_turns(candidates)
             if ranked:
                 ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
                 strongest_score = ranked[0][0]
