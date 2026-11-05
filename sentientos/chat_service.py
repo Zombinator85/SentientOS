@@ -960,7 +960,8 @@ class PersistentConversationService:
             self, *, session_id: str, user_turn: Mapping[str, Any],
             response_text: str, correction: Mapping[str, str],
             runtime_context: Mapping[str, Any], history: Any,
-            memory: Mapping[str, Any], on_content_chunk: Callable[[str], None] | None
+            memory: Mapping[str, Any], on_content_chunk: Callable[[str], None] | None,
+            screen_observation_provenance: Mapping[str, Any] | None = None
             ) -> ChatResponse:
         """Persist a verified policy answer without invoking the language model."""
         workload = runtime_context.get("workload")
@@ -981,6 +982,22 @@ class PersistentConversationService:
                 and runtime_context["capabilities"]["screen_observation"].get("configured") is True
             ),
         }
+        if isinstance(screen_observation_provenance, Mapping):
+            capture_digest = screen_observation_provenance.get("capture_digest")
+            text_digest = screen_observation_provenance.get("text_digest")
+            text_status = screen_observation_provenance.get("text_status")
+            captured_at = screen_observation_provenance.get("captured_at")
+            if (isinstance(capture_digest, str) and len(capture_digest) == 64
+                    and isinstance(text_digest, str) and len(text_digest) == 64
+                    and text_status in {"available", "no_readable_text"}
+                    and isinstance(captured_at, str) and len(captured_at) <= 64):
+                evidence["screen_observation_provenance"] = {
+                    "capture_digest": capture_digest,
+                    "text_digest": text_digest,
+                    "text_status": text_status,
+                    "captured_at": captured_at,
+                    "raw_frame_retained": False,
+                }
         decision_payload = {
             "schema": "sentientos.deterministic_grounding_policy_decision:v1",
             "session_id": session_id,
@@ -1459,6 +1476,7 @@ class PersistentConversationService:
             if not isinstance(screen_observation, Mapping):
                 raise RuntimeError("screen_observation_unavailable")
             screen_text = screen_observation.get("text")
+            screen_text_status = screen_observation.get("text_status", "available")
             capture_digest = screen_observation.get("capture_digest")
             captured_at = screen_observation.get("captured_at")
             text_change_kind = screen_observation.get("text_change_kind")
@@ -1489,8 +1507,10 @@ class PersistentConversationService:
                     or not visual_valid
                     or not change_lineage_valid
                     or screen_observation.get("raw_frame_retained") is not False
-                    or not isinstance(screen_text, str) or not screen_text.strip()
-                    or len(screen_text) > 1200
+                    or not isinstance(screen_text, str) or len(screen_text) > 1200
+                    or screen_text_status not in {"available", "no_readable_text"}
+                    or (screen_text_status == "available" and not screen_text.strip())
+                    or (screen_text_status == "no_readable_text" and screen_text != "")
                     or not isinstance(captured_at, str) or len(captured_at) > 64
                     or screen_observation.get("capture_scope")
                         != "allowlisted_foreground_game_client_area"
@@ -1710,24 +1730,37 @@ class PersistentConversationService:
                     source_user_turn=prior_user_turn, history=history,
                     memory=memory, on_content_chunk=on_content_chunk)
         direct_screen_activity_question = is_direct_screen_activity_question(message)
+        screen_observation_unusable = (
+            screen_observation is None
+            or screen_observation.get("text_status", "available") == "no_readable_text")
         if (isinstance(self._inference, DevelopmentLocalChatInference)
                 and direct_screen_activity_question
-                and not retain and screen_observation is None):
+                and not retain and screen_observation_unusable):
             policy_text, policy_correction = corrected_unobserved_game_status(
                 "", user_message=message, verified_runtime_context=runtime_context,
-                screen_observation_provenance=None)
+                screen_observation_provenance=(
+                    {"text_status": screen_observation.get("text_status", "available")}
+                    if isinstance(screen_observation, Mapping) else None))
             if (policy_correction is not None
                     and policy_correction.get("policy_id") == CURRENT_GAME_STATUS_POLICY_ID
                     and policy_correction.get("reason_code") in {
                         "foreground_only_screen_observation_unconfigured",
                         "foreground_only_no_screen_observation",
                         "verified_workload_context_screen_unavailable",
+                        "screen_capture_no_readable_text",
                     }):
                 return self._complete_deterministic_grounding_response(
                     session_id=session["session_id"], user_turn=user_turn,
                     response_text=policy_text, correction=policy_correction,
                     runtime_context=runtime_context, history=history, memory=memory,
-                    on_content_chunk=on_content_chunk)
+                    on_content_chunk=on_content_chunk,
+                    screen_observation_provenance=(
+                        {"capture_digest": screen_observation.get("capture_digest"),
+                         "text_digest": hashlib.sha256(
+                             str(screen_observation.get("text", "")).encode("utf-8")).hexdigest(),
+                         "text_status": screen_observation.get("text_status", "available"),
+                         "captured_at": screen_observation.get("captured_at")}
+                        if isinstance(screen_observation, Mapping) else None))
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
             runtime_context=runtime_context,
@@ -1781,6 +1814,7 @@ class PersistentConversationService:
             screen_provenance: dict[str, object] = {
                 "capture_digest": screen_observation["capture_digest"],
                 "text_digest": hashlib.sha256(str(screen_observation["text"]).encode("utf-8")).hexdigest(),
+                "text_status": screen_observation.get("text_status", "available"),
                 "capture_scope": "allowlisted_foreground_game_client_area",
                 "captured_at": screen_observation["captured_at"],
                 "text_change_kind": screen_observation["text_change_kind"],

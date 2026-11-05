@@ -1589,6 +1589,58 @@ def test_development_chat_only_uses_explicit_per_message_screen_observation(tmp_
     assert "objective: reach the observatory" in invoker.prompts[-1]
 
 
+def test_no_readable_screen_text_answers_direct_gameplay_question_without_inference(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation(
+                "available", True, "a" * 64, "2026-11-05T06:00:00+00:00",
+                {"source_id": "windows-game-observer"},
+                game_process_running=True, running_process_name_digests=("b" * 64,))
+
+    screen_observation = {
+        "modality": "screen", "text": "", "text_status": "no_readable_text",
+        "captured_at": "2026-11-05T06:00:00Z", "backend": "local-ocr",
+        "capture_digest": "c" * 64, "process_name_digest": "d" * 64,
+        "consent_id_digest": "e" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "raw_frame_retained": False, "text_truncated": False,
+        "text_change_kind": "initial", "previous_text_digest": None,
+        "visual_change_kind": "initial", "visual_change_score": None,
+    }
+    chat.configure_development_chat(
+        invoker=invoker, data_root=tmp_path,
+        screen_observer=lambda: screen_observation,
+        initial_workload_mode="automatic", foreground_game_detector=Detector(),
+        game_process_names=("Cronos-Win64-Shipping.exe",))
+
+    response = client.post("/chat", json={
+        "message": "Can you describe what's happening in Cronos right now?",
+        "observe_screen": True,
+    })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["response"] == (
+        "I can confirm Cronos is the foreground app, but OCR found no readable text "
+        "in the captured game screen, so I can’t describe the scene from this text-only observation."
+    )
+    assert invoker.calls == 0
+    turns = chat._get_conversation_service().sessions.load(payload["session_id"])["turns"]
+    policy = turns[-1]["linkage"]["policy_decision"]["payload"]
+    assert policy["reason_code"] == "screen_capture_no_readable_text"
+    assert policy["evidence"]["screen_observation_provenance"] == {
+        "capture_digest": "c" * 64,
+        "text_digest": __import__("hashlib").sha256(b"").hexdigest(),
+        "text_status": "no_readable_text",
+        "captured_at": "2026-11-05T06:00:00Z",
+        "raw_frame_retained": False,
+    }
+
+
 def test_screen_status_distinguishes_capture_policy_from_message_inclusion(tmp_path):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()

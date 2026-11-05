@@ -130,7 +130,7 @@ def test_screen_ocr_distinguishes_text_changes_from_frame_changes():
     changed_text = ocr.snapshot()
 
     assert initial is not None and initial["text_change_kind"] == "initial"
-    assert "previous_text_digest" not in initial
+    assert initial["previous_text_digest"] is None
     assert same_text is not None and same_text["text_change_kind"] == "unchanged"
     assert same_text["previous_text_digest"] == hashlib.sha256(
         initial["text"].encode("utf-8")).hexdigest()
@@ -208,3 +208,27 @@ def test_visual_change_gate_skips_small_changes_and_ocr_runs_after_cumulative_ch
     assert changed["visual_change_score"] == pytest.approx(25 / 576)
     assert ocr_calls == ["ocr", "ocr"]
     assert "rgb" not in stable and "rgb" not in changed
+
+
+def test_empty_ocr_returns_explicit_no_readable_text_observation():
+    owner = ScreenOCR(
+        ScreenConfig(enable=True, interval_s=0),
+        capture_fn=lambda: {
+            "rgb": bytes([0, 0, 0]), "width": 1, "height": 1,
+            "capture_digest": "a" * 64,
+            "captured_at": "2026-11-05T06:00:00Z",
+            "capture_scope": "allowlisted_foreground_game_client_area",
+            "process_name_digest": "b" * 64, "consent_id_digest": "c" * 64,
+        },
+        ocr_fn=lambda _payload: "   ",
+    )
+
+    observation = owner.snapshot()
+
+    assert observation is not None
+    assert observation["text"] == ""
+    assert observation["text_status"] == "no_readable_text"
+    assert observation["previous_text_digest"] is None
+    assert observation["raw_frame_retained"] is False
+    assert "rgb" not in observation
+    assert owner.status()["status"] == "healthy"

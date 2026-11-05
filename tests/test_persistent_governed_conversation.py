@@ -175,6 +175,16 @@ def test_malicious_recalled_memory_cannot_become_system_authority(tmp_path: Path
             "text_change_kind": "changed", "captured_at": "2026-01-01T00:00:00Z"})
     assert "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]" in screen_prompt
     assert '"text":"quest objective"' in screen_prompt
+    no_text_prompt = assemble_local_chat_context(
+        history=history, memory_snapshot={"memories": []},
+        current_message="What is happening in Cronos?",
+        screen_observation={"text": "", "text_status": "no_readable_text",
+            "capture_digest": "b" * 64,
+            "capture_scope": "allowlisted_foreground_game_client_area",
+            "text_change_kind": "initial", "captured_at": "2026-01-01T00:00:00Z"})
+    assert '"text_status":"no_readable_text"' in no_text_prompt
+    assert "OCR found no readable text" in no_text_prompt
+    assert "do not infer visual details from the empty OCR result" in no_text_prompt
 
 
 def test_historical_runner_question_cannot_override_current_game_question(tmp_path: Path) -> None:

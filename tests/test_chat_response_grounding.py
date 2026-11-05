@@ -327,6 +327,46 @@ def test_social_instruction_echo_answers_game_status_without_claiming_visual_acc
     assert attribution["reason_code"] == "model_repeated_system_instruction"
 
 
+def test_no_readable_screen_capture_does_not_count_as_gameplay_evidence():
+    provenance = {"text_status": "no_readable_text", "capture_digest": "a" * 64}
+    assert unobserved_gameplay_claim(
+        "That was a great dodge!", workload_mode="gaming",
+        screen_observation_provenance=provenance)
+
+    corrected, attribution = corrected_unobserved_game_status(
+        "The character is fighting a boss.",
+        user_message="What is happening in Cronos right now?",
+        verified_runtime_context={"workload": {
+            "observation_status": "available", "game_foreground": True,
+            "game_process_running": True,
+            "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+            "effective_mode": "gaming"}},
+        screen_observation_provenance=provenance)
+    assert corrected == (
+        "I can confirm Cronos is the foreground app, but OCR found no readable text "
+        "in the captured game screen, so I can’t describe the scene from this text-only observation."
+    )
+    assert attribution == {
+        "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+        "reason_code": "screen_capture_no_readable_text",
+    }
+
+
+def test_screen_capability_reports_when_configured_capture_has_no_readable_text():
+    corrected, attribution = corrected_screen_capability_output(
+        "I can see the game.", user_message="Can you see my game screen?",
+        screen_observation_configured=True,
+        screen_observation_provenance={"text_status": "no_readable_text"})
+    assert corrected == (
+        "Screen observation is active for this request, but OCR found no readable text "
+        "in the captured game screen. I can’t describe the scene from this text-only observation."
+    )
+    assert attribution == {
+        "policy_id": SCREEN_CAPABILITY_POLICY_ID,
+        "reason_code": "screen_capture_no_readable_text",
+    }
+
+
 def test_screen_capability_correction_respects_configured_source_and_current_evidence():
     model_output = "I do not have a screen observation for this turn."
     assert corrected_screen_capability_output(

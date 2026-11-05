@@ -368,7 +368,8 @@ class _TemporaryCompanionEdge:
                 screen_provider = BridgeScreenObservationProvider(
                     runtime=self._screen_runtime, source_id=screen_source_id,
                     generation_id=screen_source_generation,
-                    max_observation_age_seconds=5.0)
+                    # Windows and WSL clocks showed ~8s skew; capture remains request-driven.
+                    max_observation_age_seconds=15.0)
                 screen_request_material = (screen_provider, screen_request_key)
                 consent_expires = (datetime.now(timezone.utc)
                     + timedelta(minutes=screen_observation_consent_minutes))

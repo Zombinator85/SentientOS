@@ -73,9 +73,26 @@ def main():
                 or message.generation_id!=screen_cfg.get("request_generation_id")
                 or message.kind!="screen_capture_request"
                 or message.admission is not None):
+            print("SCREEN_CAPTURE_DISPATCH result=rejected reason=request_contract",flush=True)
             return False
         capture=screen_dispatch_state.get("capture")
-        return capture(message.payload["capture_request_id"]) if callable(capture) else False
+        if not callable(capture):
+            print("SCREEN_CAPTURE_DISPATCH result=rejected reason=owner_unavailable",flush=True)
+            return False
+        try:
+            accepted=capture(message.payload["capture_request_id"])
+        except Exception as exc:
+            safe_error_types={"ScreenObservationBridgeError", "ScreenCaptureError"}
+            reason=(str(exc.args[0]) if type(exc).__name__ in safe_error_types
+                    and exc.args else type(exc).__name__)
+            if not isinstance(reason,str) or not reason.isascii() or not reason.replace("_", "").isalnum():
+                reason=type(exc).__name__
+            print("SCREEN_CAPTURE_DISPATCH result=error failure_code=" +
+                reason[:96],flush=True)
+            return False
+        print("SCREEN_CAPTURE_DISPATCH result=" +
+            ("published" if accepted else "no_observation"),flush=True)
+        return accepted
     def report_dispatch_outcome(outcome):
         if outcome.get("kind") == "avatar_command":
             print("AVATAR_DISPATCH "+json.dumps(
