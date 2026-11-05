@@ -56,6 +56,7 @@ from .chat_response_grounding import (
     CURRENT_GAME_STATUS_POLICY_ID, corrected_gaming_output, corrected_output_lineage,
     corrected_screen_capability_output, corrected_social_instruction_echo,
     corrected_system_identity_output, corrected_unobserved_game_status,
+    corrected_unprovided_source_reference,
     is_direct_screen_activity_question, is_verified_current_game_context_question,
 )
 from .perception.screen_text_delta import validate_ocr_text_line_delta
@@ -1739,6 +1740,19 @@ class PersistentConversationService:
                 response_text, grounding_correction = corrected_system_identity_output(
                     receipt.output_text, user_message=message,
                     verified_runtime_context=runtime_context)
+            if grounding_correction is None:
+                source_context_parts = [
+                    turn.get("text", "") for turn in history.turns
+                    if isinstance(turn.get("text"), str)
+                ]
+                source_context_parts.extend(
+                    record.get("text", "") for record in memory.get("memories", [])
+                    if isinstance(record, Mapping)
+                    and isinstance(record.get("text"), str)
+                )
+                response_text, grounding_correction = corrected_unprovided_source_reference(
+                    receipt.output_text, user_message=message,
+                    available_context="\n".join(source_context_parts))
             if grounding_correction is None:
                 response_text, grounding_correction = corrected_unobserved_game_status(
                     receipt.output_text, user_message=message,

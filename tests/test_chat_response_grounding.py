@@ -489,3 +489,56 @@ def test_current_workload_question_reports_verified_background_game_and_mode():
         "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
         "reason_code": "verified_workload_context_screen_unavailable",
     }
+
+
+def test_unprovided_review_reference_does_not_receive_invented_summary():
+    from sentientos.chat_response_grounding import (
+        UNPROVIDED_SOURCE_CORRECTION, UNPROVIDED_SOURCE_POLICY_ID,
+        corrected_unprovided_source_reference,
+    )
+
+    text, attribution = corrected_unprovided_source_reference(
+        "The review recommends performance optimization and stability testing.",
+        user_message=(
+            "I read the measurement review. In two short sentences, tell me what it "
+            "recommends for Cronos testing and what the existing data can and cannot establish."
+        ),
+        available_context="Cronos is the foreground app. Gaming mode is active.",
+    )
+    assert text == UNPROVIDED_SOURCE_CORRECTION
+    assert attribution == {
+        "policy_id": UNPROVIDED_SOURCE_POLICY_ID,
+        "reason_code": "referenced_source_contents_unavailable",
+    }
+
+
+def test_review_reference_is_answerable_when_source_content_is_in_history():
+    from sentientos.chat_response_grounding import corrected_unprovided_source_reference
+
+    source = (
+        "The measurement review recommends randomized paired trials in the same Cronos "
+        "scene. The archived captures show Qwen3 1.7B and Qwen2.5 3B near 19 to 21 ms "
+        "p95, but they were not matched, so the data cannot rank the models."
+    )
+    text, attribution = corrected_unprovided_source_reference(
+        "Use paired trials; the captures cannot rank the models.",
+        user_message="What does the measurement review recommend and what can the data establish?",
+        available_context=source,
+    )
+    assert text == "Use paired trials; the captures cannot rank the models."
+    assert attribution is None
+
+
+def test_long_message_with_pasted_review_is_not_rejected_as_unprovided():
+    from sentientos.chat_response_grounding import corrected_unprovided_source_reference
+
+    message = (
+        "Summarize the attached review and its recommendations: "
+        + "The review calls for randomized paired Cronos trials with frame-level timing. " * 12
+    )
+    text, attribution = corrected_unprovided_source_reference(
+        "The review recommends paired trials.", user_message=message,
+        available_context="",
+    )
+    assert text == "The review recommends paired trials."
+    assert attribution is None
