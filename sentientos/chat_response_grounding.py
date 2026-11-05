@@ -134,7 +134,7 @@ _MODEL_SELF_REFERENCE = re.compile(
     re.IGNORECASE,
 )
 _GAME_STATUS_QUESTION = re.compile(
-    r"\bwhat\b.{0,48}\b(?:tell|know|see|notice)\b.{0,64}\b"
+    r"\bwhat\b.{0,48}\b(?:tell|know|see|notice|say|describe|confirm|verify)\b.{0,64}\b"
     r"(?:cronos|game|gameplay|screen)\b",
     re.IGNORECASE,
 )
@@ -176,7 +176,14 @@ _SCREEN_VISIBILITY_CLARIFICATION_REQUEST = re.compile(
     r"(?:screen|display|game|gameplay)\b", re.IGNORECASE
 )
 
+_UNOBSERVED_SCREEN_ACCESS_CLAIM = re.compile(
+    r"(?<!whether )(?<!if )\bI\s+(?:can|could|will)\s+(?:see|observe|view|watch)\b"
+    r".{0,72}\b(?:game|gameplay|screen|what you(?:'re| are) doing)\b"
+    r"[^.!?]*[.!?]?",
+    re.IGNORECASE,
+)
 _UNOBSERVED_CLAIM_PATTERNS = (
+    _UNOBSERVED_SCREEN_ACCESS_CLAIM,
     re.compile(r"\bkeep(?:ing)? an eye on\b", re.IGNORECASE),
     re.compile(r"\b(?:watch(?:ing)?|monitor(?:ing)?)\b.{0,48}\b(?:game|gameplay|screen|session)\b", re.IGNORECASE),
     re.compile(r"\b(?:game|gameplay|screen|session)\b.{0,48}\b(?:watch(?:ing)?|monitor(?:ing)?)\b", re.IGNORECASE),
@@ -430,6 +437,16 @@ def corrected_unobserved_game_status(
                 "reason_code": "foreground_only_no_screen_observation",
             },
         )
+    if _UNOBSERVED_SCREEN_ACCESS_CLAIM.search(output):
+        corrected = _UNOBSERVED_SCREEN_ACCESS_CLAIM.sub(
+            "I don’t have a screen observation for this turn, so I can’t describe the gameplay.",
+            output,
+            count=1,
+        ).strip()
+        return corrected, {
+            "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+            "reason_code": "foreground_only_no_screen_observation",
+        }
     return (
         f"{label} is the foreground app. I don’t have a screen observation for this turn, "
         "so I can’t describe the gameplay.",

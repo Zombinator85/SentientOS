@@ -66,6 +66,51 @@ def test_claim_to_share_unobserved_gameplay_gets_grounded_correction():
     assert attribution["reason_code"] == "unobserved_gameplay_claim"
 
 
+def test_unobserved_screen_access_claim_is_rejected():
+    output = "The game is foregrounded, and I can observe gameplay details."
+    assert unobserved_gameplay_claim(
+        output, workload_mode="gaming", screen_observation_provenance=None)
+    corrected, attribution = corrected_gaming_output(
+        output, workload_mode="gaming", screen_observation_provenance=None)
+    assert corrected == GROUNDING_CORRECTION
+    assert attribution == {
+        "policy_id": "gaming_unobserved_claim_correction_v1",
+        "reason_code": "unobserved_gameplay_claim",
+    }
+
+
+def test_reliable_current_game_question_keeps_foreground_fact_without_claiming_screen_access():
+    message = (
+        "Fair enough. What did I ask you just now, and what can you reliably say "
+        "about my current game?"
+    )
+    corrected, attribution = corrected_unobserved_game_status(
+        "You asked if the game is foreground and whether I can see the screen. "
+        "The game is currently foregrounded, and I can observe gameplay details.",
+        user_message=message,
+        verified_runtime_context={
+            "workload": {
+                "observation_status": "available",
+                "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+                "game_foreground": True,
+                "game_process_running": True,
+                "effective_mode": "gaming",
+            },
+            "capabilities": {"screen_observation": {"configured": True}},
+        },
+        screen_observation_provenance=None,
+    )
+    assert corrected == (
+        "You asked if the game is foreground and whether I can see the screen. "
+        "The game is currently foregrounded, and I don’t have a screen observation "
+        "for this turn, so I can’t describe the gameplay."
+    )
+    assert attribution == {
+        "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+        "reason_code": "foreground_only_no_screen_observation",
+    }
+
+
 def test_unseen_specific_gameplay_event_praise_gets_grounded_correction():
     assert unobserved_gameplay_claim(
         "Nice dodge!", workload_mode="gaming", screen_observation_provenance=None)
