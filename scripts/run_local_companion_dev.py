@@ -600,8 +600,11 @@ def main() -> int:
                         default="normal")
     parser.add_argument("--game-process-name", action="append", default=[],
                         help="Allowlisted Windows game executable basename for automatic mode")
-    parser.add_argument("--gaming-keep-alive", choices=("0", "5s"), default="0",
-                        help="Development experiment: unload immediately or retain gaming model for 5 seconds")
+    parser.add_argument(
+        "--gaming-keep-alive", choices=("0", "5s", "5m"), default="0",
+        help=("Development experiment: unload immediately, retain the gaming model "
+              "for 5 seconds, or retain it for 5 minutes."),
+    )
     parser.add_argument("--windows-python", type=Path)
     parser.add_argument("--godot-exe", type=Path)
     parser.add_argument("--godot-project", type=Path)

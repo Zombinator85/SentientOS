@@ -232,7 +232,7 @@ class DevelopmentLocalChatInference:
                  model_profiles: Mapping[str, Any] | None = None,
                  foreground_game_detector: Any | None = None,
                  gaming_keep_alive: str = "0") -> None:
-        if gaming_keep_alive not in {"0", "5s"}:
+        if gaming_keep_alive not in {"0", "5s", "5m"}:
             raise ValueError("unsupported_development_gaming_keep_alive")
         self._gaming_keep_alive = gaming_keep_alive
         self._delegate = invoker
@@ -3125,10 +3125,28 @@ async def root_page() -> HTMLResponse:
                             ? data.context.chat_timing : {};
                         const inferenceTiming = data.context && data.context.inference_timing
                             ? data.context.inference_timing : {};
+                        if (Number.isSafeInteger(inferenceTiming.load_duration_ns)) {
+                            timingParts.push('backend model load '
+                                + formatTimingMs(inferenceTiming.load_duration_ns / 1e6));
+                        }
+                        if (Number.isSafeInteger(
+                                inferenceTiming.prompt_evaluation_duration_ns)) {
+                            timingParts.push('backend prompt evaluation '
+                                + formatTimingMs(
+                                    inferenceTiming.prompt_evaluation_duration_ns / 1e6)
+                                + (Number.isSafeInteger(inferenceTiming.prompt_tokens)
+                                    ? ' (' + inferenceTiming.prompt_tokens + ' prompt tokens)' : ''));
+                        }
                         if (Number.isSafeInteger(inferenceTiming.first_content_chunk_duration_ns)) {
                             timingParts.push('model first content chunk '
                                 + formatTimingMs(inferenceTiming.first_content_chunk_duration_ns / 1e6)
                                 + ' after invocation start');
+                        }
+                        if (Number.isSafeInteger(inferenceTiming.generation_duration_ns)) {
+                            timingParts.push('backend token generation '
+                                + formatTimingMs(inferenceTiming.generation_duration_ns / 1e6)
+                                + (Number.isSafeInteger(inferenceTiming.completion_tokens)
+                                    ? ' (' + inferenceTiming.completion_tokens + ' output tokens)' : ''));
                         }
                         if (Number.isSafeInteger(chatTiming.model_call_wall_duration_ns)) {
                             timingParts.push('model call '
