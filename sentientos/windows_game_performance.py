@@ -55,6 +55,7 @@ class PresentMonFrameTiming:
 
     cpu_start_qpc_ms: float
     frame_interval_ms: float
+    frame_interval_source: str
     present_interval_ms: float | None
     cpu_busy_ms: float | None
     gpu_busy_ms: float | None
@@ -100,6 +101,16 @@ def summarize_frame_times_ms(values: Sequence[float]) -> tuple[float, float, flo
     return percentile(0.50), percentile(0.95), percentile(0.99), sum(x > 50.0 for x in samples)
 
 
+def _decode_presentmon_csv(raw: bytes) -> str:
+    """Decode UTF-8 CSVs and BOM-marked UTF-16 output redirected on Windows."""
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+            return raw.decode("utf-16")
+        raise
+
+
 def parse_presentmon_csv(raw: bytes, *, process_id: int) -> tuple[tuple[float, ...], str]:
     """Parse displayed-frame pacing from bounded PresentMon output.
 
@@ -112,7 +123,7 @@ def parse_presentmon_csv(raw: bytes, *, process_id: int) -> tuple[tuple[float, .
     if type(process_id) is not int or process_id < 1:
         raise GamePerformanceObservationError("game_process_id_invalid")
     try:
-        text = raw.decode("utf-8-sig")
+        text = _decode_presentmon_csv(raw)
         reader = csv.DictReader(io.StringIO(text, newline=""))
         headers = set(reader.fieldnames or ())
         if "ProcessID" not in headers:
@@ -188,7 +199,7 @@ def parse_presentmon_timeline(
     if type(process_id) is not int or process_id < 1:
         raise GamePerformanceObservationError("game_process_id_invalid")
     try:
-        text = raw.decode("utf-8-sig")
+        text = _decode_presentmon_csv(raw)
         reader = csv.DictReader(io.StringIO(text, newline=""))
         headers = set(reader.fieldnames or ())
         if not {"ProcessID", "CPUStartQPCTime"} <= headers:
@@ -246,10 +257,17 @@ def parse_presentmon_timeline(
                     invalid_reason="presentmon_frame_time_invalid",
                 ) if frame_interval_column else None
             )
-            interval = next((value for value in (
-                display_interval, present_interval, frame_interval
-            ) if value is not None and value > 0), None)
-            if interval is None:
+            interval_candidates = (
+                (display_interval, display_interval_column),
+                (present_interval, present_interval_column),
+                (frame_interval, frame_interval_column),
+            )
+            interval, interval_source = next(
+                ((value, source) for value, source in interval_candidates
+                 if value is not None and value > 0),
+                (None, None),
+            )
+            if interval is None or interval_source is None:
                 raise GamePerformanceObservationError("presentmon_frame_time_invalid")
             display_value = row.get("DisplayedTime", "")
             if "DisplayedTime" not in headers:
@@ -262,6 +280,7 @@ def parse_presentmon_timeline(
             frames.append(PresentMonFrameTiming(
                 cpu_start_qpc_ms=qpc_ms,
                 frame_interval_ms=interval,
+                frame_interval_source=str(interval_source),
                 present_interval_ms=present_interval,
                 cpu_busy_ms=(
                     _optional_timeline_number(
@@ -289,7 +308,12 @@ def summarize_presentmon_timeline(
     target_frame_interval_ms: float,
     hitch_threshold_ms: float,
 ) -> PresentMonTimelineSummary:
-    """Summarize an experimental timeline without inferring the game's frame cap."""
+    """Summarize one timing source without inferring the game's frame cap.
+
+    Prefer display intervals, then present intervals, and use app frame timing
+    only when display/present intervals are unavailable. This avoids mixing
+    PresentMon v2 ``FrameTime`` fallbacks into display-time percentiles.
+    """
     if (not isinstance(frames, (list, tuple))
             or not 1 <= len(frames) <= MAX_PRESENTMON_ROWS
             or any(not isinstance(frame, PresentMonFrameTiming) for frame in frames)):
@@ -302,7 +326,15 @@ def summarize_presentmon_timeline(
                 or not math.isfinite(float(value)) or not 0 < float(value) <= 10_000):
             raise GamePerformanceObservationError(reason)
 
-    intervals = [frame.frame_interval_ms for frame in frames]
+    display_intervals = [frame.frame_interval_ms for frame in frames
+                         if frame.frame_interval_source in {
+                             "MsBetweenDisplayChange", "DisplayedTime",
+                         }]
+    present_intervals = [frame.frame_interval_ms for frame in frames
+                         if frame.frame_interval_source == "MsBetweenPresents"]
+    intervals = display_intervals or present_intervals or [
+        frame.frame_interval_ms for frame in frames
+    ]
     p50, p95, p99, _ = summarize_frame_times_ms(intervals)
     long_flags = [interval > float(hitch_threshold_ms) for interval in intervals]
     clusters = sum(flag and (index == 0 or not long_flags[index - 1])

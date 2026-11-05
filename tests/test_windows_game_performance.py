@@ -57,6 +57,24 @@ def test_presentmon_v2_csv_uses_displayed_time_and_falls_back_to_frame_time() ->
     assert fallback == (16.0, 33.0)
 
 
+def test_presentmon_redirected_windows_csv_accepts_bom_marked_utf16() -> None:
+    raw = "ProcessID,MsBetweenDisplayChange,MsBetweenPresents\r\n12,16.4,16.2\r\n".encode(
+        "utf-16"
+    )
+    values, source_digest = parse_presentmon_csv(raw, process_id=12)
+    assert values == (16.4,)
+    assert source_digest == hashlib.sha256(raw).hexdigest()
+
+    timeline_raw = (
+        "ProcessID,CPUStartQPCTime,FrameTime,DisplayedTime\r\n"
+        "12,1000.0,16.0,16.4\r\n"
+    ).encode("utf-16")
+    frames, timeline_digest = parse_presentmon_timeline(timeline_raw, process_id=12)
+    assert timeline_digest == hashlib.sha256(timeline_raw).hexdigest()
+    assert frames[0].frame_interval_ms == 16.4
+    assert frames[0].frame_interval_source == "DisplayedTime"
+
+
 def test_presentmon_csv_rejects_unsupported_or_empty_schema() -> None:
     with pytest.raises(GamePerformanceObservationError, match="presentmon_columns_missing"):
         parse_presentmon_csv(b"pid,frame\n1,16\n", process_id=1)
@@ -173,10 +191,14 @@ def test_presentmon_v2_timeline_keeps_app_frame_and_actual_display_timing() -> N
     assert [frame.display_status for frame in frames] == [
         "not_displayed", "displayed", "displayed",
     ]
+    assert [frame.frame_interval_source for frame in frames] == [
+        "FrameTime", "DisplayedTime", "DisplayedTime",
+    ]
     assert [frame.displayed_time_ms for frame in frames] == [None, 16.1, 32.2]
     summary = summarize_presentmon_timeline(
         frames, target_frame_interval_ms=16.7, hitch_threshold_ms=50.0,
     )
+    assert summary.frame_time_p50_ms == 16.1
     assert summary.frame_time_p95_ms == 32.2
     assert summary.missed_deadline_count == 1
     assert summary.dropped_presentation_count == 1
