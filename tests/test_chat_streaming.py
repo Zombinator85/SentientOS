@@ -48,6 +48,22 @@ def test_chat_stream_emits_provisional_deltas_then_governed_completion(monkeypat
     assert '"response":"Hello there."' in body
 
 
+def test_development_adapter_does_not_advertise_streaming_for_non_ollama_model(
+        tmp_path, monkeypatch):
+    chat = _reload()
+
+    class NonStreamingInvoker:
+        model = SimpleNamespace(active_identity=None)
+
+    chat.configure_development_chat(invoker=NonStreamingInvoker(), data_root=tmp_path)
+    monkeypatch.setattr(chat, "_CHANGE_NARRATOR", None)
+
+    response = TestClient(chat.APP).post("/chat/stream", json={"message": "hello"})
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Streaming is unavailable for this model backend"
+
+
 def test_chat_stream_rejects_backend_without_streaming_support(monkeypatch):
     chat = _reload()
     monkeypatch.setattr(chat, "_get_conversation_service",

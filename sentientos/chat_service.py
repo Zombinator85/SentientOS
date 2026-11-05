@@ -409,6 +409,11 @@ class DevelopmentLocalChatInference:
     def generate_streaming(self, **kwargs: Any) -> LocalModelInvocationReceipt:
         return self.generate(**kwargs)
 
+    def streaming_available(self) -> bool:
+        """Advertise streaming only when the active development model supports it."""
+        identity = getattr(self._delegate.model, "active_identity", None)
+        return getattr(identity, "engine", None) == "ollama"
+
     def cancel_pending_generation(self) -> bool:
         cancel = getattr(self._delegate, "cancel_pending_generation", None)
         return bool(cancel()) if callable(cancel) else False
@@ -674,6 +679,12 @@ class PersistentConversationService:
         }
 
     def streaming_available(self) -> bool:
+        capability = getattr(self._inference, "streaming_available", None)
+        if callable(capability):
+            try:
+                return bool(capability())
+            except Exception:
+                return False
         return callable(getattr(self._inference, "generate_streaming", None))
 
     def cancel_active_generation(self) -> bool:
