@@ -1287,7 +1287,7 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     ) is True
 
 
-def test_gaming_chat_trims_history_to_the_complete_input_ceiling(tmp_path):
+def test_gaming_chat_trims_old_history_and_keeps_recent_turns_under_input_ceiling(tmp_path):
     from sentientos.gaming_workload_policy import GamingWorkloadPolicy
 
     chat = _reload(); client = TestClient(chat.APP)
@@ -1310,7 +1310,8 @@ def test_gaming_chat_trims_history_to_the_complete_input_ceiling(tmp_path):
 
     assert response.status_code == 200
     assert len(invoker.prompts[-1]) <= GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS
-    assert "Turn 0: remember violet comet." in invoker.prompts[-1]
+    assert "Turn 2:" in invoker.prompts[-1]
+    assert "Turn 0: remember violet comet." not in invoker.prompts[-1]
 
 
 def test_development_automatic_mode_switches_profiles_from_fresh_observations():
@@ -1684,7 +1685,7 @@ def test_unobserved_gaming_companion_claim_is_corrected_and_attributed(tmp_path)
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["response"] == "I can’t see the game this turn, but I’m here with you."
+    assert payload["response"] == "I’m here with you in SentientOS. How’s the session going?"
     assert payload["context"]["response_origin"] == "grounding_policy_fallback"
 
 
