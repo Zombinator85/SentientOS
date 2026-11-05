@@ -14,6 +14,21 @@ MAX_RETENTION_RECORD_BYTES = 256 * 1024
 MAX_MEMORY_SCAN_ENTRIES = 4096
 MAX_MEMORY_RECORDS = 1024
 MAX_MEMORY_TOTAL_BYTES = 16 * 1024 * 1024
+_MEMORY_RETRIEVAL_STOP_WORDS = frozenset((
+    "a", "about", "after", "again", "all", "am", "an", "and", "any", "are",
+    "as", "at", "be", "because", "been", "before", "being", "between", "both",
+    "but", "by", "can", "cannot", "could", "did", "do", "does", "doing", "down",
+    "during", "each", "few", "for", "from", "further", "had", "has", "have",
+    "having", "he", "her", "here", "hers", "him", "his", "how", "i", "if", "in",
+    "into", "is", "it", "its", "just", "me", "more", "most", "my", "no", "nor",
+    "not", "now", "of", "off", "on", "once", "only", "or", "other", "our", "out",
+    "over", "own", "please", "same", "she", "should", "so", "some", "such", "than",
+    "that", "the", "their", "them", "then", "there", "these", "they", "this", "those",
+    "to", "too", "under", "until", "up", "very", "was", "we", "were", "what", "when",
+    "where", "which", "while", "who", "why", "will", "with", "would", "you", "your",
+    "based", "brief", "briefly", "current", "currently", "different", "keep",
+    "next", "one", "screen", "see", "sentence", "suggest", "tell", "thing", "things",
+))
 _PROCESS_MEMORY_ROOT_IDENTITIES: dict[str, tuple[int, int]] = {}
 _PROCESS_MEMORY_ROOT_IDENTITIES_LOCK = RLock()
 _PROCESS_MEMORY_ROOT_IDENTITY_LIMIT = 32
@@ -86,6 +101,25 @@ class ExplicitRetentionAdmissionGate:
         cd=digest(candidate); decision="retention_admitted" if valid else "retention_denied"
         body={"decision":decision,"candidate_digest":cd,"request_id":str(candidate.get("request_id") or ""),"authority":"explicit_retention_admission_gate"}
         return RetentionAdmission(decision,cd,body["request_id"],digest(body),None if valid else "invalid_explicit_user_candidate")
+def _memory_retrieval_terms(text: str) -> set[str]:
+    """Use content anchors so common chat phrasing cannot dominate memory matches."""
+    return {
+        token for token in re.findall(r"[a-z0-9]+", text.casefold())
+        if len(token) > 2 and token not in _MEMORY_RETRIEVAL_STOP_WORDS
+    }
+
+
+def _is_prior_message_recall_question(text: str) -> bool:
+    """Do not retrieve an earlier question as evidence for the fact it requested."""
+    normalized = " ".join(re.findall(r"[a-z0-9]+", text.casefold()))
+    return any(re.search(pattern, normalized) is not None for pattern in (
+        r"\bwhat did (?:i|you|the [a-z0-9]+) (?:say|tell|write)\b",
+        r"\bwhat did (?:i|you) ask\b",
+        r"\bwhat was written\b",
+        r"\bwhat was my (?:first|previous|last) (?:message|question|request)\b",
+    ))
+
+
 class CanonicalMemoryStore:
     """Canonical raw-fragment domain compatible with memory_manager.RAW_PATH."""
     def __init__(self,memory_root:Path)->None:
@@ -269,10 +303,14 @@ class CanonicalMemoryStore:
         records, retrieval_posture = self._records()
         legacy_sidecar_posture = self._legacy_sidecar_posture()
         legacy_sidecar_present = legacy_sidecar_posture == "present_unverified"
-        terms=set(re.findall(r"[a-z0-9]+",query.lower())); ranked=[]
+        terms = _memory_retrieval_terms(query)
+        ranked = []
         for record in records:
-            score=len(terms & set(re.findall(r"[a-z0-9]+",record["text"].lower())))
-            if score: ranked.append((score,str(record.get("id","")),record))
+            if _is_prior_message_recall_question(record["text"]):
+                continue
+            score = len(terms & _memory_retrieval_terms(record["text"]))
+            if score:
+                ranked.append((score, str(record.get("id", "")), record))
         selected: list[dict[str, Any]]=[]; used=0; omitted=[]
         for _,_,record in sorted(ranked,key=lambda x:(-x[0],x[1])):
             identity=(record.get("id"),record.get("text_digest") or digest({"text":record["text"]}))

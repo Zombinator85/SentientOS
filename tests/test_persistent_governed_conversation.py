@@ -348,6 +348,43 @@ def test_explicit_retention_boundary(tmp_path: Path) -> None:
     assert next(t for t in session["turns"] if t["text"] == "favorite color ultramarine")["retention_state"] == "retained"
 
 
+def test_memory_retrieval_uses_content_terms_not_generic_chat_phrasing(
+        tmp_path: Path) -> None:
+    app = service(tmp_path)
+    first = app.chat(
+        "How is the co-pilot shift going? Tell me one thing you can verify about "
+        "my setup and one thing you cannot currently see. Keep it friendly and brief.",
+        retain=True)
+    app.chat(
+        "Hey, how's the current run looking? Tell me one thing you can verify "
+        "about my workload, one thing you can't observe, and keep it casual.",
+        session_id=first.session_id, retain=True)
+    source_text = (
+        "I found a note in Cronos that reads east wing, and the locked door "
+        "has a handle but no switch.")
+    app.chat(source_text, session_id=first.session_id, retain=True)
+    app.chat(
+        "Earlier I told you about a note I found in Cronos. "
+        "What did the note say? Please answer briefly.",
+        session_id=first.session_id, retain=True)
+    app.chat(
+        "Reply with one short, friendly sentence ending with exactly this "
+        "game controller emoji: 🎮. Use no other emoji.",
+        session_id=first.session_id, retain=True)
+    app.chat(
+        "Quick memory check: what did I ask you first tonight? "
+        "Answer naturally in one sentence.",
+        session_id=first.session_id, retain=True)
+
+    result = app.memories.retrieve(
+        "Based only on my description of the locked door, the note saying east "
+        "wing, and the handle with no switch, suggest one different thing to "
+        "inspect next in one sentence. You cannot see the current screen.")
+
+    assert [record["text"] for record in result["memories"]] == [source_text]
+    assert result["omitted_memory_count"] == 0
+
+
 def test_process_restart_resume_composed_success(tmp_path: Path) -> None:
     first_invoker = FakeInvoker()
     first = service(tmp_path, first_invoker)
