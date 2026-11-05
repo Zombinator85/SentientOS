@@ -141,6 +141,18 @@ def test_parse_edge_ready_includes_exact_godot_pid() -> None:
     assert _parse_edge_ready("READY 12345 67890") == (12345, 67890)
 
 
+def test_godot_headless_development_option_does_not_change_visible_launch(monkeypatch) -> None:
+    monkeypatch.syspath_prepend("scripts")
+    from scripts.local_companion_edge_dev_worker import _godot_command
+
+    assert _godot_command("godot.exe", "project", headless=False) == [
+        "godot.exe", "--path", "project"
+    ]
+    assert _godot_command("godot.exe", "project", headless=True) == [
+        "godot.exe", "--headless", "--path", "project"
+    ]
+
+
 
 
 def test_wait_for_edge_ready_skips_screen_startup_diagnostics() -> None:
@@ -272,6 +284,19 @@ def test_screen_observation_opt_in_requires_supervised_windows_edge(monkeypatch)
     monkeypatch.setattr(sys, "argv", [
         "run_local_companion_dev", "--state-dir", "/tmp/sentientos-screen-test",
         "--screen-observation-process", "Cronos.exe",
+    ])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+
+
+def test_headless_godot_requires_supervised_windows_edge(monkeypatch, tmp_path):
+    import sys
+    import pytest
+
+    monkeypatch.setattr(sys, "argv", [
+        "run_local_companion_dev", "--state-dir", str(tmp_path),
+        "--godot-headless",
     ])
     with pytest.raises(SystemExit) as error:
         main()

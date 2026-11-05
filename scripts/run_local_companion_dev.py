@@ -6,9 +6,11 @@ or an ordered normal/gaming pair. All transcripts, invocation receipts, and
 process coordination stay in --state-dir.
 This process is a supervised development composition, never production serving.
 Screen OCR is disabled unless an allowlisted process and consent lifetime are
-passed on the CLI. When enabled, the Windows edge samples at 2.5-second
-intervals, keeps raw frames local and transient, and sends bounded OCR text
+passed on the CLI. When enabled, the Windows edge captures only on an explicit
+chat request, keeps raw frames local and transient, and sends bounded OCR text
 over the authenticated bridge; each chat message still needs the UI checkbox.
+`--godot-headless` keeps the supervised edge from opening a visible Godot
+window during game-screen observation.
 """
 from __future__ import annotations
 
@@ -251,6 +253,7 @@ class _TemporaryCompanionEdge:
 
     def __init__(self, *, windows_python: Path,
                  godot_executable: Path, godot_project: Path,
+                 godot_headless: bool = False,
                  game_process_names: tuple[str, ...] = (),
                  screen_observation_process_names: tuple[str, ...] = (),
                  screen_observation_consent_minutes: int = 60,
@@ -288,6 +291,9 @@ class _TemporaryCompanionEdge:
         self._lines: queue.Queue[str] = queue.Queue()
         self._report_file: Path | None = None
         self._delivery_event_file = delivery_event_file
+        if type(godot_headless) is not bool:
+            raise ValueError("godot_headless_must_be_boolean")
+        self.godot_headless = godot_headless
         if delivery_event_file is not None:
             delivery_event_file.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -311,6 +317,7 @@ class _TemporaryCompanionEdge:
                 "runtime_root": _win_path(root / "edge-runtime"),
                 "godot_executable": _win_path(godot_executable),
                 "godot_project": _win_path(godot_project),
+                "godot_headless": godot_headless,
             }
             if game_process_names:
                 observer_source_key = secrets.token_bytes(32)
@@ -598,6 +605,8 @@ def main() -> int:
     parser.add_argument("--windows-python", type=Path)
     parser.add_argument("--godot-exe", type=Path)
     parser.add_argument("--godot-project", type=Path)
+    parser.add_argument("--godot-headless", action="store_true",
+                        help="Run the supervised development edge without opening a Godot window")
     parser.add_argument("--screen-observation-process", action="append", default=[],
                         metavar="GAME.exe",
                         help=("Configure launch-scoped consent for per-message local OCR on "
@@ -616,6 +625,8 @@ def main() -> int:
     if args.screen_observation_process and not all(
             value is not None for value in edge_args):
         parser.error("screen observation requires the supervised Windows edge")
+    if args.godot_headless and not all(value is not None for value in edge_args):
+        parser.error("headless Godot requires the supervised Windows edge")
     if (args.screen_observation_tesseract_executable is not None
             and not args.screen_observation_process):
         parser.error("a Tesseract executable requires screen observation opt-in")
@@ -719,6 +730,7 @@ def main() -> int:
             edge = _TemporaryCompanionEdge(
                 windows_python=args.windows_python, godot_executable=args.godot_exe,
                 godot_project=args.godot_project,
+                godot_headless=args.godot_headless,
                 game_process_names=tuple(args.game_process_name),
                 screen_observation_process_names=tuple(args.screen_observation_process),
                 screen_observation_consent_minutes=args.screen_observation_consent_minutes,
@@ -752,6 +764,7 @@ def main() -> int:
             "initial_effective_profile": initial_profile,
             "companion_output": ("temporary_mtls_windows_edge_and_godot"
                                  if edge else "not_configured"),
+            "godot_headless": bool(edge and edge.godot_headless),
             "screen_observation_configured": bool(edge and edge.screen_observer),
             "companion_identity_posture": (
                 edge.identity_posture if edge else "unavailable"),
