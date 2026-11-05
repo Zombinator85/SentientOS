@@ -59,8 +59,8 @@ _GAME_RUNNING_QUESTION = re.compile(
     re.IGNORECASE,
 )
 _GAME_ACTIVITY_QUESTION = re.compile(
-    r"\b(?:what|how)\b.{0,64}\b(?:I am|I'm|you are|you're)\s+"
-    r"(?:doing|playing|seeing|experiencing)\b.{0,64}\b"
+    r"\b(?:what|how)\b[^\r\n.!?]{0,64}\b(?:I am|I'm|you are|you're)\s+"
+    r"(?:doing|playing|seeing|experiencing)\b[^\r\n.!?]{0,64}\b"
     r"(?:cronos|game|gameplay|screen)\b|"
     r"\bwhat\s+(?:am I|are you)\s+doing\s+(?:in|on)\s+"
     r"(?:cronos|the game|this game)\b",

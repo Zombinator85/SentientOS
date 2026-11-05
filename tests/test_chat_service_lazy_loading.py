@@ -551,6 +551,37 @@ def test_unconfigured_screen_activity_question_uses_verified_capability_fallback
     assert len(invoker.prompts) == 1
 
 
+def test_casual_greeting_with_game_context_reaches_model_instead_of_screen_fallback(
+        tmp_path):
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation("available", True, "b" * 64,
+                "2026-11-04T16:00:00+00:00")
+
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic",
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+        foreground_game_detector=Detector())
+    response = client.post("/chat", json={
+        "message": (
+            "Hey SentientOS, how are you doing tonight? "
+            "I am playing Cronos and could use some company."
+        ),
+        "observe_screen": False,
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["response"] == "explicit simulation"
+    assert body["context"]["response_origin"] == "model_generated"
+    assert invoker.calls == 1
+
+
 def test_visibility_clarification_request_gets_grounded_without_model_inference(tmp_path):
     from sentientos.foreground_game_detection import ForegroundGameObservation
 
