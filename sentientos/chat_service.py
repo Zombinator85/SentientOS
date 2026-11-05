@@ -1969,7 +1969,8 @@ class PersistentConversationService:
             if grounding_correction is None:
                 response_text, grounding_correction = corrected_gaming_output(
                     receipt.output_text, workload_mode=str(observed_workload_mode or "normal"),
-                    screen_observation_provenance=invocation_screen_provenance)
+                    screen_observation_provenance=invocation_screen_provenance,
+                    social_checkin=social_checkin)
         transcript_output_digest = digest_payload({"text": response_text})
         if grounding_correction is None:
             assistant_output_lineage = {

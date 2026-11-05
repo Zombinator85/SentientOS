@@ -41,6 +41,19 @@ def test_live_observed_unseen_gameplay_praise_gets_grounded_correction():
     assert correction["reason_code"] == "unobserved_gameplay_claim"
 
 
+def test_social_checkin_with_unsupported_gameplay_claim_gets_conversational_reply():
+    corrected, attribution = corrected_gaming_output(
+        "Sure, keeping an eye on your gaming session.",
+        workload_mode="gaming", screen_observation_provenance=None,
+        social_checkin=True,
+    )
+    assert corrected == "I’m here with you in SentientOS. How’s the session going?"
+    assert attribution == {
+        "policy_id": SOCIAL_CHECK_IN_POLICY_ID,
+        "reason_code": "unobserved_gameplay_claim_during_social_checkin",
+    }
+
+
 def test_claim_to_share_unobserved_gameplay_gets_grounded_correction():
     output = "I can share what you are experiencing in Cronos."
     assert unobserved_gameplay_claim(
@@ -287,6 +300,19 @@ def test_social_check_in_does_not_claim_an_unverified_subjective_state():
     assert attribution == {
         "policy_id": SOCIAL_CHECK_IN_POLICY_ID,
         "reason_code": "unsupported_subjective_self_state",
+    }
+
+
+def test_leaked_screen_observation_instruction_is_not_returned_as_chat():
+    corrected, attribution = corrected_social_instruction_echo(
+        "Foreground confirms only the app is open. Without "
+        "CURRENT_SCREEN_OBSERVATION_UNTRUSTED, say you cannot see gameplay.",
+        user_message="I am exploring Cronos and trying to stay stealthy tonight. Keep that in mind.",
+    )
+    assert corrected == "Got it—I’ll keep that in mind in this conversation."
+    assert attribution == {
+        "policy_id": SOCIAL_INSTRUCTION_ECHO_POLICY_ID,
+        "reason_code": "model_repeated_system_instruction",
     }
 
 

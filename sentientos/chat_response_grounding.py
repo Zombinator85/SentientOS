@@ -10,6 +10,9 @@ GROUNDING_POLICY_ID = "gaming_unobserved_claim_correction_v1"
 GROUNDING_CORRECTION = (
     "I can’t see the game this turn, but I’m here with you."
 )
+SOCIAL_GAMING_GROUNDING_CORRECTION = (
+    "I’m here with you in SentientOS. How’s the session going?"
+)
 
 SCREEN_CAPABILITY_POLICY_ID = "screen_observation_unconfigured_correction_v2"
 SOCIAL_INSTRUCTION_ECHO_POLICY_ID = "social_instruction_echo_correction_v1"
@@ -47,6 +50,16 @@ _TRAINING_CUTOFF_QUESTION = re.compile(
 _SOCIAL_INSTRUCTION_ECHO = re.compile(
     r"\bdo not claim feelings\b|\binfer user activity from (?:a )?foreground app\b"
     r"|\bready to chat;\s*do not\b",
+    re.IGNORECASE,
+)
+_SYSTEM_INSTRUCTION_ECHO = re.compile(
+    r"\bforeground confirms only the app is open\b|"
+    r"\b(?:CURRENT_SCREEN_OBSERVATION_UNTRUSTED|VERIFIED_RUNTIME_CONTEXT|"
+    r"SYSTEM_INSTRUCTION)\b",
+    re.IGNORECASE,
+)
+_KEEP_IN_MIND_REQUEST = re.compile(
+    r"\b(?:keep|remember) (?:that|this|it) in mind\b",
     re.IGNORECASE,
 )
 _SOCIAL_CHECK_IN = re.compile(
@@ -436,7 +449,10 @@ def corrected_social_instruction_echo(
 ) -> tuple[str, dict[str, str] | None]:
     """Replace a leaked rule or unsupported self-state claim with a natural reply."""
     check_in = _SOCIAL_CHECK_IN.search(user_message) is not None
-    instruction_echo = _SOCIAL_INSTRUCTION_ECHO.search(output) is not None
+    instruction_echo = (
+        _SOCIAL_INSTRUCTION_ECHO.search(output) is not None
+        or _SYSTEM_INSTRUCTION_ECHO.search(output) is not None
+    )
     unsupported_state = check_in and _UNSUPPORTED_SELF_STATE.search(output) is not None
     unsolicited_boilerplate = (
         check_in
@@ -464,8 +480,10 @@ def corrected_social_instruction_echo(
             "I can confirm the game is in the foreground, but I can’t see its gameplay "
             "in this turn."
         )
+    elif _KEEP_IN_MIND_REQUEST.search(user_message) is not None:
+        corrected = "Got it—I’ll keep that in mind in this conversation."
     else:
-        corrected = "I’m here as SentientOS and ready to chat. What would you like to know?"
+        corrected = "I’m here as SentientOS. I didn’t get a useful reply that time."
     return corrected, {
         "policy_id": (
             SOCIAL_CHECK_IN_POLICY_ID
@@ -519,12 +537,18 @@ def corrected_screen_capability_output(
 
 
 def corrected_gaming_output(output: str, *, workload_mode: str,
-                            screen_observation_provenance: Mapping[str, Any] | None
+                            screen_observation_provenance: Mapping[str, Any] | None,
+                            social_checkin: bool = False
                             ) -> tuple[str, dict[str, str] | None]:
-    """Replace only a known unsupported claim with a fixed, attributed correction."""
+    """Replace unsupported gameplay claims with a truthful, intent-aware reply."""
     if not unobserved_gameplay_claim(output, workload_mode=workload_mode,
             screen_observation_provenance=screen_observation_provenance):
         return output, None
+    if social_checkin:
+        return SOCIAL_GAMING_GROUNDING_CORRECTION, {
+            "policy_id": SOCIAL_CHECK_IN_POLICY_ID,
+            "reason_code": "unobserved_gameplay_claim_during_social_checkin",
+        }
     return GROUNDING_CORRECTION, {
         "policy_id": GROUNDING_POLICY_ID,
         "reason_code": "unobserved_gameplay_claim",
