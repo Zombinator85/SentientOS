@@ -31,6 +31,26 @@ MAX_SESSION_LIST_TOTAL_BYTES = 32 * 1024 * 1024
 _ID = re.compile(r"^[a-z0-9][a-z0-9-]{7,63}$")
 _TURN_ID = re.compile(r"^turn-[0-9a-f]{24}$")
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+_TRANSCRIPT_RECALL_STOP_WORDS = frozenset((
+    "a", "about", "after", "again", "an", "and", "are", "as", "at", "before",
+    "but", "can", "could", "did", "do", "does", "earlier", "first", "for",
+    "from", "had", "has", "have", "here", "how", "i", "in", "is", "it",
+    "just", "me", "my", "of", "on", "one", "or", "please", "previous",
+    "prior", "said", "say", "should", "tell", "that", "the", "their", "then",
+    "there", "this", "to", "was", "were", "what", "when", "where", "which",
+    "who", "why", "will", "with", "would", "you", "your", "ask", "asked",
+    "answer", "answered", "reply", "replied",
+))
+
+
+def transcript_recall_terms(text: str) -> frozenset[str]:
+    """Return content-word anchors for selecting relevant same-session turns."""
+    if not isinstance(text, str):
+        raise ValueError("conversation_recall_query_invalid")
+    return frozenset(
+        token for token in re.findall(r"[a-z0-9]+", text.casefold())
+        if len(token) > 2 and token not in _TRANSCRIPT_RECALL_STOP_WORDS
+    )
 
 
 def _now() -> str:
@@ -642,7 +662,8 @@ class ConversationSessionStore:
                     exclude_turn_id: str | None = None,
                     include_roles: tuple[str, ...] | None = None,
                     max_turns: int | None = None,
-                    oldest_first: bool = False) -> ContextSnapshot:
+                    oldest_first: bool = False,
+                    relevance_query: str | None = None) -> ContextSnapshot:
         session = self.load(session_id)
         if include_roles is not None and any(role not in {"user", "assistant"}
                                              for role in include_roles):
@@ -651,10 +672,35 @@ class ConversationSessionStore:
             raise ValueError("conversation_context_turn_limit_invalid")
         if type(oldest_first) is not bool:
             raise ValueError("conversation_context_order_invalid")
+        if relevance_query is not None and not isinstance(relevance_query, str):
+            raise ValueError("conversation_context_relevance_query_invalid")
         role_filter = set(include_roles) if include_roles is not None else None
         candidates = [t for t in session["turns"]
                       if t["turn_id"] != exclude_turn_id
                       and (role_filter is None or t["role"] in role_filter)]
+        query_terms = (transcript_recall_terms(relevance_query)
+                       if relevance_query is not None else frozenset())
+        if query_terms:
+            ranked = []
+            for index, turn in enumerate(candidates):
+                text = turn.get("text")
+                if not isinstance(text, str):
+                    continue
+                overlap = query_terms.intersection(transcript_recall_terms(text))
+                if overlap:
+                    sequence = turn.get("sequence")
+                    ranked.append((len(overlap), sequence if type(sequence) is int else index,
+                                   turn))
+            if ranked:
+                ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+                strongest_score = ranked[0][0]
+                strongest_matches = [item for item in ranked
+                                     if item[0] == strongest_score]
+                relevance_limit = max_turns if max_turns is not None else 3
+                selected_ids = {item[2]["turn_id"]
+                                for item in strongest_matches[:relevance_limit]}
+                candidates = [turn for turn in candidates
+                              if turn["turn_id"] in selected_ids]
         if max_turns is not None:
             candidates = candidates[:max_turns] if oldest_first else candidates[-max_turns:]
         selected: list[Mapping[str, Any]] = []; used = 0
