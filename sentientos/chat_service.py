@@ -519,6 +519,10 @@ class ChatRequestStateError(ValueError):
     """A replay conflict or an intentionally unreplayed interrupted request."""
 
 
+class ChatInputBudgetError(ChatRequestStateError):
+    """Current chat content cannot fit the active workload input ceiling."""
+
+
 class PersistentConversationService:
     """One transaction boundary for durable turns and governed inference.
 
@@ -1698,7 +1702,8 @@ class PersistentConversationService:
         # over-weight old prompts (for example, prior screen-visibility questions).
         memory_query = ("" if recent_session_recall or social_checkin
                         or current_runtime_question or self_contained_echo else message)
-        memory = self.memories.retrieve(memory_query, budget_chars=self.memory_budget_chars)
+        memory_budget = self.memory_budget_chars
+        memory = self.memories.retrieve(memory_query, budget_chars=memory_budget)
         # Keep casual check-ins independent of old transcript and retrieved
         # memories while still grounding the model in current, verified system
         # identity and capability state. A greeting must not make the runtime
@@ -1770,22 +1775,29 @@ class PersistentConversationService:
             recent_session_recall=recent_session_recall,
             earliest_session_recall=earliest_session_recall)
         if gaming_development_turn:
-            while history_budget > 0:
-                effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
-                    prompt, "gaming", social_checkin=social_checkin)
+            effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
+                prompt, "gaming", social_checkin=social_checkin)
+            while len(effective_prompt) > GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS:
                 overflow = (len(effective_prompt)
                     - GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS)
-                if overflow <= 0:
-                    break
-                next_budget = max(0, history_budget - overflow)
-                if next_budget == history_budget:
-                    next_budget = 0
-                history_budget = next_budget
-                history = self.sessions.reconstruct(
-                    session["session_id"], budget_chars=history_budget,
-                    exclude_turn_id=user_turn["turn_id"], include_roles=history_roles,
-                    max_turns=history_turn_limit, oldest_first=earliest_session_recall,
-                    relevance_query=history_relevance_query)
+                # Retrieved memory is supplemental to the active transcript. Drop
+                # it first so a long-running conversation keeps its recent turns.
+                if memory_budget > 0:
+                    memory_budget = max(0, memory_budget - overflow)
+                    memory = self.memories.retrieve(
+                        memory_query, budget_chars=memory_budget)
+                elif history_budget > 0:
+                    next_budget = max(0, history_budget - overflow)
+                    if next_budget == history_budget:
+                        next_budget = 0
+                    history_budget = next_budget
+                    history = self.sessions.reconstruct(
+                        session["session_id"], budget_chars=history_budget,
+                        exclude_turn_id=user_turn["turn_id"], include_roles=history_roles,
+                        max_turns=history_turn_limit, oldest_first=earliest_session_recall,
+                        relevance_query=history_relevance_query)
+                else:
+                    raise ChatInputBudgetError("chat_input_exceeds_gaming_budget")
                 runtime_context = self._verified_runtime_context(
                     identity=identity_payload, history=history, memory=memory,
                     session_id=session["session_id"],
@@ -1797,7 +1809,9 @@ class PersistentConversationService:
                     screen_observation=screen_observation,
                     compact_history=True,
                     recent_session_recall=recent_session_recall,
-            earliest_session_recall=earliest_session_recall)
+                    earliest_session_recall=earliest_session_recall)
+                effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
+                    prompt, "gaming", social_checkin=social_checkin)
         linkage = {"session_id": session["session_id"], "user_turn_id": user_turn["turn_id"],
                    "chat_response_style": ("social_checkin" if social_checkin else "default"),
                    "conversation_context_snapshot_digest": history.snapshot_digest,
@@ -2477,6 +2491,8 @@ async def chat_stream_endpoint(request: ChatRequest, http_request: Request) -> S
                 "retention": response.retention,
             }
             publish({"type": "complete", "response": payload})
+        except ChatInputBudgetError:
+            publish({"type": "error", "code": "chat_input_too_large"})
         except ChatRequestStateError:
             publish({"type": "error", "code": "chat_request_conflict"})
         except FileNotFoundError:
@@ -2531,6 +2547,8 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         return _get_conversation_service().chat(message, session_id=request.session_id,
             retain=request.retain, request_id=request.request_id,
             observe_screen=request.observe_screen)
+    except ChatInputBudgetError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     except ChatRequestStateError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except FileNotFoundError as exc:
