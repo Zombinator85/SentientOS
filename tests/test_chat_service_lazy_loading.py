@@ -1086,6 +1086,11 @@ def test_referential_user_recall_selects_matching_older_turn_without_memories(
         text="I have now found a note that reads east wing.")
     sessions.append_turn(
         session_id, role="user",
+        text=("Can you see the current Cronos gameplay? Answer briefly from the "
+              "screen-observation status and the fact that Cronos is foreground; "
+              "do not guess about the scene."))
+    sessions.append_turn(
+        session_id, role="user",
         text="I found an old key near the west wing.")
     for index in range(12):
         sessions.append_turn(

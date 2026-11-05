@@ -39,7 +39,9 @@ _TRANSCRIPT_RECALL_STOP_WORDS = frozenset((
     "prior", "said", "say", "should", "tell", "that", "the", "their", "then",
     "there", "this", "to", "was", "were", "what", "when", "where", "which",
     "who", "why", "will", "with", "would", "you", "your", "ask", "asked",
-    "answer", "answered", "reply", "replied",
+    "answer", "answered", "briefly", "chat", "claim", "conversation", "current",
+    "exact", "foreground", "game", "gameplay", "guess", "not", "our", "reply",
+    "replied", "screen", "see", "they", "two", "word", "words",
 ))
 
 
@@ -47,10 +49,18 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
     """Return content-word anchors for selecting relevant same-session turns."""
     if not isinstance(text, str):
         raise ValueError("conversation_recall_query_invalid")
-    return frozenset(
-        token for token in re.findall(r"[a-z0-9]+", text.casefold())
-        if len(token) > 2 and token not in _TRANSCRIPT_RECALL_STOP_WORDS
-    )
+    terms: set[str] = set()
+    for token in re.findall(r"[a-z0-9]+", text.casefold()):
+        if len(token) <= 2 or token in _TRANSCRIPT_RECALL_STOP_WORDS:
+            continue
+        normalized = (
+            token[:-1]
+            if token.endswith("s") and not token.endswith("ss") and len(token) > 4
+            else token
+        )
+        if normalized not in _TRANSCRIPT_RECALL_STOP_WORDS:
+            terms.add(normalized)
+    return frozenset(terms)
 
 
 def _is_prior_message_recall_question(text: str) -> bool:
