@@ -17,6 +17,12 @@ SOCIAL_CHECK_IN_POLICY_ID = "social_check_in_grounding_correction_v1"
 CURRENT_GAME_STATUS_POLICY_ID = "verified_foreground_only_game_status_v1"
 GAME_PROCESS_STATUS_POLICY_ID = "verified_game_process_status_v1"
 SYSTEM_IDENTITY_POLICY_ID = "sentientos_companion_identity_grounding_v1"
+UNPROVIDED_SOURCE_POLICY_ID = "unprovided_referenced_source_grounding_v1"
+UNPROVIDED_SOURCE_CORRECTION = (
+    "I don’t have the referenced source’s contents in this conversation, so I can’t "
+    "summarize its recommendations or assess what the data establish. Share the source "
+    "or its key excerpts and I’ll answer from that."
+)
 _UNSUPPORTED_SELF_STATE = re.compile(
     r"\bI(?:'m| am)\s+(?:doing\s+(?:well|great|fine)|"
     r"(?:pretty\s+)?(?:good|great|fine|happy|excited|sad|tired))\b|"
@@ -475,4 +481,59 @@ def corrected_output_lineage(*, invocation_output_digest: str, text: str,
         "output_truncated": output_truncated,
         "policy_id": policy_id,
         "reason_code": reason_code,
+    }
+
+
+_REFERENCED_SOURCE = re.compile(
+    r"\b(?:the|this|that|attached|shared|provided|earlier|previous)\b"
+    r"[^\r\n.!?]{0,64}\b(?:review|report|document|article|paper|file|source)\b",
+    re.IGNORECASE,
+)
+_SOURCE_CONTENT_REQUEST = re.compile(
+    r"\b(?:summari[sz]e|recommend(?:s|ed|ation)?|conclude(?:s|d|ion)?|"
+    r"according to|what.{0,64}(?:say|says|said|establish|establishes|prove|proves))\b",
+    re.IGNORECASE,
+)
+_SOURCE_CONTEXT_WORDS = re.compile(r"[a-z0-9]+", re.IGNORECASE)
+_SOURCE_CONTEXT_STOPWORDS = frozenset({
+    "about", "after", "also", "and", "are", "can", "could", "does", "from",
+    "have", "into", "its", "just", "more", "much", "that", "the", "their",
+    "them", "there", "these", "this", "those", "what", "when", "where", "which",
+    "while", "will", "with", "would", "you", "your",
+})
+
+
+def corrected_unprovided_source_reference(
+    output: str, *, user_message: str, available_context: str,
+) -> tuple[str, dict[str, str] | None]:
+    """Decline to summarize a referenced source whose contents are unavailable."""
+    if (not isinstance(user_message, str) or not isinstance(available_context, str)
+            or not _REFERENCED_SOURCE.search(user_message)
+            or not _SOURCE_CONTENT_REQUEST.search(user_message)):
+        return output, None
+
+    # A substantial source pasted into the current request is available without
+    # prior context. Short document mentions alone do not establish its contents.
+    if len(user_message) >= 500 or re.search(
+            r"\b(?:excerpt|quote|quoted text|source text|review text|report text|"
+            r"document text|as follows|below)\b[^\r\n]{80,}",
+            user_message, re.IGNORECASE):
+        return output, None
+    if re.search(r"[“\"].{80,}[”\"]", user_message, re.DOTALL):
+        return output, None
+
+    context_words = set(_SOURCE_CONTEXT_WORDS.findall(available_context.casefold()))
+    query_words = {
+        word for word in _SOURCE_CONTEXT_WORDS.findall(user_message.casefold())
+        if len(word) >= 4 and word not in _SOURCE_CONTEXT_STOPWORDS
+    }
+    source_marker = bool(context_words.intersection(
+        {"review", "report", "document", "article", "paper", "source"}))
+    shared_terms = query_words.intersection(context_words)
+    if source_marker and len(available_context) >= 120 and len(shared_terms) >= 2:
+        return output, None
+
+    return UNPROVIDED_SOURCE_CORRECTION, {
+        "policy_id": UNPROVIDED_SOURCE_POLICY_ID,
+        "reason_code": "referenced_source_contents_unavailable",
     }
