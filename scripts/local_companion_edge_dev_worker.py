@@ -76,11 +76,16 @@ def main():
             return False
         capture=screen_dispatch_state.get("capture")
         return capture(message.payload["capture_request_id"]) if callable(capture) else False
+    def report_dispatch_outcome(outcome):
+        if outcome.get("kind") == "avatar_command":
+            print("AVATAR_DISPATCH "+json.dumps(
+                outcome,separators=(",",":"),sort_keys=True),flush=True)
     dispatcher=WindowsEdgeAvatarCommandDispatchOwner(
         runtime=runtime,receipt_verifier=verify_receipt,renderer_sink=render,
         additional_message_handlers=(
             {"screen_capture_request":capture_screen_request}
-            if isinstance(screen_cfg,dict) else None))
+            if isinstance(screen_cfg,dict) else None),
+        dispatch_outcome_observer=report_dispatch_outcome)
     godot=None;forwarder=None;foreground_pump=None
     try:
         print("EDGE_STARTUP phase=bridge_runtime",flush=True)

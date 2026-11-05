@@ -318,6 +318,52 @@ def test_dispatch_rejects_unverified_receipts_and_sink_denial_without_retry():
     assert owner.status().accepted == 0
 
 
+def test_dispatch_outcome_observer_records_rejection_without_response_text():
+    message, _admission = verified_command()
+    outcomes = []
+    owner = WindowsEdgeAvatarCommandDispatchOwner(
+        runtime=_Runtime(), receipt_verifier=lambda *_: True,
+        renderer_sink=lambda *_: False,
+        dispatch_outcome_observer=outcomes.append,
+    )
+
+    assert owner.dispatch_one(message) is False
+    assert outcomes == [{
+        "schema_version": "sentientos.avatar_dispatch_outcome:v1",
+        "message_id": message.message_id,
+        "session_id": "session-1",
+        "kind": "avatar_command",
+        "accepted": False,
+        "renderer_effect_proven": False,
+        "turn_id": "turn-1",
+        "failure_code": "avatar_command_renderer_queue_rejected",
+    }]
+    assert "phrase" not in outcomes[0]
+
+
+def test_dispatch_outcome_observer_records_success_without_claiming_render():
+    message, admission = verified_command()
+    outcomes = []
+    owner = WindowsEdgeAvatarCommandDispatchOwner(
+        runtime=_Runtime(),
+        receipt_verifier=lambda receipt_id, digest, _message:
+            (receipt_id, digest) == (admission["receipt_id"], admission["semantic_digest"]),
+        renderer_sink=lambda *_: True,
+        dispatch_outcome_observer=outcomes.append,
+    )
+
+    assert owner.dispatch_one(message) is True
+    assert outcomes == [{
+        "schema_version": "sentientos.avatar_dispatch_outcome:v1",
+        "message_id": message.message_id,
+        "session_id": "session-1",
+        "kind": "avatar_command",
+        "accepted": True,
+        "renderer_effect_proven": False,
+        "turn_id": "turn-1",
+    }]
+
+
 def test_verified_command_updates_real_local_avatar_state_file_not_effect_claim(tmp_path):
     message, admission = verified_command()
     target = tmp_path / "avatar_state.json"

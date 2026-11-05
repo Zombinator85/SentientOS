@@ -62,6 +62,40 @@ def test_forward_lines_persists_avatar_state_acceptance_without_claiming_render(
     assert "renderer_effect_proven" not in event
 
 
+def test_forward_lines_persists_dispatch_outcome_distinct_from_renderer_effect(
+    tmp_path,
+) -> None:
+    lines: queue.Queue[str] = queue.Queue()
+    report_file = tmp_path / "renderer-reports.jsonl"
+    outcome = {
+        "schema_version": "sentientos.avatar_dispatch_outcome:v1",
+        "message_id": "message-1",
+        "session_id": "session-123",
+        "kind": "avatar_command",
+        "accepted": False,
+        "renderer_effect_proven": False,
+        "turn_id": "turn-456",
+        "failure_code": "avatar_command_renderer_queue_rejected",
+    }
+
+    _TemporaryCompanionEdge._forward_lines(
+        io.StringIO("READY 12345 67890" + chr(10) + "AVATAR_DISPATCH "
+                    + json.dumps(outcome) + chr(10)),
+        lines,
+        report_file,
+    )
+
+    event_path = tmp_path / "avatar-delivery-events.jsonl"
+    event = json.loads(event_path.read_text(encoding="utf-8"))
+    assert event["event"] == "windows_edge_avatar_command_dispatch"
+    assert event["accepted"] is False
+    assert event["failure_code"] == "avatar_command_renderer_queue_rejected"
+    assert event["turn_id"] == "turn-456"
+    assert event["renderer_effect_proven"] is False
+    assert "phrase" not in event
+    assert event["observed_at"]
+
+
 def test_terminate_owned_process_tree_stops_windows_descendants(
     tmp_path, monkeypatch
 ) -> None:

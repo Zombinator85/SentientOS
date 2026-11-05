@@ -471,6 +471,32 @@ class _TemporaryCompanionEdge:
                         handle.flush()
                 except (OSError, ValueError, TypeError):
                     pass
+            if rendered.startswith("AVATAR_DISPATCH "):
+                try:
+                    outcome = json.loads(rendered[len("AVATAR_DISPATCH "):])
+                    if (not isinstance(outcome, dict)
+                            or outcome.get("schema_version")
+                                != "sentientos.avatar_dispatch_outcome:v1"
+                            or not isinstance(outcome.get("message_id"), str)
+                            or not isinstance(outcome.get("session_id"), str)
+                            or outcome.get("kind") != "avatar_command"
+                            or type(outcome.get("accepted")) is not bool
+                            or outcome.get("renderer_effect_proven") is not False
+                            or ("failure_code" in outcome
+                                and not isinstance(outcome.get("failure_code"), str))):
+                        raise ValueError("avatar_dispatch_outcome_invalid")
+                    event = {
+                        "event": "windows_edge_avatar_command_dispatch",
+                        "observed_at": datetime.now(timezone.utc).isoformat(),
+                        **outcome,
+                    }
+                    delivery_file = report_file.with_name("avatar-delivery-events.jsonl")
+                    with delivery_file.open("a", encoding="utf-8") as handle:
+                        handle.write(json.dumps(event, separators=(",", ":")))
+                        handle.write(chr(10))
+                        handle.flush()
+                except (OSError, ValueError, TypeError):
+                    pass
             if rendered.startswith("AVATAR_ACCEPTED "):
                 try:
                     accepted = json.loads(rendered[len("AVATAR_ACCEPTED "):])
