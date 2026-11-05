@@ -118,6 +118,9 @@ class WindowsEdgeAvatarCommandDispatchOwner:
                  receipt_replay_guard: AdmissionReceiptReplayGuard | None = None,
                  additional_message_handlers: Mapping[
                      str, Callable[[VerifiedBridgeMessage], bool]
+                 ] | None = None,
+                 dispatch_outcome_observer: Callable[
+                     [Mapping[str, object]], None
                  ] | None = None) -> None:
         if not callable(getattr(runtime, "receive", None)):
             raise CompanionBridgeError("avatar_command_runtime_required")
@@ -136,6 +139,9 @@ class WindowsEdgeAvatarCommandDispatchOwner:
                 or any(kind != "screen_capture_request" or not callable(handler)
                        for kind, handler in additional_message_handlers.items())):
             raise CompanionBridgeError("avatar_command_additional_handlers_invalid")
+        if dispatch_outcome_observer is not None and not callable(dispatch_outcome_observer):
+            raise CompanionBridgeError("avatar_command_dispatch_observer_invalid")
+        self._dispatch_outcome_observer = dispatch_outcome_observer
         self._additional_message_handlers = dict(additional_message_handlers or {})
         self._runtime = runtime
         self._verify = receipt_verifier
@@ -178,6 +184,32 @@ class WindowsEdgeAvatarCommandDispatchOwner:
                 self._accepted, self._rejected, self._last_message_id,
                 self._last_failure)
 
+    def _observe_dispatch_outcome(self, message: VerifiedBridgeMessage, *,
+                                  accepted: bool,
+                                  failure_code: str | None = None) -> None:
+        observer = self._dispatch_outcome_observer
+        if observer is None:
+            return
+        payload = message.payload if isinstance(message.payload, Mapping) else {}
+        turn_id = payload.get("turn_id")
+        event: dict[str, object] = {
+            "schema_version": "sentientos.avatar_dispatch_outcome:v1",
+            "message_id": message.message_id,
+            "session_id": message.session_id,
+            "kind": message.kind,
+            "accepted": accepted,
+            "renderer_effect_proven": False,
+        }
+        if isinstance(turn_id, str) and 0 < len(turn_id) <= 128:
+            event["turn_id"] = turn_id
+        if failure_code is not None:
+            event["failure_code"] = failure_code
+        try:
+            observer(event)
+        except Exception:
+            # Diagnostics must not alter one-shot dispatch behavior.
+            pass
+
     def close(self) -> None:
         self._stop.set()
         with self._lock:
@@ -211,6 +243,7 @@ class WindowsEdgeAvatarCommandDispatchOwner:
                 with self._lock:
                     self._accepted += 1
                     self._last_failure = None
+                self._observe_dispatch_outcome(message, accepted=True)
                 return True
             if message.kind != "avatar_command" or not isinstance(message.admission, Mapping):
                 raise CompanionBridgeError("avatar_command_message_required")
@@ -226,13 +259,20 @@ class WindowsEdgeAvatarCommandDispatchOwner:
                 raise CompanionBridgeError("avatar_command_renderer_queue_rejected")
         except Exception as exc:
             reason = str(exc.args[0]) if exc.args else type(exc).__name__
+            safe_reason = reason[:128]
+            if (not safe_reason.isascii() or not safe_reason.replace("_", "").isalnum()
+                    or not safe_reason):
+                safe_reason = type(exc).__name__
             with self._lock:
                 self._rejected += 1
-                self._last_failure = reason[:128]
+                self._last_failure = safe_reason
+            self._observe_dispatch_outcome(
+                message, accepted=False, failure_code=safe_reason)
             return False
         with self._lock:
             self._accepted += 1
             self._last_failure = None
+        self._observe_dispatch_outcome(message, accepted=True)
         return True
 
     def _run(self) -> None:
