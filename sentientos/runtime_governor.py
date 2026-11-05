@@ -1151,7 +1151,10 @@ class RuntimeGovernor:
         identity_digest = payload.get("model_identity_digest")
         valid = (
             payload.get("purpose") == "local_model_resource_release"
-            and payload.get("reason_code") == "gaming_mode_entered"
+            and payload.get("reason_code") in {
+                "gaming_mode_entered",
+                "development_chat_shutdown",
+            }
             and isinstance(identity_digest, str)
             and re.fullmatch(r"[0-9a-f]{64}", identity_digest) is not None
         )
