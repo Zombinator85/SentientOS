@@ -130,6 +130,36 @@ def test_live_game_status_uses_verified_foreground_without_inventing_scene_detai
     }
 
 
+def test_current_game_question_names_cronos_and_distinguishes_configured_screen_source():
+    corrected, attribution = corrected_unobserved_game_status(
+        "The allowlisted process is active.",
+        user_message=("What do you currently know about Cronos on this computer, "
+                      "and can you see the game screen? Be concise and distinguish running from foreground."),
+        verified_runtime_context={
+            "workload": {
+                "game_foreground": True,
+                "game_process_running": True,
+                "effective_mode": "gaming",
+                "observation_status": "available",
+                "configured_game_process_names": [
+                    "Cronos-Win64-Shipping.exe", "Cronos.exe",
+                ],
+            },
+            "capabilities": {"screen_observation": {"configured": True}},
+        },
+        screen_observation_provenance=None,
+    )
+    assert corrected == (
+        "I can verify Cronos is running in the foreground, and SentientOS is in gaming mode. "
+        "Screen observation is configured for this local session, but it wasn’t included "
+        "in this message, so I can’t describe the gameplay."
+    )
+    assert attribution == {
+        "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+        "reason_code": "verified_workload_context_screen_unavailable",
+    }
+
+
 def test_live_screen_activity_question_reports_unconfigured_source_accurately():
     corrected, attribution = corrected_unobserved_game_status(
         "Screen observation requires your permission.",
