@@ -12,6 +12,7 @@ from scripts.gaming_companion_cross_host_smoke import (
     _contexts,
     _private_ip,
     _test_identities,
+    TEMPORARY_TEST_IDENTITY_LIFETIME,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -34,6 +35,7 @@ def test_cross_host_smoke_test_credentials_are_distinct_and_mutually_usable(
     for identity in (wsl, windows):
         cert = x509.load_pem_x509_certificate(identity["cert"].read_bytes())
         assert hashlib.sha256(cert.public_bytes(Encoding.DER)).hexdigest() == identity["pin"]
+        assert cert.not_valid_after_utc - cert.not_valid_before_utc >= TEMPORARY_TEST_IDENTITY_LIFETIME
         server, client = _contexts(ca, identity["cert"], identity["key"])
         assert server.verify_mode == ssl.CERT_REQUIRED
         assert client.check_hostname is True

@@ -88,6 +88,9 @@ def _write(path: Path, data: bytes) -> None:
         os.fsync(stream.fileno())
 
 
+TEMPORARY_TEST_IDENTITY_LIFETIME = timedelta(hours=12)
+
+
 def _test_identities(directory: Path) -> dict[str, Any]:
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     ca_key = ec.generate_private_key(ec.SECP256R1())
@@ -96,7 +99,7 @@ def _test_identities(directory: Path) -> dict[str, Any]:
     ca = (x509.CertificateBuilder().subject_name(ca_name).issuer_name(ca_name)
         .public_key(ca_key.public_key()).serial_number(x509.random_serial_number())
         .not_valid_before(now - timedelta(minutes=1))
-        .not_valid_after(now + timedelta(hours=1))
+        .not_valid_after(now + TEMPORARY_TEST_IDENTITY_LIFETIME)
         .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
         .sign(ca_key, hashes.SHA256()))
     ca_path = directory / "ca.pem"
@@ -110,7 +113,7 @@ def _test_identities(directory: Path) -> dict[str, Any]:
             .issuer_name(ca_name).public_key(key.public_key())
             .serial_number(x509.random_serial_number())
             .not_valid_before(now - timedelta(minutes=1))
-            .not_valid_after(now + timedelta(hours=1))
+            .not_valid_after(now + TEMPORARY_TEST_IDENTITY_LIFETIME)
             .add_extension(x509.SubjectAlternativeName([x509.DNSName(hostname)]), critical=False)
             .add_extension(x509.ExtendedKeyUsage([
                 ExtendedKeyUsageOID.SERVER_AUTH, ExtendedKeyUsageOID.CLIENT_AUTH]), critical=False)
