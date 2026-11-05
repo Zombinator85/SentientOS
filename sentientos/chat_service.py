@@ -56,6 +56,7 @@ from .chat_response_grounding import (
     CURRENT_GAME_STATUS_POLICY_ID, corrected_gaming_output, corrected_output_lineage,
     corrected_screen_capability_output, corrected_social_instruction_echo,
     corrected_system_identity_output, corrected_unobserved_game_status,
+    corrected_nonresponsive_gaming_next_step,
     corrected_unprovided_source_reference,
     is_direct_screen_activity_question, is_verified_current_game_context_question,
 )
@@ -1962,6 +1963,11 @@ class PersistentConversationService:
                 response_text, grounding_correction = corrected_unobserved_game_status(
                     receipt.output_text, user_message=message,
                     verified_runtime_context=runtime_context,
+                    screen_observation_provenance=invocation_screen_provenance)
+            if grounding_correction is None:
+                response_text, grounding_correction = corrected_nonresponsive_gaming_next_step(
+                    receipt.output_text, user_message=message,
+                    workload_mode=str(observed_workload_mode or "normal"),
                     screen_observation_provenance=invocation_screen_provenance)
             if grounding_correction is None:
                 response_text, grounding_correction = corrected_social_instruction_echo(

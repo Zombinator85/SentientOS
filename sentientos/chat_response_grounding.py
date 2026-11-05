@@ -21,6 +21,7 @@ CURRENT_GAME_STATUS_POLICY_ID = "verified_foreground_only_game_status_v1"
 GAME_PROCESS_STATUS_POLICY_ID = "verified_game_process_status_v1"
 SYSTEM_IDENTITY_POLICY_ID = "sentientos_companion_identity_grounding_v1"
 UNPROVIDED_SOURCE_POLICY_ID = "unprovided_referenced_source_grounding_v1"
+GAMING_NEXT_STEP_POLICY_ID = "gaming_next_step_nonresponsive_fallback_v1"
 UNPROVIDED_SOURCE_CORRECTION = (
     "I don’t have the referenced source’s contents in this conversation, so I can’t "
     "summarize its recommendations or assess what the data establish. Share the source "
@@ -56,6 +57,28 @@ _SYSTEM_INSTRUCTION_ECHO = re.compile(
     r"\bforeground confirms only the app is open\b|"
     r"\b(?:CURRENT_SCREEN_OBSERVATION_UNTRUSTED|VERIFIED_RUNTIME_CONTEXT|"
     r"SYSTEM_INSTRUCTION)\b",
+    re.IGNORECASE,
+)
+_NEXT_STEP_ADVICE_REQUEST = re.compile(
+    r"\b(?:what should I do next|what do I do next|what is one next step|"
+    r"what\'s one next step|one next step based on|what should I check next|"
+    r"where should I go next|what do I do now|what should I check)\b",
+    re.IGNORECASE,
+)
+_NEXT_STEP_VISIBILITY_BOILERPLATE = re.compile(
+    r"\b(?:without screen observation|no screen observation|cannot confirm gameplay|"
+    r"can\'t confirm gameplay|verify (?:the )?foreground app|"
+    r"verified foreground app|scene description available)\b",
+    re.IGNORECASE,
+)
+_USER_SHARED_GAME_CLUE = re.compile(
+    r"\b(?:note|clue|sign|message|text|label)\s+(?:that\s+)?"
+    r"(?:says|reads|states|is)\s+[\"]?([^\"\n.!?]{2,80})",
+    re.IGNORECASE,
+)
+_USER_SAYS_SCENE_UNDESCRIBED = re.compile(
+    r"\b(?:have not|haven\'t|did not|didn\'t) described "
+    r"(?:the )?(?:current )?(?:game )?(?:scene|screen)\b",
     re.IGNORECASE,
 )
 _KEEP_IN_MIND_REQUEST = re.compile(
@@ -533,6 +556,48 @@ def corrected_screen_capability_output(
     return SCREEN_CAPABILITY_CORRECTION, {
         "policy_id": SCREEN_CAPABILITY_POLICY_ID,
         "reason_code": "screen_observation_not_configured",
+    }
+
+
+def corrected_nonresponsive_gaming_next_step(
+    output: str, *, user_message: str, workload_mode: str,
+    screen_observation_provenance: Mapping[str, Any] | None,
+) -> tuple[str, dict[str, str] | None]:
+    """Repair next-step replies that ignore an explicit clue or stated lack of context."""
+    if (workload_mode != "gaming"
+            or _has_readable_screen_text(screen_observation_provenance)
+            or not _NEXT_STEP_ADVICE_REQUEST.search(user_message)):
+        return output, None
+
+    clue = _USER_SHARED_GAME_CLUE.search(user_message)
+    clue_value = " ".join(clue.group(1).split()).strip(" \"'") if clue else None
+    clue_ignored = bool(clue_value and clue_value.casefold() not in output.casefold())
+    visibility_boilerplate = _NEXT_STEP_VISIBILITY_BOILERPLATE.search(output) is not None
+    scene_undescribed = _USER_SAYS_SCENE_UNDESCRIBED.search(user_message) is not None
+    underspecified_reply = (
+        scene_undescribed
+        and ("?" not in output
+             or not re.search(r"\b(?:objective|clue|goal|scene|trying|describe)\b",
+                              output, re.IGNORECASE))
+    )
+    if not clue_ignored and not visibility_boilerplate and not underspecified_reply:
+        return output, None
+
+    if clue_ignored and clue_value:
+        corrected = (
+            f"Check whether the objective mentions \u201c{clue_value}\u201d; it\u2019s the clearest lead "
+            "in your note, and I\u2019m reasoning from your text, not screen vision."
+        )
+        reason = "model_ignored_user_provided_game_clue"
+    else:
+        corrected = (
+            "What does the current objective or last clue say? Share its wording and I\u2019ll "
+            "suggest one next step from that."
+        )
+        reason = "model_returned_unhelpful_next_step_without_scene_context"
+    return corrected, {
+        "policy_id": GAMING_NEXT_STEP_POLICY_ID,
+        "reason_code": reason,
     }
 
 
