@@ -56,9 +56,22 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
 def _is_prior_message_recall_question(text: str) -> bool:
     """Avoid treating an earlier recall question as the evidence it requested."""
     normalized = " ".join(re.findall(r"[a-z0-9]+", text.casefold()))
-    return (re.search(
-        r"\bwhat did (?:i|you|the [a-z0-9]+) (?:say|tell|write)\b", normalized
-    ) is not None or re.search(r"\bwhat was written\b", normalized) is not None)
+    explicit_recall = (
+        re.search(
+            r"\bwhat did (?:i|you|the [a-z0-9]+) (?:say|tell|write)\b", normalized
+        ) is not None
+        or re.search(r"\bwhat was written\b", normalized) is not None
+    )
+    anaphoric_recall = re.search(
+        r"\bwhat (?:was|were) (?:it|they|those|these)\b", normalized
+    ) is not None
+    has_prior_reference = any(marker in normalized for marker in (
+        "earlier in our chat", "earlier in our conversation",
+        "earlier in this chat", "earlier in this conversation",
+        "i told you earlier", "earlier i told you",
+        "i mentioned earlier", "earlier i mentioned",
+    ))
+    return explicit_recall or (anaphoric_recall and has_prior_reference)
 
 
 def _now() -> str:

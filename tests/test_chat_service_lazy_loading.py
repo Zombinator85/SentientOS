@@ -1115,6 +1115,42 @@ def test_referential_user_recall_selects_matching_older_turn_without_memories(
     assert response.json()["context"]["selected_memory_count"] == 0
 
 
+
+def test_referential_recall_excludes_prior_anaphoric_recall_question(tmp_path, monkeypatch):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    session_id = client.post("/sessions").json()["session_id"]
+    sessions = chat._CONVERSATION_SERVICE.sessions
+    note_turn = sessions.append_turn(
+        session_id, role="user",
+        text="I have now found a note that reads east wing.")
+    prior_recall_question = (
+        "Earlier in our chat, I said a note in Cronos read two words. "
+        "What were they? Answer briefly from our conversation, and do not claim to see the screen.")
+    sessions.append_turn(session_id, role="user", text=prior_recall_question)
+
+    response = client.post("/chat", json={
+        "session_id": session_id,
+        "message": "What were the two words on the Cronos note I mentioned earlier?",
+    })
+
+    assert response.status_code == 200
+    assert memory_queries == [""]
+    prompt = invoker.prompts[-1]
+    assert note_turn["text"] in prompt
+    assert prior_recall_question not in prompt
+    assert response.json()["context"]["selected_turn_count"] == 1
+    assert response.json()["context"]["selected_memory_count"] == 0
+
 def test_social_checkin_uses_only_current_message_without_stale_context(
         tmp_path, monkeypatch):
     chat = _reload(); client = TestClient(chat.APP)
