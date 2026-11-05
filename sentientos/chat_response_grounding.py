@@ -292,8 +292,14 @@ def corrected_unobserved_game_status(
             running = True
         elif type(running) is not bool:
             return output, None
-        process_name = (mentioned[0] if len(mentioned) == 1 else
-                        names[0] if len(names) == 1 else None)
+        process_names = mentioned or names
+        labels = {
+            re.sub(r"[-_]+", " ", re.sub(
+                r"[-_]win64[-_]shipping$", "", name.rsplit(".", 1)[0],
+                flags=re.IGNORECASE)).strip().casefold()
+            for name in process_names
+        }
+        process_name = process_names[0] if len(labels) == 1 else None
         if process_name is not None:
             label = re.sub(r"[-_]win64[-_]shipping$", "", process_name.rsplit(".", 1)[0],
                            flags=re.IGNORECASE)
@@ -301,7 +307,7 @@ def corrected_unobserved_game_status(
         else:
             label = "The allowlisted game process"
         if foreground:
-            workload_fact = f"{label} is the foreground app"
+            workload_fact = f"{label} is running in the foreground"
         elif running:
             workload_fact = f"{label} is running in the background"
         else:
@@ -316,6 +322,11 @@ def corrected_unobserved_game_status(
             observation_limit = (
                 "Screen observation isn’t configured in this session, "
                 "so I can’t describe the gameplay."
+            )
+        elif isinstance(screen, Mapping) and screen.get("configured") is True:
+            observation_limit = (
+                "Screen observation is configured for this local session, "
+                "but it wasn’t included in this message, so I can’t describe the gameplay."
             )
         else:
             observation_limit = (
