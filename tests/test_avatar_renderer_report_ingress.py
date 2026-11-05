@@ -188,6 +188,7 @@ def test_authenticated_renderer_report_returns_to_durable_unverified_world_state
         owner.close()
 
 
+@pytest.mark.skipif(os.name != "posix", reason="renderer evidence-store permission checks are POSIX-specific")
 def test_renderer_capture_rejects_transport_lineage_mismatch_and_open_store(tmp_path: Path):
     store = RendererReportEvidenceStore(tmp_path / "private")
     with pytest.raises(RendererReportIngressError, match="lineage_mismatch"):
