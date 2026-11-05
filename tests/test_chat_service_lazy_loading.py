@@ -1089,6 +1089,11 @@ def test_referential_user_recall_selects_matching_older_turn_without_memories(
         sessions.append_turn(
             session_id, role="user",
             text=f"Unrelated recent turn {index}: " + "inventory status " * 28)
+    prior_recall_question = (
+        "Earlier I told you about a note I found in Cronos. "
+        "What did the note say? Please answer briefly.")
+    sessions.append_turn(
+        session_id, role="user", text=prior_recall_question)
 
     assert client.post("/workload-mode", json={"mode": "gaming"}).status_code == 200
     response = client.post("/chat", json={
@@ -1102,6 +1107,8 @@ def test_referential_user_recall_selects_matching_older_turn_without_memories(
     assert note_turn["text"] in prompt
     assert "I found an old key near the west wing." not in prompt
     assert "Unrelated recent turn" not in prompt
+    expected_recall_question_count = 1 if message == prior_recall_question else 0
+    assert prompt.count(prior_recall_question) == expected_recall_question_count
     assert response.json()["context"]["selected_turn_count"] == 1
     assert response.json()["context"]["selected_memory_count"] == 0
 
