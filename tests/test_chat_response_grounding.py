@@ -303,6 +303,19 @@ def test_social_check_in_does_not_claim_an_unverified_subjective_state():
     }
 
 
+def test_leaked_screen_observation_instruction_is_not_returned_as_chat():
+    corrected, attribution = corrected_social_instruction_echo(
+        "Foreground confirms only the app is open. Without "
+        "CURRENT_SCREEN_OBSERVATION_UNTRUSTED, say you cannot see gameplay.",
+        user_message="I am exploring Cronos and trying to stay stealthy tonight. Keep that in mind.",
+    )
+    assert corrected == "Got it—I’ll keep that in mind in this conversation."
+    assert attribution == {
+        "policy_id": SOCIAL_INSTRUCTION_ECHO_POLICY_ID,
+        "reason_code": "model_repeated_system_instruction",
+    }
+
+
 def test_social_checkin_replaces_unsolicited_ai_feelings_and_cutoff_boilerplate():
     corrected, attribution = corrected_social_instruction_echo(
         "As an AI language model, I don't have feelings, and my training cutoff is 2023.",

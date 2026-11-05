@@ -52,6 +52,16 @@ _SOCIAL_INSTRUCTION_ECHO = re.compile(
     r"|\bready to chat;\s*do not\b",
     re.IGNORECASE,
 )
+_SYSTEM_INSTRUCTION_ECHO = re.compile(
+    r"\bforeground confirms only the app is open\b|"
+    r"\b(?:CURRENT_SCREEN_OBSERVATION_UNTRUSTED|VERIFIED_RUNTIME_CONTEXT|"
+    r"SYSTEM_INSTRUCTION)\b",
+    re.IGNORECASE,
+)
+_KEEP_IN_MIND_REQUEST = re.compile(
+    r"\b(?:keep|remember) (?:that|this|it) in mind\b",
+    re.IGNORECASE,
+)
 _SOCIAL_CHECK_IN = re.compile(
     r"\bhow\s+(?:are you|(?:is|'s)\s+your\s+(?:day|evening|morning|night))\b"
     r"|\bhow(?:'s| is)\s+it\s+going\b",
@@ -439,7 +449,10 @@ def corrected_social_instruction_echo(
 ) -> tuple[str, dict[str, str] | None]:
     """Replace a leaked rule or unsupported self-state claim with a natural reply."""
     check_in = _SOCIAL_CHECK_IN.search(user_message) is not None
-    instruction_echo = _SOCIAL_INSTRUCTION_ECHO.search(output) is not None
+    instruction_echo = (
+        _SOCIAL_INSTRUCTION_ECHO.search(output) is not None
+        or _SYSTEM_INSTRUCTION_ECHO.search(output) is not None
+    )
     unsupported_state = check_in and _UNSUPPORTED_SELF_STATE.search(output) is not None
     unsolicited_boilerplate = (
         check_in
@@ -467,8 +480,10 @@ def corrected_social_instruction_echo(
             "I can confirm the game is in the foreground, but I can’t see its gameplay "
             "in this turn."
         )
+    elif _KEEP_IN_MIND_REQUEST.search(user_message) is not None:
+        corrected = "Got it—I’ll keep that in mind in this conversation."
     else:
-        corrected = "I’m here as SentientOS and ready to chat. What would you like to know?"
+        corrected = "I’m here as SentientOS. I didn’t get a useful reply that time."
     return corrected, {
         "policy_id": (
             SOCIAL_CHECK_IN_POLICY_ID
