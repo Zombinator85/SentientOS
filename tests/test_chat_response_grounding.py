@@ -414,6 +414,24 @@ def test_screen_capability_reports_when_configured_capture_has_no_readable_text(
     }
 
 
+def test_screen_capability_does_not_claim_configured_source_is_unconfigured():
+    corrected, attribution = corrected_screen_capability_output(
+        "Screen observation isn't configured in this session.",
+        user_message="Can you see my game screen?",
+        screen_observation_configured=True,
+        screen_observation_provenance=None,
+    )
+    assert corrected == (
+        "Screen observation is configured for this local session, but it is "
+        "request-driven and wasn’t included in this message. I can’t describe "
+        "the game unless you request an observation."
+    )
+    assert attribution == {
+        "policy_id": SCREEN_CAPABILITY_POLICY_ID,
+        "reason_code": "screen_observation_configured_but_not_requested",
+    }
+
+
 def test_screen_capability_correction_respects_configured_source_and_current_evidence():
     model_output = "I do not have a screen observation for this turn."
     assert corrected_screen_capability_output(
