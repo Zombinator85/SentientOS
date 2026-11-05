@@ -1,6 +1,6 @@
 extends Control
 ## Development-only text interface for the supervised loopback chat service.
-## It never enables screen observation or requests transcript retention.
+## Screen observation is an explicit, one-message OCR opt-in; transcript retention stays off.
 
 const API_BASE := "http://127.0.0.1:5000"
 const MAX_VISIBLE_MESSAGES := 40
@@ -11,6 +11,7 @@ var _start_button: Button
 var _resume_button: Button
 var _message_input: LineEdit
 var _send_button: Button
+var _screen_observation_toggle: CheckBox
 var _session_id := ""
 var _pending_action := ""
 var _next_after_profile := ""
@@ -77,7 +78,7 @@ func _ready() -> void:
 	_request.use_threads = true
 	add_child(_request)
 	_request.request_completed.connect(_on_request_completed)
-	_append_message("SentientOS", "Local development chat. Screen observation is off; turns are not retained as memories. Choose New chat or Resume latest.")
+	_append_message("SentientOS", "Local development chat. Game-screen OCR is off unless you opt in for a message; turns are not retained as memories. Choose New chat or Resume latest.")
 
 
 func _build_interface() -> void:
@@ -125,6 +126,13 @@ func _build_interface() -> void:
 	_resume_button.text = "Resume latest"
 	_resume_button.pressed.connect(_resume_chat)
 	row.add_child(_resume_button)
+	_screen_observation_toggle = CheckBox.new()
+	_screen_observation_toggle.name = "ObserveGameTextOnce"
+	_screen_observation_toggle.text = "Read game text (this turn)"
+	_screen_observation_toggle.tooltip_text = "Allow consent-scoped OCR of the selected foreground game for this message only. It does not enable general image understanding."
+	_screen_observation_toggle.button_pressed = false
+	_screen_observation_toggle.disabled = true
+	row.add_child(_screen_observation_toggle)
 	_message_input = LineEdit.new()
 	_message_input.placeholder_text = "Message SentientOS…"
 	_message_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -166,6 +174,8 @@ func _send_message(submitted_text: String = "") -> void:
 	message = message.strip_edges()
 	if message.is_empty():
 		return
+	var observe_screen := _screen_observation_toggle.button_pressed
+	_screen_observation_toggle.button_pressed = false
 	_append_message("You", message)
 	_message_input.clear()
 	_message_input.editable = false
@@ -178,7 +188,7 @@ func _send_message(submitted_text: String = "") -> void:
 		"session_id": _session_id,
 		"retain": false,
 		"request_id": "godot-ui-%d-%d" % [Time.get_ticks_usec(), randi()],
-		"observe_screen": false,
+		"observe_screen": observe_screen,
 	})
 	_stream_request_body = request_body
 	_stream_client = HTTPClient.new()
@@ -286,6 +296,7 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 			_resume_button.text = "Resumed"
 			_start_button.disabled = false
 			_resume_button.disabled = true
+			_screen_observation_toggle.disabled = false
 			_message_input.editable = true
 			_send_button.disabled = false
 			_message_input.grab_focus()
@@ -353,7 +364,11 @@ func _handle_stream_event(event: Dictionary) -> void:
 					_append_message("Timing", timing_summary)
 			_finish_stream_success()
 		"error":
-			_finish_stream_failure("The streamed reply was not completed (%s)." % str(event.get("code", "unknown")))
+			var code := str(event.get("code", "unknown"))
+			if code == "screen_observation_failed":
+				_finish_stream_failure("Game-screen OCR could not run. Bring the selected game to the foreground and retry, or leave OCR unchecked to send without it.")
+			else:
+				_finish_stream_failure("The streamed reply was not completed (%s)." % code)
 		_:
 			return
 
@@ -448,6 +463,7 @@ func _fail_request(message: String) -> void:
 	_resume_button.text = "Resume latest"
 	_message_input.editable = not _session_id.is_empty()
 	_send_button.disabled = _session_id.is_empty()
+	_screen_observation_toggle.disabled = _session_id.is_empty()
 	_append_message("Status", message)
 
 
