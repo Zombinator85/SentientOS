@@ -294,6 +294,24 @@ def test_chat_endpoint_and_local_ui_expose_per_message_screen_opt_in(
     assert b"chatSendInFlight = false" in page.body
 
 
+def test_godot_chat_screen_observation_is_a_one_turn_opt_in() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    source = (project_root / "godot_avatar_demo/scripts/companion_chat_ui.gd").read_text(
+        encoding="utf-8")
+
+    assert '"Read game text (this turn)"' in source
+    assert "_screen_observation_toggle.button_pressed = false" in source
+    assert '"observe_screen": observe_screen' in source
+    assert "It does not enable general image understanding." in source
+    assert "Game-screen OCR could not run." in source
+    assert "Bring the selected game to the foreground and retry" in source
+
+    chosen = source.index("var observe_screen := _screen_observation_toggle.button_pressed")
+    reset = source.index("_screen_observation_toggle.button_pressed = false", chosen)
+    send = source.index('"observe_screen": observe_screen', reset)
+    assert chosen < reset < send
+
+
 def test_cli_screen_configuration_requires_explicit_windows_process_allowlist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
