@@ -369,7 +369,7 @@ def test_companion_name_is_not_misidentified_as_its_backend_model():
 
 
 def test_social_check_in_correction_catches_configured_model_misidentification():
-    output = "I'm Hermes 4. I don't have feelings, but my training cutoff is 2023."
+    output = "I’m Hermes 4. I don’t have feelings, but my training cutoff is 2023."
     corrected, attribution = corrected_system_identity_output(
         output,
         user_message="Hey, how are you doing in there?",

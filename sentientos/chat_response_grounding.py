@@ -67,7 +67,7 @@ _GAME_ACTIVITY_QUESTION = re.compile(
     re.IGNORECASE,
 )
 _MODEL_SELF_REFERENCE = re.compile(
-    r"\b(?:i am|i\'m|my name is)\s+(?:currently\s+)?"
+    r"\b(?:i am|i['’]m|my name is)\s+(?:currently\s+)?"
     r"(?:called\s+)?$",
     re.IGNORECASE,
 )
