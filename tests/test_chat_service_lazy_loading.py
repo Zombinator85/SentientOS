@@ -253,7 +253,7 @@ class SimulationInvoker:
 
 
 @pytest.mark.parametrize(("configured_window", "expected_window"), [
-    (None, "0"), ("5s", "5s"),
+    (None, "0"), ("5s", "5s"), ("5m", "5m"),
 ])
 def test_development_gaming_residency_window_is_opt_in(
         tmp_path, configured_window, expected_window):
@@ -274,7 +274,7 @@ def test_development_gaming_residency_window_is_opt_in(
     assert invoker.requests[-1]["linkage"]["ollama_keep_alive"] == expected_window
     if configured_window is not None:
         with pytest.raises(ValueError, match="unsupported_development_gaming_keep_alive"):
-            chat.DevelopmentLocalChatInference(invoker, gaming_keep_alive="5m")
+            chat.DevelopmentLocalChatInference(invoker, gaming_keep_alive="10m")
 
 
 def test_chat_response_exposes_bounded_backend_timing_for_diagnostics(tmp_path):
@@ -364,6 +364,9 @@ def test_chat_page_shows_response_stage_timing_controls(tmp_path):
     assert "First browser paint opportunity (double-rAF estimate)" in response.text
     assert "server released grounded text" in response.text
     assert "model first content chunk" in response.text
+    assert "backend model load" in response.text
+    assert "backend prompt evaluation" in response.text
+    assert "backend token generation" in response.text
     assert "grounding policy checks" in response.text
     assert "generation complete to grounded answer" in response.text
 
