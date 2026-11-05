@@ -1061,6 +1061,8 @@ def test_recent_user_recall_uses_only_immediately_previous_user_turn(tmp_path):
 
 @pytest.mark.parametrize("message", [
     "What did I say was written on the note I found?",
+    "Earlier in our chat, I said a note in Cronos read two words. "
+    "What were they? Answer briefly from our conversation, and do not claim to see the screen.",
     "Earlier I told you about a note I found in Cronos. "
     "What did the note say? Please answer briefly.",
 ])

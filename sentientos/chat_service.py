@@ -84,6 +84,8 @@ def _is_recent_session_recall_request(message: str) -> bool:
     normalized = " ".join(message.casefold().split())
     markers = (
         "in this conversation", "in this chat", "earlier in this chat",
+        "earlier in our chat", "earlier in our conversation",
+        "in our earlier chat", "in our earlier conversation",
         "earlier in this conversation", "just before", "before you asked",
         "earlier i told you", "i told you earlier",
         "earlier i mentioned", "i mentioned earlier",
