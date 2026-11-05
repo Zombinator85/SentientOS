@@ -469,6 +469,23 @@ class ChatRequest(BaseModel):
     observe_screen: bool = False
 
 
+def _publish_grounded_model_stream(
+    on_content_chunk: Callable[[str], None],
+    chunks: list[str],
+    *,
+    generated_text: str,
+    response_text: str,
+    response_origin: str,
+) -> None:
+    """Publish only text that survived final grounding and response policy."""
+    if response_origin == "model_generated" and "".join(chunks) == generated_text:
+        for chunk in chunks:
+            on_content_chunk(chunk)
+        return
+    if response_text:
+        on_content_chunk(response_text)
+
+
 class ChatResponse(BaseModel):
     response: str
     session_id: str
@@ -1899,6 +1916,7 @@ class PersistentConversationService:
             linkage["client_request_id_digest"] = client_request_digest
         invocation_correlation_id = f"chat:{session['session_id']}:{user_turn['turn_id']}"
         invocation_budget = LocalModelInvocationBudget(max_input_chars=8000)
+        streamed_model_chunks: list[str] = []
         if on_content_chunk is None:
             receipt = self._inference.generate(
                 prompt=prompt,
@@ -1917,7 +1935,7 @@ class PersistentConversationService:
                 correlation_id=invocation_correlation_id,
                 budget=invocation_budget,
                 caller_linkage=linkage,
-                on_content_chunk=on_content_chunk,
+                on_content_chunk=streamed_model_chunks.append,
             )
         accepted_statuses = {"admitted_completed"}
         if isinstance(self._inference, DevelopmentLocalChatInference):
@@ -2076,6 +2094,13 @@ class PersistentConversationService:
                     and type(prior_generation) is int and type(current_generation) is int
                     and current_generation == prior_generation + 1):
                 continuity_posture = "activation_predecessor_bound_to_prior_observed_invocation"
+        if on_content_chunk is not None:
+            _publish_grounded_model_stream(
+                on_content_chunk, streamed_model_chunks,
+                generated_text=receipt.output_text,
+                response_text=response_text,
+                response_origin=response_origin,
+            )
         assistant = self.sessions.append_turn(session["session_id"], role="assistant", text=response_text,
             linkage={"request_id": receipt.request.get("request_id"),
                      "invocation_receipt_id": receipt.receipt_id,

@@ -84,3 +84,31 @@ def test_companion_page_renders_streamed_deltas_and_keeps_backend_fallback():
     assert "fetch('/chat/stream'" in response.text
     assert "responseTextEl.textContent += chunk" in response.text
     assert "fetch('/chat'," in response.text
+
+
+
+def test_grounded_stream_never_publishes_rejected_model_text():
+    import sentientos.chat_service as chat
+
+    published = []
+    chat._publish_grounded_model_stream(
+        published.append, ["I'm doing great! ", "How are you?"],
+        generated_text="I'm doing great! How are you?",
+        response_text="I’m here and ready to chat. How are you doing?",
+        response_origin="grounding_policy_fallback",
+    )
+
+    assert published == ["I’m here and ready to chat. How are you doing?"]
+
+
+def test_grounded_stream_preserves_chunks_for_accepted_model_text():
+    import sentientos.chat_service as chat
+
+    published = []
+    chat._publish_grounded_model_stream(
+        published.append, ["Hello ", "there."],
+        generated_text="Hello there.", response_text="Hello there.",
+        response_origin="model_generated",
+    )
+
+    assert published == ["Hello ", "there."]
