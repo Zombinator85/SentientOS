@@ -787,6 +787,28 @@ def test_unconfigured_screen_question_gets_truthful_capability_fallback(tmp_path
     assert payload["context"]["response_origin"] == "grounding_policy_fallback"
 
 
+def test_live_chat_hides_internal_workload_label_in_screen_capability_answer(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    invoker.output_text = (
+        "VERIFIED_CURRENT_WORKLOAD_FACTS indicates that screen observation "
+        "is configured, but it was not included in this message.")
+    chat.configure_development_chat(
+        invoker=invoker, data_root=tmp_path, screen_observer=lambda: None,
+        screen_capture_policy="request_driven")
+
+    response = client.post("/chat", json={
+        "message": "Can you see the game screen right now?"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["response"] == (
+        "Screen observation is configured for this local session, but it is "
+        "request-driven and wasn’t included in this message. I can’t describe "
+        "the game unless you request an observation.")
+    assert payload["context"]["response_origin"] == "grounding_policy_fallback"
+
+
 def test_live_chat_distinguishes_configured_screen_observation_from_per_turn_capture(tmp_path):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()
