@@ -26,11 +26,11 @@ from .gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackRuntime,
 )
 
-SCREEN_OBSERVATION_SCHEMA = "sentientos.game_screen_observation:v3"
+SCREEN_OBSERVATION_SCHEMA = "sentientos.game_screen_observation:v4"
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _REQUEST_ID = re.compile(r"[0-9a-f]{32}\Z")
 _FIELDS = frozenset({
-    "schema_version", "modality", "text", "captured_at", "backend",
+    "schema_version", "modality", "text", "text_status", "captured_at", "backend",
     "capture_digest", "process_name_digest", "consent_id_digest",
     "capture_scope", "raw_frame_retained", "text_truncated",
     "text_change_kind", "previous_text_digest",
@@ -62,13 +62,17 @@ def _observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]:
     if set(payload) not in (_FIELDS, _FIELDS | {"capture_request_id"}):
         raise ScreenObservationBridgeError("screen_observation_shape_invalid")
     request_id = payload.get("capture_request_id")
+    text_status = payload.get("text_status")
     if request_id is not None and (
             not isinstance(request_id, str) or _REQUEST_ID.fullmatch(request_id) is None):
         raise ScreenObservationBridgeError("screen_observation_request_id_invalid")
     if (payload.get("schema_version") != SCREEN_OBSERVATION_SCHEMA
             or payload.get("modality") != "screen"
             or not isinstance(payload.get("text"), str)
-            or not payload["text"].strip() or len(payload["text"]) > 1200
+            or len(payload["text"]) > 1200
+            or text_status not in ("available", "no_readable_text")
+            or (text_status == "available" and not payload["text"].strip())
+            or (text_status == "no_readable_text" and payload["text"] != "")
             or payload.get("capture_scope") != "allowlisted_foreground_game_client_area"
             or payload.get("raw_frame_retained") is not False
             or type(payload.get("text_truncated")) is not bool

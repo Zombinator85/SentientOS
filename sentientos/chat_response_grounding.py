@@ -166,10 +166,18 @@ def is_direct_screen_activity_question(user_message: str) -> bool:
     )
 
 
+def _has_readable_screen_text(
+    screen_observation_provenance: Mapping[str, Any] | None,
+) -> bool:
+    """Whether this turn contains OCR text usable as screen evidence."""
+    return (isinstance(screen_observation_provenance, Mapping)
+            and screen_observation_provenance.get("text_status", "available") == "available")
+
+
 def unobserved_gameplay_claim(output: str, *, workload_mode: str,
                               screen_observation_provenance: Mapping[str, Any] | None) -> bool:
     """Whether a gaming answer makes a visual/performance claim without screen evidence."""
-    if workload_mode != "gaming" or isinstance(screen_observation_provenance, Mapping):
+    if workload_mode != "gaming" or _has_readable_screen_text(screen_observation_provenance):
         return False
     return any(pattern.search(output) for pattern in _UNOBSERVED_CLAIM_PATTERNS)
 
@@ -189,7 +197,7 @@ def corrected_unobserved_game_status(
     if (not (_GAME_STATUS_QUESTION.search(user_message)
              or activity_question
              or _GAME_RUNNING_QUESTION.search(user_message))
-            or isinstance(screen_observation_provenance, Mapping)):
+            or _has_readable_screen_text(screen_observation_provenance)):
         return output, None
     workload = verified_runtime_context.get("workload")
     if not isinstance(workload, Mapping):
@@ -297,6 +305,15 @@ def corrected_unobserved_game_status(
                    flags=re.IGNORECASE)
     label = re.sub(r"[-_]+", " ", label).strip().title() or process_name
     if activity_question:
+        if (isinstance(screen_observation_provenance, Mapping)
+                and screen_observation_provenance.get("text_status") == "no_readable_text"):
+            return (
+                f"I can confirm {label} is the foreground app, but OCR found no readable text "
+                "in the captured game screen, so I can’t describe the scene from this "
+                "text-only observation.",
+                {"policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+                 "reason_code": "screen_capture_no_readable_text"},
+            )
         capabilities = verified_runtime_context.get("capabilities")
         screen = capabilities.get("screen_observation") if isinstance(
             capabilities, Mapping) else None
@@ -450,8 +467,17 @@ def corrected_screen_capability_output(
     clarified_request = (
         _SCREEN_VISIBILITY_CLARIFICATION_REQUEST.search(user_message) is not None
     )
+    if (isinstance(screen_observation_provenance, Mapping)
+            and screen_observation_provenance.get("text_status") == "no_readable_text"
+            and (_SCREEN_CAPABILITY_QUESTION.search(user_message) or clarified_request)):
+        return (
+            "Screen observation is active for this request, but OCR found no readable text "
+            "in the captured game screen. I can’t describe the scene from this text-only observation.",
+            {"policy_id": SCREEN_CAPABILITY_POLICY_ID,
+             "reason_code": "screen_capture_no_readable_text"},
+        )
     if (screen_observation_configured
-            or isinstance(screen_observation_provenance, Mapping)
+            or _has_readable_screen_text(screen_observation_provenance)
             or (not _SCREEN_CAPABILITY_QUESTION.search(user_message)
                 and not clarified_request)):
         return output, None

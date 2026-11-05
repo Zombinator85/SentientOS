@@ -11,6 +11,8 @@ from sentientos.gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackClient,
     CompanionBridgeLoopbackRuntime,
 )
+from sentientos.perception.screen_ocr import ScreenConfig, ScreenOCR
+
 from sentientos.screen_observation_bridge import (
     BridgeScreenObservationProvider,
     RequestDrivenScreenObservation,
@@ -32,6 +34,7 @@ def _payload(*, captured_at: datetime = NOW) -> dict[str, object]:
     return {
         "modality": "screen",
         "text": "quest objective: find the observatory",
+        "text_status": "available",
         "captured_at": captured_at.isoformat().replace("+00:00", "Z"),
         "backend": "local-ocr-fixture",
         "capture_digest": "a" * 64,
@@ -78,7 +81,7 @@ def test_screen_ocr_observation_crosses_authenticated_bridge_as_bounded_text():
         assert acknowledgment.payload["disposition"] == "accepted"
 
         observed = provider()
-        assert observed["schema_version"] == "sentientos.game_screen_observation:v3"
+        assert observed["schema_version"] == "sentientos.game_screen_observation:v4"
         assert observed["text"] == "quest objective: find the observatory"
         assert observed["raw_frame_retained"] is False
         assert "rgb" not in observed
@@ -92,8 +95,56 @@ def test_screen_ocr_observation_crosses_authenticated_bridge_as_bounded_text():
         runtime.close()
 
 
+def test_initial_empty_screen_ocr_result_crosses_authenticated_bridge():
+    runtime, client, provider = _setup()
+    owner = ScreenOCR(
+        ScreenConfig(enable=True, interval_s=0),
+        capture_fn=lambda: {
+            "rgb": b"\x00\x00\x00", "width": 1, "height": 1,
+            "capture_digest": "a" * 64,
+            "captured_at": NOW.isoformat().replace("+00:00", "Z"),
+            "capture_scope": "allowlisted_foreground_game_client_area",
+            "process_name_digest": "b" * 64, "consent_id_digest": "c" * 64,
+        },
+        ocr_fn=lambda _payload: "",
+    )
+    try:
+        publisher = WindowsScreenObservationBridgePublisher(
+            observe=owner.snapshot, client=client, source_id=SOURCE_ID,
+            session_id="screen-session-1", generation_id=SOURCE_GENERATION,
+            source_key=SOURCE_KEY)
+        assert publisher.publish_once() is not None
+        observed = provider()
+        assert observed["text_status"] == "no_readable_text"
+        assert observed["previous_text_digest"] is None
+        assert observed["raw_frame_retained"] is False
+    finally:
+        runtime.close()
+
+
+def test_empty_ocr_is_a_valid_explicit_no_readable_text_observation():
+    runtime, client, provider = _setup()
+    observation = _payload()
+    observation["text"] = ""
+    observation["text_status"] = "no_readable_text"
+    try:
+        publisher = WindowsScreenObservationBridgePublisher(
+            observe=lambda: observation, client=client, source_id=SOURCE_ID,
+            session_id="screen-session-1", generation_id=SOURCE_GENERATION,
+            source_key=SOURCE_KEY)
+        assert publisher.publish_once() is not None
+        observed = provider()
+        assert observed["text"] == ""
+        assert observed["text_status"] == "no_readable_text"
+        assert observed["raw_frame_retained"] is False
+    finally:
+        runtime.close()
+
+
 @pytest.mark.parametrize("changes, code", [
     ({"text": " "}, "screen_observation_contract_invalid"),
+    ({"text_status": "no_readable_text"}, "screen_observation_contract_invalid"),
+    ({"text": "", "text_status": "available"}, "screen_observation_contract_invalid"),
     ({"text": "x" * 1201}, "screen_observation_contract_invalid"),
     ({"raw_frame_retained": True}, "screen_observation_contract_invalid"),
     ({"text_change_kind": "visual_event"}, "screen_observation_contract_invalid"),

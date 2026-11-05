@@ -945,15 +945,21 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
     lines.extend(f"MEMORY_DATA: {json.dumps(record['text'], ensure_ascii=False)}" for record in memory_snapshot.get("memories", []))
     if isinstance(screen_observation, Mapping):
         text = screen_observation.get("text")
+        text_status = screen_observation.get("text_status", "available")
         capture_digest = screen_observation.get("capture_digest")
-        if (not isinstance(text, str) or len(text) > 1200 or not isinstance(capture_digest, str)
+        if (not isinstance(text, str) or len(text) > 1200
+                or text_status not in ("available", "no_readable_text")
+                or (text_status == "available" and not text.strip())
+                or (text_status == "no_readable_text" and text != "")
+                or not isinstance(capture_digest, str)
                 or len(capture_digest) != 64 or any(c not in "0123456789abcdef" for c in capture_digest)):
             raise ValueError("screen_observation_context_invalid")
         change_kind = screen_observation.get("text_change_kind", "initial")
         if (not isinstance(change_kind, str)
                 or change_kind not in ("initial", "changed", "unchanged")):
             raise ValueError("screen_observation_context_invalid")
-        data = {"text": text, "capture_digest": capture_digest,
+        data = {"text": text, "text_status": text_status,
+                "capture_digest": capture_digest,
                 "capture_scope": screen_observation.get("capture_scope"),
                 "captured_at": screen_observation.get("captured_at"),
                 "ocr_text_change": change_kind}
@@ -970,8 +976,13 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
         if text_delta is not None:
             data["ocr_line_delta"] = validate_ocr_text_line_delta(
                 text_delta, current_text=text)
+        observation_guidance = (
+            "OCR found no readable text in this consented game capture. This does not identify the scene or establish gameplay events; do not infer visual details from the empty OCR result."
+            if text_status == "no_readable_text" else
+            "This is OCR text from one consented screen capture. Text labels and line deltas compare OCR only; they do not identify visual or gameplay events. The coarse pixel-change score is only a fraction of sampled screen locations that changed; it does not identify objects or gameplay events."
+        )
         lines.extend(["[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]",
-            "This is OCR text from one consented screen capture. Text labels and line deltas compare OCR only; they do not identify visual or gameplay events. The coarse pixel-change score is only a fraction of sampled screen locations that changed; it does not identify objects or gameplay events.",
+            observation_guidance,
             "SCREEN_DATA: " + json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))])
     lines.extend(["[CURRENT_USER_MESSAGE]", current_message])
     return "\n".join(lines)

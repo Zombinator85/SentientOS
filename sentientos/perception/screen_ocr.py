@@ -196,8 +196,7 @@ class ScreenOCR:
             raise ScreenCaptureError(self._last_failure_code)
         text_truncated = len(text) > 1200
         text = text[:1200].strip()
-        if not text:
-            return None
+        text_status = "available" if text else "no_readable_text"
         now = time.time()
         self._chars_window.append((now, len(text)))
         self._prune_window(now)
@@ -226,19 +225,19 @@ class ScreenOCR:
         observation: dict[str, Any] = {
             "modality": "screen",
             "text": text,
+            "text_status": text_status,
             "captured_at": captured_at,
             "backend": backend,
             "capture_digest": capture_digest,
             "raw_frame_retained": False,
             "text_truncated": text_truncated,
             "text_change_kind": text_change_kind,
+            "previous_text_digest": previous_text_digest,
         }
         if visual_sample is not None:
             observation["visual_change_kind"] = (
                 "initial" if self._last_visual_sample is None else "changed")
             observation["visual_change_score"] = visual_change_score
-        if previous_text_digest is not None:
-            observation["previous_text_digest"] = previous_text_digest
         if payload.get("capture_scope") == "allowlisted_foreground_game_client_area":
             observation["capture_scope"] = payload["capture_scope"]
         for key in ("process_name_digest", "consent_id_digest"):
