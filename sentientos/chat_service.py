@@ -53,12 +53,14 @@ from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CA
     sentientos_data_dir, sentientos_memory_dir)
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
-    CURRENT_GAME_STATUS_POLICY_ID, corrected_gaming_output, corrected_output_lineage,
+    CURRENT_GAME_STATUS_POLICY_ID, SCREEN_CAPABILITY_POLICY_ID, corrected_gaming_output,
+    corrected_output_lineage,
     corrected_screen_capability_output, corrected_social_instruction_echo,
     corrected_system_identity_output, corrected_unobserved_game_status,
     corrected_nonresponsive_gaming_next_step,
     corrected_unprovided_source_reference,
-    is_direct_screen_activity_question, is_verified_current_game_context_question,
+    is_direct_screen_activity_question, is_direct_screen_configuration_status_question,
+    is_verified_current_game_context_question,
 )
 from .perception.screen_text_delta import validate_ocr_text_line_delta
 
@@ -1763,6 +1765,30 @@ class PersistentConversationService:
                     session_id=session["session_id"], user_turn=user_turn,
                     source_user_turn=prior_user_turn, history=history,
                     memory=memory, on_content_chunk=on_content_chunk)
+        if (isinstance(self._inference, DevelopmentLocalChatInference) and not retain
+                and is_direct_screen_configuration_status_question(message)):
+            capability_text, capability_correction = corrected_screen_capability_output(
+                "", user_message=message,
+                screen_observation_configured=self.screen_observation_configured(),
+                screen_observation_provenance=screen_observation)
+            if (capability_correction is not None
+                    and capability_correction.get("policy_id") == SCREEN_CAPABILITY_POLICY_ID):
+                provenance = None
+                if isinstance(screen_observation, Mapping):
+                    provenance = {
+                        "capture_digest": screen_observation.get("capture_digest"),
+                        "text_digest": hashlib.sha256(
+                            str(screen_observation.get("text", "")).encode("utf-8")
+                        ).hexdigest(),
+                        "text_status": screen_observation.get("text_status", "available"),
+                        "captured_at": screen_observation.get("captured_at"),
+                    }
+                return self._complete_deterministic_grounding_response(
+                    session_id=session["session_id"], user_turn=user_turn,
+                    response_text=capability_text, correction=capability_correction,
+                    runtime_context=runtime_context, history=history, memory=memory,
+                    on_content_chunk=on_content_chunk,
+                    screen_observation_provenance=provenance)
         direct_screen_activity_question = is_direct_screen_activity_question(message)
         screen_observation_unusable = (
             screen_observation is None
