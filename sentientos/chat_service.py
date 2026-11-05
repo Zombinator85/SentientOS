@@ -481,6 +481,24 @@ class DevelopmentLocalChatInference:
         cancel = getattr(self._delegate, "cancel_pending_generation", None)
         return bool(cancel()) if callable(cancel) else False
 
+    def close(self) -> None:
+        """Release this development profile when its supervised chat runtime stops."""
+        identity = getattr(self._delegate.model, "active_identity", None)
+        if identity is None or getattr(identity, "engine", None) != "ollama":
+            return
+        try:
+            receipt = self._delegate.release_model_residency(
+                reason_code="development_chat_shutdown")
+        except Exception as exc:
+            LOGGER.warning("Development chat model release at shutdown failed: %s",
+                type(exc).__name__)
+            return
+        with self._workload_lock:
+            self._residency_release = receipt.to_dict()
+        if receipt.status not in {"released", "already_unloaded", "not_applicable"}:
+            LOGGER.warning("Development chat model release at shutdown was not confirmed: %s",
+                receipt.status)
+
 
 # Backwards-compatible name for callers that used this adapter with test-only
 # echo/null models before it also supported explicitly authorized local engines.
@@ -896,6 +914,14 @@ class PersistentConversationService:
         finally:
             if self._speech_output is not None:
                 self._speech_output.close()
+
+    def close(self) -> None:
+        try:
+            self.close_outputs()
+        finally:
+            close_inference = getattr(self._inference, "close", None)
+            if callable(close_inference):
+                close_inference()
 
     def _complete_transcript_recall_response(
             self, *, session_id: str, user_turn: Mapping[str, Any],
@@ -2713,7 +2739,7 @@ def close_production_chat() -> None:
     if composition is not None:
         composition.close()
     elif service is not None:
-        service.close_outputs()
+        service.close()
 
 
 def production_chat_ready() -> bool:

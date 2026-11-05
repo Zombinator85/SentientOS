@@ -1908,3 +1908,26 @@ def test_combined_status_and_screen_question_returns_verified_background_state(t
     assert body["context"]["selected_memory_count"] == 0
     assert body["context"].get("screen_observation_provenance") is None
     assert invoker.calls == 0
+
+
+
+def test_development_chat_shutdown_releases_its_active_ollama_model(tmp_path):
+    chat = _reload()
+    invoker = SimulationInvoker()
+    identity = {"engine": "ollama", "semantic_artifact_identity": "sha256:" + "a" * 64,
+        "posture": "development_only", "fallback": False}
+    invoker.model.active_identity = SimpleNamespace(
+        engine="ollama", to_dict=lambda: identity)
+    released = []
+
+    def release_model_residency(*, reason_code="gaming_mode_entered"):
+        released.append(reason_code)
+        return SimpleNamespace(status="released",
+            to_dict=lambda: {"status": "released", "reason_code": reason_code})
+
+    invoker.release_model_residency = release_model_residency
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    chat.close_production_chat()
+
+    assert released == ["development_chat_shutdown"]
+    assert chat._CONVERSATION_SERVICE is None
