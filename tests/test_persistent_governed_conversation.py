@@ -11,7 +11,8 @@ import pytest
 pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos import chat_service
-from sentientos.chat_service import DevelopmentSimulationInference, PersistentConversationService
+from sentientos.chat_service import (ChatInputBudgetError,
+    DevelopmentSimulationInference, PersistentConversationService)
 from sentientos.canonical_memory import (CanonicalMemoryStore, ExplicitRetentionAdmissionGate,
     AdmittedRetentionWriter, CANDIDATE_TYPE, digest, retention_request_id,
     sentientos_data_dir)
@@ -305,6 +306,8 @@ def test_godot_chat_screen_observation_is_a_one_turn_opt_in() -> None:
     assert "It does not enable general image understanding." in source
     assert "Game-screen OCR could not run." in source
     assert "Bring the selected game to the foreground and retry" in source
+    assert 'code == "chat_input_too_large"' in source
+    assert "Shorten the message and try again." in source
 
     chosen = source.index("var observe_screen := _screen_observation_toggle.button_pressed")
     reset = source.index("_screen_observation_toggle.button_pressed = false", chosen)
@@ -439,6 +442,76 @@ def test_composed_persistent_governed_conversation_success(tmp_path: Path) -> No
     assert "[SESSION_HISTORY_DATA]" in restarted_invoker.requests[0].prompt
     assert "[RETRIEVED_MEMORY_DATA_UNTRUSTED]" in restarted_invoker.requests[0].prompt
     assert "telescope is Vega" in restarted_invoker.requests[0].prompt
+
+
+def test_gaming_chat_trims_supplemental_memory_before_recent_transcript(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invoker = FakeInvoker()
+    app = service(tmp_path, invoker)
+    app.context_budget_chars = 3000
+    first = app.chat("An earlier note about the station lighthouse.")
+    recent_text = "Recent conversation detail: " + "R" * 900
+    app.chat(recent_text, session_id=first.session_id)
+    app.set_workload_mode("gaming")
+
+    memory_text = "Supplemental historical memory: " + "M" * 1500
+
+    def retrieve_memory(_query: str, *, budget_chars: int) -> dict[str, object]:
+        selected = len(memory_text) <= budget_chars
+        return {
+            "memories": ([{"text": memory_text}] if selected else []),
+            "snapshot_digest": ("a" if selected else "b") * 64,
+            "retrieval_posture": "complete",
+            "legacy_sidecar_posture": "missing",
+            "selection_posture": ("all_matching_records_selected" if selected
+                                  else "matching_records_omitted"),
+            "omitted_memory_count": 0 if selected else 1,
+        }
+
+    monkeypatch.setattr(app.memories, "retrieve", retrieve_memory)
+    response = app.chat(
+        "Carry the lighthouse note forward and keep our conversation going.",
+        session_id=first.session_id)
+
+    prompt = invoker.requests[-1].prompt
+    assert len(prompt) <= 4000
+    assert recent_text in prompt
+    assert memory_text not in prompt
+    assert response.context["selected_turn_count"] >= 2
+    assert response.context["selected_memory_count"] == 0
+
+
+def test_gaming_chat_rejects_message_that_cannot_fit_after_context_compaction(
+    tmp_path: Path,
+) -> None:
+    invoker = FakeInvoker()
+    app = service(tmp_path, invoker)
+    app.set_workload_mode("gaming")
+
+    with pytest.raises(ChatInputBudgetError, match="chat_input_exceeds_gaming_budget"):
+        app.chat("X" * 5000)
+
+    assert invoker.requests == []
+    session = app.sessions.load(app.sessions.list_recent()[0]["session_id"])
+    assert [turn["role"] for turn in session["turns"]] == ["user"]
+
+
+def test_gaming_chat_budget_rejection_is_reported_as_http_413(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invoker = FakeInvoker()
+    app = service(tmp_path, invoker)
+    app.set_workload_mode("gaming")
+    monkeypatch.setattr(chat_service, "_CONVERSATION_SERVICE", app)
+
+    with pytest.raises(chat_service.HTTPException) as error:
+        asyncio.run(chat_service.chat_endpoint(
+            chat_service.ChatRequest(message="X" * 5000)))
+
+    assert error.value.status_code == 413
+    assert error.value.detail == "chat_input_exceeds_gaming_budget"
+    assert invoker.requests == []
 
 
 def test_storage_rejects_symlink_and_size_and_cross_session_leakage(tmp_path: Path) -> None:

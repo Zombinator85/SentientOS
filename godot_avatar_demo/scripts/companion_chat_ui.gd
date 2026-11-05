@@ -367,6 +367,8 @@ func _handle_stream_event(event: Dictionary) -> void:
 			var code := str(event.get("code", "unknown"))
 			if code == "screen_observation_failed":
 				_finish_stream_failure("Game-screen OCR could not run. Bring the selected game to the foreground and retry, or leave OCR unchecked to send without it.")
+			elif code == "chat_input_too_large":
+				_finish_stream_failure("That message and its current context exceed the gaming reply limit. Shorten the message and try again.")
 			else:
 				_finish_stream_failure("The streamed reply was not completed (%s)." % code)
 		_:
