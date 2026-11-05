@@ -672,8 +672,8 @@ def test_nonresponsive_gaming_next_step_uses_the_users_explicit_clue():
         screen_observation_provenance=None,
     )
     assert corrected == (
-        "You mentioned \u201cEAST WING\u201d; what nearby options or details can you share? "
-        "I\u2019ll reason from your description, not claim to see the screen."
+        "Check whether the objective mentions \u201cEAST WING\u201d; it\u2019s the clearest lead "
+        "in your note, and I\u2019m reasoning from your text, not screen vision."
     )
     assert attribution == {
         "policy_id": "gaming_next_step_nonresponsive_fallback_v1",
@@ -690,11 +690,11 @@ def test_nonresponsive_gaming_next_step_asks_for_actionable_context_when_none_wa
         screen_observation_provenance=None,
     )
     assert corrected == (
-        "What does the current objective or clue say, and what are you trying to reach? "
-        "I\u2019ll help from the details you share."
+        "What does the current objective or last clue say? Share its wording and I\u2019ll "
+        "suggest one next step from that."
     )
     assert attribution is not None
-    assert attribution["reason_code"] == "model_returned_screen_boilerplate_for_next_step"
+    assert attribution["reason_code"] == "model_returned_unhelpful_next_step_without_scene_context"
 
 
 def test_nonresponsive_gaming_next_step_guard_is_narrow():
@@ -706,3 +706,16 @@ def test_nonresponsive_gaming_next_step_guard_is_narrow():
     assert corrected_nonresponsive_gaming_next_step(
         output, user_message=message, workload_mode="gaming",
         screen_observation_provenance={"text_status": "available"}) == (output, None)
+
+
+def test_next_step_reply_that_uses_the_users_clue_is_preserved():
+    output = "Check the east wing for any additional clues or objects."
+    unchanged, attribution = corrected_nonresponsive_gaming_next_step(
+        output,
+        user_message=("The only clue I can share is a note that says EAST WING. "
+                      "What is one next step based only on that?"),
+        workload_mode="gaming",
+        screen_observation_provenance=None,
+    )
+    assert unchanged == output
+    assert attribution is None

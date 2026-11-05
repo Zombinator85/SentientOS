@@ -76,6 +76,11 @@ _USER_SHARED_GAME_CLUE = re.compile(
     r"(?:says|reads|states|is)\s+[\"]?([^\"\n.!?]{2,80})",
     re.IGNORECASE,
 )
+_USER_SAYS_SCENE_UNDESCRIBED = re.compile(
+    r"\b(?:have not|haven\'t|did not|didn\'t) described "
+    r"(?:the )?(?:current )?(?:game )?(?:scene|screen)\b",
+    re.IGNORECASE,
+)
 _KEEP_IN_MIND_REQUEST = re.compile(
     r"\b(?:keep|remember) (?:that|this|it) in mind\b",
     re.IGNORECASE,
@@ -558,27 +563,38 @@ def corrected_nonresponsive_gaming_next_step(
     output: str, *, user_message: str, workload_mode: str,
     screen_observation_provenance: Mapping[str, Any] | None,
 ) -> tuple[str, dict[str, str] | None]:
-    """Replace screen-visibility boilerplate when a gaming next-step request needs context."""
+    """Repair next-step replies that ignore an explicit clue or stated lack of context."""
     if (workload_mode != "gaming"
             or _has_readable_screen_text(screen_observation_provenance)
-            or not _NEXT_STEP_ADVICE_REQUEST.search(user_message)
-            or not _NEXT_STEP_VISIBILITY_BOILERPLATE.search(output)):
+            or not _NEXT_STEP_ADVICE_REQUEST.search(user_message)):
         return output, None
 
     clue = _USER_SHARED_GAME_CLUE.search(user_message)
-    if clue is not None:
-        value = " ".join(clue.group(1).split()).strip(" \"'")
+    clue_value = " ".join(clue.group(1).split()).strip(" \"'") if clue else None
+    clue_ignored = bool(clue_value and clue_value.casefold() not in output.casefold())
+    visibility_boilerplate = _NEXT_STEP_VISIBILITY_BOILERPLATE.search(output) is not None
+    scene_undescribed = _USER_SAYS_SCENE_UNDESCRIBED.search(user_message) is not None
+    underspecified_reply = (
+        scene_undescribed
+        and ("?" not in output
+             or not re.search(r"\b(?:objective|clue|goal|scene|trying|describe)\b",
+                              output, re.IGNORECASE))
+    )
+    if not clue_ignored and not visibility_boilerplate and not underspecified_reply:
+        return output, None
+
+    if clue_ignored and clue_value:
         corrected = (
-            f"You mentioned \u201c{value}\u201d; what nearby options or details can you share? "
-            "I\u2019ll reason from your description, not claim to see the screen."
+            f"Check whether the objective mentions \u201c{clue_value}\u201d; it\u2019s the clearest lead "
+            "in your note, and I\u2019m reasoning from your text, not screen vision."
         )
         reason = "model_ignored_user_provided_game_clue"
     else:
         corrected = (
-            "What does the current objective or clue say, and what are you trying to reach? "
-            "I\u2019ll help from the details you share."
+            "What does the current objective or last clue say? Share its wording and I\u2019ll "
+            "suggest one next step from that."
         )
-        reason = "model_returned_screen_boilerplate_for_next_step"
+        reason = "model_returned_unhelpful_next_step_without_scene_context"
     return corrected, {
         "policy_id": GAMING_NEXT_STEP_POLICY_ID,
         "reason_code": reason,
