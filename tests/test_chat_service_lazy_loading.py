@@ -421,8 +421,16 @@ def test_local_ui_recovers_session_transcript_after_service_restart(tmp_path):
 
     page = restarted_client.get("/").text
     assert 'id="conversation"' in page
-    assert "refreshConversationTranscript();" in page
+    assert 'id="conversation-session"' in page
+    assert 'id="new-conversation"' in page
+    assert "refreshConversationSessions(data.session_id);" in page
+    assert "startNewConversation" in page
+    assert "changeConversationSession" in page
+    assert "initializeConversationView();" in page
     assert "content.textContent = turn.text;" in page
+    listed = restarted_client.get("/sessions")
+    assert listed.status_code == 200
+    assert any(session["session_id"] == session_id for session in listed.json())
     remote_client = TestClient(restarted.APP, client=("203.0.113.10", 4321))
     assert remote_client.get(f"/sessions/{session_id}/turns").status_code == 403
 
