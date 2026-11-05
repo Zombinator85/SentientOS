@@ -290,6 +290,26 @@ def test_social_check_in_does_not_claim_an_unverified_subjective_state():
     }
 
 
+def test_social_checkin_replaces_unsolicited_ai_feelings_and_cutoff_boilerplate():
+    corrected, attribution = corrected_social_instruction_echo(
+        "As an AI language model, I don't have feelings, and my training cutoff is 2023.",
+        user_message="Hi, how are you doing tonight?",
+    )
+    assert corrected == "I’m here and ready to chat. How are you doing?"
+    assert attribution == {
+        "policy_id": SOCIAL_CHECK_IN_POLICY_ID,
+        "reason_code": "unsolicited_ai_disclaimer",
+    }
+
+
+def test_social_checkin_preserves_cutoff_answer_when_user_asks_for_it():
+    output = "I don't have feelings, and my training cutoff is 2023."
+    assert corrected_social_instruction_echo(
+        output,
+        user_message="Hi, how are you? Also, what is your training cutoff?",
+    ) == (output, None)
+
+
 def test_elliptical_social_check_in_does_not_claim_enjoyment():
     corrected, attribution = corrected_social_instruction_echo(
         "Enjoying your gaming session with Cronos. How can I assist further?",
