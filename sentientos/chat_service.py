@@ -583,12 +583,18 @@ class DevelopmentLocalChatInference:
                 screen_observation=screen_observation)
             recent_session_recall = caller_linkage.get("recent_session_recall") is True
             effective_budget = GamingWorkloadPolicy.constrain_budget(
-                mode, budget, recent_session_recall=recent_session_recall)
+                mode, budget, recent_session_recall=recent_session_recall,
+                response_style=str(response_style or "default"))
             linkage = {**dict(caller_linkage), "workload_mode": mode,
                 "workload_evidence": workload_state["workload_evidence"]}
             identity = getattr(self._delegate.model, "active_identity", None)
             if mode == "gaming" and getattr(identity, "engine", None) == "ollama":
                 linkage["ollama_keep_alive"] = self._gaming_keep_alive
+                model_metadata = getattr(self._delegate.model, "metadata", {})
+                if isinstance(model_metadata, Mapping):
+                    history_format = model_metadata.get("chat_history_format", "serialized")
+                    if history_format in {"serialized", "role_separated"}:
+                        linkage["chat_history_format"] = history_format
             request = self._delegate.build_request(purpose="local_user_chat",
                 prompt=effective_prompt, caller=caller, correlation_id=correlation_id,
                 budget=effective_budget, linkage=linkage)

@@ -290,6 +290,42 @@ def test_development_gaming_residency_window_is_opt_in(
             chat.DevelopmentLocalChatInference(invoker, gaming_keep_alive="10m")
 
 
+def test_gaming_chat_uses_conversation_budget_but_keeps_checkins_short():
+    chat = _reload()
+    from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+
+    class Invoker:
+        def __init__(self):
+            self.model = SimpleNamespace(
+                active_identity=SimpleNamespace(engine="ollama"),
+                metadata={"chat_history_format": "role_separated"})
+            self.authority_map = SimpleNamespace()
+            self.requests = []
+        def release_model_residency(self):
+            return SimpleNamespace(status="already_unloaded", to_dict=lambda: {})
+        def build_request(self, **kwargs):
+            self.requests.append(kwargs)
+            return kwargs
+        def invoke(self, request):
+            return request
+
+    invoker = Invoker()
+    inference = chat.DevelopmentLocalChatInference(invoker, gaming_keep_alive="-1")
+    inference.set_workload_mode("gaming")
+    prompt = "[SYSTEM_INSTRUCTION]\nRules\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]"
+
+    inference.generate(prompt=prompt, caller="test", correlation_id="chat-turn",
+        budget=LocalModelInvocationBudget(), caller_linkage={"chat_response_style": "default"})
+    inference.generate(prompt=prompt, caller="test", correlation_id="social-turn",
+        budget=LocalModelInvocationBudget(), caller_linkage={"chat_response_style": "social_checkin"})
+
+    assert invoker.requests[0]["budget"].max_new_tokens == 96
+    assert invoker.requests[0]["budget"].timeout_seconds == 18
+    assert invoker.requests[0]["linkage"]["chat_history_format"] == "role_separated"
+    assert invoker.requests[1]["budget"].max_new_tokens == 64
+    assert invoker.requests[1]["budget"].timeout_seconds == 12
+
+
 def test_gaming_resource_pressure_uses_durable_non_model_response(tmp_path):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()
@@ -1806,7 +1842,7 @@ def test_gaming_chat_trims_old_history_and_keeps_recent_turns_under_input_ceilin
     for index in range(3):
         response = client.post("/chat", json={
             "message": ("Turn 0: remember violet comet. " if index == 0 else
-                        f"Turn {index}: ") + ("remember this detail " * 18),
+                        f"Turn {index}: ") + ("remember this detail " * 75),
             "session_id": session_id,
         })
         assert response.status_code == 200

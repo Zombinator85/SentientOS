@@ -228,6 +228,25 @@ def test_malicious_recalled_memory_cannot_become_system_authority(tmp_path: Path
     assert "do not infer visual details from the empty OCR result" in no_text_prompt
 
 
+def test_compact_gaming_context_prioritizes_direct_grounded_replies() -> None:
+    history = ContextSnapshot("session-test", (), 0, False, "0" * 64)
+    prompt = assemble_local_chat_context(
+        history=history,
+        memory_snapshot={"memories": []},
+        current_message="That felt like a win. What does it unlock?",
+        runtime_context={"workload": {"game_foreground": True}},
+        compact_history=True,
+    )
+
+    assert "You are SentientOS" in prompt
+    assert "Answer the latest user message naturally and specifically" in prompt
+    assert "do not claim broader setup or capability without evidence" in prompt
+    assert "Preserve speaker and time attribution" in prompt
+    assert "Describe gameplay only when CURRENT_SCREEN_OBSERVATION_UNTRUSTED is included" in prompt
+    assert "One reply proves only that turn, not learning" not in prompt
+    assert "treat prior assistant answers as exclusions" not in prompt
+
+
 def test_compact_screen_observation_fits_gaming_prompt_budget() -> None:
     history = ContextSnapshot("session-test", (), 0, False, "0" * 64)
     runtime_context = {

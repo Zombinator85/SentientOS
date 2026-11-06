@@ -14,18 +14,13 @@ SUPPORTED_WORKLOAD_MODES = frozenset({"normal", "gaming", "automatic"})
 class GamingWorkloadPolicy:
     """Apply conservative per-turn ceilings without changing model authority."""
 
-    GAMING_CHAT_STYLE_ID = "gaming_chat_style_v15"
+    GAMING_CHAT_STYLE_ID = "gaming_chat_style_v16"
     GAMING_CHAT_STYLE_INSTRUCTION = (
-        "Gaming: one ~20-word sentence; no emoji-only replies. "
-        "Separate proposals from capabilities. "
-        "Name verified foreground app only; no gameplay claims without screen evidence. "
-        "User-provided game details are usable context; reason without implying screen vision. "
-        "Honor corrections and rule-outs. "
-        "Fulfill requested form: joke requests get jokes, "
-        "not trivia or offers. No unasked follow-up. For next-step advice, give one action "
-        "and why only when supported by the user's description or current screen OCR; "
-        "otherwise ask one concise clarifying question. Never invent map locations, "
-        "objects, enemies, objectives, or events."
+        "Gaming conversation: answer the latest message directly in up to three short "
+        "sentences (about 50 words); use fewer when enough. Avoid generic support language "
+        "and unasked follow-ups. Separate verified facts from suggestions; keep suggestions "
+        "grounded in what the user said. The foreground app does not reveal gameplay; use "
+        "screen evidence only when included, and never invent game events."
     )
     GAMING_SOCIAL_CHECKIN_INSTRUCTION = (
         "Gaming social check-in: one short sentence, not emoji-only. Answer directly; "
@@ -41,11 +36,10 @@ class GamingWorkloadPolicy:
     GAMING_MAX_INPUT_CHARS = 4600
     GAMING_MAX_RECALL_INPUT_CHARS = 5100
     GAMING_MAX_OUTPUT_CHARS = 1200
-    # A 48-token live reply reached the hard cap and ended mid-sentence on
-    # GLORP. 64 keeps gaming replies short while leaving room for a complete
-    # sentence plus a brief follow-up question on the measured 3B profile.
-    GAMING_MAX_NEW_TOKENS = 64
-    GAMING_TIMEOUT_SECONDS = 12.0
+    GAMING_MAX_NEW_TOKENS = 96
+    GAMING_TIMEOUT_SECONDS = 18.0
+    GAMING_SOCIAL_MAX_NEW_TOKENS = 64
+    GAMING_SOCIAL_TIMEOUT_SECONDS = 12.0
     GAMING_MAX_BACKEND_THREADS = 2
 
     @staticmethod
@@ -57,17 +51,21 @@ class GamingWorkloadPolicy:
     @classmethod
     def constrain_budget(cls, mode: WorkloadMode,
                          requested: LocalModelInvocationBudget, *,
-                         recent_session_recall: bool = False) -> LocalModelInvocationBudget:
+                         recent_session_recall: bool = False,
+                         response_style: str = "default") -> LocalModelInvocationBudget:
         if mode == "normal":
             return requested
+        compact_response = response_style in {"social_checkin", "screen_observation"}
         input_limit = (cls.GAMING_MAX_RECALL_INPUT_CHARS if recent_session_recall
                        else cls.GAMING_MAX_INPUT_CHARS)
         return replace(
             requested,
             max_input_chars=min(requested.max_input_chars, input_limit),
             max_output_chars=min(requested.max_output_chars, cls.GAMING_MAX_OUTPUT_CHARS),
-            max_new_tokens=min(requested.max_new_tokens, cls.GAMING_MAX_NEW_TOKENS),
-            timeout_seconds=min(requested.timeout_seconds, cls.GAMING_TIMEOUT_SECONDS),
+            max_new_tokens=min(requested.max_new_tokens, cls.GAMING_SOCIAL_MAX_NEW_TOKENS
+                               if compact_response else cls.GAMING_MAX_NEW_TOKENS),
+            timeout_seconds=min(requested.timeout_seconds, cls.GAMING_SOCIAL_TIMEOUT_SECONDS
+                                if compact_response else cls.GAMING_TIMEOUT_SECONDS),
         )
 
     @classmethod
@@ -75,6 +73,7 @@ class GamingWorkloadPolicy:
                                  requested: LocalModelInvocationBudget,
                                  serving_lineage: Mapping[str, Any],
                                  workload_evidence: Mapping[str, Any] | None = None,
+                                 response_style: str = "default",
                                  ) -> tuple[LocalModelInvocationBudget, dict[str, Any]]:
         """Return the bounded budget and digest-bound lineage for one call."""
         lineage = {
@@ -84,7 +83,7 @@ class GamingWorkloadPolicy:
         if mode == "gaming":
             lineage["workload_response_style"] = cls.GAMING_CHAT_STYLE_ID
             lineage["max_backend_threads"] = cls.GAMING_MAX_BACKEND_THREADS
-        return cls.constrain_budget(mode, requested), lineage
+        return cls.constrain_budget(mode, requested, response_style=response_style), lineage
 
     @classmethod
     def apply_chat_response_style(cls, prompt: str, mode: WorkloadMode,
