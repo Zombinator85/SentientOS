@@ -643,9 +643,10 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
     assert "if asked the model, give its configured label" in prompt
     assert "For check-ins, answer briefly as SentientOS" in prompt
     assert "without claiming moods or lived experiences" in prompt
-    assert "except a brief reciprocal greeting" in prompt
+    assert "beyond a brief reciprocal greeting" in prompt
     assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, say you cannot see gameplay" in prompt
-    assert "Answer all parts directly" in prompt
+    assert "Answer the user's point" in prompt
+    assert "One reply proves only that turn, not learning" in prompt
     assert "Foreground confirms only the app is open" in prompt
     runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
         "\n[SESSION_HISTORY_DATA]", 1)[0]
