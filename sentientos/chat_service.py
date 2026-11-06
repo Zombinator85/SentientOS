@@ -295,15 +295,15 @@ def _is_social_checkin_request(message: str) -> bool:
         rf"(?:my )?{companion_roles}\b",
         normalized,
     )
-    asks_for_specific_question = re.search(
+    asks_for_one_question = re.search(
         r"\bask(?: me)? (?:one|a) "
-        r"(?:(?:new|different|another),? )?"
-        r"(?:specific,? )?(?:easy,? )?(?:concrete,? )?"
-        r"(?:natural,? )?(?:open[- ]ended,? )?question\b",
+        r"(?:(?:new|different|another|specific|easy|concrete|natural|"
+        r"open(?:[- ]ended)?|simple|short|brief|quick|thoughtful|playful|fun),? )*"
+        r"question\b",
         normalized,
     )
     return (any(marker in normalized for marker in markers)
-            or asks_for_specific_question is not None
+            or asks_for_one_question is not None
             or companion_shift_checkin is not None
             or companion_day_checkin is not None)
 

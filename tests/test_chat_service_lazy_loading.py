@@ -1806,6 +1806,9 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     assert chat._is_social_checkin_request(
         "I am taking a short break. Ask me one easy, open-ended question, and please ask just one at a time.") is True
     assert chat._is_social_checkin_request(
+        "Codex acceptance check: Give one natural, brief reply and ask one specific, open question "
+        "about what makes a game story memorable. Do not claim to see my screen.") is True
+    assert chat._is_social_checkin_request(
         "I mentioned earlier that I made it through a rough fight in Cronos. "
         "You did not see it yourself; can you ask me one natural question about how it went?") is True
     assert chat._is_social_checkin_continuation(
