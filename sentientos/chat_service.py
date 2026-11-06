@@ -55,7 +55,7 @@ from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CA
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
     CURRENT_GAME_STATUS_POLICY_ID, SCREEN_CAPABILITY_POLICY_ID, corrected_gaming_output,
-    corrected_nonverbal_gaming_output,
+    corrected_nonverbal_gaming_output, corrected_multiple_social_questions,
     corrected_output_lineage,
     corrected_screen_capability_output, corrected_social_instruction_echo,
     corrected_system_identity_output, corrected_unobserved_game_status,
@@ -2506,6 +2506,11 @@ class PersistentConversationService:
             if grounding_correction is None:
                 response_text, grounding_correction = corrected_social_instruction_echo(
                     receipt.output_text, user_message=message)
+            if grounding_correction is None:
+                response_text, grounding_correction = corrected_multiple_social_questions(
+                    receipt.output_text, user_message=message,
+                    workload_mode=str(observed_workload_mode or "normal"),
+                    social_checkin=social_checkin)
             if grounding_correction is None:
                 response_text, grounding_correction = corrected_nonverbal_gaming_output(
                     receipt.output_text, user_message=message,

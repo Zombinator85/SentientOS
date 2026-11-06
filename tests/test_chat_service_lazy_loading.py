@@ -834,6 +834,40 @@ def test_live_emoji_only_social_question_is_replaced_by_one_open_question(tmp_pa
     assert invoker.calls == 1
 
 
+def test_live_social_checkin_keeps_only_one_requested_question(tmp_path):
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload()
+    client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    invoker.output_text = (
+        "How's your day so far? Is there anything you're particularly looking forward to?"
+    )
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation(
+                "available", True, "c" * 64, "2026-11-06T12:00:00+00:00")
+
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic",
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+        foreground_game_detector=Detector())
+    response = client.post("/chat", json={
+        "message": (
+            "I am taking a short break. Ask me one easy, open-ended question, "
+            "and please ask just one at a time."
+        ),
+        "observe_screen": False,
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["response"] == "How's your day so far?"
+    assert body["context"]["response_origin"] == "grounding_policy_fallback"
+    assert invoker.calls == 1
+
+
 def test_negative_screen_reference_during_social_checkin_reaches_model(tmp_path):
     from sentientos.foreground_game_detection import ForegroundGameObservation
 

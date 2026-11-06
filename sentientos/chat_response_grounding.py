@@ -23,6 +23,7 @@ SYSTEM_IDENTITY_POLICY_ID = "sentientos_companion_identity_grounding_v1"
 UNPROVIDED_SOURCE_POLICY_ID = "unprovided_referenced_source_grounding_v1"
 GAMING_NEXT_STEP_POLICY_ID = "gaming_next_step_nonresponsive_fallback_v1"
 GAMING_NONVERBAL_OUTPUT_POLICY_ID = "gaming_nonverbal_output_fallback_v1"
+GAMING_SOCIAL_QUESTION_COUNT_POLICY_ID = "gaming_social_question_count_v1"
 GAMING_NONVERBAL_OUTPUT_CORRECTION = "I didn’t produce a useful reply that time."
 GAMING_SOCIAL_QUESTION_FALLBACK = "What’s one thing you’d like to talk about for a minute?"
 GAMING_SOCIAL_COMPANIONSHIP_FALLBACK = "I’m here, ready to keep you company."
@@ -718,6 +719,26 @@ def corrected_nonresponsive_gaming_next_step(
     return corrected, {
         "policy_id": GAMING_NEXT_STEP_POLICY_ID,
         "reason_code": reason,
+    }
+
+
+def corrected_multiple_social_questions(
+    output: str, *, user_message: str, workload_mode: str, social_checkin: bool,
+) -> tuple[str, dict[str, str] | None]:
+    """Keep only the first question when gaming users explicitly request one question."""
+    if workload_mode != "gaming" or not social_checkin:
+        return output, None
+    asks_for_one = re.search(
+        r"\b(?:ask|pose)\b.{0,100}\b(?:one|a single|just one|exactly one)\b"
+        r".{0,100}\bquestion\b|\bone question at a time\b",
+        user_message, re.IGNORECASE | re.DOTALL)
+    question_marks = list(re.finditer(r"[?？]", output))
+    if asks_for_one is None or len(question_marks) <= 1:
+        return output, None
+    corrected = output[:question_marks[0].end()].strip()
+    return corrected, {
+        "policy_id": GAMING_SOCIAL_QUESTION_COUNT_POLICY_ID,
+        "reason_code": "model_exceeded_requested_question_count",
     }
 
 
