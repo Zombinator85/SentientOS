@@ -3113,7 +3113,16 @@ async def chat_stream_endpoint(request: ChatRequest, http_request: Request) -> S
             publish({"type": "error", "code": "chat_session_not_found"})
         except Exception as exc:
             if not disconnected.is_set():
-                LOGGER.warning("Streaming chat failed: %s", type(exc).__name__)
+                failure_code = None
+                if (type(exc).__name__ == "ScreenObservationBridgeError"
+                        and exc.args and isinstance(exc.args[0], str)
+                        and re.fullmatch(r"screen_[a-z0-9_]{1,80}", exc.args[0])):
+                    failure_code = exc.args[0]
+                if failure_code is None:
+                    LOGGER.warning("Streaming chat failed: %s", type(exc).__name__)
+                else:
+                    LOGGER.warning("Streaming chat failed: %s failure_code=%s",
+                                   type(exc).__name__, failure_code)
                 publish({"type": "error", "code": "chat_generation_failed"})
         finally:
             worker_finished.set()
