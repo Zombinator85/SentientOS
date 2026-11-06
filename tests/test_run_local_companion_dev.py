@@ -1,10 +1,33 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_screen_ocr_executable_path_is_converted_for_windows_edge():
+    from scripts.run_local_companion_dev import _normalize_windows_edge_executable
+
+    conversions = []
+    def convert(path):
+        conversions.append(path)
+        return r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+    assert _normalize_windows_edge_executable(
+        "/mnt/c/Program Files/Tesseract-OCR/tesseract.exe",
+        convert_wsl_path=convert) == r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    assert conversions == [Path("/mnt/c/Program Files/Tesseract-OCR/tesseract.exe")]
+    assert _normalize_windows_edge_executable(
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        convert_wsl_path=convert) == r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    assert _normalize_windows_edge_executable(
+        "tesseract.exe", convert_wsl_path=convert) == "tesseract.exe"
+    with pytest.raises(ValueError, match="screen_observation_ocr_windows_path_required"):
+        _normalize_windows_edge_executable(
+            "/usr/bin/tesseract", convert_wsl_path=convert)
 
 
 def test_host_resource_log_exposes_timestamped_cpu_ram_gpu_and_vram():

@@ -35,6 +35,18 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _normalize_windows_edge_executable(
+        executable: str, *, convert_wsl_path: Callable[[Path], str]) -> str:
+    """Convert an explicit mounted Windows executable path for the Windows edge."""
+    if not isinstance(executable, str) or not executable:
+        raise ValueError("screen_observation_ocr_executable_invalid")
+    if executable.startswith("/"):
+        if not executable.startswith("/mnt/"):
+            raise ValueError("screen_observation_ocr_windows_path_required")
+        return convert_wsl_path(Path(executable))
+    return executable
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -552,7 +564,9 @@ class _TemporaryCompanionEdge:
                     if (not isinstance(executable, str) or not executable
                             or len(executable) > 1024 or "\0" in executable):
                         raise ValueError("screen_observation_ocr_executable_invalid")
-                    config["screen_observation"]["tesseract_executable"] = executable
+                    config["screen_observation"]["tesseract_executable"] = (
+                        _normalize_windows_edge_executable(
+                            executable, convert_wsl_path=_win_path))
             self._edge_process = subprocess.Popen(
                 [str(windows_python), _win_path(worker), _win_path(windows_source)],
                 cwd=str(ROOT), env=_secret_free_environment(), stdin=subprocess.PIPE,
