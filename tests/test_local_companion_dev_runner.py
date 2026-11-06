@@ -8,6 +8,7 @@ from scripts.run_local_companion_dev import (
     _TemporaryCompanionEdge,
     _kill_windows_process_tree,
     _parse_edge_ready,
+    _release_residency_for_vram_pressure,
     _stage_windows_edge_source,
     _wait_for_edge_ready,
     main,
@@ -15,6 +16,28 @@ from scripts.run_local_companion_dev import (
 from scripts.terminate_owned_process_tree import (
     terminate_owned_process_tree,
 )
+
+
+def test_vram_pressure_residency_policy_ignores_missing_or_sufficient_headroom():
+    calls = []
+
+    def release():
+        calls.append("release")
+        return {"status": "released"}
+
+    assert _release_residency_for_vram_pressure(None, release) is None
+    assert _release_residency_for_vram_pressure(89.9, release) is None
+    assert calls == []
+
+
+def test_vram_pressure_residency_policy_releases_at_governor_threshold():
+    result = _release_residency_for_vram_pressure(
+        90.0, lambda: {"status": "released", "reason_code": "vram_pressure_observed"})
+
+    assert result == {
+        "status": "released",
+        "reason_code": "vram_pressure_observed",
+    }
 
 
 def test_forward_lines_surfaces_worker_output_after_ready(tmp_path, capsys) -> None:

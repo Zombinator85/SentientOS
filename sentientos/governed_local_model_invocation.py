@@ -519,7 +519,8 @@ class GovernedLocalModelInvoker:
             return False
 
     def release_model_residency(self, *, reason_code: str = "gaming_mode_entered",
-                                 correlation_id: str | None = None
+                                 correlation_id: str | None = None,
+                                 cancel_active: bool = True
                                  ) -> LocalModelResidencyReleaseReceipt:
         """Admit and audit a local model release before asking Ollama to unload."""
         identity = getattr(self.model, "active_identity", None)
@@ -559,7 +560,7 @@ class GovernedLocalModelInvoker:
                     reasons = ["local_model_already_unloaded"]
                 elif resident is True:
                     lock_acquired = self._active_invocation_lock.acquire(blocking=False)
-                    if not lock_acquired:
+                    if not lock_acquired and cancel_active:
                         with self._active_state_lock:
                             active_release_event = self._active_release_event
                             if active_release_event is not None:
@@ -574,7 +575,10 @@ class GovernedLocalModelInvoker:
                         lock_acquired = self._active_invocation_lock.acquire(timeout=1.0)
                     if not lock_acquired:
                         status = "deferred"
-                        reasons = ["active_inference_did_not_quiesce"]
+                        reasons = [
+                            "active_inference_did_not_quiesce" if cancel_active
+                            else "active_inference_in_progress"
+                        ]
                     else:
                         try:
                             backend_result = self.model.release_residency()

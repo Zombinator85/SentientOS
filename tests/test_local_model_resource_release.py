@@ -77,6 +77,22 @@ def test_gaming_transition_resource_release_is_admitted_and_receipted(
     assert payload["receipt_digest"] == receipt.receipt_digest
 
 
+def test_pressure_release_defers_without_interrupting_active_inference(
+        tmp_path: Path) -> None:
+    model, _, invoker = _configured(tmp_path, resident=True)
+    assert invoker._active_invocation_lock.acquire(blocking=False)
+    try:
+        receipt = invoker.release_model_residency(
+            reason_code="vram_pressure_observed", cancel_active=False)
+    finally:
+        invoker._active_invocation_lock.release()
+
+    assert receipt.status == "deferred"
+    assert receipt.reason_codes == ("active_inference_in_progress",)
+    assert model.resident is True
+    assert model.release_calls == 0
+
+
 def test_unloaded_model_is_not_reloaded_by_release_transition(tmp_path: Path) -> None:
     model, governor, invoker = _configured(tmp_path, resident=False)
 

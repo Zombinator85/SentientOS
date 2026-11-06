@@ -195,10 +195,25 @@ def _host_resource_log_payload(evaluation: Any, summary: Mapping[str, Any]) -> d
     }
 
 
-class _HostResourceSampler:
-    """Feed fresh, read-only host telemetry to the live runtime governor."""
+_VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT = 90.0
 
-    def __init__(self, *, interval_seconds: float = 15.0) -> None:
+
+def _release_residency_for_vram_pressure(
+        vram_utilization_percent: float | None,
+        release: Callable[[], Mapping[str, Any] | None] | None,
+        ) -> Mapping[str, Any] | None:
+    """Release an idle model only when measured VRAM reaches the pressure threshold."""
+    if (release is None or vram_utilization_percent is None
+            or vram_utilization_percent < _VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT):
+        return None
+    return release()
+
+
+class _HostResourceSampler:
+    """Feed host telemetry to the live runtime governor and shed idle model VRAM."""
+
+    def __init__(self, *, interval_seconds: float = 15.0,
+                 on_vram_pressure: Callable[[], Mapping[str, Any] | None] | None = None) -> None:
         from sentientos.control_plane_kernel import get_control_plane_kernel
         from sentientos.host_resource_runtime import (
             HostObservationBudget, HostResourceRuntimeCoordinator,
@@ -216,6 +231,7 @@ class _HostResourceSampler:
             runtime_state_root=Path(os.environ["SENTIENTOS_RUNTIME_STATE_ROOT"]),
             plan=plan)
         self._interval = interval_seconds
+        self._on_vram_pressure = on_vram_pressure
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run,
             name="sentientos-dev-host-resource-sampler", daemon=True)
@@ -229,8 +245,19 @@ class _HostResourceSampler:
                 evaluation = self._coordinator.run_cycle(correlation_id=correlation_id)
                 if evaluation is not None:
                     report = self._summary(evaluation)
-                    print(json.dumps(_host_resource_log_payload(evaluation, report)),
-                          flush=True)
+                    payload = _host_resource_log_payload(evaluation, report)
+                    try:
+                        release = _release_residency_for_vram_pressure(
+                            evaluation.snapshot.vram_utilization_percent,
+                            self._on_vram_pressure)
+                        if release is not None:
+                            payload["residency_release"] = dict(release)
+                    except Exception as exc:
+                        payload["residency_release"] = {
+                            "status": "error",
+                            "error_type": type(exc).__name__,
+                        }
+                    print(json.dumps(payload), flush=True)
                 else:
                     print(json.dumps({"event": "host_resource_observation",
                                       "status": "admission_deferred"}), flush=True)
@@ -749,7 +776,16 @@ def main() -> int:
             gaming_keep_alive=args.gaming_keep_alive,
             screen_observer=edge.screen_observer if edge else None,
             screen_capture_policy="request_driven")
-        host_resource_sampler = _HostResourceSampler()
+        def release_model_if_resident_under_vram_pressure() -> Mapping[str, Any] | None:
+            if not invoker.model.is_resident():
+                return None
+            return invoker.release_model_residency(
+                reason_code="vram_pressure_observed",
+                cancel_active=False,
+            ).to_dict()
+
+        host_resource_sampler = _HostResourceSampler(
+            on_vram_pressure=release_model_if_resident_under_vram_pressure)
         initial_profile = ("gaming" if args.initial_workload_mode == "automatic"
                            else args.initial_workload_mode)
         initial_model = model_profiles[initial_profile]
