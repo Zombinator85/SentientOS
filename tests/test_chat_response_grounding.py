@@ -474,6 +474,28 @@ def test_negative_screen_reference_is_not_misread_as_an_activity_question():
     )
 
 
+def test_unrelated_game_story_question_and_later_screen_caution_stay_conversational():
+    from sentientos.chat_response_grounding import _is_game_status_question
+
+    message = (
+        "Ask one specific question about what makes a game story memorable. "
+        "Do not claim to see my screen."
+    )
+    assert not _is_game_status_question(message)
+    assert _is_game_status_question("What can you tell me about Cronos right now?")
+
+    response = "What kind of story moment tends to stay with you after a game ends?"
+    assert corrected_unobserved_game_status(
+        response,
+        user_message=message,
+        verified_runtime_context={"workload": {
+            "game_foreground": True,
+            "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+        }},
+        screen_observation_provenance=None,
+    ) == (response, None)
+
+
 def test_user_sharing_about_game_is_not_misread_as_a_game_status_question():
     message = (
         "What would be a fun thing for me to tell you about my Cronos run? "

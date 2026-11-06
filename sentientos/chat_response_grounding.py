@@ -165,8 +165,16 @@ _REPORT_OBSERVATION_DISTINCTION = re.compile(
 
 
 def _is_game_status_question(user_message: str) -> bool:
-    return (_GAME_STATUS_QUESTION.search(user_message) is not None
-            and _USER_SHARING_GAME_CONTEXT_QUESTION.search(user_message) is None)
+    # Keep the status cues in one sentence. Searching across the complete
+    # message lets a conversational question about a game combine with a later
+    # instruction such as “do not claim to see my screen” and look like a live
+    # screen-status request.
+    clauses = re.split(r"[.!?;\n]+", user_message)
+    return any(
+        _GAME_STATUS_QUESTION.search(clause) is not None
+        and _USER_SHARING_GAME_CONTEXT_QUESTION.search(clause) is None
+        for clause in clauses
+    )
 _GAME_SCREEN_ACTIVITY_QUESTION = re.compile(
     r"\b(?:what(?:'s| is)\s+(?:happening|going on)|"
     r"can you (?:tell|describe|see)\s+what(?:'s| is)\s+"
