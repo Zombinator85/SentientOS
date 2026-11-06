@@ -84,6 +84,15 @@ def test_companion_page_renders_streamed_deltas_and_keeps_backend_fallback():
     assert "fetch('/chat/stream'" in response.text
     assert "responseTextEl.textContent += chunk" in response.text
     assert "fetch('/chat'," in response.text
+    successful_response = response.text.index("localStorage.removeItem(pendingKey);")
+    clear_input = response.text.index("messageEl.value = '';", successful_response)
+    render_response = response.text.index(
+        "responseTextEl.textContent = data.response;", successful_response
+    )
+    refresh_sessions = response.text.index(
+        "await refreshConversationSessions(data.session_id);", successful_response
+    )
+    assert successful_response < clear_input < render_response < refresh_sessions
 
 
 
