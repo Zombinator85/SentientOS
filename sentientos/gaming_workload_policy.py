@@ -14,7 +14,7 @@ SUPPORTED_WORKLOAD_MODES = frozenset({"normal", "gaming", "automatic"})
 class GamingWorkloadPolicy:
     """Apply conservative per-turn ceilings without changing model authority."""
 
-    GAMING_CHAT_STYLE_ID = "gaming_chat_style_v11"
+    GAMING_CHAT_STYLE_ID = "gaming_chat_style_v13"
     GAMING_CHAT_STYLE_INSTRUCTION = (
         "Gaming: one direct sentence, about 20 words. Separate proposals from capabilities. "
         "Name verified foreground app only; no gameplay claims without screen evidence. "
@@ -27,13 +27,11 @@ class GamingWorkloadPolicy:
         "objects, enemies, objectives, or events."
     )
     GAMING_SOCIAL_CHECKIN_INSTRUCTION = (
-        "This is casual companionship, not a help request. Fulfill the user's specific "
-        "request first. If they ask for one question, ask exactly one concrete, easy "
-        "question about their named subject; avoid broad invitations and repeating "
-        "earlier questions. Use user-provided game details only when relevant; do not "
-        "force a game reference or an identity introduction. Do not ask what help is "
-        "needed. Never claim to play, see, watch, or monitor the game, or imply live "
-        "observation without CURRENT_SCREEN_OBSERVATION_UNTRUSTED."
+        "Casual companion; answer the request first. If asked for one specific question, "
+        "ask exactly one brief choice, e.g. 'Coffee or tea?', never an open-ended or "
+        "repeated question. Mention user-shared game details only if relevant; no forced "
+        "game reference, self-introduction, or helpdesk question. Never claim gameplay "
+        "sight or monitoring without CURRENT_SCREEN_OBSERVATION_UNTRUSTED."
     )
     GAMING_MAX_INPUT_CHARS = 4600
     GAMING_MAX_OUTPUT_CHARS = 1200
