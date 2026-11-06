@@ -84,9 +84,9 @@ def test_host_resource_log_marks_missing_gpu_telemetry():
 @pytest.mark.parametrize(("samples", "expected"), [
     ((), "deferred"),
     ((80.0,), "available"),
-    ((90.0,), "deferred"),
-    ((90.0, 87.0), "deferred"),
-    ((90.0, 84.9), "available"),
+    ((85.0,), "deferred"),
+    ((85.0, 83.0), "deferred"),
+    ((85.0, 81.9), "available"),
     ((80.0, None), "deferred"),
 ])
 def test_gaming_resource_pressure_guard_uses_fail_closed_hysteresis(samples, expected):

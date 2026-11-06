@@ -298,8 +298,8 @@ def test_gaming_resource_pressure_uses_durable_non_model_response(tmp_path):
         "reason_code": "vram_pressure",
         "vram_utilization_percent": 92.0,
         "observed_at": "2026-11-06T09:00:00+00:00",
-        "release_threshold_percent": 90.0,
-        "recovery_threshold_percent": 85.0,
+        "release_threshold_percent": 85.0,
+        "recovery_threshold_percent": 82.0,
     }
     chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
         initial_workload_mode="gaming",

@@ -195,8 +195,12 @@ def _host_resource_log_payload(evaluation: Any, summary: Mapping[str, Any]) -> d
     }
 
 
-_VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT = 90.0
-_VRAM_RESIDENCY_RECOVERY_THRESHOLD_PERCENT = 85.0
+# Keep roughly 15% of a 12 GiB device available for game-side peaks.
+# GLORP captures kept Qwen2.5 3B near 80-81% (about 2.4 GiB free);
+# other candidate trials reached 85-89% with worse frame-time tails.
+# These are provisional development thresholds, not a universal GPU policy.
+_VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT = 85.0
+_VRAM_RESIDENCY_RECOVERY_THRESHOLD_PERCENT = 82.0
 _VRAM_TELEMETRY_STALE_AFTER_SECONDS = 45.0
 
 
