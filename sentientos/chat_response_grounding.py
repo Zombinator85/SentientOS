@@ -18,6 +18,7 @@ SCREEN_CAPABILITY_POLICY_ID = "screen_observation_unconfigured_correction_v2"
 SOCIAL_INSTRUCTION_ECHO_POLICY_ID = "social_instruction_echo_correction_v1"
 SOCIAL_CHECK_IN_POLICY_ID = "social_check_in_grounding_correction_v1"
 CURRENT_GAME_STATUS_POLICY_ID = "verified_foreground_only_game_status_v1"
+USER_REPORT_EVIDENCE_POLICY_ID = "user_report_vs_observation_evidence_v1"
 GAME_PROCESS_STATUS_POLICY_ID = "verified_game_process_status_v1"
 SYSTEM_IDENTITY_POLICY_ID = "sentientos_companion_identity_grounding_v1"
 UNPROVIDED_SOURCE_POLICY_ID = "unprovided_referenced_source_grounding_v1"
@@ -148,6 +149,19 @@ _USER_SHARING_GAME_CONTEXT_QUESTION = re.compile(
     r"(?:tell\s+you|share\s+with\s+you)\b",
     re.IGNORECASE,
 )
+_USER_REPORTED_EVENT = re.compile(
+    r"\b(?:if|when|once|after)\s+(?:i|you)\s+"
+    r"(?:tell|describe|report|say)\b.{0,120}\b"
+    r"(?:event|happened|happens|occurred|took place|what i said|what i told you)\b|"
+    r"\bwhat evidence\b.{0,80}\bif\s+i\s+"
+    r"(?:tell|describe|report|say)\b",
+    re.IGNORECASE,
+)
+_REPORT_OBSERVATION_DISTINCTION = re.compile(
+    r"\b(?:distinguish|differentiate|separate|tell apart|evidence|"
+    r"observ(?:e|ed|ation)|independent(?:ly)? verify|confirm)\b",
+    re.IGNORECASE,
+)
 
 
 def _is_game_status_question(user_message: str) -> bool:
@@ -266,7 +280,14 @@ def is_direct_screen_activity_question(user_message: str) -> bool:
         or _SCREEN_CAPABILITY_QUESTION.search(user_message) is not None
         or _SCREEN_VISIBILITY_CLARIFICATION_REQUEST.search(user_message) is not None
         or is_verified_current_game_context_question(user_message)
+        or is_user_report_evidence_question(user_message)
     )
+
+
+def is_user_report_evidence_question(user_message: str) -> bool:
+    """Whether the user asks how their report differs from system observation."""
+    return (_USER_REPORTED_EVENT.search(user_message) is not None
+            and _REPORT_OBSERVATION_DISTINCTION.search(user_message) is not None)
 
 
 def _is_negated_screen_activity_reference(user_message: str, match_start: int) -> bool:
@@ -301,6 +322,55 @@ def corrected_unobserved_game_status(
     screen_observation_provenance: Mapping[str, Any] | None,
 ) -> tuple[str, dict[str, str] | None]:
     """Answer live game-status questions from foreground evidence only."""
+    if is_user_report_evidence_question(user_message):
+        workload = verified_runtime_context.get("workload")
+        capabilities = verified_runtime_context.get("capabilities")
+        screen = (capabilities.get("screen_observation")
+                  if isinstance(capabilities, Mapping) else None)
+        workload_fact = ""
+        if isinstance(workload, Mapping) and workload.get("game_foreground") is True:
+            names = workload.get("configured_game_process_names")
+            if isinstance(names, list) and len(names) == 1 and isinstance(names[0], str):
+                raw_name = names[0]
+                label = re.sub(r"[-_]win64[-_]shipping$", "", raw_name.rsplit(".", 1)[0],
+                               flags=re.IGNORECASE)
+                label = re.sub(r"[-_]+", " ", label).strip().title() or raw_name
+            else:
+                label = "The allowlisted game"
+            workload_fact = f" Current telemetry separately confirms {label} is foreground."
+
+        if _has_readable_screen_text(screen_observation_provenance):
+            observation_fact = (
+                " This turn also includes readable OCR from a screen capture; that supports "
+                "only the text it captured, not every event in the scene."
+            )
+        elif (isinstance(screen_observation_provenance, Mapping)
+              and screen_observation_provenance.get("text_status") == "no_readable_text"):
+            observation_fact = (
+                " A screen capture was attempted, but OCR found no readable text, so it "
+                "doesn’t independently verify the event."
+            )
+        elif isinstance(screen, Mapping) and screen.get("configured") is False:
+            observation_fact = (
+                " Screen observation isn’t configured in this session, so I haven’t "
+                "independently observed the event."
+            )
+        else:
+            observation_fact = (
+                " No screen observation was included this turn, so I haven’t "
+                "independently observed the event."
+            )
+        return (
+            "Yes. I’ll keep your description attributed to you. Process telemetry "
+            "establishes only the foreground app; OCR, if included, establishes only "
+            "captured text." +
+            workload_fact + observation_fact,
+            {
+                "policy_id": USER_REPORT_EVIDENCE_POLICY_ID,
+                "reason_code": "user_report_distinguished_from_current_observation",
+            },
+        )
+
     activity_question = (
         _GAME_ACTIVITY_QUESTION.search(user_message) is not None
         or is_direct_screen_activity_question(user_message)

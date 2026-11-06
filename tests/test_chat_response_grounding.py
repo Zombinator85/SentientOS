@@ -7,6 +7,7 @@ from sentientos.chat_response_grounding import (
     corrected_screen_capability_output,
     GROUNDING_CORRECTION, corrected_gaming_output, corrected_output_lineage,
     CURRENT_GAME_STATUS_POLICY_ID, SOCIAL_CHECK_IN_POLICY_ID,
+    USER_REPORT_EVIDENCE_POLICY_ID,
     SOCIAL_INSTRUCTION_ECHO_POLICY_ID, SYSTEM_IDENTITY_POLICY_ID,
     corrected_social_instruction_echo, corrected_system_identity_output,
     corrected_unobserved_game_status,
@@ -17,6 +18,7 @@ from sentientos.chat_response_grounding import (
     GAMING_NONVERBAL_OUTPUT_POLICY_ID,
     GAMING_SOCIAL_QUESTION_FALLBACK,
     is_direct_screen_activity_question,
+    is_user_report_evidence_question,
     unobserved_gameplay_claim,
 )
 
@@ -242,6 +244,55 @@ def test_live_game_status_uses_verified_foreground_without_inventing_scene_detai
         "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
         "reason_code": "foreground_only_no_screen_observation",
     }
+
+
+@pytest.mark.parametrize("message", [
+    "If I tell you something happened in Cronos, can you distinguish what you observed from what I told you?",
+    "What evidence do you have if I describe an event from Cronos?",
+])
+def test_user_report_evidence_question_gets_distinct_attribution(message):
+    assert is_user_report_evidence_question(message)
+    assert is_direct_screen_activity_question(message)
+    text, attribution = corrected_unobserved_game_status(
+        "I can see what happened.", user_message=message,
+        verified_runtime_context={
+            "workload": {
+                "game_foreground": True,
+                "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+            },
+            "capabilities": {"screen_observation": {"configured": False}},
+        }, screen_observation_provenance=None)
+    assert text == (
+        "Yes. I’ll keep your description attributed to you. Process telemetry "
+        "establishes only the foreground app; OCR, if included, establishes only "
+        "captured text. Current telemetry separately confirms "
+        "Cronos is foreground. Screen observation isn’t configured in this session, "
+        "so I haven’t independently observed the event."
+    )
+    assert attribution == {
+        "policy_id": USER_REPORT_EVIDENCE_POLICY_ID,
+        "reason_code": "user_report_distinguished_from_current_observation",
+    }
+
+
+def test_user_report_evidence_intent_does_not_match_plain_memory_followup():
+    assert not is_user_report_evidence_question(
+        "If I tell you something happened in Cronos, can you keep it in mind?"
+    )
+
+
+def test_user_report_evidence_answer_limits_screen_support_to_captured_ocr_text():
+    text, attribution = corrected_unobserved_game_status(
+        "I can verify the whole event.",
+        user_message="What evidence do you have if I describe an event from Cronos?",
+        verified_runtime_context={"workload": {"game_foreground": True}},
+        screen_observation_provenance={
+            "text_status": "available", "capture_digest": "a" * 64,
+        })
+    assert "readable OCR from a screen capture" in text
+    assert "not every event in the scene" in text
+    assert "I haven’t independently observed the event" not in text
+    assert attribution["policy_id"] == USER_REPORT_EVIDENCE_POLICY_ID
 
 
 def test_current_game_question_names_cronos_and_distinguishes_configured_screen_source():
