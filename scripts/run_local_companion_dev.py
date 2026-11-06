@@ -196,24 +196,111 @@ def _host_resource_log_payload(evaluation: Any, summary: Mapping[str, Any]) -> d
 
 
 _VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT = 90.0
+_VRAM_RESIDENCY_RECOVERY_THRESHOLD_PERCENT = 85.0
+_VRAM_TELEMETRY_STALE_AFTER_SECONDS = 45.0
 
 
-def _release_residency_for_vram_pressure(
-        vram_utilization_percent: float | None,
-        release: Callable[[], Mapping[str, Any] | None] | None,
-        ) -> Mapping[str, Any] | None:
-    """Release an idle model only when measured VRAM reaches the pressure threshold."""
-    if (release is None or vram_utilization_percent is None
-            or vram_utilization_percent < _VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT):
-        return None
-    return release()
+class _GamingResourcePressureGuard:
+    """Gate gaming inference on fresh, low-pressure VRAM observations.
+
+    Unknown telemetry fails closed for model inference. Once pressure is seen,
+    the gate stays closed until VRAM utilization falls below the recovery
+    threshold, avoiding rapid load/unload oscillation in the hysteresis band.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._blocked = True
+        self._pressure_latched: bool | None = None
+        self._last_observed_monotonic: float | None = None
+        self._last_observation: dict[str, Any] = {
+            "admission_status": "deferred",
+            "reason_code": "vram_telemetry_not_observed",
+            "vram_utilization_percent": None,
+            "observed_at": None,
+        }
+
+    def is_blocked(self) -> bool:
+        with self._lock:
+            return self._blocked
+
+    def status(self) -> dict[str, Any]:
+        with self._lock:
+            stale = (self._last_observed_monotonic is None
+                     or time.monotonic() - self._last_observed_monotonic
+                        > _VRAM_TELEMETRY_STALE_AFTER_SECONDS)
+            if stale and self._last_observation.get("reason_code") not in {
+                    "vram_telemetry_unavailable", "vram_telemetry_not_observed"}:
+                self._blocked = True
+                self._last_observation = {
+                    **self._last_observation,
+                    "admission_status": "deferred",
+                    "reason_code": "vram_telemetry_stale",
+                }
+            return dict(self._last_observation)
+
+    def observe(self, vram_utilization_percent: float | None,
+                observed_at: str | None) -> dict[str, Any]:
+        valid = (isinstance(vram_utilization_percent, (int, float))
+                 and not isinstance(vram_utilization_percent, bool)
+                 and 0.0 <= float(vram_utilization_percent) <= 100.0)
+        with self._lock:
+            if (not valid
+                    or not isinstance(vram_utilization_percent, (int, float))
+                    or isinstance(vram_utilization_percent, bool)):
+                self._blocked = True
+                reason = "vram_telemetry_unavailable"
+                utilization = None
+            else:
+                self._last_observed_monotonic = time.monotonic()
+                utilization = float(vram_utilization_percent)
+                if self._pressure_latched is None:
+                    self._pressure_latched = (
+                        utilization >= _VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT)
+                elif utilization >= _VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT:
+                    self._pressure_latched = True
+                elif utilization < _VRAM_RESIDENCY_RECOVERY_THRESHOLD_PERCENT:
+                    self._pressure_latched = False
+                self._blocked = self._pressure_latched
+                reason = ("vram_pressure" if self._blocked
+                          else "headroom_available")
+            self._last_observation = {
+                "admission_status": "deferred" if self._blocked else "available",
+                "reason_code": reason,
+                "vram_utilization_percent": utilization,
+                "observed_at": observed_at,
+                "release_threshold_percent": _VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT,
+                "recovery_threshold_percent": _VRAM_RESIDENCY_RECOVERY_THRESHOLD_PERCENT,
+                "stale_after_seconds": _VRAM_TELEMETRY_STALE_AFTER_SECONDS,
+            }
+            return dict(self._last_observation)
+
+
+def _apply_gaming_resource_observation(
+        guard: _GamingResourcePressureGuard,
+        utilization_percent: float | None,
+        observed_at: str | None,
+        release: Callable[[str], Mapping[str, Any] | None] | None,
+        ) -> Mapping[str, Any]:
+    """Update the gaming admission gate and release resident VRAM if blocked."""
+    state = guard.observe(utilization_percent, observed_at)
+    if state["admission_status"] == "deferred" and release is not None:
+        reason = state["reason_code"]
+        release_reason = ("vram_pressure_observed" if reason == "vram_pressure"
+                          else "vram_telemetry_unavailable")
+        receipt = release(release_reason)
+        if receipt is not None:
+            state["residency_release"] = dict(receipt)
+    return state
 
 
 class _HostResourceSampler:
-    """Feed host telemetry to the live runtime governor and shed idle model VRAM."""
+    """Feed host telemetry to the live governor and gaming inference gate."""
 
     def __init__(self, *, interval_seconds: float = 15.0,
-                 on_vram_pressure: Callable[[], Mapping[str, Any] | None] | None = None) -> None:
+                 on_vram_observation: Callable[
+                     [float | None, str | None], Mapping[str, Any] | None
+                 ] | None = None) -> None:
         from sentientos.control_plane_kernel import get_control_plane_kernel
         from sentientos.host_resource_runtime import (
             HostObservationBudget, HostResourceRuntimeCoordinator,
@@ -231,7 +318,7 @@ class _HostResourceSampler:
             runtime_state_root=Path(os.environ["SENTIENTOS_RUNTIME_STATE_ROOT"]),
             plan=plan)
         self._interval = interval_seconds
-        self._on_vram_pressure = on_vram_pressure
+        self._on_vram_observation = on_vram_observation
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run,
             name="sentientos-dev-host-resource-sampler", daemon=True)
@@ -247,24 +334,41 @@ class _HostResourceSampler:
                     report = self._summary(evaluation)
                     payload = _host_resource_log_payload(evaluation, report)
                     try:
-                        release = _release_residency_for_vram_pressure(
-                            evaluation.snapshot.vram_utilization_percent,
-                            self._on_vram_pressure)
-                        if release is not None:
-                            payload["residency_release"] = dict(release)
+                        if self._on_vram_observation is not None:
+                            resource_state = self._on_vram_observation(
+                                evaluation.snapshot.vram_utilization_percent,
+                                evaluation.epoch.observed_at)
+                            if resource_state is not None:
+                                payload["gaming_resource_state"] = dict(resource_state)
                     except Exception as exc:
-                        payload["residency_release"] = {
+                        payload["gaming_resource_state"] = {
                             "status": "error",
                             "error_type": type(exc).__name__,
                         }
                     print(json.dumps(payload), flush=True)
                 else:
+                    resource_state = None
+                    if self._on_vram_observation is not None:
+                        try:
+                            resource_state = self._on_vram_observation(None, None)
+                        except Exception as exc:
+                            resource_state = {"status": "error",
+                                "error_type": type(exc).__name__}
                     print(json.dumps({"event": "host_resource_observation",
-                                      "status": "admission_deferred"}), flush=True)
+                                      "status": "admission_deferred",
+                                      "gaming_resource_state": resource_state}), flush=True)
             except Exception as exc:
+                resource_state = None
+                if self._on_vram_observation is not None:
+                    try:
+                        resource_state = self._on_vram_observation(None, None)
+                    except Exception as state_exc:
+                        resource_state = {"status": "error",
+                            "error_type": type(state_exc).__name__}
                 print(json.dumps({"event": "host_resource_observation",
                                   "status": "error",
-                                  "error_type": type(exc).__name__}), flush=True)
+                                  "error_type": type(exc).__name__,
+                                  "gaming_resource_state": resource_state}), flush=True)
             self._stop.wait(self._interval)
 
     def close(self) -> None:
@@ -768,25 +872,33 @@ def main() -> int:
                 screen_observation_tesseract_executable=(
                     args.screen_observation_tesseract_executable),
                 delivery_event_file=state / "evidence" / "avatar-delivery-events.jsonl")
+        gaming_vram_guard = _GamingResourcePressureGuard()
         configure_development_chat(invoker=invoker, data_root=chat_state,
             avatar_output_emitter=edge.emitter if edge else None,
             model_profiles=model_profiles,
+            gaming_resource_status_provider=gaming_vram_guard.status,
             initial_workload_mode=args.initial_workload_mode,
             foreground_game_detector=(edge.foreground_game_detector if edge else None),
             game_process_names=tuple(args.game_process_name),
             gaming_keep_alive=args.gaming_keep_alive,
             screen_observer=edge.screen_observer if edge else None,
             screen_capture_policy="request_driven")
-        def release_model_if_resident_under_vram_pressure() -> Mapping[str, Any] | None:
+        def release_model_for_gaming_resource_pressure(
+                reason_code: str) -> Mapping[str, Any] | None:
             if not invoker.model.is_resident():
                 return None
             return invoker.release_model_residency(
-                reason_code="vram_pressure_observed",
-                cancel_active=False,
-            ).to_dict()
+                reason_code=reason_code, cancel_active=False).to_dict()
+
+        def observe_gaming_vram(
+                utilization_percent: float | None,
+                observed_at: str | None) -> Mapping[str, Any]:
+            return _apply_gaming_resource_observation(
+                gaming_vram_guard, utilization_percent, observed_at,
+                release_model_for_gaming_resource_pressure)
 
         host_resource_sampler = _HostResourceSampler(
-            on_vram_pressure=release_model_if_resident_under_vram_pressure)
+            on_vram_observation=observe_gaming_vram)
         initial_profile = ("gaming" if args.initial_workload_mode == "automatic"
                            else args.initial_workload_mode)
         initial_model = model_profiles[initial_profile]

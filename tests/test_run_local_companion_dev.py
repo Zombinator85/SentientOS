@@ -79,3 +79,74 @@ def test_host_resource_log_marks_missing_gpu_telemetry():
     assert event["gpu_utilization_percent"] is None
     assert event["vram_utilization_percent"] is None
     assert event["host_mutation_performed"] is False
+
+
+@pytest.mark.parametrize(("samples", "expected"), [
+    ((), "deferred"),
+    ((80.0,), "available"),
+    ((90.0,), "deferred"),
+    ((90.0, 87.0), "deferred"),
+    ((90.0, 84.9), "available"),
+    ((80.0, None), "deferred"),
+])
+def test_gaming_resource_pressure_guard_uses_fail_closed_hysteresis(samples, expected):
+    from scripts.run_local_companion_dev import _GamingResourcePressureGuard
+
+    guard = _GamingResourcePressureGuard()
+    assert guard.is_blocked() is True
+    state = guard.status()
+    for index, sample in enumerate(samples):
+        state = guard.observe(sample, f"2026-11-06T09:00:{index:02d}+00:00")
+    assert state["admission_status"] == expected
+    assert guard.is_blocked() is (expected == "deferred")
+    if samples and samples[-1] is None:
+        assert state["reason_code"] == "vram_telemetry_unavailable"
+
+
+def test_gaming_resource_pressure_guard_blocks_after_observation_goes_stale(monkeypatch):
+    import scripts.run_local_companion_dev as runner
+
+    guard = runner._GamingResourcePressureGuard()
+    guard.observe(80.0, "2026-11-06T09:00:00+00:00")
+    observed_at = guard._last_observed_monotonic
+    assert observed_at is not None
+    monkeypatch.setattr(runner.time, "monotonic", lambda: observed_at + 46.0)
+
+    state = guard.status()
+
+    assert state["admission_status"] == "deferred"
+    assert state["reason_code"] == "vram_telemetry_stale"
+
+
+def test_gaming_resource_observation_releases_residency_when_gate_closes():
+    from scripts.run_local_companion_dev import (
+        _GamingResourcePressureGuard, _apply_gaming_resource_observation,
+    )
+
+    guard = _GamingResourcePressureGuard()
+    releases = []
+    release = lambda reason: releases.append(reason) or {"status": "released"}
+    available = _apply_gaming_resource_observation(
+        guard, 80.0, "2026-11-06T09:00:00+00:00", release)
+    assert available["admission_status"] == "available"
+    assert releases == []
+
+    pressured = _apply_gaming_resource_observation(
+        guard, 91.0, "2026-11-06T09:00:15+00:00", release)
+    assert pressured["admission_status"] == "deferred"
+    assert pressured["residency_release"] == {"status": "released"}
+    assert releases == ["vram_pressure_observed"]
+
+    _apply_gaming_resource_observation(
+        guard, None, None, release)
+    assert releases[-1] == "vram_telemetry_unavailable"
+
+
+def test_gaming_resource_pressure_guard_rejects_invalid_percentages():
+    from scripts.run_local_companion_dev import _GamingResourcePressureGuard
+
+    guard = _GamingResourcePressureGuard()
+    for invalid in (-0.1, 100.1, True, float("nan"), "90"):
+        state = guard.observe(invalid, "2026-11-06T09:00:00+00:00")
+        assert state["admission_status"] == "deferred"
+        assert state["reason_code"] == "vram_telemetry_unavailable"
