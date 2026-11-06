@@ -269,6 +269,8 @@ def _is_social_checkin_request(message: str) -> bool:
         "say you are here", "say you're here", "here with me",
         "keep me company", "could use some company",
         "company while i play", "company while i game",
+        "you'd like to ask me", "you’d like to ask me",
+        "what else are you curious about", "what else would you like to know",
     )
     companion_roles = r"(?:gaming )?(?:co[- ]?pilot|sidekick|companion)"
     companion_shift_checkin = re.search(
@@ -305,7 +307,8 @@ def _is_social_checkin_continuation(message: str) -> bool:
         "ask one specific", "ask me one specific",
         "ask one new", "ask me one new",
         "ask one different", "ask me one different",
-        "ask another", "not a general invitation",
+        "ask another", "what else are you curious about",
+        "what else would you like to know", "not a general invitation",
     )
     return any(marker in normalized for marker in markers)
 

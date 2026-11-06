@@ -1680,6 +1680,15 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     assert chat._is_social_checkin_request(
         "So, how's your night going as my gaming sidekick?"
     ) is True
+    assert chat._is_social_checkin_request(
+        "What's one thing you'd like to ask me about the kinds of games I enjoy?"
+    ) is True
+    assert chat._is_social_checkin_request(
+        "I prefer one simple question at a time—what else are you curious about?"
+    ) is True
+    assert chat._is_social_checkin_continuation(
+        "I prefer one simple question at a time—what else are you curious about?"
+    ) is True
 
 
 def test_different_specific_followup_uses_recent_exchange_without_memory(tmp_path):
