@@ -145,6 +145,11 @@ _GAME_SCREEN_ACTIVITY_QUESTION = re.compile(
     r"(?:cronos|game|gameplay|screen)\b",
     re.IGNORECASE,
 )
+_NEGATED_SCREEN_ACTIVITY_REQUEST = re.compile(
+    r"\b(?:don't|do not|didn't|did not|never|without)\b.{0,80}\b"
+    r"(?:pretend|guess|claim|assume|invent|make up|act as if|fake)\b",
+    re.IGNORECASE,
+)
 _VERIFIED_CURRENT_GAME_CONTEXT_QUESTION = re.compile(
     r"\bwhat can (?:sentientos|you) (?:confidently )?"
     r"(?:say|tell|confirm|verify)\b.{0,120}\b"
@@ -235,13 +240,28 @@ def is_direct_screen_configuration_status_question(user_message: str) -> bool:
 
 def is_direct_screen_activity_question(user_message: str) -> bool:
     """Whether the user directly asks about current game-screen activity."""
+    screen_activity_matches = list(_GAME_SCREEN_ACTIVITY_QUESTION.finditer(user_message))
+    direct_screen_activity = any(
+        not _is_negated_screen_activity_reference(user_message, match.start())
+        for match in screen_activity_matches
+    )
     return (
-        _GAME_SCREEN_ACTIVITY_QUESTION.search(user_message) is not None
+        direct_screen_activity
         or _GAME_ACTIVITY_QUESTION.search(user_message) is not None
         or _SCREEN_CAPABILITY_QUESTION.search(user_message) is not None
         or _SCREEN_VISIBILITY_CLARIFICATION_REQUEST.search(user_message) is not None
         or is_verified_current_game_context_question(user_message)
     )
+
+
+def _is_negated_screen_activity_reference(user_message: str, match_start: int) -> bool:
+    """Whether a screen-activity phrase is part of a nearby negative instruction."""
+    clause_start = max(
+        user_message.rfind(separator, 0, match_start)
+        for separator in (".", "!", "?", ";", ":", "\n")
+    ) + 1
+    clause_prefix = user_message[max(clause_start, match_start - 120):match_start]
+    return _NEGATED_SCREEN_ACTIVITY_REQUEST.search(clause_prefix) is not None
 
 
 def _has_readable_screen_text(
@@ -268,7 +288,7 @@ def corrected_unobserved_game_status(
     """Answer live game-status questions from foreground evidence only."""
     activity_question = (
         _GAME_ACTIVITY_QUESTION.search(user_message) is not None
-        or _GAME_SCREEN_ACTIVITY_QUESTION.search(user_message) is not None
+        or is_direct_screen_activity_question(user_message)
         or _SCREEN_VISIBILITY_CLARIFICATION_REQUEST.search(user_message) is not None
         or is_verified_current_game_context_question(user_message)
     )

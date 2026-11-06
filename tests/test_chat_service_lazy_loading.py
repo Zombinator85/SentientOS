@@ -691,6 +691,39 @@ def test_casual_greeting_with_game_context_reaches_model_instead_of_screen_fallb
     assert invoker.calls == 1
 
 
+def test_negative_screen_reference_during_social_checkin_reaches_model(tmp_path):
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload()
+    client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation("available", True, "e" * 64,
+                "2026-11-05T16:00:00+00:00")
+
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic",
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+        foreground_game_detector=Detector())
+    response = client.post("/chat", json={
+        "message": (
+            "I am playing Cronos and could use company. In one warm sentence, tell me "
+            "how you'll keep me company, then ask one easy question. "
+            "Don't pretend to see what's happening on screen."
+        ),
+        "observe_screen": False,
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["response"] == "explicit simulation"
+    assert body["context"]["response_origin"] == "model_generated"
+    assert body["context"]["selected_turn_count"] == 0
+    assert invoker.calls == 1
+
+
 def test_visibility_clarification_request_gets_grounded_without_model_inference(tmp_path):
     from sentientos.foreground_game_detection import ForegroundGameObservation
 

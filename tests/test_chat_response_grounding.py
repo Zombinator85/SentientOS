@@ -334,6 +334,26 @@ def test_social_check_in_with_game_context_is_not_misread_as_a_screen_question()
     )
 
 
+def test_negative_screen_reference_is_not_misread_as_an_activity_question():
+    message = (
+        "I am playing Cronos and could use company. In one warm sentence, tell me "
+        "how you'll keep me company, then ask one easy question. "
+        "Don't pretend to see what's happening on screen."
+    )
+    assert not is_direct_screen_activity_question(message)
+    assert corrected_unobserved_game_status(
+        "A friendly response.", user_message=message,
+        verified_runtime_context={"workload": {
+            "game_foreground": True,
+            "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+        }},
+        screen_observation_provenance=None,
+    ) == ("A friendly response.", None)
+    assert is_direct_screen_activity_question(
+        "What's happening on screen? Don't make it up."
+    )
+
+
 def test_direct_game_activity_question_uses_foreground_only_evidence():
     corrected, attribution = corrected_unobserved_game_status(
         "I'm enjoying your gaming session with Cronos.",
