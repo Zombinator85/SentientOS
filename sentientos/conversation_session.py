@@ -81,7 +81,15 @@ def _is_prior_message_recall_question(text: str) -> bool:
         "i told you earlier", "earlier i told you",
         "i mentioned earlier", "earlier i mentioned",
     ))
-    return explicit_recall or (anaphoric_recall and has_prior_reference)
+    asks_for_assistant_question = re.search(
+        r"\bwhat (?:exactly )?(?:was|were) (?:your|the) question\b", normalized
+    ) is not None or re.search(r"\bwhat question did you ask me\b", normalized) is not None
+    question_has_prior_reference = any(marker in normalized for marker in (
+        "earlier", "before", "previous", "prior", "last",
+        "at the beginning", "in this chat", "in this conversation",
+    ))
+    return (explicit_recall or (anaphoric_recall and has_prior_reference)
+            or (asks_for_assistant_question and question_has_prior_reference))
 
 
 def _now() -> str:

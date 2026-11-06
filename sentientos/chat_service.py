@@ -162,8 +162,25 @@ def _is_recent_session_recall_request(message: str) -> bool:
         "what did i say i was", "what was i doing",
         "what was my last message", "what was my previous message",
     )
+    prior_question_reference = _is_prior_assistant_question_recall(message)
     return (any(marker in normalized for marker in markers)
+            or prior_question_reference
             or _direct_quoted_content_recall_target(message) is not None)
+
+
+def _is_prior_assistant_question_recall(message: str) -> bool:
+    """Recognize natural questions asking for an earlier assistant question."""
+    normalized = " ".join(re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
+    asks_what_question = re.search(
+        r"\bwhat (?:exactly )?(?:was|were) (?:your|the) question\b", normalized
+    ) is not None or re.search(
+        r"\bwhat question did you ask me\b", normalized
+    ) is not None
+    refers_to_prior = re.search(
+        r"\b(?:earlier|before|previous|prior|last|at the beginning|in this chat|in this conversation)\b",
+        normalized,
+    ) is not None
+    return asks_what_question and refers_to_prior
 
 def _is_direct_recent_assistant_reply_request(message: str) -> bool:
     """Whether the user explicitly asks for the immediately prior assistant reply."""
@@ -172,6 +189,25 @@ def _is_direct_recent_assistant_reply_request(message: str) -> bool:
         "what did you just say", "what did you just tell me",
         "what did you just answer", "what did you just reply",
     ))
+
+
+def _prior_assistant_question_turn(history: Any, message: str) -> Mapping[str, Any] | None:
+    """Select one verified earlier assistant question relevant to a recall request."""
+    query_terms = transcript_recall_terms(message)
+    ranked: list[tuple[int, Mapping[str, Any]]] = []
+    for turn in history.turns:
+        text = turn.get("text")
+        if (turn.get("role") != "assistant" or not isinstance(text, str)
+                or "?" not in text or turn.get("text_digest") != digest_payload({"text": text})):
+            continue
+        overlap = len(query_terms.intersection(transcript_recall_terms(text)))
+        if overlap:
+            ranked.append((overlap, turn))
+    if not ranked:
+        return None
+    strongest_score = max(score for score, _ in ranked)
+    strongest = [turn for score, turn in ranked if score == strongest_score]
+    return strongest[0] if len(strongest) == 1 else None
 
 
 def _is_direct_recent_user_turn_recall_request(message: str) -> bool:
@@ -936,9 +972,10 @@ class PersistentConversationService:
     def _complete_transcript_recall_response(
             self, *, session_id: str, user_turn: Mapping[str, Any],
             source_assistant_turn: Mapping[str, Any], history: Any,
-            memory: Mapping[str, Any], on_content_chunk: Callable[[str], None] | None
+            memory: Mapping[str, Any], on_content_chunk: Callable[[str], None] | None,
+            transcript_recall_kind: str | None = None,
             ) -> ChatResponse:
-        """Return the immediately preceding assistant turn from the verified transcript."""
+        """Return a verified assistant turn verbatim from the same-session transcript."""
         response_text = str(source_assistant_turn["text"])
         source_turn_id = str(source_assistant_turn["turn_id"])
         source_text_digest = str(source_assistant_turn["text_digest"])
@@ -952,9 +989,10 @@ class PersistentConversationService:
             "source_assistant_text_digest": source_text_digest,
             "output_digest": output_digest,
         }
+        if transcript_recall_kind is not None:
+            decision_payload["transcript_recall_kind"] = transcript_recall_kind
         decision_digest = digest_payload(decision_payload)
-        assistant = self.sessions.append_turn(session_id, role="assistant",
-            text=response_text, linkage={
+        recall_linkage: dict[str, Any] = {
                 "source_user_turn_id": str(user_turn["turn_id"]),
                 "response_origin": "transcript_recall",
                 "source_assistant_turn_id": source_turn_id,
@@ -973,7 +1011,11 @@ class PersistentConversationService:
                 "omitted_memory_count": memory.get("omitted_memory_count"),
                 "selected_turn_count": len(history.turns),
                 "selected_memory_count": len(memory.get("memories", [])),
-            })
+            }
+        if transcript_recall_kind is not None:
+            recall_linkage["transcript_recall_kind"] = transcript_recall_kind
+        assistant = self.sessions.append_turn(session_id, role="assistant",
+            text=response_text, linkage=recall_linkage)
         if self._avatar_output is not None:
             try:
                 self._avatar_output.publish_response(session_id=session_id,
@@ -991,8 +1033,7 @@ class PersistentConversationService:
                 LOGGER.warning("Local transcript recall speech failed: %s", type(exc).__name__)
         if on_content_chunk is not None:
             on_content_chunk(response_text)
-        return ChatResponse(response=response_text, session_id=session_id,
-            turn_id=str(assistant["turn_id"]), context={
+        response_context: dict[str, Any] = {
                 "conversation_snapshot_digest": history.snapshot_digest,
                 "memory_snapshot_digest": str(memory["snapshot_digest"]),
                 "memory_retrieval_posture": memory.get("retrieval_posture", "unknown"),
@@ -1007,7 +1048,12 @@ class PersistentConversationService:
                     "backend_metrics_status": "not_applicable",
                     "reason_code": "transcript_recall_response",
                 },
-            }, retention={"status": "not_requested"})
+            }
+        if transcript_recall_kind is not None:
+            response_context["transcript_recall_kind"] = transcript_recall_kind
+        return ChatResponse(response=response_text, session_id=session_id,
+            turn_id=str(assistant["turn_id"]), context=response_context,
+            retention={"status": "not_requested"})
 
     def _complete_quoted_content_recall_response(
             self, *, session_id: str, user_turn: Mapping[str, Any],
@@ -1458,11 +1504,19 @@ class PersistentConversationService:
                 if turn.get("role") == "assistant"]
             source_matches = [turn for turn in prior_assistants
                 if turn.get("turn_id") == source_turn_id]
+            recall_kind = linkage.get("transcript_recall_kind")
+            prior_question_recall = recall_kind == "prior_assistant_question"
             source = (source_matches[0] if len(source_matches) == 1
-                and prior_assistants and prior_assistants[-1].get("turn_id") == source_turn_id
+                and (prior_question_recall or (prior_assistants
+                    and prior_assistants[-1].get("turn_id") == source_turn_id))
                 else None)
             output_text = str(assistant.get("text", ""))
             output_digest = digest_payload({"text": output_text})
+            recall_request_text = str(user_turn.get("text", ""))
+            recall_request_valid = (
+                _is_prior_assistant_question_recall(recall_request_text)
+                if prior_question_recall else
+                _is_direct_recent_assistant_reply_request(recall_request_text))
             valid_record = (
                 isinstance(payload, Mapping)
                 and payload.get("schema") == "sentientos.transcript_recall_decision:v1"
@@ -1470,7 +1524,9 @@ class PersistentConversationService:
                 and payload.get("source_user_turn_id") == user_turn_id
                 and payload.get("source_user_text_digest") == user_turn.get("text_digest")
                 and isinstance(user_turn, Mapping)
-                and _is_direct_recent_assistant_reply_request(str(user_turn.get("text", "")))
+                and recall_request_valid
+                and (not prior_question_recall or
+                    payload.get("transcript_recall_kind") == "prior_assistant_question")
                 and user_turn.get("retention_state", "not_requested") == "not_requested"
                 and isinstance(source, Mapping)
                 and source.get("text_digest") == payload.get("source_assistant_text_digest")
@@ -1949,9 +2005,18 @@ class PersistentConversationService:
                     "what did you tell me", "what was your answer",
                     "what was your response", "what did you reply",
                     "what was the thing you said", "what was the thing you told me"))
-            history_roles = ("user", "assistant") if asks_for_assistant_reply else ("user",)
+            asks_for_prior_assistant_question = (
+                _is_prior_assistant_question_recall(message))
+            history_roles = ("user", "assistant") if (
+                asks_for_assistant_reply or asks_for_prior_assistant_question
+            ) else ("user",)
             if asks_for_assistant_reply:
                 history_turn_limit = 2
+            elif asks_for_prior_assistant_question:
+                history_relevance_query = message
+                # Keep enough same-session candidates for an earlier assistant
+                # question to survive equal lexical scores from recent turns.
+                history_turn_limit = 8
             else:
                 recall_terms = transcript_recall_terms(message)
                 if not earliest_session_recall and recall_terms:
@@ -1990,6 +2055,14 @@ class PersistentConversationService:
             identity=identity_payload, history=history, memory=memory,
             session_id=session["session_id"],
             screen_observation=None if social_checkin else screen_observation)
+        if not retain and _is_prior_assistant_question_recall(message):
+            prior_question = _prior_assistant_question_turn(history, message)
+            if prior_question is not None:
+                return self._complete_transcript_recall_response(
+                    session_id=session["session_id"], user_turn=user_turn,
+                    source_assistant_turn=prior_question, history=history,
+                    memory=memory, on_content_chunk=on_content_chunk,
+                    transcript_recall_kind="prior_assistant_question")
         if not retain and _is_direct_recent_assistant_reply_request(message):
             prior_assistant_turn = next((turn for turn in reversed(history.turns)
                 if turn.get("role") == "assistant"

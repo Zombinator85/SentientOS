@@ -53,6 +53,12 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
         "Can you tell what's happening on screen in Cronos right now?")
     assert chat._is_recent_session_recall_request(
         "What did I ask you first in this conversation?")
+    assert chat._is_recent_session_recall_request(
+        "Earlier, you asked me what I find relaxing when I am not gaming. "
+        "What exactly was your question?")
+    assert chat._is_prior_assistant_question_recall(
+        "Earlier, you asked me what I find relaxing when I am not gaming. "
+        "What exactly was your question?")
     assert chat._is_earliest_session_recall_request(
         "What did I ask you first in this conversation?")
     assert chat._is_recent_session_recall_request("What did you just say?")
@@ -1063,6 +1069,51 @@ def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_
     assert "MEMORY_DATA:" not in invoker.prompts[-1]
     assert "final prior USER_DATA turn" in invoker.prompts[-1]
     assert "Do not substitute older turns" in invoker.prompts[-1]
+
+
+def test_prior_assistant_question_recall_selects_relevant_older_exchange(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    session_id = client.post("/sessions").json()["session_id"]
+    sessions = chat._get_conversation_service().sessions
+    first_user = sessions.append_turn(session_id, role="user", text=(
+        "I am settling in for a relaxed Cronos session. Keep me company and ask "
+        "one easy question about what I enjoy."))
+    sessions.append_turn(session_id, role="assistant", text=(
+        "What’s the most relaxing thing you do when you’re not gaming?"),
+        linkage={"source_user_turn_id": first_user["turn_id"]})
+    later_user = sessions.append_turn(session_id, role="user", text=(
+        "Let us keep it low-key; ask me a different easy question."))
+    sessions.append_turn(session_id, role="assistant", text=(
+        "What quiet activity would you like to try soon?"),
+        linkage={"source_user_turn_id": later_user["turn_id"]})
+    prior_recall_user = sessions.append_turn(session_id, role="user", text=(
+        "Earlier, you asked me what I find relaxing when I am not gaming. "
+        "What exactly was your question?"))
+    sessions.append_turn(session_id, role="assistant", text=(
+        "You mentioned wanting to know what feels relaxing outside gaming."),
+        linkage={"source_user_turn_id": prior_recall_user["turn_id"]})
+
+    request = {"session_id": session_id, "request_id": "prior-question-recall",
+        "message": ("Earlier, you asked me what I find relaxing when I am not gaming. "
+                    "What exactly was your question?")}
+    recall = client.post("/chat", json=request)
+
+    assert recall.status_code == 200, recall.text
+    body = recall.json()
+    assert body["response"] == "What’s the most relaxing thing you do when you’re not gaming?"
+    assert body["context"]["response_origin"] == "transcript_recall"
+    assert body["context"]["transcript_recall_kind"] == "prior_assistant_question"
+    assert body["context"]["selected_turn_count"] >= 1
+    assert body["context"]["selected_memory_count"] == 0
+    assert invoker.calls == 0
+
+    replay = client.post("/chat", json=request)
+    assert replay.status_code == 200
+    assert replay.json()["response"] == body["response"]
+    assert replay.json()["context"]["recovered_without_inference"] is True
+    assert invoker.calls == 0
 
 
 def test_earliest_session_recall_selects_first_user_turn(tmp_path, monkeypatch):
