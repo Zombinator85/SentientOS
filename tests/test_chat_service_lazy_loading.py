@@ -1489,8 +1489,12 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     assert chat._is_social_checkin_request(
         "I am playing Cronos and could use some company. What kind of companion would you like to be during a game?") is True
     assert checkin.json()["context"]["selected_turn_count"] == 0
+    assert chat._is_social_checkin_request(
+        "Ask one specific, easy question about an everyday preference, not a general invitation. Keep it brief.") is True
     assert chat._is_social_checkin_continuation(
         "That's the kind of vibe I want. Ask me one easy question about my run.") is True
+    assert chat._is_social_checkin_continuation(
+        "Ask one specific, easy question about an everyday preference, not a general invitation. Keep it brief.") is True
     assert chat._is_social_checkin_continuation(live_checkin) is False
 
     followup_message = "That's the kind of vibe I want. Ask me one easy question about my run."

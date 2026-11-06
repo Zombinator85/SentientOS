@@ -273,7 +273,13 @@ def _is_social_checkin_request(message: str) -> bool:
         rf"(?:my )?{companion_roles}\b",
         normalized,
     )
+    asks_for_specific_question = re.search(
+        r"\bask(?: me)? (?:one|a) (?:specific,? )?(?:easy,? )?"
+        r"(?:concrete,? )?question\b",
+        normalized,
+    )
     return (any(marker in normalized for marker in markers)
+            or asks_for_specific_question is not None
             or companion_shift_checkin is not None
             or companion_day_checkin is not None)
 
@@ -288,6 +294,7 @@ def _is_social_checkin_continuation(message: str) -> bool:
         "you asked me", "you just asked", "you said", "you mentioned",
         "what you said", "your last answer", "your last response",
         "tell me more", "elaborate on that", "go on",
+        "ask one specific", "ask me one specific", "not a general invitation",
     )
     return any(marker in normalized for marker in markers)
 
