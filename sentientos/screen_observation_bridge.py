@@ -212,21 +212,29 @@ class BridgeScreenObservationProvider:
             payload = _observation_payload(message.payload)
             if payload.get("capture_request_id") != capture_request_id:
                 continue
-            return self._verified_observation(message, payload)
+            # This observation is bound to a newly generated request ID and
+            # the wait above is bounded by monotonic time. Avoid comparing
+            # Windows capture time against the WSL wall clock, which can be
+            # skewed by more than the normal freshness window.
+            return self._verified_observation(
+                message, payload, require_wall_clock_freshness=False)
 
     def _verified_observation(self, latest: VerifiedBridgeMessage,
-                              payload: Mapping[str, Any] | None = None
+                              payload: Mapping[str, Any] | None = None, *,
+                              require_wall_clock_freshness: bool = True
                               ) -> Mapping[str, object]:
         if (latest.kind != "observation" or latest.source_id != self._source_id
                 or latest.generation_id != self._generation_id):
             raise ScreenObservationBridgeError("screen_observation_identity_invalid")
         payload = _observation_payload(latest.payload) if payload is None else dict(payload)
-        now = self._clock()
-        if type(now) is not datetime or now.tzinfo is None or now.utcoffset() is None:
-            raise ScreenObservationBridgeError("screen_observation_clock_invalid")
-        age = (now.astimezone(timezone.utc) - _timestamp(payload["captured_at"])).total_seconds()
-        if age < -1 or age > self._max_age:
-            raise ScreenObservationBridgeError("screen_observation_expired")
+        if require_wall_clock_freshness:
+            now = self._clock()
+            if type(now) is not datetime or now.tzinfo is None or now.utcoffset() is None:
+                raise ScreenObservationBridgeError("screen_observation_clock_invalid")
+            age = (now.astimezone(timezone.utc)
+                   - _timestamp(payload["captured_at"])).total_seconds()
+            if age < -1 or age > self._max_age:
+                raise ScreenObservationBridgeError("screen_observation_expired")
         return {
             **payload,
             "bridge_message_provenance": {
