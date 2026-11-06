@@ -20,9 +20,12 @@ func _start_probe() -> void:
 		quit(1)
 		return
 	_avatar = packed.instantiate()
-	_avatar.set("listen_port", port_text.to_int())
 	_avatar.set("auto_listen", true)
 	root.add_child(_avatar)
+	if int(_avatar.get("listen_port")) != port_text.to_int():
+		push_error("avatar_state_probe_listener_port_not_applied")
+		quit(1)
+		return
 	print("godot_avatar_state_listener_ready:%d" % port_text.to_int())
 	var timer := Timer.new()
 	timer.wait_time = 0.02

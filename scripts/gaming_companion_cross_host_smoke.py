@@ -158,6 +158,24 @@ def _win_temp() -> Path:
     return path
 
 
+def _windows_clock_offset_seconds() -> float:
+    """Return Windows UTC minus WSL UTC, sampling Windows at the WSL midpoint."""
+    powershell = shutil.which("powershell.exe")
+    if not powershell:
+        raise ValueError("windows_interop_unavailable")
+    before = datetime.now(timezone.utc)
+    raw = subprocess.run([powershell, "-NoProfile", "-NonInteractive", "-Command",
+        "[DateTimeOffset]::UtcNow.ToString('o')"], check=True, capture_output=True,
+        text=True, timeout=5).stdout.strip()
+    after = datetime.now(timezone.utc)
+    try:
+        windows_now = datetime.fromisoformat(raw).astimezone(timezone.utc)
+    except ValueError as exc:
+        raise ValueError("windows_clock_measurement_invalid") from exc
+    midpoint = before + (after - before) / 2
+    return (windows_now - midpoint).total_seconds()
+
+
 def _secret_free_environment() -> dict[str, str]:
     blocked = ("API_KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL", "AUTH",
                "PRIVATE_KEY", "BEARER")
@@ -345,7 +363,8 @@ def _windows_child() -> int:
                 "renderer_effect_proven": False}), flush=True)
         return 0
     except Exception as exc:
-        print("ERROR " + type(exc).__name__, flush=True)
+        detail = str(exc).replace("\n", " ")[:160]
+        print("ERROR " + type(exc).__name__ + (":" + detail if detail else ""), flush=True)
         return 2
     finally:
         if relay:
@@ -429,6 +448,7 @@ def run(*, windows_checkout: Path, windows_python: Path,
                 acknowledgment_generation_id="wsl-observation-ack-test-1",
                 acknowledgment_key=observation_ack, socket_timeout_seconds=2.0)
             core_port = core.start()
+            windows_clock_offset = _windows_clock_offset_seconds()
             renderer_port: int | None = None
             if godot_executable is not None:
                 renderer_temp = tempfile.TemporaryDirectory(
@@ -480,13 +500,15 @@ def run(*, windows_checkout: Path, windows_python: Path,
             assert stdout is not None
             threading.Thread(target=_forward_lines, args=(stdout, lines),
                 daemon=True).start()
-            ready = _read_line(lines, 12.0)
+            ready = _read_line(lines, 30.0)
             if not ready.startswith("READY "):
-                raise RuntimeError("windows_listener_failed")
+                raise RuntimeError("windows_listener_failed:" + ready[:160])
             edge_port = int(ready.split()[1])
             performance = GamePerformanceBridgeDetector(
                 receiver=core, source_id="windows-edge",
                 generation_provider=lambda: "windows-observation-test-1",
+                clock=lambda: datetime.now(timezone.utc) +
+                    timedelta(seconds=windows_clock_offset),
             ).receive_once(timeout=10.0)
             if performance.process_cpu_percent is None or performance.process_rss_bytes is None:
                 raise RuntimeError("windows_process_observation_unavailable")
@@ -552,6 +574,7 @@ def run(*, windows_checkout: Path, windows_python: Path,
                 "windows_process_cpu_percent": performance.process_cpu_percent,
                 "windows_process_rss_bytes": performance.process_rss_bytes,
                 "windows_frame_time_source": "unsupported",
+                "windows_clock_offset_seconds": round(windows_clock_offset, 3),
                 "windows_process_id_exposed": False,
                 "godot_headless": (renderer_result.get("godot_headless")
                     if renderer_result else "not_run"),
@@ -616,11 +639,15 @@ def main(argv: list[str] | None = None) -> int:
         result = {"schema_version": "sentientos.gaming_companion_cross_host_smoke:v1",
             "status": "blocked", "reason_code": f"{command}_failed_{exc.returncode}",
             "host_mutation_performed": False, "production_commissioning_claimed": False}
+    except TimeoutError as exc:
+        result = {"schema_version": "sentientos.gaming_companion_cross_host_smoke:v1",
+            "status": "blocked", "reason_code": str(exc)[:128] or "TimeoutError",
+            "host_mutation_performed": False, "production_commissioning_claimed": False}
     except Exception as exc:
         result = {"schema_version": "sentientos.gaming_companion_cross_host_smoke:v1",
             "status": "blocked", "reason_code": (
                 str(exc.args[0])[:128] if isinstance(exc, ValueError) and exc.args
-                else type(exc).__name__),
+                else (str(exc)[:128] or type(exc).__name__)),
             "host_mutation_performed": False, "production_commissioning_claimed": False}
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return 0 if result["status"] == "passed" else 2

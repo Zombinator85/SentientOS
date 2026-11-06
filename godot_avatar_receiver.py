@@ -36,6 +36,21 @@ def _finite_number(value: object, default: float) -> float | None:
     return number if math.isfinite(number) else None
 
 
+def available_loopback_udp_port() -> int:
+    """Return an available loopback UDP port for a supervised child process.
+
+    The socket is released before the child binds it, so callers should launch
+    that child immediately. This avoids collisions with stale Godot demo
+    processes while keeping the listener private to the local machine.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+        probe.bind((DEFAULT_HOST, 0))
+        port = int(probe.getsockname()[1])
+    if not 1 <= port <= 65535:
+        raise RuntimeError("loopback_udp_ephemeral_port_invalid")
+    return port
+
+
 class AvatarStateForwarder:
     """Watch ``avatar_state.json`` and send updates to a Godot listener."""
 

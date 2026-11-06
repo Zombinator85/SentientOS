@@ -176,6 +176,33 @@ def test_godot_headless_development_option_does_not_change_visible_launch(monkey
     ]
 
 
+def test_worker_waits_for_the_selected_godot_udp_listener() -> None:
+    import socket
+    from scripts.local_companion_edge_dev_worker import _wait_for_udp_listener
+
+    class Process:
+        def poll(self):
+            return None
+
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as listener:
+        listener.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+        _wait_for_udp_listener(port, Process(), timeout_seconds=0.1)
+
+
+def test_worker_reports_godot_udp_listener_startup_timeout(monkeypatch) -> None:
+    import pytest
+    import scripts.local_companion_edge_dev_worker as worker
+
+    class Process:
+        def poll(self):
+            return None
+
+    monkeypatch.setattr(worker, "_udp_port_is_bound", lambda _port: False)
+    with pytest.raises(RuntimeError, match="godot_avatar_listener_startup_timeout"):
+        worker._wait_for_udp_listener(49551, Process(), timeout_seconds=0)
+
+
 
 
 def test_wait_for_edge_ready_skips_screen_startup_diagnostics() -> None:
