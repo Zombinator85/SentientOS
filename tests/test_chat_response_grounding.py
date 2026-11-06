@@ -354,6 +354,27 @@ def test_negative_screen_reference_is_not_misread_as_an_activity_question():
     )
 
 
+def test_user_sharing_about_game_is_not_misread_as_a_game_status_question():
+    message = (
+        "What would be a fun thing for me to tell you about my Cronos run? "
+        "Ask me one specific, easy question."
+    )
+    response = "Which part of the run has been the most fun so far?"
+    corrected, attribution = corrected_unobserved_game_status(
+        response,
+        user_message=message,
+        verified_runtime_context={"workload": {
+            "game_foreground": True,
+            "game_process_running": True,
+            "observation_status": "available",
+            "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+        }},
+        screen_observation_provenance=None,
+    )
+    assert corrected == response
+    assert attribution is None
+
+
 def test_direct_game_activity_question_uses_foreground_only_evidence():
     corrected, attribution = corrected_unobserved_game_status(
         "I'm enjoying your gaming session with Cronos.",
