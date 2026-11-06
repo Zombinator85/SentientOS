@@ -156,20 +156,65 @@ class _EchoBackend(_ModelBackend):
         return f"[{name}] {prompt}"
 
 
-def _ollama_chat_messages(prompt: str) -> list[dict[str, str]]:
-    """Keep the trusted application instruction in the model's system role."""
+def _ollama_chat_messages(prompt: str, *, history_format: str = "serialized") -> list[dict[str, str]]:
+    """Keep trusted instructions in system role and optionally preserve turn roles."""
     if not isinstance(prompt, str) or not prompt.strip():
         raise ModelLoadError("ollama_prompt_required")
+    if (not isinstance(history_format, str)
+            or history_format not in {"serialized", "role_separated"}):
+        raise ModelLoadError("ollama_chat_history_format_invalid")
     prefix = "[SYSTEM_INSTRUCTION]\n"
     marker = "[SESSION_HISTORY_DATA]"
     if prompt.startswith(prefix):
         head, separator, tail = prompt[len(prefix):].partition(marker)
         if not separator or not head.strip():
             raise ModelLoadError("ollama_chat_instruction_boundary_invalid")
-        return [
-            {"role": "system", "content": head.strip()},
-            {"role": "user", "content": marker + tail},
-        ]
+        messages = [{"role": "system", "content": head.strip()}]
+        if history_format == "role_separated":
+            context_lines: list[str] = []
+            history_started = False
+            history_closed = False
+            end_markers = {
+                "[VERIFIED_PRIOR_RUNTIME_LINEAGE_EVIDENCE_DATA]",
+                "[RETRIEVED_MEMORY_DATA_UNTRUSTED]",
+                "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]",
+                "[CURRENT_USER_MESSAGE]",
+            }
+            for line in tail.splitlines():
+                if line in end_markers:
+                    history_closed = True
+                    context_lines.append(line)
+                    continue
+                role: str | None = None
+                record_text = ""
+                if not history_closed and line.startswith("USER_DATA: "):
+                    role, record_text = "user", line[len("USER_DATA: "):]
+                elif not history_closed and line.startswith("ASSISTANT_DATA: "):
+                    role, record_text = "assistant", line[len("ASSISTANT_DATA: "):]
+                if role is None:
+                    if history_started and line.strip():
+                        history_closed = True
+                    context_lines.append(line)
+                    continue
+                history_started = True
+                try:
+                    record = json.loads(record_text)
+                except (TypeError, ValueError) as exc:
+                    raise ModelLoadError("ollama_chat_history_record_invalid") from exc
+                if not isinstance(record, dict) or not isinstance(record.get("text"), str):
+                    raise ModelLoadError("ollama_chat_history_record_invalid")
+                content = record["text"]
+                provenance = record.get("provenance")
+                if isinstance(provenance, dict) and provenance:
+                    content += "\n[Historical turn provenance: " + json.dumps(
+                        provenance, ensure_ascii=False, sort_keys=True,
+                        separators=(",", ":")) + "]"
+                messages.append({"role": role, "content": content})
+            current_context = marker + "\n" + "\n".join(context_lines)
+            messages.append({"role": "user", "content": current_context.strip()})
+        else:
+            messages.append({"role": "user", "content": marker + tail})
+        return messages
     return [{"role": "user", "content": prompt.strip()}]
 
 
@@ -183,7 +228,7 @@ class _OllamaBackend(_ModelBackend):
         super().__init__(candidate, metadata)
         options = dict(candidate.options)
         allowed = {"api_base", "model", "manifest_sha256", "num_gpu", "keep_alive",
-                   "think", "timeout_seconds"}
+                   "think", "timeout_seconds", "chat_history_format"}
         if set(options) - allowed:
             raise ModelLoadError("ollama_option_not_allowed")
         if candidate.path is None or not candidate.path.is_file():
@@ -228,9 +273,14 @@ class _OllamaBackend(_ModelBackend):
         self._think = options.get("think", False)
         if type(self._think) is not bool:
             raise ModelLoadError("ollama_think_must_be_boolean")
+        self._chat_history_format = options.get("chat_history_format", "serialized")
+        if (not isinstance(self._chat_history_format, str)
+                or self._chat_history_format not in {"serialized", "role_separated"}):
+            raise ModelLoadError("ollama_chat_history_format_invalid")
         self._metadata.update({"model": model, "api_base": self._base,
                                "manifest_sha256": manifest_digest,
-                               "backend_posture": "local_loopback_development"})
+                               "backend_posture": "local_loopback_development",
+                               "chat_history_format": self._chat_history_format})
 
         request = urllib.request.Request(self._base + "/api/tags", method="GET")
         try:
@@ -266,7 +316,8 @@ class _OllamaBackend(_ModelBackend):
             "top_p": max(0.1, min(float(generation.get("top_p", 0.9)), 1.0)),
             "repeat_penalty": max(0.8, min(float(generation.get("repetition_penalty") or 1.1), 1.5)),
         }
-        messages = _ollama_chat_messages(prompt)
+        messages = _ollama_chat_messages(
+            prompt, history_format=self._chat_history_format)
         keep_alive_payload: str | int = -1 if keep_alive == "-1" else keep_alive
         body = json.dumps({"model": self._model, "messages": messages, "stream": True,
                            "think": self._think, "keep_alive": keep_alive_payload,

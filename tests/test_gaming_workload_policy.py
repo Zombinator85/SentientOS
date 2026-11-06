@@ -22,7 +22,7 @@ def test_gaming_mode_caps_each_turn_without_expanding_tighter_limits() -> None:
     actual = GamingWorkloadPolicy.constrain_budget("gaming", requested)
 
     assert actual == LocalModelInvocationBudget(max_input_chars=4600, max_output_chars=1200,
-        max_new_tokens=64, timeout_seconds=12, max_calls_per_correlation=1)
+        max_new_tokens=96, timeout_seconds=18, max_calls_per_correlation=1)
 
 
 def test_gaming_recall_allows_only_a_bounded_history_preservation_extension() -> None:
@@ -37,6 +37,26 @@ def test_gaming_recall_allows_only_a_bounded_history_preservation_extension() ->
     assert recall.max_output_chars == ordinary.max_output_chars
     assert recall.max_new_tokens == ordinary.max_new_tokens
     assert recall.timeout_seconds == ordinary.timeout_seconds
+
+
+def test_gaming_social_checkins_keep_the_compact_budget() -> None:
+    requested = LocalModelInvocationBudget(max_new_tokens=256, timeout_seconds=30)
+
+    actual = GamingWorkloadPolicy.constrain_budget(
+        "gaming", requested, response_style="social_checkin")
+
+    assert actual.max_new_tokens == GamingWorkloadPolicy.GAMING_SOCIAL_MAX_NEW_TOKENS
+    assert actual.timeout_seconds == GamingWorkloadPolicy.GAMING_SOCIAL_TIMEOUT_SECONDS
+
+
+def test_gaming_screen_answers_keep_the_compact_budget() -> None:
+    requested = LocalModelInvocationBudget(max_new_tokens=256, timeout_seconds=30)
+
+    actual = GamingWorkloadPolicy.constrain_budget(
+        "gaming", requested, response_style="screen_observation")
+
+    assert actual.max_new_tokens == GamingWorkloadPolicy.GAMING_SOCIAL_MAX_NEW_TOKENS
+    assert actual.timeout_seconds == GamingWorkloadPolicy.GAMING_SOCIAL_TIMEOUT_SECONDS
 
 
 def test_gaming_mode_does_not_expand_an_already_tighter_budget() -> None:
@@ -57,9 +77,9 @@ def test_effective_mode_and_budget_are_recorded_in_invocation_lineage() -> None:
     budget, lineage = GamingWorkloadPolicy.apply_to_chat_invocation(
         "gaming", requested, {"serving_session_id": "session-1"})
 
-    assert budget.max_new_tokens == 64
+    assert budget.max_new_tokens == 96
     assert lineage == {"serving_session_id": "session-1", "workload_mode": "gaming",
-        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v15",
+        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v16",
         "max_backend_threads": 2}
 
 
@@ -79,18 +99,12 @@ def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
     assert result.index(GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION) < result.index(
         "[VERIFIED_RUNTIME_CONTEXT]")
     assert result.endswith("[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
-    assert "one ~20-word sentence; no emoji-only replies" in result
-    assert "verified foreground app" in result
-    assert "without screen evidence" in result
-    assert "Honor corrections and rule-outs" in result
-    assert "only when supported by the user's description or current screen OCR" in result
-    assert "otherwise ask one concise clarifying question" in result
-    assert "User-provided game details are usable context" in result
-    assert "Never invent map locations, objects, enemies, objectives, or events" in result
-    assert "Fulfill requested form" in result
-    assert "joke requests get jokes, not trivia or offers" in result
-    assert "No unasked follow-up" in result
-    assert "one ~20-word sentence; no emoji-only replies" in result
+    assert "up to three short sentences (about 50 words)" in result
+    assert "Separate verified facts from suggestions" in result
+    assert "keep suggestions grounded in what the user said" in result
+    assert "foreground app does not reveal gameplay" in result
+    assert "never invent game events" in result
+    assert "unasked follow-ups" in result
     assert GamingWorkloadPolicy.apply_chat_response_style(prompt, "normal") == prompt
 
 

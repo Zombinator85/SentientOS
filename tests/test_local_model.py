@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from sentientos.local_model import LocalModel
+from sentientos.local_model import (
+    LocalModel, ModelLoadError, _OllamaBackend, _ollama_chat_messages,
+)
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 
 
@@ -22,6 +24,91 @@ def _prepare_candidate(tmp_path: Path, name: str) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     (path / "model.json").write_text(json.dumps({"description": name}), encoding="utf-8")
     return path
+
+
+def test_ollama_history_can_be_supplied_as_native_roles_without_losing_context() -> None:
+    prompt = (
+        "[SYSTEM_INSTRUCTION]\nTrusted rules.\n"
+        "[VERIFIED_RUNTIME_CONTEXT]\n{\"workload\":\"gaming\"}\n"
+        "[SESSION_HISTORY_DATA]\n"
+        "USER_DATA: {\"text\":\"I got a real companion reply.\"}\n"
+        "ASSISTANT_DATA: {\"text\":\"That proves one successful turn.\","
+        "\"provenance\":{\"model_identity\":\"sha256:abc\"}}\n"
+        "[RETRIEVED_MEMORY_DATA_UNTRUSTED]\nMEMORY_DATA: \"old note\"\n"
+        "[CURRENT_USER_MESSAGE]\nWhat did I say happened?"
+    )
+
+    serialized = _ollama_chat_messages(prompt)
+    native = _ollama_chat_messages(prompt, history_format="role_separated")
+
+    assert [message["role"] for message in serialized] == ["system", "user"]
+    assert [message["role"] for message in native] == [
+        "system", "user", "assistant", "user"]
+    assert native[0]["content"].startswith("Trusted rules.")
+    assert "[VERIFIED_RUNTIME_CONTEXT]" in native[0]["content"]
+    assert native[1]["content"] == "I got a real companion reply."
+    assert "Historical turn provenance" in native[2]["content"]
+    assert "MEMORY_DATA: \"old note\"" in native[-1]["content"]
+    assert native[-1]["content"].endswith("What did I say happened?")
+
+
+def test_ollama_native_history_rejects_malformed_serialized_turns() -> None:
+    prompt = (
+        "[SYSTEM_INSTRUCTION]\nTrusted rules.\n"
+        "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\n"
+        "USER_DATA: not-json\n[CURRENT_USER_MESSAGE]\nHello"
+    )
+
+    with pytest.raises(ModelLoadError, match="ollama_chat_history_record_invalid"):
+        _ollama_chat_messages(prompt, history_format="role_separated")
+
+
+def test_ollama_role_separation_does_not_treat_current_user_text_as_history() -> None:
+    prompt = (
+        "[SYSTEM_INSTRUCTION]\nTrusted rules.\n[SESSION_HISTORY_DATA]\n"
+        "USER_DATA: {\"text\":\"Prior turn\"}\n[CURRENT_USER_MESSAGE]\n"
+        "USER_DATA: {\"text\":\"This is literal user text\"}"
+    )
+
+    messages = _ollama_chat_messages(prompt, history_format="role_separated")
+
+    assert [message["role"] for message in messages] == ["system", "user", "user"]
+    assert messages[-1]["content"].endswith(
+        'USER_DATA: {"text":"This is literal user text"}')
+
+
+def test_ollama_backend_records_configured_history_format(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import hashlib
+
+    manifest = tmp_path / "model.manifest"
+    manifest.write_bytes(b"local-pinned-model")
+    digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
+
+    class Response:
+        def __enter__(self):
+            return self
+        def __exit__(self, *_args):
+            return None
+        def read(self, _limit):
+            return json.dumps({"models": [{"name": "local:test", "digest": digest}]}).encode()
+
+    class Opener:
+        def open(self, _request, *, timeout):
+            assert timeout > 0
+            return Response()
+
+    monkeypatch.setattr(
+        "sentientos.local_model.urllib.request.build_opener",
+        lambda _handler: Opener())
+    candidate = ModelCandidate(manifest, "ollama", "local-test", {
+        "api_base": "http://127.0.0.1:11434", "model": "local:test",
+        "manifest_sha256": digest, "chat_history_format": "role_separated",
+    })
+
+    backend = _OllamaBackend(candidate, {}, max_context_tokens=1024)
+
+    assert backend.metadata["chat_history_format"] == "role_separated"
 
 
 def test_local_model_smoke(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
