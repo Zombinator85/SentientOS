@@ -142,10 +142,17 @@ def _find_verified_quoted_user_turn(history: Any, target: str) -> tuple[Mapping[
         if quoted_value is not None: matches.append((turn, quoted_value))
     return matches[0] if len(matches) == 1 else None
 
+def _is_recent_user_statement_reminder(message: str) -> bool:
+    normalized = " ".join(message.casefold().split())
+    return re.search(r"\bremind me what (?:i|you) (?:said|told)\b", normalized) is not None
+
+
 def _is_recent_session_recall_request(message: str) -> bool:
     """Keep cross-session memories out of explicit recent-turn questions."""
     normalized = " ".join(message.casefold().split())
     markers = (
+        "remind me what i said", "remind me what i told you",
+        "remind me what you said", "remind me what you told me",
         "in this conversation", "in this chat", "earlier in this chat",
         "earlier in our chat", "earlier in our conversation",
         "in our earlier chat", "in our earlier conversation",
@@ -274,8 +281,9 @@ def _is_social_checkin_request(message: str) -> bool:
         normalized,
     )
     asks_for_specific_question = re.search(
-        r"\bask(?: me)? (?:one|a) (?:specific,? )?(?:easy,? )?"
-        r"(?:concrete,? )?question\b",
+        r"\bask(?: me)? (?:one|a) "
+        r"(?:(?:new|different|another),? )?"
+        r"(?:specific,? )?(?:easy,? )?(?:concrete,? )?question\b",
         normalized,
     )
     return (any(marker in normalized for marker in markers)
@@ -294,7 +302,10 @@ def _is_social_checkin_continuation(message: str) -> bool:
         "you asked me", "you just asked", "you said", "you mentioned",
         "what you said", "your last answer", "your last response",
         "tell me more", "elaborate on that", "go on",
-        "ask one specific", "ask me one specific", "not a general invitation",
+        "ask one specific", "ask me one specific",
+        "ask one new", "ask me one new",
+        "ask one different", "ask me one different",
+        "ask another", "not a general invitation",
     )
     return any(marker in normalized for marker in markers)
 
@@ -507,7 +518,9 @@ class DevelopmentLocalChatInference:
             social_checkin = caller_linkage.get("chat_response_style") == "social_checkin"
             effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
                 prompt, mode, social_checkin=social_checkin)
-            effective_budget = GamingWorkloadPolicy.constrain_budget(mode, budget)
+            recent_session_recall = caller_linkage.get("recent_session_recall") is True
+            effective_budget = GamingWorkloadPolicy.constrain_budget(
+                mode, budget, recent_session_recall=recent_session_recall)
             linkage = {**dict(caller_linkage), "workload_mode": mode,
                 "workload_evidence": workload_state["workload_evidence"]}
             identity = getattr(self._delegate.model, "active_identity", None)
@@ -2027,10 +2040,11 @@ class PersistentConversationService:
             else:
                 recall_terms = transcript_recall_terms(message)
                 if not earliest_session_recall and recall_terms:
-                    # Select earlier user turns that mention the question's subject,
-                    # rather than silently limiting recall to the immediately prior turn.
+                    # Select relevant user turns, then allow explicit reminders to
+                    # choose the latest matching statement from that small set.
                     history_relevance_query = message
-                    history_turn_limit = 3
+                    history_turn_limit = (
+                        1 if _is_recent_user_statement_reminder(message) else 3)
                 else:
                     history_turn_limit = 1
         elif social_checkin_continuation:
@@ -2044,10 +2058,14 @@ class PersistentConversationService:
             history_roles = ()
         else:
             history_roles = None
+        prefer_recent_relevant = (
+            recent_session_recall and _is_recent_user_statement_reminder(message)
+            and history_roles == ("user",) and history_relevance_query is not None)
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
             exclude_turn_id=user_turn["turn_id"], include_roles=history_roles,
             max_turns=history_turn_limit, oldest_first=earliest_session_recall,
-            relevance_query=history_relevance_query)
+            relevance_query=history_relevance_query,
+            prefer_recent_relevant=prefer_recent_relevant)
         # Exact recall, casual check-ins, and live runtime questions rely on the
         # relevant transcript or verified runtime facts. Lexical retrieval can
         # over-weight old prompts (for example, prior screen-visibility questions).
@@ -2168,9 +2186,12 @@ class PersistentConversationService:
         if gaming_development_turn:
             effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
                 prompt, "gaming", social_checkin=social_checkin)
-            while len(effective_prompt) > GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS:
-                overflow = (len(effective_prompt)
-                    - GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS)
+            gaming_input_limit = (
+                GamingWorkloadPolicy.GAMING_MAX_RECALL_INPUT_CHARS
+                if recent_session_recall
+                else GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS)
+            while len(effective_prompt) > gaming_input_limit:
+                overflow = len(effective_prompt) - gaming_input_limit
                 # Retrieved memory is supplemental to the active transcript. Drop
                 # it first so a long-running conversation keeps its recent turns.
                 if memory_budget > 0:
@@ -2186,7 +2207,8 @@ class PersistentConversationService:
                         session["session_id"], budget_chars=history_budget,
                         exclude_turn_id=user_turn["turn_id"], include_roles=history_roles,
                         max_turns=history_turn_limit, oldest_first=earliest_session_recall,
-                        relevance_query=history_relevance_query)
+                        relevance_query=history_relevance_query,
+                        prefer_recent_relevant=prefer_recent_relevant)
                 else:
                     raise ChatInputBudgetError("chat_input_exceeds_gaming_budget")
                 runtime_context = self._verified_runtime_context(
@@ -2205,6 +2227,7 @@ class PersistentConversationService:
                     prompt, "gaming", social_checkin=social_checkin)
         linkage = {"session_id": session["session_id"], "user_turn_id": user_turn["turn_id"],
                    "chat_response_style": ("social_checkin" if social_checkin else "default"),
+                   "recent_session_recall": recent_session_recall,
                    "conversation_context_snapshot_digest": history.snapshot_digest,
                    "memory_retrieval_snapshot_digest": memory["snapshot_digest"]}
         if predecessor_runtime_lineage is not None:

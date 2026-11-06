@@ -25,6 +25,20 @@ def test_gaming_mode_caps_each_turn_without_expanding_tighter_limits() -> None:
         max_new_tokens=64, timeout_seconds=12, max_calls_per_correlation=1)
 
 
+def test_gaming_recall_allows_only_a_bounded_history_preservation_extension() -> None:
+    requested = LocalModelInvocationBudget(max_input_chars=6000, max_new_tokens=64)
+
+    ordinary = GamingWorkloadPolicy.constrain_budget("gaming", requested)
+    recall = GamingWorkloadPolicy.constrain_budget(
+        "gaming", requested, recent_session_recall=True)
+
+    assert ordinary.max_input_chars == 4600
+    assert recall.max_input_chars == 5100
+    assert recall.max_output_chars == ordinary.max_output_chars
+    assert recall.max_new_tokens == ordinary.max_new_tokens
+    assert recall.timeout_seconds == ordinary.timeout_seconds
+
+
 def test_gaming_mode_does_not_expand_an_already_tighter_budget() -> None:
     requested = LocalModelInvocationBudget(max_input_chars=1000, max_output_chars=500,
         max_new_tokens=32, timeout_seconds=5, max_calls_per_correlation=1)
@@ -89,12 +103,12 @@ def test_gaming_social_checkin_guidance_is_specific_and_precedes_history() -> No
     guidance = GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION
     assert guidance in result
     assert result.index(guidance) < result.index("[VERIFIED_RUNTIME_CONTEXT]")
-    assert "answer the request first" in result
-    assert "ask exactly one brief choice, e.g. 'Coffee or tea?'" in result
-    assert "never an open-ended or repeated question" in result
-    assert "no forced game reference, self-introduction, or helpdesk question" in result
-    assert "claim gameplay sight or monitoring" in result
-    assert "without CURRENT_SCREEN_OBSERVATION_UNTRUSTED" in result
+    assert "answer first" in result
+    assert "ask one brief choice" in result
+    assert "use the user's answer and ask something different" in result
+    assert "do not repeat prior wording or choices" in result
+    assert "No forced game reference, intro, helpdesk question" in result
+    assert "unsupported screen claims" in result
 
 
 def test_gaming_chat_style_rejects_an_unrecognized_prompt_layout() -> None:
