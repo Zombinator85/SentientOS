@@ -59,7 +59,7 @@ def test_effective_mode_and_budget_are_recorded_in_invocation_lineage() -> None:
 
     assert budget.max_new_tokens == 64
     assert lineage == {"serving_session_id": "session-1", "workload_mode": "gaming",
-        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v13",
+        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v14",
         "max_backend_threads": 2}
 
 
@@ -90,6 +90,8 @@ def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
     assert "Fulfill requested form" in result
     assert "joke requests get jokes, not trivia or offers" in result
     assert "No unasked follow-up" in result
+    assert "Every reply must include at least one complete plain-language sentence" in result
+    assert "emoji may supplement a reply but never replace its words" in result
     assert GamingWorkloadPolicy.apply_chat_response_style(prompt, "normal") == prompt
 
 
