@@ -805,6 +805,49 @@ def test_unconfigured_screen_activity_question_uses_verified_capability_fallback
     assert len(invoker.prompts) == 1
 
 
+def test_user_report_evidence_question_is_answered_from_verified_sources_without_inference(
+        tmp_path):
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+
+    class Detector:
+        def observe(self, names):
+            assert tuple(names) == ("cronos-win64-shipping.exe",)
+            return ForegroundGameObservation("available", True, "f" * 64,
+                "2026-11-06T16:00:00+00:00")
+
+    chat.configure_development_chat(
+        invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic",
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+        foreground_game_detector=Detector(),
+    )
+    response = client.post("/chat", json={
+        "message": (
+            "If I tell you something happened in Cronos, can you distinguish "
+            "what you observed from what I told you?"
+        ),
+        "observe_screen": False,
+    })
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["response"] == (
+        "Yes. I’ll keep your description attributed to you. Process telemetry "
+        "establishes only the foreground app; OCR, if included, establishes only "
+        "captured text. Current telemetry separately confirms Cronos is foreground. "
+        "Screen observation isn’t configured in this session, so I haven’t "
+        "independently observed the event."
+    )
+    assert body["context"]["response_origin"] == "deterministic_grounding_policy"
+    assert body["context"]["inference_timing"]["backend_metrics_status"] == "not_applicable"
+    assert body["context"]["selected_turn_count"] == 0
+    assert body["context"]["selected_memory_count"] == 0
+    assert invoker.calls == 0
+
+
 def test_casual_greeting_with_game_context_reaches_model_instead_of_screen_fallback(
         tmp_path):
     from sentientos.foreground_game_detection import ForegroundGameObservation

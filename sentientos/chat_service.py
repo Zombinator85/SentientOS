@@ -55,6 +55,7 @@ from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CA
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
     CURRENT_GAME_STATUS_POLICY_ID, SCREEN_CAPABILITY_POLICY_ID, corrected_gaming_output,
+    USER_REPORT_EVIDENCE_POLICY_ID,
     corrected_nonverbal_gaming_output, corrected_multiple_social_questions,
     corrected_output_lineage,
     corrected_screen_capability_output, corrected_social_instruction_echo,
@@ -2239,14 +2240,26 @@ class PersistentConversationService:
                 screen_observation_provenance=(
                     {"text_status": screen_observation.get("text_status", "available")}
                     if isinstance(screen_observation, Mapping) else None))
-            if (policy_correction is not None
-                    and policy_correction.get("policy_id") == CURRENT_GAME_STATUS_POLICY_ID
-                    and policy_correction.get("reason_code") in {
-                        "foreground_only_screen_observation_unconfigured",
-                        "foreground_only_no_screen_observation",
-                        "verified_workload_context_screen_unavailable",
-                        "screen_capture_no_readable_text",
-                    }):
+            allowed_deterministic_grounding = {
+                CURRENT_GAME_STATUS_POLICY_ID: {
+                    "foreground_only_screen_observation_unconfigured",
+                    "foreground_only_no_screen_observation",
+                    "verified_workload_context_screen_unavailable",
+                    "screen_capture_no_readable_text",
+                },
+                USER_REPORT_EVIDENCE_POLICY_ID: {
+                    "user_report_distinguished_from_current_observation",
+                },
+            }
+            policy_id = (policy_correction.get("policy_id")
+                         if policy_correction is not None else None)
+            reason_code = (policy_correction.get("reason_code")
+                           if policy_correction is not None else None)
+            allowed_reasons = (allowed_deterministic_grounding.get(policy_id)
+                               if policy_id is not None else None)
+            if (policy_correction is not None and reason_code is not None
+                    and allowed_reasons is not None
+                    and reason_code in allowed_reasons):
                 return self._complete_deterministic_grounding_response(
                     session_id=session["session_id"], user_turn=user_turn,
                     response_text=policy_text, correction=policy_correction,
