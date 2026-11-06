@@ -247,6 +247,20 @@ def _is_social_checkin_request(message: str) -> bool:
             or companion_day_checkin is not None)
 
 
+def _is_social_checkin_continuation(message: str) -> bool:
+    """Recognize a check-in that explicitly refers to the immediately prior exchange."""
+    normalized = " ".join(re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
+    markers = (
+        "that is the kind of", "that s the kind of",
+        "that is what i mean", "that s what i mean",
+        "i like that", "i like your answer", "i like your response",
+        "you asked me", "you just asked", "you said", "you mentioned",
+        "what you said", "your last answer", "your last response",
+        "tell me more", "elaborate on that", "go on",
+    )
+    return any(marker in normalized for marker in markers)
+
+
 APP = FastAPI(title="SentientOS Chat", version="1.0")
 _CONVERSATION_SERVICE: "PersistentConversationService | None" = None
 _PRODUCTION_COMPOSITION: "ProductionChatComposition | None" = None
@@ -1924,6 +1938,8 @@ class PersistentConversationService:
             recent_session_recall and _is_earliest_session_recall_request(message)
         )
         social_checkin = _is_social_checkin_request(message)
+        social_checkin_continuation = (
+            social_checkin and _is_social_checkin_continuation(message))
         current_runtime_question = _is_current_runtime_context_question(message)
         self_contained_echo = _is_self_contained_text_echo_request(message)
         history_roles: tuple[str, ...] | None
@@ -1950,8 +1966,13 @@ class PersistentConversationService:
                     history_turn_limit = 3
                 else:
                     history_turn_limit = 1
+        elif social_checkin_continuation:
+            # Keep just the immediately preceding exchange when a casual follow-up
+            # explicitly refers to it; do not pull unrelated earlier conversation.
+            history_roles = ("user", "assistant")
+            history_turn_limit = 2
         elif social_checkin or self_contained_echo or current_runtime_question:
-            # Self-contained requests and live runtime questions should not inherit
+            # Initial check-ins and self-contained requests should not inherit
             # unrelated transcript context and mistake it for current evidence.
             history_roles = ()
         else:
@@ -1967,10 +1988,9 @@ class PersistentConversationService:
                         or current_runtime_question or self_contained_echo else message)
         memory_budget = self.memory_budget_chars
         memory = self.memories.retrieve(memory_query, budget_chars=memory_budget)
-        # Keep casual check-ins independent of old transcript and retrieved
-        # memories while still grounding the model in current, verified system
-        # identity and capability state. A greeting must not make the runtime
-        # itself invisible to the model.
+        # Keep check-ins independent of unrelated transcript and retrieved
+        # memories while grounding them in verified runtime state. Explicit
+        # follow-ups may include only the immediately preceding exchange.
         runtime_context = self._verified_runtime_context(
             identity=identity_payload, history=history, memory=memory,
             session_id=session["session_id"],
