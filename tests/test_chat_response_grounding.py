@@ -12,11 +12,40 @@ from sentientos.chat_response_grounding import (
     corrected_unobserved_game_status,
     corrected_nonresponsive_gaming_next_step,
     corrected_nonverbal_gaming_output,
+    corrected_multiple_social_questions,
+    GAMING_SOCIAL_QUESTION_COUNT_POLICY_ID,
     GAMING_NONVERBAL_OUTPUT_POLICY_ID,
     GAMING_SOCIAL_QUESTION_FALLBACK,
     is_direct_screen_activity_question,
     unobserved_gameplay_claim,
 )
+
+
+def test_explicit_one_question_request_keeps_only_the_first_social_question():
+    text, correction = corrected_multiple_social_questions(
+        "How's your day so far? Is there anything you're looking forward to?",
+        user_message=(
+            "Ask me one easy, open-ended question, and please ask just one at a time."
+        ), workload_mode="gaming", social_checkin=True)
+    assert text == "How's your day so far?"
+    assert text.count("?") == 1
+    assert correction == {
+        "policy_id": GAMING_SOCIAL_QUESTION_COUNT_POLICY_ID,
+        "reason_code": "model_exceeded_requested_question_count",
+    }
+
+
+def test_social_question_count_guard_is_scoped_to_explicit_gaming_request():
+    output = "How are you? What are you doing?"
+    assert corrected_multiple_social_questions(
+        output, user_message="Ask me one question.", workload_mode="normal",
+        social_checkin=True) == (output, None)
+    assert corrected_multiple_social_questions(
+        output, user_message="Ask me one question.", workload_mode="gaming",
+        social_checkin=False) == (output, None)
+    assert corrected_multiple_social_questions(
+        "How are you?", user_message="Ask me one question.",
+        workload_mode="gaming", social_checkin=True) == ("How are you?", None)
 
 
 def test_emoji_only_gaming_social_reply_gets_one_open_question_fallback():
