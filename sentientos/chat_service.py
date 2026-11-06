@@ -575,9 +575,12 @@ class DevelopmentLocalChatInference:
             mode = workload_state["effective_mode"]
             if workload_state["mode"] == "automatic":
                 self._select_profile_locked(mode)
-            social_checkin = caller_linkage.get("chat_response_style") == "social_checkin"
+            response_style = caller_linkage.get("chat_response_style")
+            social_checkin = response_style == "social_checkin"
+            screen_observation = response_style == "screen_observation"
             effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
-                prompt, mode, social_checkin=social_checkin)
+                prompt, mode, social_checkin=social_checkin,
+                screen_observation=screen_observation)
             recent_session_recall = caller_linkage.get("recent_session_recall") is True
             effective_budget = GamingWorkloadPolicy.constrain_budget(
                 mode, budget, recent_session_recall=recent_session_recall)
@@ -2298,11 +2301,13 @@ class PersistentConversationService:
             verified_prior_runtime_lineage=predecessor_runtime_lineage,
             screen_observation=screen_observation,
             compact_history=gaming_development_turn,
+            compact_screen_context=gaming_development_turn and screen_observation is not None,
             recent_session_recall=recent_session_recall,
             earliest_session_recall=earliest_session_recall)
         if gaming_development_turn:
             effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
-                prompt, "gaming", social_checkin=social_checkin)
+                prompt, "gaming", social_checkin=social_checkin,
+                screen_observation=screen_observation is not None)
             gaming_input_limit = (
                 GamingWorkloadPolicy.GAMING_MAX_RECALL_INPUT_CHARS
                 if recent_session_recall
@@ -2338,12 +2343,16 @@ class PersistentConversationService:
                     verified_prior_runtime_lineage=predecessor_runtime_lineage,
                     screen_observation=screen_observation,
                     compact_history=True,
+                    compact_screen_context=screen_observation is not None,
                     recent_session_recall=recent_session_recall,
                     earliest_session_recall=earliest_session_recall)
                 effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
-                    prompt, "gaming", social_checkin=social_checkin)
+                    prompt, "gaming", social_checkin=social_checkin,
+                    screen_observation=screen_observation is not None)
         linkage = {"session_id": session["session_id"], "user_turn_id": user_turn["turn_id"],
-                   "chat_response_style": ("social_checkin" if social_checkin else "default"),
+                   "chat_response_style": (
+                       "screen_observation" if screen_observation is not None else
+                       "social_checkin" if social_checkin else "default"),
                    "recent_session_recall": recent_session_recall,
                    "conversation_context_snapshot_digest": history.snapshot_digest,
                    "memory_retrieval_snapshot_digest": memory["snapshot_digest"]}

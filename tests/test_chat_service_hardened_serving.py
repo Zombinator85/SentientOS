@@ -180,7 +180,8 @@ def test_successful_turn_and_second_turn_have_distinct_inference_correlations(tm
     assert correlations[0] != correlations[1]
     assert all(value.startswith(f"chat:{first.session_id}:") for value in correlations)
     base_linkage = {"session_id", "user_turn_id", "chat_response_style",
-        "conversation_context_snapshot_digest", "memory_retrieval_snapshot_digest"}
+        "recent_session_recall", "conversation_context_snapshot_digest",
+        "memory_retrieval_snapshot_digest"}
     assert set(inference.calls[0]["caller_linkage"]) == base_linkage
     assert inference.calls[0]["caller_linkage"]["chat_response_style"] == "default"
     assert set(inference.calls[1]["caller_linkage"]) == base_linkage | {

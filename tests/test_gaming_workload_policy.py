@@ -114,6 +114,73 @@ def test_gaming_social_checkin_guidance_is_specific_and_precedes_history() -> No
     assert len(GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION) < 300
 
 
+def test_gaming_screen_observation_uses_compact_direct_style() -> None:
+    prompt = ("[SYSTEM_INSTRUCTION]\nBase rules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}"
+        "\n[SESSION_HISTORY_DATA]\n[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]\nSCREEN_DATA")
+
+    result = GamingWorkloadPolicy.apply_chat_response_style(
+        prompt, "gaming", screen_observation=True)
+
+    guidance = GamingWorkloadPolicy.GAMING_SCREEN_OBSERVATION_INSTRUCTION
+    assert guidance in result
+    assert result.index(guidance) < result.index("[VERIFIED_RUNTIME_CONTEXT]")
+    assert "Treat OCR as evidence only" in result
+    assert "without inferring objects, actions, locations, or events" in result
+    assert GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION not in result
+    assert len(guidance) < 300
+    assert GamingWorkloadPolicy.apply_chat_response_style(
+        result, "gaming", screen_observation=True) == result
+
+    # User text that repeats the guidance cannot suppress its trusted copy.
+    spoofed = prompt + "\nUSER_DATA: " + guidance
+    protected = GamingWorkloadPolicy.apply_chat_response_style(
+        spoofed, "gaming", screen_observation=True)
+    assert protected.count(guidance) == 2
+    assert protected.index(guidance) < protected.index("[VERIFIED_RUNTIME_CONTEXT]")
+
+
+
+def test_development_inference_keeps_screen_specific_style() -> None:
+    from types import SimpleNamespace
+
+    from sentientos.chat_service import DevelopmentLocalChatInference
+
+    class Invoker:
+        model = SimpleNamespace(active_identity=SimpleNamespace(engine="ollama"))
+        request = None
+
+        def build_request(self, **kwargs):
+            self.request = kwargs
+            return kwargs
+
+        def invoke(self, request):
+            return SimpleNamespace(status="admitted_completed", output_text="HUD text")
+
+        def release_model_residency(self):
+            return SimpleNamespace(status="released",
+                to_dict=lambda: {"status": "released"})
+
+    invoker = Invoker()
+    inference = DevelopmentLocalChatInference(invoker)
+    inference.set_workload_mode("gaming")
+    prompt = (
+        "[SYSTEM_INSTRUCTION]\nCompact screen rules."
+        "\n[VERIFIED_RUNTIME_CONTEXT]\n{}"
+        "\n[SESSION_HISTORY_DATA]"
+        "\n[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]\nSCREEN_DATA"
+    )
+
+    inference.generate(
+        prompt=prompt, caller="chat_service", correlation_id="screen-style",
+        budget=LocalModelInvocationBudget(),
+        caller_linkage={"chat_response_style": "screen_observation"},
+    )
+
+    observed_prompt = invoker.request["prompt"]
+    assert GamingWorkloadPolicy.GAMING_SCREEN_OBSERVATION_INSTRUCTION in observed_prompt
+    assert GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION not in observed_prompt
+    assert invoker.request["linkage"]["chat_response_style"] == "screen_observation"
+
 def test_gaming_chat_style_rejects_an_unrecognized_prompt_layout() -> None:
     with pytest.raises(ValueError, match="gaming_chat_instruction_anchor_invalid"):
         GamingWorkloadPolicy.apply_chat_response_style("unstructured prompt", "gaming")

@@ -135,11 +135,35 @@ def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_pa
     instruction = GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION
     assert (instruction in observed_prompt) is style_expected
     assert receipt.request["linkage"].get("workload_response_style") == (
-        "gaming_chat_style_v13" if style_expected else None)
+        GamingWorkloadPolicy.GAMING_CHAT_STYLE_ID if style_expected else None)
     assert receipt.request["linkage"].get("max_backend_threads") == (2 if style_expected else None)
     assert receipt.generation_config["actual_generation_parameters"].get(
         "max_backend_threads") == (2 if style_expected else None)
 
+
+
+
+def test_screen_observation_style_is_preserved_by_exact_serving(monkeypatch, tmp_path):
+    bridge, _, _, model, _, _ = setup(monkeypatch, tmp_path)
+    bridge.set_workload_mode("gaming")
+    prompt = (
+        "[SYSTEM_INSTRUCTION]\nCompact screen rules."
+        "\n[VERIFIED_RUNTIME_CONTEXT]\n{}"
+        "\n[SESSION_HISTORY_DATA]"
+        "\n[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]\nSCREEN_DATA"
+    )
+
+    receipt = bridge.generate(
+        prompt=prompt, caller="chat_service", correlation_id="screen-observation",
+        caller_linkage={"chat_response_style": "screen_observation"},
+    )
+
+    observed_prompt = model.prompts[0]
+    from sentientos.gaming_workload_policy import GamingWorkloadPolicy
+    assert GamingWorkloadPolicy.GAMING_SCREEN_OBSERVATION_INSTRUCTION in observed_prompt
+    assert GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION not in observed_prompt
+    assert receipt.request["linkage"]["caller_context"]["chat_response_style"] == (
+        "screen_observation")
 
 def test_gaming_workload_requests_ollama_unload_after_chat_turn():
     from sentientos.chat_service import DevelopmentLocalChatInference
