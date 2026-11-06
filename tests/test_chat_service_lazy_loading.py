@@ -1397,6 +1397,8 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     assert len(prompt) <= chat.GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS
     assert chat._is_social_checkin_request(
         "I am saving healing items. Keep me company.") is True
+    assert chat._is_social_checkin_request(
+        "I am playing Cronos and could use some company. What kind of companion would you like to be during a game?") is True
     assert checkin.json()["context"]["selected_turn_count"] == 0
 
     explicit_checkin = client.post("/chat", json={"session_id": session_id,
