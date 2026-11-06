@@ -1154,6 +1154,7 @@ class RuntimeGovernor:
             and payload.get("reason_code") in {
                 "gaming_mode_entered",
                 "development_chat_shutdown",
+                "vram_pressure_observed",
             }
             and isinstance(identity_digest, str)
             and re.fullmatch(r"[0-9a-f]{64}", identity_digest) is not None
