@@ -27,13 +27,13 @@ class GamingWorkloadPolicy:
         "objects, enemies, objectives, or events."
     )
     GAMING_SOCIAL_CHECKIN_INSTRUCTION = (
-        "Casual companion; answer the request first. If asked for one specific question, "
-        "ask exactly one brief choice, e.g. 'Coffee or tea?', never an open-ended or "
-        "repeated question. Mention user-shared game details only if relevant; no forced "
-        "game reference, self-introduction, or helpdesk question. Never claim gameplay "
-        "sight or monitoring without CURRENT_SCREEN_OBSERVATION_UNTRUSTED."
+        "Casual companion; answer first. If asked for a question, ask one brief choice. "
+        "For follow-ups, use the user's answer and ask something different; do not repeat "
+        "prior wording or choices. No forced game reference, intro, helpdesk question, "
+        "or unsupported screen claims."
     )
     GAMING_MAX_INPUT_CHARS = 4600
+    GAMING_MAX_RECALL_INPUT_CHARS = 5100
     GAMING_MAX_OUTPUT_CHARS = 1200
     # A 48-token live reply reached the hard cap and ended mid-sentence on
     # GLORP. 64 keeps gaming replies short while leaving room for a complete
@@ -50,12 +50,15 @@ class GamingWorkloadPolicy:
 
     @classmethod
     def constrain_budget(cls, mode: WorkloadMode,
-                         requested: LocalModelInvocationBudget) -> LocalModelInvocationBudget:
+                         requested: LocalModelInvocationBudget, *,
+                         recent_session_recall: bool = False) -> LocalModelInvocationBudget:
         if mode == "normal":
             return requested
+        input_limit = (cls.GAMING_MAX_RECALL_INPUT_CHARS if recent_session_recall
+                       else cls.GAMING_MAX_INPUT_CHARS)
         return replace(
             requested,
-            max_input_chars=min(requested.max_input_chars, cls.GAMING_MAX_INPUT_CHARS),
+            max_input_chars=min(requested.max_input_chars, input_limit),
             max_output_chars=min(requested.max_output_chars, cls.GAMING_MAX_OUTPUT_CHARS),
             max_new_tokens=min(requested.max_new_tokens, cls.GAMING_MAX_NEW_TOKENS),
             timeout_seconds=min(requested.timeout_seconds, cls.GAMING_TIMEOUT_SECONDS),

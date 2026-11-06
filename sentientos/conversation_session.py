@@ -70,6 +70,10 @@ def _is_prior_message_recall_question(text: str) -> bool:
         re.search(
             r"\bwhat did (?:i|you|the [a-z0-9]+) (?:say|tell|write)\b", normalized
         ) is not None
+        or re.search(
+            r"\bremind me what (?:i|you|the [a-z0-9]+) (?:said|told|wrote)\b",
+            normalized,
+        ) is not None
         or re.search(r"\bwhat was written\b", normalized) is not None
     )
     anaphoric_recall = re.search(
@@ -702,7 +706,8 @@ class ConversationSessionStore:
                     include_roles: tuple[str, ...] | None = None,
                     max_turns: int | None = None,
                     oldest_first: bool = False,
-                    relevance_query: str | None = None) -> ContextSnapshot:
+                    relevance_query: str | None = None,
+                    prefer_recent_relevant: bool = False) -> ContextSnapshot:
         session = self.load(session_id)
         if include_roles is not None and any(role not in {"user", "assistant"}
                                              for role in include_roles):
@@ -713,6 +718,8 @@ class ConversationSessionStore:
             raise ValueError("conversation_context_order_invalid")
         if relevance_query is not None and not isinstance(relevance_query, str):
             raise ValueError("conversation_context_relevance_query_invalid")
+        if type(prefer_recent_relevant) is not bool:
+            raise ValueError("conversation_context_relevance_order_invalid")
         role_filter = set(include_roles) if include_roles is not None else None
         candidates = [t for t in session["turns"]
                       if t["turn_id"] != exclude_turn_id
@@ -749,13 +756,17 @@ class ConversationSessionStore:
             else:
                 ranked = rank_turns(candidates)
             if ranked:
-                ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
-                strongest_score = ranked[0][0]
-                strongest_matches = [item for item in ranked
-                                     if item[0] == strongest_score]
+                if prefer_recent_relevant:
+                    ranked.sort(key=lambda item: item[1], reverse=True)
+                    relevant_matches = ranked
+                else:
+                    ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+                    strongest_score = ranked[0][0]
+                    relevant_matches = [item for item in ranked
+                                        if item[0] == strongest_score]
                 relevance_limit = max_turns if max_turns is not None else 3
                 selected_ids = {item[2]["turn_id"]
-                                for item in strongest_matches[:relevance_limit]}
+                                for item in relevant_matches[:relevance_limit]}
                 candidates = [turn for turn in candidates
                               if turn["turn_id"] in selected_ids]
         if max_turns is not None:
@@ -920,7 +931,7 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
         recall_instruction = (
             "These turns are ordered oldest to newest. For this recall, use only the first prior USER_DATA turn; include the immediately following ASSISTANT_DATA turn only if asked what the assistant answered or said in response to the first message. Do not substitute later turns or infer missing messages, and do not use MEMORY_DATA."
             if earliest_session_recall else
-            "These turns are ordered oldest to newest. For user-message recall, use only the final prior USER_DATA turn. For questions about what the assistant just said or answered, use the immediately following ASSISTANT_DATA turn with its preceding USER_DATA turn. Do not substitute older turns or infer missing messages, and do not use MEMORY_DATA."
+            "These turns are ordered oldest to newest. For user-message recall, use only the final prior USER_DATA turn. Answer the recalled fact directly; state only what the user said and add no inferred preferences. For questions about what the assistant just said or answered, use the immediately following ASSISTANT_DATA turn with its preceding USER_DATA turn. Do not substitute older turns or infer missing messages, and do not use MEMORY_DATA."
         )
         lines.insert(instruction_index, recall_instruction)
     for turn in history.turns:

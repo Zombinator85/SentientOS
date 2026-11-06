@@ -62,6 +62,12 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
     assert chat._is_earliest_session_recall_request(
         "What did I ask you first in this conversation?")
     assert chat._is_recent_session_recall_request("What did you just say?")
+    assert chat._is_recent_session_recall_request(
+        "Please remind me what I said about where I discover new music.")
+    assert chat._is_recent_user_statement_reminder(
+        "Please remind me what I said about where I discover new music.")
+    assert not chat._is_recent_user_statement_reminder(
+        "What did I say was written on the note I found?")
     assert chat._is_direct_recent_user_turn_recall_request("What did I just ask you?")
     assert chat._is_direct_recent_user_turn_recall_request("What was my previous question?")
     assert not chat._is_direct_recent_user_turn_recall_request(
@@ -1071,6 +1077,42 @@ def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_
     assert "Do not substitute older turns" in invoker.prompts[-1]
 
 
+def test_remind_me_recall_uses_original_user_statement_not_prior_recall_question(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    session_id = client.post("/sessions").json()["session_id"]
+    sessions = chat._get_conversation_service().sessions
+    distractor = sessions.append_turn(session_id, role="user", text=(
+        "Morning. Ask me a new specific question about where I discover new music."))
+    sessions.append_turn(session_id, role="assistant", text=(
+        "Would you rather discover an artist through an album or a playlist?"),
+        linkage={"source_user_turn_id": distractor["turn_id"]})
+    source = sessions.append_turn(session_id, role="user", text=(
+        "Streaming services. Ask me a different, specific question about new pop I discover."))
+    sessions.append_turn(session_id, role="assistant", text=(
+        "What kind of new pop do you enjoy finding?"),
+        linkage={"source_user_turn_id": source["turn_id"]})
+    prior_recall = sessions.append_turn(session_id, role="user", text=(
+        "Earlier, remind me what I said about where I discover new music."))
+    sessions.append_turn(session_id, role="assistant", text=(
+        "Would you like me to remind you?"),
+        linkage={"source_user_turn_id": prior_recall["turn_id"]})
+
+    response = client.post("/chat", json={"session_id": session_id,
+        "message": ("Please remind me what I said about where I discover new music, "
+                    "then ask one different, specific question about music with two choices.")})
+
+    assert response.status_code == 200
+    assert response.json()["context"]["selected_turn_count"] == 1
+    assert "Streaming services. Ask me a different" in invoker.prompts[-1]
+    assert "Morning. Ask me a new specific question" not in invoker.prompts[-1]
+    assert "Earlier, remind me what I said" not in invoker.prompts[-1]
+    assert "final prior USER_DATA turn" in invoker.prompts[-1]
+    assert "Answer the recalled fact directly" in invoker.prompts[-1]
+    assert "state only what the user said" in invoker.prompts[-1]
+
+
 def test_prior_assistant_question_recall_selects_relevant_older_exchange(tmp_path):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()
@@ -1543,6 +1585,39 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     assert chat._is_social_checkin_request(
         "So, how's your night going as my gaming sidekick?"
     ) is True
+
+
+def test_different_specific_followup_uses_recent_exchange_without_memory(tmp_path):
+    chat = _reload()
+    client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    assert client.post("/workload-mode", json={"mode": "gaming"}).status_code == 200
+
+    first_message = (
+        "Ask me one specific, easy question about music, with two clear choices."
+    )
+    first = client.post("/chat", json={"message": first_message})
+    assert first.status_code == 200
+
+    followup_message = (
+        "Upbeat pop. Ask me one different, specific question about when I listen to it."
+    )
+    assert chat._is_social_checkin_request(followup_message) is True
+    assert chat._is_social_checkin_continuation(followup_message) is True
+    followup = client.post("/chat", json={
+        "session_id": first.json()["session_id"],
+        "message": followup_message,
+    })
+
+    assert followup.status_code == 200
+    prompt = invoker.prompts[-1]
+    assert followup_message in prompt
+    assert first_message in prompt
+    assert first.json()["response"] in prompt
+    assert chat.GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION in prompt
+    assert followup.json()["context"]["selected_turn_count"] == 2
+    assert followup.json()["context"]["selected_memory_count"] == 0
 
 
 def test_gaming_chat_trims_old_history_and_keeps_recent_turns_under_input_ceiling(tmp_path):
