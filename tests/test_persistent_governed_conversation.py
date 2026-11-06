@@ -17,8 +17,9 @@ from sentientos.canonical_memory import (CanonicalMemoryStore, ExplicitRetention
     AdmittedRetentionWriter, CANDIDATE_TYPE, digest, retention_request_id,
     sentientos_data_dir)
 from sentientos.conversation_session import (
-    ConversationSessionStore, assemble_local_chat_context,
+    ContextSnapshot, ConversationSessionStore, assemble_local_chat_context,
 )
+from sentientos.gaming_workload_policy import GamingWorkloadPolicy
 
 
 class Identity:
@@ -227,6 +228,82 @@ def test_malicious_recalled_memory_cannot_become_system_authority(tmp_path: Path
     assert "do not infer visual details from the empty OCR result" in no_text_prompt
 
 
+def test_compact_screen_observation_fits_gaming_prompt_budget() -> None:
+    history = ContextSnapshot("session-test", (), 0, False, "0" * 64)
+    runtime_context = {
+        "system": {"name": "SentientOS", "runtime_posture": "development_only"},
+        "assistant_role": "the active local model providing conversation inside SentientOS",
+        "active_model": {
+            "engine": "ollama", "semantic_artifact_identity": "qwen2.5:3b",
+            "posture": "development_only", "configured_candidate_label": "Qwen2.5 3B",
+        },
+        "workload": {
+            "mode": "automatic", "effective_mode": "gaming",
+            "mode_source": "foreground_allowlist_match",
+            "observation_status": "available", "game_foreground": True,
+            "game_process_running": True,
+            "configured_game_process_names": ["Cronos-Win64-Shipping.exe", "Cronos.exe"],
+            "gaming_resource_status": {
+                "admission_status": "available", "reason_code": "headroom_available",
+                "vram_utilization_percent": 71.9,
+                "observed_at": "2026-11-06T13:00:00+00:00",
+                "release_threshold_percent": 85, "recovery_threshold_percent": 82,
+            },
+        },
+        "capabilities": {
+            "local_conversation": "available",
+            "conversation_history": {
+                "persisted_locally": True, "prior_turns_included": 0,
+                "selected_history_truncated": False,
+            },
+            "retrieved_memories_included": 0,
+            "godot_avatar_output": {"configured": True, "enabled": True},
+            "local_speech_output": {
+                "configured": False, "enabled": False, "backend_available": False,
+            },
+            "screen_observation": {
+                "configured": True, "included_this_turn": True,
+                "requires_per_message_opt_in": True,
+            },
+        },
+    }
+    screen_observation = {
+        "text": "HUD\n" * 300, "text_status": "available",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": "2026-11-06T13:00:00+00:00",
+        "text_change_kind": "initial", "visual_change_kind": "unknown",
+        "visual_change_score": None,
+    }
+
+    prompt = assemble_local_chat_context(
+        history=history, memory_snapshot={"memories": []},
+        current_message="What readable text is visible?",
+        runtime_context=runtime_context, screen_observation=screen_observation,
+        compact_history=True, compact_screen_context=True,
+    )
+    prompt = GamingWorkloadPolicy.apply_chat_response_style(
+        prompt, "gaming", screen_observation=True)
+
+    assert len(prompt) <= GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS
+    assert "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]" in prompt
+    assert prompt.count("HUD") == 300
+    assert "Report only text it contains" in prompt
+    assert "Do not claim more than this capture shows" in prompt
+    assert "VERIFIED_CURRENT_WORKLOAD_FACTS" not in prompt
+
+
+def test_compact_screen_context_requires_an_observation() -> None:
+    history = ContextSnapshot("session-test", (), 0, False, "0" * 64)
+
+    with pytest.raises(ValueError, match="compact_screen_context_requires_observation"):
+        assemble_local_chat_context(
+            history=history, memory_snapshot={"memories": []},
+            current_message="What readable text is visible?",
+            compact_screen_context=True,
+        )
+
+
 def test_historical_runner_question_cannot_override_current_game_question(tmp_path: Path) -> None:
     sessions = ConversationSessionStore(tmp_path / "sessions")
     session = sessions.create(model_identity={})
@@ -278,6 +355,7 @@ def test_explicit_screen_observation_is_ephemeral_and_idempotent(tmp_path: Path)
     assert all("SECRET QUEST OBJECTIVE" not in turn["text"] for turn in turns)
     assert app.memories.retrieve("SECRET QUEST OBJECTIVE")["memories"] == []
     assistant_linkage = turns[-1]["linkage"]
+    assert invoker.requests[0].linkage["chat_response_style"] == "screen_observation"
     assert assistant_linkage["screen_observation_provenance"]["capture_digest"] == "a" * 64
     assert assistant_linkage["screen_observation_provenance"]["captured_at"] == "2026-01-01T00:00:00Z"
     assert assistant_linkage["screen_observation_provenance"]["text_change_kind"] == "changed"

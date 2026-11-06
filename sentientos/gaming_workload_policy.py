@@ -33,6 +33,11 @@ class GamingWorkloadPolicy:
         "and one-at-a-time preference. No examples, options, lists, forced game mentions, "
         "or unsupported screen/gameplay claims."
     )
+    GAMING_SCREEN_OBSERVATION_INSTRUCTION = (
+        "Gaming screen answer: one concise direct response. Treat OCR as evidence only; "
+        "report its readable text without inferring objects, actions, locations, or events. "
+        "If unclear or empty, say so. No unsupported gameplay claims."
+    )
     GAMING_MAX_INPUT_CHARS = 4600
     GAMING_MAX_RECALL_INPUT_CHARS = 5100
     GAMING_MAX_OUTPUT_CHARS = 1200
@@ -83,7 +88,8 @@ class GamingWorkloadPolicy:
 
     @classmethod
     def apply_chat_response_style(cls, prompt: str, mode: WorkloadMode,
-                                  *, social_checkin: bool = False) -> str:
+                                  *, social_checkin: bool = False,
+                                  screen_observation: bool = False) -> str:
         """Add trusted low-distraction guidance before untrusted chat data."""
         if mode == "normal":
             return prompt
@@ -92,6 +98,10 @@ class GamingWorkloadPolicy:
                 or marker not in prompt or "[SESSION_HISTORY_DATA]" not in prompt):
             raise ValueError("gaming_chat_instruction_anchor_invalid")
         head, tail = prompt.split(marker, 1)
-        instruction = (cls.GAMING_SOCIAL_CHECKIN_INSTRUCTION if social_checkin
-                       else cls.GAMING_CHAT_STYLE_INSTRUCTION)
+        instruction = (
+            cls.GAMING_SOCIAL_CHECKIN_INSTRUCTION if social_checkin else
+            cls.GAMING_SCREEN_OBSERVATION_INSTRUCTION if screen_observation else
+            cls.GAMING_CHAT_STYLE_INSTRUCTION)
+        if instruction in head:
+            return prompt
         return head + instruction + "\n" + marker + tail

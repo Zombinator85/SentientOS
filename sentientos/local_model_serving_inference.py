@@ -236,7 +236,12 @@ class ProductionServingInferenceController:
         workload_state = self.current_workload_state()
         workload_mode = workload_state["effective_mode"]
         try:
-            effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(prompt, workload_mode)
+            response_style = (caller_linkage.get("chat_response_style")
+                if isinstance(caller_linkage, Mapping) else None)
+            effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
+                prompt, workload_mode,
+                social_checkin=response_style == "social_checkin",
+                screen_observation=response_style == "screen_observation")
         except ValueError as exc:
             raise ProductionServingInferenceError(str(exc)) from exc
         effective_budget, linkage = GamingWorkloadPolicy.apply_to_chat_invocation(
