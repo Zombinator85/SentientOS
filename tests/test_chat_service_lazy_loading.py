@@ -290,6 +290,35 @@ def test_development_gaming_residency_window_is_opt_in(
             chat.DevelopmentLocalChatInference(invoker, gaming_keep_alive="10m")
 
 
+def test_gaming_resource_pressure_uses_durable_non_model_response(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    resource_state = {
+        "admission_status": "deferred",
+        "reason_code": "vram_pressure",
+        "vram_utilization_percent": 92.0,
+        "observed_at": "2026-11-06T09:00:00+00:00",
+        "release_threshold_percent": 90.0,
+        "recovery_threshold_percent": 85.0,
+    }
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="gaming",
+        gaming_resource_status_provider=lambda: resource_state)
+
+    response = client.post("/chat", json={"message": "Tell me a quick joke."})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "GPU memory pressure is high" in body["response"]
+    assert invoker.calls == 0
+    assert body["context"]["response_origin"] == "deterministic_grounding_policy"
+    session = chat._CONVERSATION_SERVICE.sessions.load(body["session_id"])
+    assistant = next(turn for turn in session["turns"]
+        if turn.get("turn_id") == body["turn_id"])
+    evidence = assistant["linkage"]["policy_decision"]["payload"]["evidence"]
+    assert evidence["gaming_resource_status"] == resource_state
+
+
 def test_chat_response_exposes_bounded_backend_timing_for_diagnostics(tmp_path):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()

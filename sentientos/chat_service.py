@@ -351,14 +351,21 @@ class DevelopmentLocalChatInference:
     """Affirmative local development adapter; never selected by production."""
     __slots__ = ("_delegate", "_workload_mode", "_workload_lock",
                  "_residency_release", "_model_profiles", "_foreground_game_detector",
-                 "_game_process_names", "_effective_workload_mode", "_gaming_keep_alive")
+                 "_game_process_names", "_effective_workload_mode", "_gaming_keep_alive",
+                 "_gaming_resource_status_provider")
     def __init__(self, invoker: GovernedLocalModelInvoker,
                  model_profiles: Mapping[str, Any] | None = None,
                  foreground_game_detector: Any | None = None,
-                 gaming_keep_alive: str = "0") -> None:
+                 gaming_keep_alive: str = "0",
+                 gaming_resource_status_provider: Callable[[], Mapping[str, Any]] | None = None
+                 ) -> None:
         if gaming_keep_alive not in {"0", "5s", "5m", "15m", "-1"}:
             raise ValueError("unsupported_development_gaming_keep_alive")
         self._gaming_keep_alive = gaming_keep_alive
+        if (gaming_resource_status_provider is not None
+                and not callable(gaming_resource_status_provider)):
+            raise TypeError("gaming_resource_status_provider_must_be_callable")
+        self._gaming_resource_status_provider = gaming_resource_status_provider
         self._delegate = invoker
         self._workload_mode: WorkloadMode = "normal"
         self._workload_lock = threading.RLock()
@@ -453,6 +460,17 @@ class DevelopmentLocalChatInference:
         }
         if configured == "automatic":
             state["configured_game_process_names"] = list(names)
+        if (self._gaming_resource_status_provider is not None
+                and effective == "gaming"):
+            try:
+                resource_state = self._gaming_resource_status_provider()
+            except Exception:
+                resource_state = {
+                    "admission_status": "deferred",
+                    "reason_code": "vram_telemetry_unavailable",
+                }
+            if isinstance(resource_state, Mapping):
+                state["gaming_resource_status"] = dict(resource_state)
         if release is not None:
             state["residency_release"] = release
         return state
@@ -800,6 +818,16 @@ class PersistentConversationService:
                     workload_context["configured_game_process_names"] = list(names)
             elif workload.get("mode_source") == "local_development_operator_selection":
                 workload_context["foreground_game_observation"] = "not_observed"
+            resource_status = workload.get("gaming_resource_status")
+            if isinstance(resource_status, Mapping):
+                workload_context["gaming_resource_status"] = {
+                    key: resource_status[key] for key in (
+                        "admission_status", "reason_code",
+                        "vram_utilization_percent", "observed_at",
+                        "release_threshold_percent", "recovery_threshold_percent")
+                    if key in resource_status and isinstance(
+                        resource_status[key], (str, int, float, type(None)))
+                }
         except Exception:
             workload_context = {"availability": "unavailable"}
 
@@ -1254,6 +1282,11 @@ class PersistentConversationService:
                 if isinstance(workload, Mapping) else None,
             "configured_game_process_names": list(names)
                 if isinstance(names, (list, tuple)) else [],
+            "gaming_resource_status": (
+                dict(workload["gaming_resource_status"])
+                if isinstance(workload, Mapping)
+                and isinstance(workload.get("gaming_resource_status"), Mapping)
+                else None),
             "screen_observation_configured": (
                 isinstance(runtime_context.get("capabilities"), Mapping)
                 and isinstance(runtime_context["capabilities"].get("screen_observation"), Mapping)
@@ -2175,6 +2208,48 @@ class PersistentConversationService:
                          "text_status": screen_observation.get("text_status", "available"),
                          "captured_at": screen_observation.get("captured_at")}
                         if isinstance(screen_observation, Mapping) else None))
+        workload_context = runtime_context.get("workload")
+        gaming_resource_status = (workload_context.get("gaming_resource_status")
+            if isinstance(workload_context, Mapping) else None)
+        if (isinstance(self._inference, DevelopmentLocalChatInference)
+                and isinstance(workload_context, Mapping)
+                and workload_context.get("effective_mode") == "gaming"
+                and isinstance(gaming_resource_status, Mapping)
+                and gaming_resource_status.get("admission_status") == "deferred"):
+            reason = gaming_resource_status.get("reason_code")
+            if reason == "vram_pressure":
+                response_text = (
+                    "I’m pausing model inference while the game is active because GPU memory "
+                    "pressure is high. Your message is saved, but I haven’t queued a model reply. "
+                    "SentientOS is still monitoring the system; ask again when memory headroom "
+                    "recovers."
+                )
+            elif reason == "vram_telemetry_stale":
+                response_text = (
+                    "I’m pausing model inference while the game is active because the GPU "
+                    "memory reading is stale. Your message is saved, but I haven’t queued a model "
+                    "reply. SentientOS is still monitoring the system; ask again after a fresh "
+                    "resource reading arrives."
+                )
+            else:
+                response_text = (
+                    "I’m pausing model inference while the game is active because GPU memory "
+                    "telemetry is unavailable. Your message is saved, but I haven’t queued a model "
+                    "reply. SentientOS is still monitoring the system; ask again when a safe "
+                    "resource reading is available."
+                )
+            correction = {
+                "policy_id": "gaming_resource_pressure_policy:v1",
+                "reason_code": (reason if reason in {
+                    "vram_pressure", "vram_telemetry_unavailable",
+                    "vram_telemetry_not_observed", "vram_telemetry_stale"}
+                    else "vram_telemetry_unavailable"),
+            }
+            return self._complete_deterministic_grounding_response(
+                session_id=session["session_id"], user_turn=user_turn,
+                response_text=response_text, correction=correction,
+                runtime_context=runtime_context, history=history, memory=memory,
+                on_content_chunk=on_content_chunk)
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
             runtime_context=runtime_context,
@@ -2813,6 +2888,9 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                foreground_game_detector: Any | None = None,
                                game_process_names: tuple[str, ...] | list[str] = (),
                                gaming_keep_alive: str = "0",
+                               gaming_resource_status_provider: Callable[
+                                   [], Mapping[str, Any]
+                               ] | None = None,
                                screen_observer: Callable[
                                    [], Mapping[str, object] | None
                                ] | None = None,
@@ -2837,7 +2915,8 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
     close_production_chat()
     inference = DevelopmentLocalChatInference(
         invoker, model_profiles, foreground_game_detector=foreground_game_detector,
-        gaming_keep_alive=gaming_keep_alive)
+        gaming_keep_alive=gaming_keep_alive,
+        gaming_resource_status_provider=gaming_resource_status_provider)
     if initial_workload_mode != "normal":
         inference.set_workload_mode(initial_workload_mode, game_process_names)
     _CONVERSATION_SERVICE = PersistentConversationService(
