@@ -3570,6 +3570,7 @@ async def root_page() -> HTMLResponse:
                         const responseCompletedMs = performance.now() - browserRequestStartedAt;
                         localStorage.setItem('sentientos_session_id', data.session_id);
                         localStorage.removeItem(pendingKey);
+                        messageEl.value = '';
                         responseTextEl.textContent = data.response;
                         responseEl.hidden = false;
                         scheduleFirstBrowserPaint();
