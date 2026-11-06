@@ -28,11 +28,10 @@ class GamingWorkloadPolicy:
         "objects, enemies, objectives, or events."
     )
     GAMING_SOCIAL_CHECKIN_INSTRUCTION = (
-        "Casual companion; answer first. If the user asks for a question, ask exactly one "
-        "short, open-ended question. Do not add examples, options, or a list unless asked. "
-        "For follow-ups, use the user's answer and ask about something different; respect "
-        "explicit preferences such as one question at a time. No forced game reference, "
-        "intro, helpdesk question, or unsupported screen claims."
+        "Gaming social check-in: one short sentence, not emoji-only. Answer directly; "
+        "if asked, ask exactly one short open-ended question. Honor the user's answer "
+        "and one-at-a-time preference. No examples, options, lists, forced game mentions, "
+        "or unsupported screen/gameplay claims."
     )
     GAMING_MAX_INPUT_CHARS = 4600
     GAMING_MAX_RECALL_INPUT_CHARS = 5100
@@ -93,7 +92,6 @@ class GamingWorkloadPolicy:
                 or marker not in prompt or "[SESSION_HISTORY_DATA]" not in prompt):
             raise ValueError("gaming_chat_instruction_anchor_invalid")
         head, tail = prompt.split(marker, 1)
-        instruction = cls.GAMING_CHAT_STYLE_INSTRUCTION
-        if social_checkin:
-            instruction += "\n" + cls.GAMING_SOCIAL_CHECKIN_INSTRUCTION
+        instruction = (cls.GAMING_SOCIAL_CHECKIN_INSTRUCTION if social_checkin
+                       else cls.GAMING_CHAT_STYLE_INSTRUCTION)
         return head + instruction + "\n" + marker + tail
