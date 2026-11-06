@@ -253,7 +253,8 @@ class SimulationInvoker:
 
 
 @pytest.mark.parametrize(("configured_window", "expected_window"), [
-    (None, "0"), ("5s", "5s"), ("5m", "5m"),
+    (None, "0"), ("5s", "5s"), ("5m", "5m"), ("15m", "15m"),
+    ("-1", "-1"),
 ])
 def test_development_gaming_residency_window_is_opt_in(
         tmp_path, configured_window, expected_window):

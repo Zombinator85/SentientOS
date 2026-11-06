@@ -660,7 +660,7 @@ class GovernedLocalModelInvoker:
         if "ollama_keep_alive" in request.linkage and (
                 request.purpose != "local_user_chat"
                 or type(keep_alive_override) is not str
-                or keep_alive_override not in {"0", "5s", "5m", "15m"}
+                or keep_alive_override not in {"0", "5s", "5m", "15m", "-1"}
                 or record is None or record.engine != "ollama"):
             reasons.append("ollama_keep_alive_override_invalid")
         if "max_backend_threads" in request.linkage and (

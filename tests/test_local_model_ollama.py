@@ -161,6 +161,8 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
     assert json.loads(_HTTPConnection.last_body)["keep_alive"] == "0"
     backend.generate("Say hello", (), {"max_new_tokens": 96, "keep_alive": "5s"})
     assert json.loads(_HTTPConnection.last_body)["keep_alive"] == "5s"
+    backend.generate("Say hello", (), {"max_new_tokens": 96, "keep_alive": "-1"})
+    assert json.loads(_HTTPConnection.last_body)["keep_alive"] == -1
     request_count = len(opener.requests)
     with pytest.raises(ModelLoadError, match="ollama_keep_alive_invalid"):
         backend.generate("Say hello", (), {"keep_alive": "unbounded"})

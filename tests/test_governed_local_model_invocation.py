@@ -167,7 +167,7 @@ def test_backend_thread_ceiling_fails_closed_before_unsupported_generation(
     assert expected_reason in receipt.reason_codes
 
 
-@pytest.mark.parametrize("residency", ["0", "5s"])
+@pytest.mark.parametrize("residency", ["0", "5s", "5m", "15m", "-1"])
 def test_gaming_ollama_keep_alive_is_governed_and_forwarded(
         tmp_path: Path, residency: str) -> None:
     import hashlib

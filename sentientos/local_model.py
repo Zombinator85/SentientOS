@@ -223,7 +223,7 @@ class _OllamaBackend(_ModelBackend):
         if type(self._num_gpu) is not int or not 0 <= self._num_gpu <= 128:
             raise ModelLoadError("ollama_gpu_layer_limit_invalid")
         self._keep_alive = options.get("keep_alive", "15m")
-        if self._keep_alive not in {"0", "5s", "5m", "15m"}:
+        if self._keep_alive not in {"0", "5s", "5m", "15m", "-1"}:
             raise ModelLoadError("ollama_keep_alive_invalid")
         self._think = options.get("think", False)
         if type(self._think) is not bool:
@@ -256,7 +256,7 @@ class _OllamaBackend(_ModelBackend):
         if cancel_event is not None and not isinstance(cancel_event, threading.Event):
             raise ModelLoadError("ollama_cancel_event_invalid")
         keep_alive = generation.get("keep_alive", self._keep_alive)
-        if keep_alive not in {"0", "5s", "5m", "15m"}:
+        if keep_alive not in {"0", "5s", "5m", "15m", "-1"}:
             raise ModelLoadError("ollama_keep_alive_invalid")
         options = {
             "num_ctx": self._context,
@@ -267,8 +267,9 @@ class _OllamaBackend(_ModelBackend):
             "repeat_penalty": max(0.8, min(float(generation.get("repetition_penalty") or 1.1), 1.5)),
         }
         messages = _ollama_chat_messages(prompt)
+        keep_alive_payload: str | int = -1 if keep_alive == "-1" else keep_alive
         body = json.dumps({"model": self._model, "messages": messages, "stream": True,
-                           "think": self._think, "keep_alive": keep_alive,
+                           "think": self._think, "keep_alive": keep_alive_payload,
                            "options": options}, separators=(",", ":")).encode("utf-8")
         parsed = urllib.parse.urlsplit(self._base)
         host = parsed.hostname
