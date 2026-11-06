@@ -105,9 +105,10 @@ def test_gaming_social_checkin_guidance_is_specific_and_precedes_history() -> No
     assert guidance in result
     assert result.index(guidance) < result.index("[VERIFIED_RUNTIME_CONTEXT]")
     assert "answer first" in result
-    assert "ask one brief choice" in result
-    assert "use the user's answer and ask something different" in result
-    assert "do not repeat prior wording or choices" in result
+    assert "ask exactly one short, open-ended question" in result
+    assert "Do not add examples, options, or a list unless asked" in result
+    assert "respect explicit preferences such as one question at a time" in result
+    assert "use the user's answer and ask about something different" in result
     assert "No forced game reference, intro, helpdesk question" in result
     assert "unsupported screen claims" in result
 

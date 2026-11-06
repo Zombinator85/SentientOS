@@ -28,10 +28,11 @@ class GamingWorkloadPolicy:
         "objects, enemies, objectives, or events."
     )
     GAMING_SOCIAL_CHECKIN_INSTRUCTION = (
-        "Casual companion; answer first. If asked for a question, ask one brief choice. "
-        "For follow-ups, use the user's answer and ask something different; do not repeat "
-        "prior wording or choices. No forced game reference, intro, helpdesk question, "
-        "or unsupported screen claims."
+        "Casual companion; answer first. If the user asks for a question, ask exactly one "
+        "short, open-ended question. Do not add examples, options, or a list unless asked. "
+        "For follow-ups, use the user's answer and ask about something different; respect "
+        "explicit preferences such as one question at a time. No forced game reference, "
+        "intro, helpdesk question, or unsupported screen claims."
     )
     GAMING_MAX_INPUT_CHARS = 4600
     GAMING_MAX_RECALL_INPUT_CHARS = 5100
