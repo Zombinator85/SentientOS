@@ -104,13 +104,14 @@ def test_gaming_social_checkin_guidance_is_specific_and_precedes_history() -> No
     guidance = GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION
     assert guidance in result
     assert result.index(guidance) < result.index("[VERIFIED_RUNTIME_CONTEXT]")
-    assert "answer first" in result
-    assert "ask exactly one short, open-ended question" in result
-    assert "Do not add examples, options, or a list unless asked" in result
-    assert "respect explicit preferences such as one question at a time" in result
-    assert "use the user's answer and ask about something different" in result
-    assert "No forced game reference, intro, helpdesk question" in result
-    assert "unsupported screen claims" in result
+    assert "one short sentence, not emoji-only" in result
+    assert "Answer directly" in result
+    assert "ask exactly one short open-ended question" in result
+    assert "Honor the user's answer and one-at-a-time preference" in result
+    assert "No examples, options, lists, forced game mentions" in result
+    assert "unsupported screen/gameplay claims" in result
+    assert GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION not in result
+    assert len(GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION) < 300
 
 
 def test_gaming_chat_style_rejects_an_unrecognized_prompt_layout() -> None:
