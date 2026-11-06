@@ -138,6 +138,16 @@ _GAME_STATUS_QUESTION = re.compile(
     r"(?:cronos|game|gameplay|screen)\b",
     re.IGNORECASE,
 )
+_USER_SHARING_GAME_CONTEXT_QUESTION = re.compile(
+    r"\b(?:for\s+me\s+to|should\s+I|could\s+I|can\s+I|would\s+I)\s+"
+    r"(?:tell\s+you|share\s+with\s+you)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_game_status_question(user_message: str) -> bool:
+    return (_GAME_STATUS_QUESTION.search(user_message) is not None
+            and _USER_SHARING_GAME_CONTEXT_QUESTION.search(user_message) is None)
 _GAME_SCREEN_ACTIVITY_QUESTION = re.compile(
     r"\b(?:what(?:'s| is)\s+(?:happening|going on)|"
     r"can you (?:tell|describe|see)\s+what(?:'s| is)\s+"
@@ -216,7 +226,7 @@ _UNOBSERVED_CLAIM_PATTERNS = (
 def is_verified_current_game_context_question(user_message: str) -> bool:
     """Whether the user asks what the current system can verify and cannot see."""
     combined_status_question = (
-        _GAME_STATUS_QUESTION.search(user_message) is not None
+        _is_game_status_question(user_message)
         and _GAME_PROCESS_STATUS_DISTINCTION.search(user_message) is not None
         and _SCREEN_CAPABILITY_QUESTION.search(user_message) is not None
     )
@@ -292,7 +302,8 @@ def corrected_unobserved_game_status(
         or _SCREEN_VISIBILITY_CLARIFICATION_REQUEST.search(user_message) is not None
         or is_verified_current_game_context_question(user_message)
     )
-    if (not (_GAME_STATUS_QUESTION.search(user_message)
+    game_status_question = _is_game_status_question(user_message)
+    if (not (game_status_question
              or activity_question
              or _GAME_RUNNING_QUESTION.search(user_message))
             or _has_readable_screen_text(screen_observation_provenance)):
@@ -515,7 +526,7 @@ def corrected_system_identity_output(
         parts.append("I'm here and ready to chat. What's on your mind?")
     if _ACTIVE_MODEL_QUESTION.search(user_message):
         parts.append(f"The configured model powering this conversation is {label}.")
-    if _GAME_OPEN_QUESTION.search(user_message) or _GAME_STATUS_QUESTION.search(user_message):
+    if _GAME_OPEN_QUESTION.search(user_message) or _is_game_status_question(user_message):
         workload = verified_runtime_context.get("workload")
         names = (workload.get("configured_game_process_names")
                  if isinstance(workload, Mapping) else None)
@@ -566,7 +577,7 @@ def corrected_social_instruction_echo(
             if period is not None else "How are you doing?"
         )
         corrected = f"I’m here and ready to chat. {reciprocal}"
-    elif _GAME_STATUS_QUESTION.search(user_message):
+    elif _is_game_status_question(user_message):
         corrected = (
             "I can confirm the game is in the foreground, but I can’t see its gameplay "
             "in this turn."
