@@ -184,6 +184,9 @@ def _is_prior_assistant_question_recall(message: str) -> bool:
         r"\bwhat (?:exactly )?(?:was|were) (?:your|the) question\b", normalized
     ) is not None or re.search(
         r"\bwhat question did you ask me\b", normalized
+    ) is not None or re.search(
+        r"\b(?:what|which) (?:topic|subject) did you ask(?: me)? about\b",
+        normalized,
     ) is not None
     refers_to_prior = re.search(
         r"\b(?:earlier|before|previous|prior|last|at the beginning|in this chat|in this conversation)\b",
@@ -213,7 +216,15 @@ def _prior_assistant_question_turn(history: Any, message: str) -> Mapping[str, A
         if overlap:
             ranked.append((overlap, turn))
     if not ranked:
-        return None
+        # A generic prior-question recall can have no lexical overlap with the
+        # original question (for example, "what topic did you ask about in the
+        # previous interface check?"). Use the latest verified assistant question
+        # from the bounded same-session history in that case.
+        return next((turn for turn in reversed(history.turns)
+            if turn.get("role") == "assistant"
+            and isinstance(turn.get("text"), str)
+            and "?" in turn["text"]
+            and turn.get("text_digest") == digest_payload({"text": turn["text"]})), None)
     strongest_score = max(score for score, _ in ranked)
     strongest = [turn for score, turn in ranked if score == strongest_score]
     return strongest[0] if len(strongest) == 1 else None
@@ -2118,9 +2129,9 @@ class PersistentConversationService:
             if asks_for_assistant_reply:
                 history_turn_limit = 2
             elif asks_for_prior_assistant_question:
-                history_relevance_query = message
-                # Keep enough same-session candidates for an earlier assistant
-                # question to survive equal lexical scores from recent turns.
+                # Keep a small recent window so generic prior-question recalls
+                # without lexical anchors can resolve to the latest verified
+                # assistant question. Specific references are ranked below.
                 history_turn_limit = 8
             else:
                 recall_terms = transcript_recall_terms(message)

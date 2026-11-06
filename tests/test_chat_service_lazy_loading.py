@@ -1402,6 +1402,32 @@ def test_prior_assistant_question_recall_selects_relevant_older_exchange(tmp_pat
     assert invoker.calls == 0
 
 
+
+def test_generic_prior_question_topic_recall_uses_latest_verified_question(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    session_id = client.post("/sessions").json()["session_id"]
+    sessions = chat._get_conversation_service().sessions
+    prior_user = sessions.append_turn(session_id, role="user", text=(
+        "Please ask me one easy question about music. Do not mention Cronos."))
+    sessions.append_turn(session_id, role="assistant", text=(
+        "How do you feel about classical music?"),
+        linkage={"source_user_turn_id": prior_user["turn_id"]})
+
+    request = {"session_id": session_id, "request_id": "generic-prior-topic-recall",
+        "message": ("Continuity check after restart: what topic did you ask about "
+                    "in the previous interface check?")}
+    response = client.post("/chat", json=request)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["response"] == "How do you feel about classical music?"
+    assert body["context"]["response_origin"] == "transcript_recall"
+    assert body["context"]["transcript_recall_kind"] == "prior_assistant_question"
+    assert body["context"]["selected_memory_count"] == 0
+    assert invoker.calls == 0
+
 def test_earliest_session_recall_selects_first_user_turn(tmp_path, monkeypatch):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()
