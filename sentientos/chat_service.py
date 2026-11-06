@@ -352,7 +352,7 @@ class DevelopmentLocalChatInference:
     __slots__ = ("_delegate", "_workload_mode", "_workload_lock",
                  "_residency_release", "_model_profiles", "_foreground_game_detector",
                  "_game_process_names", "_effective_workload_mode", "_gaming_keep_alive",
-                 "_gaming_resource_status_provider")
+                 "_gaming_resource_status_provider", "_residency_preload")
     def __init__(self, invoker: GovernedLocalModelInvoker,
                  model_profiles: Mapping[str, Any] | None = None,
                  foreground_game_detector: Any | None = None,
@@ -370,6 +370,7 @@ class DevelopmentLocalChatInference:
         self._workload_mode: WorkloadMode = "normal"
         self._workload_lock = threading.RLock()
         self._residency_release: Mapping[str, Any] | None = None
+        self._residency_preload: Mapping[str, Any] | None = None
         self._foreground_game_detector = foreground_game_detector
         self._game_process_names: tuple[str, ...] = ()
         self._effective_workload_mode = "normal"
@@ -402,6 +403,8 @@ class DevelopmentLocalChatInference:
             detector = self._foreground_game_detector
             release = (dict(self._residency_release)
                 if self._residency_release is not None else None)
+            preload = (dict(self._residency_preload)
+                if self._residency_preload is not None else None)
         if configured == "automatic":
             try:
                 observed = detector.observe(names) if detector is not None else None
@@ -473,9 +476,11 @@ class DevelopmentLocalChatInference:
                 state["gaming_resource_status"] = dict(resource_state)
         if release is not None:
             state["residency_release"] = release
+        if preload is not None:
+            state["residency_preload"] = preload
         return state
     def reconcile_workload_state(self) -> dict[str, Any]:
-        """Apply automatic profile transitions observed by the local UI poll."""
+        """Apply automatic profile transitions and gated small-model residency."""
         state = self.current_workload_state()
         if state["mode"] != "automatic":
             return state
@@ -484,8 +489,40 @@ class DevelopmentLocalChatInference:
             if self._workload_mode != "automatic":
                 return self.current_workload_state()
             self._select_profile_locked(state["effective_mode"])
+            if (state["effective_mode"] == "gaming"
+                    and state.get("game_foreground") is True
+                    and self._gaming_keep_alive == "-1"
+                    and getattr(getattr(self._delegate.model, "active_identity", None),
+                                "engine", None) == "ollama"):
+                resource = state.get("gaming_resource_status")
+                if (isinstance(resource, Mapping)
+                        and resource.get("preload_admission_status") == "available"):
+                    identity = getattr(self._delegate.model, "active_identity", None)
+                    identity_digest = (digest_payload(identity.to_dict())
+                        if identity is not None else None)
+                    prior_is_current = (
+                        self._residency_preload is not None
+                        and self._residency_preload.get("model_identity_digest") == identity_digest
+                        and self._residency_preload.get("status") in {"preloaded", "already_resident"})
+                    should_preload = not prior_is_current
+                    if prior_is_current:
+                        try:
+                            should_preload = not self._delegate.model.is_resident()
+                        except Exception:
+                            # Let the governed preload path record backend failure;
+                            # a transient Ollama observation failure must not abort
+                            # workload reconciliation or the chat service.
+                            should_preload = True
+                    if should_preload:
+                        receipt = self._delegate.preload_model_residency(
+                            keep_alive=self._gaming_keep_alive,
+                            workload_state=state,
+                            resource_state=resource)
+                        self._residency_preload = receipt.to_dict()
             if self._residency_release is not None:
                 state["residency_release"] = dict(self._residency_release)
+            if self._residency_preload is not None:
+                state["residency_preload"] = dict(self._residency_preload)
         return state
     def set_workload_mode(self, mode: str,
                           game_process_names: tuple[str, ...] | list[str] = ()) -> str:
@@ -2894,7 +2931,7 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                screen_observer: Callable[
                                    [], Mapping[str, object] | None
                                ] | None = None,
-                               screen_capture_policy: str = "request_driven") -> None:
+                               screen_capture_policy: str = "request_driven") -> DevelopmentLocalChatInference:
     """Explicitly install governed local development chat inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     root = data_root or sentientos_data_dir()
@@ -2926,6 +2963,7 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
         avatar_output=avatar_output, screen_observer=screen_observer,
         screen_capture_policy=screen_capture_policy)
     _PRODUCTION_COMPOSITION = None
+    return inference
 
 
 def close_production_chat() -> None:

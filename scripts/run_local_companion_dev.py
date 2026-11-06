@@ -201,6 +201,7 @@ def _host_resource_log_payload(evaluation: Any, summary: Mapping[str, Any]) -> d
 # These are provisional development thresholds, not a universal GPU policy.
 _VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT = 85.0
 _VRAM_RESIDENCY_RECOVERY_THRESHOLD_PERCENT = 82.0
+_VRAM_RESIDENCY_PRELOAD_THRESHOLD_PERCENT = 75.0
 _VRAM_TELEMETRY_STALE_AFTER_SECONDS = 45.0
 
 
@@ -220,6 +221,9 @@ class _GamingResourcePressureGuard:
         self._last_observation: dict[str, Any] = {
             "admission_status": "deferred",
             "reason_code": "vram_telemetry_not_observed",
+            "preload_admission_status": "deferred",
+            "preload_reason_code": "vram_telemetry_not_observed",
+            "preload_threshold_percent": _VRAM_RESIDENCY_PRELOAD_THRESHOLD_PERCENT,
             "vram_utilization_percent": None,
             "observed_at": None,
         }
@@ -240,6 +244,8 @@ class _GamingResourcePressureGuard:
                     **self._last_observation,
                     "admission_status": "deferred",
                     "reason_code": "vram_telemetry_stale",
+                    "preload_admission_status": "deferred",
+                    "preload_reason_code": "vram_telemetry_stale",
                 }
             return dict(self._last_observation)
 
@@ -271,6 +277,17 @@ class _GamingResourcePressureGuard:
             self._last_observation = {
                 "admission_status": "deferred" if self._blocked else "available",
                 "reason_code": reason,
+                "preload_admission_status": (
+                    "available" if not self._blocked and utilization is not None
+                    and utilization < _VRAM_RESIDENCY_PRELOAD_THRESHOLD_PERCENT
+                    else "deferred"),
+                "preload_reason_code": (
+                    "preload_headroom_available" if not self._blocked
+                    and utilization is not None
+                    and utilization < _VRAM_RESIDENCY_PRELOAD_THRESHOLD_PERCENT
+                    else "preload_vram_headroom_insufficient" if valid
+                    else reason),
+                "preload_threshold_percent": _VRAM_RESIDENCY_PRELOAD_THRESHOLD_PERCENT,
                 "vram_utilization_percent": utilization,
                 "observed_at": observed_at,
                 "release_threshold_percent": _VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT,
@@ -877,7 +894,8 @@ def main() -> int:
                     args.screen_observation_tesseract_executable),
                 delivery_event_file=state / "evidence" / "avatar-delivery-events.jsonl")
         gaming_vram_guard = _GamingResourcePressureGuard()
-        configure_development_chat(invoker=invoker, data_root=chat_state,
+        development_inference = configure_development_chat(
+            invoker=invoker, data_root=chat_state,
             avatar_output_emitter=edge.emitter if edge else None,
             model_profiles=model_profiles,
             gaming_resource_status_provider=gaming_vram_guard.status,
@@ -897,9 +915,20 @@ def main() -> int:
         def observe_gaming_vram(
                 utilization_percent: float | None,
                 observed_at: str | None) -> Mapping[str, Any]:
-            return _apply_gaming_resource_observation(
+            resource_state = _apply_gaming_resource_observation(
                 gaming_vram_guard, utilization_percent, observed_at,
                 release_model_for_gaming_resource_pressure)
+            try:
+                workload_state = development_inference.reconcile_workload_state()
+                result = dict(resource_state)
+                result["effective_workload_mode"] = workload_state.get("effective_mode")
+                result["foreground_game"] = workload_state.get("game_foreground")
+                if isinstance(workload_state.get("residency_preload"), Mapping):
+                    result["residency_preload"] = dict(workload_state["residency_preload"])
+                return result
+            except Exception as exc:
+                return {**dict(resource_state), "workload_reconciliation": {
+                    "status": "error", "error_type": type(exc).__name__}}
 
         host_resource_sampler = _HostResourceSampler(
             on_vram_observation=observe_gaming_vram)
