@@ -288,7 +288,7 @@ def _is_social_checkin_request(message: str) -> bool:
         r"\bask(?: me)? (?:one|a) "
         r"(?:(?:new|different|another),? )?"
         r"(?:specific,? )?(?:easy,? )?(?:concrete,? )?"
-        r"(?:open[- ]ended,? )?question\b",
+        r"(?:natural,? )?(?:open[- ]ended,? )?question\b",
         normalized,
     )
     return (any(marker in normalized for marker in markers)
