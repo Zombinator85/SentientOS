@@ -88,7 +88,9 @@ def test_decision_reason_hash_is_stable(monkeypatch, tmp_path) -> None:
     assert len(decision.reason_hash) == 64
 
 
-@pytest.mark.parametrize("reason_code", ["gaming_mode_entered", "development_chat_shutdown"])
+@pytest.mark.parametrize("reason_code", [
+    "gaming_mode_entered", "development_chat_shutdown", "vram_pressure_observed",
+])
 def test_local_model_resource_release_admits_only_explicit_safe_reasons(
     monkeypatch, tmp_path, reason_code
 ) -> None:
