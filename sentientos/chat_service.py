@@ -210,12 +210,7 @@ def _is_current_runtime_context_question(message: str) -> bool:
         "what game is open", "which game is open", "what is on my screen", "is my screen visible",
         "my current game", "current cronos session",
     )
-    screen_activity_question = (
-        ("happening" in normalized or "going on" in normalized)
-        and any(location in normalized for location in (
-            "on screen", "in cronos", "in the game", "in gameplay"))
-    )
-    return (any(marker in normalized for marker in markers) or screen_activity_question
+    return (any(marker in normalized for marker in markers)
             or is_direct_screen_activity_question(message)
             or is_verified_current_game_context_question(message))
 
