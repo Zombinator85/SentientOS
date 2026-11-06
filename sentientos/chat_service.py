@@ -55,6 +55,7 @@ from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CA
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
     CURRENT_GAME_STATUS_POLICY_ID, SCREEN_CAPABILITY_POLICY_ID, corrected_gaming_output,
+    corrected_nonverbal_gaming_output,
     corrected_output_lineage,
     corrected_screen_capability_output, corrected_social_instruction_echo,
     corrected_system_identity_output, corrected_unobserved_game_status,
@@ -285,7 +286,8 @@ def _is_social_checkin_request(message: str) -> bool:
     asks_for_specific_question = re.search(
         r"\bask(?: me)? (?:one|a) "
         r"(?:(?:new|different|another),? )?"
-        r"(?:specific,? )?(?:easy,? )?(?:concrete,? )?question\b",
+        r"(?:specific,? )?(?:easy,? )?(?:concrete,? )?"
+        r"(?:open[- ]ended,? )?question\b",
         normalized,
     )
     return (any(marker in normalized for marker in markers)
@@ -2504,6 +2506,11 @@ class PersistentConversationService:
             if grounding_correction is None:
                 response_text, grounding_correction = corrected_social_instruction_echo(
                     receipt.output_text, user_message=message)
+            if grounding_correction is None:
+                response_text, grounding_correction = corrected_nonverbal_gaming_output(
+                    receipt.output_text, user_message=message,
+                    workload_mode=str(observed_workload_mode or "normal"),
+                    social_checkin=social_checkin)
             if grounding_correction is None:
                 response_text, grounding_correction = corrected_gaming_output(
                     receipt.output_text, workload_mode=str(observed_workload_mode or "normal"),

@@ -11,9 +11,49 @@ from sentientos.chat_response_grounding import (
     corrected_social_instruction_echo, corrected_system_identity_output,
     corrected_unobserved_game_status,
     corrected_nonresponsive_gaming_next_step,
+    corrected_nonverbal_gaming_output,
+    GAMING_NONVERBAL_OUTPUT_POLICY_ID,
+    GAMING_SOCIAL_QUESTION_FALLBACK,
     is_direct_screen_activity_question,
     unobserved_gameplay_claim,
 )
+
+
+def test_emoji_only_gaming_social_reply_gets_one_open_question_fallback():
+    text, correction = corrected_nonverbal_gaming_output(
+        "🎮", user_message=(
+            "Ask me one easy, open-ended question, and ask just one at a time."
+        ), workload_mode="gaming", social_checkin=True)
+    assert text == GAMING_SOCIAL_QUESTION_FALLBACK
+    assert text.count("?") == 1
+    assert correction == {
+        "policy_id": GAMING_NONVERBAL_OUTPUT_POLICY_ID,
+        "reason_code": "model_output_contains_no_words",
+    }
+
+
+def test_nonverbal_gaming_output_fallback_is_narrow_and_language_aware():
+    from sentientos.chat_response_grounding import (
+        GAMING_NONVERBAL_OUTPUT_CORRECTION,
+        GAMING_SOCIAL_COMPANIONSHIP_FALLBACK,
+    )
+
+    assert corrected_nonverbal_gaming_output(
+        "🎮", user_message="hello", workload_mode="normal",
+        social_checkin=True) == ("🎮", None)
+    assert corrected_nonverbal_gaming_output(
+        "はい", user_message="hello", workload_mode="gaming",
+        social_checkin=True) == ("はい", None)
+    text, correction = corrected_nonverbal_gaming_output(
+        "🎮", user_message="How are you?", workload_mode="gaming",
+        social_checkin=True)
+    assert text == GAMING_SOCIAL_COMPANIONSHIP_FALLBACK
+    assert correction is not None
+    text, correction = corrected_nonverbal_gaming_output(
+        "👍", user_message="Tell me a joke.", workload_mode="gaming",
+        social_checkin=False)
+    assert text == GAMING_NONVERBAL_OUTPUT_CORRECTION
+    assert correction is not None
 
 
 def test_unsupported_gaming_claim_gets_explicitly_attributed_correction():
