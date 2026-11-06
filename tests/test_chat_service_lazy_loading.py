@@ -1371,14 +1371,18 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
         "message": "I am taking a breather between fights in Cronos."})
     assert first.status_code == 200
     assert client.post("/workload-mode", json={"mode": "gaming"}).status_code == 200
+    live_checkin = (
+        "I am playing Cronos and could use some company. "
+        "What kind of companion would you like to be during a game?"
+    )
     checkin = client.post("/chat", json={"session_id": session_id,
-        "message": "How are you doing? I am just taking a breather."})
+        "message": live_checkin})
 
     assert checkin.status_code == 200
     assert memory_queries == ["I am taking a breather between fights in Cronos.", ""]
     prompt = invoker.prompts[-1]
     assert "I am taking a breather between fights in Cronos." not in prompt
-    assert "How are you doing? I am just taking a breather." in prompt
+    assert live_checkin in prompt
     assert "USER_DATA:" not in prompt
     assert "ASSISTANT_DATA:" not in prompt
     assert "MEMORY_DATA:" not in prompt
@@ -1397,6 +1401,8 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     assert len(prompt) <= chat.GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS
     assert chat._is_social_checkin_request(
         "I am saving healing items. Keep me company.") is True
+    assert chat._is_social_checkin_request(
+        "I am playing Cronos and could use some company. What kind of companion would you like to be during a game?") is True
     assert checkin.json()["context"]["selected_turn_count"] == 0
 
     explicit_checkin = client.post("/chat", json={"session_id": session_id,

@@ -229,7 +229,8 @@ def _is_social_checkin_request(message: str) -> bool:
         "just saying hello", "how about you", "ask me one easy question",
         "ask one easy question", "tell me you are here", "tell me you're here",
         "say you are here", "say you're here", "here with me",
-        "keep me company", "company while i play", "company while i game",
+        "keep me company", "could use some company",
+        "company while i play", "company while i game",
     )
     companion_roles = r"(?:gaming )?(?:co[- ]?pilot|sidekick|companion)"
     companion_shift_checkin = re.search(
