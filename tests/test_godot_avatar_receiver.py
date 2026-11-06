@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import socket
 import sys
 
 import pytest
@@ -10,9 +11,18 @@ from godot_avatar_receiver import (
     MAX_STATE_FILE_BYTES,
     MAX_VISEME_CUES,
     AvatarStateForwarder,
+    available_loopback_udp_port,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_available_loopback_udp_port_is_bindable():
+    port = available_loopback_udp_port()
+
+    assert 1 <= port <= 65535
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as listener:
+        listener.bind(("127.0.0.1", port))
 
 
 def _state(**overrides: object) -> dict[str, object]:

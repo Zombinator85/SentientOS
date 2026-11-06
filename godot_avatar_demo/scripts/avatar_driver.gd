@@ -24,6 +24,16 @@ const LOOPBACK_BIND_ADDRESS := "127.0.0.1"
 
 
 func _ready() -> void:
+	var listen_port_text := OS.get_environment("SENTIENTOS_GODOT_LISTEN_PORT")
+	if not listen_port_text.is_empty():
+		if not listen_port_text.is_valid_int():
+			_write_status("Avatar listener port invalid")
+			return
+		var configured_listen_port := listen_port_text.to_int()
+		if configured_listen_port < 1 or configured_listen_port > 65535:
+			_write_status("Avatar listener port out of range")
+			return
+		listen_port = configured_listen_port
 	var candidate_adapter: Node3D = _resolve_node(candidate_body_adapter_path) as Node3D
 	if candidate_adapter:
 		_candidate_preview_position = candidate_adapter.position

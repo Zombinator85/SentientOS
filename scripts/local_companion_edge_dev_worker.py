@@ -1,6 +1,6 @@
 """Temporary Windows-side mTLS edge for the supervised local dev session."""
 from __future__ import annotations
-import base64, dataclasses, hashlib, hmac, json, os, socket, subprocess, sys, threading, time
+import base64, dataclasses, errno, hashlib, hmac, json, os, socket, subprocess, sys, threading, time
 from pathlib import Path
 
 ROOT = (Path(sys.argv[1]).resolve() if __name__ == "__main__"
@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT))
 
 from terminate_owned_process_tree import terminate_owned_process_tree
 from avatar_state import AvatarStateEmitter
-from godot_avatar_receiver import AvatarStateForwarder
+from godot_avatar_receiver import AvatarStateForwarder, available_loopback_udp_port
 from sentientos.gaming_companion_avatar_output import (
     WindowsEdgeAvatarCommandDispatchOwner, WindowsGodotAvatarStateQueue,
 )
@@ -33,6 +33,26 @@ def _godot_command(executable, project, *, headless):
         command.append("--headless")
     command.extend(["--path",project])
     return command
+
+def _udp_port_is_bound(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+        try:
+            probe.bind(("127.0.0.1", port))
+        except OSError as exc:
+            if exc.errno == errno.EADDRINUSE or getattr(exc, "winerror", None) == 10048:
+                return True
+            raise
+        return False
+
+def _wait_for_udp_listener(port, process, *, timeout_seconds=5.0):
+    deadline=time.monotonic()+timeout_seconds
+    while time.monotonic()<deadline:
+        if process.poll() is not None:
+            raise RuntimeError("godot_scene_exited_on_startup")
+        if _udp_port_is_bound(port):
+            return
+        time.sleep(0.05)
+    raise RuntimeError("godot_avatar_listener_startup_timeout")
 
 def main():
     print("EDGE_STARTUP phase=worker_started",flush=True)
@@ -188,6 +208,8 @@ def main():
             target=profile/name;target.mkdir(parents=True,exist_ok=True);env[name]=str(target)
         env["HOME"]=str(profile)
         env["SENTIENTOS_RENDERER_GENERATION_ID"]="godot-dev-"+str(os.getpid())
+        avatar_listen_port=available_loopback_udp_port()
+        env["SENTIENTOS_GODOT_LISTEN_PORT"]=str(avatar_listen_port)
         report_socket=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
         report_socket.bind(("127.0.0.1",0));report_socket.settimeout(0.2)
         env["SENTIENTOS_RENDERER_REPORT_RELAY_PORT"]=str(report_socket.getsockname()[1])
@@ -214,8 +236,12 @@ def main():
         godot=subprocess.Popen(_godot_command(
             executable,project,headless=cfg.get("godot_headless") is True),env=env,
             stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-        print("EDGE_STARTUP phase=godot_process_started pid="+str(godot.pid),flush=True)
-        forwarder=AvatarStateForwarder(state_path,host="127.0.0.1",port=18188,poll_interval=0.05)
+        print("EDGE_STARTUP phase=godot_process_started pid="+str(godot.pid)
+            +" avatar_listen_port="+str(avatar_listen_port),flush=True)
+        _wait_for_udp_listener(avatar_listen_port,godot)
+        print("AVATAR_LISTENER_READY port="+str(avatar_listen_port),flush=True)
+        forwarder=AvatarStateForwarder(state_path,host="127.0.0.1",
+            port=avatar_listen_port,poll_interval=0.05)
         forwarder.start()
         time.sleep(1.0)
         if godot.poll() is not None:
