@@ -2207,6 +2207,46 @@ def test_development_chat_only_uses_explicit_per_message_screen_observation(tmp_
     assert "objective: reach the observatory" in invoker.prompts[-1]
 
 
+def test_chat_stream_logs_only_safe_screen_observation_failure_code(caplog, tmp_path):
+    chat = _reload()
+    client = TestClient(chat.APP)
+    from sentientos.screen_observation_bridge import ScreenObservationBridgeError
+
+    def fail_screen_observation():
+        raise ScreenObservationBridgeError("screen_observation_request_timeout")
+
+    invoker = SimulationInvoker()
+    invoker.model.active_identity = SimpleNamespace(engine="ollama")
+    invoke = invoker.invoke
+
+    def invoke_stream(request, *, on_content_chunk=None):
+        receipt = invoke(request)
+        if on_content_chunk is not None:
+            on_content_chunk(invoker.output_text)
+        return receipt
+
+    invoker.invoke = invoke_stream
+    chat.configure_development_chat(
+        invoker=invoker, data_root=tmp_path,
+        screen_observer=fail_screen_observation)
+    with caplog.at_level("WARNING"):
+        with client.stream("POST", "/chat/stream", json={
+            "message": "Read only my current consented game screen.",
+            "observe_screen": True,
+        }) as response:
+            assert response.status_code == 200
+            raw = response.read()
+
+    text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+    events = [
+        json.loads(line.removeprefix("data:").strip())
+        for line in text.splitlines() if line.startswith("data:")
+    ]
+    assert events[-1] == {"type": "error", "code": "chat_generation_failed"}
+    assert "failure_code=screen_observation_request_timeout" in caplog.text
+    assert "Read only my current consented game screen." not in caplog.text
+
+
 def test_no_readable_screen_text_answers_direct_gameplay_question_without_inference(tmp_path):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()
