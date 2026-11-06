@@ -59,7 +59,7 @@ def test_effective_mode_and_budget_are_recorded_in_invocation_lineage() -> None:
 
     assert budget.max_new_tokens == 64
     assert lineage == {"serving_session_id": "session-1", "workload_mode": "gaming",
-        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v14",
+        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v15",
         "max_backend_threads": 2}
 
 
@@ -79,19 +79,18 @@ def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
     assert result.index(GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION) < result.index(
         "[VERIFIED_RUNTIME_CONTEXT]")
     assert result.endswith("[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
-    assert "one direct sentence, about 20 words" in result
+    assert "one ~20-word sentence; no emoji-only replies" in result
     assert "verified foreground app" in result
     assert "without screen evidence" in result
     assert "Honor corrections and rule-outs" in result
     assert "only when supported by the user's description or current screen OCR" in result
     assert "otherwise ask one concise clarifying question" in result
-    assert "User-provided game details are usable conversational context" in result
+    assert "User-provided game details are usable context" in result
     assert "Never invent map locations, objects, enemies, objectives, or events" in result
     assert "Fulfill requested form" in result
     assert "joke requests get jokes, not trivia or offers" in result
     assert "No unasked follow-up" in result
-    assert "Every reply must include at least one complete plain-language sentence" in result
-    assert "emoji may supplement a reply but never replace its words" in result
+    assert "one ~20-word sentence; no emoji-only replies" in result
     assert GamingWorkloadPolicy.apply_chat_response_style(prompt, "normal") == prompt
 
 
