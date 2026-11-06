@@ -150,3 +150,18 @@ def test_gaming_resource_pressure_guard_rejects_invalid_percentages():
         state = guard.observe(invalid, "2026-11-06T09:00:00+00:00")
         assert state["admission_status"] == "deferred"
         assert state["reason_code"] == "vram_telemetry_unavailable"
+
+
+def test_gaming_preload_requires_additional_vram_headroom():
+    from scripts.run_local_companion_dev import _GamingResourcePressureGuard
+
+    guard = _GamingResourcePressureGuard()
+    available = guard.observe(74.9, "2026-11-06T09:00:00+00:00")
+    assert available["admission_status"] == "available"
+    assert available["preload_admission_status"] == "available"
+    assert available["preload_threshold_percent"] == 75.0
+
+    warm_denied = guard.observe(75.0, "2026-11-06T09:00:15+00:00")
+    assert warm_denied["admission_status"] == "available"
+    assert warm_denied["preload_admission_status"] == "deferred"
+    assert warm_denied["preload_reason_code"] == "preload_vram_headroom_insufficient"

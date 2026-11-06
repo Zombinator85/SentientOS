@@ -319,6 +319,72 @@ def test_gaming_resource_pressure_uses_durable_non_model_response(tmp_path):
     assert evidence["gaming_resource_status"] == resource_state
 
 
+@pytest.mark.parametrize(("foreground", "preload_admission", "expected_calls"), [
+    (True, "available", 1),
+    (False, "available", 0),
+    (True, "deferred", 0),
+])
+def test_automatic_gaming_reconcile_preloads_only_with_fresh_foreground_headroom(
+        foreground, preload_admission, expected_calls):
+    chat = _reload()
+
+    class Profile:
+        def __init__(self, name):
+            self.name = name
+            self.active_identity = SimpleNamespace(
+                engine="ollama", to_dict=lambda: {"engine": "ollama", "name": name})
+            self.loaded = False
+
+        def is_resident(self):
+            return self.loaded
+
+    class Authority:
+        def record_for_active_identity(self, identity, purpose):
+            return object() if purpose == "local_user_chat" else None
+
+    class Invoker:
+        def __init__(self, normal, gaming):
+            self.model = normal
+            self.authority_map = Authority()
+            self.preload_calls = []
+
+        def release_model_residency(self, **_kwargs):
+            return SimpleNamespace(status="already_unloaded", to_dict=lambda: {
+                "status": "already_unloaded"})
+
+        def preload_model_residency(self, **kwargs):
+            self.preload_calls.append(kwargs)
+            self.model.loaded = True
+            return SimpleNamespace(to_dict=lambda: {
+                "status": "preloaded", "model_identity_digest": "model-digest"})
+
+    normal, gaming = Profile("normal"), Profile("gaming")
+    invoker = Invoker(normal, gaming)
+    invoker.model = normal
+    detector = SimpleNamespace(observe=lambda _names: SimpleNamespace(
+        status="available", game_foreground=foreground, game_process_running=True,
+        running_process_name_digests=[], process_name_digest="game",
+        observed_at="2026-11-06T09:00:00+00:00", transport_provenance=None))
+    resource_state = {"admission_status": "available",
+        "preload_admission_status": preload_admission,
+        "preload_threshold_percent": 75.0,
+        "vram_utilization_percent": 71.0,
+        "observed_at": "2026-11-06T09:00:00+00:00"}
+    adapter = chat.DevelopmentLocalChatInference(invoker,
+        model_profiles={"normal": normal, "gaming": gaming},
+        foreground_game_detector=detector, gaming_keep_alive="-1",
+        gaming_resource_status_provider=lambda: resource_state)
+    adapter.set_workload_mode("automatic", ["Cronos.exe"])
+
+    state = adapter.reconcile_workload_state()
+
+    assert len(invoker.preload_calls) == expected_calls
+    assert state["effective_mode"] == "gaming"
+    if expected_calls:
+        assert invoker.preload_calls[0]["keep_alive"] == "-1"
+        assert invoker.preload_calls[0]["resource_state"] == resource_state
+
+
 def test_chat_response_exposes_bounded_backend_timing_for_diagnostics(tmp_path):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()

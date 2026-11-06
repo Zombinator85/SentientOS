@@ -400,6 +400,56 @@ class _OllamaBackend(_ModelBackend):
         return any(isinstance(entry, dict) and entry.get("name") == self._model
             for entry in models)
 
+    def preload_residency(self, *, keep_alive: str) -> dict[str, Any]:
+        """Load this pinned model without generating a token or accepting a prompt."""
+        if keep_alive not in {"5s", "5m", "15m", "-1"}:
+            raise ModelLoadError("ollama_preload_keep_alive_invalid")
+        body = json.dumps({
+            "model": self._model,
+            "stream": False,
+            "keep_alive": -1 if keep_alive == "-1" else keep_alive,
+            "options": {"num_ctx": self._context, "num_gpu": self._num_gpu},
+        }, separators=(",", ":")).encode("utf-8")
+        parsed = urllib.parse.urlsplit(self._base)
+        host = parsed.hostname
+        if host is None:
+            raise ModelLoadError("ollama_loopback_address_required")
+        connection = http.client.HTTPConnection(host, parsed.port,
+            timeout=min(self._timeout, 60.0))
+        with self._active_request_lock:
+            if self._active_connection is not None:
+                raise ModelLoadError("ollama_request_already_active")
+            self._active_connection = connection
+        try:
+            connection.request("POST", "/api/generate", body=body,
+                headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            raw = response.read(64 * 1024 + 1)
+            if len(raw) > 64 * 1024:
+                raise ModelLoadError("ollama_preload_response_oversized")
+            payload = json.loads(raw.decode("utf-8"))
+        except ModelLoadError:
+            raise
+        except Exception as exc:
+            raise ModelLoadError("ollama_residency_preload_failed") from exc
+        finally:
+            connection.close()
+            with self._active_request_lock:
+                if self._active_connection is connection:
+                    self._active_connection = None
+        if (not isinstance(payload, dict)
+                or payload.get("model") != self._model
+                or payload.get("done") is not True
+                or payload.get("response", "") != ""
+                or payload.get("eval_count", 0) not in {0, None}):
+            raise ModelLoadError("ollama_residency_preload_unconfirmed")
+        load_duration = payload.get("load_duration")
+        if type(load_duration) is not int or not 0 <= load_duration <= 3_600_000_000_000:
+            load_duration = None
+        return {"backend": "ollama", "model": self._model,
+            "result": "load_requested", "keep_alive": keep_alive,
+            "load_duration_ns": load_duration, "tokens_generated": 0}
+
     def release_residency(self) -> dict[str, Any]:
         """Ask the pinned local Ollama model to unload without generating tokens."""
         body = json.dumps({"model": self._model, "prompt": "", "stream": False,
@@ -850,6 +900,13 @@ class LocalModel:
         if not callable(release):
             raise ModelLoadError("model_residency_release_unavailable")
         return dict(release())
+
+    def preload_residency(self, *, keep_alive: str) -> dict[str, Any]:
+        """Load backend memory without generation; callers must obtain admission."""
+        preload = getattr(self.backend, "preload_residency", None)
+        if not callable(preload):
+            raise ModelLoadError("model_residency_preload_unavailable")
+        return dict(preload(keep_alive=keep_alive))
 
     def is_resident(self) -> bool:
         """Return exact-backend residency evidence when the engine exposes it."""

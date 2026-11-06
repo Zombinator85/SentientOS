@@ -409,6 +409,42 @@ class LocalModelResidencyReleaseReceipt:
         return payload
 
 
+@dataclass(frozen=True)
+class LocalModelResidencyPreloadReceipt:
+    correlation_id: str
+    model_identity_digest: str
+    status: str
+    reason_codes: tuple[str, ...]
+    admission_decision_ref: str | None
+    keep_alive: str
+    workload_evidence: Mapping[str, Any]
+    resource_evidence: Mapping[str, Any]
+    backend_result: Mapping[str, Any] | None
+    observed_at: str
+
+    def semantic_payload(self) -> dict[str, Any]:
+        return {"schema_version": "sentientos.local_model_residency_preload:v1",
+            "correlation_id": self.correlation_id,
+            "model_identity_digest": self.model_identity_digest,
+            "status": self.status, "reason_codes": list(self.reason_codes),
+            "admission_decision_ref": self.admission_decision_ref,
+            "keep_alive": self.keep_alive,
+            "workload_evidence": dict(self.workload_evidence),
+            "resource_evidence": dict(self.resource_evidence),
+            "backend_result": (dict(self.backend_result)
+                if self.backend_result is not None else None),
+            "observed_at": self.observed_at}
+
+    @property
+    def receipt_digest(self) -> str:
+        return digest_payload(self.semantic_payload())
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = self.semantic_payload()
+        payload["receipt_digest"] = self.receipt_digest
+        return payload
+
+
 def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
     reasons: list[str] = []
     schema = payload.get("schema_version")
@@ -496,7 +532,7 @@ class LocalModelPostEffectCustodyError(RuntimeError):
 
 class GovernedLocalModelInvoker:
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
-        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_cancel_reason: str | None = None
+        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_cancel_reason: str | None = None; self._active_residency_preload_event: threading.Event | None = None
 
     def register_evidence_sink(self, sink: Callable[[Mapping[str, Any]], None] | None) -> None:
         """Install an explicit observational receipt sink owned by the runtime."""
@@ -600,6 +636,134 @@ class GovernedLocalModelInvoker:
             admission_decision_ref=decision.admission_decision_ref,
             backend_result=backend_result, observed_at=datetime.now(timezone.utc).isoformat())
         receipt_path = self.runtime_root / "resource_release_receipts" / (
+            uuid.uuid5(uuid.NAMESPACE_URL, correlation).hex + ".json")
+        receipt_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(receipt_path.parent, 0o700)
+        atomic_write_json(receipt_path, receipt.to_dict())
+        return receipt
+
+    def preload_model_residency(self, *, keep_alive: str,
+            workload_state: Mapping[str, Any],
+            resource_state: Mapping[str, Any],
+            correlation_id: str | None = None
+            ) -> LocalModelResidencyPreloadReceipt:
+        """Preload the exact chat model only under fresh gaming/headroom evidence.
+
+        The operation is a no-prompt Ollama model load. It receives local-model
+        inference admission and shares the invocation lock with chat generation.
+        """
+        identity = getattr(self.model, "active_identity", None)
+        identity_digest = digest_payload(identity.to_dict()) if identity is not None else "0" * 64
+        correlation = correlation_id or f"gaming-preload:{uuid.uuid4().hex}"
+        evidence = workload_state.get("workload_evidence")
+        foreground = (workload_state.get("mode") == "automatic"
+            and workload_state.get("effective_mode") == "gaming"
+            and isinstance(evidence, Mapping)
+            and evidence.get("status") == "available"
+            and evidence.get("game_foreground") is True)
+        utilization = resource_state.get("vram_utilization_percent")
+        threshold = resource_state.get("preload_threshold_percent")
+        utilization_value: float | None = None
+        threshold_value: float | None = None
+        if isinstance(utilization, (int, float)) and not isinstance(utilization, bool):
+            utilization_value = float(utilization)
+        if isinstance(threshold, (int, float)) and not isinstance(threshold, bool):
+            threshold_value = float(threshold)
+        observed_at = resource_state.get("observed_at")
+        try:
+            observed_time = datetime.fromisoformat(str(observed_at).replace("Z", "+00:00"))
+            age_seconds = (datetime.now(timezone.utc) - observed_time.astimezone(timezone.utc)).total_seconds()
+        except (TypeError, ValueError):
+            age_seconds = None
+        resource_ready = (
+            resource_state.get("admission_status") == "available"
+            and resource_state.get("preload_admission_status") == "available"
+            and utilization_value is not None
+            and threshold_value is not None
+            and utilization_value < threshold_value
+            and age_seconds is not None and 0.0 <= age_seconds <= 45.0)
+        reasons: list[str] = []
+        if not foreground:
+            reasons.append("gaming_foreground_evidence_required")
+        if not resource_ready:
+            reasons.append("fresh_preload_vram_headroom_required")
+        if keep_alive not in {"5s", "5m", "15m", "-1"}:
+            reasons.append("preload_keep_alive_invalid")
+        if identity is None or getattr(identity, "engine", None) != "ollama":
+            reasons.append("ollama_residency_preload_not_applicable")
+        elif self.authority_map.record_for_active_identity(identity, "local_user_chat") is None:
+            reasons.append("active_model_chat_authority_missing")
+        decision_ref: str | None = None
+        backend_result: Mapping[str, Any] | None = None
+        status = "deferred" if reasons else "denied"
+        if not reasons:
+            assert utilization_value is not None and threshold_value is not None
+            request = ControlActionRequest(
+                action_kind="local_model_residency_preload",
+                authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+                actor="local_development_workload_controller",
+                target_subsystem="local_model_residency",
+                requested_phase=LifecyclePhase.RUNTIME,
+                metadata={"correlation_id": correlation,
+                    "purpose": "local_model_preload",
+                    "model_identity_digest": identity_digest,
+                    "keep_alive": keep_alive,
+                    "workload_mode": "gaming",
+                    "vram_utilization_percent": utilization_value,
+                    "preload_threshold_percent": threshold_value})
+            decision = self.kernel.admit(request)
+            decision_ref = decision.admission_decision_ref
+            if not decision.allowed:
+                status = "deferred"
+                reasons = ["local_model_preload_governance_deferred",
+                    *list(decision.reason_codes)]
+            else:
+                preload_event = threading.Event()
+                with self._active_state_lock:
+                    if self._active_residency_preload_event is not None:
+                        status = "deferred"
+                        reasons = ["model_residency_preload_already_active"]
+                    else:
+                        self._active_residency_preload_event = preload_event
+                acquired = (status != "deferred"
+                    and self._active_invocation_lock.acquire(blocking=False))
+                if not acquired:
+                    with self._active_state_lock:
+                        if self._active_residency_preload_event is preload_event:
+                            self._active_residency_preload_event = None
+                    if status != "deferred":
+                        status = "deferred"
+                        reasons = ["active_inference_or_model_transition"]
+                else:
+                    try:
+                        resident = self.model.is_resident()
+                        if resident:
+                            status = "already_resident"
+                            reasons = ["local_model_already_resident"]
+                        else:
+                            backend_result = self.model.preload_residency(keep_alive=keep_alive)
+                            if self.model.is_resident():
+                                status = "preloaded"
+                                reasons = ["local_model_residency_preloaded_without_generation"]
+                            else:
+                                status = "preload_unconfirmed"
+                                reasons = ["model_not_resident_after_preload"]
+                    except Exception as exc:
+                        status = "preload_failed"
+                        reasons = [f"model_residency_preload_failed:{type(exc).__name__}"]
+                    finally:
+                        with self._active_state_lock:
+                            if self._active_residency_preload_event is preload_event:
+                                self._active_residency_preload_event = None
+                        self._active_invocation_lock.release()
+        receipt = LocalModelResidencyPreloadReceipt(
+            correlation_id=correlation, model_identity_digest=identity_digest,
+            status=status, reason_codes=tuple(reasons),
+            admission_decision_ref=decision_ref, keep_alive=keep_alive,
+            workload_evidence=(dict(evidence) if isinstance(evidence, Mapping) else {}),
+            resource_evidence=dict(resource_state), backend_result=backend_result,
+            observed_at=datetime.now(timezone.utc).isoformat())
+        receipt_path = self.runtime_root / "resource_preload_receipts" / (
             uuid.uuid5(uuid.NAMESPACE_URL, correlation).hex + ".json")
         receipt_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         os.chmod(receipt_path.parent, 0o700)
@@ -771,7 +935,12 @@ class GovernedLocalModelInvoker:
                             resource_context.allocator.record_backend_entry(resource_context.allocation, attempt_id, observed_at=resource_context.clock())
                             backend_entered = True
                         if not self._active_invocation_lock.acquire(blocking=False):
-                            raise RuntimeError("model_invocation_already_active")
+                            with self._active_state_lock:
+                                preload_in_progress = self._active_residency_preload_event is not None
+                            if (not preload_in_progress
+                                    or not self._active_invocation_lock.acquire(
+                                        timeout=min(10.0, request.budget.timeout_seconds))):
+                                raise RuntimeError("model_invocation_already_active")
                         latest_identity = getattr(self.model, "active_identity", None)
                         if (identity is not None and
                                 (latest_identity is None

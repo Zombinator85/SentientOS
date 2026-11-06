@@ -66,6 +66,10 @@ class _HTTPConnection:
         request = json.loads(self.body)
         if self.path == "/api/generate" and request.get("prompt") == "" and request.get("keep_alive") == "0":
             return _HTTPResponse({"done": True, "response": "", "done_reason": "unload"})
+        if self.path == "/api/generate" and "prompt" not in request:
+            return _HTTPResponse({"model": request["model"], "done": True,
+                "response": "", "eval_count": 0, "load_duration": 321,
+                "done_reason": "load"})
         return _HTTPResponse([
             {"done": False, "message": {"role": "assistant", "content": "A real "}},
             {"done": False, "message": {"role": "assistant", "content": "local answer."}},
@@ -149,6 +153,18 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
     legacy_completion["schema_version"] = "sentientos.ollama_completion_observation:v1"
     assert validate_backend_completion_observation(legacy_completion)
     assert backend.is_resident() is True
+
+    preloaded = backend.preload_residency(keep_alive="-1")
+    assert preloaded == {"backend": "ollama", "model": "qwen3:8b",
+        "result": "load_requested", "keep_alive": "-1",
+        "load_duration_ns": 321, "tokens_generated": 0}
+    preload_request = json.loads(_HTTPConnection.last_body)
+    assert preload_request == {"model": "qwen3:8b", "stream": False,
+        "keep_alive": -1, "options": {"num_ctx": 4096, "num_gpu": 99}}
+    request_count = len(opener.requests)
+    with pytest.raises(ModelLoadError, match="ollama_preload_keep_alive_invalid"):
+        backend.preload_residency(keep_alive="0")
+    assert len(opener.requests) == request_count
 
     released = backend.release_residency()
     assert released == {"backend": "ollama", "model": "qwen3:8b",
