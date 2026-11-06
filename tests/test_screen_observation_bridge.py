@@ -50,7 +50,7 @@ def _payload(*, captured_at: datetime = NOW) -> dict[str, object]:
     }
 
 
-def _setup(*, queue_capacity: int = 2):
+def _setup(*, queue_capacity: int = 2, provider_clock=None):
     runtime = CompanionBridgeLoopbackRuntime(
         receiver=CompanionBridgeReceiver(
             source_keys={SOURCE_ID: SOURCE_KEY},
@@ -65,7 +65,8 @@ def _setup(*, queue_capacity: int = 2):
             expected_generations={"sentientos-screen-core": "screen-core-generation-1"}),
         timeout_seconds=1)
     provider = BridgeScreenObservationProvider(runtime=runtime, source_id=SOURCE_ID,
-        generation_id=SOURCE_GENERATION, max_observation_age_seconds=5)
+        generation_id=SOURCE_GENERATION, clock=provider_clock,
+        max_observation_age_seconds=5)
     return runtime, client, provider
 
 
@@ -255,6 +256,62 @@ def test_request_driven_capture_publishes_only_the_matching_message_observation(
         with pytest.raises(ScreenObservationBridgeError,
                            match="screen_observation_request_timeout"):
             request_driven()
+    finally:
+        request_driven.close()
+        request_runtime.close()
+        runtime.close()
+
+
+def test_request_bound_capture_uses_monotonic_deadline_across_host_clock_skew():
+    # Model a WSL clock 20 seconds ahead of the capture host. The signed
+    # observation is still bound to this newly generated request ID.
+    runtime, observation_client, provider = _setup(
+        provider_clock=lambda: NOW + timedelta(seconds=20))
+    request_key = b"screen-request-key-material-32-bytes"
+    request_ack_key = b"screen-request-ack-key-material-32-bytes"
+    request_runtime = CompanionBridgeLoopbackRuntime(
+        receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-screen-request": request_key},
+            expected_generations={"wsl-screen-request": "screen-request-generation-1"}),
+        acknowledgment_source_id="windows-screen-request-ack",
+        acknowledgment_generation_id="windows-screen-request-ack-generation-1",
+        acknowledgment_key=request_ack_key)
+    request_port = request_runtime.start()
+    request_client = CompanionBridgeLoopbackClient(
+        port=request_port,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"windows-screen-request-ack": request_ack_key},
+            expected_generations={"windows-screen-request-ack":
+                                  "windows-screen-request-ack-generation-1"}),
+        timeout_seconds=1)
+    request_sender = ScreenCaptureRequestSender(
+        client=request_client, source_id="wsl-screen-request",
+        session_id="wsl-screen-session",
+        generation_id="screen-request-generation-1", source_key=request_key)
+    publisher = WindowsScreenObservationBridgePublisher(
+        observe=_payload, client=observation_client, source_id=SOURCE_ID,
+        session_id="screen-session-1", generation_id=SOURCE_GENERATION,
+        source_key=SOURCE_KEY)
+    failures = []
+
+    def capture_request():
+        try:
+            request = request_runtime.receive(timeout=2)
+            publisher.publish_once(capture_request_id=request.payload["capture_request_id"])
+        except Exception as exc:
+            failures.append(exc)
+
+    worker = threading.Thread(target=capture_request)
+    worker.start()
+    request_driven = RequestDrivenScreenObservation(
+        request_sender=request_sender, provider=provider, timeout_seconds=1)
+    try:
+        observed = request_driven()
+        worker.join(timeout=2)
+        assert not worker.is_alive()
+        assert not failures
+        assert observed["capture_request_id"]
+        assert observed["text"] == "quest objective: find the observatory"
     finally:
         request_driven.close()
         request_runtime.close()
