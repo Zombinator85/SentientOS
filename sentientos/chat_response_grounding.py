@@ -22,6 +22,10 @@ GAME_PROCESS_STATUS_POLICY_ID = "verified_game_process_status_v1"
 SYSTEM_IDENTITY_POLICY_ID = "sentientos_companion_identity_grounding_v1"
 UNPROVIDED_SOURCE_POLICY_ID = "unprovided_referenced_source_grounding_v1"
 GAMING_NEXT_STEP_POLICY_ID = "gaming_next_step_nonresponsive_fallback_v1"
+GAMING_NONVERBAL_OUTPUT_POLICY_ID = "gaming_nonverbal_output_fallback_v1"
+GAMING_NONVERBAL_OUTPUT_CORRECTION = "I didn’t produce a useful reply that time."
+GAMING_SOCIAL_QUESTION_FALLBACK = "What’s one thing you’d like to talk about for a minute?"
+GAMING_SOCIAL_COMPANIONSHIP_FALLBACK = "I’m here, ready to keep you company."
 UNPROVIDED_SOURCE_CORRECTION = (
     "I don’t have the referenced source’s contents in this conversation, so I can’t "
     "summarize its recommendations or assess what the data establish. Share the source "
@@ -714,6 +718,27 @@ def corrected_nonresponsive_gaming_next_step(
     return corrected, {
         "policy_id": GAMING_NEXT_STEP_POLICY_ID,
         "reason_code": reason,
+    }
+
+
+def corrected_nonverbal_gaming_output(
+    output: str, *, user_message: str, workload_mode: str, social_checkin: bool,
+) -> tuple[str, dict[str, str] | None]:
+    """Reject gaming replies that contain no words despite the natural-language policy."""
+    if workload_mode != "gaming" or re.search(r"[^\W\d_]", output, re.UNICODE):
+        return output, None
+    asks_for_question = re.search(
+        r"\bask\b.{0,100}\bquestion\b|\bone question at a time\b",
+        user_message, re.IGNORECASE | re.DOTALL)
+    if social_checkin and asks_for_question:
+        corrected = GAMING_SOCIAL_QUESTION_FALLBACK
+    elif social_checkin:
+        corrected = GAMING_SOCIAL_COMPANIONSHIP_FALLBACK
+    else:
+        corrected = GAMING_NONVERBAL_OUTPUT_CORRECTION
+    return corrected, {
+        "policy_id": GAMING_NONVERBAL_OUTPUT_POLICY_ID,
+        "reason_code": "model_output_contains_no_words",
     }
 
 

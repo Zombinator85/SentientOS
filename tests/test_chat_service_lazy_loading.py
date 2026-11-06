@@ -257,7 +257,7 @@ class SimulationInvoker:
         return SimpleNamespace(status="admitted_simulation", output_text=self.output_text,
             output_digest=__import__("hashlib").sha256(
                 __import__("json").dumps({"output": self.output_text},
-                    sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
+                    sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest(),
             output_truncated=False, request={"request_id": request.request_id,
                 "active_model_identity": identity_payload}, receipt_id="simulation-receipt-id",
             receipt_digest="simulation-receipt", latency_ms=self.latency_ms,
@@ -796,6 +796,41 @@ def test_casual_greeting_with_game_context_reaches_model_instead_of_screen_fallb
     body = response.json()
     assert body["response"] == "explicit simulation"
     assert body["context"]["response_origin"] == "model_generated"
+    assert invoker.calls == 1
+
+
+def test_live_emoji_only_social_question_is_replaced_by_one_open_question(tmp_path):
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload()
+    client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    invoker.output_text = "🎮"
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation(
+                "available", True, "b" * 64, "2026-11-06T12:00:00+00:00")
+
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic",
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+        foreground_game_detector=Detector())
+    response = client.post("/chat", json={
+        "message": (
+            "I am taking a short break. Ask me one easy, open-ended question, "
+            "and please ask just one at a time."
+        ),
+        "observe_screen": False,
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["response"] == (
+        "What’s one thing you’d like to talk about for a minute?"
+    )
+    assert body["response"].count("?") == 1
+    assert body["context"]["response_origin"] == "grounding_policy_fallback"
     assert invoker.calls == 1
 
 
@@ -1628,6 +1663,8 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     assert checkin.json()["context"]["selected_turn_count"] == 0
     assert chat._is_social_checkin_request(
         "Ask one specific, easy question about an everyday preference, not a general invitation. Keep it brief.") is True
+    assert chat._is_social_checkin_request(
+        "I am taking a short break. Ask me one easy, open-ended question, and please ask just one at a time.") is True
     assert chat._is_social_checkin_continuation(
         "That's the kind of vibe I want. Ask me one easy question about my run.") is True
     assert chat._is_social_checkin_continuation(
