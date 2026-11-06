@@ -45,7 +45,7 @@ def test_effective_mode_and_budget_are_recorded_in_invocation_lineage() -> None:
 
     assert budget.max_new_tokens == 64
     assert lineage == {"serving_session_id": "session-1", "workload_mode": "gaming",
-        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v10",
+        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v11",
         "max_backend_threads": 2}
 
 
@@ -89,11 +89,11 @@ def test_gaming_social_checkin_guidance_is_specific_and_precedes_history() -> No
     guidance = GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION
     assert guidance in result
     assert result.index(guidance) < result.index("[VERIFIED_RUNTIME_CONTEXT]")
-    assert "Fulfill the user's specific conversational request first" in result
-    assert "ask exactly one concrete, easy question about the subject they named" in result
-    assert "avoid broad invitations" in result
-    assert "Do not repeat an earlier assistant question" in result
-    assert "do not force a game reference or an identity introduction" in result
+    assert "Fulfill the user's specific request first" in result
+    assert "ask exactly one concrete, easy question about their named subject" in result
+    assert "avoid broad invitations and repeating earlier questions" in result
+    assert "repeating earlier questions" in result
+    assert "force a game reference or an identity introduction" in result
     assert "Do not ask what help is needed" in result
     assert "claim to play, see, watch, or monitor the game" in result
     assert "imply live observation without CURRENT_SCREEN_OBSERVATION_UNTRUSTED" in result
