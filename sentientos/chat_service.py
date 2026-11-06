@@ -302,7 +302,7 @@ class DevelopmentLocalChatInference:
                  model_profiles: Mapping[str, Any] | None = None,
                  foreground_game_detector: Any | None = None,
                  gaming_keep_alive: str = "0") -> None:
-        if gaming_keep_alive not in {"0", "5s", "5m"}:
+        if gaming_keep_alive not in {"0", "5s", "5m", "15m", "-1"}:
             raise ValueError("unsupported_development_gaming_keep_alive")
         self._gaming_keep_alive = gaming_keep_alive
         self._delegate = invoker
