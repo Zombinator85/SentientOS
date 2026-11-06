@@ -1404,13 +1404,31 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     assert chat._is_social_checkin_request(
         "I am playing Cronos and could use some company. What kind of companion would you like to be during a game?") is True
     assert checkin.json()["context"]["selected_turn_count"] == 0
+    assert chat._is_social_checkin_continuation(
+        "That's the kind of vibe I want. Ask me one easy question about my run.") is True
+    assert chat._is_social_checkin_continuation(live_checkin) is False
+
+    followup_message = "That's the kind of vibe I want. Ask me one easy question about my run."
+    followup = client.post("/chat", json={"session_id": session_id,
+        "message": followup_message})
+    assert followup.status_code == 200
+    assert memory_queries == ["I am taking a breather between fights in Cronos.", "", ""]
+    followup_prompt = invoker.prompts[-1]
+    assert followup_message in followup_prompt
+    assert live_checkin in followup_prompt
+    assert checkin.json()["response"] in followup_prompt
+    assert "I am taking a breather between fights in Cronos." not in followup_prompt
+    assert "MEMORY_DATA:" not in followup_prompt
+    assert followup.json()["context"]["selected_turn_count"] == 2
+    assert followup.json()["context"]["selected_memory_count"] == 0
+    assert chat.GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION in followup_prompt
 
     explicit_checkin = client.post("/chat", json={"session_id": session_id,
         "message": ("Quick chat test between fights: just tell me you are here with me, "
                     "then ask one easy question.")})
     assert explicit_checkin.status_code == 200
     assert memory_queries == [
-        "I am taking a breather between fights in Cronos.", "", ""
+        "I am taking a breather between fights in Cronos.", "", "", ""
     ]
     assert explicit_checkin.json()["context"]["selected_turn_count"] == 0
     assert explicit_checkin.json()["context"]["selected_memory_count"] == 0
