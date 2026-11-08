@@ -513,19 +513,6 @@ def run() -> dict[str, Any]:
             "report and cite that record in history_record_ids. If history is "
             "absent or insufficient, abstain without guessing. Preserve the "
             "distinction between renderer report, observer report, and proprioception.")
-        companion_intervention = (
-            intervention_owner.run_companion_history_intervention(
-                snapshot=later_pre_action_snapshot,
-                tick_id=RUN_ID + ":later-companion-decision",
-                question=history_decision_question))
-        if (companion_intervention.status != "completed_controlled_intervention"
-                or not companion_intervention.changed_cognition_measurement_id):
-            raise RootlessExperimentalError("history_intervention_measurement_missing")
-        run_payload = intervention_owner.experiments.load_run(
-            companion_intervention.changed_cognition_measurement_id)
-        conditions = run_payload.get("conditions", [])
-        summary = run_payload.get("summary", {})
-        intervention_conditions = list(companion_intervention.conditions)
         replay_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, False),
@@ -557,6 +544,19 @@ def run() -> dict[str, Any]:
                 "pose is reach; do not use it as the past answer. Treat retrieved "
                 "history as an unverified past report, distinguish it from the "
                 "renderer report, and cite it."))
+        companion_intervention = (
+            intervention_owner.run_companion_history_intervention(
+                snapshot=later_pre_action_snapshot,
+                tick_id=RUN_ID + ":later-companion-decision",
+                question=history_decision_question))
+        if (companion_intervention.status != "completed_controlled_intervention"
+                or not companion_intervention.changed_cognition_measurement_id):
+            raise RootlessExperimentalError("history_intervention_measurement_missing")
+        run_payload = intervention_owner.experiments.load_run(
+            companion_intervention.changed_cognition_measurement_id)
+        conditions = run_payload.get("conditions", [])
+        summary = run_payload.get("summary", {})
+        intervention_conditions = list(companion_intervention.conditions)
         replay_first = intervention_conditions[0] if len(intervention_conditions) == 3 else {}
         replay_second = intervention_conditions[2] if len(intervention_conditions) == 3 else {}
         replay_controls = (
