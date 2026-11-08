@@ -51,7 +51,7 @@ from sentientos.pulse_trust_epoch import reset_manager as reset_pulse_trust_epoc
 from sentientos.trust_ledger import reset_trust_ledger
 from sentientos.integrity_quarantine import QuarantineState, save_state
 from sentientos.integrity_incident import build_incident, write_incident
-from sentientos.world_state_board import WorldStateBoardBuilder
+from sentientos.world_state_board import WorldStateBoardBuilder, record_digest
 from sentientos.developmental_companion_bridge import (
     DevelopmentalCompanionBridgeError, ResidentDevelopmentalCompanionBridge,
     build_companion_snapshot,
@@ -5881,6 +5881,99 @@ def test_operator_confirmed_bridge_cycle_writes_then_later_cognition_retrieves_h
     assert later.status == "admitted_completed"
     assert cycle.written_record_id in later.history_record_ids
     assert later.developmental_history_writeback_performed is False
+
+
+def test_developmental_cycle_composes_selected_verified_consequence_history(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    now = datetime.now(timezone.utc)
+    cognition, fake = owner(tmp_path / "consequence-cycle",
+        allowed_source_kinds=("embodiment",))
+    screen = {"modality": "screen", "text": "A fresh bounded test observation.",
+        "capture_digest": "7" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    historical_record = {
+        "source_kind": "embodiment",
+        "source_id": "consequence-chain:" + "a" * 24,
+        "schema_version": "sentientos.embodied_consequence_chain:v1",
+        "subject_id": "consequence-chain:" + "a" * 24,
+        "subject_kind": "embodied_consequence_chain",
+        "stage": "observation", "disposition": "recorded",
+        "evidence_strength": "digest_bound_consequence_chain",
+        "observed_at": None,
+        "payload": {"independent_observation_posture": "unverified_caller_assertion",
+            "current_truth": False, "effect_proven": False},
+        "effect_claimed": False, "effect_proven": False,
+    }
+    historical_record["digest"] = record_digest(historical_record)
+    provider_calls = []
+    def provide_records():
+        provider_calls.append(True)
+        return (historical_record,)
+
+    captured = {}
+    original_run_tick = cognition.run_tick
+    def capture_run_tick(*, snapshot, tick_id, prior_self_model=None,
+            prior_epistemic_state=None):
+        captured["snapshot"] = snapshot
+        return original_run_tick(snapshot=snapshot, tick_id=tick_id,
+            prior_self_model=prior_self_model,
+            prior_epistemic_state=prior_epistemic_state)
+    monkeypatch.setattr(cognition, "run_tick", capture_run_tick)
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        consequence_records_provider=provide_records, clock=lambda: now)
+
+    cycle = bridge.run_developmental_cycle(
+        tick_id="cycle-with-prior-consequence", screen_observation=screen)
+
+    assert cycle.status == "completed"
+    assert cycle.written_record_id is not None
+    assert provider_calls == [True]
+    snapshot_value = captured["snapshot"]
+    assert snapshot_value.validation_posture == "valid"
+    consequence_fact = next(fact for fact in snapshot_value.facts
+        if fact.source.source_id == historical_record["source_id"])
+    assert consequence_fact.observed_at is None
+    assert consequence_fact.payload["current_truth"] is False
+    assert consequence_fact.payload["effect_proven"] is False
+    assert consequence_fact.payload["independent_observation_posture"] == (
+        "unverified_caller_assertion")
+    assert fake.requests
+
+
+def test_developmental_cycle_rejects_unbounded_or_invalid_consequence_projection(
+        tmp_path: Path) -> None:
+    now = datetime.now(timezone.utc)
+    cognition, fake = owner(tmp_path / "invalid-consequence-cycle",
+        allowed_source_kinds=("embodiment",))
+    screen = {"modality": "screen", "text": "A fresh bounded test observation.",
+        "capture_digest": "8" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    invalid_record = {"source_kind": "capability_registry", "source_id": "untrusted"}
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        consequence_records_provider=lambda: (invalid_record,), clock=lambda: now)
+
+    with pytest.raises(DevelopmentalCompanionBridgeError,
+            match="historical_consequence_projection_invalid"):
+        bridge.run_developmental_cycle(
+            tick_id="cycle-invalid-consequence", screen_observation=screen)
+    assert fake.requests == []
+    oversized_records = tuple({
+        "source_kind": "embodiment", "source_id": f"consequence-chain:{index}",
+        "subject_id": f"chain-{index}", "subject_kind": "embodied_consequence_chain",
+        "stage": "observation", "disposition": "recorded",
+        "payload": {"current_truth": False},
+        "effect_claimed": False, "effect_proven": False,
+    } for index in range(33))
+    oversized_bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        consequence_records_provider=lambda: oversized_records, clock=lambda: now)
+    with pytest.raises(DevelopmentalCompanionBridgeError,
+            match="historical_consequence_projection_invalid"):
+        oversized_bridge.run_developmental_cycle(
+            tick_id="cycle-unbounded-consequence", screen_observation=screen)
+    assert fake.requests == []
+
 
 
 def test_confirmed_cycle_reconciles_proprioception_after_cognition_for_later_ticks(

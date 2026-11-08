@@ -64,6 +64,39 @@ def _build_resident_cognition_owner_pair(*, config: Any, writeback: Any,
     return interaction_owner, intervention_owner
 
 
+def _build_companion_consequence_records_provider(*, config_path: str,
+        read_explicit_file: Callable[..., bytes]
+        ) -> Callable[[], tuple[Mapping[str, Any], ...]] | None:
+    """Expose selected, digest-verified consequence history to companion cycles."""
+    from sentientos.embodied_consequence import (
+        ConsequenceStore, validate_world_state_projection_config,
+    )
+
+    raw = read_explicit_file(Path(config_path), max_bytes=65_536)
+    config = validate_world_state_projection_config(json.loads(raw.decode("utf-8")))
+    if not config["enabled"]:
+        return None
+    experiment_ids = tuple(config["experiment_result_ids"])
+    consequence_ids = tuple(config["consequence_chain_ids"])
+    if not experiment_ids and not consequence_ids:
+        return None
+    store = ConsequenceStore(Path(config["store_root"]), create_root=False)
+
+    def provide() -> tuple[Mapping[str, Any], ...]:
+        records = store.world_state_records(
+            experiment_result_ids=experiment_ids,
+            consequence_chain_ids=consequence_ids)
+        # Keep a strict companion-specific bound; do not let the World-State
+        # builder silently truncate selected history or current evidence.
+        if len(records) > 32:
+            raise ValueError("companion_consequence_projection_record_bound_exceeded")
+        return tuple(records)
+
+    # Fail at startup if the selected custody cannot be read and verified.
+    provide()
+    return provide
+
+
 def _normalize_windows_edge_executable(
         executable: str, *, convert_wsl_path: Callable[[Path], str]) -> str:
     """Convert an explicit mounted Windows executable path for the Windows edge."""
@@ -1026,6 +1059,7 @@ def main() -> int:
     self_model_config = None
     epistemic_state_owner = None
     epistemic_state_config = None
+    consequence_records_provider = None
     if args.enable_resident_cognition:
         from sentientos.codex_task_authority_admission import (
             RESIDENT_DEVELOPMENTAL_WRITEBACK,
@@ -1042,6 +1076,19 @@ def main() -> int:
         from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
         from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
         from sentientos.windows_handle_custody import read_explicit_file
+
+        consequence_projection_path = os.environ.get(
+            "SENTIENTOS_EMBODIED_CONSEQUENCE_PROJECTION_CONFIG")
+        if consequence_projection_path:
+            try:
+                consequence_records_provider = (
+                    _build_companion_consequence_records_provider(
+                        config_path=consequence_projection_path,
+                        read_explicit_file=read_explicit_file))
+            except Exception as exc:
+                parser.error(
+                    "embodied consequence projection configuration is invalid: "
+                    + type(exc).__name__)
 
         cognition_config = load_resident_cognition_config(
             os.environ[RESIDENT_COGNITION_CONFIG_ENV])
@@ -1142,6 +1189,7 @@ def main() -> int:
             gaming_keep_alive=args.gaming_keep_alive,
             screen_observer=edge.screen_observer if edge else None,
             proprioception_provider=(edge.proprioception_observations if edge else None),
+            consequence_records_provider=consequence_records_provider,
             screen_capture_policy=("allowlisted_session_polling"
                 if args.screen_observation_process else "request_driven"),
             local_speech_output=args.local_speech_output,

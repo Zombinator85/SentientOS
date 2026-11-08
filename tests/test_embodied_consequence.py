@@ -334,6 +334,28 @@ def test_present_withheld_restored_strategy_experiment_and_external_score(tmp_pa
     recovered=run_strategy_experiment(protocol=protocol,history_record=record,situation=situation,
         backend=recovered_backend,consequence=attribution,store=ConsequenceStore(tmp_path))
     assert recovered["experiment_result_id"]==result["experiment_result_id"]
+
+    from scripts.run_local_companion_dev import (
+        _build_companion_consequence_records_provider,
+    )
+    projection_config={"schema_version":WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4,
+        "enabled":True,"store_root":str(tmp_path),
+        "experiment_result_ids":[result["experiment_result_id"]],
+        "consequence_chain_ids":[],"model_replacement_state_root":None,
+        "model_replacement_runs":[],"proposal_review_log_path":None,
+        "proposal_review_receipt_ids":[],"fulfillment_receipt_log_path":None,
+        "fulfillment_receipt_ids":[],"developmental_history_intervention_runs":[]}
+    projection_config["config_digest"]=digest(projection_config)
+    projection_path=tmp_path/"projection.json"
+    projection_path.write_text(json.dumps(projection_config))
+    provider=_build_companion_consequence_records_provider(
+        config_path=str(projection_path),
+        read_explicit_file=lambda path, **_kwargs: path.read_bytes())
+    assert provider is not None
+    projected=provider()
+    assert projected==tuple(store.world_state_records(
+        experiment_result_ids=(result["experiment_result_id"],)))
+    assert projected and all(item["source_kind"]=="embodiment" for item in projected)
     assert recovered_backend.calls==[]
 
 
