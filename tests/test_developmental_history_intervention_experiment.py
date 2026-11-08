@@ -9,7 +9,8 @@ import pytest
 
 from sentientos.developmental_history_intervention_experiment import (
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
-    make_protocol, qualify_restoration_stable_history_association, summarize, verify_protocol,
+    make_protocol, qualify_restoration_stable_history_association,
+    qualify_semantic_history_decision, summarize, verify_protocol,
 )
 from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import (
@@ -396,3 +397,32 @@ def test_restoration_qualification_rejects_incomplete_or_uncontrolled_runs() -> 
     )
     assert no_effect["classification"] == (
         "no_restoration_stable_history_difference")
+
+
+def test_semantic_history_decision_qualification_separates_effect_from_improvement() -> None:
+    def row(condition: str, disposition: str, token: bool, unavailable: bool,
+            citation: bool) -> dict[str, object]:
+        return {"condition_id": condition, "disposition": disposition,
+            "answers_with_exact_past_idle_token": token,
+            "abstains_for_unavailable_history": unavailable,
+            "history_citation_bound": citation}
+
+    rows = [row("history_present", "answer", True, False, True),
+        row("history_withheld", "abstain", False, True, False),
+        row("history_restored", "answer", True, False, True)]
+    kwargs = {"semantic_decisions": rows, "controlled_inputs_match": True,
+        "restored_prompt_matches": True,
+        "restoration_stable_association_qualified": True}
+    result = qualify_semantic_history_decision(**kwargs)
+    assert result["history_changed_cognition"] is True
+    assert result["decision_difference"] == "answer_with_history_vs_abstain_without_history"
+    assert result["restored_decision_matches_present"] is True
+    assert result["performance_improvement_established"] is False
+
+    unstable = qualify_semantic_history_decision(**{
+        **kwargs, "restoration_stable_association_qualified": False})
+    assert unstable["history_associated_decision_difference_observed"] is True
+    assert unstable["history_changed_cognition"] is False
+    assert unstable["classification"] == (
+        "history_associated_semantic_decision_difference_observed_repeatability_unqualified")
+    assert unstable["performance_improvement_established"] is False

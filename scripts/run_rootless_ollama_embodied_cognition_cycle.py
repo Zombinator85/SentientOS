@@ -39,7 +39,8 @@ from sentientos.codex_task_authority_admission import (
 )
 from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
 from sentientos.developmental_history_intervention_experiment import (
-    qualify_restoration_stable_history_association)
+    qualify_restoration_stable_history_association,
+    qualify_semantic_history_decision)
 from sentientos.world_state_board import WorldStateSnapshot
 from sentientos.embodiment_self_observation import (
     EmbodimentEvidenceOwner, EmbodimentObservation, semantic_digest)
@@ -935,8 +936,17 @@ def run() -> dict[str, Any]:
                 history_summary=summary,
                 same_history_replay=same_history_replay,
                 present_restoration_delivery_replay=present_restoration_delivery_replay))
+        semantic_history_decision_qualification = qualify_semantic_history_decision(
+            semantic_decisions=semantic_decisions,
+            controlled_inputs_match=intervention_inputs_match,
+            restored_prompt_matches=companion_intervention.restored_prompt_matches,
+            restoration_stable_association_qualified=(
+                restoration_stability_qualification.get(
+                    "restoration_stable_association_qualified")))
+        semantic_history_changed = semantic_history_decision_qualification[
+            "history_changed_cognition"]
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v4",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v5",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
@@ -1000,6 +1010,21 @@ def run() -> dict[str, Any]:
                 "cognition_observation_ids": [item.get("cognition_observation_id")
                     for item in intervention_conditions
                     if item.get("cognition_observation_id")]},
+            "developmental_outcome_assessment": {
+                "schema_version": "sentientos.developmental_outcome_assessment:v1",
+                "developmental_cycle_executed": True,
+                "cycle_scope": "rootless_synthetic_rehearsal",
+                "history_associated_decision_difference_observed":
+                    semantic_history_decision_qualification[
+                        "history_associated_decision_difference_observed"],
+                "history_changed_cognition": semantic_history_changed,
+                "history_change_classification":
+                    semantic_history_decision_qualification["classification"],
+                "history_change_measurement": semantic_history_decision_qualification,
+                "performance_improvement_established": False,
+                "real_operator_observation_demonstrated": False,
+                "real_action_consequence_demonstrated": False,
+            },
             "later_companion_decision_intervention": {
                 "status": companion_intervention.status,
                 "question_digest": companion_intervention.question_digest,
@@ -1008,6 +1033,8 @@ def run() -> dict[str, Any]:
                 "response_text_classification": companion_intervention.response_text_classification,
                 "semantic_decisions": semantic_decisions,
                 "semantic_decision_classification": semantic_decision_classification,
+                "history_changed_cognition": semantic_history_changed,
+                "performance_improvement_established": False,
                 "controlled_inputs_match": intervention_inputs_match,
                 "restored_prompt_matches": companion_intervention.restored_prompt_matches,
                 "conditions": [{
