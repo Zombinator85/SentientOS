@@ -569,6 +569,7 @@ def test_resident_cognition_json_schema_is_exactly_purpose_scoped(tmp_path: Path
     )
     receipt = inv.invoke(request)
     assert receipt.status == "admitted_completed"
+    assert receipt.generation_config["actual_generation_parameters"]["temperature"] == 0
     assert fake.calls == 1
 
     altered = {**RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,

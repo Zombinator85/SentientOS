@@ -6,14 +6,16 @@ the existing governed SentientOS owners. This is not production serving evidence
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
-from dataclasses import asdict
+import re
 import subprocess
 import sys
 import time
 import urllib.request
 import uuid
+from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -44,7 +46,8 @@ from sentientos.local_model_authority import (
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE, digest_payload, stream_sha256)
 from sentientos.local_runtime_provisioning import semantic_digest as runtime_digest
 from sentientos.resident_developmental_cognition import (
-    ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner)
+    ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner,
+    ResidentDevelopmentalCognitionError)
 from sentientos.resident_developmental_writeback import (
     ResidentDevelopmentalWritebackController)
 from sentientos.runtime_admission import (
@@ -123,6 +126,88 @@ def _verify_model_released(model_name: str, *, timeout_seconds: float = 20.0
             return {"status": "target_model_still_resident", "checks": checks}
         time.sleep(0.5)
 
+
+def _verified_companion_replay(owner: Any, *, snapshot: Any, request_id: str,
+        question: str) -> dict[str, Any]:
+    try:
+        interaction = owner.run_companion_interaction(snapshot=snapshot,
+            request_id=request_id, question=question)
+    except ResidentDevelopmentalCognitionError as exc:
+        # Preserve an authenticated completion even when the owner rejects its
+        # evidence-bound answer contract; rejected outputs are never shown.
+        tick_id = "companion-interaction-" + hashlib.sha256(
+            request_id.encode("utf-8")).hexdigest()[:32]
+        correlation = (tick_id
+            + ":resident_developmental_cognition:companion-interaction")
+        runtime_root = getattr(owner.invoker, "runtime_root", None)
+        if not isinstance(runtime_root, Path):
+            raise
+        matching = []
+        for path in runtime_root.joinpath("receipts").glob("lmrec-*.json"):
+            if path.is_symlink():
+                continue
+            try:
+                candidate = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            request = candidate.get("request") if isinstance(candidate, dict) else None
+            if (isinstance(request, dict)
+                    and request.get("correlation_id") == correlation):
+                matching.append(candidate)
+        if len(matching) != 1:
+            raise
+        candidate = matching[0]
+        receipt = owner.invoker.verify_persisted_invocation_receipt(
+            candidate.get("receipt_id"), candidate.get("receipt_digest"))
+        request = receipt.get("request")
+        generation_config = receipt.get("generation_config")
+        upstream = request.get("upstream_evidence") if isinstance(request, dict) else None
+        prompt_digest = request.get("prompt_digest") if isinstance(request, dict) else None
+        if (not isinstance(prompt_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", prompt_digest) is None
+                or not isinstance(generation_config, dict)
+                or not isinstance(upstream, dict)):
+            raise RootlessExperimentalError("rejected_replay_receipt_unverified") from exc
+        return {
+            "status": "owner_rejected_completed_inference",
+            "failure_code": str(exc),
+            "prompt_digest": prompt_digest,
+            "generation_config": generation_config,
+            "active_model_identity": dict(request.get("active_model_identity", {})),
+            "snapshot_digest": upstream.get("snapshot_digest"),
+            "current_projection_digest": upstream.get("current_projection_digest"),
+            "current_fact_ids": list(upstream.get("current_fact_ids", ())),
+            "retrieved_record_ids": list(upstream.get("record_ids", ())),
+            "output_digest": receipt.get("output_digest"),
+            "response_digest": None,
+        }
+    observation = owner.verified_cognition_observation(
+        interaction.cognition_observation_id,
+        interaction.cognition_observation_digest)
+    receipt = owner._verify_observation_invocation(observation)
+    request = receipt.get("request") if isinstance(receipt, dict) else None
+    generation_config = receipt.get("generation_config") if isinstance(receipt, dict) else None
+    prompt_digest = request.get("prompt_digest") if isinstance(request, dict) else None
+    if (not isinstance(prompt_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", prompt_digest) is None
+            or not isinstance(generation_config, dict)
+            or interaction.status != "admitted_completed"):
+        raise RootlessExperimentalError("companion_replay_receipt_unverified")
+    return {
+        "status": "admitted_completed",
+        "prompt_digest": prompt_digest,
+        "generation_config": generation_config,
+        "active_model_identity": dict(observation.get("active_model_identity", {})),
+        "snapshot_digest": observation.get("current_snapshot_digest"),
+        "current_projection_digest": observation.get("current_projection_digest"),
+        "current_fact_ids": list(observation.get("current_fact_ids", ())),
+        "retrieved_record_ids": list(observation.get("retrieved_record_ids", ())),
+        "output_digest": interaction.invocation_output_digest,
+        "response_digest": interaction.response_digest,
+        "disposition": interaction.disposition,
+        "evidence_ids": list(interaction.evidence_ids),
+        "validated_response": interaction.response,
+    }
 
 def _embodied_source() -> tuple[dict[str, Any], dict[str, Any]]:
     commanded_at = (datetime.now(timezone.utc) - timedelta(seconds=8)).isoformat()
@@ -268,6 +353,35 @@ def run() -> dict[str, Any]:
         run_payload = owner.experiments.load_run(second.changed_cognition_measurement_id)
         conditions = run_payload.get("conditions", [])
         summary = run_payload.get("summary", {})
+        replay_owner = ResidentDevelopmentalCognitionOwner(
+            config=ResidentDevelopmentalCognitionConfig(
+                history_root, state_root, ("embodiment",), 16, 4, False),
+            writeback=writeback,
+            admission_authority=RuntimeAdmissionAuthority(
+                definitions=definitions, ledger=ledger),
+            invoker=session, current_sequence=next_sequence)
+        replay_question = (
+            "What pose was commanded, and what did the separate observer report?")
+        replay_first = _verified_companion_replay(replay_owner, snapshot=snapshot,
+            request_id=RUN_ID + ":same-prompt-replay-1", question=replay_question)
+        replay_second = _verified_companion_replay(replay_owner, snapshot=snapshot,
+            request_id=RUN_ID + ":same-prompt-replay-2", question=replay_question)
+        replay_controls = (
+            "prompt_digest", "generation_config", "active_model_identity",
+            "snapshot_digest", "current_projection_digest", "current_fact_ids",
+            "retrieved_record_ids")
+        repeatability = {
+            "conditions": [replay_first, replay_second],
+            "input_controls_match": all(replay_first[key] == replay_second[key]
+                for key in replay_controls),
+            "output_digest_matches": (
+                replay_first["output_digest"] == replay_second["output_digest"]),
+            "response_digest_matches": (
+                replay_first["response_digest"] == replay_second["response_digest"]),
+            "all_responses_admitted": all(item.get("status") == "admitted_completed"
+                for item in (replay_first, replay_second)),
+            "causal_or_learning_claim_made": False,
+        }
         records = [asdict(durable)]
         source_ids = {fact.get("source", {}).get("source_id")
             for fact in records[0]["candidate"].get("selected_facts", [])
@@ -303,6 +417,7 @@ def run() -> dict[str, Any]:
                 "prior_record_ids": list(second.prior_record_ids),
                 "changed_cognition_measurement_id": second.changed_cognition_measurement_id,
                 "cognition_observation_ids": list(second.cognition_observation_ids)},
+            "same_prompt_repeatability_control": repeatability,
             "history_intervention": {"validity": run_payload.get("validity"),
                 "conditions": [{"condition_id": item.get("condition_id"),
                     "output_digest": item.get("output_digest"),
