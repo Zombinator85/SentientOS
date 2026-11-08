@@ -5950,6 +5950,46 @@ def test_confirmed_cycle_reconciles_proprioception_after_cognition_for_later_tic
     assert later_projection.projection_digest == later.self_model_projection_digest
 
 
+def test_self_model_reconciliation_failure_preserves_completed_writeback(
+        tmp_path: Path) -> None:
+    from types import SimpleNamespace
+
+    now = datetime.now(timezone.utc)
+    cognition, _ = owner(tmp_path / "reconciliation-failure",
+        allowed_source_kinds=("embodiment",))
+    screen = {"modality": "screen", "text": "A fresh bounded test observation.",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    seed_snapshot = build_companion_snapshot(
+        screen_observation=screen, clock=lambda: now)
+    seeded = cognition.run_tick(snapshot=seed_snapshot, tick_id="seed-failure-history")
+    assert seeded.written_record_id is not None
+
+    class FailingSelfModelOwner:
+        def cognitive_projection(self, **_kwargs):
+            return None
+
+        def reconcile(self, *_args, **_kwargs):
+            raise OSError("synthetic reconciliation failure")
+
+    config = SimpleNamespace(enabled=True, cognitive_consumption_enabled=True,
+        max_projection_claims=4, allowed_predicates=())
+    bridge = ResidentDevelopmentalCompanionBridge(
+        cognition, self_model_owner=FailingSelfModelOwner(),
+        self_model_config=config, clock=lambda: now)
+
+    cycle = bridge.run_developmental_cycle(
+        tick_id="reconciliation-failure-cycle", screen_observation=screen)
+
+    assert cycle.status == "completed"
+    assert cycle.written_record_id is not None
+    assert cycle.writeback_receipt_id is not None
+    assert cycle.self_model_reconciliation_status == "degraded"
+    assert cycle.self_model_reconciliation_error_type == "OSError"
+    assert cycle.self_model_reconciliation_id is None
+
+
 def test_operator_confirmed_bridge_cycle_rejects_stale_capture_before_inference(
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)
