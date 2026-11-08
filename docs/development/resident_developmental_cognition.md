@@ -126,12 +126,20 @@ The local development companion runner can opt in to this owner-level bridge
 with `--enable-resident-cognition`. It requires an explicit resident-cognition
 configuration, automatic foreground-game workload detection, and the supervised
 Windows observer edge. The bridge reuses the companion's governed local model
-invoker, keeps the same resident history and state roots, and admits only the
-`local_user_chat` and `resident_developmental_retrieval_cognition` purposes.
-Tools, canonical memory, actions, and developmental writeback are not enabled by
-this bridge. Cognition inference is serialized against model-profile changes
-and is unavailable while gaming workload mode is active. The option is off by
-default and does not connect or reconfigure an already running companion.
+invoker and the same resident history and state roots. Ordinary chat answers do
+not write developmental history. A separate **Learn from current scene (governed
+writeback)** control appears beside a verified resident-cognition reply when the
+normal resident owner and screen observer are available. The operator must
+confirm before it requests a fresh consented observation. It binds the request
+to that saved reply, serializes it with conversation work, and invokes the
+existing owner's ordinary run_tick and governed developmental-writeback
+controller. It creates no additional memory store or admission authority. The
+result distinguishes a retained record and receipt from a completed tick with no
+eligible lesson. Repeating the same request identity cannot reuse a completed
+tick. No gameplay action is authorized by this control. Cognition inference is
+serialized against model-profile changes and unavailable during gaming workload
+mode. The option remains off by default and does not reconfigure a running
+companion.
 
 This integration is not evidence of learning. Demonstrating development still
 requires the full sequence of a real observation, prediction or decision, an

@@ -779,6 +779,13 @@ class HistoryInterventionRequest(BaseModel):
     operator_confirmed: bool = False
 
 
+class DevelopmentalCycleRequest(BaseModel):
+    session_id: str
+    assistant_turn_id: str
+    request_id: str
+    operator_confirmed: bool = False
+
+
 class ChatRequest(BaseModel):
     message: str
     session_id: str | None = None
@@ -1128,6 +1135,78 @@ class PersistentConversationService:
             "authority": result.authority,
             "action_authority": result.action_authority,
             "performance_improvement_established": False,
+            "raw_frame_retained": False,
+        }
+
+    def developmental_cycle_available(self) -> bool:
+        bridge = self._resident_cognition_bridge
+        available = getattr(bridge, "developmental_cycle_available", None)
+        return (self._screen_observer is not None and callable(available)
+            and available() is True)
+
+    def run_developmental_cycle(self, *, session_id: str,
+            assistant_turn_id: str, request_id: str) -> dict[str, Any]:
+        """Capture fresh local evidence and invoke the existing governed writeback owner."""
+        if (not isinstance(session_id, str) or not session_id
+                or not isinstance(assistant_turn_id, str)
+                or not re.fullmatch(r"turn-[0-9a-f]{24}", assistant_turn_id)
+                or not isinstance(request_id, str)
+                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", request_id)):
+            raise ChatRequestStateError("developmental_cycle_request_invalid")
+        bridge = self._resident_cognition_bridge
+        observer = self._screen_observer
+        if bridge is None or observer is None:
+            raise ChatRequestStateError("developmental_cycle_path_unavailable")
+        if not self.developmental_cycle_available():
+            raise CognitionWorkloadUnavailable()
+        with self.sessions.serialize_chat_requests(session_id):
+            session = self.sessions.load(session_id)
+            assistant = next((turn for turn in session["turns"]
+                if turn.get("turn_id") == assistant_turn_id
+                and turn.get("role") == "assistant"), None)
+            linkage = assistant.get("linkage") if isinstance(assistant, Mapping) else None
+            if (not isinstance(assistant, Mapping) or not isinstance(linkage, Mapping)
+                    or linkage.get("response_origin")
+                        != "resident_developmental_cognition"):
+                raise ChatRequestStateError(
+                    "developmental_cycle_requires_resident_cognition_reply")
+            source_turn_id = linkage.get("source_user_turn_id")
+            source_turn = next((turn for turn in session["turns"]
+                if turn.get("turn_id") == source_turn_id
+                and turn.get("role") == "user"), None)
+            if not isinstance(source_turn, Mapping):
+                raise ChatRequestStateError(
+                    "developmental_cycle_source_turn_unavailable")
+            cognition_request_id = f"{session_id}:{source_turn_id}"
+            verifier = getattr(bridge, "verify_committed_response", None)
+            if (not callable(verifier) or verifier(linkage=linkage,
+                    response_text=str(assistant.get("text", "")),
+                    request_id=cognition_request_id) is not True):
+                raise ChatRequestStateError(
+                    "developmental_cycle_prior_response_unverified")
+            question = "Capture the current allowlisted foreground game for one operator-requested developmental cognition cycle."
+            question_observer = getattr(type(observer), "observe_question", None)
+            observation = (question_observer(observer, question)
+                if callable(question_observer) else observer())
+            if not isinstance(observation, Mapping):
+                raise RuntimeError("screen_observation_unavailable")
+            tick_id = "companion-developmental-cycle-" + hashlib.sha256(
+                f"{session_id}\0{assistant_turn_id}\0{request_id}".encode("utf-8")).hexdigest()[:32]
+            result = bridge.run_developmental_cycle(
+                tick_id=tick_id, screen_observation=observation)
+        if result.status != "completed":
+            raise ChatRequestStateError("developmental_cycle_not_completed")
+        return {
+            "status": ("completed_writeback" if result.written_record_id is not None
+                else "completed_without_writeback"),
+            "tick_id": result.tick_id,
+            "assistant_turn_id": assistant_turn_id,
+            "snapshot_id": result.snapshot_id,
+            "selected_fact_ids": list(result.selected_fact_ids),
+            "prior_record_ids": list(result.prior_record_ids),
+            "written_record_id": result.written_record_id,
+            "writeback_receipt_id": result.writeback_receipt_id,
+            "cognition_observation_ids": list(result.cognition_observation_ids),
             "raw_frame_retained": False,
         }
 
@@ -3657,6 +3736,41 @@ def _chat_stream_event(event: Mapping[str, object]) -> str:
     return f"event: {event_type}\ndata: {data}\n\n"
 
 
+@APP.post("/sessions/{session_id}/developmental-cycle")
+async def developmental_cycle_endpoint(session_id: str,
+        request: DevelopmentalCycleRequest, http_request: Request) -> dict[str, Any]:
+    """Run one locally confirmed fresh-observation cycle through governed writeback."""
+    client_host = getattr(getattr(http_request, "client", None), "host", None)
+    try:
+        local_client = isinstance(client_host, str) and ipaddress.ip_address(client_host).is_loopback
+    except ValueError:
+        local_client = False
+    if not local_client:
+        raise HTTPException(status_code=403,
+            detail="developmental_cycle_local_access_required")
+    if request.session_id != session_id or request.operator_confirmed is not True:
+        raise HTTPException(status_code=400,
+            detail="developmental_cycle_operator_confirmation_required")
+    try:
+        service = _get_conversation_service()
+        return await asyncio.to_thread(service.run_developmental_cycle,
+            session_id=session_id, assistant_turn_id=request.assistant_turn_id,
+            request_id=request.request_id)
+    except CognitionWorkloadUnavailable as exc:
+        raise HTTPException(status_code=409,
+            detail="developmental_cycle_deferred_during_gaming_workload") from exc
+    except ChatRequestStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404,
+            detail="conversation_session_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503,
+            detail="developmental_cycle_not_completed") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @APP.post("/sessions/{session_id}/history-intervention")
 async def history_intervention_endpoint(session_id: str,
         request: HistoryInterventionRequest, http_request: Request) -> dict[str, Any]:
@@ -4016,6 +4130,7 @@ async def inspect_session_turns(session_id: str, request: Request) -> dict[str, 
             detail="conversation_session_unavailable_or_invalid") from exc
     service = _get_conversation_service()
     intervention_available = service.history_intervention_available()
+    developmental_cycle_available = service.developmental_cycle_available()
     turns = session["turns"]
     visible_turns = turns[-100:]
     display_turns: list[dict[str, Any]] = []
@@ -4026,6 +4141,9 @@ async def inspect_session_turns(session_id: str, request: Request) -> dict[str, 
             diagnostics = _saved_transcript_response_diagnostics(turn)
             diagnostics["developmental_history_intervention_available"] = (
                 intervention_available is True
+                and diagnostics.get("developmental_history_intervention_available") is True)
+            diagnostics["developmental_cycle_available"] = (
+                developmental_cycle_available is True
                 and diagnostics.get("developmental_history_intervention_available") is True)
             displayed["response_diagnostics"] = diagnostics
         display_turns.append(displayed)
@@ -4953,6 +5071,17 @@ async def root_page() -> HTMLResponse:
                                         runHistoryIntervention(turn.turn_id, experimentButton, entry));
                                     entry.appendChild(experimentButton);
                                 }
+                                if (turn.response_diagnostics
+                                        && turn.response_diagnostics.developmental_cycle_available
+                                            === true) {
+                                    const cycleButton = document.createElement('button');
+                                    cycleButton.type = 'button';
+                                    cycleButton.textContent =
+                                        'Learn from current scene (governed writeback)';
+                                    cycleButton.addEventListener('click', () =>
+                                        runDevelopmentalCycle(turn.turn_id, cycleButton, entry));
+                                    entry.appendChild(cycleButton);
+                                }
                             }
                             container.appendChild(entry);
                         }
@@ -5018,6 +5147,44 @@ async def root_page() -> HTMLResponse:
                         }
                     } catch (_) {
                         status.textContent = 'History comparison did not complete.';
+                    } finally {
+                        button.disabled = false;
+                    }
+                }
+
+                async function runDevelopmentalCycle(assistantTurnId, button, entry) {
+                    if (!window.confirm('Capture one fresh, consented foreground-game observation and run the existing resident cognition tick? If an eligible lesson is produced, the governed developmental-writeback owner will retain it for later cognition. This can make local model inference calls. Raw screen frames are discarded; no gameplay action is authorized.')) return;
+                    button.disabled = true;
+                    const status = document.createElement('p');
+                    status.textContent = 'Capturing fresh evidence for the governed developmental cycle...';
+                    entry.appendChild(status);
+                    try {
+                        const sessionId = await ensureConversationSession();
+                        const response = await fetch('/sessions/' + encodeURIComponent(sessionId)
+                            + '/developmental-cycle', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    session_id: sessionId,
+                                    assistant_turn_id: assistantTurnId,
+                                    request_id: crypto.randomUUID(),
+                                    operator_confirmed: true,
+                                }),
+                            });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                            status.textContent = typeof data.detail === 'string'
+                                ? data.detail : 'Developmental cycle did not complete.';
+                            return;
+                        }
+                        status.textContent = data.status === 'completed_writeback'
+                            ? 'Governed developmental writeback completed. Record: '
+                                + String(data.written_record_id || 'unavailable')
+                                + '; receipt: ' + String(data.writeback_receipt_id || 'unavailable')
+                                + '. History influence and performance improvement are not yet established.'
+                            : 'The developmental tick completed, but no eligible lesson was written to history.';
+                    } catch (_) {
+                        status.textContent = 'Developmental cycle did not complete.';
                     } finally {
                         button.disabled = false;
                     }

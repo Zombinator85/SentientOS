@@ -127,6 +127,72 @@ def test_explicit_history_intervention_uses_fresh_observation_and_returns_measur
     assert observations[0][2] is capture
 
 
+def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receipts(
+        tmp_path: Path) -> None:
+    observations = []
+    class Bridge:
+        def respond(self, *, request_id, question, screen_observation=None):
+            raise AssertionError("cycle test does not invoke ordinary chat")
+
+        def developmental_cycle_available(self):
+            return True
+
+        def verify_committed_response(self, *, linkage, response_text, request_id):
+            return (linkage.get("response_origin") == "resident_developmental_cognition"
+                and response_text == "A saved answer."
+                and request_id.endswith(linkage["source_user_turn_id"]))
+
+        def run_developmental_cycle(self, *, tick_id, screen_observation):
+            observations.append((tick_id, screen_observation))
+            return SimpleNamespace(status="completed", tick_id=tick_id,
+                snapshot_id="snapshot-cycle", selected_fact_ids=("fact-1",),
+                prior_record_ids=(), written_record_id="record-1",
+                writeback_receipt_id="receipt-1", cognition_observation_ids=("obs-1",))
+
+    capture = {"modality": "screen", "text": "fresh local observation",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": "2026-11-08T12:00:00Z", "raw_frame_retained": False}
+    app = service(tmp_path, screen_observer=lambda: capture, cognition_bridge=Bridge())
+    session_id = app.create_session()
+    source, _ = app.sessions.append_user_request(session_id,
+        request_id="prior-question", text="Describe the current scene.", retain=False)
+    assistant = app.sessions.append_turn(session_id, role="assistant",
+        text="A saved answer.", linkage={
+            "source_user_turn_id": source["turn_id"],
+            "response_origin": "resident_developmental_cognition",
+        })
+
+    result = app.run_developmental_cycle(session_id=session_id,
+        assistant_turn_id=assistant["turn_id"], request_id="development-cycle-1")
+
+    assert result["status"] == "completed_writeback"
+    assert result["written_record_id"] == "record-1"
+    assert result["writeback_receipt_id"] == "receipt-1"
+    assert result["raw_frame_retained"] is False
+    assert observations[0][0].startswith("companion-developmental-cycle-")
+    assert observations[0][1] is capture
+    assert len(app.sessions.load(session_id)["turns"]) == 2
+
+
+def test_developmental_cycle_endpoint_requires_local_explicit_confirmation() -> None:
+    request = chat_service.DevelopmentalCycleRequest(
+        session_id="session-1", assistant_turn_id="turn-" + "a" * 24,
+        request_id="cycle-1", operator_confirmed=False)
+    local_request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"))
+    with pytest.raises(chat_service.HTTPException) as denied:
+        asyncio.run(chat_service.developmental_cycle_endpoint(
+            "session-1", request, local_request))
+    assert denied.value.status_code == 400
+
+    remote_request = SimpleNamespace(client=SimpleNamespace(host="203.0.113.7"))
+    confirmed = request.copy(update={"operator_confirmed": True})
+    with pytest.raises(chat_service.HTTPException) as denied_remote:
+        asyncio.run(chat_service.developmental_cycle_endpoint(
+            "session-1", confirmed, remote_request))
+    assert denied_remote.value.status_code == 403
+
+
 def test_history_intervention_endpoint_requires_local_explicit_confirmation() -> None:
     request = chat_service.HistoryInterventionRequest(
         session_id="session-1", assistant_turn_id="turn-" + "a" * 24,
