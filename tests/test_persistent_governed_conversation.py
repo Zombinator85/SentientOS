@@ -87,9 +87,9 @@ def test_explicit_history_intervention_uses_fresh_observation_and_returns_measur
                 tick_id=tick_id, changed_cognition_measurement_id="measure-1",
                 response_text_classification="no_observable_response_text_difference",
                 restored_prompt_matches=True,
-                conditions=({"condition_id": "history_present"},
-                    {"condition_id": "history_withheld"},
-                    {"condition_id": "history_restored"}),
+                conditions=({"condition_id": "history_present", "response": "A."},
+                    {"condition_id": "history_withheld", "response": "B."},
+                    {"condition_id": "history_restored", "response": "A."}),
                 authority=False, action_authority=False)
 
     capture = {"modality": "screen", "text": "fresh local observation",
@@ -115,6 +115,14 @@ def test_explicit_history_intervention_uses_fresh_observation_and_returns_measur
     assert result["conditions"] == [
         "history_present", "history_withheld", "history_restored"]
     assert result["performance_improvement_established"] is False
+    assert result["condition_responses"] == [
+        {"condition_id": "history_present", "response_text": "A.",
+            "disposition": "unknown"},
+        {"condition_id": "history_withheld", "response_text": "B.",
+            "disposition": "unknown"},
+        {"condition_id": "history_restored", "response_text": "A.",
+            "disposition": "unknown"},
+    ]
     assert observations[0][1] == "What is one visible detail?"
     assert observations[0][2] is capture
 
@@ -637,6 +645,8 @@ def test_chat_endpoint_and_local_ui_expose_per_message_screen_opt_in(
     assert b"Compare history impact (4 inference calls)" in page.body
     assert b"history-present / withheld / restored comparison" in page.body
     assert b"operator_confirmed: true" in page.body
+    assert b"Inspect the three responses (temporary)" in page.body
+    assert b"condition.response_text" in page.body
     assert b"clearTerminalChatRequestIdentity(" in page.body
     assert b"This request ID conflicts with an earlier request" in page.body
     assert b"chatSendInFlight = false" in page.body

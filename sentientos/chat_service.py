@@ -1120,6 +1120,11 @@ class PersistentConversationService:
             "restored_prompt_matches": result.restored_prompt_matches,
             "conditions": [str(item.get("condition_id", "unknown"))
                 for item in result.conditions],
+            "condition_responses": [{
+                "condition_id": str(item.get("condition_id", "unknown")),
+                "response_text": str(item.get("response", ""))[:4000],
+                "disposition": str(item.get("disposition", "unknown")),
+            } for item in result.conditions],
             "authority": result.authority,
             "action_authority": result.action_authority,
             "performance_improvement_established": False,
@@ -4988,6 +4993,27 @@ async def root_page() -> HTMLResponse:
                             + '; restored prompt matches: '
                             + (data.restored_prompt_matches ? 'yes' : 'no')
                             + '; performance improvement: not established.';
+                        const comparedResponses = Array.isArray(data.condition_responses)
+                            ? data.condition_responses : [];
+                        if (comparedResponses.length === 3) {
+                            const details = document.createElement('details');
+                            const summary = document.createElement('summary');
+                            summary.textContent = 'Inspect the three responses (temporary)';
+                            details.appendChild(summary);
+                            const list = document.createElement('ol');
+                            comparedResponses.forEach((condition) => {
+                                const item = document.createElement('li');
+                                const label = document.createElement('strong');
+                                label.textContent = String(condition.condition_id || 'condition');
+                                const responseText = document.createElement('p');
+                                responseText.textContent = String(condition.response_text || '');
+                                item.appendChild(label);
+                                item.appendChild(responseText);
+                                list.appendChild(item);
+                            });
+                            details.appendChild(list);
+                            entry.appendChild(details);
+                        }
                     } catch (_) {
                         status.textContent = 'History comparison did not complete.';
                     } finally {
