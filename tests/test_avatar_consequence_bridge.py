@@ -126,7 +126,7 @@ def test_explicit_avatar_measurement_traverses_authenticated_consequence_stream(
         attribution, comparison = evaluate_consequence(
             expectation=expectation, handoff=handoff, current_body=body,
             renderer_report=report, observation=observation,
-            independent_observer_owner=observer_owner,
+            independent_observer_owner=remote,
             evaluated_at=datetime.now(timezone.utc).isoformat())
         receipt = attribution["observation_authentication_receipt"]
         assert receipt["capture_provenance"] == {
