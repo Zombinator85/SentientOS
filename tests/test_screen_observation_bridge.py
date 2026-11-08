@@ -74,6 +74,15 @@ def _setup(*, queue_capacity: int = 2, provider_clock=None):
 def test_screen_ocr_observation_crosses_authenticated_bridge_as_bounded_text():
     runtime, client, provider = _setup()
     try:
+        received_messages = []
+        receive = runtime.receive
+
+        def record_received_message(*, timeout):
+            message = receive(timeout=timeout)
+            received_messages.append(message)
+            return message
+
+        runtime.receive = record_received_message
         publisher = WindowsScreenObservationBridgePublisher(
             observe=_payload, client=client, source_id=SOURCE_ID,
             session_id="screen-session-1", generation_id=SOURCE_GENERATION,
@@ -93,6 +102,10 @@ def test_screen_ocr_observation_crosses_authenticated_bridge_as_bounded_text():
         assert provenance["sequence"] == 1
         assert len(provenance["message_id"]) == 64
         assert len(provenance["payload_digest"]) == 64
+        assert len(provenance["signed_envelope_digest"]) == 64
+        assert provenance["signed_envelope_digest"] == hashlib.sha256(
+            received_messages[0].signed_envelope).hexdigest()
+        assert provenance["signed_envelope_digest"] != provenance["payload_digest"]
     finally:
         runtime.close()
 
