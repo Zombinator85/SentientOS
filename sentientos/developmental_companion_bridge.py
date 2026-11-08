@@ -1,14 +1,16 @@
 """Request-scoped bridge from consented companion evidence to resident cognition.
 
-This adapter does not own memory or write developmental history. It converts one
-already-consented local observation into a transient World-State snapshot and
-delegates the decision to the existing ResidentDevelopmentalCognitionOwner.
+Ordinary companion turns use this adapter to convert consented local evidence
+into a transient World-State snapshot and never write developmental history.
+An explicit operator feedback operation may delegate one scoped writeback to
+the same existing ResidentDevelopmentalCognitionOwner; this adapter owns no
+memory store or parallel developmental controller.
 """
 from __future__ import annotations
 
 import hashlib
 from contextlib import nullcontext
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping, Sequence
 
 from .embodiment_self_observation import EmbodimentEvidenceOwner, EmbodimentObservation
@@ -16,6 +18,7 @@ from .local_model_authority import digest_payload
 from .longitudinal_self_model import LongitudinalSelfModelRuntimeConfig
 from .persistent_epistemic_state import PersistentEpistemicStateOwner
 from .resident_developmental_cognition import (
+    ResidentDevelopmentalCycleResult,
     ResidentCompanionInteractionResult,
     ResidentDevelopmentalCognitionOwner,
 )
@@ -38,7 +41,14 @@ class CognitionEvidenceUnavailable(RuntimeError):
     code = "cognition_current_evidence_unavailable"
 
 
-def _screen_record(observation: Mapping[str, Any]) -> dict[str, Any]:
+MAX_OPERATOR_FEEDBACK_CAPTURE_AGE = timedelta(seconds=60)
+MAX_OPERATOR_FEEDBACK_FUTURE_SKEW = timedelta(seconds=5)
+
+
+def _screen_record(observation: Mapping[str, Any], *,
+        staleness: str = "unknown") -> dict[str, Any]:
+    if staleness not in {"fresh", "aging", "stale", "expired", "unknown"}:
+        raise DevelopmentalCompanionBridgeError("screen_observation_staleness_invalid")
     text = observation.get("text")
     captured_at = observation.get("captured_at")
     capture_digest = observation.get("capture_digest")
@@ -70,7 +80,7 @@ def _screen_record(observation: Mapping[str, Any]) -> dict[str, Any]:
         "disposition": "captured",
         "evidence_strength": "bounded_local_capture_unverified_issuer",
         "observed_at": captured_at,
-        "staleness": "unknown",
+        "staleness": staleness,
         "effect_claimed": False,
         "effect_proven": False,
         "payload": {
@@ -86,19 +96,25 @@ def _screen_record(observation: Mapping[str, Any]) -> dict[str, Any]:
 
 def build_companion_snapshot(*, screen_observation: Mapping[str, Any] | None = None,
         proprioception: Sequence[EmbodimentObservation] = (),
+        additional_records: Sequence[Mapping[str, Any]] = (),
+        screen_staleness: str = "unknown",
         clock: Any | None = None) -> WorldStateSnapshot:
     """Build one bounded snapshot; source provenance remains explicitly qualified."""
     records: list[Mapping[str, Any]] = []
     if screen_observation is not None:
         if not isinstance(screen_observation, Mapping):
             raise DevelopmentalCompanionBridgeError("consented_screen_observation_invalid")
-        records.append(_screen_record(screen_observation))
+        records.append(_screen_record(screen_observation, staleness=screen_staleness))
     if proprioception:
         try:
             records.extend(EmbodimentEvidenceOwner(proprioception).world_state_records())
         except (TypeError, ValueError) as exc:
             raise DevelopmentalCompanionBridgeError(
                 "proprioception_evidence_invalid") from exc
+    if not isinstance(additional_records, (tuple, list)) or any(
+            not isinstance(record, Mapping) for record in additional_records):
+        raise DevelopmentalCompanionBridgeError("additional_world_state_records_invalid")
+    records.extend(additional_records)
     return WorldStateBoardBuilder(clock=clock).build(records)
 
 
@@ -274,6 +290,10 @@ class ResidentDevelopmentalCompanionBridge:
         except Exception:
             return False
 
+    def operator_feedback_sources_allowed(self) -> bool:
+        return {"operator_feedback", "embodiment"}.issubset(
+            set(self._owner.config.allowed_source_kinds))
+
     def respond(self, *, request_id: str, question: str,
                 screen_observation: Mapping[str, Any] | None = None
                 ) -> ResidentCompanionInteractionResult:
@@ -298,5 +318,121 @@ class ResidentDevelopmentalCompanionBridge:
         with gate:
             return self._owner.run_companion_interaction(
                 snapshot=snapshot, request_id=request_id, question=question,
+                prior_self_model=prior_self_model,
+                prior_epistemic_state=prior_epistemic_state)
+
+    def record_operator_feedback(self, *, tick_id: str, request_id: str,
+            response_text: str, linkage: Mapping[str, Any], feedback: str,
+            screen_observation: Mapping[str, Any]) -> ResidentDevelopmentalCycleResult:
+        """Commit one explicit outcome report through existing cognition owners.
+
+        This operation is opt-in and separate from ``respond``. It verifies
+        that the reviewed assistant response was committed through this bridge,
+        combines the operator's bounded outcome report with a fresh consented
+        screen capture and available proprioception, then delegates the entire
+        interpretation/admission/writeback transaction to ``run_tick``.
+        Nothing here upgrades the operator report to truth or proves an effect.
+        """
+        if (not isinstance(tick_id, str) or not tick_id.strip() or len(tick_id) > 256
+                or not isinstance(request_id, str) or not request_id.strip()
+                or len(request_id) > 256
+                or not isinstance(response_text, str) or not response_text.strip()
+                or len(response_text) > 32_000
+                or not isinstance(linkage, Mapping)
+                or not isinstance(feedback, str) or not feedback.strip()
+                or len(feedback) > 1200
+                or not isinstance(screen_observation, Mapping)):
+            raise DevelopmentalCompanionBridgeError(
+                "operator_feedback_request_invalid")
+        if not self.can_handle():
+            raise CognitionWorkloadUnavailable()
+        if not self.operator_feedback_sources_allowed():
+            raise DevelopmentalCompanionBridgeError(
+                "operator_feedback_sources_not_allowlisted")
+        if not self.verify_committed_response(linkage=linkage,
+                response_text=response_text, request_id=request_id):
+            raise DevelopmentalCompanionBridgeError(
+                "operator_feedback_prior_response_unverified")
+
+        proprioception: Sequence[EmbodimentObservation] = ()
+        if self._proprioception_provider is not None:
+            value = self._proprioception_provider()
+            if not isinstance(value, (tuple, list)) or any(
+                    not isinstance(item, EmbodimentObservation) for item in value):
+                raise DevelopmentalCompanionBridgeError(
+                    "proprioception_provider_output_invalid")
+            proprioception = tuple(value)
+
+        screen_record = _screen_record(screen_observation)
+        now = self._clock() if callable(self._clock) else datetime.now(timezone.utc)
+        if isinstance(now, str):
+            try:
+                now = datetime.fromisoformat(now.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise DevelopmentalCompanionBridgeError(
+                    "operator_feedback_clock_invalid") from exc
+        captured_at = datetime.fromisoformat(
+            str(screen_observation["captured_at"]).replace("Z", "+00:00"))
+        if (not isinstance(now, datetime) or now.tzinfo is None
+                or now.utcoffset() is None or captured_at.tzinfo is None
+                or captured_at.utcoffset() is None):
+            raise DevelopmentalCompanionBridgeError(
+                "operator_feedback_capture_time_invalid")
+        capture_age = now.astimezone(timezone.utc) - captured_at.astimezone(timezone.utc)
+        if (capture_age < -MAX_OPERATOR_FEEDBACK_FUTURE_SKEW
+                or capture_age > MAX_OPERATOR_FEEDBACK_CAPTURE_AGE):
+            raise DevelopmentalCompanionBridgeError(
+                "operator_feedback_capture_not_fresh")
+        feedback_digest = hashlib.sha256(feedback.encode("utf-8")).hexdigest()
+        source_id = "operator-feedback:" + hashlib.sha256(
+            f"{tick_id}\0{request_id}".encode("utf-8")).hexdigest()[:32]
+        capture_age_seconds = max(0.0, capture_age.total_seconds())
+        feedback_record = {
+            "source_kind": "operator_feedback",
+            "source_id": source_id,
+            "schema_version": "sentientos.operator_feedback_on_companion_interaction:v1",
+            "subject_id": str(linkage["cognition_observation_id"]),
+            "subject_kind": "companion_interaction_outcome",
+            "stage": "observation",
+            "disposition": "operator_reported",
+            "evidence_strength": "operator_supplied_unverified_report",
+            "observed_at": screen_observation.get("captured_at"),
+            "staleness": "fresh",
+            "effect_claimed": False,
+            "effect_proven": False,
+            "payload": {
+                "prior_response_origin": "resident_developmental_cognition",
+                "prior_request_id_digest": hashlib.sha256(
+                    request_id.encode("utf-8")).hexdigest(),
+                "prior_response_digest": linkage.get("response_digest"),
+                "prior_cognition_observation_id": linkage.get(
+                    "cognition_observation_id"),
+                "prior_cognition_observation_digest": linkage.get(
+                    "cognition_observation_digest"),
+                "screen_capture_digest": screen_record["payload"]["capture_digest"],
+                "screen_text_digest": screen_record["payload"]["text_digest"],
+                "capture_age_seconds_at_writeback": capture_age_seconds,
+                "freshness_window_seconds": MAX_OPERATOR_FEEDBACK_CAPTURE_AGE.total_seconds(),
+                "operator_feedback": feedback,
+                "operator_feedback_digest": feedback_digest,
+                "operator_feedback_provenance": "operator_supplied_unverified_report",
+                "current_truth": False,
+                "authority": False,
+            },
+        }
+        tick_time, projection_tick = self._projection_boundary()
+        prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
+            tick_id=tick_time, projection_tick=projection_tick)
+        snapshot = build_companion_snapshot(
+            screen_observation=screen_observation,
+            proprioception=proprioception,
+            additional_records=(feedback_record,),
+            screen_staleness="fresh",
+            clock=self._clock,
+        )
+        gate = (self._cognition_inference_gate()
+            if self._cognition_inference_gate is not None else nullcontext())
+        with gate:
+            return self._owner.run_tick(snapshot=snapshot, tick_id=tick_id,
                 prior_self_model=prior_self_model,
                 prior_epistemic_state=prior_epistemic_state)

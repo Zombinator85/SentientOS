@@ -53,6 +53,7 @@ from sentientos.integrity_quarantine import QuarantineState, save_state
 from sentientos.integrity_incident import build_incident, write_incident
 from sentientos.world_state_board import WorldStateBoardBuilder
 from sentientos.developmental_companion_bridge import (
+    CognitionWorkloadUnavailable, DevelopmentalCompanionBridgeError,
     ResidentDevelopmentalCompanionBridge, build_companion_snapshot,
 )
 from sentientos.embodiment_self_observation import EmbodimentObservation, semantic_digest
@@ -4084,7 +4085,9 @@ def test_companion_interaction_rejects_duplicate_json_keys() -> None:
 
 def test_companion_bridge_composes_consented_screen_and_proprioception_without_writeback(
         tmp_path: Path) -> None:
-    cognition, _ = owner(tmp_path, allowed_source_kinds=("embodiment",))
+    cognition, _ = owner(tmp_path,
+        allowed_source_kinds=("embodiment", "operator_feedback"),
+        max_selected_facts=4)
     screen_text = "PRIVATE_SCREEN_SENTINEL: two candles are lit"
     screen = {"modality": "screen", "text": screen_text,
         "capture_digest": "a" * 64,
@@ -4162,6 +4165,48 @@ def test_companion_bridge_composes_consented_screen_and_proprioception_without_w
         response_text=result.response, request_id=request_id)
     assert not bridge.verify_committed_response(linkage=linkage,
         response_text=result.response + " altered", request_id=request_id)
+
+    outcome_screen_text = "Operator confirms four candles, two lit."
+    outcome_screen = {"modality": "screen", "text": outcome_screen_text,
+        "capture_digest": "c" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "raw_frame_retained": False}
+    stale_screen = {**outcome_screen, "captured_at": (
+        datetime.now(timezone.utc) - timedelta(seconds=61)).isoformat()}
+    with pytest.raises(DevelopmentalCompanionBridgeError,
+            match="operator_feedback_capture_not_fresh"):
+        bridge.record_operator_feedback(
+            tick_id="companion-outcome-feedback-stale", request_id=request_id,
+            response_text=result.response, linkage=linkage,
+            feedback="The count was off.", screen_observation=stale_screen)
+    blocked_bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        proprioception_provider=lambda: (proprioception,),
+        cognition_available=lambda: False)
+    with pytest.raises(CognitionWorkloadUnavailable):
+        blocked_bridge.record_operator_feedback(
+            tick_id="companion-outcome-feedback-gaming", request_id=request_id,
+            response_text=result.response, linkage=linkage,
+            feedback="The count was off.", screen_observation=outcome_screen)
+    cycle = bridge.record_operator_feedback(
+        tick_id="companion-outcome-feedback-1", request_id=request_id,
+        response_text=result.response, linkage=linkage,
+        feedback="The answer was useful, but the count was off: four candles, two lit.",
+        screen_observation=outcome_screen)
+    assert cycle.written_record_id
+    retained = cognition.writeback.store.get(cycle.written_record_id)
+    assert retained.current_truth is False and retained.authority is False
+    assert any(fact["source"]["kind"] == "operator_feedback"
+        and fact["source"]["staleness"] == "fresh"
+        and fact["payload"]["capture_age_seconds_at_writeback"] <= 60
+        and fact["payload"]["operator_feedback"].startswith("The answer was useful")
+        for fact in retained.candidate["selected_facts"])
+    assert any(fact["source"]["kind"] == "embodiment"
+        and fact["source"]["staleness"] == "fresh"
+        and fact["payload"].get("text_digest") == hashlib.sha256(
+            outcome_screen_text.encode("utf-8")).hexdigest()
+        for fact in retained.candidate["selected_facts"])
+    assert cycle.canonical_explicit_user_retention_mutated is False
 
 
 def test_development_chat_configuration_hosts_resident_cognition_owner(

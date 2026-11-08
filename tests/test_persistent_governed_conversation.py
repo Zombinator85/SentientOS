@@ -525,6 +525,96 @@ def test_explicit_screen_observation_is_ephemeral_and_idempotent(tmp_path: Path)
     assert len(observations) == 1
 
 
+def test_operator_developmental_feedback_requires_confirmation_and_records_explicit_writeback(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    class CognitionBridge:
+        def __init__(self):
+            self.feedback_calls = []
+            self.enabled = True
+
+        def can_handle(self):
+            return self.enabled
+
+        def respond(self, *, request_id, question, screen_observation=None):
+            return SimpleNamespace(status="admitted_completed", disposition="answer",
+                response="I predict the marker will move right.",
+                evidence_ids=("fact-screen-1",),
+                cognition_observation_id="devcog-" + "a" * 24,
+                cognition_observation_digest="sha256:" + "b" * 64,
+                snapshot_id="world-state-test", snapshot_digest="c" * 64,
+                inference_receipt_id="lmrec-" + "d" * 24,
+                inference_receipt_digest="e" * 64,
+                invocation_output_digest="f" * 64, model_id="local-test",
+                model_artifact_digest="g" * 64, prior_record_ids=(),
+                history_record_ids=(), developmental_history_writeback_performed=False,
+                authority=False, current_truth=False,
+                canonical_explicit_user_retention_mutated=False)
+
+        def operator_feedback_sources_allowed(self):
+            return True
+
+        def verify_committed_response(self, *, linkage, response_text, request_id):
+            return (linkage.get("response_origin") == "resident_developmental_cognition"
+                and response_text == "I predict the marker will move right."
+                and request_id.endswith(str(linkage.get("source_user_turn_id"))))
+
+        def record_operator_feedback(self, **kwargs):
+            self.feedback_calls.append(kwargs)
+            return SimpleNamespace(status="completed", tick_id=kwargs["tick_id"],
+                snapshot_id="world-state-outcome", written_record_id="devrec-" + "h" * 24,
+                writeback_receipt_id="devwrite-" + "i" * 24,
+                cognition_observation_ids=("devcog-" + "j" * 24,),
+                canonical_explicit_user_retention_mutated=False)
+
+    bridge = CognitionBridge()
+    captures = []
+    def observe():
+        from datetime import datetime, timezone
+        captures.append(1)
+        return {"modality": "screen", "text": "marker moved right",
+            "capture_digest": "a" * 64,
+            "capture_scope": "allowlisted_foreground_game_client_area",
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "raw_frame_retained": False, "text_status": "available",
+            "text_change_kind": "initial", "previous_text_digest": None,
+            "visual_change_kind": "initial"}
+    app = service(tmp_path, screen_observer=observe, cognition_bridge=bridge)
+    session_id = app.create_session()
+    response = app.chat("Predict a small visible game change.", session_id=session_id,
+        request_id="prediction-1", observe_screen=True)
+    monkeypatch.setattr(chat_service, "_get_conversation_service", lambda: app)
+    local_request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"))
+    with pytest.raises(chat_service.HTTPException) as denied:
+        asyncio.run(chat_service.record_developmental_feedback_endpoint(
+            session_id, chat_service.DevelopmentalFeedbackRequest(
+                session_id=session_id, assistant_turn_id=response.turn_id,
+                request_id="feedback-1", feedback="It moved right.",
+                operator_confirmed=False), local_request))
+    assert denied.value.status_code == 400
+    assert len(captures) == 1
+    bridge.enabled = False
+    with pytest.raises(chat_service.HTTPException) as deferred:
+        asyncio.run(chat_service.record_developmental_feedback_endpoint(
+            session_id, chat_service.DevelopmentalFeedbackRequest(
+                session_id=session_id, assistant_turn_id=response.turn_id,
+                request_id="feedback-1", feedback="It moved right.",
+                operator_confirmed=True), local_request))
+    assert deferred.value.status_code == 409
+    assert len(captures) == 1
+    bridge.enabled = True
+    result = asyncio.run(chat_service.record_developmental_feedback_endpoint(
+        session_id, chat_service.DevelopmentalFeedbackRequest(
+            session_id=session_id, assistant_turn_id=response.turn_id,
+            request_id="feedback-1", feedback="It moved right.",
+            operator_confirmed=True), local_request))
+    assert result["status"] == "completed"
+    assert result["written_record_id"] == "devrec-" + "h" * 24
+    assert result["raw_frame_retained"] is False
+    assert len(captures) == 2
+    assert bridge.feedback_calls[0]["feedback"] == "It moved right."
+    assert bridge.feedback_calls[0]["screen_observation"]["text"] == "marker moved right"
+
+
 def test_requested_screen_observation_fails_closed_without_owner(tmp_path: Path) -> None:
     app = service(tmp_path)
     with pytest.raises(RuntimeError, match="screen_observation_not_configured"):
@@ -566,6 +656,9 @@ def test_chat_endpoint_and_local_ui_expose_per_message_screen_opt_in(
     assert b"clearTerminalChatRequestIdentity(" in page.body
     assert b"This request ID conflicts with an earlier request" in page.body
     assert b"chatSendInFlight = false" in page.body
+    assert b"Record learning outcome" in page.body
+    assert b"developmental-feedback" in page.body
+    assert b"operator_confirmed: true" in page.body
 
     body = page.body.decode("utf-8")
     match = re.search(

@@ -363,3 +363,47 @@ root and does not widen canonical retention semantics.
 ## Fourth substrate: prior epistemic state
 
 Cognition can receive a separately typed, prior-tick epistemic projection binding exact proposition IDs, state IDs/digests, generations, and evidence-set digests. Current World-State evidence outranks a conflicting stale position for current-condition reasoning. Same-tick projections fail closed, so a cognition cannot certify its own update. See [persistent epistemic state](../architecture/persistent_epistemic_state.md).
+
+
+## Explicit companion outcome writeback (developmental experiment)
+
+The hosted companion now exposes a deliberately separate outcome-recording
+action. It is never called by ordinary chat. In the local companion, the
+**Record learning outcome** control appears only on a transcript reply whose
+stored lineage identifies a completed resident cognition interaction. The
+operator must confirm, describe the outcome, and have active screen consent.
+The loopback-only endpoint is:
+
+`POST /sessions/{session_id}/developmental-feedback`
+
+Its request includes the same session ID, the assistant turn ID, a unique
+request ID, bounded feedback text, and `operator_confirmed: true`. The service
+checks the assistant reply's durable cognition lineage, requests one fresh
+allowlisted game-screen observation, and calls
+`ResidentDevelopmentalCompanionBridge.record_operator_feedback`. That bridge
+admits the observation and operator report only if `operator_feedback` and
+`embodiment` are already in the resident owner's source allowlist. It then
+uses the existing `ResidentDevelopmentalCognitionOwner.run_tick` and its
+existing interpretation, admission, and writeback path.
+
+The report is explicitly marked `operator_supplied_unverified_report`; it
+does not establish current truth, authority, or proof of effect. The screen
+capture is bounded, carries a digest and caller-asserted capture time, retains
+no raw frame, and must be no older than 60 seconds (with at most five seconds
+of future clock skew). The capture is obtained only after the operator
+confirms. If the current workload gate says gaming inference is unavailable,
+the request is rejected before capture and inference; the gate is not bypassed.
+A retried completed writeback is rejected by the owner's unique tick identity;
+a new request ID means an intentionally new writeback.
+
+This is an operator-authorized writeback increment, not a complete
+developmental cycle. It does not issue or authorize an action, create a
+structured prediction, independently attribute the action's consequence, or
+measure whether the retained record changes later cognition. A fresh screen
+observation and an operator's account are separate evidence sources, but the
+latter remains unverified and the capture alone may not identify the claimed
+effect. No performance improvement is inferred. Those stages require a
+source-backed safe action path and the existing independent-consequence
+machinery, followed by the matched history-present, history-withheld, and
+history-restored protocol. Live execution remains opt-in and is not claimed by
+the unit tests.

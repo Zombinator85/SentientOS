@@ -780,6 +780,14 @@ class ChatRequest(BaseModel):
     observe_screen: bool = False
 
 
+class DevelopmentalFeedbackRequest(BaseModel):
+    session_id: str
+    assistant_turn_id: str
+    request_id: str
+    feedback: str
+    operator_confirmed: bool
+
+
 def _publish_grounded_model_stream(
     on_content_chunk: Callable[[str], None],
     chunks: list[str],
@@ -1043,6 +1051,77 @@ class PersistentConversationService:
         self.retention_writer = AdmittedRetentionWriter(
             memory_store, admission_gate=self.admission_gate)
         self.context_budget_chars = context_budget_chars; self.memory_budget_chars = memory_budget_chars
+
+    def record_developmental_feedback(self, *, session_id: str,
+            assistant_turn_id: str, request_id: str, feedback: str) -> dict[str, Any]:
+        """Explicitly write a bounded operator report through resident cognition."""
+        if (not isinstance(session_id, str) or not session_id
+                or not isinstance(assistant_turn_id, str)
+                or not re.fullmatch(r"turn-[0-9a-f]{24}", assistant_turn_id)
+                or not isinstance(request_id, str)
+                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", request_id)
+                or not isinstance(feedback, str) or not feedback.strip()
+                or len(feedback) > 1200):
+            raise ChatRequestStateError("developmental_feedback_request_invalid")
+        bridge = self._resident_cognition_bridge
+        if bridge is None or self._screen_observer is None:
+            raise ChatRequestStateError("developmental_feedback_path_unavailable")
+        if getattr(bridge, "can_handle", lambda: False)() is not True:
+            raise CognitionWorkloadUnavailable()
+        with self.sessions.serialize_chat_requests(session_id):
+            session = self.sessions.load(session_id)
+            assistant = next((turn for turn in session["turns"]
+                if turn.get("turn_id") == assistant_turn_id
+                and turn.get("role") == "assistant"), None)
+            linkage = assistant.get("linkage") if isinstance(assistant, Mapping) else None
+            if (not isinstance(assistant, Mapping) or not isinstance(linkage, Mapping)
+                    or linkage.get("response_origin")
+                        != "resident_developmental_cognition"):
+                raise ChatRequestStateError(
+                    "developmental_feedback_requires_resident_cognition_reply")
+            source_turn_id = linkage.get("source_user_turn_id")
+            source_turn = next((turn for turn in session["turns"]
+                if turn.get("turn_id") == source_turn_id
+                and turn.get("role") == "user"), None)
+            if not isinstance(source_turn, Mapping):
+                raise ChatRequestStateError(
+                    "developmental_feedback_source_turn_unavailable")
+            cognition_request_id = f"{session_id}:{source_turn_id}"
+            verifier = getattr(bridge, "verify_committed_response", None)
+            if (not callable(verifier) or verifier(linkage=linkage,
+                    response_text=str(assistant.get("text", "")),
+                    request_id=cognition_request_id) is not True):
+                raise ChatRequestStateError(
+                    "developmental_feedback_prior_response_unverified")
+            source_allowlist_check = getattr(
+                bridge, "operator_feedback_sources_allowed", None)
+            if (not callable(source_allowlist_check)
+                    or source_allowlist_check() is not True):
+                raise ChatRequestStateError(
+                    "developmental_feedback_sources_not_allowlisted")
+            observer = self._screen_observer
+            question_observer = getattr(type(observer), "observe_question", None)
+            observation = (question_observer(observer, feedback)
+                if callable(question_observer) else observer())
+            if not isinstance(observation, Mapping):
+                raise RuntimeError("screen_observation_unavailable")
+            tick_id = "companion-feedback-" + hashlib.sha256(
+                f"{session_id}\0{request_id}".encode("utf-8")).hexdigest()[:32]
+            cycle = bridge.record_operator_feedback(
+                tick_id=tick_id, request_id=cognition_request_id,
+                response_text=str(assistant.get("text", "")), linkage=linkage,
+                feedback=feedback, screen_observation=observation)
+        return {
+            "status": cycle.status,
+            "tick_id": cycle.tick_id,
+            "snapshot_id": cycle.snapshot_id,
+            "written_record_id": cycle.written_record_id,
+            "writeback_receipt_id": cycle.writeback_receipt_id,
+            "cognition_observation_ids": list(cycle.cognition_observation_ids),
+            "canonical_explicit_user_retention_mutated":
+                cycle.canonical_explicit_user_retention_mutated,
+            "raw_frame_retained": False,
+        }
 
     def create_session(self) -> str:
         """Create an empty session so clients can bind their first request idempotently."""
@@ -3568,6 +3647,41 @@ def _chat_stream_event(event: Mapping[str, object]) -> str:
     return f"event: {event_type}\ndata: {data}\n\n"
 
 
+@APP.post("/sessions/{session_id}/developmental-feedback")
+async def record_developmental_feedback_endpoint(session_id: str,
+        request: DevelopmentalFeedbackRequest, http_request: Request) -> dict[str, Any]:
+    """Explicit, loopback-only operator feedback writeback for a cognition reply."""
+    client_host = getattr(getattr(http_request, "client", None), "host", None)
+    try:
+        local_client = isinstance(client_host, str) and ipaddress.ip_address(client_host).is_loopback
+    except ValueError:
+        local_client = False
+    if not local_client:
+        raise HTTPException(status_code=403,
+            detail="developmental_feedback_local_access_required")
+    if (request.session_id != session_id or request.operator_confirmed is not True):
+        raise HTTPException(status_code=400,
+            detail="developmental_feedback_operator_confirmation_required")
+    try:
+        service = _get_conversation_service()
+        return await asyncio.to_thread(service.record_developmental_feedback,
+            session_id=session_id, assistant_turn_id=request.assistant_turn_id,
+            request_id=request.request_id, feedback=request.feedback)
+    except CognitionWorkloadUnavailable as exc:
+        raise HTTPException(status_code=409,
+            detail="developmental_feedback_deferred_during_gaming_workload") from exc
+    except ChatRequestStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404,
+            detail="conversation_session_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503,
+            detail="developmental_feedback_not_completed") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @APP.post("/chat/stream")
 async def chat_stream_endpoint(request: ChatRequest, http_request: Request) -> StreamingResponse:
     message = request.message.strip()
@@ -4812,6 +4926,17 @@ async def root_page() -> HTMLResponse:
                             if (turn.role === 'assistant') {
                                 await appendSavedTurnDiagnostics(
                                     entry, content, turn.response_diagnostics);
+                                if (turn.response_diagnostics
+                                        && turn.response_diagnostics.status
+                                            === 'resident_cognition_interaction') {
+                                    const feedback = document.createElement('button');
+                                    feedback.type = 'button';
+                                    feedback.className = 'developmental-feedback-action';
+                                    feedback.textContent = 'Record learning outcome';
+                                    feedback.addEventListener('click', () =>
+                                        recordDevelopmentalFeedback(turn.turn_id, feedback));
+                                    entry.appendChild(feedback);
+                                }
                             }
                             container.appendChild(entry);
                         }
@@ -4822,6 +4947,59 @@ async def root_page() -> HTMLResponse:
                         unavailable.id = 'conversation-status';
                         unavailable.textContent = 'Saved conversation transcript is unavailable.';
                         container.appendChild(unavailable);
+                    }
+                }
+                async function recordDevelopmentalFeedback(turnId, button) {
+                    const sessionId = localStorage.getItem('sentientos_session_id');
+                    if (!sessionId || typeof turnId !== 'string') return;
+                    const consent = confirm(
+                        'Record an outcome for this SentientOS cognition reply? This will '
+                        + 'capture one fresh, consented game screen and run the existing '
+                        + 'governed developmental writeback. It may use local model resources '
+                        + and is deferred while gaming workload is active. No raw frame is retained.');
+                    if (!consent) return;
+                    const feedback = prompt(
+                        'What did SentientOS predict, what safe action followed, and what '
+                        + 'did the observed outcome show? The operator report remains unverified.');
+                    if (!feedback || !feedback.trim()) return;
+                    const requestKey = 'sentientos_developmental_feedback:'
+                        + sessionId + ':' + turnId;
+                    let requestId = localStorage.getItem(requestKey);
+                    if (!requestId) {
+                        requestId = crypto.randomUUID();
+                        localStorage.setItem(requestKey, requestId);
+                    }
+                    button.disabled = true;
+                    try {
+                        const response = await fetch('/sessions/'
+                            + encodeURIComponent(sessionId) + '/developmental-feedback', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    session_id: sessionId,
+                                    assistant_turn_id: turnId,
+                                    request_id: requestId,
+                                    feedback: feedback.trim(),
+                                    operator_confirmed: true,
+                                }),
+                            });
+                        const payload = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                            const detail = typeof payload.detail === 'string'
+                                ? payload.detail : 'developmental_feedback_not_completed';
+                            alert('Learning outcome was not recorded: ' + detail
+                                + '. The request identity is preserved; do not retry with a new '
+                                + 'identity unless you intend a new writeback.');
+                            return;
+                        }
+                        alert('Outcome entered through the existing developmental owner. '
+                            + 'Record: ' + payload.written_record_id
+                            + '. This is not yet evidence that later cognition changed.');
+                    } catch (_) {
+                        alert('Outcome writeback status is unknown. The same request identity '
+                            + 'is preserved to prevent duplicate learning writes.');
+                    } finally {
+                        button.disabled = false;
                     }
                 }
                 async function refreshAvatarOutput(preserveStatus = false) {
