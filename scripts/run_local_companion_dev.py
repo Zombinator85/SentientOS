@@ -392,23 +392,49 @@ def _apply_gaming_resource_observation(
 
 class _LatestRendererObservation:
     """Expose only a fresh, explicitly unverified Godot body self-report."""
-    def __init__(self, *, max_age_seconds: float = 5.0) -> None:
+    def __init__(self, *, max_age_seconds: float = 5.0,
+                 adopted_body_pointer: Mapping[str, Any] | None = None) -> None:
         if not 0 < max_age_seconds <= 30:
             raise ValueError("renderer_observation_cache_ttl_invalid")
         self._max_age = float(max_age_seconds)
         self._lock = threading.Lock()
         self._observation: Any | None = None
         self._sampled_monotonic = 0.0
+        self._adopted_body_pointer = (dict(adopted_body_pointer)
+            if adopted_body_pointer is not None else None)
+        self._body_pointer_comparison: dict[str, Any] | None = None
 
     def update(self, report: Mapping[str, Any]) -> None:
-        from sentientos.avatar_renderer_report_ingress import renderer_report_observation
+        from sentientos.avatar_renderer_report_ingress import (
+            compare_adopted_renderer_report_to_body_pointer,
+            renderer_report_observation,
+        )
+        comparison = None
+        observation: Any | None = None
         try:
             observation = renderer_report_observation(report)
+            if self._adopted_body_pointer is not None:
+                comparison = compare_adopted_renderer_report_to_body_pointer(
+                    report, self._adopted_body_pointer)
+                if comparison["lineage_match"] is not True:
+                    observation = None
+                else:
+                    observation = replace(observation, payload={
+                        **dict(observation.payload),
+                        "body_pointer_comparison": comparison,
+                    })
         except Exception:
             observation = None
         with self._lock:
             self._observation = observation
+            self._body_pointer_comparison = comparison
             self._sampled_monotonic = time.monotonic() if observation is not None else 0.0
+
+    def body_pointer_comparison(self) -> dict[str, Any] | None:
+        """Return the last comparison without upgrading renderer self-report."""
+        with self._lock:
+            return (dict(self._body_pointer_comparison)
+                if self._body_pointer_comparison is not None else None)
 
     def __call__(self) -> tuple[Any, ...]:
         now = time.monotonic()
@@ -521,7 +547,8 @@ class _TemporaryCompanionEdge:
                  screen_observation_foreground_wait_seconds: int = 5,
                  screen_observation_tesseract_executable: str | None = None,
                  screen_observation_vision_model: str | None = None,
-                 delivery_event_file: Path | None = None) -> None:
+                 delivery_event_file: Path | None = None,
+                 adopted_body_pointer: Mapping[str, Any] | None = None) -> None:
         from scripts.gaming_companion_cross_host_smoke import (
             _addresses, _contexts, _test_identities, _win_path, _win_temp,
             _secret_free_environment,
@@ -566,7 +593,8 @@ class _TemporaryCompanionEdge:
         self.godot_headless = godot_headless
         if delivery_event_file is not None:
             delivery_event_file.parent.mkdir(parents=True, exist_ok=True)
-        self.proprioception_observations = _LatestRendererObservation()
+        self.proprioception_observations = _LatestRendererObservation(
+            adopted_body_pointer=adopted_body_pointer)
         try:
             identities = _test_identities(root)
             wsl, edge, ca = identities["wsl"], identities["windows"], identities["ca"]
@@ -975,6 +1003,10 @@ def main() -> int:
     parser.add_argument("--windows-python", type=Path)
     parser.add_argument("--godot-exe", type=Path)
     parser.add_argument("--godot-project", type=Path)
+    parser.add_argument("--avatar-body-pointer", type=Path,
+        help=("Optionally compare Godot adopted-body self-reports with this "
+              "digest-verified current-body pointer; this does not verify "
+              "adoption authority or renderer effects"))
     parser.add_argument("--godot-headless", action="store_true",
                         help="Run the supervised development edge without opening a Godot window")
     parser.add_argument("--local-speech-output", action="store_true",
@@ -1003,6 +1035,9 @@ def main() -> int:
     if any(value is not None for value in edge_args) and not all(
             value is not None for value in edge_args):
         parser.error("the temporary edge requires Windows Python, Godot, and project")
+    if args.avatar_body_pointer is not None and not all(
+            value is not None for value in edge_args):
+        parser.error("avatar body pointer comparison requires the supervised Godot edge")
     if args.screen_observation_process and not all(
             value is not None for value in edge_args):
         parser.error("screen observation requires the supervised Windows edge")
@@ -1233,6 +1268,13 @@ def main() -> int:
                 "max_cognitive_projection_count":
                     epistemic_payload["max_cognitive_projection_count"],
             }
+    adopted_body_pointer = None
+    if args.avatar_body_pointer is not None:
+        from sentientos.avatar_authoring import load_pointer
+        try:
+            adopted_body_pointer = load_pointer(args.avatar_body_pointer)
+        except Exception as exc:
+            parser.error("avatar body pointer is invalid: " + type(exc).__name__)
     edge: _TemporaryCompanionEdge | None = None
     host_resource_sampler: _HostResourceSampler | None = None
     try:
@@ -1253,7 +1295,8 @@ def main() -> int:
                 screen_observation_tesseract_executable=(
                     args.screen_observation_tesseract_executable),
                 screen_observation_vision_model=args.screen_observation_vision_model,
-                delivery_event_file=state / "evidence" / "avatar-delivery-events.jsonl")
+                delivery_event_file=state / "evidence" / "avatar-delivery-events.jsonl",
+                adopted_body_pointer=adopted_body_pointer)
         gaming_vram_guard = _GamingResourcePressureGuard()
         development_inference = configure_development_chat(
             invoker=invoker, data_root=chat_state,

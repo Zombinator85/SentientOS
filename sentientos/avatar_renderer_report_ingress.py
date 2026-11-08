@@ -500,3 +500,101 @@ def renderer_report_world_state_record(report: Mapping[str, Any]) -> dict[str, A
     if len(records) != 1:
         raise RendererReportIngressError("renderer_report_projection_invalid")
     return cast(dict[str, Any], records[0])
+
+def compare_adopted_renderer_report_to_body_pointer(
+        report: Mapping[str, Any], pointer: Mapping[str, Any]) -> dict[str, Any]:
+    """Compare a renderer's adopted-body claim with the current body pointer.
+
+    The pointer's self-digest establishes record integrity, not operator
+    adoption authority. A match therefore establishes only that the renderer's
+    asserted body lineage names the same pointer contents; it does not prove
+    which artifact the renderer actually displayed or that an action occurred.
+    """
+    from .avatar_authoring import POINTER_SCHEMA, digest as pointer_digest
+
+    if not isinstance(pointer, Mapping):
+        raise RendererReportIngressError("renderer_body_pointer_invalid")
+    required_pointer_fields = {
+        "schema_version", "installation_identity", "body_identity",
+        "body_generation", "artifact_path", "artifact_sha256", "byte_size",
+        "manifest_digest", "rig_semantic_digest", "predecessor_generation",
+        "adoption_receipt_digest", "update_sequence", "pointer_digest",
+    }
+    if set(pointer) != required_pointer_fields:
+        raise RendererReportIngressError("renderer_body_pointer_invalid")
+    pointer_payload = dict(pointer)
+    claimed_pointer_digest = pointer_payload.pop("pointer_digest")
+    body_generation = pointer.get("body_generation")
+    predecessor_generation = pointer.get("predecessor_generation")
+    adoption_digest = pointer.get("adoption_receipt_digest")
+    adoption_digest_valid = (isinstance(adoption_digest, str)
+        and (_SHA256.fullmatch(adoption_digest) is not None
+             or re.fullmatch(r"genesis:[0-9a-f]{64}", adoption_digest) is not None))
+    identity_valid = all(
+        isinstance(pointer.get(field), str)
+        and 0 < len(pointer[field]) <= 128
+        and not any(char in pointer[field] for char in ("/", "\\", "\x00"))
+        and pointer[field] not in {".", ".."}
+        for field in ("installation_identity", "body_identity"))
+    predecessor_valid = (
+        predecessor_generation is None and body_generation == 1
+        or type(predecessor_generation) is int
+        and type(body_generation) is int
+        and 1 <= predecessor_generation < body_generation)
+    if (pointer.get("schema_version") != POINTER_SCHEMA
+            or not identity_valid
+            or type(body_generation) is not int or body_generation < 1
+            or not predecessor_valid
+            or not isinstance(pointer.get("artifact_path"), str)
+            or not pointer["artifact_path"] or len(pointer["artifact_path"]) > 4096
+            or "\x00" in pointer["artifact_path"]
+            or type(pointer.get("byte_size")) is not int
+            or not 0 < pointer["byte_size"] <= 256 * 1024 * 1024
+            or type(pointer.get("update_sequence")) is not int
+            or pointer["update_sequence"] < 1
+            or not isinstance(pointer.get("artifact_sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", pointer["artifact_sha256"]) is None
+            or not isinstance(pointer.get("manifest_digest"), str)
+            or _SHA256.fullmatch(pointer["manifest_digest"]) is None
+            or not isinstance(pointer.get("rig_semantic_digest"), str)
+            or _SHA256.fullmatch(pointer["rig_semantic_digest"]) is None
+            or not adoption_digest_valid
+            or not isinstance(claimed_pointer_digest, str)
+            or _SHA256.fullmatch(claimed_pointer_digest) is None
+            or claimed_pointer_digest != pointer_digest(pointer_payload)):
+        raise RendererReportIngressError("renderer_body_pointer_integrity_invalid")
+
+
+    observation = renderer_report_observation(report)
+    bounded_report = observation.payload.get("renderer_report")
+    if (not isinstance(bounded_report, Mapping)
+            or bounded_report.get("source_id") != "godot-adopted-body-demo"):
+        raise RendererReportIngressError("renderer_adopted_body_report_required")
+    renderer_state = bounded_report.get("renderer_state")
+    adopted_body = (renderer_state.get("adopted_body")
+        if isinstance(renderer_state, Mapping) else None)
+    if not isinstance(adopted_body, Mapping):
+        raise RendererReportIngressError("renderer_adopted_body_lineage_missing")
+
+    matches = (
+        bounded_report.get("body_identity") == pointer.get("body_identity"),
+        bounded_report.get("body_generation") == pointer.get("body_generation"),
+        adopted_body.get("artifact_sha256") == pointer.get("artifact_sha256"),
+        adopted_body.get("manifest_digest") == pointer.get("manifest_digest"),
+        adopted_body.get("pointer_digest") == claimed_pointer_digest,
+        adopted_body.get("adoption_receipt_digest")
+            == pointer.get("adoption_receipt_digest"),
+    )
+    return {
+        "schema_version": "sentientos.renderer_body_pointer_comparison:v1",
+        "status": "lineage_match" if all(matches) else "lineage_mismatch",
+        "lineage_match": all(matches),
+        "renderer_report_digest": observation.source_digest,
+        "body_identity": pointer["body_identity"],
+        "body_generation": pointer["body_generation"],
+        "pointer_digest": claimed_pointer_digest,
+        "renderer_self_report_only": True,
+        "adoption_authority_verified": False,
+        "renderer_effect_proven": False,
+        "independent_observation": False,
+    }

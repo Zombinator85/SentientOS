@@ -278,3 +278,152 @@ def test_renderer_report_v2_requires_truthful_speech_boundary_evidence():
     _refresh_digest(forged)
     with pytest.raises(RendererReportIngressError, match="speech_state_invalid"):
         renderer_report_observation(forged)
+
+
+
+def _body_pointer_for_report(report: dict[str, object]) -> dict[str, object]:
+    from sentientos.avatar_authoring import POINTER_SCHEMA, digest
+
+    renderer_state = report["renderer_state"]
+    assert isinstance(renderer_state, dict)
+    adopted_body = renderer_state["adopted_body"]
+    assert isinstance(adopted_body, dict)
+    pointer: dict[str, object] = {
+        "schema_version": POINTER_SCHEMA,
+        "installation_identity": "installation-test",
+        "body_identity": report["body_identity"],
+        "body_generation": report["body_generation"],
+        "artifact_path": "/private/avatar.glb",
+        "artifact_sha256": adopted_body["artifact_sha256"],
+        "byte_size": 128,
+        "manifest_digest": adopted_body["manifest_digest"],
+        "rig_semantic_digest": "sha256:" + "e" * 64,
+        "predecessor_generation": 3,
+        "adoption_receipt_digest": adopted_body["adoption_receipt_digest"],
+        "update_sequence": 4,
+    }
+    pointer["pointer_digest"] = digest(pointer)
+    adopted_body["pointer_digest"] = pointer["pointer_digest"]
+    _refresh_digest(report)
+    return pointer
+
+
+def test_adopted_renderer_pointer_comparison_reports_match_without_promoting_authority():
+    from sentientos.avatar_renderer_report_ingress import (
+        compare_adopted_renderer_report_to_body_pointer,
+    )
+
+    report = _adopted_body_report()
+    pointer = _body_pointer_for_report(report)
+
+    comparison = compare_adopted_renderer_report_to_body_pointer(report, pointer)
+
+    assert comparison["lineage_match"] is True
+    assert comparison["status"] == "lineage_match"
+    assert comparison["renderer_self_report_only"] is True
+    assert comparison["adoption_authority_verified"] is False
+    assert comparison["renderer_effect_proven"] is False
+    assert comparison["independent_observation"] is False
+
+
+def test_adopted_renderer_pointer_comparison_reports_lineage_mismatch():
+    from sentientos.avatar_authoring import digest
+    from sentientos.avatar_renderer_report_ingress import (
+        compare_adopted_renderer_report_to_body_pointer,
+    )
+
+    report = _adopted_body_report()
+    pointer = _body_pointer_for_report(report)
+    pointer["body_generation"] = 5
+    pointer["pointer_digest"] = digest({
+        key: value for key, value in pointer.items() if key != "pointer_digest"
+    })
+
+    comparison = compare_adopted_renderer_report_to_body_pointer(report, pointer)
+
+    assert comparison["lineage_match"] is False
+    assert comparison["status"] == "lineage_mismatch"
+    assert comparison["adoption_authority_verified"] is False
+
+
+def test_adopted_renderer_pointer_comparison_rejects_tampered_pointer_digest():
+    from sentientos.avatar_renderer_report_ingress import (
+        RendererReportIngressError,
+        compare_adopted_renderer_report_to_body_pointer,
+    )
+
+    report = _adopted_body_report()
+    pointer = _body_pointer_for_report(report)
+    pointer["artifact_path"] = "/changed/avatar.glb"
+
+    with pytest.raises(RendererReportIngressError,
+            match="renderer_body_pointer_integrity_invalid"):
+        compare_adopted_renderer_report_to_body_pointer(report, pointer)
+
+
+
+def test_local_runner_only_exposes_proprioception_when_adopted_pointer_lineage_matches():
+    from scripts.run_local_companion_dev import _LatestRendererObservation
+
+    report = _adopted_body_report()
+    pointer = _body_pointer_for_report(report)
+    owner = _LatestRendererObservation(adopted_body_pointer=pointer)
+    owner.update(report)
+
+    observations = owner()
+
+    assert len(observations) == 1
+    payload = observations[0].payload
+    comparison = payload["body_pointer_comparison"]
+    assert comparison["lineage_match"] is True
+    assert comparison["adoption_authority_verified"] is False
+    assert comparison["renderer_effect_proven"] is False
+    assert owner.body_pointer_comparison() == comparison
+
+
+def test_local_runner_withholds_mismatched_adopted_body_from_proprioception():
+    from sentientos.avatar_authoring import digest
+    from scripts.run_local_companion_dev import _LatestRendererObservation
+
+    report = _adopted_body_report()
+    pointer = _body_pointer_for_report(report)
+    pointer["body_generation"] = 5
+    pointer["pointer_digest"] = digest({
+        key: value for key, value in pointer.items() if key != "pointer_digest"
+    })
+    owner = _LatestRendererObservation(adopted_body_pointer=pointer)
+    owner.update(report)
+
+    assert owner() == ()
+    comparison = owner.body_pointer_comparison()
+    assert comparison is not None
+    assert comparison["lineage_match"] is False
+    assert comparison["status"] == "lineage_mismatch"
+
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("installation_identity", "../other-install"),
+    ("artifact_path", ""),
+    ("byte_size", True),
+    ("update_sequence", True),
+    ("rig_semantic_digest", "not-a-digest"),
+    ("adoption_receipt_digest", "unverified"),
+])
+def test_adopted_renderer_pointer_comparison_rejects_malformed_pointer_fields(
+        field: str, value: object):
+    from sentientos.avatar_authoring import digest
+    from sentientos.avatar_renderer_report_ingress import (
+        compare_adopted_renderer_report_to_body_pointer,
+    )
+
+    report = _adopted_body_report()
+    pointer = _body_pointer_for_report(report)
+    pointer[field] = value
+    pointer["pointer_digest"] = digest({
+        key: item for key, item in pointer.items() if key != "pointer_digest"
+    })
+
+    with pytest.raises(RendererReportIngressError,
+            match="renderer_body_pointer_integrity_invalid"):
+        compare_adopted_renderer_report_to_body_pointer(report, pointer)
