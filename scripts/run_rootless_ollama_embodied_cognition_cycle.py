@@ -65,6 +65,7 @@ MANIFEST_PATH = EXPERIMENT_ROOT / "ollama-model-manifests" / (
     "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce.json")
 RUN_ID = "rootless-cognition-cycle-" + uuid.uuid4().hex[:20]
 RUN_ROOT = EXPERIMENT_ROOT / "developmental-cognition-cycles" / RUN_ID
+RUN_STAGE = "startup"
 
 
 def _now() -> str:
@@ -126,6 +127,122 @@ def _verify_model_released(model_name: str, *, timeout_seconds: float = 20.0
         if time.monotonic() >= deadline:
             return {"status": "target_model_still_resident", "checks": checks}
         time.sleep(0.5)
+
+
+def _failure_code(exc: Exception) -> str:
+    for attribute in ("code", "reason_code", "reason"):
+        value = getattr(exc, attribute, None)
+        if isinstance(value, str) and re.fullmatch(r"[a-z0-9_]{1,120}", value):
+            return value
+    message = str(exc).strip()
+    if re.fullmatch(r"[a-z0-9_]{1,120}", message):
+        return message
+    return type(exc).__name__
+
+
+def _persist_incomplete_run(exc: Exception) -> Path | None:
+    """Record a bounded failure summary without copying prompts or model text."""
+    if not RUN_ROOT.is_dir() or RUN_ROOT.is_symlink():
+        return None
+    receipts: list[dict[str, Any]] = []
+    receipt_root = RUN_ROOT / "inference-custody" / "receipts"
+    if receipt_root.is_dir() and not receipt_root.is_symlink():
+        for path in sorted(receipt_root.glob("lmrec-*.json")):
+            if path.is_symlink():
+                continue
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                continue
+            request = payload.get("request") if isinstance(payload, dict) else None
+            output_text = payload.get("output_text") if isinstance(payload, dict) else None
+            decoded = None
+            if isinstance(output_text, str) and len(output_text) <= 4000:
+                try:
+                    decoded = json.loads(output_text)
+                except json.JSONDecodeError:
+                    decoded = None
+            upstream = request.get("upstream_evidence") if isinstance(request, dict) else None
+            retrieved_record_ids = (upstream.get("record_ids", [])
+                if isinstance(upstream, dict) else [])
+            cited_record_ids = (decoded.get("history_record_ids", [])
+                if isinstance(decoded, dict) else [])
+            citation_is_bound = (isinstance(cited_record_ids, list)
+                and bool(cited_record_ids)
+                and all(isinstance(item, str) for item in cited_record_ids)
+                and isinstance(retrieved_record_ids, list)
+                and all(isinstance(item, str) for item in retrieved_record_ids)
+                and set(cited_record_ids).issubset(retrieved_record_ids))
+            response_value = (decoded.get("response")
+                if isinstance(decoded, dict) else None)
+            response_text = (response_value.strip().lower()
+                if isinstance(response_value, str) else "")
+            receipts.append({
+                "receipt_id": payload.get("receipt_id"),
+                "receipt_digest": payload.get("receipt_digest"),
+                "purpose": payload.get("purpose"),
+                "correlation_id": request.get("correlation_id")
+                    if isinstance(request, dict) else None,
+                "output_digest": payload.get("output_digest"),
+                "reason_codes": payload.get("reason_codes", []),
+                "disposition": decoded.get("disposition")
+                    if isinstance(decoded, dict) else None,
+                "evidence_ids": decoded.get("evidence_ids", [])
+                    if isinstance(decoded, dict) else [],
+                "history_record_ids": decoded.get("history_record_ids", [])
+                    if isinstance(decoded, dict) else [],
+                "history_citation_classification": (
+                    "bound_to_retrieved_record" if citation_is_bound else
+                    "unbound_or_absent" if cited_record_ids else "not_present"),
+                "response_classification": (
+                    "exact_idle_value_with_bound_history"
+                    if response_text == "idle" and citation_is_bound else
+                    "target_value_idle_with_bound_history"
+                    if "idle" in response_text and citation_is_bound else
+                    "other_or_unvalidated"),
+                "model_output_text_excluded": True,
+            })
+    records: list[dict[str, Any]] = []
+    record_root = RUN_ROOT / "resident-cognition" / "history" / "records"
+    if record_root.is_dir() and not record_root.is_symlink():
+        for path in sorted(record_root.glob("*.json")):
+            if path.is_symlink():
+                continue
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                continue
+            if isinstance(payload, dict):
+                records.append({"record_id": payload.get("record_id"),
+                    "record_digest": payload.get("record_digest"),
+                    "current_truth": payload.get("current_truth"),
+                    "authority": payload.get("authority")})
+    artifact = {
+        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v1",
+        "run_id": RUN_ID,
+        "status": "incomplete",
+        "execution_posture": "rootless_experimental_nonproduction",
+        "model_id": MODEL_NAME,
+        "model_manifest_digest": MANIFEST_PATH.stem,
+        "stage": RUN_STAGE,
+        "failure_type": type(exc).__name__,
+        "failure_code": _failure_code(exc),
+        "inference_receipts": receipts,
+        "governed_developmental_records": records,
+        "governed_unload": _verify_model_released(MODEL_NAME),
+        "gpu_after": _gpu_snapshot(),
+        "raw_frames_or_user_conversation_copied": False,
+        "causal_or_learning_claim_made": False,
+    }
+    target = RUN_ROOT / "cycle-failure.json"
+    _no_symlink_path(target)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(target, flags, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(artifact, sort_keys=True, indent=2) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    return target
 
 
 def _pose_decision_from_response(value: str) -> dict[str, str] | None:
@@ -373,6 +490,8 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
 
 
 def run() -> dict[str, Any]:
+    global RUN_STAGE
+    RUN_STAGE = "model_and_runtime_preflight"
     if not MANIFEST_PATH.is_file() or MANIFEST_PATH.is_symlink():
         raise RootlessExperimentalError("pinned_hermes_manifest_missing")
     preexisting_residency = _model_residency_observed(MODEL_NAME)
@@ -403,6 +522,7 @@ def run() -> dict[str, Any]:
     session.session_binding["active_model_identity_digest"] = digest_payload(
         {"identity": session.active_model_identity})
     try:
+        RUN_STAGE = "synthetic_pre_action_cognition"
         cognition_root = RUN_ROOT / "resident-cognition"
         history_root, state_root = cognition_root / "history", cognition_root / "state"
         ledger = AdmissionLedger(state_root / "runtime_admissions.json")
@@ -437,7 +557,9 @@ def run() -> dict[str, Any]:
         pre_action_snapshot, pre_action_proprioception = _pre_action_source()
         pre_action_at = datetime.now(timezone.utc)
         pre_action_text = (
-            "Synthetic test fixture: avatar encoder pose idle; available poses reach or idle.")
+            "Synthetic test fixture: avatar encoder pose idle; available poses reach or idle. "
+            "Deterministic transition table: command reach produces encoder pose reach; "
+            "command idle produces encoder pose idle.")
         pre_action_screen = {
             "modality": "screen", "text": pre_action_text,
             "captured_at": pre_action_at.isoformat(),
@@ -461,8 +583,10 @@ def run() -> dict[str, Any]:
             "For this synthetic test, the avatar has the task goal of reaching "
             "the marked target directly in front of it. Choose the allowed next "
             "pose (reach or idle) that advances that goal, and predict the "
-            "resulting encoder pose. The current encoder pose is idle and both "
-            "poses are available. Return exactly one JSON object with "
+            "resulting encoder pose using the supplied deterministic transition "
+            "table. The current encoder pose is idle and both poses are available. "
+            "The table means choosing reach predicts encoder pose reach; choosing "
+            "idle predicts encoder pose idle. Return exactly one JSON object with "
             "requested_pose and predicted_pose, each either reach or idle. This "
             "is a proposal only; do not claim an action occurred. Base the "
             "choice on the supplied current evidence and task goal.")
@@ -490,9 +614,16 @@ def run() -> dict[str, Any]:
                 or proposal.get("requested_pose") not in {"reach", "idle"}
                 or proposal.get("predicted_pose") not in {"reach", "idle"}):
             raise RootlessExperimentalError("pre_action_cognition_proposal_invalid")
+        expected_prediction = {"reach": "reach", "idle": "idle"}[proposal["requested_pose"]]
+        if proposal["predicted_pose"] != expected_prediction:
+            raise RootlessExperimentalError(
+                "pre_action_prediction_inconsistent_with_deterministic_fixture")
+        if proposal["requested_pose"] != "reach":
+            raise RootlessExperimentalError("pre_action_goal_not_met")
         snapshot, evidence, proprioception = _embodied_source(
             requested_pose=proposal["requested_pose"],
             predicted_pose=proposal["predicted_pose"])
+        RUN_STAGE = "governed_developmental_writeback"
         first = owner.run_tick(snapshot=snapshot, tick_id=RUN_ID + ":consequence")
         if not first.written_record_id:
             raise RootlessExperimentalError("governed_developmental_writeback_not_created")
@@ -548,6 +679,7 @@ def run() -> dict[str, Any]:
                 "or current evidence. If present, answer as an unverified past "
                 "report, set evidence_ids to [], and cite the exact containing "
                 "record_id in history_record_ids, not its fact_id. Otherwise abstain."))
+        RUN_STAGE = "controlled_history_intervention"
         companion_intervention = (
             intervention_owner.run_companion_history_intervention(
                 snapshot=later_pre_action_snapshot,
@@ -589,9 +721,16 @@ def run() -> dict[str, Any]:
                 "observer report" in text or "observer_report_field" in text
                 or "observer reported" in text)
         def _reports_past_idle(item: Any) -> bool:
-            return (isinstance(item, Mapping)
-                and item.get("disposition") == "answer"
-                and _mentions_past_idle(item))
+            if not isinstance(item, Mapping) or item.get("disposition") != "answer":
+                return False
+            if not _history_citation_bound(item):
+                return False
+            cited_prior_record = bool(set(item.get("history_record_ids", ()))
+                & set(item.get("prior_record_ids", ())))
+            if not cited_prior_record:
+                return False
+            response = str(item.get("response", "")).strip().lower()
+            return _mentions_past_idle(item) or response == "idle"
         def _history_citation_bound(item: Any) -> bool:
             return (isinstance(item, Mapping)
                 and bool(item.get("history_record_ids"))
@@ -787,6 +926,7 @@ def run() -> dict[str, Any]:
         result["governed_unload"] = "governed_release_completed"
         result["residency_verification"] = _verify_model_released(MODEL_NAME)
         result["gpu_after"] = _gpu_snapshot()
+        RUN_STAGE = "complete_result_persistence"
         out = RUN_ROOT / "cycle-result.json"
         result["evidence_path"] = str(out)
         out.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")
@@ -797,5 +937,19 @@ def run() -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    result = run()
+    try:
+        result = run()
+    except Exception as exc:
+        failure_artifact = None
+        try:
+            failure_artifact = _persist_incomplete_run(exc)
+        except Exception:
+            # Evidence persistence must not hide the original experiment failure.
+            pass
+        print(json.dumps({"status": "incomplete", "run_id": RUN_ID,
+            "stage": RUN_STAGE, "failure_type": type(exc).__name__,
+            "failure_code": _failure_code(exc),
+            "failure_artifact": str(failure_artifact) if failure_artifact else None,
+            "causal_or_learning_claim_made": False}, sort_keys=True, indent=2))
+        raise
     print(json.dumps(result, sort_keys=True, indent=2))
