@@ -324,10 +324,15 @@ def test_present_withheld_restored_strategy_experiment_and_external_score(tmp_pa
     from scripts.run_local_companion_dev import (
         _build_companion_consequence_records_provider,
     )
+    handoff, expectation, report, observation, attribution, comparison = chain()
+    stored_chain=store.put_consequence_chain(expectation=expectation,handoff=handoff,
+        renderer_report=report,observation=observation,attribution=attribution,
+        comparison=comparison)
     projection_config={"schema_version":WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4,
         "enabled":True,"store_root":str(tmp_path),
-        "experiment_result_ids":[result["experiment_result_id"]],
-        "consequence_chain_ids":[],"model_replacement_state_root":None,
+        "experiment_result_ids":[],
+        "consequence_chain_ids":[stored_chain["chain_id"]],
+        "model_replacement_state_root":None,
         "model_replacement_runs":[],"proposal_review_log_path":None,
         "proposal_review_receipt_ids":[],"fulfillment_receipt_log_path":None,
         "fulfillment_receipt_ids":[],"developmental_history_intervention_runs":[]}
@@ -339,9 +344,11 @@ def test_present_withheld_restored_strategy_experiment_and_external_score(tmp_pa
         read_explicit_file=lambda path, **_kwargs: path.read_bytes())
     assert provider is not None
     projected=provider()
-    assert projected==tuple(store.world_state_records(
-        experiment_result_ids=(result["experiment_result_id"],)))
-    assert projected and all(item["source_kind"]=="embodiment" for item in projected)
+    assert projected==tuple(item for item in store.world_state_records(
+        consequence_chain_ids=(stored_chain["chain_id"],))
+        if item["subject_kind"]=="embodied_prediction_comparison")
+    assert len(projected)==1
+    assert projected[0]["payload"]["observable_results"]
     assert recovered_backend.calls==[]
 
 
