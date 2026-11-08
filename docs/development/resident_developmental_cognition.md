@@ -95,11 +95,16 @@ A saved resident-cognition reply may expose an explicit **Compare history impact
 workload gate permits cognition. After operator confirmation, the local-only
 endpoint verifies the saved reply, captures one fresh consented screen observation,
 and calls the existing history-present / history-withheld / history-restored owner
-with the original bounded question and one matched World-State snapshot. Capture
-freshness is limited to 60 seconds and the measured capture age is retained in the
-World-State evidence; the observer timestamp is still caller-asserted and its issuer
-is not authenticated. Raw frames are not retained. The result reports
-response-text stability and measurement identity, not performance improvement.
+with the original bounded question and one matched World-State snapshot. A
+request-driven screen capture is correlated to a one-time capture request; its age is
+bounded monotonically from request acceptance to observation receipt, avoiding
+cross-host Windows/WSL wall-clock comparisons. The World-State snapshot retains the
+capture request ID, bridge message provenance, process and consent digests, and OCR
+or vision status. The cognition bridge does not independently reauthenticate the
+bridge message, so evidence remains qualified as a bounded local capture. Fallback
+caller-provided timestamps must be within 60 seconds and no more than 5 seconds in
+the future. Raw frames are not retained. The result reports response-text stability
+and measurement identity, not performance improvement.
 The three comparison conditions run after the normal developmental interpretation,
 so the experiment may make up to four local inference calls. It remains unavailable
 during a gaming workload. It grants no action authority and is not automatically run

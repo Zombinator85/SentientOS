@@ -43,6 +43,51 @@ class CognitionEvidenceUnavailable(RuntimeError):
     code = "cognition_current_evidence_unavailable"
 
 
+def _request_bound_capture_freshness(observation: Mapping[str, Any]
+        ) -> Mapping[str, Any] | None:
+    freshness = observation.get("capture_freshness")
+    if freshness is None:
+        return None
+    if not isinstance(freshness, Mapping) or set(freshness) != {
+            "schema_version", "basis", "capture_request_id",
+            "capture_age_upper_bound_ms", "freshness_window_ms"}:
+        raise DevelopmentalCompanionBridgeError("history_intervention_capture_freshness_invalid")
+    request_id = observation.get("capture_request_id")
+    age_ms = freshness.get("capture_age_upper_bound_ms")
+    window_ms = freshness.get("freshness_window_ms")
+    provenance = observation.get("bridge_message_provenance")
+    if (freshness.get("schema_version")
+            != "sentientos.request_bound_capture_freshness:v1"
+            or freshness.get("basis") != "request_correlated_monotonic_upper_bound"
+            or not isinstance(request_id, str) or len(request_id) != 32
+            or any(character not in "0123456789abcdef" for character in request_id)
+            or freshness.get("capture_request_id") != request_id
+            or type(age_ms) is not int or not 0 <= age_ms <= 30_000
+            or type(window_ms) is not int or not 1 <= window_ms <= 30_000
+            or age_ms > window_ms + 1000
+            or not isinstance(provenance, Mapping)
+            or not isinstance(provenance.get("message_id"), str)
+            or len(provenance["message_id"]) != 64
+            or any(character not in "0123456789abcdef"
+                for character in provenance["message_id"])
+            or not isinstance(provenance.get("source_id"), str)
+            or not 1 <= len(provenance["source_id"]) <= 128
+            or not isinstance(provenance.get("session_id"), str)
+            or not 1 <= len(provenance["session_id"]) <= 128
+            or not isinstance(provenance.get("generation_id"), str)
+            or not 1 <= len(provenance["generation_id"]) <= 128
+            or type(provenance.get("sequence")) is not int
+            or provenance["sequence"] < 1
+            or not isinstance(provenance.get("created_at"), str)
+            or len(provenance["created_at"]) > 64
+            or not isinstance(provenance.get("payload_digest"), str)
+            or len(provenance["payload_digest"]) != 64
+            or any(character not in "0123456789abcdef"
+                for character in provenance["payload_digest"])):
+        raise DevelopmentalCompanionBridgeError("history_intervention_capture_freshness_invalid")
+    return freshness
+
+
 def _screen_record(observation: Mapping[str, Any], *, staleness: str = "unknown",
         capture_age_seconds: int | None = None) -> dict[str, Any]:
     if staleness not in {"fresh", "aging", "stale", "expired", "unknown"}:
@@ -51,6 +96,7 @@ def _screen_record(observation: Mapping[str, Any], *, staleness: str = "unknown"
             and (type(capture_age_seconds) is not int or capture_age_seconds < 0
                 or capture_age_seconds > 60)):
         raise DevelopmentalCompanionBridgeError("consented_screen_observation_age_invalid")
+    request_freshness = _request_bound_capture_freshness(observation)
     text = observation.get("text")
     captured_at = observation.get("captured_at")
     capture_digest = observation.get("capture_digest")
@@ -91,10 +137,29 @@ def _screen_record(observation: Mapping[str, Any], *, staleness: str = "unknown"
             "capture_digest": capture_digest,
             "capture_scope": "allowlisted_foreground_game_client_area",
             "raw_frame_retained": False,
-            "capture_time_posture": "caller_asserted_local_capture_time",
+            "capture_time_posture": (
+                "windows_timestamp_request_correlated_monotonic_age_bound"
+                if request_freshness is not None
+                else "caller_asserted_local_capture_time"),
             **({"capture_age_seconds": capture_age_seconds,
                 "freshness_window_seconds": 60}
                 if capture_age_seconds is not None else {}),
+            **({
+                "capture_request_id": observation["capture_request_id"],
+                "capture_freshness_basis": request_freshness["basis"],
+                "capture_age_upper_bound_ms": request_freshness["capture_age_upper_bound_ms"],
+                "capture_freshness_window_ms": request_freshness["freshness_window_ms"],
+                "bridge_message_provenance": {
+                    key: observation["bridge_message_provenance"][key]
+                    for key in ("message_id", "source_id", "session_id",
+                        "generation_id", "sequence", "created_at", "payload_digest")
+                },
+                **({key: observation[key] for key in (
+                    "process_name_digest", "consent_id_digest", "backend",
+                    "text_status", "text_truncated", "visual_change_kind",
+                    "visual_change_score", "component_statuses", "component_failure_codes")
+                    if key in observation}),
+            } if request_freshness is not None else {}),
         },
     }
 
@@ -331,21 +396,24 @@ class ResidentDevelopmentalCompanionBridge:
             except ValueError as exc:
                 raise DevelopmentalCompanionBridgeError(
                     "history_intervention_clock_invalid") from exc
-        captured_at = datetime.fromisoformat(
-            str(screen_observation["captured_at"]).replace("Z", "+00:00"))
-        if (not isinstance(now, datetime) or now.tzinfo is None or now.utcoffset() is None
-                or captured_at.tzinfo is None or captured_at.utcoffset() is None):
-            raise DevelopmentalCompanionBridgeError(
-                "history_intervention_capture_time_invalid")
-        capture_age = now.astimezone(timezone.utc) - captured_at.astimezone(timezone.utc)
-        if (capture_age < -MAX_HISTORY_INTERVENTION_FUTURE_SKEW
-                or capture_age > MAX_HISTORY_INTERVENTION_CAPTURE_AGE):
-            raise DevelopmentalCompanionBridgeError(
-                "history_intervention_capture_not_fresh")
+        request_freshness = _request_bound_capture_freshness(screen_observation)
+        if request_freshness is None:
+            captured_at = datetime.fromisoformat(
+                str(screen_observation["captured_at"]).replace("Z", "+00:00"))
+            if (not isinstance(now, datetime) or now.tzinfo is None or now.utcoffset() is None
+                    or captured_at.tzinfo is None or captured_at.utcoffset() is None):
+                raise DevelopmentalCompanionBridgeError(
+                    "history_intervention_capture_time_invalid")
+            capture_age = now.astimezone(timezone.utc) - captured_at.astimezone(timezone.utc)
+            if (capture_age < -MAX_HISTORY_INTERVENTION_FUTURE_SKEW
+                    or capture_age > MAX_HISTORY_INTERVENTION_CAPTURE_AGE):
+                raise DevelopmentalCompanionBridgeError(
+                    "history_intervention_capture_not_fresh")
         tick_time, projection_tick = self._projection_boundary()
         prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
             tick_id=tick_time, projection_tick=projection_tick)
-        capture_age_seconds = int(max(0.0, capture_age.total_seconds()))
+        capture_age_seconds = (None if request_freshness is not None else
+            int(max(0.0, capture_age.total_seconds())))
         snapshot = build_companion_snapshot(
             screen_observation=screen_observation,
             proprioception=proprioception,

@@ -316,6 +316,10 @@ def test_request_driven_capture_publishes_only_the_matching_message_observation(
         first_request_id = observed["capture_request_id"]
         assert first_request_id and first_request_id != stale_request_id
         assert observed["text"] == "Quest\nFind the key"
+        freshness = observed["capture_freshness"]
+        assert freshness["basis"] == "request_correlated_monotonic_upper_bound"
+        assert freshness["capture_request_id"] == first_request_id
+        assert freshness["capture_age_upper_bound_ms"] <= 100
         changed = request_driven()
         assert len(capture_calls) == 3
         assert changed["capture_request_id"] != first_request_id

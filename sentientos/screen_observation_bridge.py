@@ -464,8 +464,18 @@ class RequestDrivenScreenObservation:
                 raise ScreenObservationBridgeError("screen_observation_unavailable")
             request_id = uuid.uuid4().hex
             self._sender(request_id, question=question)
+            capture_request_accepted = time.monotonic()
             observed = dict(self._provider.wait_for_request(
                 request_id, timeout_seconds=self._timeout))
+            capture_received = time.monotonic()
+            observed["capture_freshness"] = {
+                "schema_version": "sentientos.request_bound_capture_freshness:v1",
+                "basis": "request_correlated_monotonic_upper_bound",
+                "capture_request_id": request_id,
+                "capture_age_upper_bound_ms": max(0, int(math.ceil(
+                    (capture_received - capture_request_accepted) * 1000))),
+                "freshness_window_ms": int(math.ceil(self._timeout * 1000)),
+            }
             current_text = observed.get("text")
             now = time.monotonic()
             current_backend = observed.get("backend")

@@ -5827,6 +5827,59 @@ def test_companion_bridge_runs_existing_matched_history_intervention_on_fresh_sc
     assert result.canonical_explicit_user_retention_mutated is False
 
 
+def test_request_bound_history_capture_preserves_bridge_provenance_across_clock_skew(
+        tmp_path: Path) -> None:
+    now = datetime.now(timezone.utc)
+    cognition, fake = owner(tmp_path / "cognition", comparison=True,
+        allowed_source_kinds=("embodiment",))
+    seed_screen = {"modality": "screen", "text": "The current test scene is visible.",
+        "capture_digest": "e" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    seeded = cognition.run_tick(snapshot=build_companion_snapshot(
+        screen_observation=seed_screen, clock=lambda: now),
+        tick_id="seed-clock-skew-history")
+    assert seeded.written_record_id is not None
+    request_id = "f" * 32
+    provenance = {"message_id": "1" * 64, "source_id": "windows-screen",
+        "session_id": "screen-session", "generation_id": "generation-1",
+        "sequence": 4, "created_at": now.isoformat(),
+        "payload_digest": "2" * 64}
+    screen = {**seed_screen, "capture_digest": "3" * 64,
+        "captured_at": (now - timedelta(minutes=2)).isoformat(),
+        "capture_request_id": request_id,
+        "bridge_message_provenance": provenance,
+        "capture_freshness": {
+            "schema_version": "sentientos.request_bound_capture_freshness:v1",
+            "basis": "request_correlated_monotonic_upper_bound",
+            "capture_request_id": request_id,
+            "capture_age_upper_bound_ms": 350,
+            "freshness_window_ms": 5000,
+        },
+        "process_name_digest": "4" * 64,
+        "consent_id_digest": "5" * 64,
+        "text_status": "available", "text_truncated": False,
+        "backend": "local-ocr", "visual_change_kind": "changed",
+        "visual_change_score": 0.4}
+    bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
+
+    result = bridge.compare_history_intervention(tick_id="clock-skew-intervention",
+        question="Describe one clearly visible detail.", screen_observation=screen)
+
+    assert result.status == "completed_controlled_intervention"
+    snapshot = build_companion_snapshot(screen_observation=screen,
+        screen_staleness="fresh", clock=lambda: now)
+    fact = next(item for item in snapshot.facts if item.source.source_id.startswith(
+        "consented-screen:"))
+    assert fact.source.staleness == "fresh"
+    assert fact.payload["capture_request_id"] == request_id
+    assert fact.payload["capture_age_upper_bound_ms"] == 350
+    assert fact.payload["bridge_message_provenance"] == provenance
+    assert fact.payload["consent_id_digest"] == "5" * 64
+    assert fact.payload["visual_change_score"] == 0.4
+    assert fake.requests
+
+
 def test_companion_history_intervention_rejects_stale_capture_before_inference(
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)
