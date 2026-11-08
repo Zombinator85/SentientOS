@@ -52,6 +52,10 @@ from sentientos.trust_ledger import reset_trust_ledger
 from sentientos.integrity_quarantine import QuarantineState, save_state
 from sentientos.integrity_incident import build_incident, write_incident
 from sentientos.world_state_board import WorldStateBoardBuilder
+from sentientos.developmental_companion_bridge import (
+    ResidentDevelopmentalCompanionBridge, build_companion_snapshot,
+)
+from sentientos.embodiment_self_observation import EmbodimentObservation, semantic_digest
 from sentientos.embodied_consequence import (
     WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4, digest as embodied_digest,
 )
@@ -3959,6 +3963,83 @@ def test_companion_interaction_rejects_duplicate_json_keys() -> None:
         _parse_companion_interaction_output(
             '{"disposition":"answer","response":"one","response":"two","evidence_ids":["fact-current"]}',
             {"fact-current"})
+
+
+def test_companion_bridge_composes_consented_screen_and_proprioception_without_writeback(
+        tmp_path: Path) -> None:
+    cognition, _ = owner(tmp_path, allowed_source_kinds=("embodiment",))
+    screen_text = "PRIVATE_SCREEN_SENTINEL: two candles are lit"
+    screen = {"modality": "screen", "text": screen_text,
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "raw_frame_retained": False}
+    observed_at = datetime.now(timezone.utc).isoformat()
+    proprioception = EmbodimentObservation(
+        source_id="fixture-joint-state",
+        source_schema="sentientos.proprioception_fixture:v1",
+        source_digest=semantic_digest({"joint": 0.75}),
+        observed_at=observed_at, provenance_class="synthetic_fixture",
+        freshness="current", posture="synthetic_test",
+        evidence_class="sensor_observation", subject_id="avatar-body",
+        subject_kind="synthetic_avatar_body",
+        payload={"joint_state": {"arm": 0.75}, "sampled_at": observed_at})
+    snapshot_value = build_companion_snapshot(
+        screen_observation=screen, proprioception=(proprioception,))
+    assert snapshot_value.validation_posture == "valid"
+    assert any(screen_text in json.dumps(fact.payload)
+        for fact in snapshot_value.facts)
+
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        proprioception_provider=lambda: (proprioception,))
+    request_id = "companion-bridge-request-1"
+    result = bridge.respond(request_id=request_id,
+        question="How many candles are lit?", screen_observation=screen)
+
+    assert result.status == "admitted_completed"
+    assert result.snapshot_digest
+    assert result.cognition_observation_digest.startswith("sha256:")
+    assert result.inference_receipt_id.startswith("lmrec-")
+    assert result.response_digest
+    observation = cognition.verified_cognition_observation(
+        result.cognition_observation_id, result.cognition_observation_digest)
+    assert observation["current_snapshot_digest"] == result.snapshot_digest
+    assert observation["output_digest"] == result.invocation_output_digest
+    assert result.cognition_observation_id
+    assert result.developmental_history_writeback_performed is False
+    assert result.authority is False and result.current_truth is False
+    durable = (cognition.observations_root
+        / f"{result.cognition_observation_id}.json").read_text(encoding="utf-8")
+    assert screen_text not in durable
+    assert "How many candles are lit?" not in durable
+    linkage = {
+        "response_origin": "resident_developmental_cognition",
+        "cognition_snapshot_id": result.snapshot_id,
+        "cognition_snapshot_digest": result.snapshot_digest,
+        "cognition_observation_id": result.cognition_observation_id,
+        "cognition_observation_digest": result.cognition_observation_digest,
+        "inference_receipt_id": result.inference_receipt_id,
+        "inference_receipt_digest": result.inference_receipt_digest,
+        "invocation_output_digest": result.invocation_output_digest,
+        "response_digest": result.response_digest,
+        "cognition_evidence_ids": list(result.evidence_ids),
+        "cognition_prior_record_ids": list(result.prior_record_ids),
+        "cognition_model_id": result.model_id,
+        "cognition_model_artifact_digest": result.model_artifact_digest,
+        "assistant_output_lineage": {
+            "status": "resident_cognition_interaction",
+            "cognition_observation_id": result.cognition_observation_id,
+            "cognition_observation_digest": result.cognition_observation_digest,
+            "inference_receipt_id": result.inference_receipt_id,
+            "inference_receipt_digest": result.inference_receipt_digest,
+            "invocation_output_digest": result.invocation_output_digest,
+            "response_digest": result.response_digest,
+        },
+    }
+    assert bridge.verify_committed_response(linkage=linkage,
+        response_text=result.response, request_id=request_id)
+    assert not bridge.verify_committed_response(linkage=linkage,
+        response_text=result.response + " altered", request_id=request_id)
 
 
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None,

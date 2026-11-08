@@ -1006,7 +1006,8 @@ class PersistentConversationService:
                  avatar_output: ChatAvatarOutput | None = None,
                  speech_output: ChatSpeechOutput | None = None,
                  screen_observer: Callable[[], Mapping[str, object] | None] | None = None,
-                 screen_capture_policy: str = "request_driven") -> None:
+                 screen_capture_policy: str = "request_driven",
+                 resident_cognition_bridge: Any | None = None) -> None:
         self._inference = inference; self.sessions = session_store; self.memories = memory_store
         self._avatar_output = avatar_output
         self._avatar_workload_sync_lock = threading.Lock()
@@ -1018,6 +1019,10 @@ class PersistentConversationService:
             raise ValueError("screen_capture_policy_invalid")
         self._screen_observer = screen_observer
         self._screen_capture_policy = screen_capture_policy
+        if (resident_cognition_bridge is not None
+                and not callable(getattr(resident_cognition_bridge, "respond", None))):
+            raise TypeError("resident_cognition_bridge_invalid")
+        self._resident_cognition_bridge = resident_cognition_bridge
         self.admission_gate = admission_gate or ExplicitRetentionAdmissionGate()
         self.retention_writer = AdmittedRetentionWriter(
             memory_store, admission_gate=self.admission_gate)
@@ -1682,6 +1687,110 @@ class PersistentConversationService:
             },
             retention={"status": "not_requested"})
 
+    def _complete_resident_cognition_response(self, *, session_id: str,
+            user_turn: Mapping[str, Any], question: str,
+            screen_observation: Mapping[str, object] | None,
+            on_content_chunk: Callable[[str], None] | None) -> ChatResponse:
+        """Deliver a resident cognition decision as a distinct, receipt-linked response."""
+        bridge = self._resident_cognition_bridge
+        if bridge is None:
+            raise RuntimeError("resident_cognition_bridge_unavailable")
+        request_id = f"{session_id}:{user_turn['turn_id']}"
+        result = bridge.respond(request_id=request_id, question=question,
+            screen_observation=screen_observation)
+        response_text = getattr(result, "response", None)
+        if (getattr(result, "status", None) != "admitted_completed"
+                or not isinstance(response_text, str) or not response_text.strip()
+                or len(response_text.encode("utf-8")) > 4000
+                or getattr(result, "developmental_history_writeback_performed", True) is not False
+                or getattr(result, "authority", True) is not False
+                or getattr(result, "current_truth", True) is not False
+                or getattr(result, "canonical_explicit_user_retention_mutated", True) is not False):
+            raise RuntimeError("resident_cognition_response_contract_invalid")
+        response_digest = digest_payload({"text": response_text})
+        observation_id = getattr(result, "cognition_observation_id", None)
+        observation_digest = getattr(result, "cognition_observation_digest", None)
+        receipt_id = getattr(result, "inference_receipt_id", None)
+        receipt_digest = getattr(result, "inference_receipt_digest", None)
+        invocation_output_digest = getattr(result, "invocation_output_digest", None)
+        model_id = getattr(result, "model_id", None)
+        evidence_ids = getattr(result, "evidence_ids", ())
+        prior_record_ids = getattr(result, "prior_record_ids", ())
+        if (not isinstance(observation_id, str) or not observation_id.startswith("devcog-")
+                or not isinstance(observation_digest, str) or not observation_digest.startswith("sha256:")
+                or not isinstance(receipt_id, str) or not receipt_id.startswith("lmrec-")
+                or not isinstance(receipt_digest, str) or len(receipt_digest) != 64
+                or not isinstance(invocation_output_digest, str)
+                or not isinstance(model_id, str) or not model_id
+                or not isinstance(evidence_ids, (tuple, list))
+                or any(not isinstance(item, str) for item in evidence_ids)
+                or not isinstance(prior_record_ids, (tuple, list))
+                or any(not isinstance(item, str) for item in prior_record_ids)):
+            raise RuntimeError("resident_cognition_response_lineage_invalid")
+        lineage = {
+            "status": "resident_cognition_interaction",
+            "cognition_observation_id": observation_id,
+            "cognition_observation_digest": observation_digest,
+            "inference_receipt_id": receipt_id,
+            "inference_receipt_digest": receipt_digest,
+            "invocation_output_digest": invocation_output_digest,
+            "response_digest": response_digest,
+        }
+        assistant = self.sessions.append_turn(session_id, role="assistant",
+            text=response_text, linkage={
+                "source_user_turn_id": str(user_turn["turn_id"]),
+                "response_origin": "resident_developmental_cognition",
+                "cognition_snapshot_id": str(getattr(result, "snapshot_id", "")),
+                "cognition_snapshot_digest": str(getattr(result, "snapshot_digest", "")),
+                "cognition_observation_id": observation_id,
+                "cognition_observation_digest": observation_digest,
+                "inference_receipt_id": receipt_id,
+                "inference_receipt_digest": receipt_digest,
+                "invocation_output_digest": invocation_output_digest,
+                "response_digest": response_digest,
+                "cognition_disposition": str(getattr(result, "disposition", "")),
+                "cognition_evidence_ids": list(evidence_ids),
+                "cognition_prior_record_ids": list(prior_record_ids),
+                "cognition_model_id": model_id,
+                "cognition_model_artifact_digest": getattr(result, "model_artifact_digest", None),
+                "assistant_output_lineage": lineage,
+            })
+        if self._avatar_output is not None:
+            try:
+                self._avatar_output.publish_response(
+                    session_id=session_id, turn_id=str(assistant["turn_id"]),
+                    text=response_text, output_digest=response_digest)
+            except Exception as exc:
+                LOGGER.warning("Avatar cognition response publication failed: %s",
+                    getattr(exc, "code", type(exc).__name__))
+        if self._speech_output is not None:
+            try:
+                self._speech_output.publish_response(session_id=session_id,
+                    turn_id=str(assistant["turn_id"]), text=response_text,
+                    output_digest=response_digest)
+            except Exception as exc:
+                LOGGER.warning("Local cognition response speech failed: %s",
+                    type(exc).__name__)
+        if on_content_chunk is not None:
+            on_content_chunk(response_text)
+        return ChatResponse(response=response_text, session_id=session_id,
+            turn_id=str(assistant["turn_id"]),
+            context={
+                "response_origin": "resident_developmental_cognition",
+                "cognition_disposition": str(getattr(result, "disposition", "")),
+                "cognition_snapshot_id": getattr(result, "snapshot_id", None),
+                "cognition_snapshot_digest": getattr(result, "snapshot_digest", None),
+                "cognition_observation_id": observation_id,
+                "cognition_observation_digest": observation_digest,
+                "inference_receipt_id": receipt_id,
+                "inference_receipt_digest": receipt_digest,
+                "cognition_evidence_ids": list(evidence_ids),
+                "cognition_prior_record_ids": list(prior_record_ids),
+                "cognition_model_id": model_id,
+                "developmental_history_writeback_performed": False,
+                "inference_timing": {"backend_metrics_status": "unavailable"},
+            }, retention={"status": "not_requested"})
+
     def _recover_idempotent_response(self, session_id: str,
                                      user_turn: Mapping[str, Any]) -> ChatResponse:
         session = self.sessions.load(session_id)
@@ -1993,6 +2102,33 @@ class PersistentConversationService:
                 },
                 retention={"status": "not_requested"},
             )
+        if linkage.get("response_origin") == "resident_developmental_cognition":
+            bridge_verifier = getattr(self._resident_cognition_bridge,
+                "verify_committed_response", None)
+            request_id = f"{session_id}:{user_turn_id}"
+            if (not callable(bridge_verifier)
+                    or not bridge_verifier(linkage=linkage,
+                        response_text=str(assistant.get("text", "")),
+                        request_id=request_id)):
+                raise ChatRequestStateError(
+                    "chat_request_cognition_response_lineage_invalid")
+            return ChatResponse(response=str(assistant["text"]),
+                session_id=session_id, turn_id=str(assistant["turn_id"]),
+                context={
+                    "response_origin": "resident_developmental_cognition",
+                    "cognition_disposition": linkage.get("cognition_disposition"),
+                    "cognition_snapshot_id": linkage.get("cognition_snapshot_id"),
+                    "cognition_snapshot_digest": linkage.get("cognition_snapshot_digest"),
+                    "cognition_observation_id": linkage.get("cognition_observation_id"),
+                    "cognition_observation_digest": linkage.get("cognition_observation_digest"),
+                    "inference_receipt_id": linkage.get("inference_receipt_id"),
+                    "inference_receipt_digest": linkage.get("inference_receipt_digest"),
+                    "cognition_evidence_ids": linkage.get("cognition_evidence_ids", []),
+                    "cognition_prior_record_ids": linkage.get("cognition_prior_record_ids", []),
+                    "cognition_model_id": linkage.get("cognition_model_id"),
+                    "developmental_history_writeback_performed": False,
+                    "recovered_without_inference": True,
+                }, retention={"status": "not_requested"})
         verifier = getattr(self._inference, "verify_stored_chat_invocation", None)
         verified_output_lineage: Mapping[str, Any] | None = None
         if callable(verifier):
@@ -2263,6 +2399,12 @@ class PersistentConversationService:
                     interrupt_speech(session["session_id"])
                 except Exception as exc:
                     LOGGER.warning("Local speech interruption failed: %s", type(exc).__name__)
+        if self._resident_cognition_bridge is not None and not retain:
+            return self._complete_resident_cognition_response(
+                session_id=session["session_id"], user_turn=user_turn,
+                question=message, screen_observation=screen_observation,
+                on_content_chunk=on_content_chunk)
+
         prior_assistant = next((turn for turn in reversed(session.get("turns", ()))
             if turn.get("role") == "assistant"
             and isinstance(turn.get("linkage"), Mapping)
@@ -3271,7 +3413,8 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                    [], Mapping[str, object] | None
                                ] | None = None,
                                screen_capture_policy: str = "request_driven",
-                               local_speech_output: bool = False) -> DevelopmentLocalChatInference:
+                               local_speech_output: bool = False,
+                               resident_cognition_bridge: Any | None = None) -> DevelopmentLocalChatInference:
     """Explicitly install governed local development chat inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     root = data_root or sentientos_data_dir()
@@ -3312,7 +3455,8 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
         memory_store=CanonicalMemoryStore(memory_root),
         avatar_output=avatar_output, speech_output=speech_output,
         screen_observer=screen_observer,
-        screen_capture_policy=screen_capture_policy)
+        screen_capture_policy=screen_capture_policy,
+        resident_cognition_bridge=resident_cognition_bridge)
     _PRODUCTION_COMPOSITION = None
     return inference
 

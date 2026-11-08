@@ -2476,11 +2476,19 @@ class ResidentCompanionInteractionResult:
     status: str
     tick_id: str
     snapshot_id: str
+    snapshot_digest: str
     disposition: str
     response: str
     evidence_ids: tuple[str, ...]
     cognition_observation_id: str
     prior_record_ids: tuple[str, ...] = ()
+    cognition_observation_digest: str = ""
+    inference_receipt_id: str = ""
+    inference_receipt_digest: str = ""
+    invocation_output_digest: str = ""
+    response_digest: str = ""
+    model_id: str = ""
+    model_artifact_digest: str | None = None
     developmental_history_writeback_performed: bool = False
     authority: bool = False
     current_truth: bool = False
@@ -4028,8 +4036,8 @@ class ResidentDevelopmentalCognitionOwner:
             tick = value["tick_id"]
             condition = value.get("condition_id")
             snapshot_binding = (value.get("current_snapshot_id"), value.get("current_snapshot_digest"))
-            allowed_conditions = {"prior-context", "with-history", "history_present",
-                "history_withheld", "history_restored"}
+            allowed_conditions = {"prior-context", "with-history", "companion-interaction",
+                "history_present", "history_withheld", "history_restored"}
             if (not isinstance(condition, str) or condition not in allowed_conditions
                     or value.get("correlation_id") !=
                         f"{tick}:resident_developmental_cognition:{condition}"
@@ -5523,10 +5531,18 @@ class ResidentDevelopmentalCognitionOwner:
         if set(capture) != {"disposition", "response", "evidence_ids"}:
             raise ResidentDevelopmentalCognitionError("companion_interaction_capture_missing")
         return ResidentCompanionInteractionResult(status="admitted_completed", tick_id=tick_id,
-            snapshot_id=snapshot.snapshot_id, disposition=str(capture["disposition"]),
+            snapshot_id=snapshot.snapshot_id, snapshot_digest=snapshot.digest,
+            disposition=str(capture["disposition"]),
             response=str(capture["response"]), evidence_ids=tuple(capture["evidence_ids"]),
             cognition_observation_id=observation.observation_id,
-            prior_record_ids=tuple(projection.requested_record_ids))
+            prior_record_ids=tuple(projection.requested_record_ids),
+            cognition_observation_digest=observation.observation_digest,
+            inference_receipt_id=observation.inference_receipt_id,
+            inference_receipt_digest=observation.inference_receipt_digest,
+            invocation_output_digest=observation.output_digest,
+            response_digest=digest_payload({"text": str(capture["response"])}),
+            model_id=observation.model_id,
+            model_artifact_digest=observation.model_artifact_digest)
 
     def run_tick(self, *, snapshot: WorldStateSnapshot, tick_id: str,
                  prior_self_model: CognitiveSelfModelProjection | None = None,
