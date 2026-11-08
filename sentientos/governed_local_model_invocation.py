@@ -167,20 +167,13 @@ RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA = {
 }
 RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA = (
     RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA)
-RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA = {
-    **RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
-    "properties": {
-        **RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA["properties"],
-        "history_record_ids": {"type": "array", "maxItems": 0,
-            "uniqueItems": True, "items": {"type": "string",
-                "minLength": 1, "maxLength": 256}},
-    },
-}
+# Keep decoding controls identical in all history-intervention conditions. Withheld
+# citations are rejected after inference against the empty retrieved-record allowlist.
+RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA = (
+    RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA)
 
 
 def companion_history_output_schema(condition_id: Any) -> Mapping[str, Any]:
-    if condition_id == "history_withheld":
-        return RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA
     return RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
 RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA = {
     "type": "object", "required": ["conclusion", "reason_code", "evidence_ids"],

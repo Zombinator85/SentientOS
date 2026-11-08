@@ -5598,6 +5598,8 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert result.status == "completed_controlled_intervention"
     assert result.response_text_classification == "history_presence_associated_stable_response_text_difference"
     assert result.restored_prompt_matches is True
+    assert all(item["generation_config"] == result.conditions[0]["generation_config"]
+        for item in result.conditions)
     assert [item["condition_id"] for item in result.conditions] == [
         "history_present", "history_withheld", "history_restored"]
     assert [json.loads(item["response"])["requested_pose"]

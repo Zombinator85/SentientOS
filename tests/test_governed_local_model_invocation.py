@@ -636,17 +636,27 @@ def test_history_intervention_allows_only_canonical_companion_json(tmp_path: Pat
         caller="resident_developmental_cognition",
         correlation_id="companion-intervention-withheld-json",
         expected_output_format="json",
-        structured_output_schema=RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA,
+        structured_output_schema=RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
         linkage={"condition_id": "history_withheld"})
-    assert withheld.structured_output_schema["properties"]["history_record_ids"]["maxItems"] == 0
+    assert withheld.structured_output_schema == request.structured_output_schema
+    withheld_only_schema = {
+        **RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA,
+        "properties": {
+            **RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA["properties"],
+            "history_record_ids": {
+                **RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA["properties"]["history_record_ids"],
+                "maxItems": 0,
+            },
+        },
+    }
     with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
         inv.build_request(
             purpose="resident_developmental_history_intervention_experiment",
             prompt="history-withheld companion decision",
             caller="resident_developmental_cognition",
-            correlation_id="companion-intervention-withheld-normal-json",
+            correlation_id="companion-intervention-withheld-schema",
             expected_output_format="json",
-            structured_output_schema=RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
+            structured_output_schema=withheld_only_schema,
             linkage={"condition_id": "history_withheld"})
 
     altered = {**RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,

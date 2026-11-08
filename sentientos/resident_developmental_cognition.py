@@ -27,7 +27,7 @@ from .governed_local_model_invocation import (
     RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
     RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
     RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
-    RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA, validate_receipt,
+    validate_receipt,
 )
 from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
@@ -5378,9 +5378,7 @@ class ResidentDevelopmentalCognitionOwner:
                 or objective_plan is not None or epistemic_revision_probe else "text",
             budget=request_budget,
             structured_output_schema=(
-                RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA
-                if companion_intervention and condition_id == "history_withheld"
-                else RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
+                RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
                 if companion_intervention else RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA
                 if interaction_question is not None else RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA
                 if epistemic_revision_probe else RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA
