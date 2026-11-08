@@ -4120,6 +4120,68 @@ def test_companion_bridge_composes_consented_screen_and_proprioception_without_w
         response_text=result.response + " altered", request_id=request_id)
 
 
+def test_development_chat_configuration_hosts_resident_cognition_owner(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+    from sentientos import chat_service
+
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path / "user-memory"))
+    cognition, fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("embodiment",), max_selected_facts=4)
+    identity = {"model_id": "fixture-hermes", "posture": "development_only"}
+    fake.model = SimpleNamespace(active_identity=SimpleNamespace(
+        to_dict=lambda: identity))
+    fake.companion_output_override = {
+        "disposition": "answer", "response": "The current observation is recorded.",
+        "evidence_ids": ["__CURRENT_FACT__"], "history_record_ids": []}
+    observed_at = datetime.now(timezone.utc).isoformat()
+    screen_text = "PRIVATE_HOSTED_SCREEN_SENTINEL: encoder pose idle"
+    screen = {"modality": "screen", "text": screen_text,
+        "capture_digest": hashlib.sha256(screen_text.encode()).hexdigest(),
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": observed_at, "raw_frame_retained": False,
+        "text_change_kind": "initial", "previous_text_digest": None}
+    proprioception = EmbodimentObservation(
+        source_id="hosted-fixture-proprioception",
+        source_schema="sentientos.proprioception_fixture:v1",
+        source_digest=semantic_digest({"encoder_pose": "idle"}),
+        observed_at=observed_at, provenance_class="synthetic_fixture",
+        freshness="current", posture="synthetic_test",
+        evidence_class="sensor_observation", subject_id="avatar-body",
+        subject_kind="synthetic_avatar_body",
+        payload={"encoder_pose": "idle", "sampled_at": observed_at})
+
+    chat_service.configure_development_chat(invoker=fake,
+        data_root=tmp_path / "hosted-chat",
+        resident_cognition_owner=cognition,
+        proprioception_provider=lambda: (proprioception,),
+        screen_observer=lambda: screen)
+    try:
+        app = chat_service._CONVERSATION_SERVICE
+        assert app is not None
+        session_id = app.create_session()
+        response = app.chat("What does the current observation report?",
+            session_id=session_id, request_id="hosted-cognition-request-1",
+            observe_screen=True)
+
+        assert response.response == "The current observation is recorded."
+        assert response.context["response_origin"] == "resident_developmental_cognition"
+        assert response.context["developmental_history_writeback_performed"] is False
+        assert len(fake.requests) == 1
+        assert fake.requests[0].purpose == "resident_developmental_retrieval_cognition"
+        cognitive_prompt = json.loads(fake.requests[0].prompt)
+        assert screen_text in json.dumps(cognitive_prompt)
+        assert "hosted-fixture-proprioception" in json.dumps(cognitive_prompt)
+        turns = app.sessions.load(session_id)["turns"]
+        assert turns[-1]["linkage"]["response_origin"] == "resident_developmental_cognition"
+        assert turns[-1]["linkage"]["inference_receipt_id"].startswith("lmrec-")
+        assert turns[-1]["linkage"]["cognition_evidence_ids"]
+        assert screen_text not in json.dumps(app.sessions.load(session_id))
+        assert list(cognition.writeback.store.records_root.glob("*.json")) == []
+    finally:
+        chat_service.close_production_chat()
+
+
 def test_companion_bridge_consumes_existing_self_model_and_epistemic_projections(
         tmp_path: Path) -> None:
     from datetime import datetime, timezone
