@@ -8,10 +8,17 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any
+
+# Make direct script invocation resolve this checkout even when the caller's
+# Python path does not already include the repository root.
+_repository_root = Path(__file__).resolve().parents[1]
+if str(_repository_root) not in sys.path:
+    sys.path.insert(0, str(_repository_root))
 
 _workspace = Path(os.environ.get(
     "SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE",

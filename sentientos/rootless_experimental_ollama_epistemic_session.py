@@ -27,7 +27,8 @@ from .local_model_authority import (
 )
 from .local_runtime_provisioning import semantic_digest
 from .rootless_experimental_epistemic_session import (
-    MAX_CONTEXT_TOKENS, MAX_NEW_TOKENS,
+    MAX_CONTEXT_TOKENS, MAX_NEW_TOKENS, MAX_OUTPUT_CHARS, MAX_PROMPT_CHARS,
+    MAX_CALL_TIMEOUT_SECONDS,
     RootlessExperimentalEpistemicSession,
 )
 from .rootless_experimental_local_model import (
@@ -88,6 +89,19 @@ class RootlessExperimentalOllamaEpistemicSession(
         self.authority_map = authority_builder(self.config, allowed_roots=[path.parent])
         required_purposes = (ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES
             if developmental_cycle else (ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,))
+        # Keep each session profile's purpose and resource envelope aligned
+        # with the authority map used to construct its worker. The older
+        # wrapper accidentally applied the developmental purpose set to the
+        # epistemic-revision profile, so every real epistemic-series run was
+        # denied before its first inference.
+        self._allowed_purposes = frozenset(required_purposes)
+        self._max_input_chars = (ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS
+            if developmental_cycle else MAX_PROMPT_CHARS)
+        self._max_output_chars = 4000 if developmental_cycle else MAX_OUTPUT_CHARS
+        self._max_new_tokens = 512 if developmental_cycle else MAX_NEW_TOKENS
+        self._max_timeout_seconds = 120 if developmental_cycle else MAX_CALL_TIMEOUT_SECONDS
+        self._max_calls = (ROOTLESS_DEVELOPMENTAL_MAX_CALLS
+            if developmental_cycle else 4)
         record = next((self.authority_map.eligible_record(item)
             for item in required_purposes
             if self.authority_map.eligible_record(item) is not None), None)
@@ -152,17 +166,19 @@ class RootlessExperimentalOllamaEpistemicSession(
         budget = kwargs.get("budget")
         correlation = kwargs.get("correlation_id")
         if (self._closed
-                or purpose not in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES
+                or purpose not in self._allowed_purposes
                 or not isinstance(prompt, str)
-                or len(prompt) > ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS
+                or len(prompt) > self._max_input_chars
                 or not isinstance(linkage, Mapping)
                 or not isinstance(correlation, str) or not correlation
                 or correlation in self._correlations
                 or (budget is not None and (
-                    budget.max_input_chars > ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS
-                    or budget.max_new_tokens > 512
+                    budget.max_input_chars > self._max_input_chars
+                    or budget.max_output_chars > self._max_output_chars
+                    or budget.max_new_tokens > self._max_new_tokens
+                    or budget.timeout_seconds > self._max_timeout_seconds
                     or budget.max_calls_per_correlation != 1))):
-            raise RootlessExperimentalError("developmental_session_request_out_of_scope")
+            raise RootlessExperimentalError("ollama_experimental_session_request_out_of_scope")
         return self.invoker.build_request(**{
             **kwargs,
             "linkage": {**dict(linkage),
@@ -171,15 +187,17 @@ class RootlessExperimentalOllamaEpistemicSession(
 
     def invoke(self, request: Any, **kwargs: Any) -> Any:
         if (self._closed
-                or request.purpose not in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES
+                or request.purpose not in self._allowed_purposes
                 or request.linkage.get("rootless_experimental_session")
                     != self.session_binding
                 or request.correlation_id in self._correlations
                 or request.budget.max_calls_per_correlation != 1
-                or request.budget.max_new_tokens > 512
-                or request.budget.max_input_chars > ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS
-                or len(self._correlations) >= ROOTLESS_DEVELOPMENTAL_MAX_CALLS):
-            raise RootlessExperimentalError("developmental_session_invocation_out_of_scope")
+                or request.budget.max_new_tokens > self._max_new_tokens
+                or request.budget.max_input_chars > self._max_input_chars
+                or request.budget.max_output_chars > self._max_output_chars
+                or request.budget.timeout_seconds > self._max_timeout_seconds
+                or len(self._correlations) >= self._max_calls):
+            raise RootlessExperimentalError("ollama_experimental_session_invocation_out_of_scope")
         if kwargs.get("persist", True) is not True:
             raise RootlessExperimentalError("developmental_session_receipt_custody_required")
         self._correlations.add(request.correlation_id)
@@ -198,7 +216,7 @@ class RootlessExperimentalOllamaEpistemicSession(
                 or payload.get("receipt_digest") != receipt_digest
                 or not isinstance(request, Mapping)
                 or request.get("purpose")
-                    not in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES
+                    not in self._allowed_purposes
                 or request.get("active_model_identity") != self.active_model_identity
                 or not isinstance(linkage, Mapping)
                 or linkage.get("rootless_experimental_session") != self.session_binding
