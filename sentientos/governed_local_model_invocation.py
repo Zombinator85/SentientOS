@@ -152,6 +152,16 @@ RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
         },
     },
 }
+RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA = {
+    "type": "object", "required": ["disposition", "response", "evidence_ids"],
+    "additionalProperties": False,
+    "properties": {
+        "disposition": {"type": "string", "enum": ["answer", "ask", "abstain"]},
+        "response": {"type": "string", "minLength": 1, "maxLength": 1600},
+        "evidence_ids": {"type": "array", "maxItems": 32, "uniqueItems": True,
+            "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+    },
+}
 RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA = {
     "type": "object", "required": ["conclusion", "reason_code", "evidence_ids"],
     "additionalProperties": False,
@@ -795,7 +805,8 @@ class GovernedLocalModelInvoker:
             if (purpose == "resident_developmental_retrieval_cognition"
                     and dict(structured_output_schema) not in [
                         RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
-                        RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA]):
+                        RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
+                        RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA]):
                 raise ValueError("structured_output_schema_not_canonical")
         return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=deepcopy(dict(structured_output_schema)) if structured_output_schema is not None else None)
 
@@ -851,7 +862,8 @@ class GovernedLocalModelInvoker:
                 if dict(schema) != canonical_schema: reasons.append("structured_output_schema_not_canonical")
             elif request.purpose == "resident_developmental_retrieval_cognition":
                 if schema not in [RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
-                        RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA]:
+                        RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
+                        RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA]:
                     reasons.append("structured_output_schema_not_canonical")
             elif request.purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE:
                 if schema != RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA:

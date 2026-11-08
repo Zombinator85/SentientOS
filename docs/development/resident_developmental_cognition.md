@@ -73,6 +73,27 @@ output-digest differences and restoration stability. Difference is not improveme
 correctness, learning, sentience, selfhood, or consciousness. Comparison is
 off by default.
 
+### Request-scoped companion interaction
+
+The owner also exposes an opt-in run_companion_interaction boundary for a
+caller that already holds a validated in-memory World-State snapshot. It
+retrieves only completed developmental history, accepts separately keyed
+self-model and epistemic projections, and invokes the same governed
+resident_developmental_retrieval_cognition purpose. The model must return a
+bounded decision with exact citations to current fact IDs; unbound answers are
+rejected. This path does not run the developmental writeback transaction or
+mark an interaction tick complete. Invocation receipts and cognition
+observations retain identities and digests, not raw prompt, screen text, user
+question, or response text. The response is returned to the caller in memory
+for immediate delivery.
+
+This is an owner-level integration seam; it does not automatically connect the
+chat service or enable resident cognition in a running companion. It is not
+evidence of learning. Demonstrating development still requires the full
+sequence of a real observation, prediction or decision, an action, an
+independently observed consequence, a governed update, and a later decision
+comparison with history present and withheld under controlled conditions.
+
 ### One explicitly staged objective intervention
 
 The ordinary daemon configuration never receives a persistent objective task.

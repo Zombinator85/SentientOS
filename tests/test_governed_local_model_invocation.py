@@ -15,7 +15,7 @@ from sentientos.governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt,
     validate_llama_completion_observation,
     RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
-    RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
+    RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA, RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
 )
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.local_model import ActiveModelIdentity
@@ -583,6 +583,34 @@ def test_resident_cognition_json_schema_is_exactly_purpose_scoped(tmp_path: Path
             expected_output_format="json",
             structured_output_schema=altered,
         )
+    assert fake.calls == 1
+
+
+
+def test_companion_interaction_schema_is_canonical_and_purpose_scoped(tmp_path: Path) -> None:
+    fake, inv = _invoker(tmp_path)
+    request = inv.build_request(
+        purpose="resident_developmental_retrieval_cognition",
+        prompt="bounded companion decision",
+        caller="resident_developmental_cognition",
+        correlation_id="companion-json",
+        expected_output_format="json",
+        structured_output_schema=RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
+    )
+    receipt = inv.invoke(request)
+    assert receipt.status == "admitted_completed"
+    assert fake.calls == 1
+
+    altered = {**RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
+        "properties": {**RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["properties"],
+            "authority": {"type": "boolean"}}}
+    with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
+        inv.build_request(
+            purpose="resident_developmental_retrieval_cognition",
+            prompt="bounded companion decision",
+            caller="resident_developmental_cognition",
+            correlation_id="companion-json-altered",
+            expected_output_format="json", structured_output_schema=altered)
     assert fake.calls == 1
 
 

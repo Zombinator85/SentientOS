@@ -37,7 +37,7 @@ from sentientos.resident_developmental_cognition import (
     _bind_history_and_epistemic_context,
     load_objective_request, objective_task_for_request, stage_objective_request,
     stored_objective_request_disposition, stored_objective_request_record,
-    _valid_rootless_epistemic_session_binding,
+    _valid_rootless_epistemic_session_binding, _parse_companion_interaction_output,
 )
 from sentientos.resident_developmental_writeback import (
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
@@ -106,6 +106,7 @@ class FakeInvoker:
         self.fail_objective_condition: str | None = None
         self.objective_plan_root: Path | None = None
         self.history_interpretation = "bounded history"
+        self.companion_output_override = None
 
     def observed_current_model_identity(self):
         return dict(self.active_model_identity) if self.active_model_identity else None
@@ -235,6 +236,15 @@ class FakeInvoker:
             else:
                 receipt_text = output
             text = output
+        elif (request.expected_output_format == "json"
+                and request.structured_output_schema
+                and "disposition" in request.structured_output_schema.get("required", ())):
+            evidence_ids = request.upstream_evidence.get("current_fact_ids", [])
+            decision = (self.companion_output_override if self.companion_output_override is not None
+                else {"disposition": "answer", "response": "The current observation supports this.",
+                    "evidence_ids": evidence_ids[:1]})
+            text = json.dumps(decision, sort_keys=True, separators=(",", ":"))
+            original_output = text
         elif request.expected_output_format == "json" and request.structured_output_schema:
             upstream = request.upstream_evidence
             consumed = (upstream.get("record_ids") or upstream.get("current_fact_ids")
@@ -3895,6 +3905,60 @@ def test_missing_final_score_keeps_interrupted_trial_unfinalized(tmp_path: Path,
     with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
         restarted.run_tick(snapshot=snapshot(), tick_id="missing-score-recovery-trial")
     assert len(fake.requests) == request_count
+
+
+
+def test_companion_interaction_uses_existing_history_without_learning_from_current_turn(
+        tmp_path: Path) -> None:
+    cognition, fake = owner(tmp_path, allowed_source_kinds=("capability_registry",),
+        max_selected_facts=2)
+    seed = cognition.run_tick(snapshot=snapshot(), tick_id="companion-history-seed")
+    assert seed.written_record_id
+    before_state = cognition.state_path.read_bytes()
+    before_records = sorted(path.name for path in cognition.writeback.store.records_root.glob('*.json'))
+    private_screen = "PRIVATE_SCREEN_OCR_SENTINEL"
+    private_question = "PRIVATE_QUESTION_SENTINEL"
+    current = WorldStateBoardBuilder().build([{
+        "source_id": "transient-screen", "source_kind": "capability_registry",
+        "subject_id": "scene", "stage": "observation", "disposition": "recorded",
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "payload": {"screen_text": private_screen},
+    }])
+    result = cognition.run_companion_interaction(snapshot=current,
+        request_id="companion-request-unique-001", question=private_question)
+
+    assert result.status == "admitted_completed"
+    assert result.response == "The current observation supports this."
+    assert result.evidence_ids == tuple(fake.requests[-1].upstream_evidence["current_fact_ids"][:1])
+    assert result.prior_record_ids == (seed.written_record_id,)
+    assert result.developmental_history_writeback_performed is False
+    assert result.authority is False and result.current_truth is False
+    assert cognition.state_path.read_bytes() == before_state
+    assert sorted(path.name for path in cognition.writeback.store.records_root.glob('*.json')) == before_records
+    request_payload = json.loads(fake.requests[-1].prompt)
+    assert request_payload["companion_question"] == private_question
+    assert seed.written_record_id in {
+        row["record_id"] for row in request_payload["developmental_history"]}
+    observation_path = cognition.observations_root / f"{result.cognition_observation_id}.json"
+    durable = observation_path.read_text(encoding="utf-8")
+    assert private_screen not in durable and private_question not in durable
+    assert result.response not in durable
+
+
+@pytest.mark.parametrize("payload", [
+    {"disposition": "answer", "response": "unsupported", "evidence_ids": ["not-current"]},
+    {"disposition": "answer", "response": "unsupported", "evidence_ids": []},
+])
+def test_companion_interaction_rejects_unbound_answers(payload) -> None:
+    with pytest.raises(ValueError):
+        _parse_companion_interaction_output(json.dumps(payload), {"fact-current"})
+
+
+def test_companion_interaction_rejects_duplicate_json_keys() -> None:
+    with pytest.raises(ValueError, match="duplicate_json_key"):
+        _parse_companion_interaction_output(
+            '{"disposition":"answer","response":"one","response":"two","evidence_ids":["fact-current"]}',
+            {"fact-current"})
 
 
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None,
