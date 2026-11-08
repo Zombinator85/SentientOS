@@ -238,6 +238,7 @@ def run() -> dict[str, Any]:
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
+            "requested_backend_seed": 42,
             "model_artifact_size_bytes": manifest_size,
             "runtime_observation": runtime, "runtime_observation_digest": runtime_sha,
             "active_model_identity": session.active_model_identity,
@@ -266,6 +267,7 @@ def run() -> dict[str, Any]:
             "history_intervention": {"validity": run_payload.get("validity"),
                 "conditions": [{"condition_id": item.get("condition_id"),
                     "output_digest": item.get("output_digest"),
+                    "prompt_digest": item.get("epistemic_prompt_digest"),
                     "retrieved_record_ids": item.get("retrieved_record_ids"),
                     "developmental_projection_present": item.get(
                         "developmental_projection_present")}

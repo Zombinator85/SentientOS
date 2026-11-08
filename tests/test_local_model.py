@@ -432,6 +432,7 @@ def test_ollama_backend_forwards_governed_json_schema(monkeypatch: pytest.Monkey
         "api_base": "http://127.0.0.1:11434",
         "model": "sentientos-hermes4:14b-q4km",
         "manifest_sha256": digest,
+        "seed": 42,
     })
 
     class TagsResponse:
@@ -492,7 +493,11 @@ def test_ollama_backend_forwards_governed_json_schema(monkeypatch: pytest.Monkey
 
     assert answer == '{"answer":2}'
     assert captured["body"]["format"] == schema
+    assert captured["body"]["options"]["seed"] == 42
     assert "structured_output_schema" not in captured["body"]
+    candidate.options["seed"] = -1
+    with pytest.raises(ModelLoadError, match="ollama_seed_out_of_range"):
+        _OllamaBackend(candidate, {}, 1024)
     with pytest.raises(ModelLoadError, match="ollama_structured_output_schema_invalid"):
         backend.generate_with_metadata("invalid schema", [], {
             "structured_output_schema": "not-a-schema",

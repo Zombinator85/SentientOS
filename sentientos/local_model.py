@@ -228,9 +228,13 @@ class _OllamaBackend(_ModelBackend):
         super().__init__(candidate, metadata)
         options = dict(candidate.options)
         allowed = {"api_base", "model", "manifest_sha256", "num_gpu", "keep_alive",
-                   "think", "timeout_seconds", "chat_history_format"}
+                   "think", "timeout_seconds", "chat_history_format", "seed"}
         if set(options) - allowed:
             raise ModelLoadError("ollama_option_not_allowed")
+        seed = options.get("seed")
+        if seed is not None and (type(seed) is not int or not 0 <= seed <= 2**31 - 1):
+            raise ModelLoadError("ollama_seed_out_of_range")
+        self._seed = seed
         if candidate.path is None or not candidate.path.is_file():
             raise ModelLoadError("ollama_local_manifest_required")
         manifest_digest, _ = _stream_sha256(candidate.path)
@@ -319,6 +323,8 @@ class _OllamaBackend(_ModelBackend):
             "top_p": max(0.1, min(float(generation.get("top_p", 0.9)), 1.0)),
             "repeat_penalty": max(0.8, min(float(generation.get("repetition_penalty") or 1.1), 1.5)),
         }
+        if self._seed is not None:
+            options["seed"] = self._seed
         messages = _ollama_chat_messages(
             prompt, history_format=self._chat_history_format)
         keep_alive_payload: str | int = -1 if keep_alive == "-1" else keep_alive
