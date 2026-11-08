@@ -217,6 +217,20 @@ def test_correlation_mismatches_fail_closed(mutation,classification):
     assert attribution["classification"]==classification
 
 
+def test_observation_source_class_must_match_expectation():
+    handoff,expectation,report,observation,_,_=chain()
+    from sentientos.embodied_consequence import _identity
+    mismatched=replace(observation,observation_source_class="different_independent_fixture",
+        observation_id="",observation_digest="")
+    observation_id,observation_digest=_identity("independent-observation",mismatched.semantic_payload())
+    mismatched=replace(mismatched,observation_id=observation_id,observation_digest=observation_digest)
+
+    attribution,_=evaluate_consequence(expectation=expectation,handoff=handoff,current_body=pointer(),
+        renderer_report=report,observation=mismatched,evaluated_at=T2)
+
+    assert attribution["classification"]=="correlation_mismatch"
+
+
 def test_missing_observer_is_renderer_report_only_and_stale_is_indeterminate():
     handoff,expectation,report,_,_,_=chain()
     attribution,comparison=evaluate_consequence(expectation=expectation,handoff=handoff,current_body=pointer(),renderer_report=report,evaluated_at=T2)
