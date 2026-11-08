@@ -506,13 +506,15 @@ def run() -> dict[str, Any]:
             invoker=session, current_sequence=next_sequence)
         later_pre_action_snapshot, _ = _pre_action_source(pose="reach")
         history_decision_question = (
-            "This is about the prior completed synthetic trial, not the current "
-            "trial. What pose did the prior trial observer report? The current "
-            "encoder pose is reach; do not use it to answer about the past. If "
-            "retrieved history supports an answer, report it explicitly as a past "
-            "report and cite that record in history_record_ids. If history is "
-            "absent or insufficient, abstain without guessing. Preserve the "
-            "distinction between renderer report, observer report, and proprioception.")
+            "From retrieved history only, what scalar value is stored at exactly "
+            "reported_values.observer_report_field.pose for the prior completed "
+            "synthetic trial? Do not use renderer_report.pose, "
+            "predicted_observation.pose, body_proprioception_report.encoder_pose, "
+            "or the current encoder pose. If that exact field exists, set "
+            "disposition to answer, say only that the record reports the value as "
+            "an unverified past report, set evidence_ids to [], and put the exact "
+            "containing record_id in history_record_ids (not its fact_id). If the "
+            "record or field is absent, abstain without guessing.")
         replay_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, False),
@@ -539,11 +541,13 @@ def run() -> dict[str, Any]:
             history_recall_bridge, replay_owner,
             screen_observation=history_recall_screen,
             request_id=RUN_ID + ":historical-companion-recall",
-            question=("In the prior completed trial, what pose value is stored under "
-                "semantic_report_roles.observer_report_field? The current encoder "
-                "pose is reach; do not use it as the past answer. Treat retrieved "
-                "history as an unverified past report, distinguish it from the "
-                "renderer report, and cite it."))
+            question=("From retrieved history only, what scalar value is stored "
+                "at exactly reported_values.observer_report_field.pose for the "
+                "prior completed synthetic trial? Do not use renderer_report.pose, "
+                "predicted_observation.pose, body_proprioception_report.encoder_pose, "
+                "or current evidence. If present, answer as an unverified past "
+                "report, set evidence_ids to [], and cite the exact containing "
+                "record_id in history_record_ids, not its fact_id. Otherwise abstain."))
         companion_intervention = (
             intervention_owner.run_companion_history_intervention(
                 snapshot=later_pre_action_snapshot,
@@ -728,6 +732,7 @@ def run() -> dict[str, Any]:
             "historical_companion_recall": {
                 "status": history_recall.get("status"),
                 "response": history_recall.get("validated_response"),
+                "disposition": history_recall.get("disposition"),
                 "history_record_ids": history_recall.get("history_record_ids", []),
                 "prior_record_ids": history_recall.get("retrieved_record_ids", []),
                 "current_fact_ids": history_recall.get("current_fact_ids", []),

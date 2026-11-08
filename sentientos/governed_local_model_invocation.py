@@ -167,6 +167,21 @@ RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA = {
 }
 RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA = (
     RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA)
+RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA = {
+    **RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
+    "properties": {
+        **RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA["properties"],
+        "history_record_ids": {"type": "array", "maxItems": 0,
+            "uniqueItems": True, "items": {"type": "string",
+                "minLength": 1, "maxLength": 256}},
+    },
+}
+
+
+def companion_history_output_schema(condition_id: Any) -> Mapping[str, Any]:
+    if condition_id == "history_withheld":
+        return RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA
+    return RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
 RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA = {
     "type": "object", "required": ["conclusion", "reason_code", "evidence_ids"],
     "additionalProperties": False,
@@ -814,9 +829,10 @@ class GovernedLocalModelInvoker:
                         RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
                         RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA]):
                 raise ValueError("structured_output_schema_not_canonical")
+            expected_intervention_schema = companion_history_output_schema(
+                (linkage or {}).get("condition_id"))
             if (purpose == INTERVENTION_PURPOSE
-                    and dict(structured_output_schema)
-                        != RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA):
+                    and dict(structured_output_schema) != expected_intervention_schema):
                 raise ValueError("structured_output_schema_not_canonical")
         return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=deepcopy(dict(structured_output_schema)) if structured_output_schema is not None else None)
 
@@ -879,7 +895,9 @@ class GovernedLocalModelInvoker:
                 if schema != RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA:
                     reasons.append("structured_output_schema_not_canonical")
             elif request.purpose == INTERVENTION_PURPOSE:
-                if schema != RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA:
+                expected_intervention_schema = companion_history_output_schema(
+                    request.linkage.get("condition_id"))
+                if schema != expected_intervention_schema:
                     reasons.append("structured_output_schema_not_canonical")
             elif request.purpose != "resident_developmental_interpretation": reasons.append("structured_output_schema_invalid")
         if request.purpose == "genesis_proposal_advice":

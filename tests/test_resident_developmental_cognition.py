@@ -2604,12 +2604,21 @@ def test_historical_embodiment_context_preserves_typed_report_roles() -> None:
         "created_at": "fixture-time", "epistemic_posture":
             "historical_interpretation_not_current_truth"}
     packet = _history_context_packet(record)
+    compact_packet = _history_context_packet(record, compact_for_input_budget=True)
+    compact_report = compact_packet["historical_embodiment_reports"][0]
+    assert len(json.dumps(compact_packet, separators=(",", ":"))) < len(
+        json.dumps(packet, separators=(",", ":")))
+    assert compact_report["reported_values"]["observer_report_field"] == {"pose": "idle"}
+    assert compact_report["effect_proven"] is False
     from sentientos.resident_developmental_cognition import (
         _bind_history_and_epistemic_context)
     bound, _, _, _, _ = _bind_history_and_epistemic_context(
         context={"instruction": "historical recall fixture",
             "current_evidence": {}, "developmental_history": []},
-        records=(record,), projection=None)
+        records=(record,), projection=None, compact_history_for_input=True)
+    bound_report = bound["historical_embodiment_reports"][0]
+    assert bound_report["reported_values"]["observer_report_field"] == {"pose": "idle"}
+    assert "typed_report_fields" not in bound_report
     assert bound["historical_embodiment_reports"][0]["record_id"] == "record-fixture"
     assert "historical_embodiment_reports" not in bound["developmental_history"][0]
     report = packet["historical_embodiment_reports"][0]

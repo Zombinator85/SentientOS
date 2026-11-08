@@ -26,7 +26,8 @@ from .governed_local_model_invocation import (
     RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
     RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
     RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
-    RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA, validate_receipt,
+    RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
+    RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA, validate_receipt,
 )
 from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
@@ -141,7 +142,10 @@ def _parse_companion_interaction_output(text: str,
                 or any(not isinstance(item, str) or not item or len(item) > 256
                     for item in ids)
                 or len(set(ids)) != len(ids) or not set(ids).issubset(allowed_ids)):
-            raise ValueError("companion_interaction_evidence_binding_invalid")
+            code = ("companion_interaction_evidence_binding_invalid"
+                if key == "evidence_ids"
+                else "companion_interaction_history_binding_invalid")
+            raise ValueError(code)
     if (value["disposition"] == "answer"
             and not value["evidence_ids"] and not value["history_record_ids"]):
         raise ValueError("companion_interaction_answer_requires_evidence")
@@ -258,9 +262,17 @@ COMPANION_HISTORY_INTERVENTION_INSTRUCTION = (
     "the typed field override it. If they conflict, state both claims and cite the record. "
     "For embodied consequence records, observer_report_field names the value recorded in "
     "independently_observed_value; its independence is only the explicit posture, not a proven fact. "
+    "For a past field-value question, use only the exact named typed field and copy its value; never "
+    "substitute a neighboring renderer, prediction, or proprioception field. If a retrieved typed "
+    "historical field contains the value, set disposition to answer and state it as a recorded historical "
+    "report, even when its source or independence is unverified. Cite the containing record_id in "
+    "history_record_ids, never the inner fact_id. Do not abstain only because current evidence cannot "
+    "verify that past report. "
     "Return exactly one JSON object with disposition, response, evidence_ids, and history_record_ids. "
     "Cite exact current World-State fact IDs in evidence_ids and only retrieved developmental record IDs "
-    "in history_record_ids. Use answer when current evidence or a past record supports it, but describe "
+    "in history_record_ids. Withheld or omitted history has no eligible record IDs: available or omitted "
+    "record references are not retrieved content and must never be cited. Use answer when current evidence "
+    "or a past record supports it, but describe "
     "historical support as past; otherwise ask briefly or abstain. A withheld or empty history is not "
     "evidence that no past event occurred. Preserve contradictions and do not claim independent "
     "verification or that any action occurred."
@@ -1859,8 +1871,8 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
     return projected
 
 
-def _historical_embodiment_evidence_context(candidate: Mapping[str, Any]
-        ) -> list[dict[str, Any]]:
+def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
+        compact_for_input_budget: bool = False) -> list[dict[str, Any]]:
     """Retain typed, bounded past embodiment reports beside their interpretation."""
     selected_ids = candidate.get("selected_fact_ids")
     selected_facts = candidate.get("selected_facts")
@@ -1917,22 +1929,37 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any]
                 "joint_state": values.get("joint_state"),
                 "evidence_posture": values.get("evidence_posture"),
                 "issuer_posture": values.get("observer_issuer_posture")}}
-        summaries.append({
-            "fact_id": fact.get("fact_id"),
-            "source_kind": source.get("kind"),
-            "source_schema_version": source.get("schema_version"),
-            "subject_kind": subject.get("subject_kind"),
-            "stage": fact.get("stage"),
-            "disposition": fact.get("disposition"),
-            "evidence_strength": fact.get("evidence_strength"),
-            "effect_proven": fact.get("effect_proven"),
-            "observed_at": fact.get("observed_at"),
-            "semantic_report_roles": roles,
-            "typed_report_fields": values,
-            "historical_only": True,
-            "current_truth": False,
-            "authority": False,
-        })
+        if compact_for_input_budget:
+            summaries.append({
+                "fact_id": fact.get("fact_id"),
+                "source_schema_version": schema,
+                "stage": fact.get("stage"),
+                "disposition": fact.get("disposition"),
+                "evidence_strength": fact.get("evidence_strength"),
+                "effect_proven": fact.get("effect_proven"),
+                "observed_at": fact.get("observed_at"),
+                "reported_values": roles,
+                "historical_only": True,
+                "current_truth": False,
+                "authority": False,
+            })
+        else:
+            summaries.append({
+                "fact_id": fact.get("fact_id"),
+                "source_kind": source.get("kind"),
+                "source_schema_version": source.get("schema_version"),
+                "subject_kind": subject.get("subject_kind"),
+                "stage": fact.get("stage"),
+                "disposition": fact.get("disposition"),
+                "evidence_strength": fact.get("evidence_strength"),
+                "effect_proven": fact.get("effect_proven"),
+                "observed_at": fact.get("observed_at"),
+                "semantic_report_roles": roles,
+                "typed_report_fields": values,
+                "historical_only": True,
+                "current_truth": False,
+                "authority": False,
+            })
         if len(summaries) >= MAX_FACTS:
             break
     return summaries
@@ -1970,7 +1997,8 @@ def _history_context_packet(record: Mapping[str, Any], *,
         "epistemic_posture": record.get("epistemic_posture"),
         "current_truth": False, "authority": False, "policy": False,
     }
-    embodiment_context = _historical_embodiment_evidence_context(candidate)
+    embodiment_context = _historical_embodiment_evidence_context(candidate,
+        compact_for_input_budget=compact_for_input_budget)
     if embodiment_context:
         packet["historical_embodiment_reports"] = embodiment_context
     task_examples = _task_family_history_examples(candidate,
@@ -2065,10 +2093,11 @@ def _history_context_packet(record: Mapping[str, Any], *,
 def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
         records: tuple[Mapping[str, Any], ...],
         projection: EpistemicCognitiveProjection | None,
-        history_present: bool = True,
+        history_present: bool = True, compact_history_for_input: bool = False,
         ) -> tuple[dict[str, Any], dict[str, Any], str, tuple[str, ...], tuple[str, ...]]:
     """Fit whole recent history packets and epistemic packets to one input bound."""
-    packet_modes = ((True, False), (False, False), (False, True))
+    packet_modes = (((False, True),) if compact_history_for_input else
+        ((True, False), (False, False), (False, True)))
     task_family_id = context.get("developmental_history_task_family_id")
     target_model_identity = context.get("developmental_history_target_model_identity")
     if not isinstance(target_model_identity, Mapping):
@@ -5270,7 +5299,8 @@ class ResidentDevelopmentalCognitionOwner:
             if isinstance(task_family_id, str) else "completed_tick_recency_suffix:v1")
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
-                projection=prior_epistemic_state, history_present=with_history))
+                projection=prior_epistemic_state, history_present=with_history,
+                compact_history_for_input=interaction_question is not None))
         if with_history and not record_ids:
             raise ResidentDevelopmentalCognitionError("history_context_budget_exhausted")
         if epistemic_revision_probe_prompt_preview:
@@ -5348,7 +5378,9 @@ class ResidentDevelopmentalCognitionOwner:
                 or objective_plan is not None or epistemic_revision_probe else "text",
             budget=request_budget,
             structured_output_schema=(
-                RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
+                RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA
+                if companion_intervention and condition_id == "history_withheld"
+                else RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
                 if companion_intervention else RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA
                 if interaction_question is not None else RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA
                 if epistemic_revision_probe else RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA
@@ -6130,7 +6162,8 @@ class ResidentDevelopmentalCognitionOwner:
                 _, preflight_metadata, _, protocol_record_ids, record_digests = (
                     _bind_history_and_epistemic_context(context=preflight_context,
                         records=prior.records, projection=prior_epistemic_state,
-                        history_present=True))
+                        history_present=True, compact_history_for_input=(
+                            companion_intervention_question is not None)))
                 preflight_selection = preflight_metadata.get(
                     "developmental_history_selection")
                 if not isinstance(preflight_selection, Mapping):
