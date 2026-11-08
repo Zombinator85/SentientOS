@@ -10,8 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import logging
 import math
 import queue
+import re
 import socket
 import threading
 from typing import Any
@@ -28,6 +30,7 @@ from .gaming_companion_bridge import (
 )
 
 _ACCEPT_TIMEOUT_SECONDS = 0.2
+LOGGER = logging.getLogger(__name__)
 
 
 class CompanionBridgeTransportError(CompanionBridgeError):
@@ -36,12 +39,14 @@ class CompanionBridgeTransportError(CompanionBridgeError):
     def __init__(self, code: str, *, delivery_state: str,
                  failure_phase: str | None = None,
                  failure_type: str | None = None,
-                 failure_errno: int | None = None) -> None:
+                 failure_errno: int | None = None,
+                 failure_reason: str | None = None) -> None:
         self.code = code
         self.delivery_state = delivery_state
         self.failure_phase = failure_phase
         self.failure_type = failure_type
         self.failure_errno = failure_errno
+        self.failure_reason = failure_reason
         super().__init__(code)
 
 
@@ -245,11 +250,18 @@ class CompanionBridgeLoopbackRuntime:
                     encoded = read_frame(connection)
                     message = self._receiver.accept(encoded)
                     self._messages.put_nowait(message)
-                except (CompanionBridgeError, OSError, queue.Full):
+                except (CompanionBridgeError, OSError, queue.Full) as exc:
                     # The queue-full check occurs before receiver.accept, so a
                     # rejected backpressure frame does not consume its sequence.
                     with self._lock:
                         self._rejected += 1
+                    reason = (exc.args[0] if isinstance(exc, CompanionBridgeError)
+                              and exc.args and isinstance(exc.args[0], str)
+                              else type(exc).__name__)
+                    if not isinstance(reason, str) or not reason.isascii() or not re.fullmatch(
+                            r"[A-Za-z0-9_.:-]{1,96}", reason):
+                        reason = type(exc).__name__
+                    LOGGER.warning("Companion bridge frame rejected: %s", reason)
                     continue
                 with self._lock:
                     self._accepted += 1
@@ -296,7 +308,12 @@ class CompanionBridgeLoopbackClient:
                     # Once connected, a partial send or lost ACK cannot prove
                     # whether the receiver queued the message.
                     raise CompanionBridgeTransportError("bridge_delivery_indeterminate",
-                        delivery_state="indeterminate") from exc
+                        delivery_state="indeterminate", failure_phase="frame_exchange",
+                        failure_type=type(exc).__name__,
+                        failure_errno=getattr(exc, "errno", None),
+                        failure_reason=(exc.args[0] if isinstance(exc, CompanionBridgeError)
+                                        and exc.args and isinstance(exc.args[0], str)
+                                        else None)) from exc
         except CompanionBridgeTransportError:
             raise
         try:

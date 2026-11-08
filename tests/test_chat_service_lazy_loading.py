@@ -1,6 +1,7 @@
 # mypy: ignore-errors
 from __future__ import annotations
 
+import hashlib
 import importlib
 import json
 import sys
@@ -69,6 +70,7 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
     assert not chat._is_recent_user_statement_reminder(
         "What did I say was written on the note I found?")
     assert chat._is_direct_recent_user_turn_recall_request("What did I just ask you?")
+    assert chat._is_direct_recent_user_turn_recall_request("What did I ask you to see in Cronos?")
     assert chat._is_direct_recent_user_turn_recall_request("What was my previous question?")
     assert not chat._is_direct_recent_user_turn_recall_request(
         "What did I ask you first in this conversation?")
@@ -475,8 +477,14 @@ def test_chat_stream_reports_model_grounding_and_server_release_timings(tmp_path
 
     invoker.invoke = invoke_stream
     chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    session_id = client.post("/sessions").json()["session_id"]
+    request_payload = {
+        "message": "Hello.",
+        "session_id": session_id,
+        "request_id": "stream-completion-recovery-1",
+    }
 
-    with client.stream("POST", "/chat/stream", json={"message": "Hello."}) as response:
+    with client.stream("POST", "/chat/stream", json=request_payload) as response:
         assert response.status_code == 200
         raw = response.read()
     text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
@@ -488,12 +496,29 @@ def test_chat_stream_reports_model_grounding_and_server_release_timings(tmp_path
     delta = next(event for event in events if event.get("type") == "delta")
     complete = next(event for event in events if event.get("type") == "complete")
     context = complete["response"]["context"]
+    diagnostics = complete["response"]["response_diagnostics"]
+    expected_text_sha256 = hashlib.sha256(
+        invoker.output_text.encode("utf-8")).hexdigest()
+    assert diagnostics["status"] == "exact_invocation_output_match"
+    assert diagnostics["invocation_output_text_sha256"] == expected_text_sha256
+    assert diagnostics["transcript_text_sha256"] == expected_text_sha256
+    assert diagnostics["delivery_text_sha256"] == expected_text_sha256
     assert type(delta.get("server_elapsed_ns")) is int
     assert delta["server_elapsed_ns"] >= 0
     assert type(complete.get("server_elapsed_ns")) is int
     assert complete["server_elapsed_ns"] >= delta["server_elapsed_ns"]
     assert context["chat_timing"]["model_call_wall_duration_ns"] >= 0
     assert context["chat_timing"]["post_generation_grounding_duration_ns"] >= 0
+
+    # Model the browser losing the terminal SSE event after the server has
+    # persisted the turn: the idempotent non-stream endpoint must recover it.
+    recovered = client.post("/chat", json=request_payload)
+    assert recovered.status_code == 200, recovered.text
+    assert recovered.json()["response"] == invoker.output_text
+    assert recovered.json()["context"]["recovered_without_inference"] is True
+    assert invoker.calls == 1
+    turns = chat._get_conversation_service().sessions.load(session_id)["turns"]
+    assert len(turns) == 2
 
 
 def test_chat_page_shows_response_stage_timing_controls(tmp_path):
@@ -593,6 +618,51 @@ def test_development_profile_switch_fails_closed_if_residency_release_fails():
         inference.set_workload_mode("gaming")
     assert invoker.model is normal
     assert inference.current_workload_mode() == "normal"
+
+
+def test_development_model_residency_status_is_bounded_and_reports_unloaded():
+    chat = _reload()
+
+    class ProbeModel:
+        active_identity = SimpleNamespace(engine="ollama")
+
+        def __init__(self):
+            self.loaded = False
+            self.calls = 0
+            self.fail = False
+
+        def is_resident(self):
+            self.calls += 1
+            if self.fail:
+                raise RuntimeError("local probe detail is not public")
+            return self.loaded
+
+    model = ProbeModel()
+    inference = chat.DevelopmentLocalChatInference(SimpleNamespace(model=model))
+
+    status = inference.model_residency_status()
+    assert status["status"] == "unloaded"
+    assert status["loaded"] is False
+    assert isinstance(status["observed_at"], str)
+
+    model.loaded = True
+    assert inference.model_residency_status()["status"] == "resident"
+
+    model.fail = True
+    failed = inference.model_residency_status()
+    assert failed["status"] == "unavailable"
+    assert failed["loaded"] is None
+    assert failed["reason_code"] == "model_residency_probe_failed"
+
+    prior_calls = model.calls
+    assert inference._inference_lock.acquire(blocking=False)
+    try:
+        busy = inference.model_residency_status()
+    finally:
+        inference._inference_lock.release()
+    assert busy["status"] == "operation_in_progress"
+    assert busy["loaded"] is None
+    assert model.calls == prior_calls
 
 def test_local_ui_recovers_session_transcript_after_service_restart(tmp_path):
     chat = _reload(); client = TestClient(chat.APP, client=("127.0.0.1", 1234))
@@ -1612,6 +1682,12 @@ def test_direct_recent_user_question_recall_uses_verified_transcript_without_inf
     prior_user_turn = chat._CONVERSATION_SERVICE.sessions.load(session_id)["turns"][0]
     assert prior_user_turn["role"] == "user"
     assert body["context"]["recalled_user_turn_id"] == prior_user_turn["turn_id"]
+    diagnostics = body["response_diagnostics"]
+    expected_digest = hashlib.sha256(body["response"].encode("utf-8")).hexdigest()
+    assert diagnostics["status"] == "prior_user_transcript_recall_output"
+    assert diagnostics["transcript_text_sha256"] == expected_digest
+    assert diagnostics["delivery_text_sha256"] == expected_digest
+    assert "invocation_output_text_sha256" not in diagnostics
     assert invoker.calls == calls_after_first_turn
 
     recovered = client.post("/chat", json=request)
@@ -1640,6 +1716,28 @@ def test_recent_user_recall_uses_only_immediately_previous_user_turn(tmp_path):
     assert "final prior USER_DATA turn" in prompt
     assert recall.json()["context"]["selected_turn_count"] == 1
     assert recall.json()["context"]["selected_memory_count"] == 0
+
+
+def test_stained_glass_recall_uses_previous_user_turn_not_current_screen_policy(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    first = client.post("/chat", json={
+        "message": "Can you see what is on the stained-glass window?",
+    })
+    sid = first.json()["session_id"]
+    calls_before_recall = invoker.calls
+
+    recall = client.post("/chat", json={
+        "session_id": sid,
+        "message": "Without taking another screen capture, what did I ask you to see in Cronos?",
+    })
+
+    assert recall.status_code == 200
+    assert "Can you see what is on the stained-glass window?" in recall.json()["response"]
+    assert recall.json()["context"]["response_origin"] == "transcript_recall"
+    assert recall.json()["context"]["inference_timing"]["backend_metrics_status"] == "not_applicable"
+    assert invoker.calls == calls_before_recall
 
 
 @pytest.mark.parametrize("message", [
@@ -2210,13 +2308,58 @@ def test_development_chat_only_uses_explicit_per_message_screen_observation(tmp_
     assert "objective: reach the observatory" in invoker.prompts[-1]
 
 
-def test_chat_stream_logs_only_safe_screen_observation_failure_code(caplog, tmp_path):
+def test_development_chat_passes_visual_question_to_query_aware_screen_observer(tmp_path):
+    chat = _reload()
+    client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    questions = []
+    screen_observation = {
+        "modality": "screen",
+        "text": "Visual summary (local model): Two candles beside the altar.",
+        "captured_at": "2026-11-04T12:00:00Z",
+        "backend": "tesseract+local_vision",
+        "capture_digest": "a" * 64,
+        "process_name_digest": "b" * 64,
+        "consent_id_digest": "c" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "raw_frame_retained": False,
+        "text_truncated": False,
+        "text_change_kind": "initial",
+        "previous_text_digest": None,
+        "bridge_message_provenance": {"source_id": "test-screen"},
+    }
+
+    class QueryAwareObserver:
+        def __call__(self):
+            raise AssertionError("question-aware observer should receive the user question")
+
+        def observe_question(self, question):
+            questions.append(question)
+            return screen_observation
+
+    chat.configure_development_chat(
+        invoker=invoker, data_root=tmp_path, screen_observer=QueryAwareObserver())
+    question = "How many candles can you see?"
+    response = client.post("/chat", json={
+        "message": question, "observe_screen": True})
+
+    assert response.status_code == 200
+    assert questions == [question]
+    assert "Two candles beside the altar" in invoker.prompts[-1]
+
+
+@pytest.mark.parametrize("failure_code", (
+    "screen_observation_request_timeout",
+    "game_screen_foreground_process_not_allowlisted",
+))
+def test_chat_stream_logs_and_returns_safe_screen_observation_failure_code(
+        caplog, tmp_path, failure_code):
     chat = _reload()
     client = TestClient(chat.APP)
     from sentientos.screen_observation_bridge import ScreenObservationBridgeError
 
     def fail_screen_observation():
-        raise ScreenObservationBridgeError("screen_observation_request_timeout")
+        raise ScreenObservationBridgeError(failure_code)
 
     invoker = SimulationInvoker()
     invoker.model.active_identity = SimpleNamespace(engine="ollama")
@@ -2245,9 +2388,42 @@ def test_chat_stream_logs_only_safe_screen_observation_failure_code(caplog, tmp_
         json.loads(line.removeprefix("data:").strip())
         for line in text.splitlines() if line.startswith("data:")
     ]
-    assert events[-1] == {"type": "error", "code": "chat_generation_failed"}
-    assert "failure_code=screen_observation_request_timeout" in caplog.text
+    assert events[-1] == {
+        "type": "error", "code": "screen_observation_failed",
+        "failure_code": failure_code,
+    }
+    assert f"failure_code={failure_code}" in caplog.text
     assert "Read only my current consented game screen." not in caplog.text
+
+
+def test_nonstream_chat_returns_safe_terminal_screen_failure_for_retry(tmp_path):
+    chat = _reload()
+    client = TestClient(chat.APP)
+    from sentientos.screen_observation_bridge import ScreenObservationBridgeError
+
+    invoker = SimulationInvoker()
+
+    def fail_screen_observation():
+        raise ScreenObservationBridgeError("screen_observation_request_timeout")
+
+    chat.configure_development_chat(
+        invoker=invoker, data_root=tmp_path,
+        screen_observer=fail_screen_observation)
+    session = client.post("/sessions")
+    assert session.status_code == 200
+    response = client.post("/chat", json={
+        "message": "What do you see?",
+        "session_id": session.json()["session_id"],
+        "request_id": "screen-retry-request",
+        "observe_screen": True,
+    })
+
+    assert response.status_code == 502, response.text
+    assert response.json() == {"detail": {
+        "code": "screen_observation_failed",
+        "failure_code": "screen_observation_request_timeout",
+    }}
+    assert invoker.calls == 0
 
 
 def test_no_readable_screen_text_answers_direct_gameplay_question_without_inference(tmp_path):
@@ -2293,13 +2469,95 @@ def test_no_readable_screen_text_answers_direct_gameplay_question_without_infere
     turns = chat._get_conversation_service().sessions.load(payload["session_id"])["turns"]
     policy = turns[-1]["linkage"]["policy_decision"]["payload"]
     assert policy["reason_code"] == "screen_capture_no_readable_text"
-    assert policy["evidence"]["screen_observation_provenance"] == {
+    provenance = policy["evidence"]["screen_observation_provenance"]
+    assert provenance["capture_digest"] == "c" * 64
+    assert provenance["text_digest"] == hashlib.sha256(b"").hexdigest()
+    assert provenance["text_status"] == "no_readable_text"
+    assert provenance["captured_at"] == "2026-11-05T06:00:00Z"
+    assert provenance["backend"] == "local-ocr"
+    assert provenance["capture_scope"] == "allowlisted_foreground_game_client_area"
+    assert provenance["raw_frame_retained"] is False
+
+
+def test_unavailable_visual_and_ocr_steps_do_not_enter_model_chat(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation(
+                "available", True, "a" * 64, "2026-11-05T06:00:00+00:00",
+                {"source_id": "windows-game-observer"},
+                game_process_running=True, running_process_name_digests=("b" * 64,))
+
+    screen_text = (
+        "Visual summary (local model): unavailable\n"
+        "Visible game text (local OCR): unavailable")
+    screen_observation = {
+        "modality": "screen", "text": screen_text, "text_status": "available",
+        "component_statuses": {"ocr": "unavailable", "vision": "unavailable"},
+        "component_failure_codes": {
+            "ocr": "game_screen_ocr_failed",
+            "vision": "game_screen_vision_timeout",
+        },
+        "captured_at": "2026-11-05T06:00:00Z", "backend": "tesseract+local_vision",
+        "capture_digest": "c" * 64, "process_name_digest": "d" * 64,
+        "consent_id_digest": "e" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "raw_frame_retained": False, "text_truncated": False,
+        "text_change_kind": "initial", "previous_text_digest": None,
+        "visual_change_kind": "initial", "visual_change_score": None,
+    }
+    chat.configure_development_chat(
+        invoker=invoker, data_root=tmp_path,
+        screen_observer=lambda: screen_observation,
+        initial_workload_mode="automatic", foreground_game_detector=Detector(),
+        game_process_names=("Cronos-Win64-Shipping.exe",))
+
+    response = client.post("/chat", json={
+        "message": "what colors and shapes it can see in the stained-glass window", "observe_screen": True,
+    })
+    assert response.status_code == 200
+    assert response.json()["response"] == (
+        "I can confirm Cronos is the foreground app, but this capture produced no usable "
+        "visual description or OCR text, so I can’t describe the scene from it.")
+    assert invoker.calls == 0
+    turns = chat._get_conversation_service().sessions.load(
+        response.json()["session_id"])["turns"]
+    assert turns[-1]["linkage"]["policy_decision"]["payload"]["reason_code"] == (
+        "screen_capture_perception_unavailable")
+    assistant_linkage = turns[-1]["linkage"]
+    expected_provenance = {
         "capture_digest": "c" * 64,
-        "text_digest": __import__("hashlib").sha256(b"").hexdigest(),
-        "text_status": "no_readable_text",
+        "text_digest": hashlib.sha256(screen_text.encode("utf-8")).hexdigest(),
+        "text_status": "available",
         "captured_at": "2026-11-05T06:00:00Z",
         "raw_frame_retained": False,
+        "backend": "tesseract+local_vision",
+        "component_statuses": {"ocr": "unavailable", "vision": "unavailable"},
+        "component_failure_codes": {
+            "ocr": "game_screen_ocr_failed",
+            "vision": "game_screen_vision_timeout",
+        },
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "process_name_digest": "d" * 64,
+        "consent_id_digest": "e" * 64,
+        "text_change_kind": "initial",
+        "visual_change_kind": "initial",
     }
+    assert assistant_linkage["screen_observation_provenance"] == expected_provenance
+    policy_evidence = assistant_linkage["policy_decision"]["payload"]["evidence"]
+    assert policy_evidence["screen_observation_provenance"] == expected_provenance
+    saved_turn = turns[-1]
+    diagnostics = chat._saved_transcript_response_diagnostics(saved_turn)
+    diagnostic_screen = diagnostics["screen_observation"]
+    assert diagnostic_screen["component_failure_codes"] == expected_provenance[
+        "component_failure_codes"]
+    assert diagnostic_screen["component_statuses"] == expected_provenance[
+        "component_statuses"]
+    assert diagnostic_screen["raw_frame_retained"] is False
+    assert screen_text not in json.dumps(saved_turn)
 
 
 def test_screen_status_distinguishes_capture_policy_from_message_inclusion(tmp_path):
@@ -2320,6 +2578,54 @@ def test_screen_status_distinguishes_capture_policy_from_message_inclusion(tmp_p
         "capture_policy": "allowlisted_session_polling",
         "per_message_opt_in_required": True,
     }
+
+
+def test_screen_status_reports_expired_launch_consent_without_secrets(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+
+    class ConsentAwareObserver:
+        def __call__(self):
+            raise AssertionError("status checks must not capture")
+        def consent_status(self):
+            return {
+                "consent_status": "expired",
+                "consent_expires_at": "2000-01-01T00:00:00Z",
+                "consent_seconds_remaining": 0,
+                "request_key": "must-not-leak",
+            }
+
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        screen_observer=ConsentAwareObserver())
+    status = client.get("/screen-observation").json()
+    assert status == {
+        "configured": True,
+        "capture_policy": "request_driven",
+        "per_message_opt_in_required": True,
+        "consent_status": "expired",
+        "consent_expires_at": "2000-01-01T00:00:00Z",
+        "consent_seconds_remaining": 0,
+    }
+    page = client.get("/").text
+    assert "await refreshScreenObservationStatus();" in page
+    assert "Screen consent is no longer active." in page
+
+
+def test_screen_status_exposes_bounded_foreground_handoff_duration(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    class ConsentAwareObserver:
+        def __call__(self):
+            raise AssertionError("status checks must not capture")
+        def consent_status(self):
+            return {"consent_status": "active",
+                    "foreground_wait_seconds": 5.0}
+    chat.configure_development_chat(invoker=SimulationInvoker(), data_root=tmp_path,
+        screen_observer=ConsentAwareObserver())
+    status = client.get("/screen-observation").json()
+    assert status["foreground_wait_seconds"] == 5.0
+    page = client.get("/").text
+    assert "return focus to the approved game within " in page
+    assert "handoffSeconds" in page
 
 
 def test_unobserved_gaming_companion_claim_is_corrected_and_attributed(tmp_path):
@@ -2347,6 +2653,15 @@ def test_unobserved_gaming_companion_claim_is_corrected_and_attributed(tmp_path)
     payload = response.json()
     assert payload["response"] == "I’m here with you in SentientOS. How’s the session going?"
     assert payload["context"]["response_origin"] == "grounding_policy_fallback"
+    diagnostics = payload["response_diagnostics"]
+    raw_digest = hashlib.sha256(
+        b"Sure, keeping an eye on your gaming session.").hexdigest()
+    displayed_digest = hashlib.sha256(payload["response"].encode("utf-8")).hexdigest()
+    assert diagnostics["status"] == "grounding_policy_fallback"
+    assert diagnostics["invocation_output_text_sha256"] == raw_digest
+    assert diagnostics["transcript_text_sha256"] == displayed_digest
+    assert diagnostics["delivery_text_sha256"] == displayed_digest
+    assert raw_digest != displayed_digest
 
 
 def test_verified_workload_and_screen_limits_are_grounded_for_background_game(tmp_path):
@@ -2446,3 +2761,108 @@ def test_development_chat_shutdown_releases_its_active_ollama_model(tmp_path):
 
     assert released == ["development_chat_shutdown"]
     assert chat._CONVERSATION_SERVICE is None
+
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "How many lit candles are visible beside the altar?",
+        "Can you tell me how many candles are on the screen right now?",
+    ],
+)
+def test_visual_detail_question_with_ocr_but_vision_timeout_skips_model(tmp_path, prompt):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    screen_text = (
+        "Visual summary (local model): unavailable\n"
+        "Visible game text (local OCR): GAME OBJECTIVE")
+    screen_observation = {
+        "modality": "screen", "text": screen_text, "text_status": "available",
+        "component_statuses": {"ocr": "available", "vision": "unavailable"},
+        "component_failure_codes": {"vision": "game_screen_vision_timeout"},
+        "captured_at": "2026-11-07T18:36:41Z", "backend": "tesseract+local_vision",
+        "capture_digest": "c" * 64, "process_name_digest": "d" * 64,
+        "consent_id_digest": "e" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "raw_frame_retained": False, "text_truncated": False,
+        "text_change_kind": "initial", "previous_text_digest": None,
+        "visual_change_kind": "initial", "visual_change_score": None,
+    }
+    chat.configure_development_chat(
+        invoker=invoker, data_root=tmp_path,
+        screen_observer=lambda: screen_observation)
+
+    response = client.post("/chat", json={
+        "message": prompt,
+        "observe_screen": True,
+    })
+
+    assert response.status_code == 200
+    assert response.json()["response"] == (
+        "I captured the game screen, but local vision did not finish this turn, "
+        "so I cannot reliably identify or count visual details yet.")
+    assert invoker.calls == 0
+    turns = chat._get_conversation_service().sessions.load(
+        response.json()["session_id"])["turns"]
+    decision = turns[-1]["linkage"]["policy_decision"]["payload"]
+    assert decision["policy_id"] == "screen_visual_observation_unavailable_v1"
+    assert decision["reason_code"] == "screen_capture_vision_unavailable"
+    assert decision["evidence"]["screen_observation_provenance"][
+        "component_failure_codes"] == {"vision": "game_screen_vision_timeout"}
+
+
+
+def test_development_chat_shutdown_returns_while_inference_is_blocked(tmp_path):
+    import threading
+
+    chat = _reload()
+    client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    identity = {
+        "engine": "ollama", "semantic_artifact_identity": "sha256:" + "a" * 64,
+        "posture": "development_only", "fallback": False,
+    }
+    invoker.model.active_identity = SimpleNamespace(
+        engine="ollama", to_dict=lambda: identity)
+    inference_entered = threading.Event()
+    unblock_inference = threading.Event()
+    shutdown_finished = threading.Event()
+    release_reasons = []
+    original_invoke = invoker.invoke
+
+    def blocked_invoke(request):
+        inference_entered.set()
+        assert unblock_inference.wait(3)
+        return original_invoke(request)
+
+    def release_model_residency(*, reason_code="gaming_mode_entered"):
+        release_reasons.append(reason_code)
+        return SimpleNamespace(status="released",
+            to_dict=lambda: {"status": "released", "reason_code": reason_code})
+
+    invoker.invoke = blocked_invoke
+    invoker.release_model_residency = release_model_residency
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    responses = []
+    chat_thread = threading.Thread(target=lambda: responses.append(
+        client.post("/chat", json={"message": "Keep working while I shut down."})))
+    chat_thread.start()
+    assert inference_entered.wait(1)
+
+    shutdown_thread = threading.Thread(target=lambda: (
+        chat.close_production_chat(), shutdown_finished.set()))
+    shutdown_thread.start()
+    try:
+        assert shutdown_finished.wait(1), "shutdown waited for blocked inference"
+        assert not unblock_inference.is_set()
+        assert release_reasons == ["development_chat_shutdown"]
+        assert chat._CONVERSATION_SERVICE is None
+    finally:
+        unblock_inference.set()
+        chat_thread.join(timeout=2)
+        shutdown_thread.join(timeout=2)
+
+    assert not chat_thread.is_alive()
+    assert not shutdown_thread.is_alive()
+    assert responses and responses[0].status_code == 200

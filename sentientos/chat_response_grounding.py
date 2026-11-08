@@ -15,6 +15,7 @@ SOCIAL_GAMING_GROUNDING_CORRECTION = (
 )
 
 SCREEN_CAPABILITY_POLICY_ID = "screen_observation_unconfigured_correction_v2"
+SCREEN_VISUAL_UNAVAILABLE_POLICY_ID = "screen_visual_observation_unavailable_v1"
 SOCIAL_INSTRUCTION_ECHO_POLICY_ID = "social_instruction_echo_correction_v1"
 SOCIAL_CHECK_IN_POLICY_ID = "social_check_in_grounding_correction_v1"
 CURRENT_GAME_STATUS_POLICY_ID = "verified_foreground_only_game_status_v1"
@@ -24,6 +25,7 @@ SYSTEM_IDENTITY_POLICY_ID = "sentientos_companion_identity_grounding_v1"
 UNPROVIDED_SOURCE_POLICY_ID = "unprovided_referenced_source_grounding_v1"
 GAMING_NEXT_STEP_POLICY_ID = "gaming_next_step_nonresponsive_fallback_v1"
 GAMING_NONVERBAL_OUTPUT_POLICY_ID = "gaming_nonverbal_output_fallback_v1"
+QUESTION_SCOPED_VISUAL_SUMMARY_FALLBACK_POLICY_ID = "question_scoped_visual_summary_fallback_v1"
 GAMING_SOCIAL_QUESTION_COUNT_POLICY_ID = "gaming_social_question_count_v1"
 GAMING_NONVERBAL_OUTPUT_CORRECTION = "I didn’t produce a useful reply that time."
 GAMING_SOCIAL_QUESTION_FALLBACK = "What’s one thing you’d like to talk about for a minute?"
@@ -173,6 +175,7 @@ def _is_game_status_question(user_message: str) -> bool:
     return any(
         _GAME_STATUS_QUESTION.search(clause) is not None
         and _USER_SHARING_GAME_CONTEXT_QUESTION.search(clause) is None
+        and _HISTORICAL_SCREEN_RECALL_QUESTION.search(clause) is None
         for clause in clauses
     )
 _GAME_SCREEN_ACTIVITY_QUESTION = re.compile(
@@ -180,6 +183,30 @@ _GAME_SCREEN_ACTIVITY_QUESTION = re.compile(
     r"can you (?:tell|describe|see)\s+what(?:'s| is)\s+"
     r"(?:happening|going on))\b.{0,100}\b"
     r"(?:cronos|game|gameplay|screen)\b",
+    re.IGNORECASE,
+)
+_SCREEN_CONTENT_QUESTION = re.compile(
+    r"\b(?:what|which)\b.{0,100}\b"
+    r"(?:do you see|can you see|see|shows?|visible|colors?|colours?|shapes?|objects?|text|details?)\b"
+    r".{0,100}\b(?:screen|display|cronos|game|gameplay|scene|window|glass|image|picture|menu|wall|door)\b|"
+    r"\b(?:can|could) you see\b.{0,80}\b(?:what\s+)?(?:is|appears?|shown)\b"
+    r".{0,80}\b(?:on|in)\b.{0,80}\b(?:screen|display|cronos|game|gameplay|scene|window|glass|image|picture|menu)\b|"
+    r"\b(?:can|could) you see\b.{0,80}\b(?:screen|display|cronos|game|gameplay|window|glass|image|picture|menu)\b",
+    re.IGNORECASE,
+)
+_DIRECT_VISUAL_DETAIL_QUESTION = re.compile(
+    r"\bhow many\b.{0,100}\b(?:visible|shown|see|appear|there are|are there)\b|"
+    r"\bhow many\b.{0,100}\b(?:on|in)\s+(?:the\s+)?(?:screen|display|frame|image)\b|"
+    r"\b(?:what|which)\b.{0,100}\b(?:color|colour|shape|symbol|object|detail|"
+    r"cross|candle|altar|window|glass)\b|"
+    r"\b(?:describe|identify|name|count)\b.{0,100}\b(?:visible|shown|see|"
+    r"object|detail|symbol|color|colour|shape)\b|"
+    r"\bwhat(?:'s| is)\b.{0,80}\b(?:above|beside|next to|in front of|behind)\b",
+    re.IGNORECASE,
+)
+_HISTORICAL_SCREEN_RECALL_QUESTION = re.compile(
+    r"\bwhat did i ask(?: you)? (?:to )?(?:see|look at|read|describe)\b|"
+    r"\bwhat was i asking(?: you)? (?:to )?(?:see|look at|read|describe)\b",
     re.IGNORECASE,
 )
 _NEGATED_SCREEN_ACTIVITY_REQUEST = re.compile(
@@ -277,6 +304,8 @@ def is_direct_screen_configuration_status_question(user_message: str) -> bool:
 
 def is_direct_screen_activity_question(user_message: str) -> bool:
     """Whether the user directly asks about current game-screen activity."""
+    if _HISTORICAL_SCREEN_RECALL_QUESTION.search(user_message) is not None:
+        return False
     screen_activity_matches = list(_GAME_SCREEN_ACTIVITY_QUESTION.finditer(user_message))
     direct_screen_activity = any(
         not _is_negated_screen_activity_reference(user_message, match.start())
@@ -284,6 +313,9 @@ def is_direct_screen_activity_question(user_message: str) -> bool:
     )
     return (
         direct_screen_activity
+        or any(_SCREEN_CONTENT_QUESTION.search(clause) is not None
+               for clause in re.split(r"[.!?;\n]+", user_message))
+        or is_direct_visual_detail_question(user_message)
         or _GAME_ACTIVITY_QUESTION.search(user_message) is not None
         or _SCREEN_CAPABILITY_QUESTION.search(user_message) is not None
         or _SCREEN_VISIBILITY_CLARIFICATION_REQUEST.search(user_message) is not None
@@ -291,6 +323,36 @@ def is_direct_screen_activity_question(user_message: str) -> bool:
         or is_user_report_evidence_question(user_message)
     )
 
+
+
+def is_direct_visual_detail_question(user_message: str) -> bool:
+    """Whether the user asks for visual scene details that OCR cannot establish."""
+    if _HISTORICAL_SCREEN_RECALL_QUESTION.search(user_message) is not None:
+        return False
+    return _DIRECT_VISUAL_DETAIL_QUESTION.search(user_message) is not None
+
+
+def visual_observation_unavailable_correction(
+    user_message: str,
+    screen_observation_provenance: Mapping[str, Any] | None,
+) -> tuple[str, dict[str, str] | None]:
+    """Decline visual scene claims when a capture has OCR but no usable vision result."""
+    if (not is_direct_visual_detail_question(user_message)
+            or not isinstance(screen_observation_provenance, Mapping)):
+        return "", None
+    components = screen_observation_provenance.get("component_statuses")
+    if (not isinstance(components, Mapping)
+            or components.get("ocr") != "available"
+            or components.get("vision") == "available"):
+        return "", None
+    if components.get("vision") not in {"unavailable", "failed", "timeout", "not_requested"}:
+        return "", None
+    return (
+        "I captured the game screen, but local vision did not finish this turn, "
+        "so I cannot reliably identify or count visual details yet.",
+        {"policy_id": SCREEN_VISUAL_UNAVAILABLE_POLICY_ID,
+         "reason_code": "screen_capture_vision_unavailable"},
+    )
 
 def is_user_report_evidence_question(user_message: str) -> bool:
     """Whether the user asks how their report differs from system observation."""
@@ -308,12 +370,23 @@ def _is_negated_screen_activity_reference(user_message: str, match_start: int) -
     return _NEGATED_SCREEN_ACTIVITY_REQUEST.search(clause_prefix) is not None
 
 
+def screen_observation_has_usable_content(
+    screen_observation_provenance: Mapping[str, Any] | None,
+) -> bool:
+    """Whether this turn contains a successful OCR or local visual result."""
+    if not isinstance(screen_observation_provenance, Mapping):
+        return False
+    components = screen_observation_provenance.get("component_statuses")
+    if isinstance(components, Mapping):
+        return any(status == "available" for status in components.values())
+    return screen_observation_provenance.get("text_status", "available") == "available"
+
+
 def _has_readable_screen_text(
     screen_observation_provenance: Mapping[str, Any] | None,
 ) -> bool:
-    """Whether this turn contains OCR text usable as screen evidence."""
-    return (isinstance(screen_observation_provenance, Mapping)
-            and screen_observation_provenance.get("text_status", "available") == "available")
+    """Compatibility wrapper for guards that require usable screen evidence."""
+    return screen_observation_has_usable_content(screen_observation_provenance)
 
 
 def unobserved_gameplay_claim(output: str, *, workload_mode: str,
@@ -347,7 +420,33 @@ def corrected_unobserved_game_status(
                 label = "The allowlisted game"
             workload_fact = f" Current telemetry separately confirms {label} is foreground."
 
-        if _has_readable_screen_text(screen_observation_provenance):
+        components = (
+            screen_observation_provenance.get("component_statuses")
+            if isinstance(screen_observation_provenance, Mapping) else None)
+        if isinstance(components, Mapping) and components:
+            visual_available = components.get("vision") == "available"
+            ocr_available = components.get("ocr") == "available"
+            if visual_available and ocr_available:
+                observation_fact = (
+                    " This turn includes an approximate local visual description and captured OCR; "
+                    "they support only the visible details and text reported, not every event."
+                )
+            elif visual_available:
+                observation_fact = (
+                    " This turn includes an approximate local visual description from one capture; "
+                    "it does not verify every event in the scene."
+                )
+            elif ocr_available:
+                observation_fact = (
+                    " This turn includes readable OCR from a screen capture; that supports only "
+                    "the text it captured, not every event in the scene."
+                )
+            else:
+                observation_fact = (
+                    " This turn’s screen capture produced no usable visual description or OCR text, "
+                    "so it does not independently verify the event."
+                )
+        elif _has_readable_screen_text(screen_observation_provenance):
             observation_fact = (
                 " This turn also includes readable OCR from a screen capture; that supports "
                 "only the text it captured, not every event in the scene."
@@ -436,10 +535,21 @@ def corrected_unobserved_game_status(
         mode = workload.get("effective_mode")
         mode_fact = (f", and SentientOS is in {mode} mode"
                      if mode in {"normal", "gaming"} else "")
+        components = (
+            screen_observation_provenance.get("component_statuses")
+            if isinstance(screen_observation_provenance, Mapping) else None)
+        perception_failed = (
+            isinstance(components, Mapping) and bool(components)
+            and not any(status == "available" for status in components.values()))
         capabilities = verified_runtime_context.get("capabilities")
         screen = (capabilities.get("screen_observation")
                   if isinstance(capabilities, Mapping) else None)
-        if isinstance(screen, Mapping) and screen.get("configured") is False:
+        if perception_failed:
+            observation_limit = (
+                "The requested capture produced no usable visual description or OCR text, "
+                "so I can’t describe the gameplay from it."
+            )
+        elif isinstance(screen, Mapping) and screen.get("configured") is False:
             observation_limit = (
                 "Screen observation isn’t configured in this session, "
                 "so I can’t describe the gameplay."
@@ -458,7 +568,9 @@ def corrected_unobserved_game_status(
             f"I can verify {workload_fact}{mode_fact}. {observation_limit}",
             {
                 "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
-                "reason_code": "verified_workload_context_screen_unavailable",
+                "reason_code": (
+                    "screen_capture_perception_unavailable" if perception_failed
+                    else "verified_workload_context_screen_unavailable"),
             },
         )
     if _GAME_RUNNING_QUESTION.search(user_message):
@@ -508,6 +620,17 @@ def corrected_unobserved_game_status(
                    flags=re.IGNORECASE)
     label = re.sub(r"[-_]+", " ", label).strip().title() or process_name
     if activity_question:
+        component_statuses = (
+            screen_observation_provenance.get("component_statuses")
+            if isinstance(screen_observation_provenance, Mapping) else None)
+        if (isinstance(component_statuses, Mapping) and component_statuses
+                and not any(status == "available" for status in component_statuses.values())):
+            return (
+                f"I can confirm {label} is the foreground app, but this capture produced no usable "
+                "visual description or OCR text, so I can’t describe the scene from it.",
+                {"policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+                 "reason_code": "screen_capture_perception_unavailable"},
+            )
         if (isinstance(screen_observation_provenance, Mapping)
                 and screen_observation_provenance.get("text_status") == "no_readable_text"):
             return (
@@ -822,10 +945,26 @@ def corrected_multiple_social_questions(
 
 def corrected_nonverbal_gaming_output(
     output: str, *, user_message: str, workload_mode: str, social_checkin: bool,
+    screen_observation: Mapping[str, Any] | None = None,
 ) -> tuple[str, dict[str, str] | None]:
-    """Reject gaming replies that contain no words despite the natural-language policy."""
+    """Use the fresh question-scoped vision answer if chat generation is blank."""
     if workload_mode != "gaming" or re.search(r"[^\W\d_]", output, re.UNICODE):
         return output, None
+    if (not social_checkin and is_direct_visual_detail_question(user_message)
+            and isinstance(screen_observation, Mapping)):
+        components = screen_observation.get("component_statuses")
+        observed_text = screen_observation.get("text")
+        prefix = "Visual summary (local model): "
+        if (isinstance(components, Mapping) and components.get("vision") == "available"
+                and screen_observation.get("backend") == "tesseract+local_vision"
+                and isinstance(observed_text, str) and observed_text.startswith(prefix)):
+            summary = observed_text[len(prefix):].partition(
+                "\nVisible game text (local OCR):")[0].strip()
+            if summary and len(summary) <= 400 and summary.casefold() != "unavailable":
+                return summary, {
+                    "policy_id": QUESTION_SCOPED_VISUAL_SUMMARY_FALLBACK_POLICY_ID,
+                    "reason_code": "blank_chat_output_used_fresh_question_scoped_vision",
+                }
     asks_for_question = re.search(
         r"\bask\b.{0,100}\bquestion\b|\bone question at a time\b",
         user_message, re.IGNORECASE | re.DOTALL)
@@ -857,6 +996,38 @@ def corrected_gaming_output(output: str, *, workload_mode: str,
     return GROUNDING_CORRECTION, {
         "policy_id": GROUNDING_POLICY_ID,
         "reason_code": "unobserved_gameplay_claim",
+    }
+
+
+def corrected_stale_screen_failure_claim(
+    output: str, *, screen_observation_provenance: Mapping[str, Any] | None,
+) -> tuple[str, dict[str, str] | None]:
+    """Remove historical capture-error boilerplate when this turn observed the screen."""
+    components = (screen_observation_provenance.get("component_statuses")
+                  if isinstance(screen_observation_provenance, Mapping) else None)
+    if (not isinstance(components, Mapping) or components.get("vision") != "available"
+            or not isinstance(output, str) or not output.strip()):
+        return output, None
+    stale_failure = re.compile(
+        r"\b(?:game[- ]screen|screen) observation (?:could not run|failed|is unavailable|"
+        r"was unavailable|was not available|was not observed this turn)\b|"
+        r"\bnot observing the screen\b", re.IGNORECASE)
+    stale_troubleshooting = re.compile(
+        r"\bcheck the (?:game screen|screen) setting\b|"
+        r"\bcheck (?:the )?(?:foreground game|local capture status)\b|"
+        r"\banswer this question directly based on the (?:visual )?summary\b",
+        re.IGNORECASE)
+    sentences = re.split(r"(?<=[.!?])\s+", output.strip())
+    kept = [sentence.strip() for sentence in sentences
+            if sentence.strip()
+            and stale_failure.search(sentence) is None
+            and stale_troubleshooting.search(sentence) is None]
+    corrected = " ".join(kept).strip()
+    if corrected == output.strip():
+        return output, None
+    return corrected, {
+        "policy_id": "fresh_screen_observation_stale_failure_correction_v1",
+        "reason_code": "removed_historical_screen_failure_claim",
     }
 
 

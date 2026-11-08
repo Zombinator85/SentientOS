@@ -22,7 +22,7 @@ from typing import Any, Mapping
 SCHEMA_VERSION = "sentientos.gaming_companion_bridge_envelope:v1"
 MESSAGE_KINDS = frozenset({
     "observation", "avatar_command", "acknowledgment", "renderer_report",
-    "consequence", "screen_capture_request",
+    "consequence", "screen_capture_request", "screen_observation_failure",
 })
 SCREEN_CAPTURE_REQUEST_FIELDS = frozenset({"capture_request_id"})
 AVATAR_COMMAND_FIELDS = frozenset({"output_mode", "phrase", "expression", "motion", "mood",
@@ -187,9 +187,15 @@ def _validate_message(kind: str, payload: Mapping[str, Any], admission: Mapping[
     elif kind == "screen_capture_request":
         if admission is not None:
             raise CompanionBridgeError("bridge_admission_unexpected")
-        if (set(payload) != SCREEN_CAPTURE_REQUEST_FIELDS
+        question = payload.get("question")
+        if (set(payload) not in (
+                    SCREEN_CAPTURE_REQUEST_FIELDS,
+                    SCREEN_CAPTURE_REQUEST_FIELDS | {"question"})
                 or not isinstance(payload.get("capture_request_id"), str)
-                or re.fullmatch(r"[0-9a-f]{32}", payload["capture_request_id"]) is None):
+                or re.fullmatch(r"[0-9a-f]{32}", payload["capture_request_id"]) is None
+                or (question is not None and (
+                    not isinstance(question, str) or not question.strip()
+                    or len(question) > 2048))):
             raise CompanionBridgeError("screen_capture_request_invalid")
     elif admission is not None:
         raise CompanionBridgeError("bridge_admission_unexpected")

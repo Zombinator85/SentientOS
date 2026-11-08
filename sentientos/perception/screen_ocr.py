@@ -14,7 +14,7 @@ import math
 import re
 import time
 from datetime import datetime, timezone
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Optional
 
 from sentientos.metrics import MetricsRegistry
@@ -45,6 +45,15 @@ class ScreenCaptureError(RuntimeError):
     pass
 
 
+@dataclass(frozen=True)
+class ScreenOCRResult:
+    """Bounded text plus non-content status for each local perception step."""
+
+    text: str
+    component_statuses: Mapping[str, str]
+    component_failure_codes: Mapping[str, str] = field(default_factory=dict)
+
+
 class ScreenOCR:
     """Track textual updates on the operator's screen."""
 
@@ -53,12 +62,16 @@ class ScreenOCR:
         config: ScreenConfig,
         *,
         capture_fn: Callable[[], Mapping[str, Any]] | None = None,
-        ocr_fn: Callable[[Mapping[str, Any]], str] | None = None,
+        ocr_fn: Callable[[Mapping[str, Any]], str | ScreenOCRResult] | None = None,
+        question_ocr_fn: Callable[
+            [Mapping[str, Any], str], str | ScreenOCRResult
+        ] | None = None,
         metrics: MetricsRegistry | None = None,
     ) -> None:
         self._config = config
         self._capture_fn = capture_fn
         self._ocr_fn = ocr_fn
+        self._question_ocr_fn = question_ocr_fn
         self._metrics = metrics or MetricsRegistry()
         self._last_hash: str | None = None
         self._last_text_digest: str | None = None
@@ -82,7 +95,12 @@ class ScreenOCR:
                 values.append((77 * red + 150 * green + 29 * blue) >> 8)
         return tuple(values)
 
-    def snapshot(self) -> Optional[Mapping[str, object]]:
+    def snapshot(self, question: str | None = None) -> Optional[Mapping[str, object]]:
+        if (question is not None
+                and (not isinstance(question, str) or not question.strip()
+                     or len(question) > 2048)):
+            raise ScreenCaptureError("screen_ocr_question_invalid")
+        question_specific = question is not None and self._question_ocr_fn is not None
         if not self._config.enable:
             return None
         if self._capture_fn is None or self._ocr_fn is None:
@@ -144,7 +162,7 @@ class ScreenOCR:
                     abs(current - previous) >= 24
                     for current, previous in zip(visual_sample, self._last_visual_sample)
                 ) / len(visual_sample)
-        if (threshold > 0 and visual_sample is not None
+        if (not question_specific and threshold > 0 and visual_sample is not None
                 and self._last_observation is not None
                 and visual_change_score is not None
                 and visual_change_score < threshold):
@@ -162,7 +180,7 @@ class ScreenOCR:
             refreshed["visual_change_score"] = visual_change_score
             self._last_observation = refreshed
             return dict(refreshed)
-        if digest == self._last_hash:
+        if not question_specific and digest == self._last_hash:
             if not self._config.refresh_unchanged_observation or self._last_observation is None:
                 return None
             refreshed = dict(self._last_observation)
@@ -187,10 +205,38 @@ class ScreenOCR:
             self._last_observation = refreshed
             return dict(refreshed)
         try:
-            text = self._ocr_fn(payload)
+            if question_specific:
+                assert question is not None and self._question_ocr_fn is not None
+                result = self._question_ocr_fn(payload, question)
+            else:
+                result = self._ocr_fn(payload)
         except Exception as exc:
             self._last_failure_code = _failure_code(exc, "screen_ocr_failed")
             raise ScreenCaptureError(self._last_failure_code) from exc
+        component_statuses: dict[str, str] | None = None
+        component_failure_codes: dict[str, str] | None = None
+        if isinstance(result, ScreenOCRResult):
+            text = result.text
+            statuses = result.component_statuses
+            failures = result.component_failure_codes
+            allowed_components = {"ocr", "vision"}
+            allowed_statuses = {"available", "unavailable", "no_readable_text"}
+            failure_pattern = re.compile(r"(?:screen|game_screen)_[a-z0-9_]{1,80}\Z")
+            if (not isinstance(statuses, Mapping) or not statuses
+                    or set(statuses) - allowed_components
+                    or any(not isinstance(status, str) or status not in allowed_statuses
+                           for status in statuses.values())
+                    or not isinstance(failures, Mapping)
+                    or set(failures) - allowed_components
+                    or any(not isinstance(code, str) or failure_pattern.fullmatch(code) is None
+                           or statuses.get(component) != "unavailable"
+                           for component, code in failures.items())):
+                self._last_failure_code = "screen_ocr_component_status_invalid"
+                raise ScreenCaptureError(self._last_failure_code)
+            component_statuses = dict(statuses)
+            component_failure_codes = dict(failures)
+        else:
+            text = result
         if not isinstance(text, str):
             self._last_failure_code = "screen_ocr_output_invalid"
             raise ScreenCaptureError(self._last_failure_code)
@@ -234,6 +280,10 @@ class ScreenOCR:
             "text_change_kind": text_change_kind,
             "previous_text_digest": previous_text_digest,
         }
+        if component_statuses is not None:
+            observation["component_statuses"] = component_statuses
+        if component_failure_codes:
+            observation["component_failure_codes"] = component_failure_codes
         if visual_sample is not None:
             observation["visual_change_kind"] = (
                 "initial" if self._last_visual_sample is None else "changed")
@@ -267,5 +317,5 @@ class ScreenOCR:
         }
 
 
-__all__ = ["ScreenConfig", "ScreenOCR", "ScreenCaptureError"]
+__all__ = ["ScreenConfig", "ScreenOCR", "ScreenOCRResult", "ScreenCaptureError"]
 

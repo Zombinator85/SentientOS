@@ -9,7 +9,12 @@ import pytest
 from control_plane import Decision, ReasonCode, RequestType
 from control_plane.records import AuthorizationRecord
 from control_plane.task_admission import AdmissionResponse
-from sentientos.chat_speech_output import ChatSpeechOutputController, MAX_SPOKEN_CHARS
+from sentientos.chat_speech_output import (
+    ChatSpeechOutputController,
+    LocalSystemSpeechPlayer,
+    MAX_SPOKEN_CHARS,
+    WindowsSapiLocalSpeechPlayer,
+)
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -220,6 +225,81 @@ def test_speech_emits_controller_boundaries_and_backend_word_timing() -> None:
         assert word_event["session_id"] == "session-1"
         assert word_event["char_start"] == 0
         assert word_event["timing_quality"] == "backend_word_start"
+    finally:
+        output.close()
+
+
+def test_windows_sapi_player_sends_text_over_stdin_and_hides_voice_text_from_argv() -> None:
+    class Process:
+        returncode = 0
+
+        def __init__(self, args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+            self.received_text = None
+
+        def communicate(self, *, input, timeout):
+            self.received_text = input
+
+    processes = []
+
+    def make_process(args, **kwargs):
+        process = Process(args, **kwargs)
+        processes.append(process)
+        return process
+
+    player = WindowsSapiLocalSpeechPlayer(
+        powershell_path="powershell.exe", process_factory=make_process)
+    text = "Local voice: quote ' and semicolon; remain plain input."
+
+    assert player.available() is True
+    assert player.speak(text) is True
+    assert processes[0].received_text == text
+    assert text not in " ".join(processes[0].args)
+    assert processes[0].kwargs["stdin"] is not None
+    assert player.playback_failure_code() is None
+
+
+def test_local_system_player_falls_through_to_available_local_backend() -> None:
+    class FailingPlayer(FakePlayer):
+        def speak(self, text: str) -> bool:
+            self.started.set()
+            return False
+
+        def playback_failure_code(self) -> str:
+            return "primary_backend_failed"
+
+    primary = FailingPlayer()
+    fallback = FakePlayer()
+    player = LocalSystemSpeechPlayer(players=(primary, fallback))
+
+    assert player.available() is True
+    assert player.speak("fallback remains local") is True
+    assert primary.started.is_set()
+    assert fallback.spoken == ["fallback remains local"]
+    assert player.playback_failure_code() is None
+
+
+def test_playback_failure_code_is_available_in_session_state() -> None:
+    class FailedPlayer(FakePlayer):
+        def speak(self, text: str) -> bool:
+            self.started.set()
+            return False
+
+        def playback_failure_code(self) -> str:
+            return "windows_sapi_playback_failed"
+
+    player = FailedPlayer()
+    output = ChatSpeechOutputController(player=player)
+    try:
+        _enabled(output)
+        output.publish_response(session_id="session-1", turn_id="turn-failed",
+            text="failed local output", output_digest="b" * 64)
+        assert player.started.wait(timeout=1)
+        _await_status(output, "playback_failed")
+        state = output.state("session-1")
+        assert state["playback_failure_code"] == "windows_sapi_playback_failed"
+        assert output.state("session-2")["playback_failure_code"] is None
     finally:
         output.close()
 

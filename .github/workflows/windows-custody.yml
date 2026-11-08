@@ -4,6 +4,11 @@ on:
   pull_request:
     paths:
       - ".github/workflows/windows-custody.yml"
+      - "avatar_state.py"
+      - "godot_avatar_receiver.py"
+      - "godot_avatar_demo/**"
+      - "tests/godot_runtime.py"
+      - "tests/test_godot_avatar_demo.py"
       - "requirements-codex.txt"
       - "sentientos/windows_handle_custody.py"
       - "sentientos/windows_peer_replay_custody.py"
@@ -19,6 +24,11 @@ on:
       - 'codex/construct-sentientos*'
     paths:
       - ".github/workflows/windows-custody.yml"
+      - "avatar_state.py"
+      - "godot_avatar_receiver.py"
+      - "godot_avatar_demo/**"
+      - "tests/godot_runtime.py"
+      - "tests/test_godot_avatar_demo.py"
       - "requirements-codex.txt"
       - "sentientos/windows_handle_custody.py"
       - "sentientos/windows_peer_replay_custody.py"
@@ -48,6 +58,58 @@ jobs:
         run: "python -m pip install --only-binary=:all: -r requirements-codex.txt"
       - name: Install this checkout as the tested package
         run: python -m pip install --no-deps -e .
+      - name: Install pinned Godot 4.7.2 Windows console build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "4.7.2-stable"
+          $archiveName = "Godot_v4.7.2-stable_win64.exe.zip"
+          $archivePath = Join-Path $env:RUNNER_TEMP $archiveName
+          $downloadUrl = "https://github.com/godotengine/godot-builds/releases/download/$version/$archiveName"
+          Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath
+          $expectedSha512 = "83decd58fdf67b9d657958a1ae6bf1929c20785315a81effe245874cdc57acb709bf868e00778a96984338c1b29dafdb453c6847747694621c6ecf5da2259993"
+          $actualSha512 = (Get-FileHash -Path $archivePath -Algorithm SHA512).Hash.ToLowerInvariant()
+          if ($actualSha512 -ne $expectedSha512) { throw "Godot archive SHA-512 mismatch: $actualSha512" }
+          $installPath = Join-Path $env:RUNNER_TEMP "godot-4.7.2"
+          New-Item -ItemType Directory -Path $installPath | Out-Null
+          Expand-Archive -Path $archivePath -DestinationPath $installPath
+          $console = Get-ChildItem -Path $installPath -Filter "Godot_v4.7.2-stable_win64_console.exe" -Recurse | Select-Object -First 1
+          if (-not $console) { throw "Godot console executable was not found in the verified archive." }
+          "SENTIENTOS_GODOT_EXECUTABLE=$($console.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Run Windows Godot companion regressions
+        run: python -m scripts.run_tests -q tests/test_godot_avatar_demo.py
+      - name: Bind Godot regressions to exact task acceptance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $head = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $nodes = @(
+            "tests/test_godot_avatar_demo.py::test_godot_avatar_demo_scripts_parse_in_supported_engine",
+            "tests/test_godot_avatar_demo.py::test_godot_companion_chat_ui_integrity_probe",
+            "tests/test_godot_avatar_demo.py::test_godot_companion_scene_instantiates_and_responds_to_avatar_state"
+          )
+          $manifest = [ordered]@{
+            schema_version = "sentientos.task_acceptance:v1"
+            task_classification = "behavior_adding"
+            repository_sha = $head
+            test_provenance_path = "glow/test_runs/test_run_provenance.json"
+            required_nodes = @($nodes | ForEach-Object { @{ node_id = $_ } })
+            successful_path_nodes = $nodes
+          }
+          $manifestPath = Join-Path $env:RUNNER_TEMP "windows-godot-acceptance.json"
+          $manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $manifestPath -Encoding utf8NoBOM
+          python scripts/verify_task_acceptance.py --manifest $manifestPath --provenance glow\test_runs\test_run_provenance.json --output (Join-Path $env:RUNNER_TEMP "windows-godot-acceptance-result.json")
+      - name: Upload exact Windows Godot acceptance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-godot-companion-acceptance
+          path: |
+            ${{ runner.temp }}/windows-godot-acceptance.json
+            ${{ runner.temp }}/windows-godot-acceptance-result.json
+            glow/test_runs/test_run_provenance.json
+          if-no-files-found: ignore
       - name: Run Windows custody regressions
         run: python -m scripts.run_tests sentientos/tests/test_windows_handle_custody.py -q
       - name: Bind native ACL regressions to exact task acceptance

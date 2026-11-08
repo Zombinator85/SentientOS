@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import re
+import shutil
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
@@ -216,6 +220,32 @@ def test_malicious_recalled_memory_cannot_become_system_authority(tmp_path: Path
             "text_change_kind": "changed", "captured_at": "2026-01-01T00:00:00Z"})
     assert "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]" in screen_prompt
     assert '"text":"quest objective"' in screen_prompt
+    visual_prompt = assemble_local_chat_context(
+        history=history, memory_snapshot={"memories": []},
+        current_message="What do you see?",
+        screen_observation={
+            "text": "Visual summary (local model): blue-green stained glass\n"
+                    "Visible game text (local OCR): none",
+            "text_status": "available", "backend": "tesseract+local_vision",
+            "component_statuses": {"ocr": "unavailable", "vision": "available"},
+            "component_failure_codes": {"ocr": "game_screen_ocr_timeout"},
+            "capture_digest": "c" * 64,
+            "capture_scope": "allowlisted_foreground_game_client_area",
+            "text_change_kind": "changed", "captured_at": "2026-01-01T00:00:01Z",
+            "text_delta": {"previous_text_digest": "d" * 64,
+                "current_text_digest": "e" * 64, "added_lines": ["untrusted"],
+                "removed_lines": [], "truncated": False},
+        })
+    assert "approximate local visual summary and OCR text" in visual_prompt
+    assert "inert" in visual_prompt
+    assert "never repeat failure-code values" in visual_prompt
+    assert '"observation_backend":"tesseract+local_vision"' in visual_prompt
+    assert '"perception_components":{"ocr":"unavailable","vision":"available"}' in visual_prompt
+    assert '"perception_failure_codes":{"ocr":"game_screen_ocr_timeout"}' in visual_prompt
+    assert '"observation_text_change":"changed"' in visual_prompt
+    assert '"ocr_line_delta"' not in visual_prompt
+    assert '"text_delta"' not in visual_prompt
+
     no_text_prompt = assemble_local_chat_context(
         history=history, memory_snapshot={"memories": []},
         current_message="What is happening in Cronos?",
@@ -307,8 +337,8 @@ def test_compact_screen_observation_fits_gaming_prompt_budget() -> None:
     assert len(prompt) <= GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS
     assert "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]" in prompt
     assert prompt.count("HUD") == 300
-    assert "Report only text it contains" in prompt
-    assert "Do not claim more than this capture shows" in prompt
+    assert "Report only details in SCREEN_DATA" in prompt
+    assert "do not infer unseen objects, actions, locations, or events" in prompt
     assert "VERIFIED_CURRENT_WORKLOAD_FACTS" not in prompt
 
 
@@ -429,27 +459,239 @@ def test_chat_endpoint_and_local_ui_expose_per_message_screen_opt_in(
     assert b"refreshScreenObservationStatus" in page.body
     assert b"let chatSendInFlight = false" in page.body
     assert b"sendButton.disabled = true" in page.body
+    assert b"failure.startsWith('screen_observation_failed:')" in page.body
+    assert b"terminalScreenObservationFailureCode(failure)" in page.body
+    assert b"clearTerminalChatRequestIdentity(" in page.body
+    assert b"This request ID conflicts with an earlier request" in page.body
     assert b"chatSendInFlight = false" in page.body
 
+    body = page.body.decode("utf-8")
+    match = re.search(
+        r"                function terminalScreenObservationFailureCode\(.*?"
+        r"(?=                async function consumeChatStream)",
+        body,
+        re.DOTALL,
+    )
+    assert match is not None
+    javascript = match.group(0) + r"""
+const removed = [];
+const storage = {removeItem(key) { removed.push(key); }};
+const parsedFailure = terminalScreenObservationFailureCode({
+    code: 'screen_observation_failed',
+    failure_code: 'screen_observation_request_timeout'
+});
+if (parsedFailure !== 'screen_observation_request_timeout') {
+    throw new Error('structured screen failure was not recognized');
+}
+if (terminalScreenObservationFailureCode({
+    code: 'screen_observation_failed', failure_code: 'unexpected detail'
+}) !== null) {
+    throw new Error('unsafe screen failure code was accepted');
+}
+if (terminalScreenObservationFailureCode({
+    code: 'chat_generation_failed', failure_code: 'screen_observation_request_timeout'
+}) !== null) {
+    throw new Error('non-screen error was accepted as a capture failure');
+}
+if (!clearTerminalChatRequestIdentity(
+    storage, 'screen-request', 'screen_observation_failed:screen_observation_request_timeout')) {
+    throw new Error('terminal timeout identity was not discarded');
+}
+if (!clearTerminalChatRequestIdentity(
+    storage, 'screen-request', 'screen_observation_failed:game_screen_capture_unavailable')) {
+    throw new Error('terminal capture failure identity was not discarded');
+}
+if (clearTerminalChatRequestIdentity(
+    storage, 'text-request', 'chat_generation_failed')) {
+    throw new Error('non-screen failure identity was discarded');
+}
+if (clearTerminalChatRequestIdentity(
+    storage, 'network-request', 'unknown_client_error')) {
+    throw new Error('ambiguous failure identity was discarded');
+}
+if (!clearTerminalChatRequestIdentity(storage, 'conflict-request', 'chat_request_conflict')) {
+    throw new Error('terminal request conflict identity was not discarded');
+}
+if (removed.join(',') !== 'screen-request,screen-request,conflict-request') {
+    throw new Error('unexpected request identities removed: ' + removed.join(','));
+}
+"""
+    node = os.environ.get("NODE_BINARY") or shutil.which("node")
+    if not node:
+        pytest.skip("Node.js is unavailable for browser helper behavior check")
+    result = subprocess.run([node, "-e", javascript], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr or result.stdout
 
-def test_godot_chat_screen_observation_is_a_one_turn_opt_in() -> None:
+
+def test_browser_recovers_missing_stream_completion_via_idempotent_chat_route() -> None:
+    page = asyncio.run(chat_service.root_page())
+    body = page.body.decode("utf-8")
+    assert "recoverChatStreamCompletion" in body
+    assert "chat_stream_completion_missing" in body
+    assert "saved reply reused without new inference or screen capture" in body
+    match = re.search(
+        r"                function terminalScreenObservationFailureCode\(.*?"
+        r"(?=                async function refreshRuntimeStatus)",
+        body,
+        re.DOTALL,
+    )
+    assert match is not None
+    javascript = match.group(0) + r"""
+const payload = {
+    message: 'What do you see?',
+    session_id: 'same-session',
+    request_id: 'same-request',
+    observe_screen: true
+};
+(async () => {
+    const calls = [];
+    const recovered = await recoverChatStreamCompletion(
+        new Error('chat_stream_completion_missing'), payload,
+        async (url, options) => {
+            calls.push([url, options.method, JSON.parse(options.body)]);
+            return {
+                ok: true,
+                async json() {
+                    return {response: 'The persisted reply.', session_id: 'same-session',
+                        turn_id: 'turn-1'};
+                }
+            };
+        });
+    if (recovered.response !== 'The persisted reply.' || calls.length !== 1
+            || calls[0][0] !== '/chat' || calls[0][1] !== 'POST'
+            || JSON.stringify(calls[0][2]) !== JSON.stringify(payload)) {
+        throw new Error('stream recovery did not reuse the exact idempotent request');
+    }
+    let unrelatedErrorPreserved = false;
+    try {
+        await recoverChatStreamCompletion(
+            new Error('chat_generation_failed'), payload,
+            async () => { throw new Error('unrelated error must not retry'); });
+    } catch (error) {
+        unrelatedErrorPreserved = error.message === 'chat_generation_failed';
+    }
+    if (!unrelatedErrorPreserved) {
+        throw new Error('non-missing completion error was incorrectly retried');
+    }
+    let screenFailure = '';
+    try {
+        await recoverChatStreamCompletion(
+            new Error('chat_stream_completion_missing'), payload,
+            async () => ({
+                ok: false,
+                async json() { return {detail: {
+                    code: 'screen_observation_failed',
+                    failure_code: 'game_screen_vision_timeout'
+                }}; }
+            }));
+    } catch (error) {
+        screenFailure = error.message;
+    }
+    if (screenFailure !== 'screen_observation_failed:game_screen_vision_timeout') {
+        throw new Error('screen retry failure code was not preserved');
+    }
+})().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+});
+"""
+    node = os.environ.get("NODE_BINARY") or shutil.which("node")
+    if not node:
+        pytest.skip("Node.js is unavailable for browser helper behavior check")
+    result = subprocess.run([node, "-e", javascript], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr or result.stdout
+
+
+def test_godot_chat_screen_observation_uses_a_persistent_preference() -> None:
     project_root = Path(__file__).resolve().parents[1]
     source = (project_root / "godot_avatar_demo/scripts/companion_chat_ui.gd").read_text(
         encoding="utf-8")
 
-    assert '"Read game text (this turn)"' in source
-    assert "_screen_observation_toggle.button_pressed = false" in source
+    assert '"Game screen"' in source
+    assert "_screen_observation_toggle.button_pressed = _screen_observation_preference_enabled" in source
+    assert "_screen_observation_toggle.button_pressed" in source
     assert '"observe_screen": observe_screen' in source
-    assert "It does not enable general image understanding." in source
-    assert "Game-screen OCR could not run." in source
-    assert "Bring the selected game to the foreground and retry" in source
+    assert 'HTTPRequest.new()' in source
+    assert '"/runtime-status"' in source
+    assert '"local model unloaded"' in source
+    assert '"model transition or inference in progress"' in source
+    assert '"local model residency unavailable"' in source
+    assert '"RuntimeStatus"' in source
+    assert '"ConversationSessionStatus"' in source
+    assert "HashingContext.HASH_SHA256" in source
+    assert '"transcript_text_sha256"' in source
+    assert '"delivery_text_sha256"' in source
+    assert '"invocation_output_text_sha256"' in source
+    assert "raw inference differs (%s)" in source
+    probe = (project_root / "godot_avatar_demo/tests/companion_chat_ui_integrity_probe.gd").read_text(
+        encoding="utf-8")
+    assert "exact lineage summary" in probe
+    assert "grounding fallback summary" in probe
+    assert "legacy raw digest summary" in probe
+    assert "transcript mismatch summary" in probe
+    assert "visible conversation ID" in probe
+    assert "visible reply turn ID" in probe
+    assert "visible answer integrity" in probe
+    assert "func _initialize():" in probe
+    assert "Godot companion chat UI probe passed." in probe
+    assert "func _initialize():" in probe
+    assert "Godot companion chat UI probe passed." in probe
+    assert "_update_session_status()" in probe
+    assert 'Latest reply turn ID:' in source
+    assert 'response.get("turn_id", "")' in source
+    assert '"Voice"' in source
+    assert 'const AVATAR_WINDOW_SIZE := Vector2i(140, 140)' in source
+    assert 'const CORNER_SNAP_RADIUS := 120.0' in source
+    assert 'func _corner_positions(usable_area: Rect2i)' in source
+    assert 'func _snap_compact_position_to_nearest_corner(position: Vector2i, usable_area: Rect2i)' in source
+    assert 'const COMPACT_AVATAR_VISIBLE_BOUNDS := Rect2i(Vector2i(48, 16), Vector2i(44, 64))' in source
+    assert 'func _clamped_compact_position(position: Vector2i, usable_area: Rect2i)' in source
+    assert 'avatar stays visible while transparent window padding extends past screen edges' in probe
+    assert 'avatar placement exposes all four display corners' in probe
+    assert 'const CHAT_WINDOW_SIZE := Vector2i(520, 620)' in source
+    assert 'panel.offset_top = -604.0' in source
+    assert 'expanded chat panel leaves room for transcript and composer' in probe
+    assert 'window.mouse_passthrough_polygon = PackedVector2Array()' in source
+    assert 'event.keycode == KEY_SPACE and event.ctrl_pressed and event.shift_pressed' in source
+    assert 'event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]' in source
+    assert 'event.button_index == MOUSE_BUTTON_LEFT' in source
+    assert 'var _compact_window_position := Vector2i.ZERO' in source
+    assert 'func _keep_window_onscreen(window: Window)' in source
+    assert 'func _clamped_window_position(position: Vector2i, size: Vector2i, usable_area: Rect2i)' in source
+    assert 'func _compact_position_from_expanded_window(expanded_position: Vector2i, usable_area: Rect2i)' in source
+    assert 'func _restore_avatar_screen_position(window: Window, screen_position: Vector2)' in source
+    assert 'var _compact_drag_button := MOUSE_BUTTON_NONE' in source
+    assert 'func _sync_compact_position_from_expanded_window(window: Window)' in source
+    assert 'expanded chat drag maps back to the compact avatar anchor' in probe
+    assert 'dragged avatar position persists across relaunch' in probe
+    assert 'window.position = _compact_window_position if _has_compact_window_position' in source
+    assert 'expanded chat clamped inside display work area' in probe
+    assert 'visible chat position preserved' in probe
+    project_config = (project_root / "godot_avatar_demo/project.godot").read_text(encoding="utf-8")
+    assert 'window/size/transparent=true' in project_config
+    assert 'window/per_pixel_transparency/allowed=true' in project_config
+    assert 'renderer/rendering_method="gl_compatibility"' in project_config
+    assert 'environment/defaults/default_clear_color=Color(0, 0, 0, 0)' in project_config
+    assert '"/speech-output?session_id="' in source
+    assert '"/speech-output", headers, HTTPClient.METHOD_POST, body' in source
+    assert '"LocalSpeechStatus"' in source
+    assert '"playback_status"' in source
+    assert '"playback_failure_code"' in source
+    assert "_speech_output_requested_enabled and not _speech_output_enabled" in source
+    assert "approval_not_granted" in source
+    assert '_speech_output_toggle.button_pressed = false' not in source
+    assert "OCR and optional visual summary stay local; frames are discarded" in source
+    assert "Game-screen observation could not run (" in source
+    assert "failure_code if not failure_code.is_empty() else" in source
+    assert "No background capture runs." in source
+    assert "This saved preference requests one fresh frame" in source
     assert 'code == "chat_input_too_large"' in source
     assert "Shorten the message and try again." in source
 
     chosen = source.index("var observe_screen := _screen_observation_toggle.button_pressed")
-    reset = source.index("_screen_observation_toggle.button_pressed = false", chosen)
-    send = source.index('"observe_screen": observe_screen', reset)
-    assert chosen < reset < send
+    send = source.index('"observe_screen": observe_screen', chosen)
+    assert chosen < send
+    assert "_screen_observation_toggle.button_pressed = false" not in source
 
 
 def test_cli_screen_configuration_requires_explicit_windows_process_allowlist(
@@ -713,3 +955,18 @@ def test_legacy_sidecar_is_inert_but_visible(tmp_path: Path) -> None:
     result=store.retrieve("legacy")
     assert result["memories"] == [] and result["legacy_sidecar_present"] is True
     assert not (root/"raw").joinpath("conversation_memories.json").exists()
+
+
+
+def test_companion_acceptance_checkpoint_requires_speech_and_observation() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    guide = (project_root / "docs/development/gaming_companion_deployment.md").read_text(
+        encoding="utf-8")
+    checkpoint = guide.split("## Focused companion acceptance checkpoint", 1)[1]
+    assert "audible local speech" in checkpoint
+    assert "consent_status: active" in checkpoint
+    assert "configured: true" in checkpoint and "only means the observer was constructed" in checkpoint
+    assert "useful" in checkpoint and "request-driven game observation" in checkpoint
+    assert "report the software phase as partial" in checkpoint
+    assert "may remain explicitly pending" in checkpoint
+    assert "operator's final assessment" in checkpoint

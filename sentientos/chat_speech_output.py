@@ -5,7 +5,11 @@ import hashlib
 import importlib.util
 import json
 import logging
+import os
 import queue
+import shutil
+import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -38,9 +42,17 @@ class Pyttsx3LocalSpeechPlayer:
     def __init__(self) -> None:
         self._engine: Any | None = None
         self._lock = threading.Lock()
+        self._failure_code: str | None = None
 
     def available(self) -> bool:
-        return importlib.util.find_spec("pyttsx3") is not None
+        if importlib.util.find_spec("pyttsx3") is None:
+            return False
+        if sys.platform.startswith("linux"):
+            return bool(shutil.which("espeak-ng") or shutil.which("espeak"))
+        return True
+
+    def playback_failure_code(self) -> str | None:
+        return self._failure_code
 
     def _get_engine(self) -> Any | None:
         if self._engine is not None:
@@ -59,11 +71,14 @@ class Pyttsx3LocalSpeechPlayer:
         try:
             engine = self._get_engine()
             if engine is None:
+                self._failure_code = "pyttsx3_backend_unavailable"
                 return False
             engine.say(text)
             engine.runAndWait()
+            self._failure_code = None
             return True
         except Exception:
+            self._failure_code = "pyttsx3_playback_failed"
             LOGGER.exception("Local chat speech playback failed")
             return False
 
@@ -80,6 +95,7 @@ class Pyttsx3LocalSpeechPlayer:
         try:
             engine = self._get_engine()
             if engine is None:
+                self._failure_code = "pyttsx3_backend_unavailable"
                 return False
             utterance_started = monotonic_clock()
             word_index = 0
@@ -107,8 +123,10 @@ class Pyttsx3LocalSpeechPlayer:
                     callback_ids.clear()
             engine.say(text)
             engine.runAndWait()
+            self._failure_code = None
             return True
         except Exception:
+            self._failure_code = "pyttsx3_playback_failed"
             LOGGER.exception("Local chat speech playback failed")
             return False
         finally:
@@ -126,6 +144,146 @@ class Pyttsx3LocalSpeechPlayer:
                 engine.stop()
             except Exception:
                 LOGGER.exception("Local chat speech stop failed")
+
+
+class WindowsSapiLocalSpeechPlayer:
+    """Local Windows SAPI output, used when the WSL audio engine is unavailable."""
+
+    _SCRIPT = (
+        "$ErrorActionPreference = 'Stop'; "
+        "[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false); "
+        "$text = [Console]::In.ReadToEnd(); "
+        "Add-Type -AssemblyName System.Speech; "
+        "$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+        "try { $synth.Speak($text) } finally { $synth.Dispose() }"
+    )
+
+    def __init__(self, *, powershell_path: str | None = None,
+                 process_factory: Callable[..., Any] = subprocess.Popen,
+                 timeout_seconds: float = 90.0) -> None:
+        self._powershell_path = powershell_path or self._find_powershell()
+        self._process_factory = process_factory
+        self._timeout_seconds = timeout_seconds
+        self._lock = threading.Lock()
+        self._process: Any | None = None
+        self._failure_code: str | None = None
+
+    @staticmethod
+    def _find_powershell() -> str | None:
+        candidate = shutil.which("powershell.exe")
+        if candidate:
+            return candidate
+        wsl_path = "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+        return wsl_path if os.path.isfile(wsl_path) else None
+
+    def available(self) -> bool:
+        return self._powershell_path is not None
+
+    def playback_failure_code(self) -> str | None:
+        return self._failure_code
+
+    def speak(self, text: str) -> bool:
+        if not self.available():
+            self._failure_code = "windows_sapi_backend_unavailable"
+            return False
+        try:
+            process = self._process_factory(
+                [self._powershell_path, "-NoLogo", "-NoProfile", "-NonInteractive",
+                 "-WindowStyle", "Hidden", "-Command", self._SCRIPT],
+                stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, text=True, encoding="utf-8")
+        except (OSError, subprocess.SubprocessError):
+            self._failure_code = "windows_sapi_launch_failed"
+            LOGGER.exception("Local Windows SAPI process launch failed")
+            return False
+        with self._lock:
+            self._process = process
+        try:
+            process.communicate(input=text, timeout=self._timeout_seconds)
+            if process.returncode != 0:
+                self._failure_code = "windows_sapi_playback_failed"
+                return False
+            self._failure_code = None
+            return True
+        except subprocess.TimeoutExpired:
+            self._failure_code = "windows_sapi_timeout"
+            self._terminate(process)
+            return False
+        except (OSError, subprocess.SubprocessError):
+            self._failure_code = "windows_sapi_playback_failed"
+            LOGGER.exception("Local Windows SAPI playback failed")
+            self._terminate(process)
+            return False
+        finally:
+            with self._lock:
+                if self._process is process:
+                    self._process = None
+
+    @staticmethod
+    def _terminate(process: Any) -> None:
+        try:
+            process.terminate()
+            process.wait(timeout=2.0)
+        except Exception:
+            try:
+                process.kill()
+            except Exception:
+                pass
+
+    def stop(self) -> None:
+        with self._lock:
+            process = self._process
+        if process is not None:
+            self._terminate(process)
+
+
+class LocalSystemSpeechPlayer:
+    """Prefer the host OS voice and retain a local pyttsx3 fallback."""
+
+    def __init__(self, *, players: tuple[LocalSpeechPlayer, ...] | None = None) -> None:
+        if players is None:
+            sapi = WindowsSapiLocalSpeechPlayer()
+            pyttsx3 = Pyttsx3LocalSpeechPlayer()
+            players = ((sapi, pyttsx3) if sapi.available() and sys.platform.startswith("linux")
+                       else (pyttsx3, sapi))
+        self._players = players
+        self._active_player: LocalSpeechPlayer | None = None
+        self._failure_code: str | None = None
+        self._lock = threading.Lock()
+
+    def available(self) -> bool:
+        return any(player.available() for player in self._players)
+
+    def playback_failure_code(self) -> str | None:
+        return self._failure_code
+
+    def speak(self, text: str) -> bool:
+        failure_code = "local_speech_backend_unavailable"
+        for player in self._players:
+            if not player.available():
+                continue
+            with self._lock:
+                self._active_player = player
+            try:
+                if player.speak(text):
+                    self._failure_code = None
+                    return True
+            finally:
+                with self._lock:
+                    if self._active_player is player:
+                        self._active_player = None
+            code_provider = getattr(player, "playback_failure_code", None)
+            code = code_provider() if callable(code_provider) else None
+            if isinstance(code, str) and code:
+                failure_code = code
+        self._failure_code = failure_code
+        return False
+
+    def stop(self) -> None:
+        with self._lock:
+            player = self._active_player
+        if player is not None:
+            player.stop()
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,7 +314,7 @@ class ChatSpeechOutputController:
                  monotonic_clock: Callable[[], float] = time.monotonic,
                  timing_event_sink: Callable[[Mapping[str, Any]], None] | None = None) -> None:
         self._admit = admission_provider
-        self._player = player or Pyttsx3LocalSpeechPlayer()
+        self._player = player or LocalSystemSpeechPlayer()
         self._clock = monotonic_clock
         self._timing_event_sink = timing_event_sink
         self._timing_events: queue.Queue[Mapping[str, Any]] = queue.Queue(
@@ -168,6 +326,7 @@ class ChatSpeechOutputController:
         self._queue: queue.Queue[_SpeechRequest | None] = queue.Queue(maxsize=1)
         self._closed = False
         self._last_playback_status = "idle"
+        self._last_playback_failure_code: str | None = None
         self._active_request: _SpeechRequest | None = None
         self._last_played_turn: tuple[str, str] | None = None
         self._worker = threading.Thread(target=self._run, name="local-chat-speech", daemon=True)
@@ -199,6 +358,8 @@ class ChatSpeechOutputController:
                 "expires_in_seconds": (max(0, int(grant.expires_at - self._clock()))
                                        if grant is not None else 0),
                 "playback_status": self._last_playback_status if grant is not None else "idle",
+                "playback_failure_code": (self._last_playback_failure_code
+                                           if grant is not None else None),
                 "active_turn_id": (self._active_request.turn_id
                                    if self._active_request is not None
                                    and self._active_request.session_id == session_id else None),
@@ -264,6 +425,7 @@ class ChatSpeechOutputController:
             self._grants[session_id] = grant
             timer.start()
             self._last_playback_status = "idle"
+            self._last_playback_failure_code = None
             return {"configured": True, "enabled": True, "scope": self.SCOPE,
                     "expires_in_seconds": self.GRANT_SECONDS}
 
@@ -315,6 +477,7 @@ class ChatSpeechOutputController:
                 self._last_playback_status = "speaker_busy"
                 return {"status": "speaker_busy"}
             self._last_playback_status = "queued"
+            self._last_playback_failure_code = None
             return {"status": "queued", "text_truncated": len(text) > MAX_SPOKEN_CHARS}
 
     def interrupt(self, session_id: str) -> dict[str, Any]:
@@ -395,6 +558,13 @@ class ChatSpeechOutputController:
                         self._last_playback_status = "interrupted"
                     elif self._last_playback_status != "speaker_busy":
                         self._last_playback_status = "played" if played else "playback_failed"
+                        failure_provider = getattr(self._player,
+                            "playback_failure_code", None)
+                        failure_code = (failure_provider()
+                            if callable(failure_provider) else None)
+                        self._last_playback_failure_code = (
+                            failure_code if not played and isinstance(failure_code, str)
+                            else None)
                     if played and not request.cancelled.is_set() and still_active:
                         self._last_played_turn = (request.session_id, request.turn_id)
                 self._emit_timing_event(request, {"event": "speech_interrupted"
@@ -409,6 +579,13 @@ class ChatSpeechOutputController:
                     with self._lock:
                         self._last_playback_status = (
                             "interrupted" if request.cancelled.is_set() else "playback_failed")
+                        failure_provider = getattr(self._player,
+                            "playback_failure_code", None)
+                        failure_code = (failure_provider()
+                            if callable(failure_provider) else None)
+                        self._last_playback_failure_code = (
+                            failure_code if isinstance(failure_code, str)
+                            else "local_speech_playback_failed")
                     self._emit_timing_event(request, {"event": "speech_failed",
                         "elapsed_seconds": 0.0, "timing_quality": "controller_boundary"})
             finally:

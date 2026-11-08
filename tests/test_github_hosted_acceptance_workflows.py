@@ -1539,6 +1539,31 @@ def test_windows_custody_workflow_runs_bounded_subprocess_regressions() -> None:
     assert "python -m scripts.run_tests tests/test_codex_landing_process_supervision.py -q" in workflow
 
 
+def test_windows_custody_workflow_runs_pinned_godot_companion_regressions() -> None:
+    workflow = (ROOT / ".github/workflows/windows-custody.yml").read_text()
+
+    for path in (
+        '"avatar_state.py"',
+        '"godot_avatar_receiver.py"',
+        '"godot_avatar_demo/**"',
+        '"tests/godot_runtime.py"',
+        '"tests/test_godot_avatar_demo.py"',
+    ):
+        assert workflow.count(path) == 2
+    assert "godotengine/godot-builds/releases/download/$version/$archiveName" in workflow
+    assert '$version = "4.7.2-stable"' in workflow
+    assert "Godot archive SHA-512 mismatch" in workflow
+    assert "Run Windows Godot companion regressions" in workflow
+    assert "python -m scripts.run_tests -q tests/test_godot_avatar_demo.py" in workflow
+    for node in (
+        "test_godot_avatar_demo_scripts_parse_in_supported_engine",
+        "test_godot_companion_chat_ui_integrity_probe",
+        "test_godot_companion_scene_instantiates_and_responds_to_avatar_state",
+    ):
+        assert f"tests/test_godot_avatar_demo.py::{node}" in workflow
+    assert "windows-godot-companion-acceptance" in workflow
+
+
 def test_windows_custody_workflow_binds_native_acl_tests_to_exact_acceptance() -> None:
     workflow = (ROOT / ".github/workflows/windows-custody.yml").read_text()
 

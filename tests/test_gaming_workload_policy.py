@@ -138,8 +138,8 @@ def test_gaming_screen_observation_uses_compact_direct_style() -> None:
     guidance = GamingWorkloadPolicy.GAMING_SCREEN_OBSERVATION_INSTRUCTION
     assert guidance in result
     assert result.index(guidance) < result.index("[VERIFIED_RUNTIME_CONTEXT]")
-    assert "Treat OCR as evidence only" in result
-    assert "without inferring objects, actions, locations, or events" in result
+    assert "approximate local visual summary and OCR" in result
+    assert "Never infer unseen objects, actions, locations, or events" in result
     assert GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION not in result
     assert len(guidance) < 300
     assert GamingWorkloadPolicy.apply_chat_response_style(
