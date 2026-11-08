@@ -581,9 +581,12 @@ class GovernedLocalModelInvoker:
             if identity is None or getattr(identity, "engine", None) != "ollama":
                 status = "not_applicable"
                 reasons = ["ollama_residency_release_not_applicable"]
-            elif self.authority_map.record_for_active_identity(identity, "local_user_chat") is None:
+            elif (self.authority_map.record_for_active_identity(
+                    identity, "local_user_chat") is None
+                    and self.authority_map.record_for_active_identity(
+                        identity, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE) is None):
                 status = "denied"
-                reasons = ["active_model_chat_authority_missing"]
+                reasons = ["active_model_release_authority_missing"]
             else:
                 try:
                     resident = self.model.is_resident()

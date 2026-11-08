@@ -3698,7 +3698,11 @@ class ResidentDevelopmentalCognitionOwner:
             identity_mapping = (active_identity if isinstance(active_identity, Mapping)
                 else {})
             rootless_identity = (bool(identity_mapping)
-                and identity_mapping.get("posture") == "rootless_experimental")
+                and ((identity_mapping.get("posture") == "rootless_experimental")
+                    or (identity_mapping.get("engine") == "ollama"
+                        and identity_mapping.get("posture") == "development_only"
+                        and identity_mapping.get("fallback") is False
+                        and identity_mapping.get("candidate_index") == 0)))
             if rootless_identity:
                 verifier = getattr(self.invoker,
                     "verify_persisted_invocation_receipt", None)
@@ -4108,11 +4112,15 @@ class ResidentDevelopmentalCognitionOwner:
             rootless_linkage = rootless_request.get("linkage")
             rootless_session = (rootless_linkage.get("rootless_experimental_session")
                 if isinstance(rootless_linkage, Mapping) else None)
+            experiment_identity = rootless_request.get("active_model_identity")
             rootless_probe = (receipt.purpose
                     == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
-                and isinstance(rootless_request.get("active_model_identity"), Mapping)
-                and rootless_request["active_model_identity"].get("posture")
-                    == "rootless_experimental"
+                and isinstance(experiment_identity, Mapping)
+                and ((experiment_identity.get("posture") == "rootless_experimental")
+                    or (experiment_identity.get("engine") == "ollama"
+                        and experiment_identity.get("posture") == "development_only"
+                        and experiment_identity.get("fallback") is False
+                        and experiment_identity.get("candidate_index") == 0))
                 and _valid_rootless_epistemic_session_binding(rootless_session)
                 and isinstance(rootless_linkage, Mapping)
                 and "resident_cognitive_serving" not in rootless_linkage)

@@ -24,7 +24,8 @@ from .local_model_authority import (
 from .local_model_runtime_worker import ExactRuntimeLocalModel
 from .local_runtime_provisioning import semantic_digest
 
-WORKSPACE_ROOT = Path("/workspace")
+WORKSPACE_ROOT = Path(os.environ.get(
+    "SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE", "/workspace"))
 EXPERIMENT_ROOT = WORKSPACE_ROOT / "sentientos-data" / "rootless-experimental"
 MODEL_MANIFEST_SCHEMA = "sentientos.rootless_experimental_model_artifact:v1"
 MODEL_MANIFEST_SCHEMA_UPSTREAM_LICENSE = "sentientos.rootless_experimental_model_artifact:v2"

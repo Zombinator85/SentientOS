@@ -145,6 +145,11 @@ class LocalModelAuthorityMap:
                 record.disposition == "rootless_experimental_epistemic_candidate"
                 and identity.posture == "rootless_experimental"
                 and purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
+            rootless_ollama_epistemic_match = (
+                record.disposition == "rootless_experimental_epistemic_candidate"
+                and record.engine == "ollama"
+                and identity.posture == "development_only"
+                and purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
             development_chat_match = (
                 record.disposition == "development_only"
                 and identity.posture == "development_only"
@@ -161,7 +166,8 @@ class LocalModelAuthorityMap:
                 and observed_index == identity.candidate_index
                 and observed_path == identity.resolved_artifact_path
                 and (production_match or rootless_experimental_match
-                    or rootless_epistemic_match or development_chat_match)
+                    or rootless_epistemic_match or rootless_ollama_epistemic_match
+                    or development_chat_match)
                 and not identity.fallback
             ):
                 return record
@@ -327,7 +333,8 @@ def build_rootless_experimental_epistemic_authority_map(
     records = tuple(replace(
         record,
         allowed_invocation_purposes=(ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,)
-            if record.engine in PRODUCTION_ENGINES and record.runtime_eligibility_status == "eligible"
+            if (record.engine in (PRODUCTION_ENGINES | DEVELOPMENT_ENGINES)
+                and record.runtime_eligibility_status == "eligible")
             else (),
         disposition="rootless_experimental_epistemic_candidate",
         proof_references=(*record.proof_references,

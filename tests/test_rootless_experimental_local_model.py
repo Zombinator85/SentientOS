@@ -819,3 +819,34 @@ def test_rootless_epistemic_session_binds_preregistration_and_caps_four_calls(
                 correlation_id="rootless-test-correlation-over-budget",
                 linkage={"rootless_experimental_session": session_binding})
 
+
+def test_rootless_epistemic_authority_accepts_only_bound_ollama_candidate(tmp_path):
+    manifest = tmp_path / "ollama-manifest"
+    manifest.write_text('{"schemaVersion":2,"layers":[]}', encoding="utf-8")
+    digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    config = ModelConfig([ModelCandidate(manifest, "ollama", "hermes-test", {
+        "api_base": "http://127.0.0.1:11434", "model": "hermes-test",
+        "manifest_sha256": digest, "num_gpu": 99, "keep_alive": "15m",
+        "think": False, "timeout_seconds": 120,
+    })], default_engine="ollama", max_context_tokens=8192,
+        generation=GenerationConfig(max_new_tokens=128, temperature=0, top_p=1))
+    authority = build_rootless_experimental_epistemic_authority_map(
+        config, allowed_roots=[tmp_path])
+    record = authority.eligible_record(ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
+    assert record is not None
+    assert record.allowed_invocation_purposes == (
+        ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,)
+    assert authority.eligible_record("local_user_chat") is None
+    assert authority.eligible_record(
+        "resident_developmental_retrieval_cognition") is None
+    identity = ActiveModelIdentity(engine="ollama",
+        resolved_artifact_path=record.observed_metadata["resolved_artifact_path"],
+        semantic_artifact_identity=record.semantic_artifact_identity,
+        model_content_sha256=record.model_content_sha256,
+        artifact_size_bytes=record.artifact_size_bytes,
+        sidecar_metadata_digest=record.sidecar_metadata_digest,
+        configuration_digest=record.configuration_digest, candidate_index=0,
+        posture="development_only", fallback=False)
+    assert authority.record_for_active_identity(
+        identity, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE) == record
+    assert authority.record_for_active_identity(identity, "local_user_chat") is None

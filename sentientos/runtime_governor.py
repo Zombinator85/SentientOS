@@ -1155,6 +1155,7 @@ class RuntimeGovernor:
                 "gaming_mode_entered",
                 "development_chat_shutdown",
                 "vram_pressure_observed",
+                "rootless_experimental_epistemic_complete",
             }
             and isinstance(identity_digest, str)
             and re.fullmatch(r"[0-9a-f]{64}", identity_digest) is not None

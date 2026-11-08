@@ -216,7 +216,11 @@ def _sample(*, reader: ObservationReader, observation_id: str,
         and rootless_binding.get("eligible_as_production_serving_evidence") is False
         and request.get("purpose") == "rootless_experimental_epistemic_revision_probe"
         and isinstance(request.get("active_model_identity"), Mapping)
-        and request["active_model_identity"].get("posture") == "rootless_experimental"
+        and ((request["active_model_identity"].get("posture")
+                == "rootless_experimental")
+            or (request["active_model_identity"].get("engine") == "ollama"
+                and request["active_model_identity"].get("posture") == "development_only"
+                and request["active_model_identity"].get("candidate_index") == 0))
         and request["active_model_identity"].get("fallback") is False
         and rootless_binding.get("active_model_identity_digest")
             == digest_payload({"identity": request["active_model_identity"]})
