@@ -111,6 +111,7 @@ class FakeInvoker:
         self.objective_plan_root: Path | None = None
         self.history_interpretation = "bounded history"
         self.companion_output_override = None
+        self.companion_output_by_condition = {}
 
     def observed_current_model_identity(self):
         return dict(self.active_model_identity) if self.active_model_identity else None
@@ -244,9 +245,16 @@ class FakeInvoker:
                 and request.structured_output_schema
                 and "disposition" in request.structured_output_schema.get("required", ())):
             evidence_ids = request.upstream_evidence.get("current_fact_ids", [])
-            decision = (self.companion_output_override if self.companion_output_override is not None
-                else {"disposition": "answer", "response": "The current observation supports this.",
-                    "evidence_ids": evidence_ids[:1]})
+            decision = self.companion_output_by_condition.get(
+                request.linkage.get("condition_id"), self.companion_output_override)
+            if decision is None:
+                decision = {"disposition": "answer",
+                    "response": "The current observation supports this.",
+                    "evidence_ids": evidence_ids[:1]}
+            else:
+                decision = dict(decision)
+                if decision.get("evidence_ids") == ["__CURRENT_FACT__"]:
+                    decision["evidence_ids"] = evidence_ids[:1]
             text = json.dumps(decision, sort_keys=True, separators=(",", ":"))
             original_output = text
         elif request.expected_output_format == "json" and request.structured_output_schema:
@@ -5484,6 +5492,55 @@ def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp
             == request.upstream_evidence["developmental_history_selection"]
         for request in cognition)
     assert result.changed_cognition_measurement_id is not None
+
+
+def test_companion_decision_can_be_compared_with_history_present_and_withheld(
+        tmp_path: Path) -> None:
+    initial_owner, _ = owner(tmp_path / "cognition")
+    initial = initial_owner.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    assert initial.written_record_id is not None
+
+    fake = FakeInvoker()
+    proposals = {
+        "history_present": {"disposition": "answer",
+            "response": '{"requested_pose":"idle","predicted_pose":"idle"}',
+            "evidence_ids": ["__CURRENT_FACT__"]},
+        "history_withheld": {"disposition": "answer",
+            "response": '{"requested_pose":"reach","predicted_pose":"reach"}',
+            "evidence_ids": ["__CURRENT_FACT__"]},
+        "history_restored": {"disposition": "answer",
+            "response": '{"requested_pose":"idle","predicted_pose":"idle"}',
+            "evidence_ids": []},
+    }
+    # The fake invoker binds each proposal to the per-request current facts.
+    fake.companion_output_by_condition = proposals
+    source = snapshot(2)
+    for decision in proposals.values():
+        decision["evidence_ids"] = ["__CURRENT_FACT__"]
+    compared_owner, _ = owner(tmp_path / "cognition", comparison=True, invoker=fake)
+
+    result = compared_owner.run_companion_history_intervention(
+        snapshot=source, tick_id="companion-decision-1",
+        question=("For the synthetic avatar, choose the next pose and predict "
+            "its encoder pose. Return JSON with requested_pose and predicted_pose."))
+
+    assert result.status == "completed_controlled_intervention"
+    assert result.output_classification == "history_presence_associated_stable_difference"
+    assert result.restored_prompt_matches is True
+    assert [item["condition_id"] for item in result.conditions] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert [json.loads(item["response"])["requested_pose"]
+        for item in result.conditions] == ["idle", "reach", "idle"]
+    assert all(item["snapshot_digest"] == source.digest for item in result.conditions)
+    current_fact_ids = result.conditions[0]["current_fact_ids"]
+    assert current_fact_ids
+    assert all(item["current_fact_ids"] == current_fact_ids
+        for item in result.conditions)
+    assert [bool(item["retrieved_record_ids"]) for item in result.conditions] == [
+        True, False, True]
+    assert result.authority is False
+    assert result.action_authority is False
+    assert result.canonical_explicit_user_retention_mutated is False
 
 
 def test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_identity(
