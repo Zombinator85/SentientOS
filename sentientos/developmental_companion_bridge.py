@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 from contextlib import nullcontext
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping, Sequence
 
 from .embodiment_self_observation import EmbodimentEvidenceOwner, EmbodimentObservation
@@ -16,6 +16,7 @@ from .local_model_authority import digest_payload
 from .longitudinal_self_model import LongitudinalSelfModelRuntimeConfig
 from .persistent_epistemic_state import PersistentEpistemicStateOwner
 from .resident_developmental_cognition import (
+    ResidentCompanionHistoryInterventionResult,
     ResidentCompanionInteractionResult,
     ResidentDevelopmentalCognitionOwner,
 )
@@ -32,13 +33,24 @@ class CognitionWorkloadUnavailable(RuntimeError):
     code = "cognition_unavailable_during_gaming"
 
 
+MAX_HISTORY_INTERVENTION_CAPTURE_AGE = timedelta(seconds=60)
+MAX_HISTORY_INTERVENTION_FUTURE_SKEW = timedelta(seconds=5)
+
+
 class CognitionEvidenceUnavailable(RuntimeError):
     """No current external or proprioceptive evidence is available for grounding."""
 
     code = "cognition_current_evidence_unavailable"
 
 
-def _screen_record(observation: Mapping[str, Any]) -> dict[str, Any]:
+def _screen_record(observation: Mapping[str, Any], *, staleness: str = "unknown",
+        capture_age_seconds: int | None = None) -> dict[str, Any]:
+    if staleness not in {"fresh", "aging", "stale", "expired", "unknown"}:
+        raise DevelopmentalCompanionBridgeError("consented_screen_observation_staleness_invalid")
+    if (capture_age_seconds is not None
+            and (type(capture_age_seconds) is not int or capture_age_seconds < 0
+                or capture_age_seconds > 60)):
+        raise DevelopmentalCompanionBridgeError("consented_screen_observation_age_invalid")
     text = observation.get("text")
     captured_at = observation.get("captured_at")
     capture_digest = observation.get("capture_digest")
@@ -70,7 +82,7 @@ def _screen_record(observation: Mapping[str, Any]) -> dict[str, Any]:
         "disposition": "captured",
         "evidence_strength": "bounded_local_capture_unverified_issuer",
         "observed_at": captured_at,
-        "staleness": "unknown",
+        "staleness": staleness,
         "effect_claimed": False,
         "effect_proven": False,
         "payload": {
@@ -80,19 +92,25 @@ def _screen_record(observation: Mapping[str, Any]) -> dict[str, Any]:
             "capture_scope": "allowlisted_foreground_game_client_area",
             "raw_frame_retained": False,
             "capture_time_posture": "caller_asserted_local_capture_time",
+            **({"capture_age_seconds": capture_age_seconds,
+                "freshness_window_seconds": 60}
+                if capture_age_seconds is not None else {}),
         },
     }
 
 
 def build_companion_snapshot(*, screen_observation: Mapping[str, Any] | None = None,
         proprioception: Sequence[EmbodimentObservation] = (),
+        screen_staleness: str = "unknown",
+        screen_capture_age_seconds: int | None = None,
         clock: Any | None = None) -> WorldStateSnapshot:
     """Build one bounded snapshot; source provenance remains explicitly qualified."""
     records: list[Mapping[str, Any]] = []
     if screen_observation is not None:
         if not isinstance(screen_observation, Mapping):
             raise DevelopmentalCompanionBridgeError("consented_screen_observation_invalid")
-        records.append(_screen_record(screen_observation))
+        records.append(_screen_record(screen_observation, staleness=screen_staleness,
+            capture_age_seconds=screen_capture_age_seconds))
     if proprioception:
         try:
             records.extend(EmbodimentEvidenceOwner(proprioception).world_state_records())
@@ -273,6 +291,76 @@ class ResidentDevelopmentalCompanionBridge:
             return self._cognition_available() is True
         except Exception:
             return False
+
+    def history_intervention_available(self) -> bool:
+        """Whether the existing three-condition cognition experiment is enabled."""
+        return (self.can_handle()
+            and self._owner.config.enabled is True
+            and self._owner.config.comparison_enabled is True
+            and self._owner.objective_task is None
+            and "embodiment" in self._owner.config.allowed_source_kinds)
+
+    def compare_history_intervention(self, *, tick_id: str, question: str,
+            screen_observation: Mapping[str, Any]
+            ) -> ResidentCompanionHistoryInterventionResult:
+        """Run the existing history-present/withheld/restored experiment on fresh evidence.
+
+        This explicit experiment makes up to four governed local inference calls, grants
+        no action authority, and does not treat a screen capture as verified truth.
+        """
+        if (not isinstance(tick_id, str) or not tick_id.strip() or len(tick_id) > 256
+                or not isinstance(question, str) or not question.strip()
+                or len(question) > 1200 or not isinstance(screen_observation, Mapping)):
+            raise DevelopmentalCompanionBridgeError(
+                "history_intervention_request_invalid")
+        if not self.history_intervention_available():
+            raise CognitionWorkloadUnavailable()
+        proprioception: Sequence[EmbodimentObservation] = ()
+        if self._proprioception_provider is not None:
+            value = self._proprioception_provider()
+            if not isinstance(value, (tuple, list)) or any(
+                    not isinstance(item, EmbodimentObservation) for item in value):
+                raise DevelopmentalCompanionBridgeError(
+                    "proprioception_provider_output_invalid")
+            proprioception = tuple(value)
+        _screen_record(screen_observation)
+        now = self._clock() if callable(self._clock) else datetime.now(timezone.utc)
+        if isinstance(now, str):
+            try:
+                now = datetime.fromisoformat(now.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise DevelopmentalCompanionBridgeError(
+                    "history_intervention_clock_invalid") from exc
+        captured_at = datetime.fromisoformat(
+            str(screen_observation["captured_at"]).replace("Z", "+00:00"))
+        if (not isinstance(now, datetime) or now.tzinfo is None or now.utcoffset() is None
+                or captured_at.tzinfo is None or captured_at.utcoffset() is None):
+            raise DevelopmentalCompanionBridgeError(
+                "history_intervention_capture_time_invalid")
+        capture_age = now.astimezone(timezone.utc) - captured_at.astimezone(timezone.utc)
+        if (capture_age < -MAX_HISTORY_INTERVENTION_FUTURE_SKEW
+                or capture_age > MAX_HISTORY_INTERVENTION_CAPTURE_AGE):
+            raise DevelopmentalCompanionBridgeError(
+                "history_intervention_capture_not_fresh")
+        tick_time, projection_tick = self._projection_boundary()
+        prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
+            tick_id=tick_time, projection_tick=projection_tick)
+        capture_age_seconds = int(max(0.0, capture_age.total_seconds()))
+        snapshot = build_companion_snapshot(
+            screen_observation=screen_observation,
+            proprioception=proprioception,
+            screen_staleness="fresh",
+            screen_capture_age_seconds=capture_age_seconds,
+            clock=self._clock)
+        if not snapshot.facts:
+            raise CognitionEvidenceUnavailable()
+        gate = (self._cognition_inference_gate()
+            if self._cognition_inference_gate is not None else nullcontext())
+        with gate:
+            return self._owner.run_companion_history_intervention(
+                snapshot=snapshot, tick_id=tick_id, question=question,
+                prior_self_model=prior_self_model,
+                prior_epistemic_state=prior_epistemic_state)
 
     def respond(self, *, request_id: str, question: str,
                 screen_observation: Mapping[str, Any] | None = None

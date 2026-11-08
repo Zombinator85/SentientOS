@@ -90,6 +90,21 @@ observation, inference receipt, and response digests, then verifies those bindin
 on idempotent recovery instead of invoking cognition a second time. This stored
 reply remains distinct from developmental-history writeback.
 
+A saved resident-cognition reply may expose an explicit **Compare history impact
+(4 inference calls)** control when the existing comparison owner is configured and the
+workload gate permits cognition. After operator confirmation, the local-only
+endpoint verifies the saved reply, captures one fresh consented screen observation,
+and calls the existing history-present / history-withheld / history-restored owner
+with the original bounded question and one matched World-State snapshot. Capture
+freshness is limited to 60 seconds and the measured capture age is retained in the
+World-State evidence; the observer timestamp is still caller-asserted and its issuer
+is not authenticated. Raw frames are not retained. The result reports
+response-text stability and measurement identity, not performance improvement.
+The three comparison conditions run after the normal developmental interpretation,
+so the experiment may make up to four local inference calls. It remains unavailable
+during a gaming workload. It grants no action authority and is not automatically run
+during chat.
+
 The local development companion runner can opt in to this owner-level bridge
 with `--enable-resident-cognition`. It requires an explicit resident-cognition
 configuration, automatic foreground-game workload detection, and the supervised

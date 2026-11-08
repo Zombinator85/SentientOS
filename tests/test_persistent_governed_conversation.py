@@ -66,6 +66,77 @@ def service(root: Path, invoker: FakeInvoker | None = None, screen_observer=None
 
 
 
+def test_explicit_history_intervention_uses_fresh_observation_and_returns_measurement(
+        tmp_path: Path) -> None:
+    observations = []
+    class Bridge:
+        def respond(self, *, request_id, question, screen_observation=None):
+            raise AssertionError("test does not invoke ordinary chat")
+
+        def history_intervention_available(self):
+            return True
+
+        def verify_committed_response(self, *, linkage, response_text, request_id):
+            return (linkage.get("response_origin") == "resident_developmental_cognition"
+                and response_text == "A saved answer."
+                and request_id.endswith(linkage["source_user_turn_id"]))
+
+        def compare_history_intervention(self, *, tick_id, question, screen_observation):
+            observations.append((tick_id, question, screen_observation))
+            return SimpleNamespace(status="completed_controlled_intervention",
+                tick_id=tick_id, changed_cognition_measurement_id="measure-1",
+                response_text_classification="no_observable_response_text_difference",
+                restored_prompt_matches=True,
+                conditions=({"condition_id": "history_present"},
+                    {"condition_id": "history_withheld"},
+                    {"condition_id": "history_restored"}),
+                authority=False, action_authority=False)
+
+    capture = {"modality": "screen", "text": "fresh local observation",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": "2026-11-08T12:00:00Z", "raw_frame_retained": False}
+    app = service(tmp_path, screen_observer=lambda: capture, cognition_bridge=Bridge())
+    session_id = app.create_session()
+    source, _ = app.sessions.append_user_request(session_id,
+        request_id="prior-question", text="What is one visible detail?",
+        retain=False)
+    assistant = app.sessions.append_turn(session_id, role="assistant",
+        text="A saved answer.", linkage={
+            "source_user_turn_id": source["turn_id"],
+            "response_origin": "resident_developmental_cognition",
+        })
+
+    result = app.run_history_intervention(session_id=session_id,
+        assistant_turn_id=assistant["turn_id"], request_id="experiment-1")
+
+    assert result["status"] == "completed_controlled_intervention"
+    assert result["measurement_id"] == "measure-1"
+    assert result["conditions"] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert result["performance_improvement_established"] is False
+    assert observations[0][1] == "What is one visible detail?"
+    assert observations[0][2] is capture
+
+
+def test_history_intervention_endpoint_requires_local_explicit_confirmation() -> None:
+    request = chat_service.HistoryInterventionRequest(
+        session_id="session-1", assistant_turn_id="turn-" + "a" * 24,
+        request_id="experiment-1", operator_confirmed=False)
+    local_request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"))
+    with pytest.raises(chat_service.HTTPException) as denied:
+        asyncio.run(chat_service.history_intervention_endpoint(
+            "session-1", request, local_request))
+    assert denied.value.status_code == 400
+
+    remote_request = SimpleNamespace(client=SimpleNamespace(host="203.0.113.7"))
+    confirmed = request.copy(update={"operator_confirmed": True})
+    with pytest.raises(chat_service.HTTPException) as denied_remote:
+        asyncio.run(chat_service.history_intervention_endpoint(
+            "session-1", confirmed, remote_request))
+    assert denied_remote.value.status_code == 403
+
+
 def test_resident_cognition_bridge_delivers_receipt_linked_answer_and_recovers(
         tmp_path: Path) -> None:
     class CognitionBridge:
@@ -563,6 +634,9 @@ def test_chat_endpoint_and_local_ui_expose_per_message_screen_opt_in(
     assert b"sendButton.disabled = true" in page.body
     assert b"failure.startsWith('screen_observation_failed:')" in page.body
     assert b"terminalScreenObservationFailureCode(failure)" in page.body
+    assert b"Compare history impact (4 inference calls)" in page.body
+    assert b"history-present / withheld / restored comparison" in page.body
+    assert b"operator_confirmed: true" in page.body
     assert b"clearTerminalChatRequestIdentity(" in page.body
     assert b"This request ID conflicts with an earlier request" in page.body
     assert b"chatSendInFlight = false" in page.body

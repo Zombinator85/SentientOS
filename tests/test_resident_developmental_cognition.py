@@ -53,7 +53,8 @@ from sentientos.integrity_quarantine import QuarantineState, save_state
 from sentientos.integrity_incident import build_incident, write_incident
 from sentientos.world_state_board import WorldStateBoardBuilder
 from sentientos.developmental_companion_bridge import (
-    ResidentDevelopmentalCompanionBridge, build_companion_snapshot,
+    DevelopmentalCompanionBridgeError, ResidentDevelopmentalCompanionBridge,
+    build_companion_snapshot,
 )
 from sentientos.embodiment_self_observation import EmbodimentObservation, semantic_digest
 from sentientos.embodied_consequence import (
@@ -4102,10 +4103,13 @@ def test_companion_bridge_composes_consented_screen_and_proprioception_without_w
         subject_kind="synthetic_avatar_body",
         payload={"joint_state": {"arm": 0.75}, "sampled_at": observed_at})
     snapshot_value = build_companion_snapshot(
-        screen_observation=screen, proprioception=(proprioception,))
+        screen_observation=screen, proprioception=(proprioception,),
+        screen_staleness="fresh", screen_capture_age_seconds=7)
     assert snapshot_value.validation_posture == "valid"
-    assert any(screen_text in json.dumps(fact.payload)
-        for fact in snapshot_value.facts)
+    screen_fact = next(fact for fact in snapshot_value.facts
+        if screen_text in json.dumps(fact.payload))
+    assert '"capture_age_seconds": 7' in json.dumps(screen_fact.payload)
+    assert '"freshness_window_seconds": 60' in json.dumps(screen_fact.payload)
 
     bridge = ResidentDevelopmentalCompanionBridge(cognition,
         proprioception_provider=lambda: (proprioception,))
@@ -5770,6 +5774,76 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         item["retrieved_record_ids"] for item in result.conditions]
     assert result.action_authority is False
     assert result.canonical_explicit_user_retention_mutated is False
+
+
+def test_companion_bridge_runs_existing_matched_history_intervention_on_fresh_screen(
+        tmp_path: Path) -> None:
+    now = datetime.now(timezone.utc)
+    cognition, fake = owner(tmp_path / "cognition", comparison=True,
+        allowed_source_kinds=("embodiment",))
+    screen = {"modality": "screen", "text": "The current test scene is visible.",
+        "capture_digest": "c" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    seed_snapshot = build_companion_snapshot(
+        screen_observation=screen, clock=lambda: now)
+    seeded = cognition.run_tick(snapshot=seed_snapshot, tick_id="seed-history-record")
+    assert seeded.written_record_id is not None
+    fake.companion_output_by_condition = {
+        "history_present": {"disposition": "answer", "response": "history-informed",
+            "evidence_ids": ["__CURRENT_FACT__"],
+            "history_record_ids": ["__CURRENT_HISTORY__"]},
+        "history_withheld": {"disposition": "answer", "response": "history withheld",
+            "evidence_ids": ["__CURRENT_FACT__"], "history_record_ids": []},
+        "history_restored": {"disposition": "answer", "response": "history-informed",
+            "evidence_ids": ["__CURRENT_FACT__"],
+            "history_record_ids": ["__CURRENT_HISTORY__"]},
+    }
+    bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
+    assert bridge.history_intervention_available() is True
+
+    result = bridge.compare_history_intervention(
+        tick_id="companion-history-intervention-test",
+        question="Describe one clearly visible detail.",
+        screen_observation=screen)
+
+    assert result.status == "completed_controlled_intervention"
+    assert result.response_text_classification == (
+        "history_presence_associated_stable_response_text_difference")
+    assert result.restored_prompt_matches is True
+    assert len([request for request in fake.requests
+        if request.purpose == "resident_developmental_history_intervention_experiment"]) == 4
+    assert [item["condition_id"] for item in result.conditions] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert len([request for request in fake.requests
+        if request.purpose == "resident_developmental_history_intervention_experiment"
+        and request.linkage.get("condition_id") in {
+            "history_present", "history_withheld", "history_restored"}]) == 3
+    assert len({item["snapshot_digest"] for item in result.conditions}) == 1
+    assert [bool(item["retrieved_record_ids"]) for item in result.conditions] == [
+        True, False, True]
+    assert result.authority is False
+    assert result.action_authority is False
+    assert result.canonical_explicit_user_retention_mutated is False
+
+
+def test_companion_history_intervention_rejects_stale_capture_before_inference(
+        tmp_path: Path) -> None:
+    now = datetime.now(timezone.utc)
+    cognition, fake = owner(tmp_path / "cognition", comparison=True,
+        allowed_source_kinds=("embodiment",))
+    screen = {"modality": "screen", "text": "Old screen evidence.",
+        "capture_digest": "d" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": (now - timedelta(minutes=2)).isoformat(),
+        "raw_frame_retained": False}
+    bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
+
+    with pytest.raises(DevelopmentalCompanionBridgeError,
+            match="history_intervention_capture_not_fresh"):
+        bridge.compare_history_intervention(tick_id="stale-test",
+            question="What is shown?", screen_observation=screen)
+    assert fake.requests == []
 
 
 def test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_identity(
