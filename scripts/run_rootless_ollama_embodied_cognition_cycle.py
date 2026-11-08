@@ -217,6 +217,54 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                     "record_digest": payload.get("record_digest"),
                     "current_truth": payload.get("current_truth"),
                     "authority": payload.get("authority")})
+    hosted_deliveries: list[dict[str, Any]] = []
+    conversation_root = RUN_ROOT / "hosted-chat" / "conversations"
+    if conversation_root.is_dir() and not conversation_root.is_symlink():
+        for path in sorted(conversation_root.glob("*.json")):
+            if path.is_symlink():
+                continue
+            try:
+                conversation = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                continue
+            turns = conversation.get("turns", []) if isinstance(conversation, dict) else []
+            if not isinstance(turns, list):
+                continue
+            for turn in turns:
+                if not isinstance(turn, dict) or turn.get("role") != "assistant":
+                    continue
+                linkage = turn.get("linkage")
+                if (not isinstance(linkage, dict)
+                        or linkage.get("response_origin")
+                            != "resident_developmental_cognition"):
+                    continue
+                retrieved = linkage.get("cognition_prior_record_ids", [])
+                cited = linkage.get("cognition_history_record_ids", [])
+                citation_bound = (isinstance(retrieved, list)
+                    and isinstance(cited, list)
+                    and all(isinstance(item, str) for item in retrieved + cited)
+                    and bool(cited) and set(cited).issubset(retrieved))
+                response = turn.get("text", "")
+                normalized_response = response.casefold() if isinstance(response, str) else ""
+                target_value = (
+                    "observer_reported_idle_with_bound_history"
+                    if citation_bound and "idle" in normalized_response
+                        and "reported_values.observer_report_field.pose"
+                            in normalized_response else
+                    "other_or_unvalidated")
+                hosted_deliveries.append({
+                    "assistant_turn_id": turn.get("turn_id"),
+                    "response_origin": linkage.get("response_origin"),
+                    "cognition_observation_id": linkage.get("cognition_observation_id"),
+                    "inference_receipt_id": linkage.get("inference_receipt_id"),
+                    "inference_receipt_digest": linkage.get("inference_receipt_digest"),
+                    "response_digest": linkage.get("response_digest"),
+                    "retrieved_record_ids": retrieved if isinstance(retrieved, list) else [],
+                    "history_record_ids": cited if isinstance(cited, list) else [],
+                    "history_citation_bound": citation_bound,
+                    "target_value_classification": target_value,
+                    "raw_question_and_response_excluded": True,
+                })
     artifact = {
         "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v1",
         "run_id": RUN_ID,
@@ -229,6 +277,7 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
         "failure_code": _failure_code(exc),
         "inference_receipts": receipts,
         "governed_developmental_records": records,
+        "hosted_companion_deliveries": hosted_deliveries,
         "governed_unload": _verify_model_released(MODEL_NAME),
         "gpu_after": _gpu_snapshot(),
         "raw_frames_or_user_conversation_copied": False,
@@ -662,23 +711,83 @@ def run() -> dict[str, Any]:
                 history_recall_text.encode("utf-8")).hexdigest(),
             "raw_frame_retained": False,
             "capture_scope": "allowlisted_foreground_game_client_area",
+            "text_change_kind": "initial", "previous_text_digest": None,
         }
         _, history_recall_proprioception = _pre_action_source(pose="reach")
+        from sentientos.canonical_memory import CanonicalMemoryStore
+        from sentientos.chat_service import (
+            DevelopmentLocalChatInference, PersistentConversationService,
+        )
+        from sentientos.conversation_session import ConversationSessionStore
+
+        hosted_chat_root = RUN_ROOT / "hosted-chat"
+        hosted_chat_root.mkdir(mode=0o700, exist_ok=False)
+        hosted_inference = DevelopmentLocalChatInference(invoker=session.invoker)
         history_recall_bridge = ResidentDevelopmentalCompanionBridge(
             replay_owner,
             proprioception_provider=lambda: (history_recall_proprioception,),
+            cognition_inference_gate=hosted_inference.cognition_inference_context,
+            cognition_available=hosted_inference.cognition_available,
             clock=lambda: history_recall_at)
-        history_recall = _verified_companion_replay(
-            history_recall_bridge, replay_owner,
-            screen_observation=history_recall_screen,
-            request_id=RUN_ID + ":historical-companion-recall",
-            question=("From retrieved history only, what scalar value is stored "
+        hosted_companion = PersistentConversationService(
+            inference=hosted_inference,
+            session_store=ConversationSessionStore(
+                hosted_chat_root / "conversations"),
+            memory_store=CanonicalMemoryStore(hosted_chat_root / "memory"),
+            screen_observer=lambda: history_recall_screen,
+            resident_cognition_bridge=history_recall_bridge)
+        hosted_session_id = hosted_companion.create_session()
+        history_recall_response = hosted_companion.chat(
+            ("From retrieved history only, what scalar value is stored "
                 "at exactly reported_values.observer_report_field.pose for the "
                 "prior completed synthetic trial? Do not use renderer_report.pose, "
                 "predicted_observation.pose, body_proprioception_report.encoder_pose, "
                 "or current evidence. If present, answer as an unverified past "
                 "report, set evidence_ids to [], and cite the exact containing "
-                "record_id in history_record_ids, not its fact_id. Otherwise abstain."))
+                "record_id in history_record_ids, not its fact_id. Otherwise abstain."),
+            session_id=hosted_session_id,
+            request_id=RUN_ID + ":historical-companion-recall",
+            observe_screen=True)
+        hosted_turns = hosted_companion.sessions.load(hosted_session_id)["turns"]
+        hosted_assistant_turn = hosted_turns[-1]
+        hosted_linkage = hosted_assistant_turn.get("linkage", {})
+        history_recall = {
+            "status": ("admitted_completed"
+                if history_recall_response.context.get("response_origin")
+                    == "resident_developmental_cognition" else "not_routed_to_cognition"),
+            "disposition": history_recall_response.context.get("cognition_disposition"),
+            "response": history_recall_response.response,
+            "evidence_ids": history_recall_response.context.get(
+                "cognition_evidence_ids", []),
+            "history_record_ids": history_recall_response.context.get(
+                "cognition_history_record_ids", []),
+            "prior_record_ids": history_recall_response.context.get(
+                "cognition_prior_record_ids", []),
+            "retrieved_record_ids": history_recall_response.context.get(
+                "cognition_prior_record_ids", []),
+            "current_pose": "reach",
+            "current_fact_ids": history_recall_response.context.get(
+                "cognition_evidence_ids", []),
+            "cognition_observation_id": history_recall_response.context.get(
+                "cognition_observation_id"),
+            "inference_receipt_id": history_recall_response.context.get(
+                "inference_receipt_id"),
+            "response_lineage_verified": history_recall_bridge.verify_committed_response(
+                linkage=hosted_linkage,
+                response_text=history_recall_response.response,
+                request_id=(f"{hosted_session_id}:"
+                    f"{hosted_turns[-2]['turn_id']}")),
+            "history_citation_delivery_verified": (
+                hosted_linkage.get("cognition_history_record_ids")
+                == history_recall_response.context.get(
+                    "cognition_history_record_ids")),
+            "screen_text_excluded_from_transcript": history_recall_text
+                not in json.dumps(hosted_turns),
+        }
+        if (history_recall["status"] != "admitted_completed"
+                or history_recall["response_lineage_verified"] is not True
+                or history_recall["history_citation_delivery_verified"] is not True):
+            raise RootlessExperimentalError("hosted_cognition_delivery_unverified")
         RUN_STAGE = "controlled_history_intervention"
         companion_intervention = (
             intervention_owner.run_companion_history_intervention(

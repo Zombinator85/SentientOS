@@ -1324,7 +1324,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert later.written_record_id in family_record_ids
     conditions = recovered["conditions"]
     present, withheld, restored = conditions
-    assert all(item["schema_version"] == "sentientos.resident_cognition_observation:v7"
+    assert all(item["schema_version"] == "sentientos.resident_cognition_observation:v8"
         for item in conditions)
     # This fixture uses genuinely unlinked historical-compatible invocation
     # receipts; the new observation version must retain that empty linkage.
@@ -4102,6 +4102,7 @@ def test_companion_bridge_composes_consented_screen_and_proprioception_without_w
         "response_digest": result.response_digest,
         "cognition_evidence_ids": list(result.evidence_ids),
         "cognition_prior_record_ids": list(result.prior_record_ids),
+        "cognition_history_record_ids": list(result.history_record_ids),
         "cognition_model_id": result.model_id,
         "cognition_model_artifact_digest": result.model_artifact_digest,
         "assistant_output_lineage": {
@@ -4116,6 +4117,10 @@ def test_companion_bridge_composes_consented_screen_and_proprioception_without_w
     }
     assert bridge.verify_committed_response(linkage=linkage,
         response_text=result.response, request_id=request_id)
+    unbound_history = {**linkage,
+        "cognition_history_record_ids": ["devrec-not-retrieved"]}
+    assert not bridge.verify_committed_response(linkage=unbound_history,
+        response_text=result.response, request_id=request_id)
     assert not bridge.verify_committed_response(linkage=linkage,
         response_text=result.response + " altered", request_id=request_id)
 
@@ -4128,12 +4133,23 @@ def test_development_chat_configuration_hosts_resident_cognition_owner(
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path / "user-memory"))
     cognition, fake = owner(tmp_path / "cognition",
         allowed_source_kinds=("embodiment",), max_selected_facts=4)
+    seed_snapshot = WorldStateBoardBuilder().build([{
+        "source_id": "hosted-cognition-history-seed",
+        "source_kind": "embodiment", "subject_id": "avatar-body",
+        "subject_kind": "synthetic_avatar_body", "stage": "observation",
+        "disposition": "recorded",
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "payload": {"encoder_pose": "idle", "fixture": "history-seed"},
+    }])
+    seed = cognition.run_tick(snapshot=seed_snapshot, tick_id="hosted-cognition-history-seed")
+    assert seed.written_record_id
     identity = {"model_id": "fixture-hermes", "posture": "development_only"}
     fake.model = SimpleNamespace(active_identity=SimpleNamespace(
         to_dict=lambda: identity))
     fake.companion_output_override = {
         "disposition": "answer", "response": "The current observation is recorded.",
-        "evidence_ids": ["__CURRENT_FACT__"], "history_record_ids": []}
+        "evidence_ids": ["__CURRENT_FACT__"],
+        "history_record_ids": ["__CURRENT_HISTORY__"]}
     observed_at = datetime.now(timezone.utc).isoformat()
     screen_text = "PRIVATE_HOSTED_SCREEN_SENTINEL: encoder pose idle"
     screen = {"modality": "screen", "text": screen_text,
@@ -4160,6 +4176,7 @@ def test_development_chat_configuration_hosts_resident_cognition_owner(
         app = chat_service._CONVERSATION_SERVICE
         assert app is not None
         session_id = app.create_session()
+        request_count_before_chat = len(fake.requests)
         response = app.chat("What does the current observation report?",
             session_id=session_id, request_id="hosted-cognition-request-1",
             observe_screen=True)
@@ -4167,17 +4184,25 @@ def test_development_chat_configuration_hosts_resident_cognition_owner(
         assert response.response == "The current observation is recorded."
         assert response.context["response_origin"] == "resident_developmental_cognition"
         assert response.context["developmental_history_writeback_performed"] is False
-        assert len(fake.requests) == 1
-        assert fake.requests[0].purpose == "resident_developmental_retrieval_cognition"
-        cognitive_prompt = json.loads(fake.requests[0].prompt)
+        assert len(fake.requests) == request_count_before_chat + 1
+        request = fake.requests[-1]
+        assert request.purpose == "resident_developmental_retrieval_cognition"
+        cognitive_prompt = json.loads(request.prompt)
         assert screen_text in json.dumps(cognitive_prompt)
         assert "hosted-fixture-proprioception" in json.dumps(cognitive_prompt)
+        assert response.context["cognition_history_record_ids"] == [seed.written_record_id]
+        observation = cognition.verified_cognition_observation(
+            response.context["cognition_observation_id"],
+            response.context["cognition_observation_digest"])
+        assert observation["schema_version"] == "sentientos.resident_cognition_observation:v8"
+        assert observation["companion_history_citation_ids"] == [seed.written_record_id]
         turns = app.sessions.load(session_id)["turns"]
         assert turns[-1]["linkage"]["response_origin"] == "resident_developmental_cognition"
         assert turns[-1]["linkage"]["inference_receipt_id"].startswith("lmrec-")
         assert turns[-1]["linkage"]["cognition_evidence_ids"]
+        assert turns[-1]["linkage"]["cognition_history_record_ids"] == [seed.written_record_id]
         assert screen_text not in json.dumps(app.sessions.load(session_id))
-        assert list(cognition.writeback.store.records_root.glob("*.json")) == []
+        assert len(list(cognition.writeback.store.records_root.glob("*.json"))) == 1
     finally:
         chat_service.close_production_chat()
 
@@ -4257,6 +4282,7 @@ def test_companion_bridge_consumes_existing_self_model_and_epistemic_projections
         "response_digest": result.response_digest,
         "cognition_evidence_ids": list(result.evidence_ids),
         "cognition_prior_record_ids": list(result.prior_record_ids),
+        "cognition_history_record_ids": list(result.history_record_ids),
         "cognition_model_id": result.model_id,
         "cognition_model_artifact_digest": result.model_artifact_digest,
         "self_model_projection_id": result.self_model_projection_id,
@@ -5619,7 +5645,7 @@ def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp
     durable = [json.loads(path.read_text(encoding="utf-8"))
         for path in restarted.observations_root.glob("*.json")]
     by_request = {row["request_id"]: row for row in durable}
-    assert all(by_request[request.request_id]["schema_version"].endswith(":v7")
+    assert all(by_request[request.request_id]["schema_version"].endswith(":v8")
         and by_request[request.request_id]["developmental_history_selection"]
             == request.upstream_evidence["developmental_history_selection"]
         for request in cognition)
@@ -6631,7 +6657,9 @@ def test_pre_v6_observation_recovery_preserves_historical_digest_shape(tmp_path:
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v7"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v8"
+    value.pop("companion_history_citation_ids")
+    value["schema_version"] = "sentientos.resident_cognition_observation:v7"
     value.pop("observation_id")
     value.pop("observation_digest")
     value.pop("developmental_history_selection")
@@ -6663,7 +6691,9 @@ def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_pat
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v7"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v8"
+    value.pop("companion_history_citation_ids")
+    value["schema_version"] = "sentientos.resident_cognition_observation:v7"
     value.pop("observation_id")
     value.pop("observation_digest")
     for field in ("resource_allocation_digest", "resource_attempt_id",
@@ -6700,7 +6730,9 @@ def test_rehashed_v7_history_selection_substitution_fails_receipt_reconciliation
     path = next(path for path in composition.observations_root.glob("*.json")
         if json.loads(path.read_text(encoding="utf-8")).get("condition_id") == "history_present")
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v7"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v8"
+    value.pop("companion_history_citation_ids")
+    value["schema_version"] = "sentientos.resident_cognition_observation:v7"
     selection = value["developmental_history_selection"]
     assert len(selection["selected_records"]) == 1
     replacement = "sha256:" + "0" * 64

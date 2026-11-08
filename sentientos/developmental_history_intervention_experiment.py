@@ -987,16 +987,20 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
             observation_id = semantic_observation.pop("observation_id", None)
             observation_digest = semantic_observation.pop("observation_digest", None)
             schema_version = semantic_observation.get("schema_version")
-            if schema_version != "sentientos.resident_cognition_observation:v7":
+            if schema_version not in {"sentientos.resident_cognition_observation:v7",
+                    "sentientos.resident_cognition_observation:v8"}:
                 for field in ("resource_allocation_digest", "resource_attempt_id",
                         "resource_consumption_receipt_digests", "resource_linkage_digest"):
                     semantic_observation.pop(field, None)
             if schema_version not in {"sentientos.resident_cognition_observation:v6",
-                    "sentientos.resident_cognition_observation:v7"}:
+                    "sentientos.resident_cognition_observation:v7",
+                    "sentientos.resident_cognition_observation:v8"}:
                 # The v6 history-selection binding is absent from older
                 # canonical observation identities, even though dataclass
                 # recovery now supplies its default value.
                 semantic_observation.pop("developmental_history_selection", None)
+            if schema_version != "sentientos.resident_cognition_observation:v8":
+                semantic_observation.pop("companion_history_citation_ids", None)
             calculated = _digest(semantic_observation)
             if schema_version == "sentientos.resident_cognition_observation:v2":
                 semantic_observation.pop("serving_session_id", None)
@@ -1007,12 +1011,14 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
                         "sentientos.resident_cognition_observation:v4",
                         "sentientos.resident_cognition_observation:v5",
                         "sentientos.resident_cognition_observation:v6",
-                        "sentientos.resident_cognition_observation:v7"}
+                        "sentientos.resident_cognition_observation:v7",
+                        "sentientos.resident_cognition_observation:v8"}
                     or observation_digest != calculated
                     or observation_id != "devcog-" + calculated[7:31]):
                 raise DevelopmentalHistoryInterventionError("observation_identity_mismatch")
             if schema_version in {"sentientos.resident_cognition_observation:v6",
-                    "sentientos.resident_cognition_observation:v7"}:
+                    "sentientos.resident_cognition_observation:v7",
+                    "sentientos.resident_cognition_observation:v8"}:
                 selection = semantic_observation.get("developmental_history_selection")
                 expected_records = [{"record_id": record_id,
                     "record_digest": record_digest} for record_id, record_digest in zip(

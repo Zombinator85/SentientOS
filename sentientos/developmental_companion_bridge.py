@@ -157,6 +157,15 @@ class ResidentDevelopmentalCompanionBridge:
             expected_tick = "companion-interaction-" + hashlib.sha256(
                 request_id.encode("utf-8")).hexdigest()[:32]
             text_digest = digest_payload({"text": response_text})
+            history_record_ids = linkage.get("cognition_history_record_ids", [])
+            retrieved_record_ids = observation.get("retrieved_record_ids", ())
+            history_lineage_valid = (
+                isinstance(history_record_ids, list)
+                and all(isinstance(item, str) for item in history_record_ids)
+                and len(set(history_record_ids)) == len(history_record_ids)
+                and isinstance(retrieved_record_ids, (list, tuple))
+                and all(isinstance(item, str) for item in retrieved_record_ids)
+                and set(history_record_ids).issubset(retrieved_record_ids))
             return (
                 linkage.get("response_origin") == "resident_developmental_cognition"
                 and observation.get("condition_id") == "companion-interaction"
@@ -189,6 +198,10 @@ class ResidentDevelopmentalCompanionBridge:
                     set(observation.get("current_fact_ids", ()))
                 and linkage.get("cognition_prior_record_ids") ==
                     list(observation.get("retrieved_record_ids", ()))
+                and observation.get("schema_version") ==
+                    "sentientos.resident_cognition_observation:v8"
+                and observation.get("companion_history_citation_ids") == list(history_record_ids)
+                and history_lineage_valid
                 and linkage.get("cognition_model_id") == observation.get("model_id")
                 and linkage.get("cognition_model_artifact_digest") ==
                     observation.get("model_artifact_digest")

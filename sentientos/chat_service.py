@@ -1732,6 +1732,7 @@ class PersistentConversationService:
         model_id = getattr(result, "model_id", None)
         evidence_ids = getattr(result, "evidence_ids", ())
         prior_record_ids = getattr(result, "prior_record_ids", ())
+        history_record_ids = getattr(result, "history_record_ids", ())
         if (not isinstance(observation_id, str) or not observation_id.startswith("devcog-")
                 or not isinstance(observation_digest, str) or not observation_digest.startswith("sha256:")
                 or not isinstance(receipt_id, str) or not receipt_id.startswith("lmrec-")
@@ -1743,6 +1744,11 @@ class PersistentConversationService:
                 or not isinstance(prior_record_ids, (tuple, list))
                 or any(not isinstance(item, str) for item in prior_record_ids)):
             raise RuntimeError("resident_cognition_response_lineage_invalid")
+        if (not isinstance(history_record_ids, (tuple, list))
+                or any(not isinstance(item, str) for item in history_record_ids)
+                or len(set(history_record_ids)) != len(history_record_ids)
+                or not set(history_record_ids).issubset(prior_record_ids)):
+            raise RuntimeError("resident_cognition_history_lineage_invalid")
         lineage = {
             "status": "resident_cognition_interaction",
             "cognition_observation_id": observation_id,
@@ -1767,6 +1773,7 @@ class PersistentConversationService:
                 "cognition_disposition": str(getattr(result, "disposition", "")),
                 "cognition_evidence_ids": list(evidence_ids),
                 "cognition_prior_record_ids": list(prior_record_ids),
+                "cognition_history_record_ids": list(history_record_ids),
                 "cognition_model_id": model_id,
                 "cognition_model_artifact_digest": getattr(result, "model_artifact_digest", None),
                 "self_model_projection_id": getattr(result, "self_model_projection_id", None),
@@ -1806,6 +1813,7 @@ class PersistentConversationService:
                 "inference_receipt_digest": receipt_digest,
                 "cognition_evidence_ids": list(evidence_ids),
                 "cognition_prior_record_ids": list(prior_record_ids),
+                "cognition_history_record_ids": list(history_record_ids),
                 "cognition_model_id": model_id,
                 "self_model_projection_id": getattr(result, "self_model_projection_id", None),
                 "self_model_projection_digest": getattr(result, "self_model_projection_digest", None),
@@ -2149,6 +2157,7 @@ class PersistentConversationService:
                     "inference_receipt_digest": linkage.get("inference_receipt_digest"),
                     "cognition_evidence_ids": linkage.get("cognition_evidence_ids", []),
                     "cognition_prior_record_ids": linkage.get("cognition_prior_record_ids", []),
+                    "cognition_history_record_ids": linkage.get("cognition_history_record_ids", []),
                     "cognition_model_id": linkage.get("cognition_model_id"),
                     "self_model_projection_id": linkage.get("self_model_projection_id"),
                     "self_model_projection_digest": linkage.get("self_model_projection_digest"),

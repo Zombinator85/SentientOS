@@ -85,6 +85,7 @@ def test_resident_cognition_bridge_delivers_receipt_linked_answer_and_recovers(
                 invocation_output_digest="f" * 64, model_id="hermes-local",
                 model_artifact_digest="g" * 64,
                 prior_record_ids=("devrec-" + "h" * 24,),
+                history_record_ids=("devrec-" + "h" * 24,),
                 developmental_history_writeback_performed=False,
                 authority=False, current_truth=False,
                 canonical_explicit_user_retention_mutated=False)
@@ -110,6 +111,7 @@ def test_resident_cognition_bridge_delivers_receipt_linked_answer_and_recovers(
 
     assert response.response == "There are two lit candles."
     assert response.context["response_origin"] == "resident_developmental_cognition"
+    assert response.context["cognition_history_record_ids"] == ["devrec-" + "h" * 24]
     assert response.context["developmental_history_writeback_performed"] is False
     assert bridge.calls == [(f"{session_id}:" +
         app.sessions.load(session_id)["turns"][0]["turn_id"],
@@ -118,11 +120,13 @@ def test_resident_cognition_bridge_delivers_receipt_linked_answer_and_recovers(
     turns = app.sessions.load(session_id)["turns"]
     assert turns[-1]["linkage"]["inference_receipt_id"] == "lmrec-" + "d" * 24
     assert turns[-1]["linkage"]["cognition_evidence_ids"] == ["fact-screen-1"]
+    assert turns[-1]["linkage"]["cognition_history_record_ids"] == ["devrec-" + "h" * 24]
 
     recovered = app.chat("How many candles are lit?", session_id=session_id,
         request_id="cognition-chat-1", observe_screen=True)
     assert recovered.response == response.response
     assert recovered.context["recovered_without_inference"] is True
+    assert recovered.context["cognition_history_record_ids"] == ["devrec-" + "h" * 24]
     assert bridge.verifications == 1
     assert len(bridge.calls) == 1
     assert invoker.requests == []
