@@ -25,6 +25,13 @@ MESSAGE_KINDS = frozenset({
     "consequence", "screen_capture_request", "screen_observation_failure",
 })
 SCREEN_CAPTURE_REQUEST_FIELDS = frozenset({"capture_request_id"})
+CONSEQUENCE_OBSERVATION_SCHEMA = "sentientos.bridge_consequence_observation:v1"
+CONSEQUENCE_OBSERVATION_FIELDS = frozenset({
+    "schema_version", "expectation_id", "expectation_digest", "handoff_id",
+    "handoff_digest", "renderer_report_id", "renderer_report_digest",
+    "correlation_id", "body_generation", "observed", "observed_at",
+    "confidence", "quality",
+})
 AVATAR_COMMAND_FIELDS = frozenset({"output_mode", "phrase", "expression", "motion", "mood",
                                    "intensity", "workload_mode", "output_digest", "turn_id",
                                    "speech_timing"})
@@ -197,6 +204,48 @@ def _validate_message(kind: str, payload: Mapping[str, Any], admission: Mapping[
                     not isinstance(question, str) or not question.strip()
                     or len(question) > 2048))):
             raise CompanionBridgeError("screen_capture_request_invalid")
+    elif kind == "consequence":
+        if admission is not None:
+            raise CompanionBridgeError("bridge_admission_unexpected")
+        if (set(payload) != CONSEQUENCE_OBSERVATION_FIELDS
+                or payload.get("schema_version") != CONSEQUENCE_OBSERVATION_SCHEMA):
+            raise CompanionBridgeError("consequence_observation_shape_invalid")
+        for field in ("expectation_id", "handoff_id", "correlation_id"):
+            _identifier(payload.get(field), "consequence_" + field)
+        for field in ("expectation_digest", "handoff_digest"):
+            value = payload.get(field)
+            if not isinstance(value, str) or re.fullmatch(r"sha256:[0-9a-f]{64}", value) is None:
+                raise CompanionBridgeError("consequence_observation_digest_invalid")
+        report_id = payload.get("renderer_report_id")
+        report_digest = payload.get("renderer_report_digest")
+        if ((report_id is None) != (report_digest is None)
+                or (report_id is not None
+                    and (not isinstance(report_id, str)
+                        or _IDENTIFIER.fullmatch(report_id) is None))
+                or (report_digest is not None
+                    and (not isinstance(report_digest, str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}", report_digest) is None))):
+            raise CompanionBridgeError("consequence_observation_renderer_binding_invalid")
+        generation = payload.get("body_generation")
+        if isinstance(generation, bool) or not isinstance(generation, int) or generation < 1:
+            raise CompanionBridgeError("consequence_observation_generation_invalid")
+        observed = payload.get("observed")
+        if (not isinstance(observed, Mapping) or not observed or len(observed) > 32
+                or any(not isinstance(key, str) or not key or len(key) > 128
+                    for key in observed)):
+            raise CompanionBridgeError("consequence_observation_values_invalid")
+        try:
+            if len(_canonical(observed)) > 8 * 1024:
+                raise CompanionBridgeError("consequence_observation_values_exceeded")
+        except CompanionBridgeError:
+            raise
+        if (not isinstance(payload.get("confidence"), str)
+                or payload.get("confidence") not in {"high", "medium", "low", "unknown"}):
+            raise CompanionBridgeError("consequence_observation_confidence_invalid")
+        if (not isinstance(payload.get("quality"), str)
+                or payload.get("quality") not in {"usable", "partial", "unusable", "unknown"}):
+            raise CompanionBridgeError("consequence_observation_quality_invalid")
+        _timestamp(payload.get("observed_at"))
     elif admission is not None:
         raise CompanionBridgeError("bridge_admission_unexpected")
     if kind == "acknowledgment":
