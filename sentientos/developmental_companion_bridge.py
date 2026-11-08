@@ -630,6 +630,10 @@ class ResidentDevelopmentalCompanionBridge:
             screen_capture_age_seconds=capture_age_seconds, clock=self._clock)
         if not snapshot.facts:
             raise CognitionEvidenceUnavailable()
+        if (self._consequence_records_provider is not None
+                and len(snapshot.facts) > self._owner.config.max_selected_facts):
+            raise DevelopmentalCompanionBridgeError(
+                "developmental_cycle_fact_selection_capacity_insufficient")
         gate = (self._cognition_inference_gate()
             if self._cognition_inference_gate is not None else nullcontext())
         with gate:
