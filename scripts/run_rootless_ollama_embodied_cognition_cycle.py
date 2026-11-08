@@ -268,10 +268,30 @@ def run() -> dict[str, Any]:
                 "conditions": [{"condition_id": item.get("condition_id"),
                     "output_digest": item.get("output_digest"),
                     "prompt_digest": item.get("epistemic_prompt_digest"),
+                    "generation_config": item.get("generation_config"),
+                    "active_model_identity": item.get("active_model_identity"),
                     "retrieved_record_ids": item.get("retrieved_record_ids"),
                     "developmental_projection_present": item.get(
                         "developmental_projection_present")}
                     for item in conditions],
+                "same_history_replay": {
+                    "prompt_digest_matches": (
+                        len(conditions) == 3
+                        and conditions[0].get("epistemic_prompt_digest")
+                            == conditions[2].get("epistemic_prompt_digest")),
+                    "generation_config_matches": (
+                        len(conditions) == 3
+                        and conditions[0].get("generation_config")
+                            == conditions[2].get("generation_config")),
+                    "active_model_identity_matches": (
+                        len(conditions) == 3
+                        and conditions[0].get("active_model_identity")
+                            == conditions[2].get("active_model_identity")),
+                    "output_digest_matches": (
+                        len(conditions) == 3
+                        and conditions[0].get("output_digest")
+                            == conditions[2].get("output_digest")),
+                },
                 "summary": summary,
                 "causal_claim_made": False,
                 "interpretation": "controlled history presence/withholding association only"},
