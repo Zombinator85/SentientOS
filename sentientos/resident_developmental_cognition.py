@@ -2489,6 +2489,10 @@ class ResidentCompanionInteractionResult:
     response_digest: str = ""
     model_id: str = ""
     model_artifact_digest: str | None = None
+    self_model_projection_id: str | None = None
+    self_model_projection_digest: str | None = None
+    epistemic_projection_id: str | None = None
+    epistemic_projection_digest: str | None = None
     developmental_history_writeback_performed: bool = False
     authority: bool = False
     current_truth: bool = False
@@ -5542,7 +5546,11 @@ class ResidentDevelopmentalCognitionOwner:
             invocation_output_digest=observation.output_digest,
             response_digest=digest_payload({"text": str(capture["response"])}),
             model_id=observation.model_id,
-            model_artifact_digest=observation.model_artifact_digest)
+            model_artifact_digest=observation.model_artifact_digest,
+            self_model_projection_id=observation.self_model_projection_id,
+            self_model_projection_digest=observation.self_model_projection_digest,
+            epistemic_projection_id=observation.epistemic_projection_id,
+            epistemic_projection_digest=observation.epistemic_projection_digest)
 
     def run_tick(self, *, snapshot: WorldStateSnapshot, tick_id: str,
                  prior_self_model: CognitiveSelfModelProjection | None = None,

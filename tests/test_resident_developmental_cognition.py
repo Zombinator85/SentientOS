@@ -4042,6 +4042,101 @@ def test_companion_bridge_composes_consented_screen_and_proprioception_without_w
         response_text=result.response + " altered", request_id=request_id)
 
 
+def test_companion_bridge_consumes_existing_self_model_and_epistemic_projections(
+        tmp_path: Path) -> None:
+    from datetime import datetime, timezone
+    from sentientos.longitudinal_self_model import (
+        LongitudinalSelfModelOwner, LongitudinalSelfModelRuntimeConfig,
+    )
+    from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner
+    from tests.test_longitudinal_self_model import record as self_model_record
+    from tests.test_longitudinal_self_model import snapshot as self_model_snapshot
+    from tests.test_persistent_epistemic_state import proposition
+
+    cognition, _ = owner(tmp_path / "cognition",
+        allowed_source_kinds=("embodiment",))
+    self_model = LongitudinalSelfModelOwner(tmp_path / "self-model")
+    self_model.reconcile(self_model_snapshot(self_model_record()),
+        tick_id="prior-self-model-tick")
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    proposition_record = proposition()
+    epistemic.register_proposition(proposition_record)
+    epistemic.commit_update(proposition_id=proposition_record.proposition_id,
+        expected_predecessor_digest=None, stance="unknown",
+        reason="initialization", active_binding_ids=(),
+        correlation_id="companion-prior-epistemic", tick=1,
+        recorded_at="2026-11-07T12:00:00Z")
+
+    fixed_now = datetime(2026, 11, 8, 12, 0, tzinfo=timezone.utc)
+    self_model_config = LongitudinalSelfModelRuntimeConfig(
+        enabled=True, custody_root=tmp_path / "self-model",
+        cognitive_consumption_enabled=True, max_projection_claims=4,
+        allowed_predicates=("software_generation",), installation_id="fixture")
+    epistemic_config = {"cognitive_consumption_enabled": True,
+        "max_cognitive_projection_count": 2}
+    expected_self_model = self_model.cognitive_projection(
+        before_tick=fixed_now.isoformat(), max_claims=4,
+        allowed_predicates=self_model_config.allowed_predicates)
+    expected_epistemic = epistemic.cognitive_projection(
+        max_states=2, current_tick=int(fixed_now.timestamp()))
+    assert expected_self_model is not None
+    assert expected_epistemic is not None
+
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        self_model_owner=self_model, self_model_config=self_model_config,
+        epistemic_state_owner=epistemic,
+        epistemic_state_config=epistemic_config,
+        clock=lambda: fixed_now)
+    screen = {"modality": "screen", "text": "A visible detail supports the question.",
+        "capture_digest": "b" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": fixed_now.isoformat(), "raw_frame_retained": False}
+    result = bridge.respond(request_id="companion-projection-request",
+        question="What context is relevant?", screen_observation=screen)
+    observation = cognition.verified_cognition_observation(
+        result.cognition_observation_id, result.cognition_observation_digest)
+
+    assert result.self_model_projection_id == expected_self_model.projection_id
+    assert result.self_model_projection_digest == expected_self_model.projection_digest
+    assert result.epistemic_projection_id == expected_epistemic.projection_id
+    assert result.epistemic_projection_digest == expected_epistemic.projection_digest
+    assert observation["self_model_projection_id"] == expected_self_model.projection_id
+    assert observation["epistemic_projection_id"] == expected_epistemic.projection_id
+    assert observation["authority"] is False
+    assert observation["current_truth"] is False
+    linkage = {
+        "response_origin": "resident_developmental_cognition",
+        "cognition_snapshot_id": result.snapshot_id,
+        "cognition_snapshot_digest": result.snapshot_digest,
+        "cognition_observation_id": result.cognition_observation_id,
+        "cognition_observation_digest": result.cognition_observation_digest,
+        "inference_receipt_id": result.inference_receipt_id,
+        "inference_receipt_digest": result.inference_receipt_digest,
+        "invocation_output_digest": result.invocation_output_digest,
+        "response_digest": result.response_digest,
+        "cognition_evidence_ids": list(result.evidence_ids),
+        "cognition_prior_record_ids": list(result.prior_record_ids),
+        "cognition_model_id": result.model_id,
+        "cognition_model_artifact_digest": result.model_artifact_digest,
+        "self_model_projection_id": result.self_model_projection_id,
+        "self_model_projection_digest": result.self_model_projection_digest,
+        "epistemic_projection_id": result.epistemic_projection_id,
+        "epistemic_projection_digest": result.epistemic_projection_digest,
+        "assistant_output_lineage": {
+            "status": "resident_cognition_interaction",
+            "cognition_observation_id": result.cognition_observation_id,
+            "cognition_observation_digest": result.cognition_observation_digest,
+            "inference_receipt_id": result.inference_receipt_id,
+            "inference_receipt_digest": result.inference_receipt_digest,
+            "invocation_output_digest": result.invocation_output_digest,
+            "response_digest": result.response_digest,
+        },
+    }
+    assert bridge.verify_committed_response(linkage=linkage,
+        response_text=result.response, request_id="companion-projection-request")
+
+
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None,
           allowed_source_kinds: tuple[str, ...] = ("capability_registry",),
           max_selected_facts: int = 1, objective_task=None,

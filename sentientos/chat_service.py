@@ -1753,6 +1753,10 @@ class PersistentConversationService:
                 "cognition_prior_record_ids": list(prior_record_ids),
                 "cognition_model_id": model_id,
                 "cognition_model_artifact_digest": getattr(result, "model_artifact_digest", None),
+                "self_model_projection_id": getattr(result, "self_model_projection_id", None),
+                "self_model_projection_digest": getattr(result, "self_model_projection_digest", None),
+                "epistemic_projection_id": getattr(result, "epistemic_projection_id", None),
+                "epistemic_projection_digest": getattr(result, "epistemic_projection_digest", None),
                 "assistant_output_lineage": lineage,
             })
         if self._avatar_output is not None:
@@ -1787,6 +1791,10 @@ class PersistentConversationService:
                 "cognition_evidence_ids": list(evidence_ids),
                 "cognition_prior_record_ids": list(prior_record_ids),
                 "cognition_model_id": model_id,
+                "self_model_projection_id": getattr(result, "self_model_projection_id", None),
+                "self_model_projection_digest": getattr(result, "self_model_projection_digest", None),
+                "epistemic_projection_id": getattr(result, "epistemic_projection_id", None),
+                "epistemic_projection_digest": getattr(result, "epistemic_projection_digest", None),
                 "developmental_history_writeback_performed": False,
                 "inference_timing": {"backend_metrics_status": "unavailable"},
             }, retention={"status": "not_requested"})
@@ -2126,6 +2134,10 @@ class PersistentConversationService:
                     "cognition_evidence_ids": linkage.get("cognition_evidence_ids", []),
                     "cognition_prior_record_ids": linkage.get("cognition_prior_record_ids", []),
                     "cognition_model_id": linkage.get("cognition_model_id"),
+                    "self_model_projection_id": linkage.get("self_model_projection_id"),
+                    "self_model_projection_digest": linkage.get("self_model_projection_digest"),
+                    "epistemic_projection_id": linkage.get("epistemic_projection_id"),
+                    "epistemic_projection_digest": linkage.get("epistemic_projection_digest"),
                     "developmental_history_writeback_performed": False,
                     "recovered_without_inference": True,
                 }, retention={"status": "not_requested"})
