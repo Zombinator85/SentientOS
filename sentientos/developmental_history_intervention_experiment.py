@@ -1163,6 +1163,54 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
         "measurements":[asdict(first), asdict(second)], "claims_posture":"bounded_observed_association_only"}
 
 
+
+def qualify_restoration_stable_history_association(*, validity: Any,
+        history_summary: Mapping[str, Any], same_history_replay: Mapping[str, Any],
+        present_restoration_delivery_replay: Mapping[str, Any]) -> dict[str, Any]:
+    """Qualify one controlled A/B/A history association across both owners.
+
+    The repeat is the history-present/history-restored pair already in the
+    A/B/A experiment. It is not an independent repeatability control. This
+    qualifier only labels an exact model-output digest difference when the
+    restored condition reproduces the present condition and companion delivery
+    confirms the same controls and response lineage. It says nothing about
+    semantic correctness, learning, or improved task performance.
+    """
+    base = {"restoration_stable_association_qualified": False,
+        "measurement_scope": "exact_model_output_digest_only",
+        "independent_repeatability_control_performed": False,
+        "performance_improvement_established": False}
+    if validity != "valid_controlled_observation":
+        return {**base,
+            "classification": "not_qualified_controlled_observation_invalid"}
+
+    present_difference = history_summary.get(
+        "present_vs_withheld_difference_observed")
+    restored_difference = history_summary.get(
+        "restored_vs_withheld_difference_observed")
+    restored_matches_present = history_summary.get("present_restoration_stable")
+    if (present_difference is not True or restored_difference is not True
+            or restored_matches_present is not True):
+        return {**base,
+            "classification": "no_restoration_stable_history_difference"}
+
+    replay_verified = (
+        same_history_replay.get("prompt_digest_matches") is True
+        and same_history_replay.get("generation_config_matches") is True
+        and same_history_replay.get("active_model_identity_matches") is True
+        and same_history_replay.get("output_digest_matches") is True
+        and present_restoration_delivery_replay.get("input_controls_match") is True
+        and present_restoration_delivery_replay.get("output_digest_matches") is True
+        and present_restoration_delivery_replay.get("response_digest_matches") is True
+        and present_restoration_delivery_replay.get("all_responses_admitted") is True
+        and present_restoration_delivery_replay.get(
+            "cognition_receipt_output_binding_verified") is True)
+    return {**base, "classification": (
+            "restoration_stable_history_associated_digest_difference"
+            if replay_verified else
+            "history_association_not_qualified_by_cross_owner_replay"),
+        "restoration_stable_association_qualified": replay_verified}
+
 def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Measure correctness separately from output-digest differences."""
     if (len(scores) != len(CONDITION_ORDER)

@@ -5730,6 +5730,9 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert result.restored_prompt_matches is True
     assert all(item["generation_config"] == result.conditions[0]["generation_config"]
         for item in result.conditions)
+    assert all(item["inference_status"] == "admitted_completed"
+        and item["cognition_receipt_output_binding_verified"] is True
+        for item in result.conditions)
     assert [item["condition_id"] for item in result.conditions] == [
         "history_present", "history_withheld", "history_restored"]
     assert [json.loads(item["response"])["requested_pose"]

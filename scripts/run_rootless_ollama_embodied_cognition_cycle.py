@@ -38,6 +38,8 @@ from sentientos.codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
 )
 from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+from sentientos.developmental_history_intervention_experiment import (
+    qualify_restoration_stable_history_association)
 from sentientos.world_state_board import WorldStateSnapshot
 from sentientos.embodiment_self_observation import (
     EmbodimentEvidenceOwner, EmbodimentObservation, semantic_digest)
@@ -820,7 +822,9 @@ def run() -> dict[str, Any]:
         replay_controls = (
             "prompt_digest", "generation_config", "active_model_identity",
             "snapshot_digest", "current_fact_ids", "retrieved_record_ids")
-        repeatability = {
+        present_restoration_delivery_replay = {
+            "control_basis": "history_present_vs_history_restored_conditions",
+            "independent_repeatability_control_performed": False,
             "conditions": [replay_first, replay_second],
             "input_controls_match": all(replay_first.get(key) == replay_second.get(key)
                 for key in replay_controls),
@@ -828,12 +832,12 @@ def run() -> dict[str, Any]:
                 replay_first.get("output_digest") == replay_second.get("output_digest")),
             "response_digest_matches": (
                 replay_first.get("response_digest") == replay_second.get("response_digest")),
-            "all_responses_admitted": all(item.get("status") == "admitted_completed"
+            "all_responses_admitted": all(
+                item.get("inference_status") == "admitted_completed"
                 for item in (replay_first, replay_second)),
-            "bridge_response_lineage_verified": all(
-                item.get("response_lineage_verified") is True
+            "cognition_receipt_output_binding_verified": all(
+                item.get("cognition_receipt_output_binding_verified") is True
                 for item in (replay_first, replay_second)),
-            "causal_or_learning_claim_made": False,
         }
         present, withheld, restored = (intervention_conditions
             if len(intervention_conditions) == 3 else (None, None, None))
@@ -907,8 +911,32 @@ def run() -> dict[str, Any]:
         source_ids = {fact.get("source", {}).get("source_id")
             for fact in records[0]["candidate"].get("selected_facts", [])
             if isinstance(fact, dict)}
+        same_history_replay = {
+            "prompt_digest_matches": (
+                len(conditions) == 3
+                and conditions[0].get("epistemic_prompt_digest")
+                    == conditions[2].get("epistemic_prompt_digest")),
+            "generation_config_matches": (
+                len(conditions) == 3
+                and conditions[0].get("generation_config")
+                    == conditions[2].get("generation_config")),
+            "active_model_identity_matches": (
+                len(conditions) == 3
+                and conditions[0].get("active_model_identity")
+                    == conditions[2].get("active_model_identity")),
+            "output_digest_matches": (
+                len(conditions) == 3
+                and conditions[0].get("output_digest")
+                    == conditions[2].get("output_digest")),
+        }
+        restoration_stability_qualification = (
+            qualify_restoration_stable_history_association(
+                validity=run_payload.get("validity"),
+                history_summary=summary,
+                same_history_replay=same_history_replay,
+                present_restoration_delivery_replay=present_restoration_delivery_replay))
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v3",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v4",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
@@ -997,6 +1025,9 @@ def run() -> dict[str, Any]:
                     "history_record_ids": list(item.get("history_record_ids", ())),
                     "inference_receipt_id": item.get("inference_receipt_id"),
                     "inference_receipt_digest": item.get("inference_receipt_digest"),
+                    "inference_status": item.get("inference_status"),
+                    "cognition_receipt_output_binding_verified":
+                        item.get("cognition_receipt_output_binding_verified"),
                 } for item in companion_intervention.conditions],
                 "authority": companion_intervention.authority,
                 "action_authority": companion_intervention.action_authority,
@@ -1023,7 +1054,7 @@ def run() -> dict[str, Any]:
                     and _history_citation_bound(history_recall)
                     and history_recall.get("response_lineage_verified") is True),
             },
-            "same_prompt_repeatability_control": repeatability,
+            "present_restoration_delivery_replay": present_restoration_delivery_replay,
             "history_intervention": {"validity": run_payload.get("validity"),
                 "conditions": [{"condition_id": item.get("condition_id"),
                     "output_digest": item.get("output_digest"),
@@ -1034,24 +1065,8 @@ def run() -> dict[str, Any]:
                     "developmental_projection_present": item.get(
                         "developmental_projection_present")}
                     for item in conditions],
-                "same_history_replay": {
-                    "prompt_digest_matches": (
-                        len(conditions) == 3
-                        and conditions[0].get("epistemic_prompt_digest")
-                            == conditions[2].get("epistemic_prompt_digest")),
-                    "generation_config_matches": (
-                        len(conditions) == 3
-                        and conditions[0].get("generation_config")
-                            == conditions[2].get("generation_config")),
-                    "active_model_identity_matches": (
-                        len(conditions) == 3
-                        and conditions[0].get("active_model_identity")
-                            == conditions[2].get("active_model_identity")),
-                    "output_digest_matches": (
-                        len(conditions) == 3
-                        and conditions[0].get("output_digest")
-                            == conditions[2].get("output_digest")),
-                },
+                "same_history_replay": same_history_replay,
+                "restoration_stability_qualification": restoration_stability_qualification,
                 "summary": summary,
                 "causal_claim_made": False,
                 "interpretation": "controlled history presence/withholding association only"},
