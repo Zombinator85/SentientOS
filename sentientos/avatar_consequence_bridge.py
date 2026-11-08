@@ -7,7 +7,7 @@ runtime. It grants no action authority and does not claim causal attribution.
 from __future__ import annotations
 
 import threading
-from typing import Any, Callable, Mapping, Protocol
+from typing import Any, Callable, Mapping, Protocol, cast
 from uuid import uuid4
 
 from .gaming_companion_bridge import (
@@ -215,3 +215,16 @@ class RemoteAvatarConsequenceObserver:
             return self._observer.observe(
                 expectation=expectation, handoff=handoff, report=report,
                 capture_request_id=capture_request_id)
+
+    def consume_authentication_receipt(
+            self, observation: IndependentConsequenceObservation
+            ) -> dict[str, Any] | None:
+        """Expose the matching one-use ingress receipt to the existing evaluator.
+
+        Consequence evaluation consumes this receipt before creating an
+        attribution. Keeping the operation on the composed observer prevents
+        callers from reaching into its transport owner or losing capture
+        provenance between observation and evaluation.
+        """
+        return cast(dict[str, Any] | None,
+            self._observer.consume_authentication_receipt(observation))
