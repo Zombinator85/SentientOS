@@ -238,12 +238,35 @@ def _verified_companion_replay(bridge: Any, owner: Any, *,
         "disposition": interaction.disposition,
         "evidence_ids": list(interaction.evidence_ids),
         "validated_response": interaction.response,
+        "cognition_observation_id": interaction.cognition_observation_id,
+        "cognition_observation_digest": interaction.cognition_observation_digest,
+        "inference_receipt_id": interaction.inference_receipt_id,
+        "inference_receipt_digest": interaction.inference_receipt_digest,
         "response_lineage_verified": bridge.verify_committed_response(
             linkage=linkage, response_text=interaction.response,
             request_id=request_id),
     }
 
-def _embodied_source() -> tuple[dict[str, Any], dict[str, Any], EmbodimentObservation]:
+def _pre_action_source() -> tuple[Any, EmbodimentObservation]:
+    """Build the synthetic body's pre-action state for a governed proposal."""
+    observed_at = datetime.now(timezone.utc).isoformat()
+    self_report = EmbodimentObservation(
+        source_id=RUN_ID + ":synthetic-pre-action-proprioception",
+        source_schema="sentientos.synthetic_proprioception_observation:v1",
+        source_digest=semantic_digest({"encoder_pose": "idle", "joint_state": {"arm": 0.0},
+            "source_posture": "synthetic_test"}),
+        observed_at=observed_at,
+        provenance_class="deterministic_synthetic_fixture", freshness="current",
+        posture="synthetic_test", evidence_class="sensor_observation",
+        subject_id="synthetic-avatar-body", subject_kind="robot_body",
+        payload={"encoder_pose": "idle", "joint_state": {"arm": 0.0},
+            "sampled_at": observed_at})
+    records = EmbodimentEvidenceOwner([self_report]).world_state_records()
+    return WorldStateBoardBuilder().build(records), self_report
+
+
+def _embodied_source(*, requested_pose: str, predicted_pose: str
+        ) -> tuple[dict[str, Any], dict[str, Any], EmbodimentObservation]:
     commanded_at = (datetime.now(timezone.utc) - timedelta(seconds=8)).isoformat()
     renderer_completed_at = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
     observed_at = (datetime.now(timezone.utc) - timedelta(seconds=4)).isoformat()
@@ -253,20 +276,20 @@ def _embodied_source() -> tuple[dict[str, Any], dict[str, Any], EmbodimentObserv
         "manifest_digest": "sha256:" + "b" * 64,
         "pointer_digest": "sha256:" + "c" * 64}
     handoff = renderer_handoff(body, renderer_interface_id="renderer:synthetic:v1",
-        requested_pose="reach", requested_expression="neutral",
+        requested_pose=requested_pose, requested_expression="neutral",
         correlation_id=RUN_ID + ":action", commanded_at=commanded_at)
     expectation = make_expectation(
         installation_body_id="synthetic-installation", body_id="synthetic-avatar-body",
         body_generation=1, body_manifest_digest=body["manifest_digest"],
         handoff_id=handoff["handoff_id"], handoff_digest=handoff["handoff_digest"],
-        renderer_interface_id="renderer:synthetic:v1", requested={"pose": "reach"},
-        predicted_observables={"pose": "reach"}, observable_fields=("pose",),
+        renderer_interface_id="renderer:synthetic:v1", requested={"pose": requested_pose},
+        predicted_observables={"pose": predicted_pose}, observable_fields=("pose",),
         comparison_policy={"pose": {"kind": "exact"}},
         expected_observation_source_class="synthetic_independent_fixture",
         correlation_id=RUN_ID + ":action", causal_principal_binding_digest=None,
         created_at=commanded_at,
         expires_at=(datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat())
-    renderer_report = SyntheticRenderer(applied={"pose": "reach"},
+    renderer_report = SyntheticRenderer(applied={"pose": requested_pose},
         started_at=commanded_at, completed_at=renderer_completed_at).render_test(handoff)
     # A separately named simulated observer reports the environment result;
     # it does not trust the renderer's assertion.
@@ -285,15 +308,17 @@ def _embodied_source() -> tuple[dict[str, Any], dict[str, Any], EmbodimentObserv
     self_report = EmbodimentObservation(
         source_id=RUN_ID + ":synthetic-proprioception",
         source_schema="sentientos.synthetic_proprioception_observation:v1",
-        source_digest=semantic_digest({"requested_pose": "reach",
-            "encoder_pose": "reach", "joint_state": {"arm": 0.75},
+        source_digest=semantic_digest({"requested_pose": requested_pose,
+            "encoder_pose": requested_pose,
+            "joint_state": {"arm": 0.75 if requested_pose == "reach" else 0.0},
             "source_posture": "synthetic_test"}),
         observed_at=renderer_completed_at,
         provenance_class="deterministic_synthetic_fixture", freshness="current",
         posture="synthetic_test", evidence_class="sensor_observation",
         subject_id="synthetic-avatar-body", subject_kind="robot_body",
-        payload={"requested_pose": "reach", "encoder_pose": "reach",
-            "joint_state": {"arm": 0.75}, "sampled_at": renderer_completed_at})
+        payload={"requested_pose": requested_pose, "encoder_pose": requested_pose,
+            "joint_state": {"arm": 0.75 if requested_pose == "reach" else 0.0},
+            "sampled_at": renderer_completed_at})
     proprioception_records = EmbodimentEvidenceOwner([self_report]).world_state_records()
     # Keep the evaluated consequence and proprioceptive-style self report
     # inside the owner's 6 KB evidence limit. The consequence itself binds the
@@ -309,9 +334,13 @@ def _embodied_source() -> tuple[dict[str, Any], dict[str, Any], EmbodimentObserv
         "proprioception_posture": "synthetic_test_unverified_self_report",
         "consequence_classification": attribution["classification"],
         "effect_proven": attribution["effect_proven"],
+        "requested_pose": requested_pose,
+        "predicted_pose": predicted_pose,
         "renderer_report_pose": dict(renderer_report.applied),
         "independent_observation_pose": dict(observation.observed),
-        "renderer_and_observer_separately_bound": True,
+        "renderer_and_observer_referenced_separately": True,
+        "observation_independence_posture": attribution[
+            "observation_independence_posture"],
         "action_execution_posture": "synthetic_fixture_only",
     }
     return snapshot, evidence_summary, self_report
@@ -376,7 +405,59 @@ def run() -> dict[str, Any]:
                 definitions=definitions, ledger=ledger),
             invoker=session, current_sequence=next_sequence)
 
-        snapshot, evidence, proprioception = _embodied_source()
+        # The model produces a bounded proposal and predicted observation from
+        # pre-action proprioception. A separate synthetic actor consumes that
+        # proposal; the model itself still has no action authority.
+        pre_action_snapshot, pre_action_proprioception = _pre_action_source()
+        pre_action_at = datetime.now(timezone.utc)
+        pre_action_text = (
+            "Synthetic test fixture: avatar encoder pose idle; available poses reach or idle.")
+        pre_action_screen = {
+            "modality": "screen", "text": pre_action_text,
+            "captured_at": pre_action_at.isoformat(),
+            "capture_digest": hashlib.sha256(
+                pre_action_text.encode("utf-8")).hexdigest(),
+            "raw_frame_retained": False,
+            "capture_scope": "allowlisted_foreground_game_client_area",
+        }
+        decision_owner = ResidentDevelopmentalCognitionOwner(
+            config=ResidentDevelopmentalCognitionConfig(
+                history_root, state_root, ("embodiment",), 16, 4, False),
+            writeback=writeback,
+            admission_authority=RuntimeAdmissionAuthority(
+                definitions=definitions, ledger=ledger),
+            invoker=session, current_sequence=next_sequence)
+        decision_bridge = ResidentDevelopmentalCompanionBridge(
+            decision_owner,
+            proprioception_provider=lambda: (pre_action_proprioception,),
+            clock=lambda: pre_action_at)
+        decision_question = (
+            "For the synthetic test only, propose the next avatar pose as either "
+            "reach or idle, and predict the resulting encoder pose. Return the "
+            "response as exactly one JSON object with requested_pose and "
+            "predicted_pose, each either reach or idle. This is a proposal; do "
+            "not say that an action occurred. Base it on the supplied current "
+            "evidence.")
+        cognitive_decision = _verified_companion_replay(
+            decision_bridge, decision_owner, screen_observation=pre_action_screen,
+            request_id=RUN_ID + ":pre-action-decision", question=decision_question)
+        if (cognitive_decision.get("status") != "admitted_completed"
+                or cognitive_decision.get("response_lineage_verified") is not True
+                or cognitive_decision.get("disposition") != "answer"
+                or not cognitive_decision.get("evidence_ids")):
+            raise RootlessExperimentalError("pre_action_cognition_proposal_unverified")
+        try:
+            proposal = json.loads(cognitive_decision["validated_response"])
+        except (KeyError, TypeError, json.JSONDecodeError) as exc:
+            raise RootlessExperimentalError("pre_action_cognition_proposal_invalid") from exc
+        if (not isinstance(proposal, dict)
+                or set(proposal) != {"requested_pose", "predicted_pose"}
+                or proposal.get("requested_pose") not in {"reach", "idle"}
+                or proposal.get("predicted_pose") not in {"reach", "idle"}):
+            raise RootlessExperimentalError("pre_action_cognition_proposal_invalid")
+        snapshot, evidence, proprioception = _embodied_source(
+            requested_pose=proposal["requested_pose"],
+            predicted_pose=proposal["predicted_pose"])
         first = owner.run_tick(snapshot=snapshot, tick_id=RUN_ID + ":consequence")
         if not first.written_record_id:
             raise RootlessExperimentalError("governed_developmental_writeback_not_created")
@@ -395,8 +476,9 @@ def run() -> dict[str, Any]:
                 definitions=definitions, ledger=ledger),
             invoker=session, current_sequence=next_sequence)
         cycle_observed_at = datetime.now(timezone.utc)
-        screen_text = ("Synthetic screen OCR fixture: commanded pose reach; "
-            "the separate synthetic observer reported pose idle.")
+        screen_text = ("Synthetic screen OCR fixture: commanded pose "
+            + proposal["requested_pose"] + "; the separate synthetic observer "
+            "reported pose idle.")
         screen_observation = {
             "modality": "screen", "text": screen_text,
             "captured_at": cycle_observed_at.isoformat(),
@@ -438,7 +520,7 @@ def run() -> dict[str, Any]:
             for fact in records[0]["candidate"].get("selected_facts", [])
             if isinstance(fact, dict)}
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v1",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v2",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
@@ -455,6 +537,36 @@ def run() -> dict[str, Any]:
                 "ordinary_chat_allowed": False, "production_authority": False,
                 "tool_or_action_authority": False},
             "body_and_observer_posture": "synthetic_rehearsal_not_live_hardware",
+            "model_proposal_before_synthetic_action": {
+                "status": "verified_governed_companion_proposal",
+                "requested_pose": proposal["requested_pose"],
+                "predicted_pose": proposal["predicted_pose"],
+                "pre_action_proprioception_snapshot_id": pre_action_snapshot.snapshot_id,
+                "pre_action_proprioception_snapshot_digest": pre_action_snapshot.digest,
+                "evidence_ids": list(cognitive_decision["evidence_ids"]),
+                "retrieved_record_ids": list(
+                    cognitive_decision.get("retrieved_record_ids", [])),
+                "current_fact_ids": list(
+                    cognitive_decision.get("current_fact_ids", [])),
+                "snapshot_digest": cognitive_decision.get("snapshot_digest"),
+                "prompt_digest": cognitive_decision.get("prompt_digest"),
+                "output_digest": cognitive_decision.get("output_digest"),
+                "response_digest": cognitive_decision.get("response_digest"),
+                "generation_config": cognitive_decision.get("generation_config"),
+                "active_model_identity": cognitive_decision.get(
+                    "active_model_identity"),
+                "cognition_observation_id": cognitive_decision.get(
+                    "cognition_observation_id"),
+                "cognition_observation_digest": cognitive_decision.get(
+                    "cognition_observation_digest"),
+                "inference_receipt_id": cognitive_decision.get("inference_receipt_id"),
+                "inference_receipt_digest": cognitive_decision.get(
+                    "inference_receipt_digest"),
+                "request_id": RUN_ID + ":pre-action-decision",
+                "response_lineage_verified": True,
+                "action_authority": False,
+                "executor_posture": "separate_synthetic_fixture_only",
+            },
             "source_evidence": evidence,
             "initial_tick": {"status": first.status,
                 "cognition_observation_ids": list(first.cognition_observation_ids),
