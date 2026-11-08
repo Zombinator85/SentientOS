@@ -87,12 +87,22 @@ observations retain identities and digests, not raw prompt, screen text, user
 question, or response text. The response is returned to the caller in memory
 for immediate delivery.
 
-This is an owner-level integration seam; it does not automatically connect the
-chat service or enable resident cognition in a running companion. It is not
-evidence of learning. Demonstrating development still requires the full
-sequence of a real observation, prediction or decision, an action, an
-independently observed consequence, a governed update, and a later decision
-comparison with history present and withheld under controlled conditions.
+The local development companion runner can opt in to this owner-level bridge
+with `--enable-resident-cognition`. It requires an explicit resident-cognition
+configuration, automatic foreground-game workload detection, and the supervised
+Windows observer edge. The bridge reuses the companion's governed local model
+invoker, keeps the same resident history and state roots, and admits only the
+`local_user_chat` and `resident_developmental_retrieval_cognition` purposes.
+Tools, canonical memory, actions, and developmental writeback are not enabled by
+this bridge. Cognition inference is serialized against model-profile changes
+and is unavailable while gaming workload mode is active. The option is off by
+default and does not connect or reconfigure an already running companion.
+
+This integration is not evidence of learning. Demonstrating development still
+requires the full sequence of a real observation, prediction or decision, an
+action, an independently observed consequence, a governed update, and a later
+decision comparison with history present and withheld under controlled
+conditions.
 
 ### One explicitly staged objective intervention
 
