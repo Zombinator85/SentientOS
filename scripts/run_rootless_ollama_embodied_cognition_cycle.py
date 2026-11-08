@@ -686,15 +686,19 @@ def run() -> dict[str, Any]:
             invoker=session, current_sequence=next_sequence)
         later_pre_action_snapshot, _ = _pre_action_source(pose="reach")
         history_decision_question = (
-            "From retrieved history only, what scalar value is stored at exactly "
-            "reported_values.observer_report_field.pose for the prior completed "
-            "synthetic trial? Do not use renderer_report.pose, "
-            "predicted_observation.pose, body_proprioception_report.encoder_pose, "
-            "or the current encoder pose. If that exact field exists, set "
-            "disposition to answer, say only that the record reports the value as "
-            "an unverified past report, set evidence_ids to [], and put the exact "
-            "containing record_id in history_record_ids (not its fact_id). If the "
-            "record or field is absent, abstain without guessing.")
+            "Controlled history-use probe. Read ONLY the exact typed historical "
+            "field historical_embodiment_reports[*].reported_values.observer_report_field.pose. "
+            "If that retrieved past field equals idle, set response to the exact token "
+            "PAST_OBSERVER_REPORTED_IDLE. If it equals reach, use "
+            "PAST_OBSERVER_REPORTED_REACH. If no such typed field is present in retrieved "
+            "history, set response to HISTORY_UNAVAILABLE and disposition to abstain. "
+            "The current World-State encoder pose is reach; it is not the past observer "
+            "report and must not determine this classification. Ignore renderer, predicted, "
+            "and proprioception fields. When a typed past field is present, set disposition "
+            "to answer, evidence_ids to [], and cite its exact containing record_id in "
+            "history_record_ids. When unavailable, cite no history. Treat the past report as "
+            "unverified, not as current truth. Return the standard JSON response with the "
+            "response exactly one token from the three uppercase choices above.")
         replay_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, False),
@@ -738,13 +742,17 @@ def run() -> dict[str, Any]:
             resident_cognition_bridge=history_recall_bridge)
         hosted_session_id = hosted_companion.create_session()
         history_recall_response = hosted_companion.chat(
-            ("From retrieved history only, what scalar value is stored "
-                "at exactly reported_values.observer_report_field.pose for the "
-                "prior completed synthetic trial? Do not use renderer_report.pose, "
-                "predicted_observation.pose, body_proprioception_report.encoder_pose, "
-                "or current evidence. If present, answer as an unverified past "
-                "report, set evidence_ids to [], and cite the exact containing "
-                "record_id in history_record_ids, not its fact_id. Otherwise abstain."),
+            ("Use retrieved developmental history only. Read exactly "
+                "historical_embodiment_reports[*].reported_values.observer_report_field.pose. "
+                "If its value is idle, set response exactly to "
+                "PAST_OBSERVER_REPORTED_IDLE. If its value is reach, set response exactly "
+                "to PAST_OBSERVER_REPORTED_REACH. If the typed field is unavailable, set "
+                "response to HISTORY_UNAVAILABLE and disposition to abstain. Do not use "
+                "prior self-model, current evidence, renderer_report.pose, "
+                "predicted_observation.pose, or body_proprioception_report.encoder_pose. "
+                "For a found field, set disposition to answer, evidence_ids to [], and cite "
+                "the exact containing record_id in history_record_ids (not an inner fact_id). "
+                "Treat it only as an unverified past report."),
             session_id=hosted_session_id,
             request_id=RUN_ID + ":historical-companion-recall",
             observe_screen=True)
@@ -766,8 +774,12 @@ def run() -> dict[str, Any]:
             "retrieved_record_ids": history_recall_response.context.get(
                 "cognition_prior_record_ids", []),
             "current_pose": "reach",
-            "current_fact_ids": history_recall_response.context.get(
+            "cited_current_fact_ids": history_recall_response.context.get(
                 "cognition_evidence_ids", []),
+            "snapshot_id": history_recall_response.context.get(
+                "cognition_snapshot_id"),
+            "snapshot_digest": history_recall_response.context.get(
+                "cognition_snapshot_digest"),
             "cognition_observation_id": history_recall_response.context.get(
                 "cognition_observation_id"),
             "inference_receipt_id": history_recall_response.context.get(
@@ -825,10 +837,20 @@ def run() -> dict[str, Any]:
         present, withheld, restored = (intervention_conditions
             if len(intervention_conditions) == 3 else (None, None, None))
         def _mentions_past_idle(item: Any) -> bool:
-            text = str(item.get("response", "")).lower() if isinstance(item, Mapping) else ""
-            return "idle" in text and (
-                "observer report" in text or "observer_report_field" in text
-                or "observer reported" in text)
+            text = str(item.get("response", "")).strip().lower() if isinstance(item, Mapping) else ""
+            return text == "past_observer_reported_idle" or (
+                "idle" in text and ("observer report" in text
+                    or "observer_report_field" in text or "observer reported" in text))
+        def _reports_exact_past_idle(item: Any) -> bool:
+            return (isinstance(item, Mapping)
+                and item.get("disposition") == "answer"
+                and str(item.get("response", "")).strip()
+                    == "PAST_OBSERVER_REPORTED_IDLE")
+        def _reports_history_unavailable(item: Any) -> bool:
+            return (isinstance(item, Mapping)
+                and item.get("disposition") == "abstain"
+                and str(item.get("response", "")).strip() == "HISTORY_UNAVAILABLE"
+                and not item.get("history_record_ids"))
         def _reports_past_idle(item: Any) -> bool:
             if not isinstance(item, Mapping) or item.get("disposition") != "answer":
                 return False
@@ -839,7 +861,8 @@ def run() -> dict[str, Any]:
             if not cited_prior_record:
                 return False
             response = str(item.get("response", "")).strip().lower()
-            return _mentions_past_idle(item) or response == "idle"
+            return (response == "past_observer_reported_idle"
+                or _mentions_past_idle(item) or response == "idle")
         def _history_citation_bound(item: Any) -> bool:
             return (isinstance(item, Mapping)
                 and bool(item.get("history_record_ids"))
@@ -855,25 +878,27 @@ def run() -> dict[str, Any]:
             == restored.get("generation_config")
             and present.get("active_model_identity") == withheld.get("active_model_identity")
             == restored.get("active_model_identity"))
-        if (intervention_inputs_match and _reports_past_idle(present)
-                and _reports_past_idle(restored)
+        if (intervention_inputs_match and _reports_exact_past_idle(present)
+                and _reports_exact_past_idle(restored)
                 and _history_citation_bound(present)
                 and _history_citation_bound(restored)
-                and not _mentions_past_idle(withheld)):
-            historical_answer_classification = "history_present_answered_withheld_abstained"
+                and _reports_history_unavailable(withheld)):
+            historical_answer_classification = "history_present_exactly_retrieved_withheld_abstained"
         elif (intervention_inputs_match and _mentions_past_idle(present)
                 and _mentions_past_idle(restored)
                 and _history_citation_bound(present)
                 and _history_citation_bound(restored)
-                and not _mentions_past_idle(withheld)):
+                and _reports_history_unavailable(withheld)):
             historical_answer_classification = (
-                "history_associated_content_difference_but_answer_not_admitted")
+                "history_associated_content_difference_but_answer_not_exact")
         else:
             historical_answer_classification = "no_validated_history_effect"
         semantic_decisions = [{"condition_id": item.get("condition_id"),
             "disposition": item.get("disposition"),
             "mentions_past_idle": _mentions_past_idle(item),
             "answers_with_past_idle": _reports_past_idle(item),
+            "answers_with_exact_past_idle_token": _reports_exact_past_idle(item),
+            "abstains_for_unavailable_history": _reports_history_unavailable(item),
             "history_citation_bound": _history_citation_bound(item)}
             for item in intervention_conditions]
         semantic_decision_classification = historical_answer_classification
@@ -979,11 +1004,12 @@ def run() -> dict[str, Any]:
                 "causal_or_learning_claim_made": False},
             "historical_companion_recall": {
                 "status": history_recall.get("status"),
-                "response": history_recall.get("validated_response"),
+                "response": history_recall.get("response"),
                 "disposition": history_recall.get("disposition"),
                 "history_record_ids": history_recall.get("history_record_ids", []),
                 "prior_record_ids": history_recall.get("retrieved_record_ids", []),
-                "current_fact_ids": history_recall.get("current_fact_ids", []),
+                "cited_current_fact_ids": history_recall.get("cited_current_fact_ids", []),
+                "snapshot_id": history_recall.get("snapshot_id"),
                 "current_snapshot_digest": history_recall.get("snapshot_digest"),
                 "response_lineage_verified": history_recall.get(
                     "response_lineage_verified") is True,
