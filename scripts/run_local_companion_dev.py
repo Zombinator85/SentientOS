@@ -798,6 +798,9 @@ def main() -> int:
               "for 5 seconds, 5 minutes, 15 minutes, or until released by the "
               "development runner VRAM pressure monitor."),
     )
+    parser.add_argument("--enable-resident-cognition", action="store_true",
+        help=("Opt in to the configured resident cognition owner; inference is "
+              "serialized with chat and disabled while automatic gaming mode is active"))
     parser.add_argument("--windows-python", type=Path)
     parser.add_argument("--godot-exe", type=Path)
     parser.add_argument("--godot-project", type=Path)
@@ -857,6 +860,12 @@ def main() -> int:
             parser.error("automatic mode requires at least one --game-process-name allowlist entry")
         if not all(value is not None for value in edge_args):
             parser.error("automatic mode requires the supervised Windows foreground observer edge")
+    if args.enable_resident_cognition:
+        if (args.initial_workload_mode != "automatic"
+                or not args.game_process_name or not all(value is not None for value in edge_args)):
+            parser.error("resident cognition requires automatic workload mode and an allowlisted foreground observer")
+        if not os.environ.get("SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG"):
+            parser.error("resident cognition requires SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG")
     state = args.state_dir.expanduser().resolve()
     state.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(state, 0o700)
@@ -909,6 +918,7 @@ def main() -> int:
     from sentientos.local_model import LocalModel
     from sentientos.local_model_authority import (
         atomic_write_json, build_local_model_authority_map,
+        build_developmental_companion_authority_map,
     )
 
     config = load_model_config()
@@ -918,24 +928,121 @@ def main() -> int:
         parser.error("development composition requires one model or normal+gaming Ollama candidates")
     allowed_roots = sorted({item.path.parent for item in config.candidates
                              if item.path is not None}, key=str)
-    authority = build_local_model_authority_map(config, allowed_roots=allowed_roots)
+    authority = (build_developmental_companion_authority_map(
+            config, allowed_roots=allowed_roots)
+        if args.enable_resident_cognition else
+        build_local_model_authority_map(config, allowed_roots=allowed_roots))
+    expected_purposes = (("local_user_chat",
+        "resident_developmental_retrieval_cognition")
+        if args.enable_resident_cognition else ("local_user_chat",))
     for record in authority.records:
-        if (record.disposition != "development_only"
+        expected_disposition = ("development_companion_candidate"
+            if args.enable_resident_cognition else "development_only")
+        if (record.disposition != expected_disposition
                 or record.runtime_eligibility_status != "eligible"
-                or record.allowed_invocation_purposes != ("local_user_chat",)):
-            parser.error("Ollama model authority is not eligible for local chat")
+                or record.allowed_invocation_purposes != expected_purposes
+                or record.tool_posture != "blocked"
+                or record.memory_posture != "blocked"
+                or record.action_posture != "blocked"):
+            parser.error("Ollama model authority is not eligible for the selected local development purposes")
     models = [LocalModel.load_candidate(index, config=config)
               for index in range(len(config.candidates))]
     for model in models:
         if model.active_identity.posture != "development_only" or model.active_identity.fallback:
             parser.error("the exact local development model did not load")
-        if authority.record_for_active_identity(model.active_identity, "local_user_chat") is None:
-            parser.error("loaded model does not match its local-chat authority record")
+        for purpose in expected_purposes:
+            if authority.record_for_active_identity(model.active_identity, purpose) is None:
+                parser.error("loaded model does not match its local development authority record")
     model = models[0]
     model_profiles = {"normal": models[0], "gaming": models[-1]}
     atomic_write_json(state / "model-authority-map.json", authority.to_dict())
     invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
         runtime_root=state / "invocations")
+    resident_cognition_owner = None
+    self_model_owner = None
+    self_model_config = None
+    epistemic_state_owner = None
+    epistemic_state_config = None
+    if args.enable_resident_cognition:
+        from sentientos.codex_task_authority_admission import (
+            RESIDENT_DEVELOPMENTAL_WRITEBACK,
+            RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
+        )
+        from sentientos.longitudinal_self_model import (
+            LongitudinalSelfModelOwner, load_runtime_config as load_self_model_config,
+        )
+        from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner
+        from sentientos.resident_developmental_cognition import (
+            CONFIG_ENV as RESIDENT_COGNITION_CONFIG_ENV,
+            ResidentDevelopmentalCognitionOwner,
+            load_config as load_resident_cognition_config,
+        )
+        from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+        from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
+        from sentientos.windows_handle_custody import read_explicit_file
+
+        cognition_config = load_resident_cognition_config(
+            os.environ[RESIDENT_COGNITION_CONFIG_ENV])
+        if (not cognition_config.enabled or cognition_config.comparison_enabled
+                or "embodiment" not in cognition_config.allowed_source_kinds):
+            parser.error("configured resident cognition must be enabled and admit embodiment evidence")
+        ledger = AdmissionLedger(cognition_config.state_root / "runtime_admissions.json")
+        definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK:
+            RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
+        writeback = ResidentDevelopmentalWritebackController(
+            history_root=cognition_config.history_root,
+            admission_verifier=RuntimeAdmissionVerifier(
+                definitions=definitions, ledger=ledger),
+            current_sequence=ledger.current_sequence)
+        resident_cognition_owner = ResidentDevelopmentalCognitionOwner(
+            config=cognition_config, writeback=writeback,
+            admission_authority=RuntimeAdmissionAuthority(
+                definitions=definitions, ledger=ledger),
+            invoker=invoker, current_sequence=ledger.current_sequence)
+
+        self_model_path = os.environ.get("SENTIENTOS_LONGITUDINAL_SELF_MODEL_CONFIG")
+        if self_model_path:
+            self_model_config = load_self_model_config(self_model_path)
+            if self_model_config.enabled:
+                self_model_owner = LongitudinalSelfModelOwner(
+                    self_model_config.custody_root)
+                self_model_owner.history()
+
+        epistemic_path = os.environ.get("SENTIENTOS_EPISTEMIC_STATE_CONFIG")
+        if epistemic_path:
+            try:
+                epistemic_payload = json.loads(
+                    read_explicit_file(Path(epistemic_path), max_bytes=65_536).decode("utf-8"))
+            except Exception as exc:
+                parser.error(f"epistemic state configuration is unreadable: {type(exc).__name__}")
+            expected_epistemic_config = {"schema", "custody_root",
+                "allowed_proposition_namespaces", "max_cognitive_projection_count",
+                "cognitive_consumption_enabled"}
+            if (not isinstance(epistemic_payload, dict)
+                    or set(epistemic_payload) != expected_epistemic_config
+                    or epistemic_payload.get("schema") != "sentientos.epistemic_runtime_config:v1"
+                    or not isinstance(epistemic_payload.get("custody_root"), str)
+                    or not Path(epistemic_payload["custody_root"]).is_absolute()
+                    or not isinstance(epistemic_payload.get("allowed_proposition_namespaces"), list)
+                    or not epistemic_payload["allowed_proposition_namespaces"]
+                    or any(not isinstance(item, str) or not item
+                        for item in epistemic_payload["allowed_proposition_namespaces"])
+                    or len(set(epistemic_payload["allowed_proposition_namespaces"]))
+                        != len(epistemic_payload["allowed_proposition_namespaces"])
+                    or not isinstance(epistemic_payload.get("cognitive_consumption_enabled"), bool)
+                    or not isinstance(epistemic_payload.get("max_cognitive_projection_count"), int)
+                    or isinstance(epistemic_payload.get("max_cognitive_projection_count"), bool)
+                    or not 1 <= epistemic_payload["max_cognitive_projection_count"] <= 128):
+                parser.error("epistemic state configuration is invalid")
+            epistemic_state_owner = PersistentEpistemicStateOwner(
+                epistemic_payload["custody_root"],
+                allowed_namespaces=epistemic_payload["allowed_proposition_namespaces"])
+            epistemic_state_config = {
+                "cognitive_consumption_enabled":
+                    epistemic_payload["cognitive_consumption_enabled"],
+                "max_cognitive_projection_count":
+                    epistemic_payload["max_cognitive_projection_count"],
+            }
     edge: _TemporaryCompanionEdge | None = None
     host_resource_sampler: _HostResourceSampler | None = None
     try:
@@ -968,8 +1075,13 @@ def main() -> int:
             game_process_names=tuple(args.game_process_name),
             gaming_keep_alive=args.gaming_keep_alive,
             screen_observer=edge.screen_observer if edge else None,
-            screen_capture_policy="request_driven",
-            local_speech_output=args.local_speech_output)
+            screen_capture_policy=("allowlisted_session_polling"
+                if args.screen_observation_process else "request_driven"),
+            local_speech_output=args.local_speech_output,
+            resident_cognition_owner=resident_cognition_owner,
+            self_model_owner=self_model_owner, self_model_config=self_model_config,
+            epistemic_state_owner=epistemic_state_owner,
+            epistemic_state_config=epistemic_state_config)
         def release_model_for_gaming_resource_pressure(
                 reason_code: str) -> Mapping[str, Any] | None:
             if not invoker.model.is_resident():
@@ -1012,6 +1124,8 @@ def main() -> int:
                 for name, profile in model_profiles.items()},
             "initial_workload_mode": args.initial_workload_mode,
             "initial_effective_profile": initial_profile,
+            "resident_cognition": ("configured_existing_owner_normal_workload_only"
+                if resident_cognition_owner is not None else "disabled"),
             "companion_output": ("temporary_mtls_windows_edge_and_godot"
                                  if edge else "not_configured"),
             "godot_headless": bool(edge and edge.godot_headless),

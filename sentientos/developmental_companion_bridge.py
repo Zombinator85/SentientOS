@@ -7,6 +7,7 @@ delegates the decision to the existing ResidentDevelopmentalCognitionOwner.
 from __future__ import annotations
 
 import hashlib
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 
@@ -23,6 +24,18 @@ from .world_state_board import WorldStateBoardBuilder, WorldStateSnapshot
 
 class DevelopmentalCompanionBridgeError(ValueError):
     """Invalid request evidence or adapter composition."""
+
+
+class CognitionWorkloadUnavailable(RuntimeError):
+    """The active latency-sensitive workload does not admit cognition inference."""
+
+    code = "cognition_unavailable_during_gaming"
+
+
+class CognitionEvidenceUnavailable(RuntimeError):
+    """No current external or proprioceptive evidence is available for grounding."""
+
+    code = "cognition_current_evidence_unavailable"
 
 
 def _screen_record(observation: Mapping[str, Any]) -> dict[str, Any]:
@@ -98,12 +111,18 @@ class ResidentDevelopmentalCompanionBridge:
                  self_model_config: LongitudinalSelfModelRuntimeConfig | None = None,
                  epistemic_state_owner: PersistentEpistemicStateOwner | None = None,
                  epistemic_state_config: Mapping[str, Any] | None = None,
+                 cognition_inference_gate: Any | None = None,
+                 cognition_available: Any | None = None,
                  clock: Any | None = None) -> None:
         if not isinstance(owner, ResidentDevelopmentalCognitionOwner):
             raise TypeError("resident_developmental_cognition_owner_required")
         if (proprioception_provider is not None
                 and not callable(proprioception_provider)):
             raise TypeError("proprioception_provider_must_be_callable")
+        if cognition_inference_gate is not None and not callable(cognition_inference_gate):
+            raise TypeError("cognition_inference_gate_invalid")
+        if cognition_available is not None and not callable(cognition_available):
+            raise TypeError("cognition_availability_provider_invalid")
         if (self_model_owner is not None
                 and not callable(getattr(self_model_owner, "cognitive_projection", None))):
             raise TypeError("self_model_projection_owner_invalid")
@@ -123,6 +142,8 @@ class ResidentDevelopmentalCompanionBridge:
         self._self_model_config = self_model_config
         self._epistemic_state_owner = epistemic_state_owner
         self._epistemic_state_config = epistemic_config
+        self._cognition_inference_gate = cognition_inference_gate
+        self._cognition_available = cognition_available
         self._clock = clock
 
     def verify_committed_response(self, *, linkage: Mapping[str, Any],
@@ -229,6 +250,14 @@ class ResidentDevelopmentalCompanionBridge:
                 max_states=maximum, current_tick=projection_tick)
         return prior_self_model, prior_epistemic_state
 
+    def can_handle(self) -> bool:
+        if self._cognition_available is None:
+            return True
+        try:
+            return self._cognition_available() is True
+        except Exception:
+            return False
+
     def respond(self, *, request_id: str, question: str,
                 screen_observation: Mapping[str, Any] | None = None
                 ) -> ResidentCompanionInteractionResult:
@@ -246,7 +275,12 @@ class ResidentDevelopmentalCompanionBridge:
         snapshot = build_companion_snapshot(
             screen_observation=screen_observation,
             proprioception=proprioception, clock=self._clock)
-        return self._owner.run_companion_interaction(
-            snapshot=snapshot, request_id=request_id, question=question,
-            prior_self_model=prior_self_model,
-            prior_epistemic_state=prior_epistemic_state)
+        if not snapshot.facts:
+            raise CognitionEvidenceUnavailable()
+        gate = (self._cognition_inference_gate()
+            if self._cognition_inference_gate is not None else nullcontext())
+        with gate:
+            return self._owner.run_companion_interaction(
+                snapshot=snapshot, request_id=request_id, question=question,
+                prior_self_model=prior_self_model,
+                prior_epistemic_state=prior_epistemic_state)

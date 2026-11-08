@@ -128,6 +128,38 @@ def test_resident_cognition_bridge_delivers_receipt_linked_answer_and_recovers(
     assert invoker.requests == []
 
 
+def test_companion_uses_ordinary_chat_without_current_cognition_evidence(
+        tmp_path: Path) -> None:
+    class NoEvidenceBridge:
+        def can_handle(self):
+            return True
+
+        def respond(self, **_kwargs):
+            raise chat_service.CognitionEvidenceUnavailable()
+
+    invoker = FakeInvoker()
+    app = service(tmp_path, invoker, cognition_bridge=NoEvidenceBridge())
+    session_id = app.create_session()
+    response = app.chat("Tell me something interesting.",
+        session_id=session_id, request_id="no-cognition-evidence")
+
+    assert response.response == "local answer"
+    assert len(invoker.requests) == 1
+    assert app.sessions.load(session_id)["turns"][-1]["linkage"]["response_origin"] != (
+        "resident_developmental_cognition")
+
+
+def test_resident_cognition_is_unavailable_in_gaming_workload() -> None:
+    from sentientos.developmental_companion_bridge import CognitionWorkloadUnavailable
+
+    inference = DevelopmentSimulationInference(FakeInvoker())
+    inference.set_workload_mode("gaming")
+    assert inference.cognition_available() is False
+    with pytest.raises(CognitionWorkloadUnavailable):
+        with inference.cognition_inference_context():
+            pytest.fail("cognition inference gate opened during gaming mode")
+
+
 def test_durable_session_reopen(tmp_path: Path) -> None:
     store = ConversationSessionStore(tmp_path / "sessions")
     session = store.create(model_identity={"model_id": "one"})

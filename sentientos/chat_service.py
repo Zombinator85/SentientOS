@@ -12,6 +12,7 @@ import os
 import re
 import queue
 import threading
+import contextmanager
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -45,6 +46,10 @@ from .production_chat_resource_context import (
     ResourceBackedProductionChatInference,
 )
 from .gaming_workload_policy import GamingWorkloadPolicy, WorkloadMode
+from .developmental_companion_bridge import (
+    CognitionEvidenceUnavailable, CognitionWorkloadUnavailable,
+    ResidentDevelopmentalCompanionBridge,
+)
 from .conversation_session import (
     ConversationChatLockTimeout, ConversationSessionStore, assemble_local_chat_context,
     compact_runtime_generation_attribution, transcript_recall_terms,
@@ -453,13 +458,24 @@ class DevelopmentLocalChatInference:
                 "loaded": loaded, "observed_at": observed_at}
     def current_workload_mode(self) -> WorkloadMode:
         mode = self.current_workload_state().get("effective_mode")
-        if mode == "normal":
-            return "normal"
-        if mode == "gaming":
-            return "gaming"
-        if mode == "automatic":
-            return "automatic"
-        raise RuntimeError("effective_workload_mode_invalid")
+        if mode not in {"normal", "gaming", "automatic"}:
+            raise RuntimeError("effective_workload_mode_invalid")
+        return mode
+
+    def cognition_available(self) -> bool:
+        return self.current_workload_state()["effective_mode"] == "normal"
+
+    @contextmanager
+    def cognition_inference_context(self):
+        """Serialize cognition against chat/profile changes and admit normal mode only."""
+        with self._workload_lock:
+            state = self.current_workload_state()
+            if state["mode"] == "automatic":
+                self._select_profile_locked(state["effective_mode"])
+            if state["effective_mode"] != "normal":
+                raise CognitionWorkloadUnavailable()
+            yield
+
     def current_workload_state(self) -> dict[str, Any]:
         with self._workload_lock:
             configured = self._workload_mode
@@ -2411,11 +2427,24 @@ class PersistentConversationService:
                     interrupt_speech(session["session_id"])
                 except Exception as exc:
                     LOGGER.warning("Local speech interruption failed: %s", type(exc).__name__)
-        if self._resident_cognition_bridge is not None and not retain:
-            return self._complete_resident_cognition_response(
-                session_id=session["session_id"], user_turn=user_turn,
-                question=message, screen_observation=screen_observation,
-                on_content_chunk=on_content_chunk)
+        bridge = self._resident_cognition_bridge
+        should_route_to_cognition = (bridge is not None and not retain)
+        can_handle = getattr(bridge, "can_handle", None)
+        if should_route_to_cognition and callable(can_handle):
+            try:
+                should_route_to_cognition = can_handle() is True
+            except Exception:
+                should_route_to_cognition = False
+        if should_route_to_cognition:
+            try:
+                return self._complete_resident_cognition_response(
+                    session_id=session["session_id"], user_turn=user_turn,
+                    question=message, screen_observation=screen_observation,
+                    on_content_chunk=on_content_chunk)
+            except (CognitionEvidenceUnavailable, CognitionWorkloadUnavailable):
+                # Keep ordinary chat available without current evidence, or if
+                # a game becomes active after the readiness check.
+                pass
 
         prior_assistant = next((turn for turn in reversed(session.get("turns", ()))
             if turn.get("role") == "assistant"
@@ -3426,7 +3455,13 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                ] | None = None,
                                screen_capture_policy: str = "request_driven",
                                local_speech_output: bool = False,
-                               resident_cognition_bridge: Any | None = None) -> DevelopmentLocalChatInference:
+                               resident_cognition_bridge: Any | None = None,
+                               resident_cognition_owner: Any | None = None,
+                               proprioception_provider: Any | None = None,
+                               self_model_owner: Any | None = None,
+                               self_model_config: Any | None = None,
+                               epistemic_state_owner: Any | None = None,
+                               epistemic_state_config: Mapping[str, Any] | None = None) -> DevelopmentLocalChatInference:
     """Explicitly install governed local development chat inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     root = data_root or sentientos_data_dir()
@@ -3449,6 +3484,17 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
         invoker, model_profiles, foreground_game_detector=foreground_game_detector,
         gaming_keep_alive=gaming_keep_alive,
         gaming_resource_status_provider=gaming_resource_status_provider)
+    if resident_cognition_owner is not None:
+        if resident_cognition_bridge is not None:
+            raise ValueError("provide_bridge_or_owner_not_both")
+        resident_cognition_bridge = ResidentDevelopmentalCompanionBridge(
+            resident_cognition_owner,
+            proprioception_provider=proprioception_provider,
+            self_model_owner=self_model_owner, self_model_config=self_model_config,
+            epistemic_state_owner=epistemic_state_owner,
+            epistemic_state_config=epistemic_state_config,
+            cognition_inference_gate=inference.cognition_inference_context,
+            cognition_available=inference.cognition_available)
     if initial_workload_mode != "normal":
         inference.set_workload_mode(initial_workload_mode, game_process_names)
     speech_output = None
