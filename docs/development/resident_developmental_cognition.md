@@ -85,7 +85,10 @@ rejected. This path does not run the developmental writeback transaction or
 mark an interaction tick complete. Invocation receipts and cognition
 observations retain identities and digests, not raw prompt, screen text, user
 question, or response text. The response is returned to the caller in memory
-for immediate delivery.
+for immediate delivery. The chat service commits the assistant turn with the
+observation, inference receipt, and response digests, then verifies those bindings
+on idempotent recovery instead of invoking cognition a second time. This stored
+reply remains distinct from developmental-history writeback.
 
 The local development companion runner can opt in to this owner-level bridge
 with `--enable-resident-cognition`. It requires an explicit resident-cognition
