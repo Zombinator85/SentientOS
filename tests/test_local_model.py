@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import types
@@ -420,3 +421,79 @@ def test_transformers_custom_code_requirement_fails_closed(monkeypatch: pytest.M
     assert any("requires custom code" in err for err in errors)
     assert any("explicit opt-in is absent" in err for err in errors)
     assert any("refusing to enable trust_remote_code=True" in err for err in errors)
+
+
+def test_ollama_backend_forwards_governed_json_schema(monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text('{"model":"pinned"}', encoding="utf-8")
+    digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    candidate = ModelCandidate(manifest, "ollama", "pinned", {
+        "api_base": "http://127.0.0.1:11434",
+        "model": "sentientos-hermes4:14b-q4km",
+        "manifest_sha256": digest,
+    })
+
+    class TagsResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self, _limit):
+            return json.dumps({"models": [{"name": candidate.options["model"],
+                "digest": digest}]}).encode()
+
+    class Opener:
+        def open(self, *_args, **_kwargs):
+            return TagsResponse()
+
+    class StreamResponse:
+        def __init__(self):
+            self.lines = iter([
+                (json.dumps({"message": {"content": '{"answer":2}'},
+                    "done": False}) + "\n").encode(),
+                (json.dumps({"message": {"content": ""},
+                    "done": True, "done_reason": "stop"}) + "\n").encode(),
+            ])
+
+        def readline(self, _limit):
+            return next(self.lines, b"")
+
+    captured: dict[str, object] = {}
+
+    class Connection:
+        sock = None
+
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def request(self, _method, _path, *, body, headers):
+            captured["body"] = json.loads(body.decode())
+            captured["headers"] = headers
+
+        def getresponse(self):
+            return StreamResponse()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("sentientos.local_model.urllib.request.build_opener",
+        lambda *_args, **_kwargs: Opener())
+    monkeypatch.setattr("sentientos.local_model.http.client.HTTPConnection", Connection)
+    backend = _OllamaBackend(candidate, {}, 1024)
+    schema = {"type": "object", "properties": {"answer": {"type": "integer"}},
+        "required": ["answer"], "additionalProperties": False}
+
+    answer, _completion = backend.generate_with_metadata("return JSON", [], {
+        "structured_output_schema": schema, "temperature": 0,
+    })
+
+    assert answer == '{"answer":2}'
+    assert captured["body"]["format"] == schema
+    assert "structured_output_schema" not in captured["body"]
+    with pytest.raises(ModelLoadError, match="ollama_structured_output_schema_invalid"):
+        backend.generate_with_metadata("invalid schema", [], {
+            "structured_output_schema": "not-a-schema",
+        })

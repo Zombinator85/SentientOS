@@ -6,17 +6,23 @@ the four-call epistemic revision probe. It is not production serving authority.
 from __future__ import annotations
 
 import json
+import re
 import urllib.request
 from pathlib import Path
 from typing import Any, Mapping
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .control_plane_kernel import ControlPlaneKernel
-from .governed_local_model_invocation import GovernedLocalModelInvoker
+from .governed_local_model_invocation import (
+    GovernedLocalModelInvoker, validate_receipt,
+)
 from .local_model import LocalModel
 from .local_model_authority import (
     ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+    ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE,
+    ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES,
     build_rootless_experimental_epistemic_authority_map,
+    build_rootless_experimental_developmental_authority_map,
     stream_sha256,
 )
 from .local_runtime_provisioning import semantic_digest
@@ -25,9 +31,15 @@ from .rootless_experimental_epistemic_session import (
     RootlessExperimentalEpistemicSession,
 )
 from .rootless_experimental_local_model import (
-    EXPERIMENT_ROOT, RootlessExperimentalError, _no_symlink_path,
+    EXPERIMENT_ROOT, MAX_RECORD_BYTES, RootlessExperimentalError, _no_symlink_path,
+    _read_json,
     _rootless_governance_custody, _safe_child, validate_experiment_root,
 )
+
+
+ROOTLESS_RECEIPT_ID_RE = re.compile(r"^lmrec-[0-9a-f]{24}$")
+ROOTLESS_DEVELOPMENTAL_MAX_CALLS = 32
+ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS = 48_000
 
 
 class RootlessExperimentalOllamaEpistemicSession(
@@ -36,15 +48,22 @@ class RootlessExperimentalOllamaEpistemicSession(
 
     def __init__(self, *, model_manifest_path: Path, model_name: str,
                  root: Path, session_binding: Mapping[str, Any],
-                 kernel_factory: Any | None = None) -> None:
+                 kernel_factory: Any | None = None,
+                 developmental_cycle: bool = False) -> None:
         self.root = validate_experiment_root(root)
+        self.experimental_profile = ("developmental_cognition_cycle"
+            if developmental_cycle else "epistemic_revision")
+        purpose = (ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE
+            if developmental_cycle else ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
+        max_context_tokens = 4096 if developmental_cycle else MAX_CONTEXT_TOKENS
+        max_new_tokens = 512 if developmental_cycle else MAX_NEW_TOKENS
         try:
             self.root.relative_to(EXPERIMENT_ROOT.resolve(strict=True))
         except (ValueError, OSError) as exc:
             raise RootlessExperimentalError(
                 "epistemic_session_root_outside_rootless_experiment") from exc
         if (not isinstance(session_binding, Mapping)
-                or session_binding.get("purpose") != ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+                or session_binding.get("purpose") != purpose
                 or session_binding.get("production_authority") is not False
                 or session_binding.get("eligible_as_production_serving_evidence") is not False
                 or session_binding.get("preregistration_digest") != "0" * 64
@@ -61,13 +80,17 @@ class RootlessExperimentalOllamaEpistemicSession(
             "think": False, "timeout_seconds": 120}
         self.config = ModelConfig(
             [ModelCandidate(path, "ollama", model_name, options)],
-            default_engine="ollama", max_context_tokens=MAX_CONTEXT_TOKENS,
-            generation=GenerationConfig(max_new_tokens=MAX_NEW_TOKENS,
+            default_engine="ollama", max_context_tokens=max_context_tokens,
+            generation=GenerationConfig(max_new_tokens=max_new_tokens,
                 temperature=0, top_p=1))
-        self.authority_map = build_rootless_experimental_epistemic_authority_map(
-            self.config, allowed_roots=[path.parent])
-        record = self.authority_map.eligible_record(
-            ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
+        authority_builder = (build_rootless_experimental_developmental_authority_map
+            if developmental_cycle else build_rootless_experimental_epistemic_authority_map)
+        self.authority_map = authority_builder(self.config, allowed_roots=[path.parent])
+        required_purposes = (ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES
+            if developmental_cycle else (ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,))
+        record = next((self.authority_map.eligible_record(item)
+            for item in required_purposes
+            if self.authority_map.eligible_record(item) is not None), None)
         if record is None or record.engine != "ollama":
             raise RootlessExperimentalError("ollama_experimental_authority_unavailable")
         self.worker = LocalModel.load_candidate(0, config=self.config)
@@ -76,8 +99,8 @@ class RootlessExperimentalOllamaEpistemicSession(
                 or identity.fallback or identity.candidate_index != 0
                 or identity.model_content_sha256 != manifest_digest
                 or identity.artifact_size_bytes != manifest_size
-                or self.authority_map.record_for_active_identity(
-                    identity, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE) is None):
+                or not any(self.authority_map.record_for_active_identity(identity, item)
+                    is not None for item in required_purposes)):
             raise RootlessExperimentalError("epistemic_session_model_identity_mismatch")
         self.active_model_identity = identity.to_dict()
         self.model_manifest = {
@@ -122,6 +145,73 @@ class RootlessExperimentalOllamaEpistemicSession(
         self._correlations: set[str] = set()
         self._closed = False
 
+    def build_request(self, **kwargs: Any) -> Any:
+        purpose = kwargs.get("purpose")
+        prompt = kwargs.get("prompt")
+        linkage = kwargs.get("linkage")
+        budget = kwargs.get("budget")
+        correlation = kwargs.get("correlation_id")
+        if (self._closed
+                or purpose not in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES
+                or not isinstance(prompt, str)
+                or len(prompt) > ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS
+                or not isinstance(linkage, Mapping)
+                or not isinstance(correlation, str) or not correlation
+                or correlation in self._correlations
+                or (budget is not None and (
+                    budget.max_input_chars > ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS
+                    or budget.max_new_tokens > 512
+                    or budget.max_calls_per_correlation != 1))):
+            raise RootlessExperimentalError("developmental_session_request_out_of_scope")
+        return self.invoker.build_request(**{
+            **kwargs,
+            "linkage": {**dict(linkage),
+                "rootless_experimental_session": self.session_binding},
+        })
+
+    def invoke(self, request: Any, **kwargs: Any) -> Any:
+        if (self._closed
+                or request.purpose not in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES
+                or request.linkage.get("rootless_experimental_session")
+                    != self.session_binding
+                or request.correlation_id in self._correlations
+                or request.budget.max_calls_per_correlation != 1
+                or request.budget.max_new_tokens > 512
+                or request.budget.max_input_chars > ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS
+                or len(self._correlations) >= ROOTLESS_DEVELOPMENTAL_MAX_CALLS):
+            raise RootlessExperimentalError("developmental_session_invocation_out_of_scope")
+        if kwargs.get("persist", True) is not True:
+            raise RootlessExperimentalError("developmental_session_receipt_custody_required")
+        self._correlations.add(request.correlation_id)
+        return self.invoker.invoke(request, **kwargs)
+
+    def verify_persisted_invocation_receipt(
+            self, receipt_id: str, receipt_digest: str, **expected: Any) -> Mapping[str, Any]:
+        if not isinstance(receipt_id, str) or not ROOTLESS_RECEIPT_ID_RE.fullmatch(receipt_id):
+            raise RootlessExperimentalError("developmental_receipt_identity_invalid")
+        payload = _read_json(self.runtime_root / "receipts" / f"{receipt_id}.json",
+            max_bytes=MAX_RECORD_BYTES)
+        valid, _reasons = validate_receipt(payload)
+        request = payload.get("request")
+        linkage = request.get("linkage") if isinstance(request, Mapping) else None
+        if (not valid or payload.get("receipt_id") != receipt_id
+                or payload.get("receipt_digest") != receipt_digest
+                or not isinstance(request, Mapping)
+                or request.get("purpose")
+                    not in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES
+                or request.get("active_model_identity") != self.active_model_identity
+                or not isinstance(linkage, Mapping)
+                or linkage.get("rootless_experimental_session") != self.session_binding
+                or request.get("request_id") != expected.get("expected_request_id",
+                    request.get("request_id"))
+                or request.get("request_digest") != expected.get(
+                    "expected_request_digest", request.get("request_digest"))):
+            raise RootlessExperimentalError("developmental_receipt_verification_failed")
+        if (expected.get("expected_active_model_identity") is not None
+                and expected["expected_active_model_identity"] != self.active_model_identity):
+            raise RootlessExperimentalError("developmental_receipt_model_identity_mismatch")
+        return payload
+
     def measured_process_resources(self) -> Mapping[str, Any]:
         return {"measurement_source":
             "Ollama process telemetry not sampled per invocation",
@@ -137,7 +227,9 @@ class RootlessExperimentalOllamaEpistemicSession(
             resident = self.worker.is_resident()
             if resident is True:
                 receipt = self.invoker.release_model_residency(
-                    reason_code="rootless_experimental_epistemic_complete")
+                    reason_code=("rootless_experimental_developmental_complete"
+                        if self.experimental_profile == "developmental_cognition_cycle"
+                        else "rootless_experimental_epistemic_complete"))
                 if receipt.status != "released":
                     raise RootlessExperimentalError(
                         "ollama_governed_release_unconfirmed")
@@ -147,3 +239,14 @@ class RootlessExperimentalOllamaEpistemicSession(
         finally:
             self._governance_context.__exit__(None, None, None)
 
+
+class RootlessExperimentalOllamaDevelopmentalSession(
+        RootlessExperimentalOllamaEpistemicSession):
+    """Governed Ollama session restricted to resident developmental cognition purposes."""
+
+    def __init__(self, *, model_manifest_path: Path, model_name: str,
+                 root: Path, session_binding: Mapping[str, Any],
+                 kernel_factory: Any | None = None) -> None:
+        super().__init__(model_manifest_path=model_manifest_path, model_name=model_name,
+            root=root, session_binding=session_binding, kernel_factory=kernel_factory,
+            developmental_cycle=True)

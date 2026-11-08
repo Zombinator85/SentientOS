@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, cast
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, cast
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig, load_model_config
 from .optional_deps import dependency_available, optional_import
@@ -308,6 +308,9 @@ class _OllamaBackend(_ModelBackend):
         keep_alive = generation.get("keep_alive", self._keep_alive)
         if keep_alive not in {"0", "5s", "5m", "15m", "-1"}:
             raise ModelLoadError("ollama_keep_alive_invalid")
+        structured_output_schema = generation.pop("structured_output_schema", None)
+        if structured_output_schema is not None and not isinstance(structured_output_schema, Mapping):
+            raise ModelLoadError("ollama_structured_output_schema_invalid")
         options = {
             "num_ctx": self._context,
             "num_predict": max(1, min(int(generation.get("max_new_tokens", 256)), 512)),
@@ -319,9 +322,14 @@ class _OllamaBackend(_ModelBackend):
         messages = _ollama_chat_messages(
             prompt, history_format=self._chat_history_format)
         keep_alive_payload: str | int = -1 if keep_alive == "-1" else keep_alive
-        body = json.dumps({"model": self._model, "messages": messages, "stream": True,
-                           "think": self._think, "keep_alive": keep_alive_payload,
-                           "options": options}, separators=(",", ":")).encode("utf-8")
+        request_body: dict[str, Any] = {
+            "model": self._model, "messages": messages, "stream": True,
+            "think": self._think, "keep_alive": keep_alive_payload,
+            "options": options,
+        }
+        if structured_output_schema is not None:
+            request_body["format"] = dict(structured_output_schema)
+        body = json.dumps(request_body, separators=(",", ":")).encode("utf-8")
         parsed = urllib.parse.urlsplit(self._base)
         host = parsed.hostname
         if host is None:

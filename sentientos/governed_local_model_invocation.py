@@ -11,6 +11,7 @@ from .control_plane_kernel import (AuthorityClass, ControlActionRequest,
     ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel)
 from .local_model_authority import (LocalModelAuthorityMap, LocalModelAuthorityRecord,
     ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE,
+    ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES,
     atomic_write_json, digest_payload, validate_authority_map)
 from .causal_resource_principal import CausalResourcePrincipal
 from .causal_resource_principal_authentication import AuthenticatedRootPrincipalEvidence
@@ -584,7 +585,10 @@ class GovernedLocalModelInvoker:
             elif (self.authority_map.record_for_active_identity(
                     identity, "local_user_chat") is None
                     and self.authority_map.record_for_active_identity(
-                        identity, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE) is None):
+                        identity, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE) is None
+                    and not any(self.authority_map.record_for_active_identity(identity, purpose)
+                        is not None for purpose in
+                            ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES)):
                 status = "denied"
                 reasons = ["active_model_release_authority_missing"]
             else:

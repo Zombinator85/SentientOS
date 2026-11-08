@@ -36,7 +36,9 @@ from .developmental_history_intervention_experiment import (
     PURPOSE as EXPERIMENT_PURPOSE,
 )
 from .local_model_authority import (
-    ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE, digest_payload,
+    ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+    ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES,
+    ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE, digest_payload,
 )
 from .rootless_experimental_epistemic_session import MAX_CALL_TIMEOUT_SECONDS
 from .private_file_custody import (PrivateFileCustodyError, list_bounded_json_names_at,
@@ -198,13 +200,18 @@ def _valid_rootless_epistemic_session_binding(value: Any) -> bool:
         and value.get("schema_version")
             == "sentientos.rootless_experimental_cognition_session:v1"
         and isinstance(value.get("session_id"), str)
-        and value["session_id"].startswith("rootless-epistemic-session-")
         and isinstance(value.get("run_id"), str)
-        and value["run_id"].startswith("rootless-epistemic-run-")
+        and ((value.get("purpose") == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+                and value["session_id"].startswith("rootless-epistemic-session-")
+                and value["run_id"].startswith("rootless-epistemic-run-"))
+            or (value.get("purpose") == ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE
+                and value["session_id"].startswith("rootless-cognition-session-")
+                and value["run_id"].startswith("rootless-cognition-cycle-")))
         and all(isinstance(value.get(key), str) and len(value[key]) == 64
             and all(char in "0123456789abcdef" for char in value[key])
             for key in digests)
-        and value.get("purpose") == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+        and value.get("purpose") in {ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+            ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE}
         and value.get("production_authority") is False
         and value.get("eligible_as_production_serving_evidence") is False)
 CURRENT_PROJECTION_POLICY = "succession_identity_then_resource_and_transition_evidence_then_source_id:v3"
@@ -3724,7 +3731,9 @@ class ResidentDevelopmentalCognitionOwner:
                 rootless_session = (linkage.get("rootless_experimental_session")
                     if isinstance(linkage, Mapping) else None)
                 if (not isinstance(request, Mapping)
-                        or request.get("purpose") != ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+                        or request.get("purpose") not in {
+                            ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+                            *ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES}
                         or request.get("active_model_identity") != dict(identity_mapping)
                         or not isinstance(linkage, Mapping)
                         or "resident_cognitive_serving" in linkage
@@ -5167,10 +5176,10 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError("experiment_history_binding_drift")
         invocation_options: dict[str, Any] = {
             "persist": True,
-            # Research probes retain the delivered response in the invocation
-            # receipt for later independent qualification. Ordinary cognition
-            # keeps the existing output-redaction default.
-            "include_output_in_receipt": epistemic_revision_probe,
+            # Bounded research probes and preregistered history interventions
+            # retain delivered text so later comparisons can inspect the actual
+            # model response. Ordinary cognition keeps output redaction.
+            "include_output_in_receipt": epistemic_revision_probe or protocol is not None,
         }
         if self.resource_context_owner is not None:
             # Each preregistered condition consumes its own owner-issued

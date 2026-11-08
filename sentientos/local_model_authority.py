@@ -21,6 +21,12 @@ MAX_METADATA_BYTES = 128 * 1024
 AUTHORITY_SCHEMA_VERSION = "local_model_authority_map.v1"
 ROOTLESS_EXPERIMENTAL_PURPOSE = "rootless_experimental_local_model_probe"
 ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE = "rootless_experimental_epistemic_revision_probe"
+ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE = "rootless_experimental_developmental_cognition_cycle"
+ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES = (
+    "resident_developmental_interpretation",
+    "resident_developmental_retrieval_cognition",
+    "resident_developmental_history_intervention_experiment",
+)
 
 
 def _canon(obj: Any) -> bytes:
@@ -150,6 +156,11 @@ class LocalModelAuthorityMap:
                 and record.engine == "ollama"
                 and identity.posture == "development_only"
                 and purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
+            rootless_ollama_developmental_match = (
+                record.disposition == "rootless_experimental_developmental_candidate"
+                and record.engine == "ollama"
+                and identity.posture == "development_only"
+                and purpose in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES)
             development_chat_match = (
                 record.disposition == "development_only"
                 and identity.posture == "development_only"
@@ -167,7 +178,7 @@ class LocalModelAuthorityMap:
                 and observed_path == identity.resolved_artifact_path
                 and (production_match or rootless_experimental_match
                     or rootless_epistemic_match or rootless_ollama_epistemic_match
-                    or development_chat_match)
+                    or rootless_ollama_developmental_match or development_chat_match)
                 and not identity.fallback
             ):
                 return record
@@ -351,6 +362,41 @@ def build_rootless_experimental_epistemic_authority_map(
             "degraded_count": sum(r.runtime_eligibility_status == "degraded" for r in records),
             "provider_network_posture": "blocked",
             "execution_posture": "rootless_experimental_epistemic"},
+    )
+
+
+def build_rootless_experimental_developmental_authority_map(
+    config: ModelConfig | None = None, *, allowed_roots: Sequence[Path] | None = None,
+    observed_at: str | None = None,
+) -> LocalModelAuthorityMap:
+    """Admit only local Ollama for the resident developmental cognition cycle.
+
+    This is explicitly non-production. The exact purposes are interpretation,
+    retrieval cognition, and history intervention. Chat, tools, actions, model
+    commissioning, and production serving remain excluded.
+    """
+    candidates = build_local_model_authority_map(
+        config, allowed_roots=allowed_roots, observed_at=observed_at)
+    records = tuple(replace(
+        record,
+        allowed_invocation_purposes=(ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES
+            if record.engine == "ollama" and record.runtime_eligibility_status == "eligible"
+            else ()),
+        disposition="rootless_experimental_developmental_candidate",
+        proof_references=(*record.proof_references,
+            "sentientos/local_model_authority.py:rootless-experimental-developmental"),
+    ) for record in candidates.records)
+    semantic = {"schema_version": AUTHORITY_SCHEMA_VERSION,
+        "records": [record.to_dict() for record in records]}
+    map_digest = digest_payload(semantic)
+    return LocalModelAuthorityMap(
+        records=records, map_id="lmam-" + map_digest[:24], map_digest=map_digest,
+        generated_at=candidates.generated_at,
+        summary={"eligible_count": sum(r.runtime_eligibility_status == "eligible" for r in records),
+            "blocked_count": sum(r.runtime_eligibility_status == "blocked" for r in records),
+            "degraded_count": sum(r.runtime_eligibility_status == "degraded" for r in records),
+            "provider_network_posture": "blocked",
+            "execution_posture": "rootless_experimental_developmental"},
     )
 
 

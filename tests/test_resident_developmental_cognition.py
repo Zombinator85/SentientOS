@@ -28,13 +28,16 @@ from sentientos.governed_local_model_invocation import (
     FORBIDDEN_EFFECTS,
 )
 from sentientos.local_model_authority import build_local_model_authority_map
-from sentientos.local_model_authority import digest_payload
+from sentientos.local_model_authority import (
+    ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE, digest_payload,
+)
 from sentientos.resident_developmental_cognition import (
     CONFIG_SCHEMA, ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
     _bind_history_and_epistemic_context,
     load_objective_request, objective_task_for_request, stage_objective_request,
     stored_objective_request_disposition, stored_objective_request_record,
+    _valid_rootless_epistemic_session_binding,
 )
 from sentientos.resident_developmental_writeback import (
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
@@ -5360,6 +5363,27 @@ def test_tick_n_admitted_developmental_writeback_is_durable_and_bounded(tmp_path
         (result.written_record_id, result.writeback_receipt_id)]
 
 
+
+def test_initial_interpretation_retains_governed_output_needed_for_writeback(
+        tmp_path: Path) -> None:
+    class OutputCustodyInvoker(FakeInvoker):
+        def __init__(self):
+            super().__init__()
+            self.output_custody = []
+
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            self.output_custody.append((request.purpose, include_output_in_receipt))
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    invoker = OutputCustodyInvoker()
+    composition, _ = owner(tmp_path, invoker=invoker)
+    result = composition.run_tick(snapshot=snapshot(), tick_id="initial-output-custody")
+    assert result.written_record_id
+    assert invoker.output_custody == [("resident_developmental_interpretation", True)]
+
 def test_read_only_recovery_inspection_never_repairs_missing_writeback_receipt(
         tmp_path: Path) -> None:
     composition, _ = owner(tmp_path)
@@ -7624,3 +7648,25 @@ def test_compounded_integrity_failure_retains_unknown_pressure_through_later_cog
     assert historical["authority"] is False
     assert historical["attack_established"] is False
     reset_runtime_governor()
+
+
+def test_rootless_developmental_session_binding_is_identity_and_namespace_bound() -> None:
+    binding = {
+        "schema_version": "sentientos.rootless_experimental_cognition_session:v1",
+        "session_id": "rootless-cognition-session-" + "1" * 12,
+        "run_id": "rootless-cognition-cycle-" + "2" * 12,
+        "preregistration_digest": "3" * 64,
+        "model_manifest_digest": "4" * 64,
+        "runtime_bundle_digest": "5" * 64,
+        "active_model_identity_digest": "6" * 64,
+        "purpose": ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE,
+        "production_authority": False,
+        "eligible_as_production_serving_evidence": False,
+    }
+    assert _valid_rootless_epistemic_session_binding(binding)
+    assert not _valid_rootless_epistemic_session_binding({
+        **binding, "session_id": "rootless-epistemic-session-" + "1" * 12,
+    })
+    assert not _valid_rootless_epistemic_session_binding({
+        **binding, "purpose": "local_user_chat",
+    })
