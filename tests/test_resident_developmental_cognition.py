@@ -5831,22 +5831,39 @@ def test_operator_confirmed_bridge_cycle_writes_then_later_cognition_retrieves_h
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)
     cognition, fake = owner(tmp_path / "operator-cycle",
-        allowed_source_kinds=("embodiment",))
+        allowed_source_kinds=("embodiment",), max_selected_facts=2)
     screen = {"modality": "screen",
         "text": "A fresh, bounded operator-approved observation of a test scene.",
         "capture_digest": "d" * 64,
         "capture_scope": "allowlisted_foreground_game_client_area",
         "captured_at": now.isoformat(), "raw_frame_retained": False}
+    from sentientos.developmental_companion_bridge import (
+        make_operator_feedback_record,
+    )
     bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
     assert bridge.developmental_cycle_available() is True
+    feedback = make_operator_feedback_record(
+        "The altar has four candle objects and two are lit.",
+        request_id="cycle-feedback-1", assistant_turn_id="turn-" + "a" * 24,
+        assistant_response_digest="f" * 64,
+        source_capture_digest="b" * 64,
+        followup_capture_digest=screen["capture_digest"],
+        observed_at=now.isoformat())
 
     cycle = bridge.run_developmental_cycle(
-        tick_id="operator-confirmed-cycle-1", screen_observation=screen)
+        tick_id="operator-confirmed-cycle-1", screen_observation=screen,
+        operator_feedback=feedback)
 
     assert cycle.status == "completed"
     assert cycle.written_record_id is not None
     assert cycle.writeback_receipt_id is not None
     assert cycle.canonical_explicit_user_retention_mutated is False
+    assert len(cycle.selected_fact_ids) == 2
+    cycle_request = fake.requests[-1]
+    assert cycle_request.purpose == "resident_developmental_interpretation"
+    assert "The altar has four candle objects and two are lit." in cycle_request.prompt
+    assert "operator_assertion_unverified" in cycle_request.prompt
+    assert "effect_proven" in cycle_request.prompt
     fake.companion_output_override = {
         "disposition": "answer", "response": "I can use the retained lesson.",
         "evidence_ids": ["__CURRENT_FACT__"],

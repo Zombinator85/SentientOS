@@ -319,6 +319,25 @@ def test_saved_transcript_turns_include_display_safe_answer_lineage(
         "ocr": "game_screen_ocr_timeout"}
     assert screen["screen_observation"]["raw_frame_retained"] is False
     assert "text" not in screen["screen_observation"]
+    resident_with_evidence = chat_service._saved_transcript_response_diagnostics({
+        "role": "assistant", "text": "answer", "linkage": {
+            "response_origin": "resident_developmental_cognition",
+            "cognition_observation_id": "observation-1",
+            "cognition_observation_digest": "a" * 64,
+            "response_digest": "b" * 64,
+            "screen_observation_provenance": {"capture_digest": "c" * 64},
+        },
+    })
+    assert resident_with_evidence["operator_feedback_available"] is True
+    resident_without_capture = chat_service._saved_transcript_response_diagnostics({
+        "role": "assistant", "text": "answer", "linkage": {
+            "response_origin": "resident_developmental_cognition",
+            "cognition_observation_id": "observation-1",
+            "cognition_observation_digest": "a" * 64,
+            "response_digest": "b" * 64,
+        },
+    })
+    assert resident_without_capture["operator_feedback_available"] is False
 
 
 def test_new_chat_turn_interrupts_previous_local_speech(tmp_path):
