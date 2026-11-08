@@ -537,6 +537,10 @@ class _TemporaryCompanionEdge:
             BridgeScreenObservationProvider, RequestDrivenScreenObservation,
             ScreenCaptureRequestSender,
         )
+        from sentientos.avatar_consequence_bridge import (
+            AvatarConsequenceMeasurementRequestSender, RemoteAvatarConsequenceObserver,
+        )
+        from sentientos.embodied_consequence import AuthenticatedBridgeIndependentObserver
         from sentientos.gaming_companion_tls_transport import (
             CompanionBridgeMutualTLSClient,
         )
@@ -551,6 +555,9 @@ class _TemporaryCompanionEdge:
         self.foreground_game_detector: Any | None = None
         self._screen_runtime: Any | None = None
         self.screen_observer: Any | None = None
+        self._avatar_consequence_runtime: Any | None = None
+        self.avatar_consequence_observer: Any | None = None
+        self._avatar_consequence_request_material: tuple[Any, ...] | None = None
         self._lines: queue.Queue[str] = queue.Queue()
         self._report_file: Path | None = None
         self._delivery_event_file = delivery_event_file
@@ -675,6 +682,42 @@ class _TemporaryCompanionEdge:
                         raise ValueError("screen_observation_vision_model_invalid")
                     config["screen_observation"]["vision_model"] = (
                         screen_observation_vision_model)
+                    avatar_request_key = secrets.token_bytes(32)
+                    avatar_source_key = secrets.token_bytes(32)
+                    avatar_ack_key = secrets.token_bytes(32)
+                    avatar_request_id = "wsl-avatar-consequence-request"
+                    avatar_request_generation = "wsl-avatar-consequence-request-dev-1"
+                    avatar_source_id = "windows-avatar-consequence"
+                    avatar_source_generation = "windows-avatar-consequence-dev-1"
+                    avatar_ack_id = "wsl-avatar-consequence-ack"
+                    avatar_ack_generation = "wsl-avatar-consequence-ack-dev-1"
+                    self._avatar_consequence_runtime = CompanionBridgeLoopbackRuntime(
+                        receiver=CompanionBridgeReceiver(
+                            source_keys={avatar_source_id: avatar_source_key},
+                            expected_generations={avatar_source_id: avatar_source_generation}),
+                        acknowledgment_source_id=avatar_ack_id,
+                        acknowledgment_generation_id=avatar_ack_generation,
+                        acknowledgment_key=avatar_ack_key, queue_capacity=8,
+                        socket_timeout_seconds=1.5)
+                    avatar_consequence_port = self._avatar_consequence_runtime.start()
+                    avatar_cfg = {
+                        "request_source_id": avatar_request_id,
+                        "request_generation_id": avatar_request_generation,
+                        "request_key": base64.b64encode(avatar_request_key).decode("ascii"),
+                        "port": avatar_consequence_port,
+                        "source_id": avatar_source_id,
+                        "source_generation_id": avatar_source_generation,
+                        "source_key": base64.b64encode(avatar_source_key).decode("ascii"),
+                        "ack_source_id": avatar_ack_id,
+                        "ack_generation_id": avatar_ack_generation,
+                        "ack_key": base64.b64encode(avatar_ack_key).decode("ascii"),
+                    }
+                    config["screen_observation"]["avatar_consequence"] = avatar_cfg
+                    # The Windows listener chooses an ephemeral port; construct the
+                    # authenticated request sender after EDGE_READY reports it.
+                    self._avatar_consequence_request_material = (
+                        avatar_request_key, avatar_request_id, avatar_request_generation,
+                        avatar_source_id, avatar_source_generation)
                 if screen_observation_tesseract_executable is not None:
                     executable = screen_observation_tesseract_executable
                     if (not isinstance(executable, str) or not executable
@@ -743,6 +786,32 @@ class _TemporaryCompanionEdge:
                     consent_expires_at=config["screen_observation"]["consent_expires_at"],
                     foreground_wait_seconds=config["screen_observation"][
                         "foreground_wait_seconds"])
+                if self._avatar_consequence_runtime is not None:
+                    (avatar_request_key, avatar_request_id, avatar_request_generation,
+                     avatar_source_id, avatar_source_generation) = (
+                        self._avatar_consequence_request_material)
+                    avatar_request_client = CompanionBridgeMutualTLSClient(
+                        address=windows_ip, port=port, server_hostname="windows-edge.test",
+                        tls_context=client_context,
+                        acknowledgment_receiver=CompanionBridgeReceiver(
+                            source_keys={"windows-edge-dev": avatar_ack},
+                            expected_generations={"windows-edge-dev":
+                                "windows-avatar-ack-dev-1"}),
+                        expected_server_certificate_sha256=edge["pin"],
+                        timeout_seconds=4.0)
+                    avatar_sender = AvatarConsequenceMeasurementRequestSender(
+                        client=avatar_request_client, source_id=avatar_request_id,
+                        session_id="wsl-avatar-consequence-request",
+                        generation_id=avatar_request_generation,
+                        source_key=avatar_request_key)
+                    authenticated_observer = AuthenticatedBridgeIndependentObserver(
+                        runtime=self._avatar_consequence_runtime,
+                        observer_id=avatar_source_id,
+                        generation_id=avatar_source_generation,
+                        max_observation_age_seconds=30.0,
+                        receive_timeout_seconds=30.0)
+                    self.avatar_consequence_observer = RemoteAvatarConsequenceObserver(
+                        request_sender=avatar_sender, observer=authenticated_observer)
             self._sender = MutualTLSAvatarCommandSender(
                 client=client, source_id="wsl-core-dev", session_id=None,
                 generation_id="wsl-avatar-dev-1", source_key=avatar_key,
@@ -876,6 +945,9 @@ class _TemporaryCompanionEdge:
                     if self._screen_runtime is not None:
                         self._screen_runtime.close()
                         self._screen_runtime = None
+                    if self._avatar_consequence_runtime is not None:
+                        self._avatar_consequence_runtime.close()
+                        self._avatar_consequence_runtime = None
                 finally:
                     self._temporary.cleanup()
 
