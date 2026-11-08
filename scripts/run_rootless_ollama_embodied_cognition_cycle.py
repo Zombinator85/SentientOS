@@ -11,6 +11,7 @@ import os
 from dataclasses import asdict
 import subprocess
 import sys
+import time
 import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -90,6 +91,39 @@ def _gpu_snapshot() -> dict[str, str] | None:
         return None
 
 
+def _model_residency_observed(model_name: str) -> bool | None:
+    request = urllib.request.Request("http://127.0.0.1:11434/api/ps", method="GET")
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(request, timeout=5) as response:
+            payload = json.loads(response.read(65_536).decode("utf-8"))
+    except Exception:
+        return None
+    models = payload.get("models") if isinstance(payload, dict) else None
+    if (not isinstance(models, list) or len(models) > 64
+            or any(not isinstance(item, dict)
+                or not isinstance(item.get("name"), str)
+                or len(item["name"]) > 128 for item in models)):
+        return None
+    return any(item["name"] == model_name for item in models)
+
+
+def _verify_model_released(model_name: str, *, timeout_seconds: float = 20.0
+        ) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout_seconds
+    checks = 0
+    while True:
+        resident = _model_residency_observed(model_name)
+        checks += 1
+        if resident is None:
+            return {"status": "residency_observation_unavailable", "checks": checks}
+        if not resident:
+            return {"status": "target_model_not_resident", "checks": checks}
+        if time.monotonic() >= deadline:
+            return {"status": "target_model_still_resident", "checks": checks}
+        time.sleep(0.5)
+
+
 def _embodied_source() -> tuple[dict[str, Any], dict[str, Any]]:
     commanded_at = (datetime.now(timezone.utc) - timedelta(seconds=8)).isoformat()
     renderer_completed_at = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
@@ -167,6 +201,11 @@ def _embodied_source() -> tuple[dict[str, Any], dict[str, Any]]:
 def run() -> dict[str, Any]:
     if not MANIFEST_PATH.is_file() or MANIFEST_PATH.is_symlink():
         raise RootlessExperimentalError("pinned_hermes_manifest_missing")
+    preexisting_residency = _model_residency_observed(MODEL_NAME)
+    if preexisting_residency is None:
+        raise RootlessExperimentalError("ollama_model_residency_unavailable")
+    if preexisting_residency:
+        raise RootlessExperimentalError("pinned_hermes_already_resident")
     manifest_digest, manifest_size = stream_sha256(MANIFEST_PATH)
     if manifest_digest != MANIFEST_PATH.stem:
         raise RootlessExperimentalError("pinned_hermes_manifest_digest_mismatch")
@@ -300,6 +339,8 @@ def run() -> dict[str, Any]:
         }
         session.close()
         result["governed_unload"] = "governed_release_completed"
+        result["residency_verification"] = _verify_model_released(MODEL_NAME)
+        result["gpu_after"] = _gpu_snapshot()
         out = RUN_ROOT / "cycle-result.json"
         result["evidence_path"] = str(out)
         out.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")
