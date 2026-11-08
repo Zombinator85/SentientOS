@@ -99,7 +99,11 @@ def _request_bound_capture_freshness(observation: Mapping[str, Any]
             or not isinstance(provenance.get("payload_digest"), str)
             or len(provenance["payload_digest"]) != 64
             or any(character not in "0123456789abcdef"
-                for character in provenance["payload_digest"])):
+                for character in provenance["payload_digest"])
+            or not isinstance(provenance.get("signed_envelope_digest"), str)
+            or len(provenance["signed_envelope_digest"]) != 64
+            or any(character not in "0123456789abcdef"
+                for character in provenance["signed_envelope_digest"])):
         raise DevelopmentalCompanionBridgeError("history_intervention_capture_freshness_invalid")
     return freshness
 
@@ -168,7 +172,8 @@ def _screen_record(observation: Mapping[str, Any], *, staleness: str = "unknown"
                 "bridge_message_provenance": {
                     key: observation["bridge_message_provenance"][key]
                     for key in ("message_id", "source_id", "session_id",
-                        "generation_id", "sequence", "created_at", "payload_digest")
+                        "generation_id", "sequence", "created_at", "payload_digest",
+                        "signed_envelope_digest")
                 },
                 **({key: observation[key] for key in (
                     "process_name_digest", "consent_id_digest", "backend",

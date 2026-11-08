@@ -6203,7 +6203,8 @@ def test_request_bound_history_capture_preserves_bridge_provenance_across_clock_
     provenance = {"message_id": "1" * 64, "source_id": "windows-screen",
         "session_id": "screen-session", "generation_id": "generation-1",
         "sequence": 4, "created_at": now.isoformat(),
-        "payload_digest": "2" * 64}
+        "payload_digest": "2" * 64,
+        "signed_envelope_digest": "6" * 64}
     screen = {**seed_screen, "capture_digest": "3" * 64,
         "captured_at": (now - timedelta(minutes=2)).isoformat(),
         "capture_request_id": request_id,
