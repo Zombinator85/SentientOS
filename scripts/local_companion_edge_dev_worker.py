@@ -76,6 +76,11 @@ def main():
         request_key=base64.b64decode(screen_cfg["request_key"])
         trusted_sources[screen_cfg["request_source_id"]]=request_key
         trusted_generations[screen_cfg["request_source_id"]]=screen_cfg["request_generation_id"]
+        avatar_cfg=screen_cfg.get("avatar_consequence")
+        if isinstance(avatar_cfg,dict):
+            avatar_request_key=base64.b64decode(avatar_cfg["request_key"])
+            trusted_sources[avatar_cfg["request_source_id"]]=avatar_request_key
+            trusted_generations[avatar_cfg["request_source_id"]]=avatar_cfg["request_generation_id"]
     runtime=CompanionBridgeMutualTLSRuntime(
         bind_address=cfg["bind"],port=0,tls_context=server,
         expected_peer_certificate_sha256=cfg["peer_pin"],
@@ -147,6 +152,29 @@ def main():
         print("SCREEN_CAPTURE_DISPATCH result=" +
             ("published" if accepted else "no_observation"),flush=True)
         return accepted
+    def capture_avatar_consequence_request(message):
+        if (not isinstance(screen_cfg,dict)
+                or not isinstance(screen_cfg.get("avatar_consequence"),dict)
+                or message.source_id!=screen_cfg["avatar_consequence"].get("request_source_id")
+                or message.generation_id!=screen_cfg["avatar_consequence"].get("request_generation_id")
+                or message.kind!="avatar_consequence_request"
+                or message.admission is not None):
+            print("AVATAR_MEASUREMENT_DISPATCH result=rejected reason=request_contract",flush=True)
+            return False
+        handler=screen_dispatch_state.get("avatar_consequence")
+        if not callable(handler):
+            print("AVATAR_MEASUREMENT_DISPATCH result=rejected reason=owner_unavailable",flush=True)
+            return False
+        try:
+            accepted=handler(message)
+        except Exception as exc:
+            reason=(str(exc.args[0]) if exc.args and isinstance(exc.args[0],str)
+                    and exc.args[0].isascii() else type(exc).__name__)
+            reason=reason if reason.replace("_", "").isalnum() else type(exc).__name__
+            print("AVATAR_MEASUREMENT_DISPATCH result=error code="+reason[:96],flush=True)
+            return False
+        print("AVATAR_MEASUREMENT_DISPATCH result="+("published" if accepted else "rejected"),flush=True)
+        return bool(accepted)
     def report_dispatch_outcome(outcome):
         if outcome.get("kind") == "avatar_command":
             print("AVATAR_DISPATCH "+json.dumps(
@@ -154,7 +182,9 @@ def main():
     dispatcher=WindowsEdgeAvatarCommandDispatchOwner(
         runtime=runtime,receipt_verifier=verify_receipt,renderer_sink=render,
         additional_message_handlers=(
-            {"screen_capture_request":capture_screen_request}
+            ({"screen_capture_request":capture_screen_request,
+              **({"avatar_consequence_request":capture_avatar_consequence_request}
+                 if isinstance(screen_cfg.get("avatar_consequence"),dict) else {})})
             if isinstance(screen_cfg,dict) else None),
         dispatch_outcome_observer=report_dispatch_outcome)
     godot=None;forwarder=None;foreground_pump=None
@@ -230,6 +260,39 @@ def main():
                 generation_id=screen_cfg["source_generation_id"],
                 source_key=screen_source_key)
             screen_dispatch_state["capture"] = screen_publisher.publish_request
+            avatar_cfg=screen_cfg.get("avatar_consequence")
+            if isinstance(avatar_cfg,dict):
+                if vision_model is None:
+                    raise RuntimeError("avatar_consequence_vision_model_required")
+                from sentientos.avatar_consequence_bridge import (
+                    AvatarConsequenceCaptureRequestHandler,
+                )
+                from sentientos.perception.game_screen_capture import (
+                    build_windows_game_screen_avatar_observer,
+                )
+                avatar_observer=build_windows_game_screen_avatar_observer(
+                    consent_provider=lambda: consent, vision_model=vision_model,
+                    foreground_wait_seconds=float(
+                        screen_cfg.get("foreground_wait_seconds", 0.0)))
+                consequence_ack_key=base64.b64decode(avatar_cfg["ack_key"])
+                consequence_ack_receiver=CompanionBridgeReceiver(
+                    source_keys={avatar_cfg["ack_source_id"]:consequence_ack_key},
+                    expected_generations={avatar_cfg["ack_source_id"]:
+                        avatar_cfg["ack_generation_id"]})
+                consequence_client=CompanionBridgeLoopbackClient(
+                    port=int(avatar_cfg["port"]),
+                    acknowledgment_receiver=consequence_ack_receiver,timeout_seconds=5.0)
+                screen_dispatch_state["avatar_consequence"]=(
+                    AvatarConsequenceCaptureRequestHandler(
+                        observe=avatar_observer, client=consequence_client,
+                        request_source_id=avatar_cfg["request_source_id"],
+                        request_generation_id=avatar_cfg["request_generation_id"],
+                        observer_id=avatar_cfg["source_id"],
+                        observer_generation_id=avatar_cfg["source_generation_id"],
+                        session_id="windows-avatar-consequence-dev",
+                        observer_source_key=base64.b64decode(
+                            avatar_cfg["source_key"])))
+                print("AVATAR_MEASUREMENT_READY policy=per-request raw_frame_retained=false",flush=True)
             print("SCREEN_CAPTURE_READY policy=per-message raw_frame_retained=false",flush=True)
         dispatcher.start()
         env={key:value for key,value in os.environ.items()

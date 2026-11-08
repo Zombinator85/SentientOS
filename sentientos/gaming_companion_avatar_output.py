@@ -136,7 +136,8 @@ class WindowsEdgeAvatarCommandDispatchOwner:
             raise CompanionBridgeError("avatar_command_receipt_window_invalid")
         if additional_message_handlers is not None and (
                 not isinstance(additional_message_handlers, Mapping)
-                or any(kind != "screen_capture_request" or not callable(handler)
+                or any(kind not in {"screen_capture_request", "avatar_consequence_request"}
+                       or not callable(handler)
                        for kind, handler in additional_message_handlers.items())):
             raise CompanionBridgeError("avatar_command_additional_handlers_invalid")
         if dispatch_outcome_observer is not None and not callable(dispatch_outcome_observer):
