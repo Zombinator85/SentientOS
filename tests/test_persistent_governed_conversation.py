@@ -131,11 +131,17 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
         tmp_path: Path) -> None:
     observations = []
     class Bridge:
+        def __init__(self):
+            self.feedback_allowed = True
+
         def respond(self, *, request_id, question, screen_observation=None):
             raise AssertionError("cycle test does not invoke ordinary chat")
 
         def developmental_cycle_available(self):
             return True
+
+        def operator_feedback_available(self):
+            return self.feedback_allowed
 
         def verify_committed_response(self, *, linkage, response_text, request_id):
             return (linkage.get("response_origin") == "resident_developmental_cognition"
@@ -177,7 +183,7 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
     assert observations[0][0].startswith("companion-developmental-cycle-")
     assert observations[0][1] is capture
     feedback = observations[0][2]
-    assert feedback["source_kind"] == "embodiment"
+    assert feedback["source_kind"] == "operator_input"
     assert feedback["evidence_strength"] == "operator_assertion_unverified"
     assert feedback["payload"]["assertion_text"] == (
         "Four candle objects are present; two are lit.")
@@ -189,6 +195,13 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
     assert result["operator_feedback_included"] is True
     assert result["operator_feedback_posture"] == "operator_assertion_unverified"
     assert len(app.sessions.load(session_id)["turns"]) == 2
+    app._resident_cognition_bridge.feedback_allowed = False
+    with pytest.raises(chat_service.ChatRequestStateError,
+            match="developmental_cycle_operator_feedback_not_enabled"):
+        app.run_developmental_cycle(session_id=session_id,
+            assistant_turn_id=assistant["turn_id"], request_id="feedback-not-allowed",
+            operator_feedback="Do not retain this report.")
+    assert len(observations) == 1
 
 
 def test_developmental_cycle_endpoint_requires_local_explicit_confirmation() -> None:

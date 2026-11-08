@@ -1153,6 +1153,11 @@ class PersistentConversationService:
         return (self._screen_observer is not None and callable(available)
             and available() is True)
 
+    def operator_feedback_available(self) -> bool:
+        bridge = self._resident_cognition_bridge
+        available = getattr(bridge, "operator_feedback_available", None)
+        return callable(available) and available() is True
+
     def run_developmental_cycle(self, *, session_id: str,
             assistant_turn_id: str, request_id: str,
             operator_feedback: str | None = None) -> dict[str, Any]:
@@ -1169,6 +1174,9 @@ class PersistentConversationService:
             raise ChatRequestStateError("developmental_cycle_path_unavailable")
         if not self.developmental_cycle_available():
             raise CognitionWorkloadUnavailable()
+        if operator_feedback is not None and not self.operator_feedback_available():
+            raise ChatRequestStateError(
+                "developmental_cycle_operator_feedback_not_enabled")
         with self.sessions.serialize_chat_requests(session_id):
             session = self.sessions.load(session_id)
             assistant = next((turn for turn in session["turns"]
@@ -4198,6 +4206,9 @@ async def inspect_session_turns(session_id: str, request: Request) -> dict[str, 
             diagnostics["developmental_cycle_available"] = (
                 developmental_cycle_available is True
                 and diagnostics.get("developmental_history_intervention_available") is True)
+            diagnostics["operator_feedback_available"] = (
+                service.operator_feedback_available() is True
+                and diagnostics.get("operator_feedback_available") is True)
             displayed["response_diagnostics"] = diagnostics
         display_turns.append(displayed)
     return {

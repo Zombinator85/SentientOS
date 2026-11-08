@@ -5831,7 +5831,7 @@ def test_operator_confirmed_bridge_cycle_writes_then_later_cognition_retrieves_h
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)
     cognition, fake = owner(tmp_path / "operator-cycle",
-        allowed_source_kinds=("embodiment",), max_selected_facts=2)
+        allowed_source_kinds=("embodiment", "operator_input"), max_selected_facts=2)
     screen = {"modality": "screen",
         "text": "A fresh, bounded operator-approved observation of a test scene.",
         "capture_digest": "d" * 64,
@@ -5842,6 +5842,11 @@ def test_operator_confirmed_bridge_cycle_writes_then_later_cognition_retrieves_h
     )
     bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
     assert bridge.developmental_cycle_available() is True
+    assert bridge.operator_feedback_available() is True
+    restricted, _ = owner(tmp_path / "operator-input-not-allowed",
+        allowed_source_kinds=("embodiment",))
+    assert ResidentDevelopmentalCompanionBridge(
+        restricted, clock=lambda: now).operator_feedback_available() is False
     feedback = make_operator_feedback_record(
         "The altar has four candle objects and two are lit.",
         request_id="cycle-feedback-1", assistant_turn_id="turn-" + "a" * 24,

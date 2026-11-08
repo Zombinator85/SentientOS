@@ -203,7 +203,7 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
     identity = hashlib.sha256(json.dumps(semantic, sort_keys=True,
         separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
     return {
-        "source_kind": "embodiment",
+        "source_kind": "operator_input",
         "source_id": f"local-operator-feedback:{identity}",
         "schema_version": semantic["schema_version"],
         "subject_id": f"assistant-turn:{assistant_turn_id}",
@@ -514,6 +514,10 @@ class ResidentDevelopmentalCompanionBridge:
             and self._owner.config.comparison_enabled is False
             and self._owner.objective_task is None
             and "embodiment" in self._owner.config.allowed_source_kinds)
+
+    def operator_feedback_available(self) -> bool:
+        return (self.developmental_cycle_available()
+            and "operator_input" in self._owner.config.allowed_source_kinds)
 
     def run_developmental_cycle(self, *, tick_id: str,
             screen_observation: Mapping[str, Any],
