@@ -787,9 +787,11 @@ class _TemporaryCompanionEdge:
                     foreground_wait_seconds=config["screen_observation"][
                         "foreground_wait_seconds"])
                 if self._avatar_consequence_runtime is not None:
+                    request_material = self._avatar_consequence_request_material
+                    if request_material is None:
+                        raise RuntimeError("avatar_consequence_request_material_unavailable")
                     (avatar_request_key, avatar_request_id, avatar_request_generation,
-                     avatar_source_id, avatar_source_generation) = (
-                        self._avatar_consequence_request_material)
+                     avatar_source_id, avatar_source_generation) = request_material
                     avatar_request_client = CompanionBridgeMutualTLSClient(
                         address=windows_ip, port=port, server_hostname="windows-edge.test",
                         tls_context=client_context,
