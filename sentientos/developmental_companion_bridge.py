@@ -246,6 +246,9 @@ class ResidentDevelopmentalCompanionBridge:
         config = self._self_model_config
         if (config is not None and config.enabled
                 and config.cognitive_consumption_enabled):
+            if self._self_model_owner is None:
+                raise DevelopmentalCompanionBridgeError(
+                    "enabled_self_model_projection_owner_required")
             prior_self_model = self._self_model_owner.cognitive_projection(
                 before_tick=tick_id, max_claims=config.max_projection_claims,
                 allowed_predicates=config.allowed_predicates)

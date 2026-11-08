@@ -38,6 +38,7 @@ from sentientos.codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
 )
 from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+from sentientos.world_state_board import WorldStateSnapshot
 from sentientos.embodiment_self_observation import (
     EmbodimentEvidenceOwner, EmbodimentObservation, semantic_digest)
 from sentientos.embodied_consequence import (
@@ -458,7 +459,7 @@ def _pre_action_source(*, pose: str = "idle") -> tuple[Any, EmbodimentObservatio
 
 
 def _embodied_source(*, requested_pose: str, predicted_pose: str
-        ) -> tuple[dict[str, Any], dict[str, Any], EmbodimentObservation]:
+        ) -> tuple[WorldStateSnapshot, dict[str, Any], EmbodimentObservation]:
     commanded_at = (datetime.now(timezone.utc) - timedelta(seconds=8)).isoformat()
     renderer_completed_at = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
     observed_at = (datetime.now(timezone.utc) - timedelta(seconds=4)).isoformat()

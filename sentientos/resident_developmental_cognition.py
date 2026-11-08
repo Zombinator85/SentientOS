@@ -1917,6 +1917,7 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
         if source.get("kind") != "embodiment":
             continue
         schema = payload.get("schema_version") or payload.get("observation_schema") or source.get("schema_version")
+        fields: tuple[str, ...]
         if schema == "sentientos.embodied_consequence_attribution:v1":
             fields = ("classification", "commanded_value", "predicted_value",
                 "renderer_reported_value", "independently_observed_value",
@@ -6075,6 +6076,8 @@ class ResidentDevelopmentalCognitionOwner:
                 "companion_history_intervention_capture_invalid")
         self._pending_cognition_candidates.clear()
         self._pending_objective_scores.clear()
+        captures = (companion_intervention_captures
+            if isinstance(companion_intervention_captures, list) else [])
         state = self._state()
         if objective_only:
             if (not isinstance(objective_request_id, str) or not objective_request_id
@@ -6288,7 +6291,7 @@ class ResidentDevelopmentalCognitionOwner:
                     interaction_capture=present_capture,
                     companion_intervention=companion_intervention_question is not None)
                 if present_capture is not None:
-                    companion_intervention_captures.append(present_capture)
+                    captures.append(present_capture)
                 withheld_capture: dict[str, Any] | None = (
                     {} if companion_intervention_question is not None else None)
                 withheld = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
@@ -6299,7 +6302,7 @@ class ResidentDevelopmentalCognitionOwner:
                     interaction_capture=withheld_capture,
                     companion_intervention=companion_intervention_question is not None)
                 if withheld_capture is not None:
-                    companion_intervention_captures.append(withheld_capture)
+                    captures.append(withheld_capture)
                 restored_records = tuple(self.writeback.store.get(rid) for rid in protocol.record_ids)
                 if tuple(r.record_digest for r in restored_records) != protocol.record_digests:
                     raise ResidentDevelopmentalCognitionError("restored_history_digest_mismatch")
@@ -6313,14 +6316,14 @@ class ResidentDevelopmentalCognitionOwner:
                     interaction_capture=restored_capture,
                     companion_intervention=companion_intervention_question is not None)
                 if restored_capture is not None:
-                    companion_intervention_captures.append(restored_capture)
+                    captures.append(restored_capture)
                 observations.extend((present, withheld, restored))
                 summary = summarize(protocol, observations)
                 run_payload: dict[str, Any] = {"protocol":asdict(protocol),
                     "conditions":[asdict(x) for x in observations], "summary":summary,
                     "validity":"valid_controlled_observation", "contamination_reasons":[]}
                 if companion_intervention_question is not None:
-                    if len(companion_intervention_captures) != len(CONDITION_ORDER):
+                    if len(captures) != len(CONDITION_ORDER):
                         raise ResidentDevelopmentalCognitionError(
                             "companion_intervention_capture_incomplete")
                     run_payload["companion_intervention_decisions"] = [{
@@ -6336,7 +6339,7 @@ class ResidentDevelopmentalCognitionOwner:
                         "disposition_normalization": item["disposition_normalization"],
                         "evidence_ids": list(item["evidence_ids"]),
                         "history_record_ids": list(item["history_record_ids"]),
-                    } for item in companion_intervention_captures]
+                    } for item in captures]
                 if objective_plan is not None:
                     run_payload["contamination_reasons"] = None
                     run_payload["contamination_assessment"] = (

@@ -37,7 +37,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, cast
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -953,7 +953,8 @@ def main() -> int:
 
     from sentientos.chat_service import configure_development_chat, run
     from sentientos.config import load_model_config
-    from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
+    from sentientos.governed_local_model_invocation import (
+        GovernedLocalModelInvoker, LocalModelInvoker)
     from sentientos.local_model import LocalModel
     from sentientos.local_model_authority import (
         atomic_write_json, build_local_model_authority_map,
@@ -1037,7 +1038,10 @@ def main() -> int:
             config=cognition_config, writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
-            invoker=invoker, current_sequence=ledger.current_sequence)
+            # GovernedLocalModelInvoker uses stricter typed request/receipt objects
+            # than the legacy structural protocol; runtime behavior is compatible.
+            invoker=cast(LocalModelInvoker, invoker),
+            current_sequence=ledger.current_sequence)
 
         self_model_path = os.environ.get("SENTIENTOS_LONGITUDINAL_SELF_MODEL_CONFIG")
         if self_model_path:

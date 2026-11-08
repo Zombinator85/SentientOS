@@ -557,7 +557,7 @@ class DevelopmentalExperimentStore:
                 "epistemic_generations", "epistemic_evidence_set_digests",
                 "epistemic_consumed_packet_ids", "epistemic_consumed_packet_digests",
                 "epistemic_omitted_packets", "resource_consumption_receipt_digests")
-            observations = []
+            observations: list[ResidentCognitionObservation] = []
             for raw_observation in conditions:
                 if not isinstance(raw_observation, Mapping):
                     raise TypeError("condition_observation_invalid")
@@ -605,16 +605,16 @@ class DevelopmentalExperimentStore:
                 raise DevelopmentalHistoryInterventionError(
                     "run_artifact_companion_decisions_invalid")
             for condition_id, decision in zip(CONDITION_ORDER, decisions):
-                observation = by_condition.get(condition_id)
+                matched_observation = by_condition.get(condition_id)
                 if (not isinstance(decision, Mapping)
                         or set(decision) != decision_fields
                         or decision.get("condition_id") != condition_id
-                        or observation is None
-                        or decision.get("observation_id") != observation.observation_id
-                        or decision.get("observation_digest") != observation.observation_digest
-                        or decision.get("inference_receipt_id") != observation.inference_receipt_id
-                        or decision.get("inference_receipt_digest") != observation.inference_receipt_digest
-                        or decision.get("output_digest") != observation.output_digest
+                        or matched_observation is None
+                        or decision.get("observation_id") != matched_observation.observation_id
+                        or decision.get("observation_digest") != matched_observation.observation_digest
+                        or decision.get("inference_receipt_id") != matched_observation.inference_receipt_id
+                        or decision.get("inference_receipt_digest") != matched_observation.inference_receipt_digest
+                        or decision.get("output_digest") != matched_observation.output_digest
                         or not isinstance(decision.get("response_digest"), str)
                         or len(decision["response_digest"]) != 64
                         or any(char not in "0123456789abcdef"
@@ -624,14 +624,14 @@ class DevelopmentalExperimentStore:
                         or not isinstance(decision.get("evidence_ids"), list)
                         or any(not isinstance(item, str) for item in decision["evidence_ids"])
                         or len(set(decision["evidence_ids"])) != len(decision["evidence_ids"])
-                        or not set(decision["evidence_ids"]).issubset(observation.current_fact_ids)
+                        or not set(decision["evidence_ids"]).issubset(matched_observation.current_fact_ids)
                         or not isinstance(decision.get("history_record_ids"), list)
                         or any(not isinstance(item, str) for item in decision["history_record_ids"])
                         or len(set(decision["history_record_ids"])) != len(decision["history_record_ids"])
                         or not set(decision["history_record_ids"]).issubset(
-                            observation.retrieved_record_ids)
+                            matched_observation.retrieved_record_ids)
                         or tuple(decision["history_record_ids"])
-                            != tuple(observation.companion_history_citation_ids)):
+                            != tuple(matched_observation.companion_history_citation_ids)):
                     raise DevelopmentalHistoryInterventionError(
                         "run_artifact_companion_decisions_invalid")
                 normalization = decision.get("disposition_normalization")
@@ -660,10 +660,10 @@ class DevelopmentalExperimentStore:
                 raise DevelopmentalHistoryInterventionError("objective_scores_incomplete")
             from .developmental_model_replacement_experiment import _verify_objective_score
             verified_scores: list[dict[str, Any]] = []
-            by_condition = {str(item.get("condition_id")): item for item in conditions
+            objective_by_condition = {str(item.get("condition_id")): item for item in conditions
                 if isinstance(item, Mapping)}
             for condition_id, wrapper in zip(CONDITION_ORDER, scores):
-                observation_payload = by_condition.get(condition_id)
+                observation_payload = objective_by_condition.get(condition_id)
                 verified_receipt = verified_invocations.get(condition_id)
                 output_truncated = (verified_receipt.get("output_truncated", False)
                     if verified_receipt is not None else False)
