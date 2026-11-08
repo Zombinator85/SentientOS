@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import stat
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
@@ -141,6 +142,8 @@ def _parse_companion_interaction_output(text: str,
         if (not isinstance(ids, list) or len(ids) > maximum
                 or any(not isinstance(item, str) or not item or len(item) > 256
                     for item in ids)
+            or (key == "history_record_ids" and any(
+                re.fullmatch(r"devrec-[0-9a-f]{24}", item) is None for item in ids))
                 or len(set(ids)) != len(ids) or not set(ids).issubset(allowed_ids)):
             code = ("companion_interaction_evidence_binding_invalid"
                 if key == "evidence_ids"
@@ -272,7 +275,10 @@ COMPANION_HISTORY_INTERVENTION_INSTRUCTION = (
     "Return exactly one JSON object with disposition, response, evidence_ids, and history_record_ids. "
     "Cite exact current World-State fact IDs in evidence_ids and only retrieved developmental record IDs "
     "in history_record_ids. Withheld or omitted history has no eligible record IDs: available or omitted "
-    "record references are not retrieved content and must never be cited. Use answer when current evidence "
+    "record references are not retrieved content and must never be cited. Before answering, check the "
+    "top-level history_citation_allowlist supplied with this request. history_record_ids must be exact "
+    "IDs from that list; never invent or infer a record ID. If the list is empty, history_record_ids "
+    "must be [] and do not make a claim supported only by developmental history. Use answer when current evidence "
     "or a past record supports it, but describe "
     "historical support as past; otherwise ask briefly or abstain. A withheld or empty history is not "
     "evidence that no past event occurred. Preserve contradictions and do not claim independent "
@@ -2172,6 +2178,9 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
             candidate = {**dict(context), "developmental_history": prompt_packets,
                 "historical_embodiment_reports": historical_embodiment_reports,
                 "developmental_history_selection": prompt_selection}
+            if "companion_question" in context:
+                candidate["history_citation_allowlist"] = [
+                    str(item["record_id"]) for item in selected_refs]
             try:
                 bound, metadata, prompt = _bind_epistemic_context(
                     context=candidate, projection=projection)

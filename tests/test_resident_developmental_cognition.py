@@ -4035,6 +4035,14 @@ def test_companion_interaction_rejects_unbound_answers(payload) -> None:
             {"fact-current"}, {"record-current"})
 
 
+def test_companion_interaction_rejects_malformed_history_record_id() -> None:
+    payload = {"disposition": "answer", "response": "supported by history",
+        "evidence_ids": [], "history_record_ids": ["record-01d8f6c57243a9b0"]}
+    with pytest.raises(ValueError, match="companion_interaction_history_binding_invalid"):
+        _parse_companion_interaction_output(json.dumps(payload), set(),
+            {"record-01d8f6c57243a9b0"})
+
+
 def test_companion_interaction_rejects_duplicate_json_keys() -> None:
     with pytest.raises(ValueError, match="duplicate_json_key"):
         _parse_companion_interaction_output(
@@ -5693,6 +5701,18 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert [json.loads(item["response"])["requested_pose"]
         for item in result.conditions] == ["idle", "reach", "idle"]
     assert all(item["snapshot_digest"] == source.digest for item in result.conditions)
+    intervention_requests = [request for request in fake.requests
+        if request.purpose == "resident_developmental_history_intervention_experiment"
+        and request.linkage.get("condition_id") in
+            {"history_present", "history_withheld", "history_restored"}]
+    assert [request.linkage["condition_id"] for request in intervention_requests] == [
+        "history_present", "history_withheld", "history_restored"]
+    intervention_contexts = [json.loads(request.prompt)
+        for request in intervention_requests]
+    assert intervention_contexts[0]["history_citation_allowlist"]
+    assert intervention_contexts[1]["history_citation_allowlist"] == []
+    assert intervention_contexts[0]["history_citation_allowlist"] == \
+        intervention_contexts[2]["history_citation_allowlist"]
     current_fact_ids = result.conditions[0]["current_fact_ids"]
     assert current_fact_ids
     assert all(item["current_fact_ids"] == current_fact_ids
