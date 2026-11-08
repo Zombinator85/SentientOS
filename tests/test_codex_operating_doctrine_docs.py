@@ -13,8 +13,12 @@ def _read(path: str) -> str:
 def test_root_agents_is_compact_map_and_moved_doctrine_links_resolve() -> None:
     agents = _read("AGENTS.md")
     assert len(agents.splitlines()) <= 250
-    for marker in ["operator", "safe shutdown", "Codex hot path", "python -m scripts.run_tests", "provider", "network", "host actuation", "pr_metadata_guard_ready", "pr_body_binding_ready"]:
+    for marker in ["operator accountability", "safe shutdown", "autonomous development", "provider invocation", "network egress", "host actuation"]:
         assert marker in agents
+    assert "docs/GOVERNANCE_DOCTRINE.md" in agents
+    landing_contract = _read("docs/development/codex_validation_and_landing_contract.md")
+    for marker in ["python -m scripts.run_tests", "pr_metadata_guard_ready", "pr_body_binding_ready"]:
+        assert marker in landing_contract
     links = re.findall(r"\[[^]]+\]\(([^)]+)\)", agents)
     assert links
     for link in links:
@@ -27,8 +31,8 @@ def test_root_agents_is_compact_map_and_moved_doctrine_links_resolve() -> None:
 def test_stable_law_has_one_policy_and_one_command_reference() -> None:
     agents = _read("AGENTS.md")
     template = _read("docs/development/codex_whole_system_task_template.md")
-    assert "policy source" in agents
-    assert "executable commands" in agents
+    assert "formal acceptance is an opt-in release activity" in agents
+    assert "Strict landing sequence when applicable" in _read("docs/development/codex_validation_and_landing_contract.md")
     assert "do not duplicate their command blocks" in template
     assert "--phase pre-commit" not in template
     assert "--phase pr-metadata" not in template

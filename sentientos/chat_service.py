@@ -16,7 +16,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Protocol
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, List, Mapping, Protocol
 
 from .fastapi_stub import FastAPI, HTMLResponse, HTTPException, Request, StreamingResponse
 
@@ -62,10 +62,13 @@ from .chat_response_grounding import (
     corrected_system_identity_output, corrected_unobserved_game_status,
     corrected_nonresponsive_gaming_next_step,
     corrected_unprovided_source_reference,
+    corrected_stale_screen_failure_claim,
     is_direct_screen_activity_question, is_direct_screen_configuration_status_question,
-    is_verified_current_game_context_question,
+    is_verified_current_game_context_question, screen_observation_has_usable_content,
+    visual_observation_unavailable_correction,
 )
 from .perception.screen_text_delta import validate_ocr_text_line_delta
+from .screen_observation_bridge import ScreenObservationBridgeError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -235,6 +238,8 @@ def _is_direct_recent_user_turn_recall_request(message: str) -> bool:
     normalized = " ".join(re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
     return any(marker in normalized for marker in (
         "what did i just ask", "what did i ask just before",
+        "what did i ask you to see", "what did i ask to see",
+        "what did i ask you to look at", "what did i ask you to read",
         "what was my last question", "what was my previous question",
         "what was the last thing i asked", "what was the previous thing i asked",
     ))
@@ -366,7 +371,7 @@ class ChatSpeechOutput(Protocol):
 
 class DevelopmentLocalChatInference:
     """Affirmative local development adapter; never selected by production."""
-    __slots__ = ("_delegate", "_workload_mode", "_workload_lock",
+    __slots__ = ("_delegate", "_workload_mode", "_workload_lock", "_inference_lock",
                  "_residency_release", "_model_profiles", "_foreground_game_detector",
                  "_game_process_names", "_effective_workload_mode", "_gaming_keep_alive",
                  "_gaming_resource_status_provider", "_residency_preload")
@@ -386,6 +391,8 @@ class DevelopmentLocalChatInference:
         self._delegate = invoker
         self._workload_mode: WorkloadMode = "normal"
         self._workload_lock = threading.RLock()
+        # Keep profile transitions away from active backend invocations.
+        self._inference_lock = threading.Lock()
         self._residency_release: Mapping[str, Any] | None = None
         self._residency_preload: Mapping[str, Any] | None = None
         self._foreground_game_detector = foreground_game_detector
@@ -411,8 +418,48 @@ class DevelopmentLocalChatInference:
         record = resolver(identity, "local_user_chat")
         label = getattr(record, "name", None)
         return label if isinstance(label, str) and label else None
+    def model_residency_status(self) -> dict[str, object]:
+        """Report a bounded point-in-time local model residency observation."""
+        observed_at = datetime.now(timezone.utc).isoformat()
+        if self._inference_lock.locked():
+            return {"status": "operation_in_progress", "loaded": None,
+                    "observed_at": observed_at}
+        with self._workload_lock:
+            model = getattr(self._delegate, "model", None)
+            identity = getattr(model, "active_identity", None)
+        if identity is None:
+            return {"status": "unavailable", "loaded": None,
+                    "reason_code": "model_identity_unavailable",
+                    "observed_at": observed_at}
+        if getattr(identity, "engine", None) != "ollama":
+            return {"status": "not_applicable", "loaded": None,
+                    "observed_at": observed_at}
+        observer = getattr(model, "is_resident", None)
+        if not callable(observer):
+            return {"status": "unavailable", "loaded": None,
+                    "reason_code": "model_residency_probe_unavailable",
+                    "observed_at": observed_at}
+        try:
+            loaded = observer()
+        except Exception:
+            return {"status": "unavailable", "loaded": None,
+                    "reason_code": "model_residency_probe_failed",
+                    "observed_at": observed_at}
+        if type(loaded) is not bool:
+            return {"status": "unavailable", "loaded": None,
+                    "reason_code": "model_residency_probe_invalid",
+                    "observed_at": observed_at}
+        return {"status": "resident" if loaded else "unloaded",
+                "loaded": loaded, "observed_at": observed_at}
     def current_workload_mode(self) -> WorkloadMode:
-        return self.current_workload_state()["effective_mode"]
+        mode = self.current_workload_state().get("effective_mode")
+        if mode == "normal":
+            return "normal"
+        if mode == "gaming":
+            return "gaming"
+        if mode == "automatic":
+            return "automatic"
+        raise RuntimeError("effective_workload_mode_invalid")
     def current_workload_state(self) -> dict[str, Any]:
         with self._workload_lock:
             configured = self._workload_mode
@@ -501,6 +548,16 @@ class DevelopmentLocalChatInference:
         state = self.current_workload_state()
         if state["mode"] != "automatic":
             return state
+        if not self._inference_lock.acquire(blocking=False):
+            return {**state, "workload_reconciliation": {
+                "status": "deferred", "reason_code": "inference_in_progress"}}
+        try:
+            return self._reconcile_workload_state_during_idle_inference(state)
+        finally:
+            self._inference_lock.release()
+
+    def _reconcile_workload_state_during_idle_inference(
+            self, state: dict[str, Any]) -> dict[str, Any]:
         with self._workload_lock:
             # A concurrent operator mode change wins over this stale observation.
             if self._workload_mode != "automatic":
@@ -547,7 +604,7 @@ class DevelopmentLocalChatInference:
         names = (normalize_game_process_names(game_process_names)
                  if selected == "automatic" else ())
         target_mode = "gaming" if selected == "automatic" else selected
-        with self._workload_lock:
+        with self._inference_lock, self._workload_lock:
             self._select_profile_locked(target_mode)
             self._workload_mode = selected
             self._game_process_names = names
@@ -580,6 +637,16 @@ class DevelopmentLocalChatInference:
                  budget: LocalModelInvocationBudget,
                  caller_linkage: Mapping[str, Any],
                  on_content_chunk: Callable[[str], None] | None = None) -> LocalModelInvocationReceipt:
+        with self._inference_lock:
+            return self._generate_with_invocation_barrier(
+                prompt=prompt, caller=caller, correlation_id=correlation_id,
+                budget=budget, caller_linkage=caller_linkage,
+                on_content_chunk=on_content_chunk)
+
+    def _generate_with_invocation_barrier(self, *, prompt: str, caller: str,
+                 correlation_id: str, budget: LocalModelInvocationBudget,
+                 caller_linkage: Mapping[str, Any],
+                 on_content_chunk: Callable[[str], None] | None = None) -> LocalModelInvocationReceipt:
         workload_state = self.current_workload_state()
         with self._workload_lock:
             if workload_state["mode"] != self._workload_mode:
@@ -610,11 +677,11 @@ class DevelopmentLocalChatInference:
             request = self._delegate.build_request(purpose="local_user_chat",
                 prompt=effective_prompt, caller=caller, correlation_id=correlation_id,
                 budget=effective_budget, linkage=linkage)
-            if on_content_chunk is None:
-                return self._delegate.invoke(request)
-            if getattr(identity, "engine", None) != "ollama":
-                raise RuntimeError("local_streaming_backend_unsupported")
-            return self._delegate.invoke(request, on_content_chunk=on_content_chunk)
+        if on_content_chunk is None:
+            return self._delegate.invoke(request)
+        if getattr(identity, "engine", None) != "ollama":
+            raise RuntimeError("local_streaming_backend_unsupported")
+        return self._delegate.invoke(request, on_content_chunk=on_content_chunk)
 
     def generate_streaming(self, **kwargs: Any) -> LocalModelInvocationReceipt:
         return self.generate(**kwargs)
@@ -720,6 +787,159 @@ class ChatResponse(BaseModel):
     turn_id: str
     context: dict[str, object]
     retention: dict[str, object]
+    response_diagnostics: dict[str, object] = {}
+
+    def __init__(self, **data: Any) -> None:
+        response_text = data.get("response")
+        diagnostics = data.get("response_diagnostics")
+        if isinstance(response_text, str):
+            diagnostics = dict(diagnostics) if isinstance(diagnostics, Mapping) else {}
+            diagnostics.setdefault("delivery_text_sha256",
+                hashlib.sha256(response_text.encode("utf-8")).hexdigest())
+            data["response_diagnostics"] = diagnostics
+        super().__init__(**data)
+
+
+def _chat_response_diagnostics(response_text: str,
+                               lineage: Mapping[str, Any] | None = None
+                               ) -> dict[str, object]:
+    """Bind API delivery text to stored lineage without exposing model prompts."""
+    result = dict(lineage) if isinstance(lineage, Mapping) else {}
+    delivery_digest = hashlib.sha256(response_text.encode("utf-8")).hexdigest()
+    result["delivery_text_sha256"] = delivery_digest
+    result.setdefault("transcript_text_sha256", delivery_digest)
+    return result
+
+
+def _bounded_screen_observation_provenance(
+        observation: Mapping[str, Any] | None) -> dict[str, object] | None:
+    """Keep bounded screen diagnostics without retaining OCR or caption text."""
+    if not isinstance(observation, Mapping):
+        return None
+    capture_digest = observation.get("capture_digest")
+    if not isinstance(capture_digest, str) or re.fullmatch(r"[0-9a-f]{64}", capture_digest) is None:
+        return None
+    text_digest = observation.get("text_digest")
+    if not isinstance(text_digest, str) or re.fullmatch(r"[0-9a-f]{64}", text_digest) is None:
+        text = observation.get("text")
+        if not isinstance(text, str):
+            return None
+        text_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    text_status = observation.get("text_status")
+    if text_status not in {"available", "no_readable_text"}:
+        return None
+    captured_at = observation.get("captured_at")
+    if not isinstance(captured_at, str) or not 1 <= len(captured_at) <= 64:
+        return None
+    result: dict[str, object] = {
+        "capture_digest": capture_digest,
+        "text_digest": text_digest,
+        "text_status": text_status,
+        "captured_at": captured_at,
+        "raw_frame_retained": False,
+    }
+    backend = observation.get("backend")
+    if isinstance(backend, str) and re.fullmatch(r"[A-Za-z0-9_.+-]{1,64}", backend):
+        result["backend"] = backend
+    allowed_statuses = {"available", "unavailable", "no_readable_text"}
+    statuses = observation.get("component_statuses")
+    if (isinstance(statuses, Mapping) and statuses
+            and not set(statuses) - {"ocr", "vision"}
+            and all(isinstance(value, str) and value in allowed_statuses
+                    for value in statuses.values())):
+        result["component_statuses"] = dict(statuses)
+    failures = observation.get("component_failure_codes")
+    if (isinstance(failures, Mapping) and failures
+            and not set(failures) - {"ocr", "vision"}
+            and all(isinstance(code, str)
+                    and re.fullmatch(r"(?:screen|game_screen)_[a-z0-9_]{1,80}", code)
+                    and isinstance(statuses, Mapping)
+                    and statuses.get(component) == "unavailable"
+                    for component, code in failures.items())):
+        result["component_failure_codes"] = dict(failures)
+    if observation.get("capture_scope") == "allowlisted_foreground_game_client_area":
+        result["capture_scope"] = "allowlisted_foreground_game_client_area"
+    for key in ("process_name_digest", "consent_id_digest"):
+        value = observation.get(key)
+        if isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value):
+            result[key] = value
+    text_change_kind = observation.get("text_change_kind")
+    if text_change_kind in {"initial", "changed", "unchanged"}:
+        result["text_change_kind"] = text_change_kind
+    visual_change_kind = observation.get("visual_change_kind")
+    if visual_change_kind in {"initial", "changed", "stable", "unknown"}:
+        result["visual_change_kind"] = visual_change_kind
+    return result
+
+
+_SAVED_RESPONSE_LINEAGE_KEYS = frozenset({
+    "status", "invocation_output_digest", "transcript_text_digest",
+    "invocation_output_text_sha256", "transcript_text_sha256",
+    "delivery_text_sha256", "output_truncated",
+})
+
+
+def _saved_transcript_response_diagnostics(
+        turn: Mapping[str, Any]) -> dict[str, object]:
+    text = turn.get("text")
+    if not isinstance(text, str):
+        return {"status": "historical_lineage_unavailable"}
+    linkage = turn.get("linkage")
+    lineage = (linkage.get("assistant_output_lineage")
+        if isinstance(linkage, Mapping) else None)
+    result: dict[str, object] = {}
+    if isinstance(lineage, Mapping):
+        for key in _SAVED_RESPONSE_LINEAGE_KEYS:
+            value = lineage.get(key)
+            if isinstance(value, (str, bool)):
+                result[key] = value
+    saved_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    result["saved_transcript_text_sha256"] = saved_digest
+    if isinstance(linkage, Mapping):
+        screen = linkage.get("screen_observation_provenance")
+        if isinstance(screen, Mapping):
+            safe_screen: dict[str, object] = {"raw_frame_retained": False}
+            text_status = screen.get("text_status")
+            if text_status in {"available", "no_readable_text"}:
+                safe_screen["text_status"] = text_status
+            backend = screen.get("backend")
+            if isinstance(backend, str) and 1 <= len(backend) <= 64:
+                safe_screen["backend"] = backend
+            component_statuses = screen.get("component_statuses")
+            if (isinstance(component_statuses, Mapping)
+                    and component_statuses
+                    and not set(component_statuses) - {"ocr", "vision"}
+                    and all(isinstance(status, str) and status in {
+                        "available", "unavailable", "no_readable_text"}
+                        for status in component_statuses.values())):
+                safe_screen["component_statuses"] = dict(component_statuses)
+            component_failures = screen.get("component_failure_codes")
+            if (isinstance(component_failures, Mapping) and component_failures
+                    and not set(component_failures) - {"ocr", "vision"}
+                    and all(isinstance(code, str) and re.fullmatch(
+                        r"(?:screen|game_screen)_[a-z0-9_]{1,80}", code) is not None
+                        for code in component_failures.values())):
+                safe_screen["component_failure_codes"] = dict(component_failures)
+            captured_at = screen.get("captured_at")
+            if isinstance(captured_at, str) and len(captured_at) <= 64:
+                safe_screen["captured_at"] = captured_at
+            result["screen_observation"] = safe_screen
+    result.setdefault("delivery_text_sha256", saved_digest)
+    result["delivery_text_digest_source"] = "computed_from_saved_transcript"
+    if isinstance(result.get("transcript_text_sha256"), str):
+        result["transcript_text_digest_source"] = "stored_invocation_lineage"
+    else:
+        result["transcript_text_sha256"] = saved_digest
+        result["transcript_text_digest_source"] = "computed_from_saved_transcript"
+    result.setdefault("status", "historical_lineage_unavailable")
+    return result
+
+
+def _stored_output_lineage_matches(stored: Any, observed: Any) -> bool:
+    """Verify every historical field while allowing added diagnostics on replay."""
+    return (stored is None
+        or (isinstance(stored, Mapping) and isinstance(observed, Mapping)
+            and all(observed.get(key) == value for key, value in stored.items())))
 
 
 class ChatWorkloadModeRequest(BaseModel):
@@ -840,11 +1060,23 @@ class PersistentConversationService:
 
     def screen_observation_status(self) -> dict[str, Any]:
         configured = self.screen_observation_configured()
-        return {
+        status = {
             "configured": configured,
             "capture_policy": (self._screen_capture_policy if configured else "disabled"),
             "per_message_opt_in_required": True,
         }
+        consent_status = getattr(self._screen_observer, "consent_status", None)
+        if configured and callable(consent_status):
+            try:
+                metadata = consent_status()
+            except Exception:
+                metadata = {"consent_status": "unknown"}
+            if isinstance(metadata, Mapping):
+                status.update({key: value for key, value in metadata.items()
+                               if key in {"consent_status", "consent_expires_at",
+                                          "consent_seconds_remaining",
+                                          "foreground_wait_seconds"}})
+        return status
 
     def _verified_runtime_context(self, *, identity: Mapping[str, Any],
                                   history: Any, memory: Mapping[str, Any],
@@ -1164,7 +1396,10 @@ class PersistentConversationService:
             response_context["transcript_recall_kind"] = transcript_recall_kind
         return ChatResponse(response=response_text, session_id=session_id,
             turn_id=str(assistant["turn_id"]), context=response_context,
-            retention={"status": "not_requested"})
+            retention={"status": "not_requested"},
+            response_diagnostics=_chat_response_diagnostics(response_text, {
+                "status": "transcript_recall_output",
+            }))
 
     def _complete_quoted_content_recall_response(
             self, *, session_id: str, user_turn: Mapping[str, Any],
@@ -1244,7 +1479,10 @@ class PersistentConversationService:
                     "backend_metrics_status": "not_applicable",
                     "reason_code": "transcript_quote_recall_response",
                 },
-            }, retention={"status": "not_requested"})
+            }, retention={"status": "not_requested"},
+            response_diagnostics=_chat_response_diagnostics(quoted_value, {
+                "status": "transcript_quote_recall_output",
+            }))
 
     def _complete_prior_user_turn_recall_response(
             self, *, session_id: str, user_turn: Mapping[str, Any],
@@ -1323,7 +1561,10 @@ class PersistentConversationService:
                     "backend_metrics_status": "not_applicable",
                     "reason_code": "prior_user_turn_recall_response",
                 },
-            }, retention={"status": "not_requested"})
+            }, retention={"status": "not_requested"},
+            response_diagnostics=_chat_response_diagnostics(response_text, {
+                "status": "prior_user_transcript_recall_output",
+            }))
 
     def _complete_deterministic_grounding_response(
             self, *, session_id: str, user_turn: Mapping[str, Any],
@@ -1356,22 +1597,10 @@ class PersistentConversationService:
                 and runtime_context["capabilities"]["screen_observation"].get("configured") is True
             ),
         }
-        if isinstance(screen_observation_provenance, Mapping):
-            capture_digest = screen_observation_provenance.get("capture_digest")
-            text_digest = screen_observation_provenance.get("text_digest")
-            text_status = screen_observation_provenance.get("text_status")
-            captured_at = screen_observation_provenance.get("captured_at")
-            if (isinstance(capture_digest, str) and len(capture_digest) == 64
-                    and isinstance(text_digest, str) and len(text_digest) == 64
-                    and text_status in {"available", "no_readable_text"}
-                    and isinstance(captured_at, str) and len(captured_at) <= 64):
-                evidence["screen_observation_provenance"] = {
-                    "capture_digest": capture_digest,
-                    "text_digest": text_digest,
-                    "text_status": text_status,
-                    "captured_at": captured_at,
-                    "raw_frame_retained": False,
-                }
+        bounded_screen_provenance = _bounded_screen_observation_provenance(
+            screen_observation_provenance)
+        if bounded_screen_provenance is not None:
+            evidence["screen_observation_provenance"] = bounded_screen_provenance
         decision_payload = {
             "schema": "sentientos.deterministic_grounding_policy_decision:v1",
             "session_id": session_id,
@@ -1390,21 +1619,25 @@ class PersistentConversationService:
             "policy_decision_digest": decision_digest,
             "transcript_text_digest": digest_payload({"text": response_text}),
         }
+        assistant_linkage: dict[str, Any] = {
+            "source_user_turn_id": str(user_turn["turn_id"]),
+            "response_origin": "deterministic_grounding_policy",
+            "policy_decision": policy_decision,
+            "assistant_output_lineage": assistant_output_lineage,
+            "context_snapshot_digest": history.snapshot_digest,
+            "memory_snapshot_digest": memory_digest,
+            "memory_retrieval_posture": memory.get("retrieval_posture", "unknown"),
+            "legacy_sidecar_posture": memory.get("legacy_sidecar_posture", "unknown_legacy"),
+            "memory_selection_posture": memory.get("selection_posture", "unknown_legacy"),
+            "omitted_memory_count": memory.get("omitted_memory_count"),
+            "selected_turn_count": len(history.turns),
+            "selected_memory_count": len(memory.get("memories", [])),
+        }
+        if bounded_screen_provenance is not None:
+            assistant_linkage["screen_observation_provenance"] = (
+                bounded_screen_provenance)
         assistant = self.sessions.append_turn(session_id, role="assistant",
-            text=response_text, linkage={
-                "source_user_turn_id": str(user_turn["turn_id"]),
-                "response_origin": "deterministic_grounding_policy",
-                "policy_decision": policy_decision,
-                "assistant_output_lineage": assistant_output_lineage,
-                "context_snapshot_digest": history.snapshot_digest,
-                "memory_snapshot_digest": memory_digest,
-                "memory_retrieval_posture": memory.get("retrieval_posture", "unknown"),
-                "legacy_sidecar_posture": memory.get("legacy_sidecar_posture", "unknown_legacy"),
-                "memory_selection_posture": memory.get("selection_posture", "unknown_legacy"),
-                "omitted_memory_count": memory.get("omitted_memory_count"),
-                "selected_turn_count": len(history.turns),
-                "selected_memory_count": len(memory.get("memories", [])),
-            })
+            text=response_text, linkage=assistant_linkage)
         if self._avatar_output is not None:
             try:
                 publication: dict[str, Any] = {
@@ -1761,6 +1994,7 @@ class PersistentConversationService:
                 retention={"status": "not_requested"},
             )
         verifier = getattr(self._inference, "verify_stored_chat_invocation", None)
+        verified_output_lineage: Mapping[str, Any] | None = None
         if callable(verifier):
             try:
                 verified = verifier(
@@ -1776,6 +2010,9 @@ class PersistentConversationService:
                 )
             except Exception as exc:
                 raise ChatRequestStateError("chat_request_response_receipt_unavailable") from exc
+            observed_output_lineage = verified.get("assistant_output_lineage")
+            if isinstance(observed_output_lineage, Mapping):
+                verified_output_lineage = observed_output_lineage
             active_identity = linkage.get("active_model_identity")
             loaded_identity = linkage.get("loaded_model_identity")
             stored_runtime_lineage = linkage.get("software_generation_attribution")
@@ -1801,9 +2038,9 @@ class PersistentConversationService:
                     or dict(verified.get("loaded_model_identity", {})) != dict(loaded_identity)
                     or not predecessor_reference_matches
                     or not runtime_lineage_matches
-                    or (linkage.get("assistant_output_lineage") is not None
-                        and dict(verified.get("assistant_output_lineage", {}))
-                            != dict(linkage["assistant_output_lineage"]))):
+                    or not _stored_output_lineage_matches(
+                        linkage.get("assistant_output_lineage"),
+                        verified.get("assistant_output_lineage"))):
                 raise ChatRequestStateError("chat_request_response_receipt_conflict")
         elif not isinstance(self._inference, DevelopmentLocalChatInference):
             raise ChatRequestStateError("chat_request_recovery_verifier_unavailable")
@@ -1860,9 +2097,16 @@ class PersistentConversationService:
             retention = {"status": "not_requested"}
         else:
             retention = {"status": "retention_state_unknown_no_replay"}
+        response_text = str(assistant["text"])
+        stored_output_lineage = linkage.get("assistant_output_lineage")
+        diagnostic_lineage = (verified_output_lineage
+            if verified_output_lineage is not None else
+            stored_output_lineage if isinstance(stored_output_lineage, Mapping) else None)
         return ChatResponse(
-            response=str(assistant["text"]), session_id=session_id,
+            response=response_text, session_id=session_id,
             turn_id=str(assistant["turn_id"]),
+            response_diagnostics=_chat_response_diagnostics(
+                response_text, diagnostic_lineage),
             context={
                 "conversation_snapshot_digest": linkage.get("context_snapshot_digest"),
                 "memory_snapshot_digest": linkage.get("memory_snapshot_digest"),
@@ -1920,7 +2164,11 @@ class PersistentConversationService:
         if observe_screen:
             if self._screen_observer is None:
                 raise RuntimeError("screen_observation_not_configured")
-            screen_observation = self._screen_observer()
+            observer = self._screen_observer
+            question_observer = getattr(type(observer), "observe_question", None)
+            screen_observation = (
+                question_observer(observer, message)
+                if callable(question_observer) else observer())
             if not isinstance(screen_observation, Mapping):
                 raise RuntimeError("screen_observation_unavailable")
             screen_text = screen_observation.get("text")
@@ -1942,6 +2190,28 @@ class PersistentConversationService:
                     and isinstance(previous_text_digest, str)
                     and re.fullmatch(r"[0-9a-f]{64}", previous_text_digest) is not None
                     and previous_text_digest != current_text_digest))
+            component_statuses = screen_observation.get("component_statuses")
+            if component_statuses is not None and (
+                    not isinstance(component_statuses, Mapping)
+                    or not component_statuses
+                    or set(component_statuses) - {"ocr", "vision"}
+                    or any(not isinstance(status, str)
+                           or status not in {"available", "unavailable", "no_readable_text"}
+                           for status in component_statuses.values())
+                    or (screen_observation.get("backend") == "tesseract+local_vision"
+                        and set(component_statuses) != {"ocr", "vision"})):
+                raise RuntimeError("screen_observation_component_status_invalid")
+            component_failures = screen_observation.get("component_failure_codes")
+            if component_failures is not None and (
+                    not isinstance(component_failures, Mapping)
+                    or not component_failures
+                    or not isinstance(component_statuses, Mapping)
+                    or set(component_failures) - {"ocr", "vision"}
+                    or any(not isinstance(code, str)
+                           or re.fullmatch(r"(?:screen|game_screen)_[a-z0-9_]{1,80}", code) is None
+                           or component_statuses.get(component) != "unavailable"
+                           for component, code in component_failures.items())):
+                raise RuntimeError("screen_observation_component_failure_invalid")
             visual_kind = screen_observation.get("visual_change_kind", "unknown")
             visual_score = screen_observation.get("visual_change_score")
             visual_valid = (
@@ -2038,12 +2308,8 @@ class PersistentConversationService:
                     stored_output_lineage = prior_linkage.get("assistant_output_lineage")
                     observed_runtime_lineage = verified_prior.get("software_generation_attribution")
                     stored_runtime_lineage = prior_linkage.get("software_generation_attribution")
-                    output_lineage_matches = (
-                        stored_output_lineage is None
-                        or (isinstance(observed_output_lineage, Mapping)
-                            and isinstance(stored_output_lineage, Mapping)
-                            and dict(observed_output_lineage) == dict(stored_output_lineage))
-                    )
+                    output_lineage_matches = _stored_output_lineage_matches(
+                        stored_output_lineage, observed_output_lineage)
                     runtime_lineage_matches = (
                         stored_runtime_lineage is None
                         or (isinstance(observed_runtime_lineage, Mapping)
@@ -2223,16 +2489,8 @@ class PersistentConversationService:
                 screen_observation_provenance=screen_observation)
             if (capability_correction is not None
                     and capability_correction.get("policy_id") == SCREEN_CAPABILITY_POLICY_ID):
-                provenance = None
-                if isinstance(screen_observation, Mapping):
-                    provenance = {
-                        "capture_digest": screen_observation.get("capture_digest"),
-                        "text_digest": hashlib.sha256(
-                            str(screen_observation.get("text", "")).encode("utf-8")
-                        ).hexdigest(),
-                        "text_status": screen_observation.get("text_status", "available"),
-                        "captured_at": screen_observation.get("captured_at"),
-                    }
+                provenance = _bounded_screen_observation_provenance(
+                    screen_observation)
                 return self._complete_deterministic_grounding_response(
                     session_id=session["session_id"], user_turn=user_turn,
                     response_text=capability_text, correction=capability_correction,
@@ -2240,23 +2498,33 @@ class PersistentConversationService:
                     on_content_chunk=on_content_chunk,
                     screen_observation_provenance=provenance)
         direct_screen_activity_question = is_direct_screen_activity_question(message)
-        screen_observation_unusable = (
-            screen_observation is None
-            or screen_observation.get("text_status", "available") == "no_readable_text")
+        visual_fallback, visual_correction = visual_observation_unavailable_correction(
+            message, screen_observation)
+        if (isinstance(self._inference, DevelopmentLocalChatInference)
+                and not retain and visual_correction is not None):
+            return self._complete_deterministic_grounding_response(
+                session_id=session["session_id"], user_turn=user_turn,
+                response_text=visual_fallback, correction=visual_correction,
+                runtime_context=runtime_context, history=history, memory=memory,
+                on_content_chunk=on_content_chunk,
+                screen_observation_provenance=(
+                    _bounded_screen_observation_provenance(screen_observation)))
+        screen_observation_unusable = not screen_observation_has_usable_content(
+            screen_observation)
         if (isinstance(self._inference, DevelopmentLocalChatInference)
                 and direct_screen_activity_question
                 and not retain and screen_observation_unusable):
             policy_text, policy_correction = corrected_unobserved_game_status(
                 "", user_message=message, verified_runtime_context=runtime_context,
                 screen_observation_provenance=(
-                    {"text_status": screen_observation.get("text_status", "available")}
-                    if isinstance(screen_observation, Mapping) else None))
+                    _bounded_screen_observation_provenance(screen_observation)))
             allowed_deterministic_grounding = {
                 CURRENT_GAME_STATUS_POLICY_ID: {
                     "foreground_only_screen_observation_unconfigured",
                     "foreground_only_no_screen_observation",
                     "verified_workload_context_screen_unavailable",
                     "screen_capture_no_readable_text",
+                    "screen_capture_perception_unavailable",
                 },
                 USER_REPORT_EVIDENCE_POLICY_ID: {
                     "user_report_distinguished_from_current_observation",
@@ -2277,12 +2545,7 @@ class PersistentConversationService:
                     runtime_context=runtime_context, history=history, memory=memory,
                     on_content_chunk=on_content_chunk,
                     screen_observation_provenance=(
-                        {"capture_digest": screen_observation.get("capture_digest"),
-                         "text_digest": hashlib.sha256(
-                             str(screen_observation.get("text", "")).encode("utf-8")).hexdigest(),
-                         "text_status": screen_observation.get("text_status", "available"),
-                         "captured_at": screen_observation.get("captured_at")}
-                        if isinstance(screen_observation, Mapping) else None))
+                        _bounded_screen_observation_provenance(screen_observation)))
         workload_context = runtime_context.get("workload")
         gaming_resource_status = (workload_context.get("gaming_resource_status")
             if isinstance(workload_context, Mapping) else None)
@@ -2404,6 +2667,15 @@ class PersistentConversationService:
                 "text_change_kind": screen_observation["text_change_kind"],
                 "raw_frame_retained": False,
             }
+            observation_backend = screen_observation.get("backend")
+            if isinstance(observation_backend, str) and 1 <= len(observation_backend) <= 64:
+                screen_provenance["backend"] = observation_backend
+            component_statuses = screen_observation.get("component_statuses")
+            if isinstance(component_statuses, Mapping):
+                screen_provenance["component_statuses"] = dict(component_statuses)
+            component_failures = screen_observation.get("component_failure_codes")
+            if isinstance(component_failures, Mapping) and component_failures:
+                screen_provenance["component_failure_codes"] = dict(component_failures)
             if visual_kind in ("initial", "changed", "stable", "unknown"):
                 screen_provenance["visual_change_kind"] = visual_kind
                 screen_provenance["visual_change_score"] = visual_score
@@ -2538,6 +2810,10 @@ class PersistentConversationService:
                     verified_runtime_context=runtime_context,
                     screen_observation_provenance=invocation_screen_provenance)
             if grounding_correction is None:
+                response_text, grounding_correction = corrected_stale_screen_failure_claim(
+                    response_text,
+                    screen_observation_provenance=invocation_screen_provenance)
+            if grounding_correction is None:
                 response_text, grounding_correction = corrected_nonresponsive_gaming_next_step(
                     receipt.output_text, user_message=message,
                     workload_mode=str(observed_workload_mode or "normal"),
@@ -2554,7 +2830,8 @@ class PersistentConversationService:
                 response_text, grounding_correction = corrected_nonverbal_gaming_output(
                     receipt.output_text, user_message=message,
                     workload_mode=str(observed_workload_mode or "normal"),
-                    social_checkin=social_checkin)
+                    social_checkin=social_checkin,
+                    screen_observation=screen_observation)
             if grounding_correction is None:
                 response_text, grounding_correction = corrected_gaming_output(
                     receipt.output_text, workload_mode=str(observed_workload_mode or "normal"),
@@ -2578,6 +2855,12 @@ class PersistentConversationService:
                 policy_id=grounding_correction["policy_id"],
                 reason_code=grounding_correction["reason_code"])
             response_origin = "grounding_policy_fallback"
+        assistant_output_lineage.update({
+            "invocation_output_text_sha256": hashlib.sha256(
+                receipt.output_text.encode("utf-8")).hexdigest(),
+            "transcript_text_sha256": hashlib.sha256(
+                response_text.encode("utf-8")).hexdigest(),
+        })
         if isinstance(self._inference, DevelopmentLocalChatInference):
             software_generation_attribution = {
                 "status": "development_only",
@@ -2761,6 +3044,8 @@ class PersistentConversationService:
                         session["session_id"], user_turn["turn_id"],
                         state="retention_failed", receipt=retention_result)
         return ChatResponse(response=response_text, session_id=session["session_id"], turn_id=assistant["turn_id"],
+                            response_diagnostics=_chat_response_diagnostics(
+                                response_text, assistant_output_lineage),
                             context={"conversation_snapshot_digest": history.snapshot_digest,
                                      "memory_snapshot_digest": memory["snapshot_digest"],
                                      "memory_retrieval_posture": memory["retrieval_posture"],
@@ -2985,7 +3270,8 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                screen_observer: Callable[
                                    [], Mapping[str, object] | None
                                ] | None = None,
-                               screen_capture_policy: str = "request_driven") -> DevelopmentLocalChatInference:
+                               screen_capture_policy: str = "request_driven",
+                               local_speech_output: bool = False) -> DevelopmentLocalChatInference:
     """Explicitly install governed local development chat inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     root = data_root or sentientos_data_dir()
@@ -3010,11 +3296,22 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
         gaming_resource_status_provider=gaming_resource_status_provider)
     if initial_workload_mode != "normal":
         inference.set_workload_mode(initial_workload_mode, game_process_names)
+    speech_output = None
+    if local_speech_output:
+        from control_plane import admit_request
+        from .chat_speech_output import ChatSpeechOutputController
+
+        timing_sink = (getattr(avatar_output, "publish_speech_timing", None)
+                       if avatar_output is not None else None)
+        speech_output = ChatSpeechOutputController(
+            admission_provider=admit_request,
+            timing_event_sink=timing_sink if callable(timing_sink) else None)
     _CONVERSATION_SERVICE = PersistentConversationService(
         inference=inference,
         session_store=ConversationSessionStore(conversation_root),
         memory_store=CanonicalMemoryStore(memory_root),
-        avatar_output=avatar_output, screen_observer=screen_observer,
+        avatar_output=avatar_output, speech_output=speech_output,
+        screen_observer=screen_observer,
         screen_capture_policy=screen_capture_policy)
     _PRODUCTION_COMPOSITION = None
     return inference
@@ -3103,6 +3400,7 @@ async def chat_stream_endpoint(request: ChatRequest, http_request: Request) -> S
                 "turn_id": response.turn_id,
                 "context": response.context,
                 "retention": response.retention,
+                "response_diagnostics": response.response_diagnostics,
             }
             publish({"type": "complete", "response": payload})
         except ChatInputBudgetError:
@@ -3116,18 +3414,23 @@ async def chat_stream_endpoint(request: ChatRequest, http_request: Request) -> S
                 failure_code = None
                 if (type(exc).__name__ == "ScreenObservationBridgeError"
                         and exc.args and isinstance(exc.args[0], str)
-                        and re.fullmatch(r"screen_[a-z0-9_]{1,80}", exc.args[0])):
+                        and re.fullmatch(r"(?:screen|game_screen)_[a-z0-9_]{1,80}",
+                                         exc.args[0])):
                     failure_code = exc.args[0]
                 if failure_code is None:
                     LOGGER.warning("Streaming chat failed: %s", type(exc).__name__)
                 else:
                     LOGGER.warning("Streaming chat failed: %s failure_code=%s",
                                    type(exc).__name__, failure_code)
-                publish({"type": "error", "code": "chat_generation_failed"})
+                if failure_code is not None:
+                    publish({"type": "error", "code": "screen_observation_failed",
+                             "failure_code": failure_code})
+                else:
+                    publish({"type": "error", "code": "chat_generation_failed"})
         finally:
             worker_finished.set()
 
-    async def stream_events():
+    async def stream_events() -> AsyncIterator[str]:
         worker = threading.Thread(target=run_chat, name="chat-stream-inference", daemon=True)
         worker.start()
         terminal_event = False
@@ -3170,9 +3473,18 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
             # Narrator responses are not model conversation turns.
             raise HTTPException(status_code=409, detail=summary)
     try:
-        return _get_conversation_service().chat(message, session_id=request.session_id,
-            retain=request.retain, request_id=request.request_id,
-            observe_screen=request.observe_screen)
+        service = _get_conversation_service()
+        return await asyncio.to_thread(service.chat, message,
+            session_id=request.session_id, retain=request.retain,
+            request_id=request.request_id, observe_screen=request.observe_screen)
+    except ScreenObservationBridgeError as exc:
+        failure_code = (exc.args[0] if exc.args and isinstance(exc.args[0], str)
+                        and re.fullmatch(r"(?:screen|game_screen)_[a-z0-9_]{1,80}",
+                                         exc.args[0]) else "screen_observation_unavailable")
+        raise HTTPException(status_code=502, detail={
+            "code": "screen_observation_failed",
+            "failure_code": failure_code,
+        }) from exc
     except ChatInputBudgetError as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except ChatRequestStateError as exc:
@@ -3206,6 +3518,38 @@ async def readiness_endpoint() -> dict[str, str]:
     if not production_chat_ready():
         raise HTTPException(status_code=503, detail="unavailable")
     return {"status": "ready"}
+
+
+@APP.get("/runtime-status")
+async def runtime_status_endpoint() -> dict[str, Any]:
+    """Report local composition posture without conflating dev with production readiness."""
+    try:
+        service = _get_conversation_service()
+        inference = service._inference
+        if isinstance(inference, DevelopmentLocalChatInference):
+            workload = service.current_workload_state()
+            speech = service.speech_output_state(None)
+            model_residency = await asyncio.to_thread(
+                inference.model_residency_status)
+            return {
+                "status": "running",
+                "posture": "development_only",
+                "production_serving": False,
+                "effective_workload_mode": workload.get("effective_mode"),
+                "model_residency": model_residency,
+                "screen_observation_configured": service.screen_observation_configured(),
+                "local_speech_configured": speech.get("configured") is True,
+                "local_speech_backend_available": speech.get("backend_available") is True,
+            }
+        ready = production_chat_ready()
+        return {
+            "status": "ready" if ready else "unavailable",
+            "posture": "production",
+            "production_serving": ready,
+        }
+    except Exception as exc:
+        LOGGER.warning("Local runtime status unavailable: %s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Local runtime status unavailable") from exc
 
 
 @APP.get("/screen-observation")
@@ -3337,12 +3681,19 @@ async def inspect_session_turns(session_id: str, request: Request) -> dict[str, 
             detail="conversation_session_unavailable_or_invalid") from exc
     turns = session["turns"]
     visible_turns = turns[-100:]
+    display_turns: list[dict[str, Any]] = []
+    for turn in visible_turns:
+        displayed = {key: turn[key] for key in (
+            "turn_id", "sequence", "role", "timestamp", "text")}
+        if turn.get("role") == "assistant":
+            displayed["response_diagnostics"] = (
+                _saved_transcript_response_diagnostics(turn))
+        display_turns.append(displayed)
     return {
         "session_id": session_id,
         "total_turns": len(turns),
         "truncated": len(visible_turns) < len(turns),
-        "turns": [{key: turn[key] for key in ("turn_id", "sequence", "role", "timestamp", "text")}
-                  for turn in visible_turns],
+        "turns": display_turns,
     }
 
 
@@ -3388,6 +3739,17 @@ async def root_page() -> HTMLResponse:
                 .boot-entry { margin: 0.5rem 0; padding: 0.5rem; border-left: 4px solid #444; background: #0f0f0f; border-radius: 4px; }
                 .boot-entry[data-level="warning"] { border-color: #f0a202; }
                 .boot-entry[data-level="error"] { border-color: #f2545b; }
+                #runtime-diagnostics { margin: 1rem 0; padding: 0.75rem; background: #1b1b1b; border-radius: 8px; }
+                #local-runtime-status { margin-left: 0.5rem; color: #aaa; }
+                #response-integrity { color: #aaa; font-size: 0.9rem; }
+                #response-diagnostics { margin-top: 0.75rem; color: #ccc; }
+                #response-diagnostics dl { display: grid; grid-template-columns: minmax(180px, auto) 1fr; gap: 0.35rem 0.75rem; overflow-wrap: anywhere; }
+                #response-diagnostics dt { color: #aaa; }
+                #response-diagnostics dd { margin: 0; }
+                .turn-lineage { margin-top: 0.5rem; color: #aaa; font-size: 0.85rem; }
+                .turn-lineage dl { display: grid; grid-template-columns: minmax(170px, auto) 1fr; gap: 0.25rem 0.6rem; overflow-wrap: anywhere; }
+                .turn-lineage dt { color: #888; }
+                .turn-lineage dd { margin: 0; }
                 #workload-controls { margin: 1rem 0; padding: 0.75rem; background: #1b1b1b; border-radius: 8px; }
                 #workload-mode, #game-process-names { width: auto; min-height: 0; margin: 0.25rem; padding: 0.4rem; }
                 #workload-status { margin-left: 0.5rem; color: #aaa; }
@@ -3413,6 +3775,10 @@ async def root_page() -> HTMLResponse:
                 </section>
                 <h1>SentientOS Local Chat</h1>
                 <p>Start a local conversation with the SentientOS daemon. All interactions remain on your machine.</p>
+                <section id="runtime-diagnostics" aria-label="Local runtime status">
+                    <strong>Local runtime:</strong>
+                    <span id="local-runtime-status" role="status" aria-live="polite">Checking local service...</span>
+                </section>
                 <section id="workload-controls" aria-label="Workload mode">
                     <label for="workload-mode">Workload mode</label>
                     <select id="workload-mode">
@@ -3449,12 +3815,25 @@ async def root_page() -> HTMLResponse:
                 <section id="screen-observation-controls" aria-label="Screen observation">
                     <label for="observe-screen"><input id="observe-screen" type="checkbox" />
                         Include the current consented game screen in this message</label>
-                    <span id="screen-observation-status" role="status">OCR stays local and is not saved. Requires a configured consented screen source.</span>
+                    <span id="screen-observation-status" role="status">One consented foreground-game frame is processed locally as OCR and optional visual summary, then discarded.</span>
                 </section>
                 <button id="send">Send</button>
                 <div id="response" class="response" hidden>
                     <strong>Response:</strong>
                     <p id="response-text"></p>
+                    <p id="response-integrity" role="status" aria-live="polite"></p>
+                    <details id="response-diagnostics">
+                        <summary>Answer lineage details</summary>
+                        <dl>
+                            <dt>Inference output digest</dt><dd><code id="inference-output-digest"></code></dd>
+                            <dt>Raw inference text SHA-256</dt><dd><code id="inference-output-text-sha256"></code></dd>
+                            <dt>Transcript text SHA-256</dt><dd><code id="transcript-text-sha256"></code></dd>
+                            <dt>API response text SHA-256</dt><dd><code id="api-delivery-text-sha256"></code></dd>
+                            <dt>Displayed text SHA-256</dt><dd><code id="displayed-text-sha256"></code></dd>
+                            <dt>Output truncated</dt><dd id="answer-output-truncated"></dd>
+                            <dt>Lineage status</dt><dd id="answer-lineage-status"></dd>
+                        </dl>
+                    </details>
                     <details id="response-timing" hidden>
                         <summary>Response timing</summary>
                         <p id="response-timing-details" role="status"></p>
@@ -3486,6 +3865,24 @@ async def root_page() -> HTMLResponse:
 
                 let chatSendInFlight = false;
                 let pendingExternalSessionId = null;
+                function terminalScreenObservationFailureCode(detail) {
+                    if (!detail || typeof detail !== 'object'
+                            || detail.code !== 'screen_observation_failed') return null;
+                    const code = detail.failure_code;
+                    return typeof code === 'string'
+                        && /^(screen|game_screen)_[a-z0-9_]{1,80}$/.test(code) ? code : null;
+                }
+                function clearTerminalChatRequestIdentity(storage, key, failure) {
+                    if (!key || typeof failure !== 'string'
+                            || (!failure.startsWith('screen_observation_failed:')
+                                && failure !== 'chat_request_conflict')) return false;
+                    try {
+                        storage.removeItem(key);
+                        return true;
+                    } catch (_) {
+                        return false;
+                    }
+                }
                 async function consumeChatStream(response, onDelta) {
                     if (!response.body || typeof response.body.getReader !== 'function') {
                         throw new Error('chat_stream_body_unavailable');
@@ -3516,7 +3913,9 @@ async def root_page() -> HTMLResponse:
                                     completed = event.response;
                                 } else if (event.type === 'error'
                                         && typeof event.code === 'string') {
-                                    terminalError = event.code;
+                                    terminalError = event.code
+                                        + (typeof event.failure_code === 'string'
+                                            ? ':' + event.failure_code : '');
                                 }
                             }
                             boundary = buffer.indexOf('\\n\\n');
@@ -3527,6 +3926,211 @@ async def root_page() -> HTMLResponse:
                     if (!completed) throw new Error('chat_stream_completion_missing');
                     return completed;
                 }
+                async function recoverChatStreamCompletion(error, payload, fetchChat) {
+                    if (!(error instanceof Error)
+                            || error.message !== 'chat_stream_completion_missing') {
+                        throw error;
+                    }
+                    const response = await fetchChat('/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    if (!response.ok) {
+                        const failure = await response.json().catch(() => ({}));
+                        const screenCode =
+                            terminalScreenObservationFailureCode(failure.detail);
+                        if (screenCode !== null) {
+                            throw new Error('screen_observation_failed:' + screenCode);
+                        }
+                        throw new Error('chat_stream_recovery_failed');
+                    }
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (_) {
+                        throw new Error('chat_stream_recovery_response_invalid');
+                    }
+                    if (!data || data.session_id !== payload.session_id
+                            || typeof data.turn_id !== 'string'
+                            || typeof data.response !== 'string') {
+                        throw new Error('chat_stream_recovery_response_invalid');
+                    }
+                    return data;
+                }
+                async function refreshRuntimeStatus() {
+                    const status = document.getElementById('local-runtime-status');
+                    try {
+                        const response = await fetch('/runtime-status');
+                        if (!response.ok) throw new Error('unavailable');
+                        const data = await response.json();
+                        if (data.posture === 'development_only' && data.status === 'running') {
+                            const speech = data.local_speech_configured
+                                ? (data.local_speech_backend_available
+                                    ? 'local voice available' : 'local voice backend unavailable')
+                                : 'local voice not configured';
+                            const screen = data.screen_observation_configured
+                                ? 'screen observation configured' : 'screen observation not configured';
+                            const residency = data.model_residency || {};
+                            const model = residency.status === 'resident'
+                                ? 'local model loaded'
+                                : residency.status === 'unloaded'
+                                    ? 'local model unloaded'
+                                    : residency.status === 'operation_in_progress'
+                                        ? 'model transition or inference in progress; residency not sampled'
+                                        : residency.status === 'not_applicable'
+                                            ? 'model residency not applicable'
+                                            : 'local model residency unavailable';
+                            status.textContent = 'Development runtime running; production serving off; '
+                                + model + '; ' + speech + '; ' + screen + '.';
+                        } else {
+                            status.textContent = data.status === 'ready'
+                                ? 'Production chat ready.'
+                                : 'Local chat runtime unavailable.';
+                        }
+                    } catch (_) {
+                        status.textContent = 'Local runtime status unavailable.';
+                    }
+                }
+
+                async function sha256Text(value) {
+                    const bytes = await crypto.subtle.digest(
+                        'SHA-256', new TextEncoder().encode(value));
+                    return Array.from(new Uint8Array(bytes))
+                        .map(item => item.toString(16).padStart(2, '0')).join('');
+                }
+
+                async function renderResponseDiagnostics(data, responseTextEl) {
+                    const lineage = data.response_diagnostics || {};
+                    const displayedDigest = await sha256Text(responseTextEl.textContent || '');
+                    const rawDigest = lineage.invocation_output_text_sha256;
+                    const transcriptDigest = lineage.transcript_text_sha256;
+                    const apiDigest = lineage.delivery_text_sha256;
+                    const transcriptMatches = typeof transcriptDigest === 'string'
+                        && displayedDigest === transcriptDigest;
+                    const apiMatches = typeof apiDigest === 'string'
+                        && displayedDigest === apiDigest;
+                    const rawMatches = typeof rawDigest === 'string'
+                        && displayedDigest === rawDigest;
+                    const status = document.getElementById('response-integrity');
+                    const lineageStatus = lineage.status || 'historical_lineage_unavailable';
+                    if (transcriptMatches && apiMatches && rawMatches
+                            && lineageStatus === 'exact_invocation_output_match') {
+                        status.textContent =
+                            'Displayed answer matches the exact inference output, transcript, and API response.';
+                    } else if (transcriptMatches && apiMatches
+                            && lineageStatus === 'grounding_policy_fallback') {
+                        status.textContent =
+                            'Displayed answer matches the transcript and API response; grounding policy changed the raw inference output.';
+                    } else if (transcriptMatches && apiMatches) {
+                        status.textContent =
+                            'Displayed answer matches the persisted transcript and API response; raw-output relation: '
+                            + lineageStatus + '.';
+                    } else {
+                        status.textContent =
+                            'Answer text integrity could not be fully verified; inspect the available digests and lineage status.';
+                    }
+                    document.getElementById('inference-output-digest').textContent =
+                        lineage.invocation_output_digest || 'unavailable';
+                    document.getElementById('inference-output-text-sha256').textContent =
+                        rawDigest || 'unavailable';
+                    document.getElementById('transcript-text-sha256').textContent =
+                        transcriptDigest || 'unavailable';
+                    document.getElementById('api-delivery-text-sha256').textContent =
+                        apiDigest || 'unavailable';
+                    document.getElementById('displayed-text-sha256').textContent = displayedDigest;
+                    document.getElementById('answer-output-truncated').textContent =
+                        lineage.output_truncated === true ? 'yes'
+                            : (lineage.output_truncated === false ? 'no' : 'unknown');
+                    document.getElementById('answer-lineage-status').textContent = lineageStatus;
+                }
+
+                async function appendSavedTurnDiagnostics(entry, content, lineage) {
+                    if (!lineage || typeof lineage !== 'object') return;
+                    const displayedDigest = await sha256Text(content.textContent || '');
+                    const savedDigest = lineage.saved_transcript_text_sha256;
+                    const transcriptDigest = lineage.transcript_text_sha256;
+                    const deliveryDigest = lineage.delivery_text_sha256;
+                    const rawDigest = lineage.invocation_output_text_sha256;
+                    const savedMatches = typeof savedDigest === 'string'
+                        && displayedDigest === savedDigest;
+                    const transcriptMatches = typeof transcriptDigest === 'string'
+                        && displayedDigest === transcriptDigest;
+                    const deliveryMatches = typeof deliveryDigest === 'string'
+                        && displayedDigest === deliveryDigest;
+                    const rawMatches = typeof rawDigest === 'string'
+                        && displayedDigest === rawDigest;
+                    const lineageStatus = lineage.status || 'historical_lineage_unavailable';
+                    const details = document.createElement('details');
+                    details.className = 'turn-lineage';
+                    const summary = document.createElement('summary');
+                    summary.textContent = 'Saved answer integrity';
+                    const status = document.createElement('p');
+                    const checks = [
+                        savedMatches ? 'saved transcript matches' : 'saved transcript mismatch or unavailable',
+                        typeof deliveryDigest !== 'string' ? 'API-delivery digest unavailable'
+                            : (deliveryMatches ? 'API-delivered transcript text matches'
+                                : 'API-delivered transcript text differs'),
+                        transcriptMatches ? 'transcript lineage matches' : 'transcript lineage mismatch or unavailable',
+                        typeof rawDigest !== 'string' ? 'raw inference digest unavailable'
+                            : (rawMatches ? 'raw inference text matches' : 'raw inference text differs'),
+                    ];
+                    const screen = lineage.screen_observation;
+                    const components = screen && screen.component_statuses
+                        && typeof screen.component_statuses === 'object'
+                        ? screen.component_statuses : {};
+                    const failures = screen && screen.component_failure_codes
+                        && typeof screen.component_failure_codes === 'object'
+                        ? screen.component_failure_codes : {};
+                    if (screen && typeof screen === 'object') {
+                        checks.push('screen observation captured; local vision '
+                            + (components.vision || 'status unavailable') + '; local OCR '
+                            + (components.ocr || 'status unavailable')
+                            + (failures.vision ? '; vision failure: ' + failures.vision : '')
+                            + (failures.ocr ? '; OCR failure: ' + failures.ocr : '')
+                            + '; raw frame retained: no');
+                    }
+                    status.textContent = checks.join('; ') + ' (lineage: ' + lineageStatus + ').';
+                    const list = document.createElement('dl');
+                    const fields = [
+                        ['Raw inference text SHA-256', rawDigest || 'unavailable'],
+                        ['Transcript text SHA-256', transcriptDigest || 'unavailable'],
+                        ['Transcript digest source', lineage.transcript_text_digest_source
+                            || 'unknown'],
+                        ['API-delivered text SHA-256', deliveryDigest || 'unavailable'],
+                        ['API-delivery digest source', lineage.delivery_text_digest_source
+                            || 'unknown'],
+                        ['Saved transcript text SHA-256', savedDigest || 'unavailable'],
+                        ['Displayed text SHA-256', displayedDigest],
+                        ['Lineage status', lineageStatus],
+                        ['Output truncated', lineage.output_truncated === true ? 'yes'
+                            : (lineage.output_truncated === false ? 'no' : 'unknown')],
+                    ];
+                    if (screen && typeof screen === 'object') {
+                        fields.push(
+                            ['Screen observation captured at', screen.captured_at || 'unknown'],
+                            ['Screen text status', screen.text_status || 'unknown'],
+                            ['Screen backend', screen.backend || 'unknown'],
+                            ['Local visual description', components.vision || 'status unavailable'],
+                            ['Local visual-description failure', failures.vision || 'none'],
+                            ['Local OCR', components.ocr || 'status unavailable'],
+                            ['Local OCR failure', failures.ocr || 'none'],
+                            ['Raw frame retained', 'no']
+                        );
+                    }
+                    fields.forEach(([labelText, valueText]) => {
+                        const label = document.createElement('dt');
+                        label.textContent = labelText;
+                        const value = document.createElement('dd');
+                        const code = document.createElement('code');
+                        code.textContent = valueText;
+                        value.appendChild(code);
+                        list.append(label, value);
+                    });
+                    details.append(summary, status, list);
+                    entry.appendChild(details);
+                }
+
                 async function sendMessage() {
                     if (chatSendInFlight) return;
                     const sendButton = document.getElementById('send');
@@ -3538,6 +4142,7 @@ async def root_page() -> HTMLResponse:
                     let firstBrowserPaintMs = null;
                     let firstPaintReason = null;
                     let firstPaintScheduled = null;
+                    let pendingKey = null;
                     function scheduleFirstBrowserPaint() {
                         if (firstBrowserPaintMs !== null || firstPaintScheduled !== null) return;
                         if (document.visibilityState !== 'visible') {
@@ -3569,8 +4174,18 @@ async def root_page() -> HTMLResponse:
                         responseTimingEl.hidden = true;
                         responseTimingDetailsEl.textContent = '';
                         const message = messageEl.value.trim();
-                        const observeScreen = document.getElementById('observe-screen').checked;
+                        const observeScreenControl = document.getElementById('observe-screen');
+                        let observeScreen = observeScreenControl.checked;
                         if (!message) { alert('Please enter a message before sending.'); return; }
+                        if (observeScreen) {
+                            await refreshScreenObservationStatus();
+                            observeScreen = observeScreenControl.checked
+                                && !observeScreenControl.disabled;
+                            if (!observeScreen) {
+                                alert('Screen consent is no longer active. Refresh or restart the local companion before requesting another observation.');
+                                return;
+                            }
+                        }
                         let sessionId = localStorage.getItem('sentientos_session_id');
                         if (!sessionId) {
                             const created = await fetch('/sessions', { method: 'POST' });
@@ -3582,7 +4197,7 @@ async def root_page() -> HTMLResponse:
                             'SHA-256', new TextEncoder().encode(message));
                         const messageDigest = Array.from(new Uint8Array(messageDigestBytes))
                             .map(value => value.toString(16).padStart(2, '0')).join('');
-                        const pendingKey = 'sentientos_pending_chat:' + sessionId + ':' + messageDigest
+                        pendingKey = 'sentientos_pending_chat:' + sessionId + ':' + messageDigest
                             + ':' + (observeScreen ? 'screen' : 'text');
                         let pending = null;
                         try { pending = JSON.parse(localStorage.getItem(pendingKey) || 'null'); }
@@ -3590,10 +4205,12 @@ async def root_page() -> HTMLResponse:
                         const requestId = pending && typeof pending.request_id === 'string'
                             ? pending.request_id : crypto.randomUUID();
                         localStorage.setItem(pendingKey, JSON.stringify({ request_id: requestId }));
+                        const chatPayload = { message, session_id: sessionId,
+                            request_id: requestId, observe_screen: observeScreen };
+                        let streamRecoveryStatus = null;
                         let res = await fetch('/chat/stream', {
                             method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ message, session_id: sessionId, request_id: requestId,
-                                observe_screen: observeScreen }),
+                            body: JSON.stringify(chatPayload),
                         });
                         if (res.status === 503) {
                             const failure = await res.clone().json().catch(() => ({}));
@@ -3608,25 +4225,53 @@ async def root_page() -> HTMLResponse:
                         }
                         if (!res.ok) {
                             const detail = await res.json().catch(() => ({ detail: 'Unknown error' }));
-                            alert(detail.detail || 'Unable to reach SentientOS chat. The same request identity will be reused if retried.');
+                            const failure = detail.detail;
+                            const failureCode = terminalScreenObservationFailureCode(failure);
+                            if (failureCode !== null) {
+                                clearTerminalChatRequestIdentity(
+                                    localStorage, pendingKey,
+                                    'screen_observation_failed:' + failureCode);
+                                alert('Screen observation failed (' + failureCode
+                                    + '). Send with the screen option, then return focus to the approved game within the configured foreground wait. Uncheck the screen option for text only.');
+                                return;
+                            }
+                            if (failure === 'chat_request_conflict') {
+                                const identityCleared = clearTerminalChatRequestIdentity(
+                                    localStorage, pendingKey, failure);
+                                alert(identityCleared
+                                    ? 'This request ID conflicts with an earlier request. I cleared the stale ID; send again only if you want a new request.'
+                                    : 'This request ID conflicts with an earlier request, and its local retry ID could not be cleared. Refresh the page before retrying.');
+                                return;
+                            }
+                            alert(typeof failure === 'string' ? failure
+                                : 'Unable to reach SentientOS chat. The same request identity will be reused if retried.');
                             return;
                         }
                         let data;
                         if (res.headers.get('content-type')?.startsWith('text/event-stream')) {
                             responseEl.hidden = false;
                             responseTextEl.textContent = '';
-                            data = await consumeChatStream(res, (chunk, event) => {
-                                if (firstDeltaReceivedMs === null) {
-                                    firstDeltaReceivedMs = performance.now()
-                                        - browserRequestStartedAt;
-                                }
-                                if (firstServerDeltaMs === null
-                                        && Number.isSafeInteger(event.server_elapsed_ns)) {
-                                    firstServerDeltaMs = event.server_elapsed_ns / 1e6;
-                                }
-                                responseTextEl.textContent += chunk;
-                                scheduleFirstBrowserPaint();
-                            });
+                            try {
+                                data = await consumeChatStream(res, (chunk, event) => {
+                                    if (firstDeltaReceivedMs === null) {
+                                        firstDeltaReceivedMs = performance.now()
+                                            - browserRequestStartedAt;
+                                    }
+                                    if (firstServerDeltaMs === null
+                                            && Number.isSafeInteger(event.server_elapsed_ns)) {
+                                        firstServerDeltaMs = event.server_elapsed_ns / 1e6;
+                                    }
+                                    responseTextEl.textContent += chunk;
+                                    scheduleFirstBrowserPaint();
+                                });
+                            } catch (streamError) {
+                                data = await recoverChatStreamCompletion(
+                                    streamError, chatPayload,
+                                    (url, options) => fetch(url, options));
+                                streamRecoveryStatus =
+                                    'Recovered reply through the idempotent non-stream endpoint';
+                                responseTextEl.textContent = data.response;
+                            }
                         } else {
                             data = await res.json();
                         }
@@ -3636,6 +4281,7 @@ async def root_page() -> HTMLResponse:
                         messageEl.value = '';
                         responseTextEl.textContent = data.response;
                         responseEl.hidden = false;
+                        await renderResponseDiagnostics(data, responseTextEl);
                         scheduleFirstBrowserPaint();
                         if (firstPaintScheduled && document.visibilityState === 'visible') {
                             await Promise.race([
@@ -3644,6 +4290,12 @@ async def root_page() -> HTMLResponse:
                             ]);
                         }
                         const timingParts = [];
+                        if (streamRecoveryStatus !== null) {
+                            timingParts.push(streamRecoveryStatus);
+                        }
+                        if (data.context && data.context.recovered_without_inference === true) {
+                            timingParts.push('saved reply reused without new inference or screen capture');
+                        }
                         if (firstBrowserPaintMs !== null) {
                             timingParts.push('First browser paint opportunity (double-rAF estimate) '
                                 + formatTimingMs(firstBrowserPaintMs));
@@ -3708,7 +4360,25 @@ async def root_page() -> HTMLResponse:
                         await refreshConversationTranscript();
                         refreshAvatarOutput();
                     } catch (err) {
-                        alert('Unable to send this message. The same request identity will be reused if retried.');
+                        const failure = err instanceof Error && typeof err.message === 'string'
+                            ? err.message.split(String.fromCharCode(13)).join(' ').split(String.fromCharCode(10)).join(' ').split(String.fromCharCode(9)).join(' ').slice(0, 180)
+                            : 'unknown_client_error';
+                        // Terminal capture failures and request conflicts cannot reuse their old id.
+                        const requestIdentityCleared = clearTerminalChatRequestIdentity(
+                            localStorage, pendingKey, failure);
+                        if (failure === 'screen_observation_failed:screen_observation_request_timeout') {
+                            alert('Screen observation timed out. Send with the screen option, then return focus to the approved game within the configured foreground wait. Uncheck the screen option for a text-only message.');
+                        } else if (failure.startsWith('screen_observation_failed:')) {
+                            alert('Screen observation failed (' + failure.slice(26)
+                                + '). Send with the screen option, then return focus to the approved game within the configured foreground wait. Uncheck the screen option for text only.');
+                        } else if (failure === 'chat_request_conflict') {
+                            alert(requestIdentityCleared
+                                ? 'This request ID conflicts with an earlier request. I cleared the stale ID; send again only if you want a new request.'
+                                : 'This request ID conflicts with an earlier request, and its local retry ID could not be cleared. Refresh the page before retrying.');
+                        } else {
+                            alert('Unable to send this message (' + failure
+                                + '). The same request identity will be reused if retried.');
+                        }
                         console.error('Unable to send SentientOS chat message', err);
                     } finally {
                         chatSendInFlight = false;
@@ -3734,10 +4404,21 @@ async def root_page() -> HTMLResponse:
                         control.disabled = data.configured !== true;
                         if (data.configured !== true) {
                             status.textContent = 'Not configured. The server needs an explicit local process allowlist and consented screen source.';
+                        } else if (data.consent_status === 'expired') {
+                            control.checked = false;
+                            control.disabled = true;
+                            status.textContent = 'Screen consent expired. Restart the local companion with a new consent window before requesting another observation.';
                         } else if (data.capture_policy === 'allowlisted_session_polling') {
                             status.textContent = 'Capture policy: allowlisted session polling; raw frames are discarded. This checkbox controls whether the latest OCR observation is included in a message.';
                         } else {
-                            status.textContent = 'Capture policy: request-driven and local. This checkbox requests and includes an observation in a message.';
+                            const handoffSeconds = Number.isInteger(data.foreground_wait_seconds)
+                                ? data.foreground_wait_seconds : 0;
+                            const handoff = handoffSeconds > 0
+                                ? ' Send, then return focus to the approved game within '
+                                    + handoffSeconds + ' seconds.'
+                                : ' The approved game must already be foreground when you send.';
+                            status.textContent = 'Capture policy: request-driven and local. This checkbox requests one foreground-game observation with local OCR and optional visual summary; the frame is discarded.'
+                                + handoff;
                         }
                     } catch (_) {
                         control.checked = false;
@@ -3868,7 +4549,16 @@ async def root_page() -> HTMLResponse:
                 }
 
                 async function ensureConversationSession() {
-                    let sessionId = localStorage.getItem('sentientos_session_id');
+                    const requestedSessionId = new URLSearchParams(window.location.search)
+                        .get('session_id');
+                    const requestedSessionIdIsValid = typeof requestedSessionId === 'string'
+                        && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(requestedSessionId);
+                    let sessionId = requestedSessionIdIsValid
+                        ? requestedSessionId
+                        : localStorage.getItem('sentientos_session_id');
+                    if (requestedSessionIdIsValid) {
+                        localStorage.setItem('sentientos_session_id', sessionId);
+                    }
                     if (sessionId) return sessionId;
                     const created = await fetch('/sessions', { method: 'POST' });
                     if (!created.ok) throw new Error('session_unavailable');
@@ -3898,7 +4588,7 @@ async def root_page() -> HTMLResponse:
                             empty.textContent = 'Start a message to begin this conversation.';
                             container.appendChild(empty);
                         }
-                        data.turns.forEach((turn) => {
+                        for (const turn of data.turns) {
                             const entry = document.createElement('article');
                             entry.className = 'turn';
                             entry.dataset.role = turn.role;
@@ -3908,8 +4598,12 @@ async def root_page() -> HTMLResponse:
                             const content = document.createElement('div');
                             content.textContent = turn.text;
                             entry.append(label, content);
+                            if (turn.role === 'assistant') {
+                                await appendSavedTurnDiagnostics(
+                                    entry, content, turn.response_diagnostics);
+                            }
                             container.appendChild(entry);
-                        });
+                        }
                         container.scrollTop = container.scrollHeight;
                     } catch (_) {
                         container.replaceChildren();
@@ -3977,12 +4671,17 @@ async def root_page() -> HTMLResponse:
                         control.disabled = data.configured !== true || data.backend_available !== true;
                         control.checked = data.enabled === true;
                         if (!preserveStatus) {
+                            const playbackFailureCode = typeof data.playback_failure_code
+                                === 'string' && /^[a-z0-9_]{1,80}$/.test(
+                                    data.playback_failure_code)
+                                ? ' (' + data.playback_failure_code + ')' : '';
                             status.textContent = data.configured !== true
                                 ? 'Local speech is not enabled for this server.'
                                 : (data.backend_available !== true
-                                    ? 'Local pyttsx3 voice backend is unavailable.'
+                                    ? 'Local system voice backend is unavailable.'
                                     : (data.enabled
-                                        ? 'Approved for this conversation; playback: ' + data.playback_status + '.'
+                                        ? 'Approved for this conversation; playback: '
+                                            + data.playback_status + playbackFailureCode + '.'
                                         : 'Off; local system voice only, no cloud TTS.'));
                         }
                     } catch (_) {
@@ -4068,13 +4767,19 @@ async def root_page() -> HTMLResponse:
                     } catch (_) { return false; }
                 }
                 function workloadStatusMessage(data) {
-                    return data.mode === 'automatic'
-                        ? (data.observation_status === 'available'
-                            ? (data.effective_mode === 'gaming'
-                                ? 'Game detected; low-work mode active'
-                                : 'No watched game in foreground')
-                            : 'Detection unavailable; low-work mode active')
-                        : (data.mode === 'gaming' ? 'Low-work mode active' : 'Normal mode');
+                    if (data.mode !== 'automatic') {
+                        return data.mode === 'gaming' ? 'Low-work mode active' : 'Normal mode';
+                    }
+                    if (data.observation_status !== 'available') {
+                        return 'Game detection unavailable; low-work mode active';
+                    }
+                    if (data.game_foreground === true) {
+                        return 'Watched game is foreground; low-work mode active';
+                    }
+                    if (data.game_process_running === true) {
+                        return 'Watched game is running in background; focus it and verify the screen-capture executable allowlist';
+                    }
+                    return 'No watched game process found; check the executable names';
                 }
                 async function refreshWorkloadStatus() {
                     const control = document.getElementById('workload-mode');
@@ -4161,10 +4866,12 @@ async def root_page() -> HTMLResponse:
                     }
                 });
                 refreshBootFeed();
+                refreshRuntimeStatus();
                 initializeConversationView();
                 refreshWorkloadMode();
                 refreshScreenObservationStatus();
                 setInterval(refreshBootFeed, 5000);
+                setInterval(refreshRuntimeStatus, 5000);
                 setInterval(refreshWorkloadStatus, 5000);
                 setInterval(() => {
                     if (document.visibilityState === 'visible' && !chatSendInFlight) {

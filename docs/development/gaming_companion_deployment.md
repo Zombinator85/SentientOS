@@ -602,26 +602,50 @@ offsets and utterance/interruption boundaries reach the renderer as generic
 speech-activity timing. They are not phoneme or viseme claims. Windows/WSL
 speaker routing and target timing remain unmeasured.
 
+
+## Visible Godot chat and local voice
+
+The supervised development runner can open the Godot companion visibly by
+omitting `--godot-headless`. The chat exposes the active conversation ID after
+creation or resume so the operator can verify it matches the browser session.
+The **Speak replies with local voice (this conversation)** checkbox is off by
+default. Enabling it explicitly grants conversation-scoped local speech
+approval; the Godot status line reports playback state, a bounded failure code,
+and the last played turn ID. Approval expires after four hours or when the chat
+service stops. The checkbox does not enable speech recognition or game-screen
+capture. Screen observation remains a separate per-message opt-in.
+
+For same-session acceptance, resume the saved conversation in Godot, compare the
+visible conversation ID to the browser session ID, and send one short turn. The
+visible answer and turn ID should match the persisted/API response. Enable local
+voice only for the demonstration, confirm the answer is audible, send a follow-up
+to exercise interruption, then inspect playback status and last played turn ID.
+Disable the voice checkbox after the demonstration. This is a target-host
+procedure; headless parsing and fixture tests do not demonstrate audio or visible
+session continuity.
+
 ## User-requested screen observations
 
 `sentientos.perception.game_screen_capture` provides an opt-in Windows capture
 adapter for a specifically allowlisted foreground game's client area. Each
 capture requires a current caller-supplied operator consent record with an
 expiry and process allowlist; absent or expired consent, an unapproved
-foreground process, stale capture cadence, unsupported platform, or oversized frame fails closed. Frames
-are processed in memory by local Tesseract with a hard timeout, duplicate
-frames are suppressed, and the returned perception contains bounded OCR text,
-capture provenance digests, and an explicit `raw_frame_retained=false` marker.
+foreground process, stale capture cadence, unsupported platform, or oversized frame fails closed. Frames are processed in memory by local Tesseract with a hard timeout. The
+returned perception contains bounded OCR text, capture provenance digests, and
+an explicit raw-frame-retained=false marker. The development edge can
+optionally add a short local visual summary; it still returns bounded text and
+never transmits the frame.
 Window titles, executable paths, and raw pixels are not included in the
 observation or persisted by this adapter.
 
 `sentientos.screen_observation_bridge` adds an authenticated loopback transport
-for the bounded output of that OCR owner. The Windows publisher accepts only the
-closed OCR result shape (at most 1200 text characters and digest-only capture
-provenance); it cannot accept or send RGB frame data. The core provider verifies
-the existing HMAC/source/generation/freshness/sequence envelope and rejects
-stale or malformed observations before returning one result to the chat
-observer. An observation is consumed once from its bounded queue. The
+for the bounded output of that screen-observation owner. The Windows publisher
+sends only a closed screen-result shape (at most 1200 text characters with
+digest-only capture provenance) or a request-correlated failure code; neither
+shape can carry RGB frame data. The core provider verifies the existing
+HMAC/source/generation/freshness/sequence envelope and rejects stale or
+malformed messages before returning a result or safe failure code to the chat
+observer. Each message is consumed once from its bounded queue. The
 `tests/test_gaming_companion_vertical_godot.py` scenario exercises this path
 with fixture capture and OCR, an actual loopback socket, persistent chat, the
 authorized avatar output path, and headless Godot.
@@ -654,6 +678,24 @@ local `tesseract` executable on `PATH`; the launcher does not install or
 download these components. The supervised local development runner also accepts
 `--screen-observation-tesseract-executable PATH` when screen observation is
 explicitly enabled; an absolute Windows path avoids changing the global PATH.
+The same development runner can optionally add a one-sentence visual
+summary with the screen-observation-vision-model option. This uses the named
+Ollama model through 127.0.0.1:11434 on the Windows edge host, downscales the
+one consented frame to at most 512 pixels on its longest side, requests
+CPU-only inference with a 12-second request timeout, and sets keep_alive to zero. Raw frames are not sent
+through the bridge and are discarded after OCR and captioning. Ollama must
+already be running with the model available; this option does not download a
+model or fall back to a cloud service. If local vision is unavailable, OCR
+remains usable and the visual summary is marked unavailable. Visual summaries
+are approximate evidence, and the UI still requires explicit per-message
+opt-in. The prior 9-second timeout was too short on the current acceptance
+host: cold CPU-only gemma3:4b measured 9.01 seconds. The candidate raises the
+bounded timeout to 12 seconds. qwen3.5:2b-q4_K_M described a 320x180 synthetic
+color-and-shape fixture in 6.74 seconds and a 512x288 fixture in 7.97 seconds
+through the production captioner. The 512x288 run confirms the backend has
+some headroom within the new bound; it does not qualify capture success or
+visual usefulness on a game screen. A real Cronos request still timed out at
+the prior 9-second bound, so rerun it on the updated candidate.
 
 OCR text enters only the current governed inference prompt, labeled as
 untrusted screen data. It is not added to the user's transcript or memory. The
@@ -668,10 +710,28 @@ launch-scoped consent record for that exact foreground process. The Windows
 edge does not capture or run OCR in the background. Only a chat message with
 `observe_screen: true` sends an authenticated, request-correlated capture
 request across the supervised mTLS edge. Windows verifies the foreground game
-and consent, captures once, runs local OCR, discards raw pixels, and returns
-bounded text over the authenticated loopback bridge. The WSL provider accepts
+and consent, then captures once, runs local OCR, discards raw pixels, and returns
+bounded text over the authenticated loopback bridge. The development runner
+allows a bounded foreground handoff after the explicit request: send the
+message, return focus to the allowlisted game within the configured 0-10 second
+window, and the Windows edge captures only after the game is foreground again.
+Consent is revalidated immediately before pixel capture. The WSL provider accepts
 only the response matching that message's request ID and fails closed on
-timeouts or mismatches. The `/screen-observation` status reports the
+timeouts or mismatches. Windows capture failures also return a bounded
+request-correlated failure code, so the chat can show the cause instead of
+reducing every failure to a timeout. Streaming and non-streaming chat responses
+preserve terminal screen failure codes, allowing the browser to discard a failed
+request identity before it presents retry guidance. A terminal
+`chat_request_conflict` also clears the stale browser retry identity; the UI does
+not retry automatically, and a later deliberate send gets a fresh identity.
+Other ambiguous failures keep their identity so a retry can recover an already
+persisted result without duplicating inference or capture. If a stream ends without
+its completion event after the turn has been persisted, the browser replays the
+exact request through /chat with the same request ID. Idempotency returns the
+saved response without another inference or screen capture, and the UI reports
+that recovery in response timing details. Deterministic screen-limitation
+answers retain bounded OCR/vision statuses and failure codes in saved-answer
+integrity diagnostics; screen text and captions remain unpersisted. The `/screen-observation` status reports the
 request-driven policy and the per-message checkbox requirement. This development
 path does not publish to a remote provider or grant action authority.
 
@@ -683,3 +743,42 @@ runner and does not replace the visible Godot companion acceptance check.
 Linux fixtures can test request routing and privacy behavior; actual Windows
 capture, local Tesseract availability, and gameplay impact still require GLORP
 validation.
+
+## Focused companion acceptance checkpoint
+
+Collect the operator-facing assessment once, after the candidate is prepared and its
+objective checks pass. This checkpoint is one same-session run, not a series of
+subjective approvals between implementation steps.
+
+1. Launch a fresh candidate runner with a visible Godot window and resume the
+   saved conversation. Confirm the displayed conversation ID matches the browser
+   or transcript session being compared. Before asking about the game, confirm
+   `/screen-observation` reports `consent_status: active`; `configured: true`
+   alone only means the observer was constructed. Restart the runner if its
+   launch-scoped consent has expired.
+2. With Cronos running, explicitly request one screen observation for a short
+   game-related question. Return focus to the allowlisted game within the
+   configured handoff window. OCR remains the baseline. For a visually
+   grounded question, optionally launch with
+   --screen-observation-vision-model qwen3.5:2b-q4_K_M, which completed the
+   local synthetic vision smoke on the acceptance host within the captioner
+   timeout. Confirm the response uses a useful observation
+   without claiming beyond the returned evidence, and no raw frame was persisted.
+3. In that same conversation, explicitly approve local speech. Confirm the
+   displayed answer is audible and that the latest played turn ID matches the
+   visible assistant reply turn. Send one follow-up and confirm playback state and
+   interruption behavior.
+4. Compare the displayed answer with the saved transcript and available raw,
+   transcript, API, and delivery diagnostics. Record whether the model answered,
+   a deterministic policy supplied the answer, or a later policy changed it.
+5. Record the operator's final assessment of usefulness, continuity, and whether
+   the companion stayed available during the game without requiring a browser
+   switch.
+
+The real-use demonstration requires both audible local speech and a useful
+request-driven game observation in the same session. If either is blocked or not
+demonstrated, report the software phase as partial. Keep performance
+qualification separate: it may remain explicitly pending after the software
+phase is complete. The blocked-inference sampler, runtime-status, and shutdown
+regressions establish software behavior but do not substitute for the operator's
+real-use demonstration or performance qualification.

@@ -15,19 +15,23 @@ def _result(cid: str, status: str = "available", **values):
     return HostCollectorResult(cid, status, "2026-01-01T00:00:00+00:00", "test", values=values)
 
 
-def test_denial_defer_quarantine_call_zero_collectors(tmp_path):
+def test_runtime_observation_is_read_only_and_quarantine_calls_no_collector(tmp_path):
     calls = {"n": 0}
     def collector(*, observed_at=None):
         calls["n"] += 1; return _result("x")
     plan = build_observation_plan(specs=[HostObservationCollectorSpec("x", True, ("linux","unknown"), 1, collector)])
-    # Runtime phase mismatches maintenance request -> defer before any call.
+    # Runtime monitoring is admitted in the kernel's current phase, but carries
+    # no effect authority. A malformed direct request is still quarantined.
     c = HostResourceRuntimeCoordinator(kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME), runtime_state_root=tmp_path, plan=plan)
-    assert c.run_cycle(correlation_id="deny") is None
-    assert calls["n"] == 0
+    evaluation = c.run_cycle(correlation_id="runtime-observation")
+    assert evaluation is not None
+    assert evaluation.no_effect_authority is True
+    assert c.collector_call_count == 1
+    assert calls["n"] == 1
     # Malformed duplicate/non-string metadata is not reachable through coordinator, but direct kernel quarantine also calls no collector.
     q = c.kernel.admit(type("Bad", (), {"action_kind":"", "actor":"", "target_subsystem":"", "metadata": {}, "requested_phase": LifecyclePhase.MAINTENANCE, "authority_class": __import__("sentientos.control_plane_kernel", fromlist=["AuthorityClass"]).AuthorityClass.OBSERVATION})())
     assert q.outcome.value in {"quarantine", "defer", "deny"}
-    assert calls["n"] == 0
+    assert calls["n"] == 1
 
 
 def test_duplicate_correlation_and_one_epoch_per_tick(tmp_path):

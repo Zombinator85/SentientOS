@@ -1,8 +1,8 @@
 """Authenticated, bounded transport for opt-in Windows game-screen OCR.
 
-Frames and OCR remain on the capture host. Only a bounded OCR observation is
-sent. This adapter uses the existing bridge transport and does not capture,
-retain, or authorize screen access itself.
+Frames remain on the capture host. Only bounded OCR text and an optional local
+visual summary are sent. This adapter uses the existing bridge transport and
+does not capture, retain, or authorize screen access itself.
 """
 from __future__ import annotations
 
@@ -26,15 +26,18 @@ from .gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackRuntime,
 )
 
-SCREEN_OBSERVATION_SCHEMA = "sentientos.game_screen_observation:v4"
+SCREEN_OBSERVATION_SCHEMA = "sentientos.game_screen_observation:v6"
+SCREEN_OBSERVATION_FAILURE_SCHEMA = "sentientos.game_screen_observation_failure:v1"
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _REQUEST_ID = re.compile(r"[0-9a-f]{32}\Z")
+_FAILURE_CODE = re.compile(r"(?:screen|game_screen)_[a-z0-9_]{1,80}\Z")
 _FIELDS = frozenset({
     "schema_version", "modality", "text", "text_status", "captured_at", "backend",
     "capture_digest", "process_name_digest", "consent_id_digest",
     "capture_scope", "raw_frame_retained", "text_truncated",
     "text_change_kind", "previous_text_digest",
-    "visual_change_kind", "visual_change_score",
+    "visual_change_kind", "visual_change_score", "component_statuses",
+    "component_failure_codes",
 })
 _MAX_DRAIN = 32
 
@@ -59,10 +62,39 @@ def _observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(observation, Mapping):
         raise ScreenObservationBridgeError("screen_observation_invalid")
     payload = dict(observation)
-    if set(payload) not in (_FIELDS, _FIELDS | {"capture_request_id"}):
+    optional_fields = {"component_statuses", "component_failure_codes"}
+    required_fields = _FIELDS - optional_fields
+    allowed_shapes = tuple(
+        required_fields | {field for index, field in enumerate(sorted(optional_fields))
+                           if mask & (1 << index)} | request_fields
+        for mask in range(1 << len(optional_fields))
+        for request_fields in (set(), {"capture_request_id"})
+    )
+    if set(payload) not in allowed_shapes:
         raise ScreenObservationBridgeError("screen_observation_shape_invalid")
     request_id = payload.get("capture_request_id")
     text_status = payload.get("text_status")
+    component_statuses = payload.get("component_statuses")
+    if component_statuses is not None and (
+            not isinstance(component_statuses, Mapping)
+            or not component_statuses
+            or set(component_statuses) - {"ocr", "vision"}
+            or any(not isinstance(status, str)
+                   or status not in {"available", "unavailable", "no_readable_text"}
+                   for status in component_statuses.values())
+            or (payload.get("backend") == "tesseract+local_vision"
+                and set(component_statuses) != {"ocr", "vision"})):
+        raise ScreenObservationBridgeError("screen_observation_component_status_invalid")
+    component_failures = payload.get("component_failure_codes")
+    if component_failures is not None and (
+            not isinstance(component_failures, Mapping)
+            or not component_failures
+            or not isinstance(component_statuses, Mapping)
+            or set(component_failures) - {"ocr", "vision"}
+            or any(not isinstance(code, str) or _FAILURE_CODE.fullmatch(code) is None
+                   or component_statuses.get(component) != "unavailable"
+                   for component, code in component_failures.items())):
+        raise ScreenObservationBridgeError("screen_observation_component_failure_invalid")
     if request_id is not None and (
             not isinstance(request_id, str) or _REQUEST_ID.fullmatch(request_id) is None):
         raise ScreenObservationBridgeError("screen_observation_request_id_invalid")
@@ -111,31 +143,45 @@ def _observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]:
 
 
 class WindowsScreenObservationBridgePublisher:
-    """Publish one OCR result from the existing consented Windows screen owner."""
+    """Publish bounded screen results and correlated failures from the Windows edge."""
 
     def __init__(self, *, observe: Callable[[], Mapping[str, Any] | None],
                  client: CompanionBridgeLoopbackClient, source_id: str,
-                 session_id: str, generation_id: str, source_key: bytes) -> None:
+                 session_id: str, generation_id: str, source_key: bytes,
+                 observe_question: Callable[[str], Mapping[str, Any] | None] | None = None
+                 ) -> None:
         if not callable(observe):
             raise ScreenObservationBridgeError("screen_observation_source_required")
         if not isinstance(client, CompanionBridgeLoopbackClient):
             raise ScreenObservationBridgeError("bridge_loopback_client_required")
         if not isinstance(source_key, bytes) or len(source_key) < 32:
             raise ScreenObservationBridgeError("bridge_key_too_short")
+        if observe_question is not None and not callable(observe_question):
+            raise ScreenObservationBridgeError("screen_observation_source_required")
         self._observe = observe
+        self._observe_question = observe_question
         self._client = client
         self._source_id = source_id
         self._session_id = session_id
         self._generation_id = generation_id
         self._source_key = bytes(source_key)
         self._sequence = 0
+        self._lock = threading.Lock()
 
-    def publish_once(self, *, capture_request_id: str | None = None
-                     ) -> VerifiedBridgeMessage | None:
-        """Publish one OCR result, optionally bound to one explicit chat request."""
+    def publish_once(self, *, capture_request_id: str | None = None,
+                     question: str | None = None) -> VerifiedBridgeMessage | None:
+        """Publish one result bound to an explicit request and optional user question."""
         if capture_request_id is not None and _REQUEST_ID.fullmatch(capture_request_id) is None:
             raise ScreenObservationBridgeError("screen_observation_request_id_invalid")
-        observation = self._observe()
+        if question is not None and (
+                not isinstance(question, str) or not question.strip() or len(question) > 2048):
+            raise ScreenObservationBridgeError("screen_observation_question_invalid")
+        if question is not None and self._observe_question is not None:
+            observation = self._observe_question(question)
+        elif question is not None:
+            raise ScreenObservationBridgeError("screen_observation_question_unavailable")
+        else:
+            observation = self._observe()
         if observation is None:
             return None
         payload = dict(observation)
@@ -143,12 +189,59 @@ class WindowsScreenObservationBridgePublisher:
         if capture_request_id is not None:
             payload["capture_request_id"] = capture_request_id
         payload = _observation_payload(payload)
-        encoded = encode_message(kind="observation", source_id=self._source_id,
-            session_id=self._session_id, generation_id=self._generation_id,
-            sequence=self._sequence + 1, payload=payload, key=self._source_key,
-            created_at=payload["captured_at"])
-        self._sequence += 1
-        return self._client.send(encoded)
+        with self._lock:
+            sequence = self._sequence + 1
+            encoded = encode_message(kind="observation", source_id=self._source_id,
+                session_id=self._session_id, generation_id=self._generation_id,
+                sequence=sequence, payload=payload, key=self._source_key)
+            self._sequence = sequence
+            return self._client.send(encoded)
+
+    def publish_request(self, capture_request_id: str,
+                        question: str | None = None) -> bool:
+        """Capture once and publish a failure code if that requested capture fails."""
+        try:
+            result = self.publish_once(
+                capture_request_id=capture_request_id, question=question)
+        except Exception as exc:
+            candidate = exc.args[0] if exc.args else None
+            failure_code = (
+                candidate if isinstance(candidate, str)
+                and _FAILURE_CODE.fullmatch(candidate) is not None
+                else "screen_observation_failed")
+            try:
+                self.publish_failure(capture_request_id=capture_request_id,
+                                     failure_code=failure_code)
+            except Exception as publish_error:
+                raise publish_error from exc
+            raise
+        if result is None:
+            self.publish_failure(capture_request_id=capture_request_id,
+                                 failure_code="screen_observation_unavailable")
+            return False
+        return True
+
+    def publish_failure(self, *, capture_request_id: str,
+                        failure_code: str) -> VerifiedBridgeMessage:
+        """Return a safe, request-correlated capture failure without frame data."""
+        if (not isinstance(capture_request_id, str)
+                or _REQUEST_ID.fullmatch(capture_request_id) is None):
+            raise ScreenObservationBridgeError("screen_observation_request_id_invalid")
+        if not isinstance(failure_code, str) or _FAILURE_CODE.fullmatch(failure_code) is None:
+            raise ScreenObservationBridgeError("screen_observation_failure_code_invalid")
+        payload = {
+            "schema_version": SCREEN_OBSERVATION_FAILURE_SCHEMA,
+            "capture_request_id": capture_request_id,
+            "failure_code": failure_code,
+        }
+        with self._lock:
+            sequence = self._sequence + 1
+            encoded = encode_message(kind="screen_observation_failure",
+                source_id=self._source_id, session_id=self._session_id,
+                generation_id=self._generation_id, sequence=sequence,
+                payload=payload, key=self._source_key)
+            self._sequence = sequence
+            return self._client.send(encoded)
 
 
 class BridgeScreenObservationProvider:
@@ -206,8 +299,24 @@ class BridgeScreenObservationProvider:
                         "screen_observation_request_timeout") from exc
                 raise ScreenObservationBridgeError(
                     "screen_observation_unavailable") from exc
-            if (message.kind != "observation" or message.source_id != self._source_id
+            if (message.source_id != self._source_id
                     or message.generation_id != self._generation_id):
+                raise ScreenObservationBridgeError("screen_observation_identity_invalid")
+            if message.kind == "screen_observation_failure":
+                payload = message.payload
+                if (set(payload) != {"schema_version", "capture_request_id", "failure_code"}
+                        or payload.get("schema_version")
+                            != SCREEN_OBSERVATION_FAILURE_SCHEMA
+                        or not isinstance(payload.get("capture_request_id"), str)
+                        or _REQUEST_ID.fullmatch(payload["capture_request_id"]) is None
+                        or not isinstance(payload.get("failure_code"), str)
+                        or _FAILURE_CODE.fullmatch(payload["failure_code"]) is None):
+                    raise ScreenObservationBridgeError(
+                        "screen_observation_failure_contract_invalid")
+                if payload["capture_request_id"] != capture_request_id:
+                    continue
+                raise ScreenObservationBridgeError(payload["failure_code"])
+            if message.kind != "observation":
                 raise ScreenObservationBridgeError("screen_observation_identity_invalid")
             payload = _observation_payload(message.payload)
             if payload.get("capture_request_id") != capture_request_id:
@@ -268,16 +377,22 @@ class ScreenCaptureRequestSender:
         self._sequence = 0
         self._lock = threading.Lock()
 
-    def __call__(self, capture_request_id: str) -> VerifiedBridgeMessage:
+    def __call__(self, capture_request_id: str,
+                 question: str | None = None) -> VerifiedBridgeMessage:
         if not isinstance(capture_request_id, str) or _REQUEST_ID.fullmatch(capture_request_id) is None:
             raise ScreenObservationBridgeError("screen_observation_request_id_invalid")
+        if question is not None and (
+                not isinstance(question, str) or not question.strip() or len(question) > 2048):
+            raise ScreenObservationBridgeError("screen_observation_question_invalid")
+        payload = {"capture_request_id": capture_request_id}
+        if question is not None:
+            payload["question"] = question
         with self._lock:
             self._sequence += 1
             encoded = encode_message(kind="screen_capture_request",
                 source_id=self._source_id, session_id=self._session_id,
                 generation_id=self._generation_id, sequence=self._sequence,
-                payload={"capture_request_id": capture_request_id},
-                key=self._source_key)
+                payload=payload, key=self._source_key)
         return self._client.send(encoded)
 
 
@@ -286,7 +401,9 @@ class RequestDrivenScreenObservation:
 
     def __init__(self, *, request_sender: ScreenCaptureRequestSender,
                  provider: BridgeScreenObservationProvider,
-                 timeout_seconds: float = 12.0) -> None:
+                 timeout_seconds: float = 12.0,
+                 consent_expires_at: str | None = None,
+                 foreground_wait_seconds: float = 0.0) -> None:
         if not isinstance(request_sender, ScreenCaptureRequestSender):
             raise ScreenObservationBridgeError("screen_capture_request_sender_required")
         if not isinstance(provider, BridgeScreenObservationProvider):
@@ -295,33 +412,81 @@ class RequestDrivenScreenObservation:
                 or not math.isfinite(float(timeout_seconds))
                 or not 0 < timeout_seconds <= 30):
             raise ScreenObservationBridgeError("screen_observation_wait_timeout_invalid")
+        if (isinstance(foreground_wait_seconds, bool)
+                or not isinstance(foreground_wait_seconds, (int, float))
+                or not math.isfinite(float(foreground_wait_seconds))
+                or not 0 <= foreground_wait_seconds <= 10):
+            raise ScreenObservationBridgeError(
+                "screen_observation_foreground_wait_invalid")
         self._sender = request_sender
         self._provider = provider
         self._timeout = float(timeout_seconds)
+        self._foreground_wait_seconds = float(foreground_wait_seconds)
+        self._consent_expires_at: datetime | None = None
+        if consent_expires_at is not None:
+            try:
+                parsed_expiry = datetime.fromisoformat(
+                    consent_expires_at.replace("Z", "+00:00"))
+            except (AttributeError, ValueError) as exc:
+                raise ScreenObservationBridgeError(
+                    "screen_observation_consent_expiry_invalid") from exc
+            if parsed_expiry.tzinfo is None:
+                raise ScreenObservationBridgeError(
+                    "screen_observation_consent_expiry_invalid")
+            self._consent_expires_at = parsed_expiry.astimezone(timezone.utc)
         self._lock = threading.Lock()
         self._closed = False
         self._last_text: str | None = None
+        self._last_text_backend: str | None = None
         self._last_sampled_monotonic = 0.0
 
-    def __call__(self) -> Mapping[str, object]:
+    def consent_status(self) -> dict[str, object]:
+        'Return launch-scoped consent state without exposing capture credentials.'
+        if self._consent_expires_at is None:
+            return {"consent_status": "unknown",
+                    "foreground_wait_seconds": self._foreground_wait_seconds}
+        seconds_remaining = (
+            self._consent_expires_at - datetime.now(timezone.utc)).total_seconds()
+        return {
+            "consent_status": "active" if seconds_remaining > 0 else "expired",
+            "consent_expires_at": (self._consent_expires_at.isoformat()
+                                    .replace("+00:00", "Z")),
+            "consent_seconds_remaining": max(0, int(seconds_remaining)),
+            "foreground_wait_seconds": self._foreground_wait_seconds,
+        }
+
+    def __call__(self, question: str | None = None) -> Mapping[str, object]:
+        if question is not None and (
+                not isinstance(question, str) or not question.strip() or len(question) > 2048):
+            raise ScreenObservationBridgeError("screen_observation_question_invalid")
         with self._lock:
             if self._closed:
                 raise ScreenObservationBridgeError("screen_observation_unavailable")
             request_id = uuid.uuid4().hex
-            self._sender(request_id)
+            self._sender(request_id, question=question)
             observed = dict(self._provider.wait_for_request(
                 request_id, timeout_seconds=self._timeout))
             current_text = observed.get("text")
             now = time.monotonic()
-            if (isinstance(self._last_text, str) and isinstance(current_text, str)
+            current_backend = observed.get("backend")
+            if (current_backend != "tesseract+local_vision"
+                    and current_backend == self._last_text_backend
+                    and isinstance(self._last_text, str)
+                    and isinstance(current_text, str)
                     and now - self._last_sampled_monotonic <= 30.0
                     and self._last_text != current_text):
                 from .perception.screen_text_delta import build_ocr_text_line_delta
                 observed["text_delta"] = build_ocr_text_line_delta(
                     self._last_text, current_text)
             self._last_text = current_text if isinstance(current_text, str) else None
+            self._last_text_backend = (
+                current_backend if isinstance(current_backend, str) else None)
             self._last_sampled_monotonic = now
             return observed
+
+    def observe_question(self, question: str) -> Mapping[str, object]:
+        """Capture this user's current screen to answer their local question."""
+        return self(question)
 
     def close(self) -> None:
         with self._lock:
@@ -330,6 +495,7 @@ class RequestDrivenScreenObservation:
 
 __all__ = [
     "BridgeScreenObservationProvider", "RequestDrivenScreenObservation",
-    "SCREEN_OBSERVATION_SCHEMA", "ScreenCaptureRequestSender",
+    "SCREEN_OBSERVATION_FAILURE_SCHEMA", "SCREEN_OBSERVATION_SCHEMA",
+    "ScreenCaptureRequestSender",
     "ScreenObservationBridgeError", "WindowsScreenObservationBridgePublisher",
 ]

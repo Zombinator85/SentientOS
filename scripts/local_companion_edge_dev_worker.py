@@ -107,16 +107,42 @@ def main():
         if not callable(capture):
             print("SCREEN_CAPTURE_DISPATCH result=rejected reason=owner_unavailable",flush=True)
             return False
+        request_payload=message.payload
+        question=request_payload.get("question")
+        if (set(request_payload) not in ({"capture_request_id"},
+                                         {"capture_request_id","question"})
+                or not isinstance(request_payload.get("capture_request_id"),str)
+                or (question is not None and
+                    (not isinstance(question,str) or not question.strip()
+                     or len(question)>2048))):
+            print("SCREEN_CAPTURE_DISPATCH result=rejected reason=request_payload",flush=True)
+            return False
         try:
-            accepted=capture(message.payload["capture_request_id"])
+            accepted=capture(request_payload["capture_request_id"],question=question)
         except Exception as exc:
             safe_error_types={"ScreenObservationBridgeError", "ScreenCaptureError"}
             reason=(str(exc.args[0]) if type(exc).__name__ in safe_error_types
-                    and exc.args else type(exc).__name__)
+                    and exc.args else getattr(exc,"code",type(exc).__name__))
             if not isinstance(reason,str) or not reason.isascii() or not reason.replace("_", "").isalnum():
                 reason=type(exc).__name__
+            phase=getattr(exc,"failure_phase",None)
+            phase=(phase if isinstance(phase,str) and phase.isascii()
+                   and phase.replace("_", "").isalnum() else "unknown")
+            delivery=getattr(exc,"delivery_state",None)
+            delivery=(delivery if isinstance(delivery,str) and delivery.isascii()
+                      and delivery.replace("_", "").isalnum() else "unknown")
+            failure_type=getattr(exc,"failure_type",None)
+            failure_type=(failure_type if isinstance(failure_type,str)
+                and failure_type.isascii() and failure_type.replace("_", "").isalnum()
+                else "unknown")
+            failure_reason=getattr(exc,"failure_reason",None)
+            failure_reason=(failure_reason if isinstance(failure_reason,str)
+                and failure_reason.isascii()
+                and failure_reason.replace("_", "").isalnum()
+                else "unknown")
             print("SCREEN_CAPTURE_DISPATCH result=error failure_code=" +
-                reason[:96],flush=True)
+                reason[:96]+" phase="+phase[:48]+" delivery="+delivery[:32]+
+                " cause="+failure_type[:48]+" cause_code="+failure_reason[:96],flush=True)
             return False
         print("SCREEN_CAPTURE_DISPATCH result=" +
             ("published" if accepted else "no_observation"),flush=True)
@@ -176,12 +202,18 @@ def main():
                 consent_id=screen_cfg["consent_id"],
                 allowed_process_names=tuple(screen_cfg["process_names"]),
                 expires_at=screen_cfg["consent_expires_at"])
+            vision_model=screen_cfg.get("vision_model")
+            if vision_model is not None and not isinstance(vision_model,str):
+                raise RuntimeError("screen_observation_vision_model_invalid")
             screen_owner=build_windows_game_screen_ocr(
                 config=ScreenConfig(enable=True,interval_s=0.0,ocr_backend="tesseract",
                     refresh_unchanged_observation=True,
                     visual_change_threshold=0.035),
                 consent_provider=lambda: consent,
-                tesseract_executable=tesseract_executable)
+                tesseract_executable=tesseract_executable,
+                vision_model=vision_model,
+                foreground_wait_seconds=float(
+                    screen_cfg.get("foreground_wait_seconds", 0.0)))
             screen_ack_key=base64.b64decode(screen_cfg["ack_key"])
             screen_source_key=base64.b64decode(screen_cfg["source_key"])
             screen_ack_receiver=CompanionBridgeReceiver(
@@ -190,20 +222,25 @@ def main():
                     screen_cfg["ack_generation_id"]})
             screen_client=CompanionBridgeLoopbackClient(
                 port=int(screen_cfg["port"]),
-                acknowledgment_receiver=screen_ack_receiver,timeout_seconds=1.5)
+                acknowledgment_receiver=screen_ack_receiver,timeout_seconds=5.0)
             screen_publisher=WindowsScreenObservationBridgePublisher(
-                observe=screen_owner.snapshot,client=screen_client,
+                observe=screen_owner.snapshot,observe_question=screen_owner.snapshot,
+                client=screen_client,
                 source_id=screen_cfg["source_id"],session_id="windows-game-screen-dev",
                 generation_id=screen_cfg["source_generation_id"],
                 source_key=screen_source_key)
-            screen_dispatch_state["capture"] = lambda request_id: (
-                screen_publisher.publish_once(capture_request_id=request_id) is not None)
+            screen_dispatch_state["capture"] = screen_publisher.publish_request
             print("SCREEN_CAPTURE_READY policy=per-message raw_frame_retained=false",flush=True)
         dispatcher.start()
         env={key:value for key,value in os.environ.items()
              if not any(marker in key.upper() for marker in
                 ("API_KEY","TOKEN","SECRET","PASSWORD","CREDENTIAL","AUTH","PRIVATE_KEY","BEARER"))}
         profile=root/"profile"
+        # Persist user-facing overlay preferences across disposable dev runner profiles.
+        local_app_data=Path(os.environ.get("LOCALAPPDATA", str(profile/"LOCALAPPDATA")))
+        persistent_config=local_app_data/"SentientOS"/"companion_overlay.cfg"
+        persistent_config.parent.mkdir(parents=True,exist_ok=True)
+        env["SENTIENTOS_OVERLAY_CONFIG_PATH"]=str(persistent_config)
         for name in ("APPDATA","LOCALAPPDATA","TEMP","TMP"):
             target=profile/name;target.mkdir(parents=True,exist_ok=True);env[name]=str(target)
         env["HOME"]=str(profile)

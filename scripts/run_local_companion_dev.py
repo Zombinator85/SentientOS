@@ -5,10 +5,14 @@ Requires SENTIENTOS_MODEL_CONFIG to point at one digest-pinned Ollama candidate
 or an ordered normal/gaming pair. All transcripts, invocation receipts, and
 process coordination stay in --state-dir.
 This process is a supervised development composition, never production serving.
-Screen OCR is disabled unless an allowlisted process and consent lifetime are
-passed on the CLI. When enabled, the Windows edge captures only on an explicit
-chat request, keeps raw frames local and transient, and sends bounded OCR text
-over the authenticated bridge; each chat message still needs the UI checkbox.
+Screen observation is disabled unless an allowlisted process and consent
+lifetime are passed on the CLI. When enabled, the Windows edge captures only
+on an explicit chat request, keeps raw frames local and transient, and sends
+bounded observation text over the authenticated bridge; each chat message
+still needs
+the UI checkbox. Optional local visual summaries use an explicitly named
+Ollama model on the Windows loopback interface and never send raw frames over
+the bridge.
 `--godot-headless` keeps the supervised edge from opening a visible Godot
 window during game-screen observation.
 """
@@ -22,6 +26,7 @@ import hmac
 import json
 import os
 import queue
+import re
 import secrets
 import shutil
 import subprocess
@@ -421,7 +426,9 @@ class _TemporaryCompanionEdge:
                  game_process_names: tuple[str, ...] = (),
                  screen_observation_process_names: tuple[str, ...] = (),
                  screen_observation_consent_minutes: int = 60,
+                 screen_observation_foreground_wait_seconds: int = 5,
                  screen_observation_tesseract_executable: str | None = None,
+                 screen_observation_vision_model: str | None = None,
                  delivery_event_file: Path | None = None) -> None:
         from scripts.gaming_companion_cross_host_smoke import (
             _addresses, _contexts, _test_identities, _win_path, _win_temp,
@@ -501,7 +508,11 @@ class _TemporaryCompanionEdge:
                 observation_port = self._foreground_runtime.start()
                 bridge_detector = BridgeForegroundGameDetector(
                     runtime=self._foreground_runtime, source_id=observer_source_id,
-                    generation_id=observer_source_generation, max_observation_age_seconds=15.0)
+                    # The bridge envelope admits up to 30 seconds of wall-clock
+                    # skew; keep this detector aligned with that bound. The
+                    # pump samples every second and stale data still fails to
+                    # conservative gaming mode when the bounded window expires.
+                    generation_id=observer_source_generation, max_observation_age_seconds=30.0)
                 self.foreground_game_detector = _LatestForegroundObservation(
                     detector=bridge_detector, process_names=game_process_names)
                 config["foreground_observation"] = {
@@ -544,8 +555,12 @@ class _TemporaryCompanionEdge:
                 screen_request_material = (screen_provider, screen_request_key)
                 consent_expires = (datetime.now(timezone.utc)
                     + timedelta(minutes=screen_observation_consent_minutes))
+                if (type(screen_observation_foreground_wait_seconds) is not int
+                        or not 0 <= screen_observation_foreground_wait_seconds <= 10):
+                    raise ValueError("screen_observation_foreground_wait_out_of_range")
                 config["screen_observation"] = {
                     "port": screen_port,
+                    "foreground_wait_seconds": screen_observation_foreground_wait_seconds,
                     "source_key": base64.b64encode(screen_source_key).decode("ascii"),
                     "ack_key": base64.b64encode(screen_ack_key).decode("ascii"),
                     "source_id": screen_source_id,
@@ -559,6 +574,14 @@ class _TemporaryCompanionEdge:
                     "consent_id": "chat-screen-" + uuid.uuid4().hex,
                     "consent_expires_at": consent_expires.isoformat().replace("+00:00", "Z"),
                 }
+                if screen_observation_vision_model is not None:
+                    if (not isinstance(screen_observation_vision_model, str)
+                            or re.fullmatch(
+                                r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}",
+                                screen_observation_vision_model) is None):
+                        raise ValueError("screen_observation_vision_model_invalid")
+                    config["screen_observation"]["vision_model"] = (
+                        screen_observation_vision_model)
                 if screen_observation_tesseract_executable is not None:
                     executable = screen_observation_tesseract_executable
                     if (not isinstance(executable, str) or not executable
@@ -622,7 +645,10 @@ class _TemporaryCompanionEdge:
                     source_key=screen_request_key)
                 self.screen_observer = RequestDrivenScreenObservation(
                     request_sender=request_sender, provider=screen_provider,
-                    timeout_seconds=12.0)
+                    timeout_seconds=30.0,
+                    consent_expires_at=config["screen_observation"]["consent_expires_at"],
+                    foreground_wait_seconds=config["screen_observation"][
+                        "foreground_wait_seconds"])
             self._sender = MutualTLSAvatarCommandSender(
                 client=client, source_id="wsl-core-dev", session_id=None,
                 generation_id="wsl-avatar-dev-1", source_key=avatar_key,
@@ -777,14 +803,25 @@ def main() -> int:
     parser.add_argument("--godot-project", type=Path)
     parser.add_argument("--godot-headless", action="store_true",
                         help="Run the supervised development edge without opening a Godot window")
+    parser.add_argument("--local-speech-output", action="store_true",
+                        help=("Expose opt-in local pyttsx3 speech; playback remains disabled "
+                              "until approved for a conversation in the chat UI"))
     parser.add_argument("--screen-observation-process", action="append", default=[],
                         metavar="GAME.exe",
                         help=("Configure launch-scoped consent for per-message local OCR on "
                               "this allowlisted foreground game"))
     parser.add_argument("--screen-observation-consent-minutes", type=int, default=60,
                         help="Expire opt-in screen OCR consent after 1 to 240 minutes")
+    parser.add_argument("--screen-observation-foreground-wait-seconds",
+                        type=int, default=5,
+                        help=("After a per-message request, wait up to 0-10 seconds for "
+                              "the allowlisted game to become foreground"))
     parser.add_argument("--screen-observation-tesseract-executable",
                         help="Use an explicit local Tesseract executable for screen OCR")
+    parser.add_argument("--screen-observation-vision-model",
+                        help=("Optionally add one-sentence visual descriptions using the "
+                              "named Ollama model over loopback; frame data stays local and "
+                              "the model is not kept resident"))
     args = parser.parse_args()
     if args.host != "127.0.0.1" or not 1 <= args.port <= 65535:
         parser.error("development chat must bind only to 127.0.0.1")
@@ -800,8 +837,18 @@ def main() -> int:
     if (args.screen_observation_tesseract_executable is not None
             and not args.screen_observation_process):
         parser.error("a Tesseract executable requires screen observation opt-in")
+    if (args.screen_observation_vision_model is not None
+            and not args.screen_observation_process):
+        parser.error("a local vision model requires screen observation opt-in")
+    if (args.screen_observation_vision_model is not None
+            and re.fullmatch(
+                r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}",
+                args.screen_observation_vision_model) is None):
+        parser.error("screen observation vision model name is invalid")
     if not 1 <= args.screen_observation_consent_minutes <= 240:
         parser.error("screen observation consent minutes must be between 1 and 240")
+    if not 0 <= args.screen_observation_foreground_wait_seconds <= 10:
+        parser.error("screen observation foreground wait must be between 0 and 10 seconds")
     config_path = os.environ.get("SENTIENTOS_MODEL_CONFIG")
     if not config_path or not Path(config_path).is_file():
         parser.error("SENTIENTOS_MODEL_CONFIG must identify the pinned local Ollama model")
@@ -904,8 +951,11 @@ def main() -> int:
                 game_process_names=tuple(args.game_process_name),
                 screen_observation_process_names=tuple(args.screen_observation_process),
                 screen_observation_consent_minutes=args.screen_observation_consent_minutes,
+                screen_observation_foreground_wait_seconds=(
+                    args.screen_observation_foreground_wait_seconds),
                 screen_observation_tesseract_executable=(
                     args.screen_observation_tesseract_executable),
+                screen_observation_vision_model=args.screen_observation_vision_model,
                 delivery_event_file=state / "evidence" / "avatar-delivery-events.jsonl")
         gaming_vram_guard = _GamingResourcePressureGuard()
         development_inference = configure_development_chat(
@@ -918,7 +968,8 @@ def main() -> int:
             game_process_names=tuple(args.game_process_name),
             gaming_keep_alive=args.gaming_keep_alive,
             screen_observer=edge.screen_observer if edge else None,
-            screen_capture_policy="request_driven")
+            screen_capture_policy="request_driven",
+            local_speech_output=args.local_speech_output)
         def release_model_for_gaming_resource_pressure(
                 reason_code: str) -> Mapping[str, Any] | None:
             if not invoker.model.is_resident():

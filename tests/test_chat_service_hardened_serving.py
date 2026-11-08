@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+import hashlib
 import json
 import time
 
@@ -56,6 +57,8 @@ class Inference:
         output_lineage = {"status": "exact_invocation_output_match",
             "invocation_output_digest": chat_service.digest_payload({"output": output}),
             "transcript_text_digest": chat_service.digest_payload({"text": output}),
+            "invocation_output_text_sha256": hashlib.sha256(output.encode("utf-8")).hexdigest(),
+            "transcript_text_sha256": hashlib.sha256(output.encode("utf-8")).hexdigest(),
             "output_truncated": False}
         request = {"request_id": request_id, "active_model_identity": loaded_identity,
             "upstream_evidence": {"current_serving_lifetime": {
@@ -175,6 +178,10 @@ def test_successful_turn_and_second_turn_have_distinct_inference_correlations(tm
     first = app.chat("one")
     second = app.chat("two", session_id=first.session_id)
     assert first.response == second.response == "answer"
+    expected_text_digest = hashlib.sha256(b"answer").hexdigest()
+    assert first.response_diagnostics["invocation_output_text_sha256"] == expected_text_digest
+    assert first.response_diagnostics["transcript_text_sha256"] == expected_text_digest
+    assert first.response_diagnostics["delivery_text_sha256"] == expected_text_digest
     assert len(inference.calls) == 2
     correlations = [call["correlation_id"] for call in inference.calls]
     assert correlations[0] != correlations[1]
@@ -187,6 +194,131 @@ def test_successful_turn_and_second_turn_have_distinct_inference_correlations(tm
     assert set(inference.calls[1]["caller_linkage"]) == base_linkage | {
         "verified_predecessor_invocation", "verified_predecessor_runtime_handoff_digest",
         "verified_predecessor_runtime_software_generation_digest"}
+
+
+def test_idempotent_replay_preserves_verified_answer_lineage(tmp_path):
+    inference = Inference()
+    app = service(tmp_path, inference)
+    session_id = app.create_session()
+    first = app.chat("same request", session_id=session_id, request_id="lineage-replay")
+    replay = app.chat("same request", session_id=session_id, request_id="lineage-replay")
+    assert replay.turn_id == first.turn_id
+    assert replay.response == first.response
+    assert replay.response_diagnostics == first.response_diagnostics
+    assert len(inference.calls) == 1
+
+
+
+def test_nonstreaming_inference_keeps_runtime_status_responsive(monkeypatch):
+    import asyncio
+    import threading
+
+    entered = threading.Event()
+    release = threading.Event()
+    status_checks = []
+
+    class BlockingService:
+        _inference = object()
+
+        def chat(self, message, **kwargs):
+            entered.set()
+            assert release.wait(2)
+            return chat_service.ChatResponse(
+                response="answer", session_id="session", turn_id="turn",
+                context={}, retention={})
+
+        def current_workload_state(self):
+            return {"effective_mode": "gaming"}
+
+        def screen_observation_configured(self):
+            return False
+
+        def speech_output_state(self, session_id):
+            return {"configured": True, "backend_available": True}
+
+    monkeypatch.setattr(chat_service, "_get_conversation_service",
+                        lambda: BlockingService())
+    monkeypatch.setattr(chat_service, "production_chat_ready", lambda: True)
+
+    async def exercise_concurrent_runtime_status():
+        async def monitor():
+            while not release.is_set():
+                if entered.is_set():
+                    status = await chat_service.runtime_status_endpoint()
+                    status_checks.append(status)
+                await asyncio.sleep(0.01)
+
+        monitor_task = asyncio.create_task(monitor())
+        release_timer = threading.Timer(0.25, release.set)
+        release_timer.start()
+        try:
+            response = await chat_service.chat_endpoint(
+                chat_service.ChatRequest(message="hold inference"))
+            assert response.response == "answer"
+        finally:
+            release.set()
+            release_timer.cancel()
+            await monitor_task
+
+    asyncio.run(exercise_concurrent_runtime_status())
+    assert len(status_checks) >= 3
+
+
+def test_saved_transcript_turns_include_display_safe_answer_lineage(
+        monkeypatch, tmp_path):
+    import asyncio
+
+    inference = Inference()
+    app = service(tmp_path, inference)
+    first = app.chat("show saved answer")
+    monkeypatch.setattr(chat_service, "_get_conversation_service", lambda: app)
+    request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"))
+    payload = asyncio.run(chat_service.inspect_session_turns(
+        first.session_id, request))
+
+    assert payload["total_turns"] == 2
+    user_turn, assistant_turn = payload["turns"]
+    assert "response_diagnostics" not in user_turn
+    assert "linkage" not in assistant_turn
+    diagnostics = assistant_turn["response_diagnostics"]
+    expected = hashlib.sha256(b"answer").hexdigest()
+    assert diagnostics["status"] == "exact_invocation_output_match"
+    assert diagnostics["invocation_output_text_sha256"] == expected
+    assert diagnostics["transcript_text_sha256"] == expected
+    assert diagnostics["saved_transcript_text_sha256"] == expected
+    assert diagnostics["delivery_text_sha256"] == expected
+    assert diagnostics["delivery_text_digest_source"] == "computed_from_saved_transcript"
+    assert diagnostics["transcript_text_digest_source"] == "stored_invocation_lineage"
+
+    legacy = chat_service._saved_transcript_response_diagnostics({
+        "role": "assistant", "text": "historical answer", "linkage": {}})
+    legacy_digest = hashlib.sha256(b"historical answer").hexdigest()
+    assert legacy["status"] == "historical_lineage_unavailable"
+    assert legacy["transcript_text_sha256"] == legacy_digest
+    assert legacy["transcript_text_digest_source"] == "computed_from_saved_transcript"
+    assert legacy["delivery_text_sha256"] == legacy_digest
+    assert legacy["delivery_text_digest_source"] == "computed_from_saved_transcript"
+    assert "invocation_output_text_sha256" not in legacy
+
+    screen = chat_service._saved_transcript_response_diagnostics({
+        "role": "assistant", "text": "answer", "linkage": {
+            "screen_observation_provenance": {
+                "captured_at": "2026-11-07T13:05:21Z",
+                "text_status": "available", "backend": "tesseract+local_vision",
+                "component_statuses": {
+                    "ocr": "unavailable", "vision": "available"},
+                "component_failure_codes": {"ocr": "game_screen_ocr_timeout"},
+                "raw_frame_retained": False,
+                "text": "must not be exposed",
+            },
+        },
+    })
+    assert screen["screen_observation"]["component_statuses"] == {
+        "ocr": "unavailable", "vision": "available"}
+    assert screen["screen_observation"]["component_failure_codes"] == {
+        "ocr": "game_screen_ocr_timeout"}
+    assert screen["screen_observation"]["raw_frame_retained"] is False
+    assert "text" not in screen["screen_observation"]
 
 
 def test_new_chat_turn_interrupts_previous_local_speech(tmp_path):
@@ -462,6 +594,30 @@ def test_chat_speech_output_is_published_only_through_configured_controller(tmp_
         with TestClient(chat_service.APP) as client:
             page = client.get("/")
             assert "Speak replies with local voice" in page.text
+            assert 'id="local-runtime-status"' in page.text
+            assert 'id="response-integrity"' in page.text
+            assert "Answer lineage details" in page.text
+            assert "Saved answer integrity" in page.text
+            assert "saved_transcript_text_sha256" in page.text
+            assert "API-delivered text SHA-256" in page.text
+            assert "Local visual description" in page.text
+            assert "Local visual-description failure" in page.text
+            assert "Local OCR" in page.text
+            assert "Local OCR failure" in page.text
+            assert "delivery_text_digest_source" in page.text
+            assert 'displayedDigest === transcriptDigest' in page.text
+            assert 'displayedDigest === deliveryDigest' in page.text
+            assert "API-delivered transcript text differs" in page.text
+            assert "event.failure_code" in page.text
+            assert "return focus to the approved game within the configured foreground wait" in page.text
+            assert "The approved game must already be foreground when you send." in page.text
+            assert "Uncheck the screen option for text only" in page.text
+            assert "String.fromCharCode(13)" in page.text
+            assert "new URLSearchParams(window.location.search)" in page.text
+            assert "requestedSessionIdIsValid" in page.text
+            assert "Watched game is foreground; low-work mode active" in page.text
+            assert "Watched game is running in background; focus it and verify the screen-capture executable allowlist" in page.text
+            assert "No watched game process found; check the executable names" in page.text
             assert client.get("/speech-output", params={"session_id": session_id}).json()["enabled"] is False
             enabled = client.post("/speech-output", json={"session_id": session_id, "enabled": True})
             assert enabled.status_code == 200 and enabled.json()["enabled"] is True

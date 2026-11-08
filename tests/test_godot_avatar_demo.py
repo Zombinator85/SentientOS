@@ -47,6 +47,40 @@ def test_godot_avatar_demo_scripts_parse_in_supported_engine(tmp_path: Path) -> 
     assert "Failed to load script" not in output, output
 
 
+def test_godot_companion_chat_ui_integrity_probe(tmp_path: Path) -> None:
+    executable = godot_executable()
+    if executable is None:
+        pytest.skip("Godot is unavailable in this validation environment")
+
+    source = Path(__file__).parents[1] / "godot_avatar_demo"
+    project = tmp_path / "godot_avatar_demo"
+    shutil.copytree(source, project, ignore=shutil.ignore_patterns(".godot", "*.uid"))
+    isolated_dirs = {
+        "HOME": tmp_path / "home",
+        "XDG_CACHE_HOME": tmp_path / "cache",
+        "FONTCONFIG_CACHE_DIR": tmp_path / "font-cache",
+        "APPDATA": tmp_path / "appdata",
+        "LOCALAPPDATA": tmp_path / "localappdata",
+    }
+    for directory in isolated_dirs.values():
+        directory.mkdir()
+    environment = os.environ.copy()
+    environment.update({key: str(value) for key, value in isolated_dirs.items()})
+
+    result = subprocess.run(
+        [executable, "--headless", "--path", str(project), "--script",
+         "res://tests/companion_chat_ui_integrity_probe.gd"],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=45,
+        env=environment,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert "Godot companion chat UI probe passed." in output, output
+
+
 def test_godot_companion_scene_instantiates_and_responds_to_avatar_state(tmp_path: Path) -> None:
     executable = godot_executable()
     if executable is None:

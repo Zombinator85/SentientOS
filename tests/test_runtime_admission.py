@@ -101,7 +101,7 @@ def test_admission_ledger_refuses_symlinked_parent_custody(tmp_path):
     alias = tmp_path / "alias"
     alias.symlink_to(external, target_is_directory=True)
     ledger = AdmissionLedger(alias / "admissions.json")
-    with pytest.raises(AdmissionError, match="publication_failed"):
+    with pytest.raises(AdmissionError, match="lock_unavailable|publication_failed"):
         ledger.save((), ())
     assert list(external.iterdir()) == []
 

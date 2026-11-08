@@ -11,7 +11,7 @@ from sentientos.gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackClient,
     CompanionBridgeLoopbackRuntime,
 )
-from sentientos.perception.screen_ocr import ScreenConfig, ScreenOCR
+from sentientos.perception.screen_ocr import ScreenCaptureError, ScreenConfig, ScreenOCR
 
 from sentientos.screen_observation_bridge import (
     BridgeScreenObservationProvider,
@@ -30,7 +30,8 @@ SOURCE_GENERATION = "windows-screen-generation-1"
 NOW = datetime.now(timezone.utc)
 
 
-def _payload(*, captured_at: datetime = NOW) -> dict[str, object]:
+def _payload(*, captured_at: datetime | None = None) -> dict[str, object]:
+    captured_at = datetime.now(timezone.utc) if captured_at is None else captured_at
     return {
         "modality": "screen",
         "text": "quest objective: find the observatory",
@@ -82,7 +83,7 @@ def test_screen_ocr_observation_crosses_authenticated_bridge_as_bounded_text():
         assert acknowledgment.payload["disposition"] == "accepted"
 
         observed = provider()
-        assert observed["schema_version"] == "sentientos.game_screen_observation:v4"
+        assert observed["schema_version"] == "sentientos.game_screen_observation:v6"
         assert observed["text"] == "quest objective: find the observatory"
         assert observed["raw_frame_retained"] is False
         assert "rgb" not in observed
@@ -96,6 +97,50 @@ def test_screen_ocr_observation_crosses_authenticated_bridge_as_bounded_text():
         runtime.close()
 
 
+def test_slow_vision_result_keeps_capture_time_but_uses_fresh_bridge_timestamp():
+    runtime, client, _provider = _setup()
+    captured_at = datetime.now(timezone.utc) - timedelta(seconds=60)
+    try:
+        publisher = WindowsScreenObservationBridgePublisher(
+            observe=lambda: _payload(captured_at=captured_at), client=client,
+            source_id=SOURCE_ID, session_id="screen-session-1",
+            generation_id=SOURCE_GENERATION, source_key=SOURCE_KEY)
+        acknowledgment = publisher.publish_once()
+        assert acknowledgment is not None
+        assert acknowledgment.payload["disposition"] == "accepted"
+
+        observed = runtime.receive(timeout=1)
+        assert observed.created_at > captured_at.isoformat().replace("+00:00", "Z")
+        assert observed.payload["captured_at"] == captured_at.isoformat().replace("+00:00", "Z")
+    finally:
+        runtime.close()
+
+
+def test_component_statuses_cross_authenticated_bridge_without_screen_text_retention():
+    runtime, client, provider = _setup()
+    observation = _payload()
+    observation["backend"] = "tesseract+local_vision"
+    observation["component_statuses"] = {
+        "ocr": "unavailable", "vision": "available"}
+    observation["component_failure_codes"] = {
+        "ocr": "game_screen_ocr_backend_unavailable"}
+    try:
+        publisher = WindowsScreenObservationBridgePublisher(
+            observe=lambda: observation, client=client, source_id=SOURCE_ID,
+            session_id="screen-session-1", generation_id=SOURCE_GENERATION,
+            source_key=SOURCE_KEY)
+        assert publisher.publish_once() is not None
+        observed = provider()
+        assert observed["component_statuses"] == {
+            "ocr": "unavailable", "vision": "available"}
+        assert observed["component_failure_codes"] == {
+            "ocr": "game_screen_ocr_backend_unavailable"}
+        assert observed["raw_frame_retained"] is False
+        assert "rgb" not in observed
+    finally:
+        runtime.close()
+
+
 def test_initial_empty_screen_ocr_result_crosses_authenticated_bridge():
     runtime, client, provider = _setup()
     owner = ScreenOCR(
@@ -103,7 +148,7 @@ def test_initial_empty_screen_ocr_result_crosses_authenticated_bridge():
         capture_fn=lambda: {
             "rgb": b"\x00\x00\x00", "width": 1, "height": 1,
             "capture_digest": "a" * 64,
-            "captured_at": NOW.isoformat().replace("+00:00", "Z"),
+            "captured_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "capture_scope": "allowlisted_foreground_game_client_area",
             "process_name_digest": "b" * 64, "consent_id_digest": "c" * 64,
         },
@@ -159,6 +204,13 @@ def test_empty_ocr_is_a_valid_explicit_no_readable_text_observation():
     ({"visual_change_kind": "event_detected", "visual_change_score": 0.5},
      "screen_observation_contract_invalid"),
     ({"visual_change_score": 1.5}, "screen_observation_contract_invalid"),
+    ({"component_statuses": {"vision": "maybe"}},
+     "screen_observation_component_status_invalid"),
+    ({"component_failure_codes": {"vision": "game_screen_vision_timeout"}},
+     "screen_observation_component_failure_invalid"),
+    ({"backend": "tesseract+local_vision",
+      "component_statuses": {"vision": "available"}},
+     "screen_observation_component_status_invalid"),
     ({"capture_request_id": "invalid"}, "screen_observation_request_id_invalid"),
     ({"unexpected": "field"}, "screen_observation_shape_invalid"),
 ])
@@ -202,12 +254,23 @@ def test_request_driven_capture_publishes_only_the_matching_message_observation(
         session_id="wsl-screen-session",
         generation_id="screen-request-generation-1", source_key=request_key)
     capture_calls = []
-    samples = ["Quest\nOld screen", "Quest\nFind the key", "Quest\nOpen the gate"]
+    samples = [
+        "Quest\nOld screen",
+        "Quest\nFind the key",
+        "Quest\nOpen the gate",
+        "Visual summary (local model): armored figure beside stained glass",
+    ]
+    backends = [
+        "local-ocr-fixture", "local-ocr-fixture", "local-ocr-fixture",
+        "tesseract+local_vision",
+    ]
     previous_text = []
     def capture_once():
         capture_calls.append(True)
         observation = _payload()
+        sample_index = len(capture_calls) - 1
         observation["text"] = samples.pop(0)
+        observation["backend"] = backends[sample_index]
         observation["text_change_kind"] = "initial" if not previous_text else "changed"
         observation["previous_text_digest"] = (
             None if not previous_text else hashlib.sha256(
@@ -226,7 +289,7 @@ def test_request_driven_capture_publishes_only_the_matching_message_observation(
 
     def capture_requests():
         try:
-            for _ in range(2):
+            for _ in range(3):
                 request = request_runtime.receive(timeout=2)
                 assert request.kind == "screen_capture_request"
                 publisher.publish_once(
@@ -237,7 +300,15 @@ def test_request_driven_capture_publishes_only_the_matching_message_observation(
     worker = threading.Thread(target=capture_requests)
     worker.start()
     request_driven = RequestDrivenScreenObservation(
-        request_sender=request_sender, provider=provider, timeout_seconds=0.1)
+        request_sender=request_sender, provider=provider, timeout_seconds=0.1,
+        consent_expires_at="2099-01-01T00:00:00Z",
+        foreground_wait_seconds=5.0)
+    assert request_driven.consent_status()["consent_status"] == "active"
+    assert request_driven.consent_status()["foreground_wait_seconds"] == 5.0
+    expired_observer = RequestDrivenScreenObservation(
+        request_sender=request_sender, provider=provider, timeout_seconds=0.1,
+        consent_expires_at="2000-01-01T00:00:00Z")
+    assert expired_observer.consent_status()["consent_status"] == "expired"
     try:
         observed = request_driven()
         assert not failures
@@ -246,13 +317,18 @@ def test_request_driven_capture_publishes_only_the_matching_message_observation(
         assert first_request_id and first_request_id != stale_request_id
         assert observed["text"] == "Quest\nFind the key"
         changed = request_driven()
-        worker.join(timeout=2)
-        assert not worker.is_alive()
         assert len(capture_calls) == 3
         assert changed["capture_request_id"] != first_request_id
         assert changed["text"] == "Quest\nOpen the gate"
         assert changed["text_delta"]["added_lines"] == ["Open the gate"]
         assert changed["text_delta"]["removed_lines"] == ["Find the key"]
+        vision = request_driven()
+        worker.join(timeout=2)
+        assert not worker.is_alive()
+        assert vision["backend"] == "tesseract+local_vision"
+        assert vision["text"].startswith("Visual summary (local model):")
+        assert "text_delta" not in vision
+        assert len(capture_calls) == 4
         with pytest.raises(ScreenObservationBridgeError,
                            match="screen_observation_request_timeout"):
             request_driven()
@@ -288,8 +364,11 @@ def test_request_bound_capture_uses_monotonic_deadline_across_host_clock_skew():
         client=request_client, source_id="wsl-screen-request",
         session_id="wsl-screen-session",
         generation_id="screen-request-generation-1", source_key=request_key)
+    questions = []
     publisher = WindowsScreenObservationBridgePublisher(
-        observe=_payload, client=observation_client, source_id=SOURCE_ID,
+        observe=_payload,
+        observe_question=lambda question: (questions.append(question) or _payload()),
+        client=observation_client, source_id=SOURCE_ID,
         session_id="screen-session-1", generation_id=SOURCE_GENERATION,
         source_key=SOURCE_KEY)
     failures = []
@@ -297,7 +376,9 @@ def test_request_bound_capture_uses_monotonic_deadline_across_host_clock_skew():
     def capture_request():
         try:
             request = request_runtime.receive(timeout=2)
-            publisher.publish_once(capture_request_id=request.payload["capture_request_id"])
+            publisher.publish_once(
+                capture_request_id=request.payload["capture_request_id"],
+                question=request.payload.get("question"))
         except Exception as exc:
             failures.append(exc)
 
@@ -306,12 +387,78 @@ def test_request_bound_capture_uses_monotonic_deadline_across_host_clock_skew():
     request_driven = RequestDrivenScreenObservation(
         request_sender=request_sender, provider=provider, timeout_seconds=1)
     try:
-        observed = request_driven()
+        question = "How many candles are visible?"
+        observed = request_driven(question)
         worker.join(timeout=2)
         assert not worker.is_alive()
         assert not failures
         assert observed["capture_request_id"]
         assert observed["text"] == "quest objective: find the observatory"
+        assert questions == [question]
+        assert "question" not in observed
+    finally:
+        request_driven.close()
+        request_runtime.close()
+        runtime.close()
+
+
+def test_request_driven_capture_failure_returns_specific_code_without_waiting_for_timeout():
+    runtime, observation_client, provider = _setup()
+    request_key = b"screen-request-key-material-32-bytes"
+    request_ack_key = b"screen-request-ack-key-material-32-bytes"
+    request_runtime = CompanionBridgeLoopbackRuntime(
+        receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-screen-request": request_key},
+            expected_generations={"wsl-screen-request": "screen-request-generation-1"}),
+        acknowledgment_source_id="windows-screen-request-ack",
+        acknowledgment_generation_id="windows-screen-request-ack-generation-1",
+        acknowledgment_key=request_ack_key)
+    request_port = request_runtime.start()
+    request_sender = ScreenCaptureRequestSender(
+        client=CompanionBridgeLoopbackClient(
+            port=request_port,
+            acknowledgment_receiver=CompanionBridgeReceiver(
+                source_keys={"windows-screen-request-ack": request_ack_key},
+                expected_generations={"windows-screen-request-ack":
+                                      "windows-screen-request-ack-generation-1"}),
+            timeout_seconds=1),
+        source_id="wsl-screen-request", session_id="wsl-screen-session",
+        generation_id="screen-request-generation-1", source_key=request_key)
+    def fail_capture():
+        raise ScreenCaptureError("game_screen_foreground_process_not_allowlisted")
+
+    publisher = WindowsScreenObservationBridgePublisher(
+        observe=fail_capture, client=observation_client, source_id=SOURCE_ID,
+        session_id="screen-session-1", generation_id=SOURCE_GENERATION,
+        source_key=SOURCE_KEY)
+    failures = []
+
+    def report_capture_failure():
+        try:
+            request = request_runtime.receive(timeout=2)
+            publisher.publish_request(request.payload["capture_request_id"])
+        except ScreenCaptureError as exc:
+            if exc.args != ("game_screen_foreground_process_not_allowlisted",):
+                failures.append(exc)
+        except Exception as exc:
+            failures.append(exc)
+
+    worker = threading.Thread(target=report_capture_failure)
+    worker.start()
+    request_driven = RequestDrivenScreenObservation(
+        request_sender=request_sender, provider=provider, timeout_seconds=2)
+    try:
+        observed_error = None
+        try:
+            request_driven()
+        except ScreenObservationBridgeError as exc:
+            observed_error = exc
+        worker.join(timeout=2)
+        assert not worker.is_alive()
+        assert not failures
+        assert observed_error is not None
+        assert observed_error.args == (
+            "game_screen_foreground_process_not_allowlisted",)
     finally:
         request_driven.close()
         request_runtime.close()

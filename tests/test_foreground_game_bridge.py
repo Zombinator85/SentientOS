@@ -118,6 +118,25 @@ def test_non_game_observation_returns_to_normal_and_preserves_source_lineage():
         detector.close()
 
 
+def test_foreground_observation_accepts_sample_within_cross_host_clock_skew_bound():
+    # Windows and WSL clocks can differ while the message is fresh at its source.
+    # The authenticated bridge itself accepts at most 30 seconds of skew.
+    skewed_stamp = (NOW - timedelta(seconds=14)).isoformat()
+    runtime = _publish(ForegroundGameObservation(
+        'available', True, hashlib.sha256(b'game.exe').hexdigest(), skewed_stamp))
+    detector = BridgeForegroundGameDetector(
+        runtime=runtime, source_id=SOURCE_ID, generation_id=SOURCE_GENERATION,
+        clock=lambda: NOW, max_observation_age_seconds=30)
+    controller = _automatic_controller(detector)
+    try:
+        state = controller.current_workload_state()
+        assert state['effective_mode'] == 'gaming'
+        assert state['mode_source'] == 'foreground_allowlist_match'
+        assert state['observation_status'] == 'available'
+    finally:
+        detector.close()
+
+
 def test_stale_observation_fails_into_conservative_gaming_mode():
     stale_stamp = (NOW - timedelta(seconds=10)).isoformat()
     runtime = _publish(ForegroundGameObservation(

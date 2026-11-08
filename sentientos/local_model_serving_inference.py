@@ -1,6 +1,7 @@
 """Separately admitted inference against an opaque, current serving lifetime."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import threading
@@ -500,6 +501,10 @@ class ProductionServingInferenceController:
                 "status": output_posture,
                 "invocation_output_digest": value.get("output_digest"),
                 "transcript_text_digest": transcript_text_digest,
+                "invocation_output_text_sha256": hashlib.sha256(
+                    str(value.get("output_text", "")).encode("utf-8")).hexdigest(),
+                "transcript_text_sha256": hashlib.sha256(
+                    assistant_text.encode("utf-8")).hexdigest(),
                 "output_truncated": value.get("output_truncated"),
             }
             if output_posture == "grounding_policy_fallback":

@@ -15,9 +15,10 @@ from sentientos.chat_response_grounding import (
     corrected_nonverbal_gaming_output,
     corrected_multiple_social_questions,
     GAMING_SOCIAL_QUESTION_COUNT_POLICY_ID,
-    GAMING_NONVERBAL_OUTPUT_POLICY_ID,
+    GAMING_NONVERBAL_OUTPUT_POLICY_ID, GAMING_NONVERBAL_OUTPUT_CORRECTION,
     GAMING_SOCIAL_QUESTION_FALLBACK,
     is_direct_screen_activity_question,
+    is_direct_visual_detail_question, visual_observation_unavailable_correction,
     is_user_report_evidence_question,
     unobserved_gameplay_claim,
 )
@@ -85,6 +86,50 @@ def test_nonverbal_gaming_output_fallback_is_narrow_and_language_aware():
         social_checkin=False)
     assert text == GAMING_NONVERBAL_OUTPUT_CORRECTION
     assert correction is not None
+
+
+def test_blank_gaming_visual_reply_uses_fresh_question_scoped_vision_summary():
+    from sentientos.chat_response_grounding import (
+        QUESTION_SCOPED_VISUAL_SUMMARY_FALLBACK_POLICY_ID,
+    )
+
+    observation = {
+        "backend": "tesseract+local_vision",
+        "component_statuses": {"ocr": "available", "vision": "available"},
+        "text": (
+            "Visual summary (local model): Two lit candles are visible beside the altar."
+            "\nVisible game text (local OCR): none"
+        ),
+    }
+    text, correction = corrected_nonverbal_gaming_output(
+        "\n", user_message="How many candles are visible?", workload_mode="gaming",
+        social_checkin=False, screen_observation=observation)
+    assert text == "Two lit candles are visible beside the altar."
+    assert correction == {
+        "policy_id": QUESTION_SCOPED_VISUAL_SUMMARY_FALLBACK_POLICY_ID,
+        "reason_code": "blank_chat_output_used_fresh_question_scoped_vision",
+    }
+
+
+def test_blank_gaming_visual_reply_does_not_use_unavailable_or_unrelated_observation():
+    unavailable = {
+        "backend": "tesseract+local_vision",
+        "component_statuses": {"ocr": "available", "vision": "unavailable"},
+        "text": "Visual summary (local model): unavailable\nVisible game text (local OCR): none",
+    }
+    unrelated = {
+        "backend": "tesseract+local_vision",
+        "component_statuses": {"ocr": "available", "vision": "available"},
+        "text": "Visual summary (local model): A room with an altar.\nVisible game text (local OCR): none",
+    }
+    assert corrected_nonverbal_gaming_output(
+        "\n", user_message="How many candles are visible?", workload_mode="gaming",
+        social_checkin=False, screen_observation=unavailable
+    )[0] == GAMING_NONVERBAL_OUTPUT_CORRECTION
+    assert corrected_nonverbal_gaming_output(
+        "\n", user_message="Tell me a joke.", workload_mode="gaming",
+        social_checkin=False, screen_observation=unrelated
+    )[0] == GAMING_NONVERBAL_OUTPUT_CORRECTION
 
 
 def test_unsupported_gaming_claim_gets_explicitly_attributed_correction():
@@ -295,6 +340,21 @@ def test_user_report_evidence_answer_limits_screen_support_to_captured_ocr_text(
     assert attribution["policy_id"] == USER_REPORT_EVIDENCE_POLICY_ID
 
 
+def test_user_report_evidence_attributes_local_visual_summary_as_approximate():
+    text, attribution = corrected_unobserved_game_status(
+        "I saw it happen.",
+        user_message="What evidence do you have if I describe an event from Cronos?",
+        verified_runtime_context={"workload": {"game_foreground": True}},
+        screen_observation_provenance={
+            "text_status": "available",
+            "component_statuses": {"vision": "available", "ocr": "no_readable_text"},
+        })
+    assert "approximate local visual description" in text
+    assert "does not verify every event" in text
+    assert "readable OCR" not in text
+    assert attribution["policy_id"] == USER_REPORT_EVIDENCE_POLICY_ID
+
+
 def test_current_game_question_names_cronos_and_distinguishes_configured_screen_source():
     corrected, attribution = corrected_unobserved_game_status(
         "The allowlisted process is active.",
@@ -452,6 +512,23 @@ def test_social_check_in_with_game_context_is_not_misread_as_a_screen_question()
     assert is_direct_screen_activity_question(
         "What are you doing in Cronos right now?"
     )
+
+
+@pytest.mark.parametrize("message", [
+    "what colors and shapes it can see in the stained-glass window",
+    "can you see what is on the stained glass window?",
+    "What do you see on the stained-glass window?",
+])
+def test_visual_detail_questions_are_direct_screen_activity(message):
+    assert is_direct_screen_activity_question(message)
+
+
+def test_recall_of_what_user_asked_is_not_misread_as_current_screen_status():
+    from sentientos.chat_response_grounding import _is_game_status_question
+
+    message = "Without taking another screen capture, what did I ask you to see in Cronos?"
+    assert not is_direct_screen_activity_question(message)
+    assert not _is_game_status_question(message)
 
 
 def test_negative_screen_reference_is_not_misread_as_an_activity_question():
@@ -1013,3 +1090,101 @@ def test_next_step_reply_that_uses_the_users_clue_is_preserved():
     )
     assert unchanged == output
     assert attribution is None
+
+
+
+def test_visual_detail_question_is_not_answered_from_ocr_when_local_vision_times_out():
+    prompt = "How many lit candles are visible beside the altar?"
+    provenance = {
+        "component_statuses": {"ocr": "available", "vision": "unavailable"},
+        "component_failure_codes": {"vision": "game_screen_vision_timeout"},
+        "text_status": "available",
+    }
+
+    assert is_direct_visual_detail_question(prompt)
+    text, correction = visual_observation_unavailable_correction(prompt, provenance)
+    assert text == (
+        "I captured the game screen, but local vision did not finish this turn, "
+        "so I cannot reliably identify or count visual details yet."
+    )
+    assert correction == {
+        "policy_id": "screen_visual_observation_unavailable_v1",
+        "reason_code": "screen_capture_vision_unavailable",
+    }
+
+
+def test_visual_count_question_on_screen_is_direct_visual_detail():
+    prompt = "Can you tell me how many candles are on the screen right now?"
+    provenance = {
+        "component_statuses": {"ocr": "available", "vision": "unavailable"},
+        "component_failure_codes": {"vision": "game_screen_vision_timeout"},
+    }
+
+    assert is_direct_visual_detail_question(prompt)
+    text, correction = visual_observation_unavailable_correction(prompt, provenance)
+    assert "local vision did not finish this turn" in text
+    assert correction == {
+        "policy_id": "screen_visual_observation_unavailable_v1",
+        "reason_code": "screen_capture_vision_unavailable",
+    }
+
+
+@pytest.mark.parametrize("prompt", [
+    "How many candles are there?",
+    "How many candles can you see?",
+    "How many lit candles are visible beside the altar?",
+])
+def test_count_questions_in_natural_wording_use_question_scoped_vision(prompt):
+    from sentientos.chat_response_grounding import is_direct_visual_detail_question
+
+    assert is_direct_visual_detail_question(prompt)
+
+
+def test_visual_detail_question_can_use_successful_local_vision():
+    prompt = "Describe one clearly visible detail in the current Cronos game frame."
+    assert is_direct_visual_detail_question(prompt)
+    assert visual_observation_unavailable_correction(
+        prompt, {"component_statuses": {"ocr": "available", "vision": "available"}}
+    ) == ("", None)
+
+
+def test_ocr_only_text_question_is_not_blocked_by_visual_guard():
+    prompt = "What text is visible on the screen?"
+    provenance = {"component_statuses": {"ocr": "available", "vision": "unavailable"}}
+    assert not is_direct_visual_detail_question(prompt)
+    assert visual_observation_unavailable_correction(prompt, provenance) == ("", None)
+
+
+def test_fresh_screen_observation_removes_stale_capture_failure_boilerplate():
+    from sentientos.chat_response_grounding import corrected_stale_screen_failure_claim
+
+    provenance = {
+        "component_statuses": {"ocr": "available", "vision": "available"},
+        "text_status": "available",
+    }
+    output = (
+        "The game-screen observation could not run. Check the Game screen setting, "
+        "foreground game, and local capture status. You can answer this question "
+        "directly based on the visual summary provided. Based on the images, there "
+        "are two distinct candles visible on the altar."
+    )
+
+    text, correction = corrected_stale_screen_failure_claim(
+        output, screen_observation_provenance=provenance)
+
+    assert text == "Based on the images, there are two distinct candles visible on the altar."
+    assert correction == {
+        "policy_id": "fresh_screen_observation_stale_failure_correction_v1",
+        "reason_code": "removed_historical_screen_failure_claim",
+    }
+
+
+def test_stale_screen_failure_is_preserved_when_current_observation_failed():
+    from sentientos.chat_response_grounding import corrected_stale_screen_failure_claim
+
+    output = "The game-screen observation could not run. Check the capture status."
+    assert corrected_stale_screen_failure_claim(
+        output, screen_observation_provenance={
+            "component_statuses": {"ocr": "available", "vision": "unavailable"},
+            "text_status": "available",
+        }) == (output, None)
