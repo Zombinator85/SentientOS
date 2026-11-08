@@ -8,7 +8,10 @@ import pytest
 pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
-from sentientos.local_model_authority import build_local_model_authority_map, validate_authority_map, render_authority_map_markdown
+from sentientos.local_model import ActiveModelIdentity
+from sentientos.local_model_authority import (build_local_model_authority_map,
+    build_developmental_companion_authority_map, validate_authority_map,
+    render_authority_map_markdown)
 
 
 def test_authority_map_verifies_local_gguf_and_stable_when_moved(tmp_path: Path) -> None:
@@ -43,3 +46,36 @@ def test_authority_map_rejects_digest_mismatch_and_oversized_candidate_count(tmp
     authority = build_local_model_authority_map(cfg, allowed_roots=[tmp_path])
     assert "content_digest_mismatch" in authority.records[0].reason_codes
     assert any("candidate_count_exceeded" in r.reason_codes for r in authority.records)
+
+
+def test_developmental_companion_authority_is_local_chat_and_cognition_only(
+        tmp_path: Path) -> None:
+    model = tmp_path / "ollama-model.gguf"
+    model.write_bytes(b"verified local development model")
+    import hashlib
+    digest = hashlib.sha256(model.read_bytes()).hexdigest()
+    config = ModelConfig(candidates=[ModelCandidate(path=model, engine="ollama",
+        name="local", options={"manifest_sha256": digest})])
+    authority = build_developmental_companion_authority_map(
+        config, allowed_roots=[tmp_path])
+    record = authority.records[0]
+    assert record.runtime_eligibility_status == "eligible"
+    assert record.allowed_invocation_purposes == (
+        "local_user_chat", "resident_developmental_retrieval_cognition")
+    assert record.tool_posture == record.memory_posture == record.action_posture == "blocked"
+    identity = ActiveModelIdentity(engine=record.engine,
+        resolved_artifact_path=record.observed_metadata["resolved_artifact_path"],
+        semantic_artifact_identity=record.semantic_artifact_identity,
+        model_content_sha256=record.model_content_sha256,
+        artifact_size_bytes=record.artifact_size_bytes,
+        sidecar_metadata_digest=record.sidecar_metadata_digest,
+        configuration_digest=record.configuration_digest, candidate_index=0,
+        posture="development_only", fallback=False)
+    assert authority.record_for_active_identity(
+        identity, "local_user_chat") == record
+    assert authority.record_for_active_identity(
+        identity, "resident_developmental_retrieval_cognition") == record
+    assert authority.record_for_active_identity(
+        identity, "resident_developmental_interpretation") is None
+    valid, reasons = validate_authority_map(authority.to_dict())
+    assert valid, reasons

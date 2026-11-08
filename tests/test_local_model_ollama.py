@@ -185,6 +185,29 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
     assert len(opener.requests) == request_count
 
 
+def test_ollama_server_error_is_reduced_to_safe_diagnostic_code(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _manifest, digest, candidate, config = _candidate(tmp_path)
+    opener = _Opener(digest)
+    monkeypatch.setattr("sentientos.local_model.urllib.request.build_opener",
+        lambda *_args: opener)
+
+    class _ErrorConnection(_HTTPConnection):
+        def getresponse(self):
+            return _HTTPResponse({"error":
+                "model requires more system memory (10.2 GiB) than available (8.4 GiB)"})
+
+    monkeypatch.setattr("sentientos.local_model.http.client.HTTPConnection", _ErrorConnection)
+    backend, _ = LocalModel._initialise_backend(candidate, config)
+
+    with pytest.raises(ModelLoadError) as captured:
+        backend.generate("bounded prompt", (), {})
+
+    assert str(captured.value) == "ollama_local_generation_failed"
+    assert captured.value.diagnostic_code == "ollama_server_memory_pressure"
+    assert "10.2 GiB" not in str(captured.value)
+
+
 def test_ollama_active_request_can_be_cancelled(monkeypatch: pytest.MonkeyPatch,
         tmp_path: Path) -> None:
     _manifest, digest, candidate, config = _candidate(tmp_path)

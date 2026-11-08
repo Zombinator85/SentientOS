@@ -55,11 +55,113 @@ class FakeInvoker:
             receipt_digest="fixture-digest-" + request.request_id)
 
 
-def service(root: Path, invoker: FakeInvoker | None = None, screen_observer=None) -> PersistentConversationService:
+def service(root: Path, invoker: FakeInvoker | None = None, screen_observer=None,
+            cognition_bridge=None) -> PersistentConversationService:
     return PersistentConversationService(inference=DevelopmentSimulationInference(invoker or FakeInvoker()),
         session_store=ConversationSessionStore(root / "sessions"),
         memory_store=CanonicalMemoryStore(root / "memory"), context_budget_chars=400,
-        screen_observer=screen_observer)
+        screen_observer=screen_observer,
+        resident_cognition_bridge=cognition_bridge)
+
+
+
+
+def test_resident_cognition_bridge_delivers_receipt_linked_answer_and_recovers(
+        tmp_path: Path) -> None:
+    class CognitionBridge:
+        def __init__(self):
+            self.calls = []
+            self.verifications = 0
+
+        def respond(self, *, request_id, question, screen_observation=None):
+            self.calls.append((request_id, question, screen_observation))
+            return SimpleNamespace(status="admitted_completed", disposition="answer",
+                response="There are two lit candles.", evidence_ids=("fact-screen-1",),
+                cognition_observation_id="devcog-" + "a" * 24,
+                cognition_observation_digest="sha256:" + "b" * 64,
+                snapshot_id="world-state-test", snapshot_digest="c" * 64,
+                inference_receipt_id="lmrec-" + "d" * 24,
+                inference_receipt_digest="e" * 64,
+                invocation_output_digest="f" * 64, model_id="hermes-local",
+                model_artifact_digest="g" * 64,
+                prior_record_ids=("devrec-" + "h" * 24,),
+                history_record_ids=("devrec-" + "h" * 24,),
+                developmental_history_writeback_performed=False,
+                authority=False, current_truth=False,
+                canonical_explicit_user_retention_mutated=False)
+
+        def verify_committed_response(self, *, linkage, response_text, request_id):
+            self.verifications += 1
+            return (response_text == "There are two lit candles."
+                and request_id.endswith(linkage["source_user_turn_id"])
+                and linkage["response_origin"] == "resident_developmental_cognition")
+
+    bridge = CognitionBridge()
+    invoker = FakeInvoker()
+    observation = {"modality": "screen", "text": "Two candles are lit.",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": "2026-11-08T12:00:00Z", "raw_frame_retained": False,
+        "text_change_kind": "initial", "previous_text_digest": None}
+    app = service(tmp_path, invoker, lambda: observation, cognition_bridge=bridge)
+    session_id = app.create_session()
+
+    response = app.chat("How many candles are lit?", session_id=session_id,
+        request_id="cognition-chat-1", observe_screen=True)
+
+    assert response.response == "There are two lit candles."
+    assert response.context["response_origin"] == "resident_developmental_cognition"
+    assert response.context["cognition_history_record_ids"] == ["devrec-" + "h" * 24]
+    assert response.context["developmental_history_writeback_performed"] is False
+    assert bridge.calls == [(f"{session_id}:" +
+        app.sessions.load(session_id)["turns"][0]["turn_id"],
+        "How many candles are lit?", observation)]
+    assert invoker.requests == []
+    turns = app.sessions.load(session_id)["turns"]
+    assert turns[-1]["linkage"]["inference_receipt_id"] == "lmrec-" + "d" * 24
+    assert turns[-1]["linkage"]["cognition_evidence_ids"] == ["fact-screen-1"]
+    assert turns[-1]["linkage"]["cognition_history_record_ids"] == ["devrec-" + "h" * 24]
+
+    recovered = app.chat("How many candles are lit?", session_id=session_id,
+        request_id="cognition-chat-1", observe_screen=True)
+    assert recovered.response == response.response
+    assert recovered.context["recovered_without_inference"] is True
+    assert recovered.context["cognition_history_record_ids"] == ["devrec-" + "h" * 24]
+    assert bridge.verifications == 1
+    assert len(bridge.calls) == 1
+    assert invoker.requests == []
+
+
+def test_companion_uses_ordinary_chat_without_current_cognition_evidence(
+        tmp_path: Path) -> None:
+    class NoEvidenceBridge:
+        def can_handle(self):
+            return True
+
+        def respond(self, **_kwargs):
+            raise chat_service.CognitionEvidenceUnavailable()
+
+    invoker = FakeInvoker()
+    app = service(tmp_path, invoker, cognition_bridge=NoEvidenceBridge())
+    session_id = app.create_session()
+    response = app.chat("Tell me something interesting.",
+        session_id=session_id, request_id="no-cognition-evidence")
+
+    assert response.response == "local answer"
+    assert len(invoker.requests) == 1
+    assert app.sessions.load(session_id)["turns"][-1]["linkage"]["response_origin"] != (
+        "resident_developmental_cognition")
+
+
+def test_resident_cognition_is_unavailable_in_gaming_workload() -> None:
+    from sentientos.developmental_companion_bridge import CognitionWorkloadUnavailable
+
+    inference = DevelopmentSimulationInference(FakeInvoker())
+    inference.set_workload_mode("gaming")
+    assert inference.cognition_available() is False
+    with pytest.raises(CognitionWorkloadUnavailable):
+        with inference.cognition_inference_context():
+            pytest.fail("cognition inference gate opened during gaming mode")
 
 
 def test_durable_session_reopen(tmp_path: Path) -> None:

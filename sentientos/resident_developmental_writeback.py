@@ -2299,7 +2299,10 @@ class ResidentDevelopmentalWritebackController:
             + "Resource expenditure is not inherently good or bad and must not become a reward, penalty, or objective.")
         request = invoker.build_request(purpose=PURPOSE, prompt=json.dumps({"instruction":instruction,
             "selection":selection.semantic_payload()}, sort_keys=True), caller=PRINCIPAL, correlation_id=correlation_id, expected_output_format="json", budget=bounded, upstream_evidence={"selection_id":selection.selection_id,"selection_digest":selection.selection_digest,"snapshot_id":selection.snapshot_id,"snapshot_digest":selection.snapshot_digest}, linkage={"transformation":"selected_world_state_to_historical_interpretation"}, structured_output_schema=schema)
-        receipt = invoker.invoke(request, persist=True, include_output_in_receipt=False)
+        # The candidate parser consumes this governed response immediately, and the
+        # durable candidate already retains its exact source text and digest.
+        # Redacting it here makes every real first-tick writeback unparsable.
+        receipt = invoker.invoke(request, persist=True, include_output_in_receipt=True)
         return ResidentDevelopmentalWritebackController.candidate_from_receipt(selection, receipt)
 
     @staticmethod

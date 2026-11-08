@@ -5,10 +5,11 @@ import json
 import queue
 
 from scripts.run_local_companion_dev import (
+    _LatestRendererObservation,
     _TemporaryCompanionEdge,
     _kill_windows_process_tree,
     _parse_edge_ready,
-    _release_residency_for_vram_pressure,
+    _apply_gaming_resource_observation,
     _stage_windows_edge_source,
     _wait_for_edge_ready,
     main,
@@ -18,26 +19,35 @@ from scripts.terminate_owned_process_tree import (
 )
 
 
-def test_vram_pressure_residency_policy_ignores_missing_or_sufficient_headroom():
+def test_gaming_resource_observation_releases_only_at_pressure_threshold():
     calls = []
+    guard = _GamingResourcePressureGuard()
 
-    def release():
-        calls.append("release")
-        return {"status": "released"}
+    def release(reason):
+        calls.append(reason)
+        return {"status": "released", "reason_code": reason}
 
-    assert _release_residency_for_vram_pressure(None, release) is None
-    assert _release_residency_for_vram_pressure(89.9, release) is None
+    low = _apply_gaming_resource_observation(guard, 84.9,
+        "2026-11-08T13:00:00+00:00", release)
+    assert low["admission_status"] == "admitted"
     assert calls == []
 
+    high = _apply_gaming_resource_observation(guard, 85.0,
+        "2026-11-08T13:00:15+00:00", release)
+    assert high["admission_status"] == "deferred"
+    assert calls == ["vram_pressure_observed"]
+    assert high["residency_release"]["status"] == "released"
 
-def test_vram_pressure_residency_policy_releases_at_governor_threshold():
-    result = _release_residency_for_vram_pressure(
-        90.0, lambda: {"status": "released", "reason_code": "vram_pressure_observed"})
 
-    assert result == {
-        "status": "released",
-        "reason_code": "vram_pressure_observed",
-    }
+def test_gaming_resource_observation_fails_closed_when_telemetry_is_missing():
+    calls = []
+    guard = _GamingResourcePressureGuard()
+
+    state = _apply_gaming_resource_observation(guard, None, None,
+        lambda reason: calls.append(reason) or {"status": "released"})
+
+    assert state["admission_status"] == "deferred"
+    assert calls == ["vram_telemetry_unavailable"]
 
 
 def test_forward_lines_surfaces_worker_output_after_ready(tmp_path, capsys) -> None:
@@ -118,6 +128,41 @@ def test_forward_lines_persists_dispatch_outcome_distinct_from_renderer_effect(
     assert event["renderer_effect_proven"] is False
     assert "phrase" not in event
     assert event["observed_at"]
+def test_forward_lines_passes_renderer_reports_to_body_observation_cache(tmp_path) -> None:
+    reports = []
+    lines: queue.Queue[str] = queue.Queue()
+    report_file = tmp_path / "renderer-reports.jsonl"
+    payload = {"schema_version": "fixture", "reported_at": "now"}
+
+    _TemporaryCompanionEdge._forward_lines(
+        io.StringIO("RENDERER_REPORT " + json.dumps(payload) + "\n"),
+        lines, report_file, reports.append)
+
+    assert reports == [payload]
+    assert report_file.read_text(encoding="utf-8").strip()
+
+
+def test_latest_renderer_observation_expires_and_rejects_invalid_report(monkeypatch) -> None:
+    import sentientos.avatar_renderer_report_ingress as ingress
+
+    now = [10.0]
+    monkeypatch.setattr("scripts.run_local_companion_dev.time.monotonic",
+                        lambda: now[0])
+    observation = object()
+    monkeypatch.setattr(ingress, "renderer_report_observation",
+                        lambda _report: observation)
+    provider = _LatestRendererObservation(max_age_seconds=5.0)
+    assert provider() == ()
+    provider.update({"fixture": True})
+    assert provider() == (observation,)
+    now[0] += 6.0
+    assert provider() == ()
+
+    def reject(_report):
+        raise ValueError("invalid_renderer_report")
+    monkeypatch.setattr(ingress, "renderer_report_observation", reject)
+    provider.update({"fixture": False})
+    assert provider() == ()
 
 
 def test_terminate_owned_process_tree_stops_windows_descendants(

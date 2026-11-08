@@ -363,7 +363,10 @@ def run_rootless_experimental_correction_pressure_series_once(*,
             "max_output_chars": MAX_OUTPUT_CHARS,
             "max_prompt_chars": MAX_PROMPT_CHARS,
             "max_context_tokens": MAX_CONTEXT_TOKENS,
-            "model_input_adapter": "gguf_embedded_chat_template",
+            "model_input_adapter": (
+                "ollama_local_chat_template"
+                if session.active_model_identity.get("engine") == "ollama"
+                else "gguf_embedded_chat_template"),
             "structured_output_mode": "json_schema"},
         "call_budget": _call_budget_record(),
         "answer_key_path": str(key_path),

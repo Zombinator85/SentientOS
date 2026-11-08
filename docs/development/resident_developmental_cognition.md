@@ -73,6 +73,40 @@ output-digest differences and restoration stability. Difference is not improveme
 correctness, learning, sentience, selfhood, or consciousness. Comparison is
 off by default.
 
+### Request-scoped companion interaction
+
+The owner also exposes an opt-in run_companion_interaction boundary for a
+caller that already holds a validated in-memory World-State snapshot. It
+retrieves only completed developmental history, accepts separately keyed
+self-model and epistemic projections, and invokes the same governed
+resident_developmental_retrieval_cognition purpose. The model must return a
+bounded decision with exact citations to current fact IDs; unbound answers are
+rejected. This path does not run the developmental writeback transaction or
+mark an interaction tick complete. Invocation receipts and cognition
+observations retain identities and digests, not raw prompt, screen text, user
+question, or response text. The response is returned to the caller in memory
+for immediate delivery. The chat service commits the assistant turn with the
+observation, inference receipt, and response digests, then verifies those bindings
+on idempotent recovery instead of invoking cognition a second time. This stored
+reply remains distinct from developmental-history writeback.
+
+The local development companion runner can opt in to this owner-level bridge
+with `--enable-resident-cognition`. It requires an explicit resident-cognition
+configuration, automatic foreground-game workload detection, and the supervised
+Windows observer edge. The bridge reuses the companion's governed local model
+invoker, keeps the same resident history and state roots, and admits only the
+`local_user_chat` and `resident_developmental_retrieval_cognition` purposes.
+Tools, canonical memory, actions, and developmental writeback are not enabled by
+this bridge. Cognition inference is serialized against model-profile changes
+and is unavailable while gaming workload mode is active. The option is off by
+default and does not connect or reconfigure an already running companion.
+
+This integration is not evidence of learning. Demonstrating development still
+requires the full sequence of a real observation, prediction or decision, an
+action, an independently observed consequence, a governed update, and a later
+decision comparison with history present and withheld under controlled
+conditions.
+
 ### One explicitly staged objective intervention
 
 The ordinary daemon configuration never receives a persistent objective task.

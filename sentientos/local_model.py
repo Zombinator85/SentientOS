@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, cast
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, cast
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig, load_model_config
 from .optional_deps import dependency_available, optional_import
@@ -88,7 +88,35 @@ def candidate_artifact_identity(candidate: ModelCandidate, metadata: Dict[str, A
 
 
 class ModelLoadError(RuntimeError):
-    """Raised when a model backend cannot be instantiated."""
+    """Raised when a model backend cannot be instantiated or invoked."""
+
+    def __init__(self, message: str, *, diagnostic_code: str | None = None) -> None:
+        super().__init__(message)
+        self.diagnostic_code = diagnostic_code
+
+
+def _ollama_server_error_diagnostic(message: str) -> str:
+    """Map server text to a bounded code without retaining backend error text."""
+    normalized = message.casefold()[:2048]
+    if any(marker in normalized for marker in (
+            "requires more system memory", "requires more vram",
+            "insufficient memory", "not enough memory", "out of memory")):
+        return "ollama_server_memory_pressure"
+    if any(marker in normalized for marker in (
+            "context length", "context size", "input length exceeds",
+            "prompt is too long")):
+        return "ollama_server_context_limit"
+    if "model not found" in normalized or "pull model" in normalized:
+        return "ollama_server_model_unavailable"
+    if any(marker in normalized for marker in (
+            "runner process has terminated", "runner exited", "signal: killed",
+            "failed to load model")):
+        return "ollama_server_worker_failure"
+    if any(marker in normalized for marker in (
+            "invalid json schema", "invalid schema", "unsupported format",
+            "structured output")):
+        return "ollama_server_request_rejected"
+    return "ollama_server_other"
 
 
 class _ModelBackend:
@@ -228,9 +256,13 @@ class _OllamaBackend(_ModelBackend):
         super().__init__(candidate, metadata)
         options = dict(candidate.options)
         allowed = {"api_base", "model", "manifest_sha256", "num_gpu", "keep_alive",
-                   "think", "timeout_seconds", "chat_history_format"}
+                   "think", "timeout_seconds", "chat_history_format", "seed"}
         if set(options) - allowed:
             raise ModelLoadError("ollama_option_not_allowed")
+        seed = options.get("seed")
+        if seed is not None and (type(seed) is not int or not 0 <= seed <= 2**31 - 1):
+            raise ModelLoadError("ollama_seed_out_of_range")
+        self._seed = seed
         if candidate.path is None or not candidate.path.is_file():
             raise ModelLoadError("ollama_local_manifest_required")
         manifest_digest, _ = _stream_sha256(candidate.path)
@@ -308,6 +340,9 @@ class _OllamaBackend(_ModelBackend):
         keep_alive = generation.get("keep_alive", self._keep_alive)
         if keep_alive not in {"0", "5s", "5m", "15m", "-1"}:
             raise ModelLoadError("ollama_keep_alive_invalid")
+        structured_output_schema = generation.pop("structured_output_schema", None)
+        if structured_output_schema is not None and not isinstance(structured_output_schema, Mapping):
+            raise ModelLoadError("ollama_structured_output_schema_invalid")
         options = {
             "num_ctx": self._context,
             "num_predict": max(1, min(int(generation.get("max_new_tokens", 256)), 512)),
@@ -316,12 +351,19 @@ class _OllamaBackend(_ModelBackend):
             "top_p": max(0.1, min(float(generation.get("top_p", 0.9)), 1.0)),
             "repeat_penalty": max(0.8, min(float(generation.get("repetition_penalty") or 1.1), 1.5)),
         }
+        if self._seed is not None:
+            options["seed"] = self._seed
         messages = _ollama_chat_messages(
             prompt, history_format=self._chat_history_format)
         keep_alive_payload: str | int = -1 if keep_alive == "-1" else keep_alive
-        body = json.dumps({"model": self._model, "messages": messages, "stream": True,
-                           "think": self._think, "keep_alive": keep_alive_payload,
-                           "options": options}, separators=(",", ":")).encode("utf-8")
+        request_body: dict[str, Any] = {
+            "model": self._model, "messages": messages, "stream": True,
+            "think": self._think, "keep_alive": keep_alive_payload,
+            "options": options,
+        }
+        if structured_output_schema is not None:
+            request_body["format"] = dict(structured_output_schema)
+        body = json.dumps(request_body, separators=(",", ":")).encode("utf-8")
         parsed = urllib.parse.urlsplit(self._base)
         host = parsed.hostname
         if host is None:
@@ -362,7 +404,8 @@ class _OllamaBackend(_ModelBackend):
                 if not isinstance(chunk, dict):
                     raise ModelLoadError("ollama_stream_chunk_invalid")
                 if isinstance(chunk.get("error"), str):
-                    raise ModelLoadError("ollama_local_generation_failed")
+                    raise ModelLoadError("ollama_local_generation_failed",
+                        diagnostic_code=_ollama_server_error_diagnostic(chunk["error"]))
                 message = chunk.get("message")
                 content = message.get("content") if isinstance(message, dict) else None
                 if content is not None:

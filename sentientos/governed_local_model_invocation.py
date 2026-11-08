@@ -11,6 +11,7 @@ from .control_plane_kernel import (AuthorityClass, ControlActionRequest,
     ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel)
 from .local_model_authority import (LocalModelAuthorityMap, LocalModelAuthorityRecord,
     ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE,
+    ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES,
     atomic_write_json, digest_payload, validate_authority_map)
 from .causal_resource_principal import CausalResourcePrincipal
 from .causal_resource_principal_authentication import AuthenticatedRootPrincipalEvidence
@@ -39,6 +40,14 @@ LLAMA_INVOCATION_RESOURCE_OBSERVATION_SCHEMA = (
     "sentientos.llama_cpp_invocation_resource_observation:v1")
 MAX_INVOCATION_RECEIPT_BYTES = 256 * 1024
 MAX_INVOCATION_RECEIPTS = 256
+OLLAMA_BACKEND_DIAGNOSTICS = frozenset({
+    "ollama_server_memory_pressure",
+    "ollama_server_context_limit",
+    "ollama_server_model_unavailable",
+    "ollama_server_worker_failure",
+    "ollama_server_request_rejected",
+    "ollama_server_other",
+})
 
 
 def validate_llama_completion_observation(value: object) -> bool:
@@ -151,6 +160,30 @@ RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
         },
     },
 }
+RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA = {
+    "type": "object",
+    "required": ["disposition", "response", "evidence_ids", "history_record_ids"],
+    "additionalProperties": False,
+    "properties": {
+        "disposition": {"type": "string", "enum": ["answer", "ask", "abstain"]},
+        "response": {"type": "string", "minLength": 1, "maxLength": 1600},
+        "evidence_ids": {"type": "array", "maxItems": 32, "uniqueItems": True,
+            "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+        "history_record_ids": {"type": "array", "maxItems": 16, "uniqueItems": True,
+            "items": {"type": "string", "pattern": "^devrec-[0-9a-f]{24}$"}},
+    },
+}
+# Keep decoding controls identical in all history-intervention conditions.
+RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA = (
+    RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA)
+# Keep decoding controls identical in all history-intervention conditions. Withheld
+# citations are rejected after inference against the empty retrieved-record allowlist.
+RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA = (
+    RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA)
+
+
+def companion_history_output_schema(condition_id: Any) -> Mapping[str, Any]:
+    return RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
 RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA = {
     "type": "object", "required": ["conclusion", "reason_code", "evidence_ids"],
     "additionalProperties": False,
@@ -581,9 +614,15 @@ class GovernedLocalModelInvoker:
             if identity is None or getattr(identity, "engine", None) != "ollama":
                 status = "not_applicable"
                 reasons = ["ollama_residency_release_not_applicable"]
-            elif self.authority_map.record_for_active_identity(identity, "local_user_chat") is None:
+            elif (self.authority_map.record_for_active_identity(
+                    identity, "local_user_chat") is None
+                    and self.authority_map.record_for_active_identity(
+                        identity, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE) is None
+                    and not any(self.authority_map.record_for_active_identity(identity, purpose)
+                        is not None for purpose in
+                            ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES)):
                 status = "denied"
-                reasons = ["active_model_chat_authority_missing"]
+                reasons = ["active_model_release_authority_missing"]
             else:
                 try:
                     resident = self.model.is_resident()
@@ -781,6 +820,7 @@ class GovernedLocalModelInvoker:
             allowed_structured_purposes = {
                 "discernment_judgment", "resident_developmental_interpretation",
                 "resident_developmental_retrieval_cognition",
+                INTERVENTION_PURPOSE,
                 ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
             }
             if purpose not in allowed_structured_purposes or expected_output_format != "json":
@@ -788,7 +828,13 @@ class GovernedLocalModelInvoker:
             if (purpose == "resident_developmental_retrieval_cognition"
                     and dict(structured_output_schema) not in [
                         RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
-                        RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA]):
+                        RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
+                        RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA]):
+                raise ValueError("structured_output_schema_not_canonical")
+            expected_intervention_schema = companion_history_output_schema(
+                (linkage or {}).get("condition_id"))
+            if (purpose == INTERVENTION_PURPOSE
+                    and dict(structured_output_schema) != expected_intervention_schema):
                 raise ValueError("structured_output_schema_not_canonical")
         return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=deepcopy(dict(structured_output_schema)) if structured_output_schema is not None else None)
 
@@ -844,10 +890,16 @@ class GovernedLocalModelInvoker:
                 if dict(schema) != canonical_schema: reasons.append("structured_output_schema_not_canonical")
             elif request.purpose == "resident_developmental_retrieval_cognition":
                 if schema not in [RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
-                        RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA]:
+                        RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
+                        RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA]:
                     reasons.append("structured_output_schema_not_canonical")
             elif request.purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE:
                 if schema != RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA:
+                    reasons.append("structured_output_schema_not_canonical")
+            elif request.purpose == INTERVENTION_PURPOSE:
+                expected_intervention_schema = companion_history_output_schema(
+                    request.linkage.get("condition_id"))
+                if schema != expected_intervention_schema:
                     reasons.append("structured_output_schema_not_canonical")
             elif request.purpose != "resident_developmental_interpretation": reasons.append("structured_output_schema_invalid")
         if request.purpose == "genesis_proposal_advice":
@@ -917,7 +969,7 @@ class GovernedLocalModelInvoker:
                 if resource_context is None or attempt_id is not None:
                     try:
                         self.invocation_counts[request.correlation_id] = self.invocation_counts.get(request.correlation_id, 0) + 1
-                        generation: dict[str, Any] = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke", INTERVENTION_PURPOSE, MODEL_REPLACEMENT_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None, "use_model_chat_template": request.purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE}
+                        generation: dict[str, Any] = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke", "resident_developmental_retrieval_cognition", INTERVENTION_PURPOSE, MODEL_REPLACEMENT_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None, "use_model_chat_template": request.purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE}
                         if thread_limit is not None:
                             generation["max_backend_threads"] = thread_limit
                         if "ollama_keep_alive" in request.linkage:
@@ -1061,7 +1113,11 @@ class GovernedLocalModelInvoker:
                             reasons.append("active_model_request_identity_mismatch")
                         else:
                             status = "backend_failure"
-                            reasons.append(f"backend_failure:{exc.__class__.__name__}")
+                            diagnostic_code = getattr(exc, "diagnostic_code", None)
+                            if diagnostic_code in OLLAMA_BACKEND_DIAGNOSTICS:
+                                reasons.append(f"backend_failure:{diagnostic_code}")
+                            else:
+                                reasons.append(f"backend_failure:{exc.__class__.__name__}")
         if status == "blocked_invalid" and not reasons: reasons.append("blocked_invalid")
         effect_occurred = inference_attempted.is_set()
         receipt_output = generated_output if generated_output is not None else output

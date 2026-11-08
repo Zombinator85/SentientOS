@@ -94,6 +94,7 @@ def test_stable_difference_and_no_difference_are_bounded_descriptions() -> None:
         semantic = asdict(item)
         semantic.pop("observation_id"); semantic.pop("observation_digest")
         semantic.pop("developmental_history_selection")
+        semantic.pop("companion_history_citation_ids")
         for field in ("resource_allocation_digest", "resource_attempt_id",
                 "resource_consumption_receipt_digests", "resource_linkage_digest"):
             semantic.pop(field)

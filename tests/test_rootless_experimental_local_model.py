@@ -22,8 +22,11 @@ from sentientos.installation_state import InstallationIdentity, InstallationStat
 from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_model_authority import (
     ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+    ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE,
+    ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES,
     build_local_model_authority_map,
     build_rootless_experimental_epistemic_authority_map,
+    build_rootless_experimental_developmental_authority_map,
     build_rootless_experimental_model_authority_map,
 )
 from sentientos.local_runtime_provisioning import semantic_digest
@@ -477,6 +480,39 @@ def test_rootless_epistemic_authority_is_purpose_isolated(tmp_path):
         identity, "resident_developmental_retrieval_cognition") is None
 
 
+
+def test_rootless_developmental_authority_is_exactly_scoped_to_cognition_cycle(tmp_path):
+    manifest = tmp_path / "ollama-manifest"
+    manifest.write_text('{"schemaVersion":2,"layers":[]}', encoding="utf-8")
+    digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    config = ModelConfig([ModelCandidate(manifest, "ollama", "hermes-test", {
+        "api_base": "http://127.0.0.1:11434", "model": "hermes-test",
+        "manifest_sha256": digest, "num_gpu": 99, "keep_alive": "15m",
+        "think": False, "timeout_seconds": 120,
+    })], default_engine="ollama", max_context_tokens=4096,
+        generation=GenerationConfig(max_new_tokens=512, temperature=0, top_p=1))
+    authority = build_rootless_experimental_developmental_authority_map(
+        config, allowed_roots=[tmp_path])
+    record = authority.eligible_record("resident_developmental_interpretation")
+    assert record is not None
+    assert record.allowed_invocation_purposes == (
+        ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES)
+    assert authority.eligible_record("local_user_chat") is None
+    assert authority.eligible_record("local_model_commissioning_smoke") is None
+    identity = ActiveModelIdentity(engine="ollama",
+        resolved_artifact_path=record.observed_metadata["resolved_artifact_path"],
+        semantic_artifact_identity=record.semantic_artifact_identity,
+        model_content_sha256=record.model_content_sha256,
+        artifact_size_bytes=record.artifact_size_bytes,
+        sidecar_metadata_digest=record.sidecar_metadata_digest,
+        configuration_digest=record.configuration_digest, candidate_index=0,
+        posture="development_only", fallback=False)
+    for purpose in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES:
+        assert authority.record_for_active_identity(identity, purpose) == record
+    assert authority.record_for_active_identity(identity, "local_user_chat") is None
+    assert authority.record_for_active_identity(
+        identity, ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE) is None
+
 def test_rootless_series_allows_preregistered_repeat_prompt_as_distinct_observations():
     prompt = '{"same":"corrected context"}'
     pending = {hashlib.sha256(prompt.encode("utf-8")).hexdigest(): [
@@ -819,3 +855,34 @@ def test_rootless_epistemic_session_binds_preregistration_and_caps_four_calls(
                 correlation_id="rootless-test-correlation-over-budget",
                 linkage={"rootless_experimental_session": session_binding})
 
+
+def test_rootless_epistemic_authority_accepts_only_bound_ollama_candidate(tmp_path):
+    manifest = tmp_path / "ollama-manifest"
+    manifest.write_text('{"schemaVersion":2,"layers":[]}', encoding="utf-8")
+    digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    config = ModelConfig([ModelCandidate(manifest, "ollama", "hermes-test", {
+        "api_base": "http://127.0.0.1:11434", "model": "hermes-test",
+        "manifest_sha256": digest, "num_gpu": 99, "keep_alive": "15m",
+        "think": False, "timeout_seconds": 120,
+    })], default_engine="ollama", max_context_tokens=8192,
+        generation=GenerationConfig(max_new_tokens=128, temperature=0, top_p=1))
+    authority = build_rootless_experimental_epistemic_authority_map(
+        config, allowed_roots=[tmp_path])
+    record = authority.eligible_record(ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
+    assert record is not None
+    assert record.allowed_invocation_purposes == (
+        ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,)
+    assert authority.eligible_record("local_user_chat") is None
+    assert authority.eligible_record(
+        "resident_developmental_retrieval_cognition") is None
+    identity = ActiveModelIdentity(engine="ollama",
+        resolved_artifact_path=record.observed_metadata["resolved_artifact_path"],
+        semantic_artifact_identity=record.semantic_artifact_identity,
+        model_content_sha256=record.model_content_sha256,
+        artifact_size_bytes=record.artifact_size_bytes,
+        sidecar_metadata_digest=record.sidecar_metadata_digest,
+        configuration_digest=record.configuration_digest, candidate_index=0,
+        posture="development_only", fallback=False)
+    assert authority.record_for_active_identity(
+        identity, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE) == record
+    assert authority.record_for_active_identity(identity, "local_user_chat") is None

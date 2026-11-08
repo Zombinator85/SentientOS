@@ -15,10 +15,12 @@ from sentientos.governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt,
     validate_llama_completion_observation,
     RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
-    RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
+    RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA, RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
+    RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
+    RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA,
 )
 from sentientos.local_model_authority import build_local_model_authority_map
-from sentientos.local_model import ActiveModelIdentity
+from sentientos.local_model import ActiveModelIdentity, ModelLoadError
 
 class FakeModel:
     def __init__(self, text: str = "ok") -> None:
@@ -134,6 +136,27 @@ def test_model_profile_change_during_admission_fails_closed_before_generation(
     assert "active_model_request_identity_mismatch" in receipt.reason_codes
     assert active.calls == replacement.calls == 0
     assert receipt.effects["local_model_inference"] is False
+
+def test_governed_receipt_preserves_only_allowlisted_backend_diagnostic(
+        tmp_path: Path) -> None:
+    _, inv = _invoker(tmp_path)
+
+    class DiagnosticFailureModel(FakeModel):
+        def generate(self, prompt: str, **kwargs: object) -> str:
+            self.calls += 1
+            raise ModelLoadError("ollama_local_generation_failed",
+                diagnostic_code="ollama_server_memory_pressure")
+
+    inv.model = DiagnosticFailureModel()
+    request = inv.build_request(purpose="local_user_chat", prompt="hello",
+        caller="test", correlation_id="backend-diagnostic")
+
+    receipt = inv.invoke(request)
+
+    assert receipt.status == "backend_failure"
+    assert receipt.reason_codes == ("backend_failure:ollama_server_memory_pressure",)
+    assert validate_receipt(receipt.to_dict())[0]
+
 
 def test_admitted_chat_receipt_is_digest_bound(tmp_path: Path) -> None:
     fake, inv = _invoker(tmp_path, "hello")
@@ -569,6 +592,7 @@ def test_resident_cognition_json_schema_is_exactly_purpose_scoped(tmp_path: Path
     )
     receipt = inv.invoke(request)
     assert receipt.status == "admitted_completed"
+    assert receipt.generation_config["actual_generation_parameters"]["temperature"] == 0
     assert fake.calls == 1
 
     altered = {**RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
@@ -584,6 +608,97 @@ def test_resident_cognition_json_schema_is_exactly_purpose_scoped(tmp_path: Path
             structured_output_schema=altered,
         )
     assert fake.calls == 1
+
+
+
+def test_companion_interaction_schema_is_canonical_and_purpose_scoped(tmp_path: Path) -> None:
+    fake, inv = _invoker(tmp_path)
+    request = inv.build_request(
+        purpose="resident_developmental_retrieval_cognition",
+        prompt="bounded companion decision",
+        caller="resident_developmental_cognition",
+        correlation_id="companion-json",
+        expected_output_format="json",
+        structured_output_schema=RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
+    )
+    receipt = inv.invoke(request)
+    assert receipt.status == "admitted_completed"
+    assert fake.calls == 1
+
+    altered = {**RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
+        "properties": {**RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["properties"],
+            "authority": {"type": "boolean"}}}
+    with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
+        inv.build_request(
+            purpose="resident_developmental_retrieval_cognition",
+            prompt="bounded companion decision",
+            caller="resident_developmental_cognition",
+            correlation_id="companion-json-altered",
+            expected_output_format="json", structured_output_schema=altered)
+    assert fake.calls == 1
+
+
+def test_history_intervention_allows_only_canonical_companion_json(tmp_path: Path) -> None:
+    fake, inv = _invoker(tmp_path)
+    request = inv.build_request(
+        purpose="resident_developmental_history_intervention_experiment",
+        prompt="controlled companion decision comparison",
+        caller="resident_developmental_cognition",
+        correlation_id="companion-intervention-json",
+        expected_output_format="json",
+        structured_output_schema=RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
+    )
+    assert request.structured_output_schema == RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
+    assert request.expected_output_format == "json"
+
+    withheld = inv.build_request(
+        purpose="resident_developmental_history_intervention_experiment",
+        prompt="history-withheld companion decision",
+        caller="resident_developmental_cognition",
+        correlation_id="companion-intervention-withheld-json",
+        expected_output_format="json",
+        structured_output_schema=RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
+        linkage={"condition_id": "history_withheld"})
+    assert withheld.structured_output_schema == request.structured_output_schema
+    withheld_only_schema = {
+        **RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA,
+        "properties": {
+            **RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA["properties"],
+            "history_record_ids": {
+                **RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA["properties"]["history_record_ids"],
+                "maxItems": 0,
+            },
+        },
+    }
+    with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
+        inv.build_request(
+            purpose="resident_developmental_history_intervention_experiment",
+            prompt="history-withheld companion decision",
+            caller="resident_developmental_cognition",
+            correlation_id="companion-intervention-withheld-schema",
+            expected_output_format="json",
+            structured_output_schema=withheld_only_schema,
+            linkage={"condition_id": "history_withheld"})
+
+    altered = {**RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
+        "properties": {**RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA["properties"],
+            "action": {"type": "string"}}}
+    with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
+        inv.build_request(
+            purpose="resident_developmental_history_intervention_experiment",
+            prompt="controlled companion decision comparison",
+            caller="resident_developmental_cognition",
+            correlation_id="companion-intervention-json-altered",
+            expected_output_format="json", structured_output_schema=altered)
+    with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
+        inv.build_request(
+            purpose="resident_developmental_history_intervention_experiment",
+            prompt="controlled companion decision comparison",
+            caller="resident_developmental_cognition",
+            correlation_id="companion-intervention-lesson-json",
+            expected_output_format="json",
+            structured_output_schema=RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA)
+    assert fake.calls == 0
 
 
 def test_epistemic_revision_json_schema_is_canonical_and_purpose_scoped(tmp_path: Path) -> None:
