@@ -367,7 +367,8 @@ class AuthenticatedBridgeIndependentObserver:
         self._receipts: dict[str, dict[str, Any]] = {}
 
     def observe(self, *, expectation: EmbodiedActionExpectation, handoff: Mapping[str, Any],
-                report: AvatarRendererReport | None) -> IndependentConsequenceObservation:
+                report: AvatarRendererReport | None,
+                capture_request_id: str | None = None) -> IndependentConsequenceObservation:
         from .gaming_companion_bridge import VerifiedBridgeMessage
         verify_expectation(expectation)
         verify_renderer_handoff(handoff)
@@ -375,6 +376,10 @@ class AuthenticatedBridgeIndependentObserver:
             verify_renderer_report(report)
         if expectation.expected_observation_source_class != "authenticated_bridge_observer":
             raise EmbodiedConsequenceError("authenticated_observer_source_class_mismatch")
+        if (capture_request_id is not None
+                and (not isinstance(capture_request_id, str)
+                    or re.fullmatch(r"[0-9a-f]{32}", capture_request_id) is None)):
+            raise EmbodiedConsequenceError("authenticated_observer_capture_request_invalid")
         if (expectation.handoff_id != handoff.get("handoff_id")
                 or expectation.handoff_digest != handoff.get("handoff_digest")
                 or expectation.correlation_id != handoff.get("correlation_id")
@@ -408,6 +413,8 @@ class AuthenticatedBridgeIndependentObserver:
             (payload.get("body_generation"), expectation.body_generation))
         observed = payload.get("observed")
         if (any(actual != wanted for actual, wanted in bindings)
+                or (capture_request_id is not None
+                    and payload.get("capture_request_id") != capture_request_id)
                 or not isinstance(observed, Mapping)
                 or not set(observed).issubset(set(expectation.observable_fields))
                 or not observed
@@ -455,6 +462,9 @@ class AuthenticatedBridgeIndependentObserver:
             "transport_authenticated_at_ingress": True,
             "signature_reverified_on_load": False,
             "source_distinct_from_renderer": report is None or message.source_id != report.renderer_id}
+        if payload.get("schema_version") == "sentientos.bridge_consequence_observation:v2":
+            receipt["capture_request_id"] = payload["capture_request_id"]
+            receipt["capture_provenance"] = dict(payload["capture_provenance"])
         self._receipts[observation.observation_id] = receipt
         while len(self._receipts) > 32:
             self._receipts.pop(next(iter(self._receipts)))
