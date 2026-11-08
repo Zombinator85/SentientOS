@@ -37,6 +37,7 @@ from sentientos.codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK,
     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
 )
+from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
 from sentientos.embodiment_self_observation import (
     EmbodimentEvidenceOwner, EmbodimentObservation, semantic_digest)
 from sentientos.embodied_consequence import (
@@ -127,11 +128,12 @@ def _verify_model_released(model_name: str, *, timeout_seconds: float = 20.0
         time.sleep(0.5)
 
 
-def _verified_companion_replay(owner: Any, *, snapshot: Any, request_id: str,
+def _verified_companion_replay(bridge: Any, owner: Any, *,
+        screen_observation: dict[str, Any], request_id: str,
         question: str) -> dict[str, Any]:
     try:
-        interaction = owner.run_companion_interaction(snapshot=snapshot,
-            request_id=request_id, question=question)
+        interaction = bridge.respond(request_id=request_id, question=question,
+            screen_observation=screen_observation)
     except ResidentDevelopmentalCognitionError as exc:
         # Preserve an authenticated completion even when the owner rejects its
         # evidence-bound answer contract; rejected outputs are never shown.
@@ -193,6 +195,35 @@ def _verified_companion_replay(owner: Any, *, snapshot: Any, request_id: str,
             or not isinstance(generation_config, dict)
             or interaction.status != "admitted_completed"):
         raise RootlessExperimentalError("companion_replay_receipt_unverified")
+    lineage = {
+        "status": "resident_cognition_interaction",
+        "cognition_observation_id": interaction.cognition_observation_id,
+        "cognition_observation_digest": interaction.cognition_observation_digest,
+        "inference_receipt_id": interaction.inference_receipt_id,
+        "inference_receipt_digest": interaction.inference_receipt_digest,
+        "invocation_output_digest": interaction.invocation_output_digest,
+        "response_digest": interaction.response_digest,
+    }
+    linkage = {
+        "response_origin": "resident_developmental_cognition",
+        "cognition_observation_id": interaction.cognition_observation_id,
+        "cognition_observation_digest": interaction.cognition_observation_digest,
+        "cognition_snapshot_id": interaction.snapshot_id,
+        "cognition_snapshot_digest": interaction.snapshot_digest,
+        "inference_receipt_id": interaction.inference_receipt_id,
+        "inference_receipt_digest": interaction.inference_receipt_digest,
+        "invocation_output_digest": interaction.invocation_output_digest,
+        "response_digest": interaction.response_digest,
+        "assistant_output_lineage": lineage,
+        "cognition_evidence_ids": list(interaction.evidence_ids),
+        "cognition_prior_record_ids": list(interaction.prior_record_ids),
+        "cognition_model_id": interaction.model_id,
+        "cognition_model_artifact_digest": interaction.model_artifact_digest,
+        "self_model_projection_id": interaction.self_model_projection_id,
+        "self_model_projection_digest": interaction.self_model_projection_digest,
+        "epistemic_projection_id": interaction.epistemic_projection_id,
+        "epistemic_projection_digest": interaction.epistemic_projection_digest,
+    }
     return {
         "status": "admitted_completed",
         "prompt_digest": prompt_digest,
@@ -207,9 +238,12 @@ def _verified_companion_replay(owner: Any, *, snapshot: Any, request_id: str,
         "disposition": interaction.disposition,
         "evidence_ids": list(interaction.evidence_ids),
         "validated_response": interaction.response,
+        "response_lineage_verified": bridge.verify_committed_response(
+            linkage=linkage, response_text=interaction.response,
+            request_id=request_id),
     }
 
-def _embodied_source() -> tuple[dict[str, Any], dict[str, Any]]:
+def _embodied_source() -> tuple[dict[str, Any], dict[str, Any], EmbodimentObservation]:
     commanded_at = (datetime.now(timezone.utc) - timedelta(seconds=8)).isoformat()
     renderer_completed_at = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
     observed_at = (datetime.now(timezone.utc) - timedelta(seconds=4)).isoformat()
@@ -280,7 +314,7 @@ def _embodied_source() -> tuple[dict[str, Any], dict[str, Any]]:
         "renderer_and_observer_separately_bound": True,
         "action_execution_posture": "synthetic_fixture_only",
     }
-    return snapshot, evidence_summary
+    return snapshot, evidence_summary, self_report
 
 
 def run() -> dict[str, Any]:
@@ -342,7 +376,7 @@ def run() -> dict[str, Any]:
                 definitions=definitions, ledger=ledger),
             invoker=session, current_sequence=next_sequence)
 
-        snapshot, evidence = _embodied_source()
+        snapshot, evidence, proprioception = _embodied_source()
         first = owner.run_tick(snapshot=snapshot, tick_id=RUN_ID + ":consequence")
         if not first.written_record_id:
             raise RootlessExperimentalError("governed_developmental_writeback_not_created")
@@ -360,11 +394,26 @@ def run() -> dict[str, Any]:
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
             invoker=session, current_sequence=next_sequence)
+        cycle_observed_at = datetime.now(timezone.utc)
+        screen_text = ("Synthetic screen OCR fixture: commanded pose reach; "
+            "the separate synthetic observer reported pose idle.")
+        screen_observation = {
+            "modality": "screen", "text": screen_text,
+            "captured_at": cycle_observed_at.isoformat(),
+            "capture_digest": hashlib.sha256(screen_text.encode("utf-8")).hexdigest(),
+            "raw_frame_retained": False,
+            "capture_scope": "allowlisted_foreground_game_client_area",
+        }
+        companion_bridge = ResidentDevelopmentalCompanionBridge(
+            replay_owner, proprioception_provider=lambda: (proprioception,),
+            clock=lambda: cycle_observed_at)
         replay_question = (
             "What pose was commanded, and what did the separate observer report?")
-        replay_first = _verified_companion_replay(replay_owner, snapshot=snapshot,
+        replay_first = _verified_companion_replay(companion_bridge, replay_owner,
+            screen_observation=screen_observation,
             request_id=RUN_ID + ":same-prompt-replay-1", question=replay_question)
-        replay_second = _verified_companion_replay(replay_owner, snapshot=snapshot,
+        replay_second = _verified_companion_replay(companion_bridge, replay_owner,
+            screen_observation=screen_observation,
             request_id=RUN_ID + ":same-prompt-replay-2", question=replay_question)
         replay_controls = (
             "prompt_digest", "generation_config", "active_model_identity",
@@ -379,6 +428,8 @@ def run() -> dict[str, Any]:
             "response_digest_matches": (
                 replay_first["response_digest"] == replay_second["response_digest"]),
             "all_responses_admitted": all(item.get("status") == "admitted_completed"
+                for item in (replay_first, replay_second)),
+            "bridge_response_lineage_verified": all(item.get("response_lineage_verified") is True
                 for item in (replay_first, replay_second)),
             "causal_or_learning_claim_made": False,
         }
