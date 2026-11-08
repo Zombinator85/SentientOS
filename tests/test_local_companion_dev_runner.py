@@ -5,6 +5,11 @@ import json
 import queue
 
 from scripts.run_local_companion_dev import (
+<<<<<<< HEAD
+=======
+    _LatestRendererObservation,
+    _LatestScreenObservation,
+>>>>>>> 1f27cdd87 (feat(cognition): pass current avatar self-reports)
     _TemporaryCompanionEdge,
     _kill_windows_process_tree,
     _parse_edge_ready,
@@ -57,6 +62,7 @@ def test_forward_lines_surfaces_worker_output_after_ready(tmp_path, capsys) -> N
     )
 
 
+<<<<<<< HEAD
 def test_forward_lines_persists_avatar_state_acceptance_without_claiming_render(
     tmp_path,
 ) -> None:
@@ -118,6 +124,43 @@ def test_forward_lines_persists_dispatch_outcome_distinct_from_renderer_effect(
     assert event["renderer_effect_proven"] is False
     assert "phrase" not in event
     assert event["observed_at"]
+=======
+def test_forward_lines_passes_renderer_reports_to_body_observation_cache(tmp_path) -> None:
+    reports = []
+    lines: queue.Queue[str] = queue.Queue()
+    report_file = tmp_path / "renderer-reports.jsonl"
+    payload = {"schema_version": "fixture", "reported_at": "now"}
+
+    _TemporaryCompanionEdge._forward_lines(
+        io.StringIO("RENDERER_REPORT " + json.dumps(payload) + "\n"),
+        lines, report_file, reports.append)
+
+    assert reports == [payload]
+    assert report_file.read_text(encoding="utf-8").strip()
+
+
+def test_latest_renderer_observation_expires_and_rejects_invalid_report(monkeypatch) -> None:
+    import sentientos.avatar_renderer_report_ingress as ingress
+
+    now = [10.0]
+    monkeypatch.setattr("scripts.run_local_companion_dev.time.monotonic",
+                        lambda: now[0])
+    observation = object()
+    monkeypatch.setattr(ingress, "renderer_report_observation",
+                        lambda _report: observation)
+    provider = _LatestRendererObservation(max_age_seconds=5.0)
+    assert provider() == ()
+    provider.update({"fixture": True})
+    assert provider() == (observation,)
+    now[0] += 6.0
+    assert provider() == ()
+
+    def reject(_report):
+        raise ValueError("invalid_renderer_report")
+    monkeypatch.setattr(ingress, "renderer_report_observation", reject)
+    provider.update({"fixture": False})
+    assert provider() == ()
+>>>>>>> 1f27cdd87 (feat(cognition): pass current avatar self-reports)
 
 
 def test_terminate_owned_process_tree_stops_windows_descendants(

@@ -332,6 +332,40 @@ def _apply_gaming_resource_observation(
     return state
 
 
+class _LatestRendererObservation:
+    """Expose only a fresh, explicitly unverified Godot body self-report."""
+    def __init__(self, *, max_age_seconds: float = 5.0) -> None:
+        if not 0 < max_age_seconds <= 30:
+            raise ValueError("renderer_observation_cache_ttl_invalid")
+        self._max_age = float(max_age_seconds)
+        self._lock = threading.Lock()
+        self._observation: Any | None = None
+        self._sampled_monotonic = 0.0
+
+    def update(self, report: Mapping[str, Any]) -> None:
+        from sentientos.avatar_renderer_report_ingress import renderer_report_observation
+        try:
+            observation = renderer_report_observation(report)
+        except Exception:
+            observation = None
+        with self._lock:
+            self._observation = observation
+            self._sampled_monotonic = time.monotonic() if observation is not None else 0.0
+
+    def __call__(self) -> tuple[Any, ...]:
+        now = time.monotonic()
+        with self._lock:
+            observation = self._observation
+            sampled = self._sampled_monotonic
+            if observation is None:
+                return ()
+            if now - sampled > self._max_age:
+                self._observation = None
+                self._sampled_monotonic = 0.0
+                return ()
+            return (observation,)
+
+
 class _HostResourceSampler:
     """Feed host telemetry to the live governor and gaming inference gate."""
 
@@ -467,7 +501,7 @@ class _TemporaryCompanionEdge:
         self.godot_headless = godot_headless
         if delivery_event_file is not None:
             delivery_event_file.parent.mkdir(parents=True, exist_ok=True)
-        try:
+        self.proprioception_observations = _LatestRendererObservation()        try:
             identities = _test_identities(root)
             wsl, edge, ca = identities["wsl"], identities["windows"], identities["ca"]
             wsl_ip, windows_ip = _addresses()
@@ -603,8 +637,8 @@ class _TemporaryCompanionEdge:
             self.report_file = self._report_file
             threading.Thread(target=self._forward_lines,
                 args=(self._edge_process.stdout, self._lines, self._report_file,
-                      self._delivery_event_file),
-                daemon=True).start()
+                      self._delivery_event_file,
+                      self.proprioception_observations.update),                daemon=True).start()
             if self._edge_process is None:
                 raise RuntimeError("temporary_windows_edge_process_unavailable")
             ready = _wait_for_edge_ready(
@@ -662,8 +696,8 @@ class _TemporaryCompanionEdge:
 
     @staticmethod
     def _forward_lines(stream, target: queue.Queue[str], report_file: Path,
-                       delivery_event_file: Path | None = None) -> None:
-        ready_seen = False
+                       delivery_event_file: Path | None = None,
+            renderer_observation_sink: Callable[[Mapping[str, Any]], None] | None = None) -> None:        ready_seen = False
         delivery_file = (delivery_event_file
                          if delivery_event_file is not None
                          else report_file.with_name("avatar-delivery-events.jsonl"))
@@ -684,6 +718,8 @@ class _TemporaryCompanionEdge:
                         handle.write(json.dumps(report, separators=(",", ":")))
                         handle.write(chr(10))
                         handle.flush()
+                    if callable(renderer_observation_sink):
+                        renderer_observation_sink(report)
                 except (OSError, ValueError, TypeError):
                     pass
             if rendered.startswith("AVATAR_DISPATCH "):
@@ -1075,6 +1111,7 @@ def main() -> int:
             game_process_names=tuple(args.game_process_name),
             gaming_keep_alive=args.gaming_keep_alive,
             screen_observer=edge.screen_observer if edge else None,
+            proprioception_provider=(edge.proprioception_observations if edge else None),
             screen_capture_policy=("allowlisted_session_polling"
                 if args.screen_observation_process else "request_driven"),
             local_speech_output=args.local_speech_output,
