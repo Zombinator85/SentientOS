@@ -798,6 +798,7 @@ class GovernedLocalModelInvoker:
             allowed_structured_purposes = {
                 "discernment_judgment", "resident_developmental_interpretation",
                 "resident_developmental_retrieval_cognition",
+                INTERVENTION_PURPOSE,
                 ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
             }
             if purpose not in allowed_structured_purposes or expected_output_format != "json":
@@ -807,6 +808,10 @@ class GovernedLocalModelInvoker:
                         RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
                         RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
                         RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA]):
+                raise ValueError("structured_output_schema_not_canonical")
+            if (purpose == INTERVENTION_PURPOSE
+                    and dict(structured_output_schema)
+                        != RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA):
                 raise ValueError("structured_output_schema_not_canonical")
         return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=deepcopy(dict(structured_output_schema)) if structured_output_schema is not None else None)
 
@@ -867,6 +872,9 @@ class GovernedLocalModelInvoker:
                     reasons.append("structured_output_schema_not_canonical")
             elif request.purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE:
                 if schema != RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA:
+                    reasons.append("structured_output_schema_not_canonical")
+            elif request.purpose == INTERVENTION_PURPOSE:
+                if schema != RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA:
                     reasons.append("structured_output_schema_not_canonical")
             elif request.purpose != "resident_developmental_interpretation": reasons.append("structured_output_schema_invalid")
         if request.purpose == "genesis_proposal_advice":

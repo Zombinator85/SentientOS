@@ -615,6 +615,40 @@ def test_companion_interaction_schema_is_canonical_and_purpose_scoped(tmp_path: 
     assert fake.calls == 1
 
 
+def test_history_intervention_allows_only_canonical_companion_json(tmp_path: Path) -> None:
+    fake, inv = _invoker(tmp_path)
+    request = inv.build_request(
+        purpose="resident_developmental_history_intervention_experiment",
+        prompt="controlled companion decision comparison",
+        caller="resident_developmental_cognition",
+        correlation_id="companion-intervention-json",
+        expected_output_format="json",
+        structured_output_schema=RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
+    )
+    assert request.structured_output_schema == RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA
+    assert request.expected_output_format == "json"
+
+    altered = {**RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
+        "properties": {**RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["properties"],
+            "action": {"type": "string"}}}
+    with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
+        inv.build_request(
+            purpose="resident_developmental_history_intervention_experiment",
+            prompt="controlled companion decision comparison",
+            caller="resident_developmental_cognition",
+            correlation_id="companion-intervention-json-altered",
+            expected_output_format="json", structured_output_schema=altered)
+    with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
+        inv.build_request(
+            purpose="resident_developmental_history_intervention_experiment",
+            prompt="controlled companion decision comparison",
+            caller="resident_developmental_cognition",
+            correlation_id="companion-intervention-lesson-json",
+            expected_output_format="json",
+            structured_output_schema=RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA)
+    assert fake.calls == 0
+
+
 def test_epistemic_revision_json_schema_is_canonical_and_purpose_scoped(tmp_path: Path) -> None:
     fake, inv = _invoker(tmp_path)
     request = inv.build_request(

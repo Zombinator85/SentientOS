@@ -462,6 +462,19 @@ def run() -> dict[str, Any]:
         if not first.written_record_id:
             raise RootlessExperimentalError("governed_developmental_writeback_not_created")
         durable = owner.writeback.store.get(first.written_record_id)
+        intervention_owner = ResidentDevelopmentalCognitionOwner(
+            config=ResidentDevelopmentalCognitionConfig(
+                history_root, state_root, ("embodiment",), 16, 4, True),
+            writeback=writeback,
+            admission_authority=RuntimeAdmissionAuthority(
+                definitions=definitions, ledger=ledger),
+            invoker=session, current_sequence=next_sequence)
+        later_pre_action_snapshot, _ = _pre_action_source()
+        companion_intervention = (
+            intervention_owner.run_companion_history_intervention(
+                snapshot=later_pre_action_snapshot,
+                tick_id=RUN_ID + ":later-companion-decision",
+                question=decision_question))
         second = owner.run_tick(snapshot=snapshot, tick_id=RUN_ID + ":later-cognition")
         if not second.changed_cognition_measurement_id:
             raise RootlessExperimentalError("history_intervention_measurement_missing")
@@ -520,7 +533,7 @@ def run() -> dict[str, Any]:
             for fact in records[0]["candidate"].get("selected_facts", [])
             if isinstance(fact, dict)}
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v2",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v3",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
@@ -580,6 +593,32 @@ def run() -> dict[str, Any]:
                 "prior_record_ids": list(second.prior_record_ids),
                 "changed_cognition_measurement_id": second.changed_cognition_measurement_id,
                 "cognition_observation_ids": list(second.cognition_observation_ids)},
+            "later_companion_decision_intervention": {
+                "status": companion_intervention.status,
+                "question_digest": companion_intervention.question_digest,
+                "changed_cognition_measurement_id":
+                    companion_intervention.changed_cognition_measurement_id,
+                "output_classification": companion_intervention.output_classification,
+                "restored_prompt_matches": companion_intervention.restored_prompt_matches,
+                "conditions": [{
+                    "condition_id": item.get("condition_id"),
+                    "response": item.get("response"),
+                    "response_digest": item.get("response_digest"),
+                    "output_digest": item.get("output_digest"),
+                    "prompt_digest": item.get("prompt_digest"),
+                    "generation_config": item.get("generation_config"),
+                    "active_model_identity": item.get("active_model_identity"),
+                    "snapshot_digest": item.get("snapshot_digest"),
+                    "current_fact_ids": item.get("current_fact_ids"),
+                    "retrieved_record_ids": item.get("retrieved_record_ids"),
+                    "inference_receipt_id": item.get("inference_receipt_id"),
+                    "inference_receipt_digest": item.get("inference_receipt_digest"),
+                } for item in companion_intervention.conditions],
+                "authority": companion_intervention.authority,
+                "action_authority": companion_intervention.action_authority,
+                "canonical_explicit_user_retention_mutated":
+                    companion_intervention.canonical_explicit_user_retention_mutated,
+                "causal_or_learning_claim_made": False},
             "same_prompt_repeatability_control": repeatability,
             "history_intervention": {"validity": run_payload.get("validity"),
                 "conditions": [{"condition_id": item.get("condition_id"),
