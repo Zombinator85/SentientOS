@@ -501,7 +501,8 @@ class _TemporaryCompanionEdge:
         self.godot_headless = godot_headless
         if delivery_event_file is not None:
             delivery_event_file.parent.mkdir(parents=True, exist_ok=True)
-        self.proprioception_observations = _LatestRendererObservation()        try:
+        self.proprioception_observations = _LatestRendererObservation()
+        try:
             identities = _test_identities(root)
             wsl, edge, ca = identities["wsl"], identities["windows"], identities["ca"]
             wsl_ip, windows_ip = _addresses()
@@ -638,7 +639,8 @@ class _TemporaryCompanionEdge:
             threading.Thread(target=self._forward_lines,
                 args=(self._edge_process.stdout, self._lines, self._report_file,
                       self._delivery_event_file,
-                      self.proprioception_observations.update),                daemon=True).start()
+                      self.proprioception_observations.update),
+                daemon=True).start()
             if self._edge_process is None:
                 raise RuntimeError("temporary_windows_edge_process_unavailable")
             ready = _wait_for_edge_ready(
@@ -697,7 +699,8 @@ class _TemporaryCompanionEdge:
     @staticmethod
     def _forward_lines(stream, target: queue.Queue[str], report_file: Path,
                        delivery_event_file: Path | None = None,
-            renderer_observation_sink: Callable[[Mapping[str, Any]], None] | None = None) -> None:        ready_seen = False
+            renderer_observation_sink: Callable[[Mapping[str, Any]], None] | None = None) -> None:
+        ready_seen = False
         delivery_file = (delivery_event_file
                          if delivery_event_file is not None
                          else report_file.with_name("avatar-delivery-events.jsonl"))
