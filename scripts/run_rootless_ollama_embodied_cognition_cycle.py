@@ -18,7 +18,7 @@ import uuid
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 # Bind imports to this checkout even when WSL's login shell starts elsewhere.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -128,6 +128,27 @@ def _verify_model_released(model_name: str, *, timeout_seconds: float = 20.0
         time.sleep(0.5)
 
 
+def _pose_decision_from_response(value: str) -> dict[str, str] | None:
+    try:
+        payload = json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        payload = None
+    if isinstance(payload, dict):
+        requested = payload.get("requested_pose")
+        predicted = payload.get("predicted_pose")
+        if requested in {"reach", "idle"} and predicted in {"reach", "idle"}:
+            return {"requested_pose": requested, "predicted_pose": predicted}
+    requested_match = re.search(
+        r"requested_pose.*?\b(reach|idle)\b", value, flags=re.IGNORECASE | re.DOTALL)
+    predicted_match = re.search(
+        r"predicted_(?:encoder_)?pose.*?\b(reach|idle)\b",
+        value, flags=re.IGNORECASE | re.DOTALL)
+    if requested_match and predicted_match:
+        return {"requested_pose": requested_match.group(1).lower(),
+            "predicted_pose": predicted_match.group(1).lower()}
+    return None
+
+
 def _verified_companion_replay(bridge: Any, owner: Any, *,
         screen_observation: dict[str, Any], request_id: str,
         question: str) -> dict[str, Any]:
@@ -216,6 +237,7 @@ def _verified_companion_replay(bridge: Any, owner: Any, *,
         "response_digest": interaction.response_digest,
         "assistant_output_lineage": lineage,
         "cognition_evidence_ids": list(interaction.evidence_ids),
+        "cognition_history_record_ids": list(interaction.history_record_ids),
         "cognition_prior_record_ids": list(interaction.prior_record_ids),
         "cognition_model_id": interaction.model_id,
         "cognition_model_artifact_digest": interaction.model_artifact_digest,
@@ -237,6 +259,7 @@ def _verified_companion_replay(bridge: Any, owner: Any, *,
         "response_digest": interaction.response_digest,
         "disposition": interaction.disposition,
         "evidence_ids": list(interaction.evidence_ids),
+        "history_record_ids": list(interaction.history_record_ids),
         "validated_response": interaction.response,
         "cognition_observation_id": interaction.cognition_observation_id,
         "cognition_observation_digest": interaction.cognition_observation_digest,
@@ -247,19 +270,22 @@ def _verified_companion_replay(bridge: Any, owner: Any, *,
             request_id=request_id),
     }
 
-def _pre_action_source() -> tuple[Any, EmbodimentObservation]:
+def _pre_action_source(*, pose: str = "idle") -> tuple[Any, EmbodimentObservation]:
     """Build the synthetic body's pre-action state for a governed proposal."""
+    if pose not in {"idle", "reach"}:
+        raise RootlessExperimentalError("synthetic_pose_invalid")
+    arm_value = 0.75 if pose == "reach" else 0.0
     observed_at = datetime.now(timezone.utc).isoformat()
     self_report = EmbodimentObservation(
         source_id=RUN_ID + ":synthetic-pre-action-proprioception",
         source_schema="sentientos.synthetic_proprioception_observation:v1",
-        source_digest=semantic_digest({"encoder_pose": "idle", "joint_state": {"arm": 0.0},
+        source_digest=semantic_digest({"encoder_pose": pose, "joint_state": {"arm": arm_value},
             "source_posture": "synthetic_test"}),
         observed_at=observed_at,
         provenance_class="deterministic_synthetic_fixture", freshness="current",
         posture="synthetic_test", evidence_class="sensor_observation",
         subject_id="synthetic-avatar-body", subject_kind="robot_body",
-        payload={"encoder_pose": "idle", "joint_state": {"arm": 0.0},
+        payload={"encoder_pose": pose, "joint_state": {"arm": arm_value},
             "sampled_at": observed_at})
     records = EmbodimentEvidenceOwner([self_report]).world_state_records()
     return WorldStateBoardBuilder().build(records), self_report
@@ -432,12 +458,14 @@ def run() -> dict[str, Any]:
             proprioception_provider=lambda: (pre_action_proprioception,),
             clock=lambda: pre_action_at)
         decision_question = (
-            "For the synthetic test only, propose the next avatar pose as either "
-            "reach or idle, and predict the resulting encoder pose. Return the "
-            "response as exactly one JSON object with requested_pose and "
-            "predicted_pose, each either reach or idle. This is a proposal; do "
-            "not say that an action occurred. Base it on the supplied current "
-            "evidence.")
+            "For this synthetic test, the avatar has the task goal of reaching "
+            "the marked target directly in front of it. Choose the allowed next "
+            "pose (reach or idle) that advances that goal, and predict the "
+            "resulting encoder pose. The current encoder pose is idle and both "
+            "poses are available. Return exactly one JSON object with "
+            "requested_pose and predicted_pose, each either reach or idle. This "
+            "is a proposal only; do not claim an action occurred. Base the "
+            "choice on the supplied current evidence and task goal.")
         cognitive_decision = _verified_companion_replay(
             decision_bridge, decision_owner, screen_observation=pre_action_screen,
             request_id=RUN_ID + ":pre-action-decision", question=decision_question)
@@ -445,7 +473,14 @@ def run() -> dict[str, Any]:
                 or cognitive_decision.get("response_lineage_verified") is not True
                 or cognitive_decision.get("disposition") != "answer"
                 or not cognitive_decision.get("evidence_ids")):
-            raise RootlessExperimentalError("pre_action_cognition_proposal_unverified")
+            raise RootlessExperimentalError("pre_action_cognition_proposal_unverified: " + json.dumps({
+                    "status": cognitive_decision.get("status"),
+                    "lineage": cognitive_decision.get("response_lineage_verified"),
+                    "disposition": cognitive_decision.get("disposition"),
+                    "evidence_ids": cognitive_decision.get("evidence_ids"),
+                    "history_record_ids": cognitive_decision.get("history_record_ids"),
+                    "response": cognitive_decision.get("validated_response"),
+                }, sort_keys=True))
         try:
             proposal = json.loads(cognitive_decision["validated_response"])
         except (KeyError, TypeError, json.JSONDecodeError) as exc:
@@ -469,18 +504,28 @@ def run() -> dict[str, Any]:
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
             invoker=session, current_sequence=next_sequence)
-        later_pre_action_snapshot, _ = _pre_action_source()
+        later_pre_action_snapshot, _ = _pre_action_source(pose="reach")
+        history_decision_question = (
+            "This is about the prior completed synthetic trial, not the current "
+            "trial. What pose did the prior trial observer report? The current "
+            "encoder pose is reach; do not use it to answer about the past. If "
+            "retrieved history supports an answer, report it explicitly as a past "
+            "report and cite that record in history_record_ids. If history is "
+            "absent or insufficient, abstain without guessing. Preserve the "
+            "distinction between renderer report, observer report, and proprioception.")
         companion_intervention = (
             intervention_owner.run_companion_history_intervention(
                 snapshot=later_pre_action_snapshot,
                 tick_id=RUN_ID + ":later-companion-decision",
-                question=decision_question))
-        second = owner.run_tick(snapshot=snapshot, tick_id=RUN_ID + ":later-cognition")
-        if not second.changed_cognition_measurement_id:
+                question=history_decision_question))
+        if (companion_intervention.status != "completed_controlled_intervention"
+                or not companion_intervention.changed_cognition_measurement_id):
             raise RootlessExperimentalError("history_intervention_measurement_missing")
-        run_payload = owner.experiments.load_run(second.changed_cognition_measurement_id)
+        run_payload = intervention_owner.experiments.load_run(
+            companion_intervention.changed_cognition_measurement_id)
         conditions = run_payload.get("conditions", [])
         summary = run_payload.get("summary", {})
+        intervention_conditions = list(companion_intervention.conditions)
         replay_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, False),
@@ -488,46 +533,98 @@ def run() -> dict[str, Any]:
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
             invoker=session, current_sequence=next_sequence)
-        cycle_observed_at = datetime.now(timezone.utc)
-        screen_text = ("Synthetic screen OCR fixture: commanded pose "
-            + proposal["requested_pose"] + "; the separate synthetic observer "
-            "reported pose idle.")
-        screen_observation = {
-            "modality": "screen", "text": screen_text,
-            "captured_at": cycle_observed_at.isoformat(),
-            "capture_digest": hashlib.sha256(screen_text.encode("utf-8")).hexdigest(),
+        history_recall_at = datetime.now(timezone.utc)
+        history_recall_text = "New synthetic trial: the current encoder pose is reach."
+        history_recall_screen = {
+            "modality": "screen", "text": history_recall_text,
+            "captured_at": history_recall_at.isoformat(),
+            "capture_digest": hashlib.sha256(
+                history_recall_text.encode("utf-8")).hexdigest(),
             "raw_frame_retained": False,
             "capture_scope": "allowlisted_foreground_game_client_area",
         }
-        companion_bridge = ResidentDevelopmentalCompanionBridge(
-            replay_owner, proprioception_provider=lambda: (proprioception,),
-            clock=lambda: cycle_observed_at)
-        replay_question = (
-            "What pose was commanded, and what did the separate observer report?")
-        replay_first = _verified_companion_replay(companion_bridge, replay_owner,
-            screen_observation=screen_observation,
-            request_id=RUN_ID + ":same-prompt-replay-1", question=replay_question)
-        replay_second = _verified_companion_replay(companion_bridge, replay_owner,
-            screen_observation=screen_observation,
-            request_id=RUN_ID + ":same-prompt-replay-2", question=replay_question)
+        _, history_recall_proprioception = _pre_action_source(pose="reach")
+        history_recall_bridge = ResidentDevelopmentalCompanionBridge(
+            replay_owner,
+            proprioception_provider=lambda: (history_recall_proprioception,),
+            clock=lambda: history_recall_at)
+        history_recall = _verified_companion_replay(
+            history_recall_bridge, replay_owner,
+            screen_observation=history_recall_screen,
+            request_id=RUN_ID + ":historical-companion-recall",
+            question=("In the prior completed trial, what pose value is stored under "
+                "semantic_report_roles.observer_report_field? The current encoder "
+                "pose is reach; do not use it as the past answer. Treat retrieved "
+                "history as an unverified past report, distinguish it from the "
+                "renderer report, and cite it."))
+        replay_first = intervention_conditions[0] if len(intervention_conditions) == 3 else {}
+        replay_second = intervention_conditions[2] if len(intervention_conditions) == 3 else {}
         replay_controls = (
             "prompt_digest", "generation_config", "active_model_identity",
-            "snapshot_digest", "current_projection_digest", "current_fact_ids",
-            "retrieved_record_ids")
+            "snapshot_digest", "current_fact_ids", "retrieved_record_ids")
         repeatability = {
             "conditions": [replay_first, replay_second],
-            "input_controls_match": all(replay_first[key] == replay_second[key]
+            "input_controls_match": all(replay_first.get(key) == replay_second.get(key)
                 for key in replay_controls),
             "output_digest_matches": (
-                replay_first["output_digest"] == replay_second["output_digest"]),
+                replay_first.get("output_digest") == replay_second.get("output_digest")),
             "response_digest_matches": (
-                replay_first["response_digest"] == replay_second["response_digest"]),
+                replay_first.get("response_digest") == replay_second.get("response_digest")),
             "all_responses_admitted": all(item.get("status") == "admitted_completed"
                 for item in (replay_first, replay_second)),
-            "bridge_response_lineage_verified": all(item.get("response_lineage_verified") is True
+            "bridge_response_lineage_verified": all(
+                item.get("response_lineage_verified") is True
                 for item in (replay_first, replay_second)),
             "causal_or_learning_claim_made": False,
         }
+        present, withheld, restored = (intervention_conditions
+            if len(intervention_conditions) == 3 else (None, None, None))
+        def _mentions_past_idle(item: Any) -> bool:
+            text = str(item.get("response", "")).lower() if isinstance(item, Mapping) else ""
+            return "idle" in text and (
+                "observer report" in text or "observer_report_field" in text
+                or "observer reported" in text)
+        def _reports_past_idle(item: Any) -> bool:
+            return (isinstance(item, Mapping)
+                and item.get("disposition") == "answer"
+                and _mentions_past_idle(item))
+        def _history_citation_bound(item: Any) -> bool:
+            return (isinstance(item, Mapping)
+                and bool(item.get("history_record_ids"))
+                and set(item.get("history_record_ids", ())).issubset(
+                    item.get("retrieved_record_ids", ())))
+        intervention_inputs_match = (present is not None and restored is not None
+            and withheld is not None
+            and present.get("current_fact_ids") == withheld.get("current_fact_ids")
+            == restored.get("current_fact_ids")
+            and present.get("snapshot_digest") == withheld.get("snapshot_digest")
+            == restored.get("snapshot_digest")
+            and present.get("generation_config") == withheld.get("generation_config")
+            == restored.get("generation_config")
+            and present.get("active_model_identity") == withheld.get("active_model_identity")
+            == restored.get("active_model_identity"))
+        if (intervention_inputs_match and _reports_past_idle(present)
+                and _reports_past_idle(restored)
+                and _history_citation_bound(present)
+                and _history_citation_bound(restored)
+                and not _mentions_past_idle(withheld)):
+            historical_answer_classification = "history_present_answered_withheld_abstained"
+        elif (intervention_inputs_match and _mentions_past_idle(present)
+                and _mentions_past_idle(restored)
+                and _history_citation_bound(present)
+                and _history_citation_bound(restored)
+                and not _mentions_past_idle(withheld)):
+            historical_answer_classification = (
+                "history_associated_content_difference_but_answer_not_admitted")
+        else:
+            historical_answer_classification = "no_validated_history_effect"
+        semantic_decisions = [{"condition_id": item.get("condition_id"),
+            "disposition": item.get("disposition"),
+            "mentions_past_idle": _mentions_past_idle(item),
+            "answers_with_past_idle": _reports_past_idle(item),
+            "history_citation_bound": _history_citation_bound(item)}
+            for item in intervention_conditions]
+        semantic_decision_classification = historical_answer_classification
         records = [asdict(durable)]
         source_ids = {fact.get("source", {}).get("source_id")
             for fact in records[0]["candidate"].get("selected_facts", [])
@@ -589,20 +686,28 @@ def run() -> dict[str, Any]:
                 "record_authority": durable.authority,
                 "record_epistemic_posture": durable.epistemic_posture,
                 "selected_source_ids": sorted(item for item in source_ids if item)},
-            "later_tick": {"status": second.status,
-                "prior_record_ids": list(second.prior_record_ids),
-                "changed_cognition_measurement_id": second.changed_cognition_measurement_id,
-                "cognition_observation_ids": list(second.cognition_observation_ids)},
+            "later_tick": {"status": companion_intervention.status,
+                "prior_record_ids": list(present.get("retrieved_record_ids", ()))
+                    if present is not None else [],
+                "changed_cognition_measurement_id":
+                    companion_intervention.changed_cognition_measurement_id,
+                "cognition_observation_ids": [item.get("cognition_observation_id")
+                    for item in intervention_conditions
+                    if item.get("cognition_observation_id")]},
             "later_companion_decision_intervention": {
                 "status": companion_intervention.status,
                 "question_digest": companion_intervention.question_digest,
                 "changed_cognition_measurement_id":
                     companion_intervention.changed_cognition_measurement_id,
-                "output_classification": companion_intervention.output_classification,
+                "response_text_classification": companion_intervention.response_text_classification,
+                "semantic_decisions": semantic_decisions,
+                "semantic_decision_classification": semantic_decision_classification,
+                "controlled_inputs_match": intervention_inputs_match,
                 "restored_prompt_matches": companion_intervention.restored_prompt_matches,
                 "conditions": [{
                     "condition_id": item.get("condition_id"),
                     "response": item.get("response"),
+                    "disposition": item.get("disposition"),
                     "response_digest": item.get("response_digest"),
                     "output_digest": item.get("output_digest"),
                     "prompt_digest": item.get("prompt_digest"),
@@ -611,6 +716,7 @@ def run() -> dict[str, Any]:
                     "snapshot_digest": item.get("snapshot_digest"),
                     "current_fact_ids": item.get("current_fact_ids"),
                     "retrieved_record_ids": item.get("retrieved_record_ids"),
+                    "history_record_ids": list(item.get("history_record_ids", ())),
                     "inference_receipt_id": item.get("inference_receipt_id"),
                     "inference_receipt_digest": item.get("inference_receipt_digest"),
                 } for item in companion_intervention.conditions],
@@ -619,6 +725,24 @@ def run() -> dict[str, Any]:
                 "canonical_explicit_user_retention_mutated":
                     companion_intervention.canonical_explicit_user_retention_mutated,
                 "causal_or_learning_claim_made": False},
+            "historical_companion_recall": {
+                "status": history_recall.get("status"),
+                "response": history_recall.get("validated_response"),
+                "history_record_ids": history_recall.get("history_record_ids", []),
+                "prior_record_ids": history_recall.get("retrieved_record_ids", []),
+                "current_fact_ids": history_recall.get("current_fact_ids", []),
+                "current_snapshot_digest": history_recall.get("snapshot_digest"),
+                "response_lineage_verified": history_recall.get(
+                    "response_lineage_verified") is True,
+                "history_citation_bound": bool(history_recall.get("history_record_ids"))
+                    and set(history_recall.get("history_record_ids", ())).issubset(
+                        history_recall.get("retrieved_record_ids", ())),
+                "historical_truth_claim_made": False,
+                "reports_past_idle": _reports_past_idle(history_recall),
+                "demonstrated_history_use": (_reports_past_idle(history_recall)
+                    and _history_citation_bound(history_recall)
+                    and history_recall.get("response_lineage_verified") is True),
+            },
             "same_prompt_repeatability_control": repeatability,
             "history_intervention": {"validity": run_payload.get("validity"),
                 "conditions": [{"condition_id": item.get("condition_id"),

@@ -16,6 +16,7 @@ from sentientos.governed_local_model_invocation import (
     validate_llama_completion_observation,
     RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
     RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA, RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
+    RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
 )
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.local_model import ActiveModelIdentity
@@ -623,13 +624,13 @@ def test_history_intervention_allows_only_canonical_companion_json(tmp_path: Pat
         caller="resident_developmental_cognition",
         correlation_id="companion-intervention-json",
         expected_output_format="json",
-        structured_output_schema=RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
+        structured_output_schema=RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
     )
-    assert request.structured_output_schema == RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA
+    assert request.structured_output_schema == RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
     assert request.expected_output_format == "json"
 
-    altered = {**RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
-        "properties": {**RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["properties"],
+    altered = {**RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
+        "properties": {**RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA["properties"],
             "action": {"type": "string"}}}
     with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
         inv.build_request(
