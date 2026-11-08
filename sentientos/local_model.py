@@ -88,7 +88,35 @@ def candidate_artifact_identity(candidate: ModelCandidate, metadata: Dict[str, A
 
 
 class ModelLoadError(RuntimeError):
-    """Raised when a model backend cannot be instantiated."""
+    """Raised when a model backend cannot be instantiated or invoked."""
+
+    def __init__(self, message: str, *, diagnostic_code: str | None = None) -> None:
+        super().__init__(message)
+        self.diagnostic_code = diagnostic_code
+
+
+def _ollama_server_error_diagnostic(message: str) -> str:
+    """Map server text to a bounded code without retaining backend error text."""
+    normalized = message.casefold()[:2048]
+    if any(marker in normalized for marker in (
+            "requires more system memory", "requires more vram",
+            "insufficient memory", "not enough memory", "out of memory")):
+        return "ollama_server_memory_pressure"
+    if any(marker in normalized for marker in (
+            "context length", "context size", "input length exceeds",
+            "prompt is too long")):
+        return "ollama_server_context_limit"
+    if "model not found" in normalized or "pull model" in normalized:
+        return "ollama_server_model_unavailable"
+    if any(marker in normalized for marker in (
+            "runner process has terminated", "runner exited", "signal: killed",
+            "failed to load model")):
+        return "ollama_server_worker_failure"
+    if any(marker in normalized for marker in (
+            "invalid json schema", "invalid schema", "unsupported format",
+            "structured output")):
+        return "ollama_server_request_rejected"
+    return "ollama_server_other"
 
 
 class _ModelBackend:
@@ -376,7 +404,8 @@ class _OllamaBackend(_ModelBackend):
                 if not isinstance(chunk, dict):
                     raise ModelLoadError("ollama_stream_chunk_invalid")
                 if isinstance(chunk.get("error"), str):
-                    raise ModelLoadError("ollama_local_generation_failed")
+                    raise ModelLoadError("ollama_local_generation_failed",
+                        diagnostic_code=_ollama_server_error_diagnostic(chunk["error"]))
                 message = chunk.get("message")
                 content = message.get("content") if isinstance(message, dict) else None
                 if content is not None:

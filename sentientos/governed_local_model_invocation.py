@@ -40,6 +40,14 @@ LLAMA_INVOCATION_RESOURCE_OBSERVATION_SCHEMA = (
     "sentientos.llama_cpp_invocation_resource_observation:v1")
 MAX_INVOCATION_RECEIPT_BYTES = 256 * 1024
 MAX_INVOCATION_RECEIPTS = 256
+OLLAMA_BACKEND_DIAGNOSTICS = frozenset({
+    "ollama_server_memory_pressure",
+    "ollama_server_context_limit",
+    "ollama_server_model_unavailable",
+    "ollama_server_worker_failure",
+    "ollama_server_request_rejected",
+    "ollama_server_other",
+})
 
 
 def validate_llama_completion_observation(value: object) -> bool:
@@ -1104,7 +1112,11 @@ class GovernedLocalModelInvoker:
                             reasons.append("active_model_request_identity_mismatch")
                         else:
                             status = "backend_failure"
-                            reasons.append(f"backend_failure:{exc.__class__.__name__}")
+                            diagnostic_code = getattr(exc, "diagnostic_code", None)
+                            if diagnostic_code in OLLAMA_BACKEND_DIAGNOSTICS:
+                                reasons.append(f"backend_failure:{diagnostic_code}")
+                            else:
+                                reasons.append(f"backend_failure:{exc.__class__.__name__}")
         if status == "blocked_invalid" and not reasons: reasons.append("blocked_invalid")
         effect_occurred = inference_attempted.is_set()
         receipt_output = generated_output if generated_output is not None else output
