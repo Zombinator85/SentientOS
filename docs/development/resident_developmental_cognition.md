@@ -90,6 +90,25 @@ observation, inference receipt, and response digests, then verifies those bindin
 on idempotent recovery instead of invoking cognition a second time. This stored
 reply remains distinct from developmental-history writeback.
 
+An explicitly operator-confirmed companion developmental cycle can also use a
+configured longitudinal self-model owner. The bridge captures the eligible
+prior self-model projection before cognition, runs the existing governed
+interpretation/writeback owner, then reconciles the same bounded World-State
+snapshot through that existing self-model owner. The reconciliation uses the
+snapshot's timestamp boundary rather than the request's opaque cycle ID. As in
+the daemon cadence, that same-cycle reconciliation cannot enter the cognition
+that preceded it; only a later cognitive tick can select it. The cycle response
+reports reconciliation status and identity separately from developmental
+writeback, including a degraded status if reconciliation fails after writeback.
+This does not roll back or misreport an already committed writeback.
+
+A renderer's proprioceptive report remains a report from the renderer, not an
+independent measurement of the avatar's actual effect. The self-model owner
+preserves that provenance and uncertainty; these claims are read-only,
+non-authoritative, and do not establish action, consequence, learning, or
+improved performance. This bridge connection is opt-in and does not reconfigure
+a running companion.
+
 The local companion launcher keeps ordinary serving and controlled comparison
 in separate `ResidentDevelopmentalCognitionOwner` instances when
 `comparison_enabled` is explicitly enabled. The serving owner is always

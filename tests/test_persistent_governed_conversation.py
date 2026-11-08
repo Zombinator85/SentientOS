@@ -147,7 +147,11 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
             return SimpleNamespace(status="completed", tick_id=tick_id,
                 snapshot_id="snapshot-cycle", selected_fact_ids=("fact-1",),
                 prior_record_ids=(), written_record_id="record-1",
-                writeback_receipt_id="receipt-1", cognition_observation_ids=("obs-1",))
+                writeback_receipt_id="receipt-1", cognition_observation_ids=("obs-1",),
+                self_model_reconciliation_status="reconciled",
+                self_model_reconciliation_id="self-model-reconcile-1",
+                self_model_reconciliation_digest="b" * 64,
+                self_model_reconciliation_generation=3, self_model_claim_count=2)
 
     capture = {"modality": "screen", "text": "fresh local observation",
         "capture_digest": "a" * 64,
@@ -169,6 +173,11 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
     assert result["status"] == "completed_writeback"
     assert result["written_record_id"] == "record-1"
     assert result["writeback_receipt_id"] == "receipt-1"
+    assert result["self_model_reconciliation_status"] == "reconciled"
+    assert result["self_model_reconciliation_id"] == "self-model-reconcile-1"
+    assert result["self_model_reconciliation_digest"] == "b" * 64
+    assert result["self_model_reconciliation_generation"] == 3
+    assert result["self_model_claim_count"] == 2
     assert result["raw_frame_retained"] is False
     assert observations[0][0].startswith("companion-developmental-cycle-")
     assert observations[0][1] is capture

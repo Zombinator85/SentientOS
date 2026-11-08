@@ -1207,6 +1207,17 @@ class PersistentConversationService:
             "written_record_id": result.written_record_id,
             "writeback_receipt_id": result.writeback_receipt_id,
             "cognition_observation_ids": list(result.cognition_observation_ids),
+            "self_model_reconciliation_status": getattr(
+                result, "self_model_reconciliation_status", "not_configured"),
+            "self_model_reconciliation_id": getattr(
+                result, "self_model_reconciliation_id", None),
+            "self_model_reconciliation_digest": getattr(
+                result, "self_model_reconciliation_digest", None),
+            "self_model_reconciliation_generation": getattr(
+                result, "self_model_reconciliation_generation", None),
+            "self_model_claim_count": getattr(result, "self_model_claim_count", None),
+            "self_model_reconciliation_error_type": getattr(
+                result, "self_model_reconciliation_error_type", None),
             "raw_frame_retained": False,
         }
 
@@ -5177,12 +5188,24 @@ async def root_page() -> HTMLResponse:
                                 ? data.detail : 'Developmental cycle did not complete.';
                             return;
                         }
+                        const selfModelStatus = data.self_model_reconciliation_status;
+                        const selfModelSummary = selfModelStatus === 'reconciled'
+                            ? ' Longitudinal self-model generation '
+                                + String(data.self_model_reconciliation_generation || 'unavailable')
+                                + ' was reconciled after cognition for later ticks; claims remain evidence-bound and non-authoritative.'
+                            : selfModelStatus === 'degraded'
+                                ? ' Longitudinal self-model reconciliation degraded ('
+                                    + String(data.self_model_reconciliation_error_type || 'unknown')
+                                    + '); the developmental writeback result is reported separately.'
+                                : ' Longitudinal self-model reconciliation is not configured.';
                         status.textContent = data.status === 'completed_writeback'
                             ? 'Governed developmental writeback completed. Record: '
                                 + String(data.written_record_id || 'unavailable')
                                 + '; receipt: ' + String(data.writeback_receipt_id || 'unavailable')
                                 + '. History influence and performance improvement are not yet established.'
-                            : 'The developmental tick completed, but no eligible lesson was written to history.';
+                                + selfModelSummary
+                            : 'The developmental tick completed, but no eligible lesson was written to history.'
+                                + selfModelSummary;
                     } catch (_) {
                         status.textContent = 'Developmental cycle did not complete.';
                     } finally {

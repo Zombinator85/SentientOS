@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 from contextlib import nullcontext
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping, Sequence
 
@@ -43,6 +44,18 @@ class CognitionEvidenceUnavailable(RuntimeError):
     """No current external or proprioceptive evidence is available for grounding."""
 
     code = "cognition_current_evidence_unavailable"
+
+
+@dataclass(frozen=True)
+class CompanionDevelopmentalCycleResult(ResidentDevelopmentalCycleResult):
+    """Cycle result plus the optional post-cognition self-model reconciliation."""
+
+    self_model_reconciliation_status: str = "not_configured"
+    self_model_reconciliation_id: str | None = None
+    self_model_reconciliation_digest: str | None = None
+    self_model_reconciliation_generation: int | None = None
+    self_model_claim_count: int | None = None
+    self_model_reconciliation_error_type: str | None = None
 
 
 def _request_bound_capture_freshness(observation: Mapping[str, Any]
@@ -223,6 +236,10 @@ class ResidentDevelopmentalCompanionBridge:
         if (self_model_owner is not None
                 and not callable(getattr(self_model_owner, "cognitive_projection", None))):
             raise TypeError("self_model_projection_owner_invalid")
+        if (self_model_owner is not None and self_model_config is not None
+                and self_model_config.enabled
+                and not callable(getattr(self_model_owner, "reconcile", None))):
+            raise TypeError("self_model_reconciliation_owner_invalid")
         if (self_model_config is not None and self_model_config.enabled
                 and self_model_config.cognitive_consumption_enabled
                 and self_model_owner is None):
@@ -458,7 +475,7 @@ class ResidentDevelopmentalCompanionBridge:
 
     def run_developmental_cycle(self, *, tick_id: str,
             screen_observation: Mapping[str, Any]
-            ) -> ResidentDevelopmentalCycleResult:
+            ) -> CompanionDevelopmentalCycleResult:
         """Run one fresh-evidence tick through the existing governed writeback owner.
 
         Callers must put this behind an explicit operator confirmation. This
@@ -514,9 +531,44 @@ class ResidentDevelopmentalCompanionBridge:
         gate = (self._cognition_inference_gate()
             if self._cognition_inference_gate is not None else nullcontext())
         with gate:
-            return self._owner.run_tick(snapshot=snapshot, tick_id=tick_id,
+            cycle = self._owner.run_tick(snapshot=snapshot, tick_id=tick_id,
                 prior_self_model=prior_self_model,
                 prior_epistemic_state=prior_epistemic_state)
+        self_model_result: Any | None = None
+        self_model_status = "not_configured"
+        self_model_error_type: str | None = None
+        config = self._self_model_config
+        if (self._self_model_owner is not None and config is not None
+                and config.enabled):
+            try:
+                # Match sentientosd's temporal ordering: cognition first, then
+                # same-snapshot reconciliation. Use the timestamp boundary, not
+                # the request's opaque tick ID, so later projections can select it.
+                self_model_result = self._self_model_owner.reconcile(
+                    snapshot, tick_id=tick_time)
+                self_model_status = "reconciled"
+            except Exception as exc:
+                # The governed developmental write may already be committed.
+                # Preserve that result and report the optional owner failure
+                # separately rather than implying the whole cycle rolled back.
+                self_model_status = "degraded"
+                self_model_error_type = type(exc).__name__
+        return CompanionDevelopmentalCycleResult(
+            **asdict(cycle),
+            self_model_reconciliation_status=self_model_status,
+            self_model_reconciliation_id=(
+                self_model_result.reconciliation_id
+                if self_model_result is not None else None),
+            self_model_reconciliation_digest=(
+                self_model_result.reconciliation_digest
+                if self_model_result is not None else None),
+            self_model_reconciliation_generation=(
+                self_model_result.generation
+                if self_model_result is not None else None),
+            self_model_claim_count=(
+                len(self_model_result.claims)
+                if self_model_result is not None else None),
+            self_model_reconciliation_error_type=self_model_error_type)
 
     def respond(self, *, request_id: str, question: str,
                 screen_observation: Mapping[str, Any] | None = None
