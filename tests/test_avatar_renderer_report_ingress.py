@@ -75,6 +75,28 @@ def _refresh_digest(report: dict[str, object]) -> None:
         ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
 
 
+def _adopted_body_report() -> dict[str, object]:
+    report = _report()
+    report["schema_version"] = "sentientos.avatar_renderer_report:v2"
+    report["source_id"] = "godot-adopted-body-demo"
+    report["body_identity"] = "companion-avatar-v4"
+    report["body_generation"] = 4
+    renderer_state = report["renderer_state"]
+    assert isinstance(renderer_state, dict)
+    renderer_state["speech"] = {"status": "not_requested", "phoneme_claimed": False}
+    renderer_state["adopted_body"] = {
+        "status": "active",
+        "evidence_posture": "trusted_loader_adoption_receipt_verified",
+        "artifact_sha256": "a" * 64,
+        "manifest_digest": "sha256:" + "b" * 64,
+        "pointer_digest": "sha256:" + "c" * 64,
+        "adoption_receipt_digest": "sha256:" + "d" * 64,
+        "authority_effects_performed": False,
+    }
+    _refresh_digest(report)
+    return report
+
+
 def test_renderer_report_projects_through_existing_owner_without_authority():
     record = renderer_report_world_state_record(_report())
 
@@ -84,6 +106,38 @@ def test_renderer_report_projects_through_existing_owner_without_authority():
     assert record["payload"]["embodiment_evidence_class"] == "avatar_renderer_reported_state"
     assert record["payload"]["renderer_report"]["turn_id"] == "turn-2"
     assert record["payload"]["capture_status"] == "unverified_renderer_self_report"
+
+
+def test_adopted_body_self_report_preserves_asserted_lineage_without_promoting_it():
+    observation = renderer_report_observation(_adopted_body_report())
+
+    assert observation.provenance_class == "godot_adopted_body_renderer_self_report_unverified"
+    assert observation.freshness == "unknown"
+    assert observation.posture == "synthetic_test"
+    assert observation.effect_claimed is False
+    assert observation.effect_proven is False
+    assert observation.payload["renderer_report"]["body_generation"] == 4
+    assert observation.payload["renderer_report"]["renderer_state"]["adopted_body"][
+        "pointer_digest"] == "sha256:" + "c" * 64
+
+
+@pytest.mark.parametrize("field,value", [
+    ("pointer_digest", "not-a-digest"),
+    ("authority_effects_performed", True),
+    ("status", "candidate_unadopted"),
+])
+def test_adopted_body_self_report_rejects_untrusted_adoption_assertions(field, value):
+    report = _adopted_body_report()
+    renderer_state = report["renderer_state"]
+    assert isinstance(renderer_state, dict)
+    adopted_body = renderer_state["adopted_body"]
+    assert isinstance(adopted_body, dict)
+    adopted_body[field] = value
+    _refresh_digest(report)
+
+    with pytest.raises(RendererReportIngressError,
+            match="renderer_report_adopted_body_lineage_invalid"):
+        renderer_report_observation(report)
 
 
 @pytest.mark.parametrize("field,value", [
