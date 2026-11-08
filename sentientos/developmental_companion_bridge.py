@@ -537,7 +537,6 @@ class ResidentDevelopmentalCompanionBridge:
             and "operator_input" in self._owner.config.allowed_source_kinds)
 
     def run_developmental_cycle(self, *, tick_id: str,
-    def run_developmental_cycle(self, *, tick_id: str,
             screen_observation: Mapping[str, Any],
             operator_feedback: Mapping[str, Any] | None = None
             ) -> CompanionDevelopmentalCycleResult:
