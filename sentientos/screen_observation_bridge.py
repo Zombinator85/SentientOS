@@ -463,8 +463,10 @@ class RequestDrivenScreenObservation:
             if self._closed:
                 raise ScreenObservationBridgeError("screen_observation_unavailable")
             request_id = uuid.uuid4().hex
-            self._sender(request_id, question=question)
+            # Include request dispatch in the upper bound: the authenticated
+            # send may block before Windows begins its screen capture.
             capture_request_accepted = time.monotonic()
+            self._sender(request_id, question=question)
             observed = dict(self._provider.wait_for_request(
                 request_id, timeout_seconds=self._timeout))
             capture_received = time.monotonic()

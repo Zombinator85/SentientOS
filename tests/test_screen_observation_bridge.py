@@ -406,6 +406,32 @@ def test_request_bound_capture_uses_monotonic_deadline_across_host_clock_skew():
         runtime.close()
 
 
+def test_request_bound_freshness_includes_blocked_authenticated_dispatch():
+    import time
+    from types import SimpleNamespace
+
+    class DelayedRequestSender(ScreenCaptureRequestSender):
+        def __call__(self, capture_request_id, question=None):
+            time.sleep(0.04)
+            return None
+
+    runtime, _, provider = _setup()
+    sender = DelayedRequestSender(client=SimpleNamespace(send=lambda _data: None),
+        source_id="screen-request-source", session_id="screen-request-session",
+        generation_id="screen-request-generation", source_key=b"x" * 32)
+    provider.wait_for_request = lambda request_id, timeout_seconds: {
+        **_payload(), "capture_request_id": request_id,
+    }
+    observer = RequestDrivenScreenObservation(
+        request_sender=sender, provider=provider, timeout_seconds=1)
+    try:
+        observed = observer()
+        assert observed["capture_freshness"]["capture_age_upper_bound_ms"] >= 30
+    finally:
+        observer.close()
+        runtime.close()
+
+
 def test_request_driven_capture_failure_returns_specific_code_without_waiting_for_timeout():
     runtime, observation_client, provider = _setup()
     request_key = b"screen-request-key-material-32-bytes"

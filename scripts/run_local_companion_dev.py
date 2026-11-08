@@ -35,11 +35,33 @@ import tempfile
 import threading
 import time
 import uuid
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, cast
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _build_resident_cognition_owner_pair(*, config: Any, writeback: Any,
+        admission_authority: Any, invoker: Any,
+        current_sequence: Callable[[], int]) -> tuple[Any, Any | None]:
+    """Keep serving interactions and operator A/B/A experiments in separate owners."""
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+
+    interaction_owner = ResidentDevelopmentalCognitionOwner(
+        config=replace(config, comparison_enabled=False), writeback=writeback,
+        admission_authority=admission_authority, invoker=invoker,
+        current_sequence=current_sequence)
+    intervention_owner = None
+    if config.comparison_enabled:
+        intervention_owner = ResidentDevelopmentalCognitionOwner(
+            config=replace(config, comparison_enabled=True), writeback=writeback,
+            admission_authority=admission_authority, invoker=invoker,
+            current_sequence=current_sequence)
+    return interaction_owner, intervention_owner
 
 
 def _normalize_windows_edge_executable(
@@ -999,6 +1021,7 @@ def main() -> int:
     invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
         runtime_root=state / "invocations")
     resident_cognition_owner = None
+    resident_history_intervention_owner = None
     self_model_owner = None
     self_model_config = None
     epistemic_state_owner = None
@@ -1014,7 +1037,6 @@ def main() -> int:
         from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner
         from sentientos.resident_developmental_cognition import (
             CONFIG_ENV as RESIDENT_COGNITION_CONFIG_ENV,
-            ResidentDevelopmentalCognitionOwner,
             load_config as load_resident_cognition_config,
         )
         from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
@@ -1023,7 +1045,7 @@ def main() -> int:
 
         cognition_config = load_resident_cognition_config(
             os.environ[RESIDENT_COGNITION_CONFIG_ENV])
-        if (not cognition_config.enabled or cognition_config.comparison_enabled
+        if (not cognition_config.enabled
                 or "embodiment" not in cognition_config.allowed_source_kinds):
             parser.error("configured resident cognition must be enabled and admit embodiment evidence")
         ledger = AdmissionLedger(cognition_config.state_root / "runtime_admissions.json")
@@ -1034,14 +1056,15 @@ def main() -> int:
             admission_verifier=RuntimeAdmissionVerifier(
                 definitions=definitions, ledger=ledger),
             current_sequence=ledger.current_sequence)
-        resident_cognition_owner = ResidentDevelopmentalCognitionOwner(
-            config=cognition_config, writeback=writeback,
-            admission_authority=RuntimeAdmissionAuthority(
-                definitions=definitions, ledger=ledger),
-            # GovernedLocalModelInvoker uses stricter typed request/receipt objects
-            # than the legacy structural protocol; runtime behavior is compatible.
-            invoker=cast(LocalModelInvoker, invoker),
-            current_sequence=ledger.current_sequence)
+        resident_cognition_owner, resident_history_intervention_owner = (
+            _build_resident_cognition_owner_pair(
+                config=cognition_config, writeback=writeback,
+                admission_authority=RuntimeAdmissionAuthority(
+                    definitions=definitions, ledger=ledger),
+                # GovernedLocalModelInvoker uses stricter typed request/receipt objects
+                # than the legacy structural protocol; runtime behavior is compatible.
+                invoker=cast(LocalModelInvoker, invoker),
+                current_sequence=ledger.current_sequence))
 
         self_model_path = os.environ.get("SENTIENTOS_LONGITUDINAL_SELF_MODEL_CONFIG")
         if self_model_path:
@@ -1123,6 +1146,7 @@ def main() -> int:
                 if args.screen_observation_process else "request_driven"),
             local_speech_output=args.local_speech_output,
             resident_cognition_owner=resident_cognition_owner,
+            resident_history_intervention_owner=resident_history_intervention_owner,
             self_model_owner=self_model_owner, self_model_config=self_model_config,
             epistemic_state_owner=epistemic_state_owner,
             epistemic_state_config=epistemic_state_config)
@@ -1170,6 +1194,8 @@ def main() -> int:
             "initial_effective_profile": initial_profile,
             "resident_cognition": ("configured_existing_owner_normal_workload_only"
                 if resident_cognition_owner is not None else "disabled"),
+            "resident_history_intervention": ("separate_operator_confirmed_owner"
+                if resident_history_intervention_owner is not None else "disabled"),
             "companion_output": ("temporary_mtls_windows_edge_and_godot"
                                  if edge else "not_configured"),
             "godot_headless": bool(edge and edge.godot_headless),

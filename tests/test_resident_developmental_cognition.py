@@ -5827,6 +5827,54 @@ def test_companion_bridge_runs_existing_matched_history_intervention_on_fresh_sc
     assert result.canonical_explicit_user_retention_mutated is False
 
 
+def test_split_companion_owners_keep_interaction_and_confirmed_comparison_available(
+        tmp_path: Path) -> None:
+    from scripts.run_local_companion_dev import _build_resident_cognition_owner_pair
+
+    now = datetime.now(timezone.utc)
+    template, fake = owner(tmp_path / "paired", comparison=True,
+        allowed_source_kinds=("embodiment",))
+    interaction_owner, intervention_owner = _build_resident_cognition_owner_pair(
+        config=template.config, writeback=template.writeback,
+        admission_authority=template.admission_authority, invoker=template.invoker,
+        current_sequence=template.current_sequence)
+    assert interaction_owner.config.comparison_enabled is False
+    assert intervention_owner is not None
+    assert intervention_owner.config.comparison_enabled is True
+
+    screen = {"modality": "screen", "text": "A fresh, bounded observed test scene.",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    seeded = interaction_owner.run_tick(snapshot=build_companion_snapshot(
+        screen_observation=screen, clock=lambda: now), tick_id="split-owner-seed")
+    assert seeded.written_record_id is not None
+    fake.companion_output_override = {"disposition": "answer",
+        "response": "The ordinary companion path remains available.",
+        "evidence_ids": ["__CURRENT_FACT__"],
+        "history_record_ids": ["__CURRENT_HISTORY__"]}
+    fake.companion_output_by_condition = {
+        condition: {"disposition": "answer", "response": condition,
+            "evidence_ids": ["__CURRENT_FACT__"],
+            "history_record_ids": (["__CURRENT_HISTORY__"] if condition != "history_withheld" else [])}
+        for condition in ("history_present", "history_withheld", "history_restored")}
+    bridge = ResidentDevelopmentalCompanionBridge(
+        interaction_owner, history_intervention_owner=intervention_owner,
+        clock=lambda: now)
+
+    response = bridge.respond(request_id="split-owner-companion-turn",
+        question="Describe the current observation.", screen_observation=screen)
+    assert response.status == "admitted_completed"
+    assert response.developmental_history_writeback_performed is False
+    assert bridge.history_intervention_available() is True
+    comparison = bridge.compare_history_intervention(
+        tick_id="split-owner-controlled-comparison",
+        question="Describe one clearly visible detail.", screen_observation=screen)
+    assert comparison.status == "completed_controlled_intervention"
+    assert comparison.action_authority is False
+    assert len(comparison.conditions) == 3
+
+
 def test_request_bound_history_capture_preserves_bridge_provenance_across_clock_skew(
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)

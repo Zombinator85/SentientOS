@@ -189,6 +189,7 @@ class ResidentDevelopmentalCompanionBridge:
     """Route one user turn through the existing resident cognition owner."""
 
     def __init__(self, owner: ResidentDevelopmentalCognitionOwner, *,
+                 history_intervention_owner: ResidentDevelopmentalCognitionOwner | None = None,
                  proprioception_provider: Any | None = None,
                  self_model_owner: Any | None = None,
                  self_model_config: LongitudinalSelfModelRuntimeConfig | None = None,
@@ -199,6 +200,17 @@ class ResidentDevelopmentalCompanionBridge:
                  clock: Any | None = None) -> None:
         if not isinstance(owner, ResidentDevelopmentalCognitionOwner):
             raise TypeError("resident_developmental_cognition_owner_required")
+        if history_intervention_owner is not None:
+            if not isinstance(history_intervention_owner,
+                    ResidentDevelopmentalCognitionOwner):
+                raise TypeError("resident_history_intervention_owner_required")
+            if (history_intervention_owner.config.history_root
+                    != owner.config.history_root
+                    or history_intervention_owner.config.state_root
+                    != owner.config.state_root
+                    or history_intervention_owner.writeback is not owner.writeback
+                    or history_intervention_owner.invoker is not owner.invoker):
+                raise ValueError("resident_history_intervention_owner_composition_mismatch")
         if (proprioception_provider is not None
                 and not callable(proprioception_provider)):
             raise TypeError("proprioception_provider_must_be_callable")
@@ -220,6 +232,9 @@ class ResidentDevelopmentalCompanionBridge:
                 and epistemic_state_owner is None):
             raise ValueError("enabled_epistemic_projection_owner_required")
         self._owner = owner
+        # Keep interactive inference in non-comparison mode. The separately
+        # configured owner runs only the explicitly confirmed A/B/A experiment.
+        self._history_intervention_owner = history_intervention_owner or owner
         self._proprioception_provider = proprioception_provider
         self._self_model_owner = self_model_owner
         self._self_model_config = self_model_config
@@ -359,11 +374,12 @@ class ResidentDevelopmentalCompanionBridge:
 
     def history_intervention_available(self) -> bool:
         """Whether the existing three-condition cognition experiment is enabled."""
+        owner = self._history_intervention_owner
         return (self.can_handle()
-            and self._owner.config.enabled is True
-            and self._owner.config.comparison_enabled is True
-            and self._owner.objective_task is None
-            and "embodiment" in self._owner.config.allowed_source_kinds)
+            and owner.config.enabled is True
+            and owner.config.comparison_enabled is True
+            and owner.objective_task is None
+            and "embodiment" in owner.config.allowed_source_kinds)
 
     def compare_history_intervention(self, *, tick_id: str, question: str,
             screen_observation: Mapping[str, Any]
@@ -425,7 +441,7 @@ class ResidentDevelopmentalCompanionBridge:
         gate = (self._cognition_inference_gate()
             if self._cognition_inference_gate is not None else nullcontext())
         with gate:
-            return self._owner.run_companion_history_intervention(
+            return self._history_intervention_owner.run_companion_history_intervention(
                 snapshot=snapshot, tick_id=tick_id, question=question,
                 prior_self_model=prior_self_model,
                 prior_epistemic_state=prior_epistemic_state)
