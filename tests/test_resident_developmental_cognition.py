@@ -5887,7 +5887,7 @@ def test_developmental_cycle_composes_selected_verified_consequence_history(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     now = datetime.now(timezone.utc)
     cognition, fake = owner(tmp_path / "consequence-cycle",
-        allowed_source_kinds=("embodiment",))
+        allowed_source_kinds=("embodiment",), max_selected_facts=2)
     screen = {"modality": "screen", "text": "A fresh bounded test observation.",
         "capture_digest": "7" * 64,
         "capture_scope": "allowlisted_foreground_game_client_area",
@@ -5938,6 +5938,10 @@ def test_developmental_cycle_composes_selected_verified_consequence_history(
     assert consequence_fact.payload["effect_proven"] is False
     assert consequence_fact.payload["independent_observation_posture"] == (
         "unverified_caller_assertion")
+    screen_fact = next(fact for fact in snapshot_value.facts
+        if fact.source.source_id.startswith("consented-screen:"))
+    assert set(cycle.selected_fact_ids) == {
+        consequence_fact.fact_id, screen_fact.fact_id}
     assert fake.requests
 
 
@@ -5972,6 +5976,39 @@ def test_developmental_cycle_rejects_unbounded_or_invalid_consequence_projection
             match="historical_consequence_projection_invalid"):
         oversized_bridge.run_developmental_cycle(
             tick_id="cycle-unbounded-consequence", screen_observation=screen)
+    assert fake.requests == []
+
+
+
+
+def test_developmental_cycle_rejects_snapshot_larger_than_evidence_selection_budget(
+        tmp_path: Path) -> None:
+    now = datetime.now(timezone.utc)
+    cognition, fake = owner(tmp_path / "small-consequence-budget",
+        allowed_source_kinds=("embodiment",), max_selected_facts=1)
+    screen = {"modality": "screen", "text": "Fresh current evidence.",
+        "capture_digest": "9" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    prior_comparison = {
+        "source_kind": "embodiment",
+        "source_id": "comparison:" + "b" * 24,
+        "schema_version": "test-comparison:v1",
+        "subject_id": "comparison:" + "b" * 24,
+        "subject_kind": "embodied_prediction_comparison",
+        "stage": "observation", "disposition": "compared",
+        "evidence_strength": "digest_bound_consequence_comparison",
+        "observed_at": None, "payload": {"current_truth": False},
+        "effect_claimed": False, "effect_proven": False,
+    }
+    prior_comparison["digest"] = record_digest(prior_comparison)
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        consequence_records_provider=lambda: (prior_comparison,), clock=lambda: now)
+
+    with pytest.raises(DevelopmentalCompanionBridgeError,
+            match="developmental_cycle_fact_selection_capacity_insufficient"):
+        bridge.run_developmental_cycle(
+            tick_id="cycle-small-evidence-budget", screen_observation=screen)
     assert fake.requests == []
 
 

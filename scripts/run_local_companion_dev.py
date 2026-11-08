@@ -76,21 +76,24 @@ def _build_companion_consequence_records_provider(*, config_path: str,
     config = validate_world_state_projection_config(json.loads(raw.decode("utf-8")))
     if not config["enabled"]:
         return None
-    experiment_ids = tuple(config["experiment_result_ids"])
     consequence_ids = tuple(config["consequence_chain_ids"])
-    if not experiment_ids and not consequence_ids:
+    if not consequence_ids:
         return None
     store = ConsequenceStore(Path(config["store_root"]), create_root=False)
 
     def provide() -> tuple[Mapping[str, Any], ...]:
-        records = store.world_state_records(
-            experiment_result_ids=experiment_ids,
-            consequence_chain_ids=consequence_ids)
-        # Keep a strict companion-specific bound; do not let the World-State
-        # builder silently truncate selected history or current evidence.
-        if len(records) > 32:
+        # A prediction-comparison record carries exact expected/observed
+        # fields and the result while retaining its chain-bound digest.
+        # Project one concise record per selected verified chain so current
+        # screen/proprioception evidence can still fit cognition selection.
+        records = store.world_state_records(consequence_chain_ids=consequence_ids)
+        comparisons = tuple(item for item in records
+            if item.get("subject_kind") == "embodied_prediction_comparison")
+        if len(comparisons) != len(consequence_ids):
+            raise ValueError("companion_consequence_comparison_selection_invalid")
+        if len(comparisons) > 32:
             raise ValueError("companion_consequence_projection_record_bound_exceeded")
-        return tuple(records)
+        return comparisons
 
     # Fail at startup if the selected custody cannot be read and verified.
     provide()
