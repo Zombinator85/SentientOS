@@ -5704,9 +5704,8 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
             "evidence_ids": ["__CURRENT_FACT__"],
             "history_record_ids": ["__CURRENT_HISTORY__"]},
         "history_withheld": {"disposition": "answer",
-            "response": '{"requested_pose":"reach","predicted_pose":"reach"}',
-            "evidence_ids": ["__CURRENT_FACT__"],
-            "history_record_ids": ["__CURRENT_HISTORY__"]},
+            "response": "HISTORY_UNAVAILABLE",
+            "evidence_ids": [], "history_record_ids": []},
         "history_restored": {"disposition": "answer",
             "response": '{"requested_pose":"idle","predicted_pose":"idle"}',
             "evidence_ids": ["__CURRENT_FACT__"],
@@ -5730,7 +5729,23 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert [item["condition_id"] for item in result.conditions] == [
         "history_present", "history_withheld", "history_restored"]
     assert [json.loads(item["response"])["requested_pose"]
-        for item in result.conditions] == ["idle", "reach", "idle"]
+        for item in (result.conditions[0], result.conditions[2])] == ["idle", "idle"]
+    withheld = result.conditions[1]
+    assert withheld["response"] == "HISTORY_UNAVAILABLE"
+    assert withheld["disposition"] == "abstain"
+    assert withheld["model_disposition"] == "answer"
+    assert withheld["disposition_normalization"] == (
+        "history_unavailable_sentinel_means_abstention")
+    persisted_run = compared_owner.experiments.load_run(
+        result.changed_cognition_measurement_id)
+    decision_audit = persisted_run["companion_intervention_decisions"]
+    assert [item["condition_id"] for item in decision_audit] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert decision_audit[1]["model_disposition"] == "answer"
+    assert decision_audit[1]["disposition"] == "abstain"
+    assert decision_audit[1]["disposition_normalization"] == (
+        "history_unavailable_sentinel_means_abstention")
+    assert "HISTORY_UNAVAILABLE" not in json.dumps(decision_audit)
     assert all(item["snapshot_digest"] == source.digest for item in result.conditions)
     intervention_requests = [request for request in fake.requests
         if request.purpose == "resident_developmental_history_intervention_experiment"

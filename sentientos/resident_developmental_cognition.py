@@ -6319,6 +6319,24 @@ class ResidentDevelopmentalCognitionOwner:
                 run_payload: dict[str, Any] = {"protocol":asdict(protocol),
                     "conditions":[asdict(x) for x in observations], "summary":summary,
                     "validity":"valid_controlled_observation", "contamination_reasons":[]}
+                if companion_intervention_question is not None:
+                    if len(companion_intervention_captures) != len(CONDITION_ORDER):
+                        raise ResidentDevelopmentalCognitionError(
+                            "companion_intervention_capture_incomplete")
+                    run_payload["companion_intervention_decisions"] = [{
+                        "condition_id": item["condition_id"],
+                        "observation_id": item["cognition_observation_id"],
+                        "observation_digest": item["cognition_observation_digest"],
+                        "inference_receipt_id": item["inference_receipt_id"],
+                        "inference_receipt_digest": item["inference_receipt_digest"],
+                        "output_digest": item["output_digest"],
+                        "response_digest": item["response_digest"],
+                        "disposition": item["disposition"],
+                        "model_disposition": item["model_disposition"],
+                        "disposition_normalization": item["disposition_normalization"],
+                        "evidence_ids": list(item["evidence_ids"]),
+                        "history_record_ids": list(item["history_record_ids"]),
+                    } for item in companion_intervention_captures]
                 if objective_plan is not None:
                     run_payload["contamination_reasons"] = None
                     run_payload["contamination_assessment"] = (

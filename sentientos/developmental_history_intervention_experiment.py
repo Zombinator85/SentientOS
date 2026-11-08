@@ -26,7 +26,8 @@ OBJECTIVE_SCHEMAS = frozenset({LEGACY_OBJECTIVE_SCHEMA, OBJECTIVE_SCHEMA,
     OBJECTIVE_HISTORY_SELECTION_SCHEMA})
 HISTORY_SELECTION_SCHEMAS = frozenset({HISTORY_SELECTION_SCHEMA,
     OBJECTIVE_HISTORY_SELECTION_SCHEMA})
-RUN_SCHEMA = "sentientos.developmental_history_intervention_run:v1"
+LEGACY_RUN_SCHEMA = "sentientos.developmental_history_intervention_run:v1"
+RUN_SCHEMA = "sentientos.developmental_history_intervention_run:v2"
 PURPOSE = "resident_developmental_history_intervention_experiment"
 CONDITION_ORDER = ("history_present", "history_withheld", "history_restored")
 NON_CLAIMS = ("learning", "improvement", "persistent_individuality", "selfhood", "consciousness", "sentience", "causal_closure")
@@ -508,7 +509,9 @@ class DevelopmentalExperimentStore:
         except FileNotFoundError as exc:
             raise DevelopmentalHistoryInterventionError("run_artifact_missing") from exc
         semantic = {key: item for key, item in value.items() if key not in {"run_id", "run_digest"}}
-        if (value.get("schema_version") != RUN_SCHEMA or value.get("run_id") != run_id
+        schema_version = value.get("schema_version")
+        if (schema_version not in {LEGACY_RUN_SCHEMA, RUN_SCHEMA}
+                or value.get("run_id") != run_id
                 or value.get("run_digest") != _digest(semantic)
                 or run_id != prefix + str(value.get("run_digest", ""))[7:31]):
             raise DevelopmentalHistoryInterventionError("run_artifact_digest_mismatch")
@@ -520,8 +523,11 @@ class DevelopmentalExperimentStore:
         expected_fields = {"schema_version", "protocol", "conditions", "summary",
             "validity", "contamination_reasons", "run_id", "run_digest"}
         protocol_raw, conditions = value.get("protocol"), value.get("conditions")
-        if (not set(value).issubset(expected_fields | {"objective_scores", "objective_evaluation",
-                    "contamination_assessment"})
+        optional_fields = {"objective_scores", "objective_evaluation",
+            "contamination_assessment"}
+        if schema_version == RUN_SCHEMA:
+            optional_fields.add("companion_intervention_decisions")
+        if (not set(value).issubset(expected_fields | optional_fields)
                 or not expected_fields.issubset(value) or not isinstance(protocol_raw, Mapping)
                 or not isinstance(conditions, list) or not isinstance(value.get("summary"), Mapping)
                 or value.get("validity") != "valid_controlled_observation"
@@ -587,6 +593,64 @@ class DevelopmentalExperimentStore:
                 ensure_ascii=False)
         if canonical(recomputed) != canonical(value["summary"]):
             raise DevelopmentalHistoryInterventionError("run_artifact_summary_mismatch")
+        decisions = value.get("companion_intervention_decisions")
+        if decisions is not None:
+            decision_fields = {"condition_id", "observation_id", "observation_digest",
+                "inference_receipt_id", "inference_receipt_digest", "output_digest",
+                "response_digest", "disposition", "model_disposition",
+                "disposition_normalization", "evidence_ids", "history_record_ids"}
+            by_condition = {item.condition_id: item for item in observations}
+            if (schema_version != RUN_SCHEMA or not isinstance(decisions, list)
+                    or len(decisions) != len(CONDITION_ORDER)):
+                raise DevelopmentalHistoryInterventionError(
+                    "run_artifact_companion_decisions_invalid")
+            for condition_id, decision in zip(CONDITION_ORDER, decisions):
+                observation = by_condition.get(condition_id)
+                if (not isinstance(decision, Mapping)
+                        or set(decision) != decision_fields
+                        or decision.get("condition_id") != condition_id
+                        or observation is None
+                        or decision.get("observation_id") != observation.observation_id
+                        or decision.get("observation_digest") != observation.observation_digest
+                        or decision.get("inference_receipt_id") != observation.inference_receipt_id
+                        or decision.get("inference_receipt_digest") != observation.inference_receipt_digest
+                        or decision.get("output_digest") != observation.output_digest
+                        or not isinstance(decision.get("response_digest"), str)
+                        or len(decision["response_digest"]) != 64
+                        or any(char not in "0123456789abcdef"
+                            for char in decision["response_digest"])
+                        or decision.get("disposition") not in {"answer", "ask", "abstain"}
+                        or decision.get("model_disposition") not in {"answer", "ask", "abstain"}
+                        or not isinstance(decision.get("evidence_ids"), list)
+                        or any(not isinstance(item, str) for item in decision["evidence_ids"])
+                        or len(set(decision["evidence_ids"])) != len(decision["evidence_ids"])
+                        or not set(decision["evidence_ids"]).issubset(observation.current_fact_ids)
+                        or not isinstance(decision.get("history_record_ids"), list)
+                        or any(not isinstance(item, str) for item in decision["history_record_ids"])
+                        or len(set(decision["history_record_ids"])) != len(decision["history_record_ids"])
+                        or not set(decision["history_record_ids"]).issubset(
+                            observation.retrieved_record_ids)
+                        or tuple(decision["history_record_ids"])
+                            != tuple(observation.companion_history_citation_ids)):
+                    raise DevelopmentalHistoryInterventionError(
+                        "run_artifact_companion_decisions_invalid")
+                normalization = decision.get("disposition_normalization")
+                if normalization is None:
+                    if decision["model_disposition"] != decision["disposition"]:
+                        raise DevelopmentalHistoryInterventionError(
+                            "run_artifact_companion_decision_disposition_invalid")
+                elif (normalization != "history_unavailable_sentinel_means_abstention"
+                        or condition_id != "history_withheld"
+                        or decision["model_disposition"] != "answer"
+                        or decision["disposition"] != "abstain"
+                        or decision["evidence_ids"] or decision["history_record_ids"]):
+                    raise DevelopmentalHistoryInterventionError(
+                        "run_artifact_companion_decision_normalization_invalid")
+                if (decision["disposition"] == "answer"
+                        and not decision["evidence_ids"]
+                        and not decision["history_record_ids"]):
+                    raise DevelopmentalHistoryInterventionError(
+                        "run_artifact_companion_decision_unbound_answer")
         if protocol.schema_version in OBJECTIVE_SCHEMAS:
             if not {"objective_scores", "objective_evaluation"}.issubset(value):
                 raise DevelopmentalHistoryInterventionError("objective_scores_missing")
