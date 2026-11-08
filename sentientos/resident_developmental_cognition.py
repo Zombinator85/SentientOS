@@ -122,7 +122,8 @@ def _parse_cognition_lesson_output(text: str, consumed_ids: set[str]) -> Mapping
 
 
 def _parse_companion_interaction_output(text: str,
-        allowed_current_ids: set[str], allowed_history_ids: set[str] | None = None
+        allowed_current_ids: set[str], allowed_history_ids: set[str] | None = None,
+        *, controlled_history_intervention: bool = False,
         ) -> Mapping[str, Any]:
     if not isinstance(text, str) or not text or len(text.encode("utf-8")) > 4096:
         raise ValueError("companion_interaction_output_unbounded")
@@ -149,6 +150,19 @@ def _parse_companion_interaction_output(text: str,
                 if key == "evidence_ids"
                 else "companion_interaction_history_binding_invalid")
             raise ValueError(code)
+    if (controlled_history_intervention
+            and value["response"] == "HISTORY_UNAVAILABLE"):
+        if value["evidence_ids"] or value["history_record_ids"]:
+            raise ValueError("history_unavailable_must_not_cite_evidence")
+        if value["disposition"] == "answer":
+            value = {**value,
+                "model_disposition": "answer",
+                "disposition": "abstain",
+                "disposition_normalization": (
+                    "history_unavailable_sentinel_means_abstention"),
+            }
+        elif value["disposition"] != "abstain":
+            raise ValueError("history_unavailable_disposition_invalid")
     if (value["disposition"] == "answer"
             and not value["evidence_ids"] and not value["history_record_ids"]):
         raise ValueError("companion_interaction_answer_requires_evidence")
@@ -273,12 +287,15 @@ COMPANION_HISTORY_INTERVENTION_INSTRUCTION = (
     "history_record_ids, never the inner fact_id. Do not abstain only because current evidence cannot "
     "verify that past report. "
     "Return exactly one JSON object with disposition, response, evidence_ids, and history_record_ids. "
-    "Cite exact current World-State fact IDs in evidence_ids and only retrieved developmental record IDs "
+    "Cite only current World-State fact IDs that directly support the response in evidence_ids; leave "
+    "evidence_ids empty when no current fact directly supports it. Cite only retrieved developmental record IDs "
     "in history_record_ids. Withheld or omitted history has no eligible record IDs: available or omitted "
     "record references are not retrieved content and must never be cited. Before answering, check the "
     "top-level history_citation_allowlist supplied with this request. history_record_ids must be exact "
     "IDs from that list; never invent or infer a record ID. If the list is empty, history_record_ids "
-    "must be [] and do not make a claim supported only by developmental history. Use answer when current evidence "
+    "must be [] and do not make a claim supported only by developmental history. If response is exactly "
+    "HISTORY_UNAVAILABLE, disposition must be abstain and both citation arrays must be empty; never "
+    "label that sentinel as answer. Use answer when current evidence "
     "or a past record supports it, but describe "
     "historical support as past; otherwise ask briefly or abstain. A withheld or empty history is not "
     "evidence that no past event occurred. Preserve contradictions and do not claim independent "
@@ -5498,12 +5515,17 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError("companion_interaction_output_unverified")
             try:
                 decision = _parse_companion_interaction_output(
-                    receipt.output_text, set(current.fact_ids), set(record_ids))
+                    receipt.output_text, set(current.fact_ids), set(record_ids),
+                    controlled_history_intervention=companion_intervention)
             except (TypeError, ValueError, json.JSONDecodeError) as exc:
                 raise ResidentDevelopmentalCognitionError(
                     "companion_interaction_decision_invalid") from exc
             assert interaction_capture is not None
             interaction_capture.update({"disposition": decision["disposition"],
+                "model_disposition": decision.get(
+                    "model_disposition", decision["disposition"]),
+                "disposition_normalization": decision.get(
+                    "disposition_normalization"),
                 "response": decision["response"],
                 "response_digest": digest_payload({"text": decision["response"]}),
                 "evidence_ids": tuple(decision["evidence_ids"]),

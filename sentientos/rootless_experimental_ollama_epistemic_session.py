@@ -56,7 +56,12 @@ class RootlessExperimentalOllamaEpistemicSession(
             if developmental_cycle else "epistemic_revision")
         purpose = (ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE
             if developmental_cycle else ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
-        max_context_tokens = 4096 if developmental_cycle else MAX_CONTEXT_TOKENS
+        # The developmental companion prompt carries current World-State,
+        # typed history, provenance bindings, and a structured response schema.
+        # Hermes advertises a 40k native context; use an 8k bounded window here
+        # so the actual governed hosted-companion call can fit while keeping
+        # the separate epistemic-revision profile at its existing bound.
+        max_context_tokens = 8192 if developmental_cycle else MAX_CONTEXT_TOKENS
         max_new_tokens = 512 if developmental_cycle else MAX_NEW_TOKENS
         try:
             self.root.relative_to(EXPERIMENT_ROOT.resolve(strict=True))

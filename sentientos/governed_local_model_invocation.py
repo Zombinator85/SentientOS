@@ -173,6 +173,7 @@ RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA = {
             "items": {"type": "string", "pattern": "^devrec-[0-9a-f]{24}$"}},
     },
 }
+# Keep decoding controls identical in all history-intervention conditions.
 RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA = (
     RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA)
 # Keep decoding controls identical in all history-intervention conditions. Withheld

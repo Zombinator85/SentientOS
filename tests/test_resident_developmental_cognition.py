@@ -4013,6 +4013,10 @@ def test_companion_interaction_uses_existing_history_without_learning_from_curre
     assert sorted(path.name for path in cognition.writeback.store.records_root.glob('*.json')) == before_records
     request_payload = json.loads(fake.requests[-1].prompt)
     assert request_payload["companion_question"] == private_question
+    assert "leave evidence_ids empty when no current fact directly supports it" in (
+        request_payload["instruction"])
+    assert "HISTORY_UNAVAILABLE, disposition must be abstain" in (
+        request_payload["instruction"])
     assert seed.written_record_id in {
         row["record_id"] for row in request_payload["developmental_history"]}
     observation_path = cognition.observations_root / f"{result.cognition_observation_id}.json"
@@ -4041,6 +4045,33 @@ def test_companion_interaction_rejects_malformed_history_record_id() -> None:
     with pytest.raises(ValueError, match="companion_interaction_history_binding_invalid"):
         _parse_companion_interaction_output(json.dumps(payload), set(),
             {"record-01d8f6c57243a9b0"})
+
+
+def test_controlled_history_intervention_classifies_unavailable_sentinel_as_abstention() -> None:
+    payload = {"disposition": "answer", "response": "HISTORY_UNAVAILABLE",
+        "evidence_ids": [], "history_record_ids": []}
+
+    with pytest.raises(ValueError, match="companion_interaction_answer_requires_evidence"):
+        _parse_companion_interaction_output(json.dumps(payload), {"fact-current"}, set())
+
+    normalized = _parse_companion_interaction_output(json.dumps(payload),
+        {"fact-current"}, set(), controlled_history_intervention=True)
+
+    assert normalized["disposition"] == "abstain"
+    assert normalized["model_disposition"] == "answer"
+    assert normalized["disposition_normalization"] == (
+        "history_unavailable_sentinel_means_abstention")
+    assert normalized["evidence_ids"] == []
+    assert normalized["history_record_ids"] == []
+
+
+def test_controlled_history_intervention_rejects_citations_on_unavailable_sentinel() -> None:
+    payload = {"disposition": "answer", "response": "HISTORY_UNAVAILABLE",
+        "evidence_ids": ["fact-current"], "history_record_ids": []}
+
+    with pytest.raises(ValueError, match="history_unavailable_must_not_cite_evidence"):
+        _parse_companion_interaction_output(json.dumps(payload), {"fact-current"},
+            set(), controlled_history_intervention=True)
 
 
 def test_companion_interaction_rejects_duplicate_json_keys() -> None:
