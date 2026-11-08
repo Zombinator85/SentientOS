@@ -8,6 +8,7 @@ existing governed ResidentDevelopmentalCognitionOwner writeback path.
 from __future__ import annotations
 
 import hashlib
+import json
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping, Sequence
@@ -87,6 +88,23 @@ def _request_bound_capture_freshness(observation: Mapping[str, Any]
             or any(character not in "0123456789abcdef"
                 for character in provenance["payload_digest"])):
         raise DevelopmentalCompanionBridgeError("history_intervention_capture_freshness_invalid")
+    # The screen provider authenticates and digests its exact bridge payload.
+    # RequestDrivenScreenObservation adds freshness (and may add a local text
+    # delta) after receipt; neither belongs to that signed payload. Recompute
+    # the digest over the remaining fields so a caller cannot mutate OCR,
+    # capture identity, or consent metadata while retaining the old provenance.
+    signed_payload = {key: value for key, value in observation.items()
+        if key not in {"capture_freshness", "bridge_message_provenance", "text_delta"}}
+    try:
+        payload_bytes = json.dumps(signed_payload, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":"), allow_nan=False).encode("utf-8")
+    except (TypeError, ValueError, RecursionError) as exc:
+        raise DevelopmentalCompanionBridgeError(
+            "history_intervention_capture_payload_invalid") from exc
+    payload_digest = hashlib.sha256(payload_bytes).hexdigest()
+    if payload_digest != provenance["payload_digest"]:
+        raise DevelopmentalCompanionBridgeError(
+            "history_intervention_capture_payload_digest_mismatch")
     return freshness
 
 

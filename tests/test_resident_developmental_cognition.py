@@ -5938,13 +5938,26 @@ def test_request_bound_history_capture_preserves_bridge_provenance_across_clock_
         tick_id="seed-clock-skew-history")
     assert seeded.written_record_id is not None
     request_id = "f" * 32
+    screen_payload = {
+        "schema_version": "sentientos.game_screen_observation:v6",
+        "modality": "screen", "text": "The current test scene is visible.",
+        "text_status": "available",
+        "captured_at": (now - timedelta(minutes=2)).isoformat(),
+        "backend": "local-ocr", "capture_digest": "3" * 64,
+        "process_name_digest": "4" * 64, "consent_id_digest": "5" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "raw_frame_retained": False, "text_truncated": False,
+        "text_change_kind": "initial", "previous_text_digest": None,
+        "visual_change_kind": "changed", "visual_change_score": 0.4,
+        "capture_request_id": request_id,
+    }
+    payload_digest = hashlib.sha256(json.dumps(screen_payload, sort_keys=True,
+        separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
     provenance = {"message_id": "1" * 64, "source_id": "windows-screen",
         "session_id": "screen-session", "generation_id": "generation-1",
         "sequence": 4, "created_at": now.isoformat(),
-        "payload_digest": "2" * 64}
-    screen = {**seed_screen, "capture_digest": "3" * 64,
-        "captured_at": (now - timedelta(minutes=2)).isoformat(),
-        "capture_request_id": request_id,
+        "payload_digest": payload_digest}
+    screen = {**screen_payload,
         "bridge_message_provenance": provenance,
         "capture_freshness": {
             "schema_version": "sentientos.request_bound_capture_freshness:v1",
@@ -5952,12 +5965,10 @@ def test_request_bound_history_capture_preserves_bridge_provenance_across_clock_
             "capture_request_id": request_id,
             "capture_age_upper_bound_ms": 350,
             "freshness_window_ms": 5000,
-        },
-        "process_name_digest": "4" * 64,
-        "consent_id_digest": "5" * 64,
-        "text_status": "available", "text_truncated": False,
-        "backend": "local-ocr", "visual_change_kind": "changed",
-        "visual_change_score": 0.4}
+        }}
+    from sentientos.perception.screen_text_delta import build_ocr_text_line_delta
+    screen["text_delta"] = build_ocr_text_line_delta(
+        "An earlier screen state.", screen_payload["text"])
     bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
 
     result = bridge.compare_history_intervention(tick_id="clock-skew-intervention",
@@ -5975,6 +5986,20 @@ def test_request_bound_history_capture_preserves_bridge_provenance_across_clock_
     assert fact.payload["consent_id_digest"] == "5" * 64
     assert fact.payload["visual_change_score"] == 0.4
     assert fake.requests
+
+    request_count = len(fake.requests)
+    for field, value in (
+            ("text", "Changed after authenticated capture."),
+            ("capture_digest", "6" * 64),
+            ("consent_id_digest", "7" * 64)):
+        tampered = {**screen, field: value}
+        with pytest.raises(DevelopmentalCompanionBridgeError,
+                match="history_intervention_capture_payload_digest_mismatch"):
+            bridge.compare_history_intervention(
+                tick_id=f"tampered-{field}-clock-skew-intervention",
+                question="Describe one clearly visible detail.",
+                screen_observation=tampered)
+        assert len(fake.requests) == request_count
 
 
 def test_companion_history_intervention_rejects_stale_capture_before_inference(
