@@ -45,6 +45,7 @@ WORLD_STATE_PROJECTION_CONFIG_SCHEMA = "sentientos.embodied_consequence_world_st
 WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V2 = "sentientos.embodied_consequence_world_state_projection_config:v2"
 WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V3 = "sentientos.embodied_consequence_world_state_projection_config:v3"
 WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4 = "sentientos.embodied_consequence_world_state_projection_config:v4"
+WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V5 = "sentientos.embodied_consequence_world_state_projection_config:v5"
 MAX_STRATEGY_CONTEXT_BYTES = 1_048_576
 MAX_CONSEQUENCE_ARTIFACT_BYTES = 2_097_152
 MAX_CONSEQUENCE_ARTIFACTS_PER_KIND = 4096
@@ -3396,18 +3397,25 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
     review_fields = {"proposal_review_log_path", "proposal_review_receipt_ids"}
     fulfillment_fields = {"fulfillment_receipt_log_path", "fulfillment_receipt_ids"}
     history_fields = {"developmental_history_intervention_runs"}
+    live_store_fields = {"live_consequence_store_enabled"}
     schema = config.get("schema_version")
     fields = base_fields | (review_fields if schema in {
         WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V2, WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V3} else set())
     if schema == WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V3:
         fields |= fulfillment_fields
-    if schema == WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4:
+    if schema in {WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4,
+                  WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V5}:
         fields |= review_fields | fulfillment_fields | history_fields
+    if schema == WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V5:
+        fields |= live_store_fields
     if (set(config) != fields or config.get("schema_version") != WORLD_STATE_PROJECTION_CONFIG_SCHEMA
             and config.get("schema_version") != WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V2
             and config.get("schema_version") != WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V3
             and config.get("schema_version") != WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4
+            and config.get("schema_version") != WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V5
             or type(config.get("enabled")) is not bool
+            or (schema == WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V5
+                and type(config.get("live_consequence_store_enabled")) is not bool)
             or config.get("config_digest") != digest({key: item for key, item in config.items()
                                                        if key != "config_digest"})):
         raise EmbodiedConsequenceError("world_state_projection_config_invalid")
@@ -3420,9 +3428,13 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
                     or config.get("proposal_review_receipt_ids", []) != [])
                 or (config.get("fulfillment_receipt_log_path") is not None
                     or config.get("fulfillment_receipt_ids", []) != [])
-                or config.get("developmental_history_intervention_runs", []) != []):
+                or config.get("developmental_history_intervention_runs", []) != []
+                or config.get("live_consequence_store_enabled", False) is not False):
             raise EmbodiedConsequenceError("disabled_world_state_projection_must_be_empty")
         return config
+    if (schema == WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V5
+            and config.get("live_consequence_store_enabled") is not True):
+        raise EmbodiedConsequenceError("world_state_projection_live_store_required")
     root = config.get("store_root")
     identities = config.get("experiment_result_ids")
     chain_ids = config.get("consequence_chain_ids")
@@ -3433,6 +3445,8 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
     fulfillment_path = config.get("fulfillment_receipt_log_path")
     fulfillment_ids = config.get("fulfillment_receipt_ids", [])
     developmental_runs = config.get("developmental_history_intervention_runs", [])
+    live_store_enabled = (schema == WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V5
+        and config.get("live_consequence_store_enabled") is True)
     if (not isinstance(identities, list) or len(identities) > 32
             or any(not isinstance(identity, str)
                    or not identity.startswith("strategy-experiment:")
@@ -3444,7 +3458,8 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
                    or not _CONSEQUENCE_ID.fullmatch(identity) for identity in chain_ids)
             or len(chain_ids) != len(set(chain_ids))
             or (identities or chain_ids) and (not isinstance(root, str) or not Path(root).is_absolute())
-            or not (identities or chain_ids) and root is not None
+            or not (identities or chain_ids) and root is not None and not live_store_enabled
+            or live_store_enabled and (not isinstance(root, str) or not Path(root).is_absolute())
             or not isinstance(replacement_runs, list) or len(replacement_runs) > 32
             or not isinstance(developmental_runs, list) or len(developmental_runs) > 32
             or not isinstance(review_ids, list) or len(review_ids) > 32
@@ -3506,7 +3521,7 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
     if projected_record_bound > MAX_WORLD_STATE_PROJECTION_RECORDS:
         raise EmbodiedConsequenceError("world_state_projection_record_budget_exceeded")
     if (not identities and not chain_ids and not replacement_runs and not developmental_runs
-            and not review_ids and not fulfillment_ids):
+            and not review_ids and not fulfillment_ids and not live_store_enabled):
         raise EmbodiedConsequenceError("world_state_projection_selection_empty")
     return config
 

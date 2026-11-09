@@ -73,6 +73,18 @@ output-digest differences and restoration stability. Difference is not improveme
 correctness, learning, sentience, selfhood, or consciousness. Comparison is
 off by default.
 
+### Fresh companion consequence-store setup
+
+The local companion runner can be configured for a first operator-confirmed
+embodied consequence cycle before any consequence chain exists. Use the v5
+World-State projection schema with `enabled: true`, an explicit `store_root`,
+empty evidence-selection lists, and `live_consequence_store_enabled: true`.
+This mode creates the dedicated consequence store for writes while returning
+no prior consequence facts to cognition. It does not discover or import history;
+later reads still require an explicit projection configuration selecting
+verified chain IDs. Earlier projection schemas retain their nonempty-selection
+requirements.
+
 ### Request-scoped companion interaction
 
 The owner also exposes an opt-in run_companion_interaction boundary for a

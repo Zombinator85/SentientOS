@@ -77,7 +77,11 @@ def _build_companion_consequence_records_provider(*, config_path: str,
     if not config["enabled"]:
         return None
     consequence_ids = tuple(config["consequence_chain_ids"])
-    store = ConsequenceStore(Path(config["store_root"]), create_root=False)
+    # A v5 writer-only profile explicitly owns creation of an empty consequence
+    # store. It projects no facts until a caller explicitly selects a verified
+    # chain in a later read configuration.
+    create_store = config.get("live_consequence_store_enabled") is True
+    store = ConsequenceStore(Path(config["store_root"]), create_root=create_store)
 
     def provide() -> tuple[Mapping[str, Any], ...]:
         if not consequence_ids:
