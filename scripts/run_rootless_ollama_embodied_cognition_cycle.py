@@ -758,6 +758,22 @@ def run() -> dict[str, Any]:
             raise RootlessExperimentalError("objective_family_transfer_conditions_incomplete")
         objective_transfer_evaluation = objective_transfer_run.get(
             "objective_evaluation", {})
+        transfer_records = owner.experiments.world_state_records(run_refs=((
+            objective_transfer_run["run_id"], objective_transfer_run["run_digest"]),))
+        if len(transfer_records) != 1:
+            raise RootlessExperimentalError("objective_family_transfer_projection_invalid")
+        transfer_world = WorldStateBoardBuilder().build(transfer_records)
+        transfer_writeback = owner.run_tick(snapshot=transfer_world,
+            tick_id=RUN_ID + ":objective-family-transfer-writeback")
+        if not transfer_writeback.written_record_id:
+            raise RootlessExperimentalError("objective_family_transfer_writeback_missing")
+        transfer_progression = owner.verified_objective_task_family_progression(
+            request_refs=((acquisition_request_id,
+                    acquisition_request["request_digest"]),
+                (transfer_request_id, transfer_request["request_digest"])))
+        if (transfer_progression.get("status") != "comparable_scored_episodes"
+                or len(transfer_progression.get("episodes", [])) != 2):
+            raise RootlessExperimentalError("objective_family_progression_unverified")
         objective_transfer_history = {
             "status": "completed_scored_intervention",
             "measurement_id": objective_transfer_result.changed_cognition_measurement_id,
@@ -765,8 +781,11 @@ def run() -> dict[str, Any]:
             "run_digest": objective_transfer_run.get("run_digest"),
             "task_family_id": objective_family,
             "acquisition_history_record_id": acquisition_history_record.record_id,
+            "transfer_history_record_id": transfer_writeback.written_record_id,
             "acquisition_request_digest": acquisition_request["request_digest"],
             "transfer_request_digest": transfer_request["request_digest"],
+            "longitudinal_progression_status": transfer_progression.get("status"),
+            "longitudinal_episode_count": len(transfer_progression.get("episodes", [])),
             "history_correct_probe_delta": objective_transfer_evaluation.get(
                 "history_correct_probe_delta"),
             "restoration_correct_probe_delta": objective_transfer_evaluation.get(
