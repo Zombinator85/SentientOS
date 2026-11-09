@@ -291,11 +291,14 @@ class _ResourceGuardedInvoker:
         stop_sampling = threading.Event()
         during_samples: list[dict[str, Any]] = []
         sample_failures = 0
+        sample_attempts = 0
 
         def sample_during_inference() -> None:
-            nonlocal sample_failures
-            while not stop_sampling.wait(
-                    _INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS):
+            nonlocal sample_attempts, sample_failures
+            while sample_attempts < _MAX_DURING_INFERENCE_GPU_SAMPLES:
+                if stop_sampling.wait(_INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS):
+                    return
+                sample_attempts += 1
                 try:
                     sample = _gpu_snapshot()
                 except Exception:
@@ -322,10 +325,14 @@ class _ResourceGuardedInvoker:
             resource_record["during_inference_gpu_samples"] = list(during_samples)
             resource_record["during_inference_gpu_sample_failures_or_omissions"] = (
                 sample_failures)
+            resource_record["during_inference_gpu_sample_attempt_count"] = (
+                sample_attempts)
             resource_record["during_inference_gpu_sampling_interval_seconds"] = (
                 _INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS)
             resource_record["during_inference_gpu_sampling_status"] = (
                 "sampler_join_timeout" if sampler.is_alive()
+                else "sampling_window_exhausted"
+                    if sample_attempts >= _MAX_DURING_INFERENCE_GPU_SAMPLES
                 else "sampled" if during_samples
                 else "no_intermediate_sample")
             resource_record["post_inference_gpu_sample"] = _gpu_snapshot()

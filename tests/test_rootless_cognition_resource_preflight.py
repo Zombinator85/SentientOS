@@ -274,6 +274,36 @@ def test_guard_collects_bounded_host_samples_during_inference(
         for sample in record["during_inference_gpu_samples"])
 
 
+def test_guard_stops_sampling_at_the_configured_attempt_limit(
+        runner, monkeypatch):
+    class Delegate:
+        def invoke(self, request, **kwargs):
+            time.sleep(0.03)
+            return "inference"
+
+    evidence: list[dict[str, Any]] = []
+    guarded = runner._ResourceGuardedInvoker(
+        Delegate(), SimpleNamespace(), 9 * 1024**3, evidence)
+    monkeypatch.setattr(runner, "_INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS", 0.001)
+    monkeypatch.setattr(runner, "_MAX_DURING_INFERENCE_GPU_SAMPLES", 2)
+    monkeypatch.setattr(runner, "_refresh_resource_evidence",
+        lambda *args, **kwargs: {"evaluation_id": "fresh",
+            "gpu_utilization_percent": 0})
+    monkeypatch.setattr(runner, "_gpu_snapshot",
+        lambda: {"memory_free_mib": 12000, "memory_total_mib": 12288,
+            "gpu_utilization_percent": 0, "sampled_at": "2026-11-09T00:00:00+00:00",
+            "source": "nvidia-smi",
+            "scope": "host_wide_invocation_boundary_sample_not_process_attributed"})
+
+    assert guarded.invoke(object()) == "inference"
+
+    record = evidence[0]
+    assert record["during_inference_gpu_sample_attempt_count"] == 2
+    assert len(record["during_inference_gpu_samples"]) == 2
+    assert record["during_inference_gpu_sampling_status"] == (
+        "sampling_window_exhausted")
+
+
 def test_resource_governor_enforcement_is_scoped_and_restored(
         runner, monkeypatch, tmp_path):
     observed_modes = []
