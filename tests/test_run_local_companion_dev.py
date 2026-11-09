@@ -398,8 +398,10 @@ def test_avatar_nod_expectation_binds_the_authorized_output_command():
     class Emitter:
         def __init__(self):
             self.calls = []
+            self.metadata_calls = []
         def emit_display_text(self, phrase, *, authorization=None, metadata=None):
             self.calls.append(phrase)
+            self.metadata_calls.append(dict(metadata or {}))
             return {"status": "sent", "renderer_effect_proven": False}
 
     emitter = Emitter()
@@ -427,7 +429,17 @@ def test_avatar_nod_expectation_binds_the_authorized_output_command():
     assert staged["expectation"].requested["assistant_text_digest"] == metadata["output_digest"]
     assert len(staged["expectation"].requested["assistant_turn_binding_digest"]) == 64
     assert staged["dispatch_status"] == "sent"
+    dispatched_metadata = emitter.metadata_calls[-1]
+    assert dispatched_metadata["consequence_expectation_id"] == staged["expectation"].expectation_id
+    assert dispatched_metadata["consequence_expectation_digest"] == staged["expectation"].expectation_digest
+    assert dispatched_metadata["consequence_handoff_id"] == staged["handoff"]["handoff_id"]
+    assert dispatched_metadata["consequence_handoff_digest"] == staged["handoff"]["handoff_digest"]
+    assert dispatched_metadata["consequence_correlation_id"] == staged["expectation"].correlation_id
     assert not any(staged["expectation"].authority.values())
+    adapter.emit_display_text(phrase, metadata={**metadata,
+        "source": "governed_chat_workload_status"})
+    assert adapter._prepared[("session-test", "turn-test")] is staged
+    assert "consequence_handoff_id" not in emitter.metadata_calls[-1]
     invalid_metadata = {
         **metadata, "turn_id": "turn-" + "3" * 24,
         "output_digest": "0" * 64,
@@ -435,7 +447,7 @@ def test_avatar_nod_expectation_binds_the_authorized_output_command():
     assert adapter.emit_display_text(
         phrase, metadata=invalid_metadata)["status"] == "sent"
     assert ("session-test", invalid_metadata["turn_id"]) not in adapter._prepared
-    assert emitter.calls == [phrase, phrase]
+    assert emitter.calls == [phrase, phrase, phrase]
 
 
 def test_prepared_avatar_consequence_persists_bound_indeterminate_chain(tmp_path):
@@ -454,7 +466,11 @@ def test_prepared_avatar_consequence_persists_bound_indeterminate_chain(tmp_path
             return {"status": "sent", "renderer_effect_proven": False}
 
     class Observer:
+        fail_once = True
         def observe(self, *, expectation, handoff, report):
+            if self.fail_once:
+                self.fail_once = False
+                raise RuntimeError("capture_temporarily_unavailable")
             return make_independent_observation(
                 observer_id="windows-avatar-consequence",
                 observation_source_class="authenticated_bridge_observer",
@@ -503,11 +519,16 @@ def test_prepared_avatar_consequence_persists_bound_indeterminate_chain(tmp_path
     store = ConsequenceStore(tmp_path / "consequence-store")
 
     adapter.emit_display_text(phrase, metadata=metadata)
+    with pytest.raises(RuntimeError, match="capture_temporarily_unavailable"):
+        adapter.observe_and_store(session_id=metadata["session_id"],
+            turn_id=metadata["turn_id"], observer=observer, store=store)
+    assert (metadata["session_id"], metadata["turn_id"]) in adapter._prepared
     result = adapter.observe_and_store(
         session_id=metadata["session_id"], turn_id=metadata["turn_id"],
         observer=observer, store=store)
 
     assert result is not None
+    assert (metadata["session_id"], metadata["turn_id"]) not in adapter._prepared
     assert result["classification"] == "indeterminate"
     assert result["confidence"] == "unknown"
     assert result["quality"] == "partial"

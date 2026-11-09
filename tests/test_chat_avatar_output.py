@@ -254,3 +254,46 @@ def test_speech_timing_updates_only_the_current_granted_turn(tmp_path) -> None:
     state = json.loads(target.read_text(encoding="utf-8"))
     assert state["speaking"] is False
     assert state["metadata"]["speech_timing"]["event"] == "speech_interrupted"
+
+
+def test_prepared_avatar_adapter_keeps_full_text_digest_and_emitter_protocol(tmp_path) -> None:
+    from scripts.run_local_companion_dev import _PreparedAvatarConsequenceEmitter
+
+    class Emitter:
+        def __init__(self):
+            self.calls = []
+        def emit_display_text(self, phrase, *, authorization=None, metadata=None):
+            self.calls.append(("display", phrase))
+            return {"status": "sent"}
+        def emit_phrase(self, phrase, *, started_at=None, speaking=None,
+                        muted=False, metadata=None, authorization=None):
+            self.calls.append(("phrase", phrase))
+            return {"status": "sent"}
+        def emit_idle(self, *, authorization=None, metadata=None):
+            self.calls.append(("idle", ""))
+            return {"status": "sent"}
+
+    base = Emitter()
+    pointer = {"installation_identity": "install", "body_identity": "avatar",
+        "body_generation": 1, "manifest_digest": "sha256:" + "a" * 64,
+        "artifact_sha256": "sha256:" + "c" * 64,
+        "pointer_digest": "sha256:" + "b" * 64}
+    adapter = _PreparedAvatarConsequenceEmitter(
+        emitter=base, pointer=pointer, observer=object())
+    admission = _AdmissionStub()
+    controller = ChatAvatarOutputController(adapter, admission_provider=admission)
+    assert controller.set_enabled("session-long", True)["enabled"] is True
+    controller.set_workload_mode("session-long", "gaming")
+    assert base.calls[-1][0] == "idle"
+    text = "x" * 3000
+    digest = digest_payload({"text": text})
+    assert controller.publish_response(session_id="session-long", turn_id="turn-long",
+        text=text, output_digest=digest)["phrase_truncated"] is True
+    staged = adapter._prepared[("session-long", "turn-long")]
+    assert staged["expectation"].requested["assistant_text_digest"] == digest
+    assert len(base.calls[-1][1]) == 2048
+    assert controller.publish_speech_timing({"session_id": "session-long",
+        "turn_id": "turn-long", "event": "speech_started"})["status"] == "emitted"
+    controller.close()
+    assert any(kind == "phrase" for kind, _ in base.calls)
+    assert base.calls[-1][0] == "idle"

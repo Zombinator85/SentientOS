@@ -52,6 +52,13 @@ func _run_probe() -> void:
 		push_error("renderer_probe_command_lineage_missing")
 		quit(1)
 		return
+	for field in ["consequence_expectation_id", "consequence_expectation_digest",
+			"consequence_handoff_id", "consequence_handoff_digest",
+			"consequence_correlation_id"]:
+		if command_metadata.has(field) and report.get(field) != command_metadata.get(field):
+			push_error("renderer_probe_consequence_lineage_missing")
+			quit(1)
+			return
 	if motion.get("active_motion") != state.get("motion"):
 		push_error("renderer_probe_motion_not_applied")
 		quit(1)

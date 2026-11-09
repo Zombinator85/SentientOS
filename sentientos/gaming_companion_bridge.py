@@ -46,7 +46,9 @@ CONSEQUENCE_CAPTURE_PROVENANCE_FIELDS = frozenset({
 })
 AVATAR_COMMAND_FIELDS = frozenset({"output_mode", "phrase", "expression", "motion", "mood",
                                    "intensity", "workload_mode", "output_digest", "turn_id",
-                                   "speech_timing"})
+                                   "speech_timing", "consequence_expectation_id",
+                                   "consequence_expectation_digest", "consequence_handoff_id",
+                                   "consequence_handoff_digest", "consequence_correlation_id"})
 MAX_ENVELOPE_BYTES = 16 * 1024
 MAX_PAYLOAD_BYTES = 12 * 1024
 MAX_CLOCK_SKEW_SECONDS = 30.0
@@ -203,6 +205,19 @@ def _validate_message(kind: str, payload: Mapping[str, Any], admission: Mapping[
             raise CompanionBridgeError("avatar_command_field_invalid:output_digest")
         if payload.get("turn_id") is not None:
             _identifier(payload["turn_id"], "avatar_command_turn_id")
+        lineage_fields = {"consequence_expectation_id", "consequence_expectation_digest",
+            "consequence_handoff_id", "consequence_handoff_digest",
+            "consequence_correlation_id"}
+        present_lineage = set(payload) & lineage_fields
+        if present_lineage and present_lineage != lineage_fields:
+            raise CompanionBridgeError("avatar_command_consequence_lineage_incomplete")
+        if present_lineage:
+            for field in ("consequence_expectation_id", "consequence_handoff_id",
+                          "consequence_correlation_id"):
+                _identifier(payload[field], "avatar_command_" + field)
+            for field in ("consequence_expectation_digest", "consequence_handoff_digest"):
+                if re.fullmatch(r"sha256:[0-9a-f]{64}", str(payload[field])) is None:
+                    raise CompanionBridgeError("avatar_command_consequence_digest_invalid")
     elif kind == "screen_capture_request":
         if admission is not None:
             raise CompanionBridgeError("bridge_admission_unexpected")

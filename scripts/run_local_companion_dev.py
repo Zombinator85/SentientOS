@@ -401,6 +401,7 @@ class _PreparedAvatarConsequenceEmitter:
         self._observer = observer
         self._lock = threading.Lock()
         self._prepared: dict[tuple[str, str], dict[str, Any]] = {}
+        self._inflight: set[tuple[str, str]] = set()
 
     def emit_display_text(self, phrase: str, *, authorization: Any = None,
             metadata: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -414,11 +415,19 @@ class _PreparedAvatarConsequenceEmitter:
         output_digest = metadata.get("output_digest")
         key: tuple[str, str] | None = None
         staged: dict[str, Any] | None = None
+        expected_display_digest = "sha256:" + digest_payload({"text": phrase})
+        displayed_digest = metadata.get("displayed_text_digest")
+        if displayed_digest is None and not metadata.get("phrase_truncated", False):
+            # Compatibility for direct, untruncated callers: the complete
+            # answer digest must also match the visible phrase.
+            if output_digest == digest_payload({"text": phrase}):
+                displayed_digest = expected_display_digest
         if (self._observer is not None and self._pointer is not None
+                and metadata.get("source") != "governed_chat_workload_status"
                 and isinstance(session_id, str) and session_id
                 and isinstance(turn_id, str) and turn_id
                 and isinstance(output_digest, str)
-                and output_digest == digest_payload({"text": phrase})):
+                and displayed_digest == expected_display_digest):
             key = (session_id, turn_id)
             now = datetime.now(timezone.utc)
             created_at = now.isoformat()
@@ -455,8 +464,18 @@ class _PreparedAvatarConsequenceEmitter:
                 "output_digest": output_digest,
                 "pointer_digest": pointer.get("pointer_digest"),
                 "dispatch_status": "pending"}
+        dispatch_metadata = dict(metadata)
+        if staged is not None:
+            expectation, handoff = staged["expectation"], staged["handoff"]
+            dispatch_metadata.update({
+                "consequence_expectation_id": expectation.expectation_id,
+                "consequence_expectation_digest": expectation.expectation_digest,
+                "consequence_handoff_id": handoff["handoff_id"],
+                "consequence_handoff_digest": handoff["handoff_digest"],
+                "consequence_correlation_id": expectation.correlation_id,
+            })
         result = self._emitter.emit_display_text(
-            phrase, authorization=authorization, metadata=metadata)
+            phrase, authorization=authorization, metadata=dispatch_metadata)
         if staged is not None and key is not None:
             staged["dispatch_status"] = result.get("status")
             with self._lock:
@@ -466,40 +485,79 @@ class _PreparedAvatarConsequenceEmitter:
                     self._prepared.pop(next(iter(self._prepared)))
         return dict(result)
 
+    def emit_phrase(self, phrase: str, *, started_at: float | None = None,
+            speaking: bool | None = None, muted: bool = False,
+            metadata: Mapping[str, Any] | None = None,
+            authorization: Any = None) -> dict[str, Any]:
+        """Delegate speech timing without predicting a new avatar action."""
+        return dict(self._emitter.emit_phrase(phrase, started_at=started_at,
+            speaking=speaking, muted=muted, metadata=metadata,
+            authorization=authorization))
+
+    def emit_idle(self, *, authorization: Any = None,
+            metadata: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        """Delegate clearing/workload updates without staging an expectation."""
+        return dict(self._emitter.emit_idle(authorization=authorization,
+            metadata=metadata))
+
     def observe_and_store(self, *, session_id: str, turn_id: str,
             observer: Any, store: Any) -> dict[str, Any] | None:
         from sentientos.embodied_consequence import evaluate_consequence
 
         key = (session_id, turn_id)
         with self._lock:
-            staged = self._prepared.pop(key, None)
-        if staged is None:
-            return None
-        if staged.get("dispatch_status") != "sent":
-            raise RuntimeError("avatar_prediction_dispatch_not_confirmed")
-        pointer = self._pointer
-        if (pointer is None or pointer.get("pointer_digest") != staged.get("pointer_digest")):
-            raise RuntimeError("avatar_prediction_body_pointer_changed")
-        expectation, handoff = staged["expectation"], staged["handoff"]
-        observation = observer.observe(expectation=expectation, handoff=handoff, report=None)
-        attribution, comparison = evaluate_consequence(
-            expectation=expectation, handoff=handoff,
-            current_body={"body_generation": pointer["body_generation"],
-                "pointer_digest": pointer["pointer_digest"]},
-            observation=observation, evaluated_at=datetime.now(timezone.utc).isoformat(),
-            independent_observer_owner=observer)
-        chain = store.put_consequence_chain(expectation=expectation, handoff=handoff,
-            renderer_report=None, observation=observation,
-            attribution=attribution, comparison=comparison)
-        records = store.world_state_records(consequence_chain_ids=(chain["chain_id"],))
-        return {"status": "completed", "chain_id": chain["chain_id"],
-            # Classification belongs to the governed attribution owner; the
-            # comparison record contains per-observable outcomes only.
-            "classification": attribution.get("classification"),
-            "confidence": observation.confidence, "quality": observation.quality,
-            "effect_proven": False, "world_state_records": tuple(records),
-            "observer_transport_authenticated": True,
-            "observation_accuracy_established": False}
+            staged = self._prepared.get(key)
+            if staged is None:
+                return None
+            if key in self._inflight:
+                raise RuntimeError("avatar_consequence_observation_already_inflight")
+            self._inflight.add(key)
+        try:
+            if staged.get("dispatch_status") != "sent":
+                raise RuntimeError("avatar_prediction_dispatch_not_confirmed")
+            pointer = self._pointer
+            if (pointer is None or pointer.get("pointer_digest") != staged.get("pointer_digest")):
+                raise RuntimeError("avatar_prediction_body_pointer_changed")
+            expectation, handoff = staged["expectation"], staged["handoff"]
+            observation = staged.get("observation")
+            if observation is None:
+                observation = observer.observe(
+                    expectation=expectation, handoff=handoff, report=None)
+                staged["observation"] = observation
+            attribution = staged.get("attribution")
+            comparison = staged.get("comparison")
+            if attribution is None or comparison is None:
+                attribution, comparison = evaluate_consequence(
+                    expectation=expectation, handoff=handoff,
+                    current_body={"body_generation": pointer["body_generation"],
+                        "pointer_digest": pointer["pointer_digest"]},
+                    observation=observation,
+                    evaluated_at=datetime.now(timezone.utc).isoformat(),
+                    independent_observer_owner=observer)
+                staged["attribution"] = attribution
+                staged["comparison"] = comparison
+            chain_id = staged.get("chain_id")
+            if not isinstance(chain_id, str):
+                chain = store.put_consequence_chain(expectation=expectation, handoff=handoff,
+                    renderer_report=None, observation=observation,
+                    attribution=attribution, comparison=comparison)
+                chain_id = str(chain["chain_id"])
+                staged["chain_id"] = chain_id
+            records = store.world_state_records(consequence_chain_ids=(chain_id,))
+            with self._lock:
+                if self._prepared.get(key) is staged:
+                    self._prepared.pop(key, None)
+            return {"status": "completed", "chain_id": chain_id,
+                # Classification belongs to the governed attribution owner; the
+                # comparison record contains per-observable outcomes only.
+                "classification": attribution.get("classification"),
+                "confidence": observation.confidence, "quality": observation.quality,
+                "effect_proven": False, "world_state_records": tuple(records),
+                "observer_transport_authenticated": True,
+                "observation_accuracy_established": False}
+        finally:
+            with self._lock:
+                self._inflight.discard(key)
 
 
 class _LatestRendererObservation:
@@ -834,7 +892,10 @@ class _TemporaryCompanionEdge:
                     self._avatar_consequence_runtime = CompanionBridgeLoopbackRuntime(
                         receiver=CompanionBridgeReceiver(
                             source_keys={avatar_source_id: avatar_source_key},
-                            expected_generations={avatar_source_id: avatar_source_generation}),
+                            expected_generations={avatar_source_id: avatar_source_generation},
+                            # This receiver accepts only the dedicated, request-correlated
+                            # consequence stream; monotonic request age is its freshness gate.
+                            max_clock_skew_seconds=180.0),
                         acknowledgment_source_id=avatar_ack_id,
                         acknowledgment_generation_id=avatar_ack_generation,
                         acknowledgment_key=avatar_ack_key, queue_capacity=8,

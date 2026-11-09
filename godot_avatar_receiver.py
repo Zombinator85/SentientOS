@@ -22,6 +22,10 @@ MAX_VISEME_CUES = 256
 MAX_PHRASE_CHARS = 2048
 _OUTPUT_DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _CORRELATION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z")
+_CONSEQUENCE_LINEAGE_FIELDS = (
+    "consequence_expectation_id", "consequence_expectation_digest",
+    "consequence_handoff_id", "consequence_handoff_digest",
+    "consequence_correlation_id")
 
 
 def _finite_number(value: object, default: float) -> float | None:
@@ -190,8 +194,26 @@ class AvatarStateForwarder:
             if (len(correlation) == 2 and isinstance(output_digest, str)
                     and _OUTPUT_DIGEST.fullmatch(output_digest)
                     and output_mode == "chat_response_visual_only"):
-                payload["metadata"] = {**correlation,
+                payload_metadata = {**correlation,
                     "output_digest": output_digest, "output_mode": output_mode}
+                present_lineage = [field for field in _CONSEQUENCE_LINEAGE_FIELDS
+                    if field in metadata]
+                if present_lineage and len(present_lineage) != len(_CONSEQUENCE_LINEAGE_FIELDS):
+                    return None
+                if present_lineage:
+                    for field in ("consequence_expectation_id", "consequence_handoff_id",
+                                  "consequence_correlation_id"):
+                        value = metadata.get(field)
+                        if not isinstance(value, str) or not _CORRELATION_ID.fullmatch(value):
+                            return None
+                    for field in ("consequence_expectation_digest", "consequence_handoff_digest"):
+                        value = metadata.get(field)
+                        if not isinstance(value, str) or not re.fullmatch(
+                                r"sha256:[0-9a-f]{64}", value):
+                            return None
+                    payload_metadata.update({field: metadata[field]
+                        for field in _CONSEQUENCE_LINEAGE_FIELDS})
+                payload["metadata"] = payload_metadata
         if not all(payload.get(key) for key in ("mood", "expression", "motion")):
             return None
         if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > MAX_UDP_PAYLOAD_BYTES:

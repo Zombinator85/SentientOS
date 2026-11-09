@@ -164,16 +164,20 @@ def test_admitted_chat_output_crosses_mutual_tls_into_edge_dispatcher(tmp_path):
     client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
         server_hostname="127.0.0.1", tls_context=client_context,
         acknowledgment_receiver=acknowledgment_receiver)
-    receipt = {"receipt_id": "admission-1", "semantic_digest": "b" * 64}
+    receipt_ids = []
+    def build_receipt(_authorization):
+        receipt_id = f"admission-{len(receipt_ids) + 1}"
+        receipt_ids.append(receipt_id)
+        return {"receipt_id": receipt_id, "semantic_digest": "b" * 64}
     sender = MutualTLSAvatarCommandSender(client=client,
         source_id="sentientos-core", session_id="session-1",
         generation_id="core-generation-1", source_key=source_key,
-        admission_receipt_builder=lambda _authorization: receipt)
+        admission_receipt_builder=build_receipt)
     state_queue = WindowsGodotAvatarStateQueue(
         state_emitter=AvatarStateEmitter(tmp_path / "avatar_state.json"))
     dispatcher = WindowsEdgeAvatarCommandDispatchOwner(runtime=runtime,
         receipt_verifier=lambda receipt_id, digest, _message:
-            (receipt_id, digest) == (receipt["receipt_id"], receipt["semantic_digest"]),
+            receipt_id in receipt_ids and digest == "b" * 64,
         renderer_sink=state_queue.enqueue)
     try:
         emitter = BridgeChatAvatarOutputEmitter(sender)
@@ -198,13 +202,27 @@ def test_admitted_chat_output_crosses_mutual_tls_into_edge_dispatcher(tmp_path):
         assert state["metadata"]["session_id"] == "session-1"
         assert state["metadata"]["output_mode"] == "chat_response_visual_only"
         assert state["workload_mode"] == "gaming"
+        lineage = {
+            "consequence_expectation_id": "expectation:lineage-1",
+            "consequence_expectation_digest": "sha256:" + "1" * 64,
+            "consequence_handoff_id": "handoff:lineage-1",
+            "consequence_handoff_digest": "sha256:" + "2" * 64,
+            "consequence_correlation_id": "correlation:lineage-1",
+        }
+        emitter.emit_display_text("Bound action", authorization=_authorization(),
+            metadata={"session_id": "session-1", "turn_id": "turn-3",
+                "workload_mode": "gaming", "output_digest": "d" * 64, **lineage})
+        bound_message = runtime.receive(timeout=1.0)
+        assert dispatcher.dispatch_one(bound_message) is True, dispatcher.status()
+        state = json.loads((tmp_path / "avatar_state.json").read_text(encoding="utf-8"))
+        assert {key: state["metadata"][key] for key in lineage} == lineage
         forwarded = AvatarStateForwarder(tmp_path / "avatar_state.json")._read_state()
         assert forwarded is not None
         assert forwarded["workload_mode"] == "gaming"
         assert forwarded["metadata"] == {
-            "session_id": "session-1", "turn_id": "turn-2",
-            "output_digest": "c" * 64,
-            "output_mode": "chat_response_visual_only",
+            "session_id": "session-1", "turn_id": "turn-3",
+            "output_digest": "d" * 64,
+            "output_mode": "chat_response_visual_only", **lineage,
         }
         assert dispatcher.status().renderer_effect_proven is False
     finally:

@@ -152,13 +152,13 @@ def test_avatar_measurement_uses_explicit_local_cpu_vision_and_preserves_provena
     assert request["options"]["num_gpu"] == 0
     assert len(request["messages"][1]["images"]) == 5
     assert "Do not use renderer reports or prior frames" in request["messages"][0]["content"]
-    assert measurement["observed"] == {
-        "avatar_visible": True, "avatar_motion": "wave"}
+    assert measurement["observed"] == {"avatar_visible": True}
+    assert "always return motion as uncertain" in request["messages"][0]["content"]
     assert measurement["observed_at"] == payload["captured_at"]
     assert measurement["capture_digest"] == capture_digest
     assert measurement["confidence"] == "unknown"
     assert measurement["model_reported_confidence"] == "high"
-    assert measurement["quality"] == "partial"
+    assert measurement["quality"] == "unknown"
     assert measurement["raw_frame_retained"] is False
     assert "rgb" not in measurement
     assert seen["closed"] is True

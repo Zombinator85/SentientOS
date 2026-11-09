@@ -209,6 +209,9 @@ class ChatAvatarOutputController:
             metadata = {
                 "source": "governed_chat_response", "session_id": session_id,
                 "turn_id": turn_id, "output_digest": output_digest,
+                # Keep complete response identity distinct from the possibly
+                # truncated renderer-visible phrase.
+                "displayed_text_digest": _digest({"text": visible}),
                 "approval_grant_digest": grant.grant_digest,
                 "phrase_truncated": len(text) > MAX_AVATAR_DISPLAY_PHRASE_CHARS,
                 "output_mode": self.SCOPE,

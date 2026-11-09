@@ -427,3 +427,25 @@ def test_adopted_renderer_pointer_comparison_rejects_malformed_pointer_fields(
     with pytest.raises(RendererReportIngressError,
             match="renderer_body_pointer_integrity_invalid"):
         compare_adopted_renderer_report_to_body_pointer(report, pointer)
+
+
+def test_renderer_report_preserves_complete_consequence_command_lineage():
+    report = _report()
+    lineage = {
+        "consequence_expectation_id": "expectation:lineage-1",
+        "consequence_expectation_digest": "sha256:" + "1" * 64,
+        "consequence_handoff_id": "handoff:lineage-1",
+        "consequence_handoff_digest": "sha256:" + "2" * 64,
+        "consequence_correlation_id": "correlation:lineage-1",
+    }
+    report.update(lineage)
+    _refresh_digest(report)
+    observation = renderer_report_observation(report)
+    assert observation is not None
+
+    partial = _report()
+    partial["consequence_handoff_id"] = "handoff:lineage-1"
+    _refresh_digest(partial)
+    with pytest.raises(RendererReportIngressError,
+            match="renderer_report_shape_invalid|renderer_report_consequence_lineage_invalid"):
+        renderer_report_observation(partial)
