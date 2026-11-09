@@ -55,6 +55,16 @@ Sequence 440 records PR #2405 regular-merging sequence 438 and its sequence 439 
 - **Provenance custody:** Historical test-provenance trends remain `INTEGRITY_BROKEN` at their unanchored start, including the preserved sequence-286 loss. No historical evidence was reconstructed or discarded.
 - **Production developmental evidence:** Hosted verification does not establish production A→B→A, learning, or improvement. A real resident transition still requires commissioned A/B identities, distinct serving approvals, and an operator-approved preregistered trial. No production inference occurred.
 
+## Developmental cognition checkpoint (2026-11-09)
+
+The companion now composes fresh screen evidence and avatar proprioception with the existing resident cognition, World-State, developmental-history, and governed writeback owners. The integration is present in hosted `main` at `8e54073fbb696afb1ce3aa3de77d6a5589372644`; the focused WSL regression sweep on that exact revision reported 310 passed and 2 skipped across eight modules. These checks validate software contracts and fixture compositions, not a real developmental event.
+
+A local Hermes history-present/withheld/restored experiment has produced an output difference associated with retained history. It does not yet show improved performance or establish an independently observed embodied consequence.
+
+**The live developmental cycle has not yet been demonstrated.** Still required is one operator-confirmed fresh observation, a bounded operator-authorized avatar action, independent consequence measurement, governed writeback, and a later matched cognition comparison with history present, withheld, and restored. The raw capture must remain transient, and an uncertain or unavailable consequence remains an honest outcome. No successful live writeback or causal improvement is claimed here.
+
+Screen capture and gameplay workload have separate process allowlists. A standalone Godot executable can be explicitly allowlisted as the foreground observation target while the game-process allowlist continues to control gaming workload policy. Each capture remains request-scoped and operator-confirmed.
+
 ## Current construction checkpoint (2026-10-19 11:35 UTC)
 
 Sequence 459 verifies the nightly workflow repairs already present on main. Historical runs showed Administrator was missing from both audit paths; current definitions require it, keep the initial audit job read-only, and isolate safe repair write permissions to the conditional repair job. Latest scheduled runs passed on older heads, but Audit repair was skipped.

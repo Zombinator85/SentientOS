@@ -1369,9 +1369,10 @@ def main() -> int:
                         help=("Expose opt-in local pyttsx3 speech; playback remains disabled "
                               "until approved for a conversation in the chat UI"))
     parser.add_argument("--screen-observation-process", action="append", default=[],
-                        metavar="GAME.exe",
+                        metavar="APPLICATION.exe",
                         help=("Configure launch-scoped consent for per-message local OCR on "
-                              "this allowlisted foreground game"))
+                              "this allowlisted foreground application, independently of the "
+                              "gaming-workload process allowlist"))
     parser.add_argument("--screen-observation-consent-minutes", type=int, default=60,
                         help="Expire opt-in screen OCR consent after 1 to 240 minutes")
     parser.add_argument("--screen-observation-foreground-wait-seconds",

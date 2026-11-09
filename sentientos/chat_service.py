@@ -1278,7 +1278,7 @@ class PersistentConversationService:
                     elif measurement_status != "unavailable":
                         raise RuntimeError(
                             "developmental_consequence_measurement_invalid")
-            question = "Capture the current allowlisted foreground game for one operator-requested developmental cognition cycle."
+            question = "Capture the current allowlisted foreground application for one operator-requested developmental cognition cycle."
             question_observer = getattr(type(observer), "observe_question", None)
             observation = (question_observer(observer, question)
                 if callable(question_observer) else observer())
@@ -4432,8 +4432,8 @@ async def root_page() -> HTMLResponse:
                 </section>
                 <section id="screen-observation-controls" aria-label="Screen observation">
                     <label for="observe-screen"><input id="observe-screen" type="checkbox" />
-                        Include the current consented game screen in this message</label>
-                    <span id="screen-observation-status" role="status">One consented foreground-game frame is processed locally as OCR and optional visual summary, then discarded.</span>
+                        Include the current consented foreground application in this message</label>
+                    <span id="screen-observation-status" role="status">One consented frame from the allowlisted foreground application is processed locally as OCR and optional visual summary, then discarded.</span>
                 </section>
                 <button id="send">Send</button>
                 <div id="response" class="response" hidden>
@@ -4850,7 +4850,7 @@ async def root_page() -> HTMLResponse:
                                     localStorage, pendingKey,
                                     'screen_observation_failed:' + failureCode);
                                 alert('Screen observation failed (' + failureCode
-                                    + '). Send with the screen option, then return focus to the approved game within the configured foreground wait. Uncheck the screen option for text only.');
+                                    + '). Send with the screen option, then return focus to the approved application within the configured foreground wait. Uncheck the screen option for text only.');
                                 return;
                             }
                             if (failure === 'chat_request_conflict') {
@@ -4985,10 +4985,10 @@ async def root_page() -> HTMLResponse:
                         const requestIdentityCleared = clearTerminalChatRequestIdentity(
                             localStorage, pendingKey, failure);
                         if (failure === 'screen_observation_failed:screen_observation_request_timeout') {
-                            alert('Screen observation timed out. Send with the screen option, then return focus to the approved game within the configured foreground wait. Uncheck the screen option for a text-only message.');
+                            alert('Screen observation timed out. Send with the screen option, then return focus to the approved application within the configured foreground wait. Uncheck the screen option for a text-only message.');
                         } else if (failure.startsWith('screen_observation_failed:')) {
                             alert('Screen observation failed (' + failure.slice(26)
-                                + '). Send with the screen option, then return focus to the approved game within the configured foreground wait. Uncheck the screen option for text only.');
+                                + '). Send with the screen option, then return focus to the approved application within the configured foreground wait. Uncheck the screen option for text only.');
                         } else if (failure === 'chat_request_conflict') {
                             alert(requestIdentityCleared
                                 ? 'This request ID conflicts with an earlier request. I cleared the stale ID; send again only if you want a new request.'
@@ -5032,10 +5032,10 @@ async def root_page() -> HTMLResponse:
                             const handoffSeconds = Number.isInteger(data.foreground_wait_seconds)
                                 ? data.foreground_wait_seconds : 0;
                             const handoff = handoffSeconds > 0
-                                ? ' Send, then return focus to the approved game within '
+                                ? ' Send, then return focus to the approved application within '
                                     + handoffSeconds + ' seconds.'
-                                : ' The approved game must already be foreground when you send.';
-                            status.textContent = 'Capture policy: request-driven and local. This checkbox requests one foreground-game observation with local OCR and optional visual summary; the frame is discarded.'
+                                : ' The approved application must already be foreground when you send.';
+                            status.textContent = 'Capture policy: request-driven and local. This checkbox requests one observation from the allowlisted foreground application with local OCR and optional visual summary; the frame is discarded.'
                                 + handoff;
                         }
                     } catch (_) {
@@ -5328,7 +5328,7 @@ async def root_page() -> HTMLResponse:
                             return;
                         }
                     }
-                    if (!window.confirm('Capture one fresh, consented foreground-game observation and run the existing resident cognition tick? The screen evidence and your optional unverified report may be retained through governed developmental writeback. This can make local model inference calls. Raw screen frames are discarded. No avatar motion is sent unless you approve it separately next.')) return;
+                    if (!window.confirm('Capture one fresh, consented observation from the allowlisted foreground application and run the existing resident cognition tick? The screen evidence and your optional unverified report may be retained through governed developmental writeback. This can make local model inference calls. Raw screen frames are discarded. No avatar motion is sent unless you approve it separately next.')) return;
                     let foregroundWaitSeconds = 0;
                     try {
                         const screenStatusResponse = await fetch('/screen-observation');
