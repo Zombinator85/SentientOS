@@ -5664,6 +5664,8 @@ class ResidentDevelopmentalCognitionOwner:
                 "cognition_observation_digest": observation.observation_digest,
                 "inference_receipt_id": receipt.receipt_id,
                 "inference_receipt_digest": receipt.receipt_digest,
+                "inference_status": receipt.status,
+                "cognition_receipt_output_binding_verified": True,
                 "output_digest": receipt.output_digest,
                 "prompt_digest": req.get("prompt_digest"),
                 "generation_config": dict(receipt.generation_config),

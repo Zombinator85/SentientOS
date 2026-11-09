@@ -9,7 +9,8 @@ import pytest
 
 from sentientos.developmental_history_intervention_experiment import (
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
-    make_protocol, summarize, verify_protocol,
+    make_protocol, qualify_restoration_stable_history_association,
+    qualify_semantic_history_decision, summarize, verify_protocol,
 )
 from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import (
@@ -324,3 +325,104 @@ def test_experiment_store_rejects_canonical_memory_subtree() -> None:
     with pytest.raises(DevelopmentalHistoryInterventionError,
                        match="experiment_root_overlaps_canonical_memory"):
         DevelopmentalExperimentStore(sentientos_memory_dir())
+
+
+def test_restoration_qualification_separates_history_difference_from_unstable_output() -> None:
+    history_summary = {
+        "present_vs_withheld_difference_observed": True,
+        "restored_vs_withheld_difference_observed": True,
+        "present_restoration_stable": True,
+    }
+    same_history_replay = {
+        "prompt_digest_matches": True,
+        "generation_config_matches": True,
+        "active_model_identity_matches": True,
+        "output_digest_matches": True,
+    }
+    repeatability = {
+        "input_controls_match": True,
+        "output_digest_matches": True,
+        "response_digest_matches": True,
+        "all_responses_admitted": True,
+        "cognition_receipt_output_binding_verified": True,
+    }
+
+    qualified = qualify_restoration_stable_history_association(
+        validity="valid_controlled_observation",
+        history_summary=history_summary,
+        same_history_replay=same_history_replay,
+        present_restoration_delivery_replay=repeatability,
+    )
+    assert qualified == {
+        "classification": "restoration_stable_history_associated_digest_difference",
+        "restoration_stable_association_qualified": True,
+        "measurement_scope": "exact_model_output_digest_only",
+        "independent_repeatability_control_performed": False,
+        "performance_improvement_established": False,
+    }
+
+    unstable = qualify_restoration_stable_history_association(
+        validity="valid_controlled_observation",
+        history_summary=history_summary,
+        same_history_replay={**same_history_replay, "output_digest_matches": False},
+        present_restoration_delivery_replay=repeatability,
+    )
+    assert unstable["classification"] == (
+        "history_association_not_qualified_by_cross_owner_replay")
+    assert unstable["restoration_stable_association_qualified"] is False
+    assert unstable["performance_improvement_established"] is False
+
+
+def test_restoration_qualification_rejects_incomplete_or_uncontrolled_runs() -> None:
+    result = qualify_restoration_stable_history_association(
+        validity="invalid_controlled_observation",
+        history_summary={"present_vs_withheld_difference_observed": True},
+        same_history_replay={},
+        present_restoration_delivery_replay={},
+    )
+    assert result["classification"] == (
+        "not_qualified_controlled_observation_invalid")
+    assert result["restoration_stable_association_qualified"] is False
+    assert result["performance_improvement_established"] is False
+
+    no_effect = qualify_restoration_stable_history_association(
+        validity="valid_controlled_observation",
+        history_summary={
+            "present_vs_withheld_difference_observed": False,
+            "restored_vs_withheld_difference_observed": False,
+            "present_restoration_stable": True,
+        },
+        same_history_replay={},
+        present_restoration_delivery_replay={},
+    )
+    assert no_effect["classification"] == (
+        "no_restoration_stable_history_difference")
+
+
+def test_semantic_history_decision_qualification_separates_effect_from_improvement() -> None:
+    def row(condition: str, disposition: str, token: bool, unavailable: bool,
+            citation: bool) -> dict[str, object]:
+        return {"condition_id": condition, "disposition": disposition,
+            "answers_with_exact_past_idle_token": token,
+            "abstains_for_unavailable_history": unavailable,
+            "history_citation_bound": citation}
+
+    rows = [row("history_present", "answer", True, False, True),
+        row("history_withheld", "abstain", False, True, False),
+        row("history_restored", "answer", True, False, True)]
+    kwargs = {"semantic_decisions": rows, "controlled_inputs_match": True,
+        "restored_prompt_matches": True,
+        "restoration_stable_association_qualified": True}
+    result = qualify_semantic_history_decision(**kwargs)
+    assert result["history_changed_cognition"] is True
+    assert result["decision_difference"] == "answer_with_history_vs_abstain_without_history"
+    assert result["restored_decision_matches_present"] is True
+    assert result["performance_improvement_established"] is False
+
+    unstable = qualify_semantic_history_decision(**{
+        **kwargs, "restoration_stable_association_qualified": False})
+    assert unstable["history_associated_decision_difference_observed"] is True
+    assert unstable["history_changed_cognition"] is False
+    assert unstable["classification"] == (
+        "history_associated_semantic_decision_difference_observed_repeatability_unqualified")
+    assert unstable["performance_improvement_established"] is False

@@ -1163,6 +1163,118 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
         "measurements":[asdict(first), asdict(second)], "claims_posture":"bounded_observed_association_only"}
 
 
+
+def qualify_restoration_stable_history_association(*, validity: Any,
+        history_summary: Mapping[str, Any], same_history_replay: Mapping[str, Any],
+        present_restoration_delivery_replay: Mapping[str, Any]) -> dict[str, Any]:
+    """Qualify one controlled A/B/A history association across both owners.
+
+    The repeat is the history-present/history-restored pair already in the
+    A/B/A experiment. It is not an independent repeatability control. This
+    qualifier only labels an exact model-output digest difference when the
+    restored condition reproduces the present condition and companion delivery
+    confirms the same controls and response lineage. It says nothing about
+    semantic correctness, learning, or improved task performance.
+    """
+    base = {"restoration_stable_association_qualified": False,
+        "measurement_scope": "exact_model_output_digest_only",
+        "independent_repeatability_control_performed": False,
+        "performance_improvement_established": False}
+    if validity != "valid_controlled_observation":
+        return {**base,
+            "classification": "not_qualified_controlled_observation_invalid"}
+
+    present_difference = history_summary.get(
+        "present_vs_withheld_difference_observed")
+    restored_difference = history_summary.get(
+        "restored_vs_withheld_difference_observed")
+    restored_matches_present = history_summary.get("present_restoration_stable")
+    if (present_difference is not True or restored_difference is not True
+            or restored_matches_present is not True):
+        return {**base,
+            "classification": "no_restoration_stable_history_difference"}
+
+    replay_verified = (
+        same_history_replay.get("prompt_digest_matches") is True
+        and same_history_replay.get("generation_config_matches") is True
+        and same_history_replay.get("active_model_identity_matches") is True
+        and same_history_replay.get("output_digest_matches") is True
+        and present_restoration_delivery_replay.get("input_controls_match") is True
+        and present_restoration_delivery_replay.get("output_digest_matches") is True
+        and present_restoration_delivery_replay.get("response_digest_matches") is True
+        and present_restoration_delivery_replay.get("all_responses_admitted") is True
+        and present_restoration_delivery_replay.get(
+            "cognition_receipt_output_binding_verified") is True)
+    return {**base, "classification": (
+            "restoration_stable_history_associated_digest_difference"
+            if replay_verified else
+            "history_association_not_qualified_by_cross_owner_replay"),
+        "restoration_stable_association_qualified": replay_verified}
+
+def qualify_semantic_history_decision(
+    *,
+    semantic_decisions: Sequence[Mapping[str, Any]],
+    controlled_inputs_match: Any,
+    restored_prompt_matches: Any,
+    restoration_stable_association_qualified: Any,
+) -> dict[str, Any]:
+    """Measure a matched history-dependent decision; never infer improvement."""
+    result = {
+        "schema_version": "sentientos.semantic_history_decision_qualification:v1",
+        "measurement_scope": "structured_historical_recall_decision_and_citation",
+        "classification": "not_qualified",
+        "history_associated_decision_difference_observed": False,
+        "history_changed_cognition": False,
+        "decision_difference": "not_established",
+        "restored_decision_matches_present": False,
+        "performance_improvement_established": False,
+    }
+    if (controlled_inputs_match is not True or restored_prompt_matches is not True
+            or len(semantic_decisions) != 3):
+        result["classification"] = "controls_or_restoration_not_qualified"
+        return result
+    expected = ("history_present", "history_withheld", "history_restored")
+    fields = ("disposition", "answers_with_exact_past_idle_token",
+        "abstains_for_unavailable_history", "history_citation_bound")
+    rows = list(semantic_decisions)
+    if any(not isinstance(row, Mapping) or row.get("condition_id") != condition
+            or any(key not in row for key in fields)
+            or row.get("disposition") not in {"answer", "ask", "abstain"}
+            or any(type(row.get(key)) is not bool for key in fields[1:])
+            for row, condition in zip(rows, expected)):
+        result["classification"] = "semantic_decisions_invalid"
+        return result
+    present, withheld, restored = rows
+    matches = all(present[key] == restored[key] for key in fields)
+    result["restored_decision_matches_present"] = matches
+    qualifies = (
+        matches
+        and present["disposition"] == restored["disposition"] == "answer"
+        and present["answers_with_exact_past_idle_token"]
+        and restored["answers_with_exact_past_idle_token"]
+        and present["history_citation_bound"] and restored["history_citation_bound"]
+        and not present["abstains_for_unavailable_history"]
+        and not restored["abstains_for_unavailable_history"]
+        and withheld["disposition"] == "abstain"
+        and withheld["abstains_for_unavailable_history"]
+        and not withheld["answers_with_exact_past_idle_token"]
+        and not withheld["history_citation_bound"])
+    if qualifies:
+        result["history_associated_decision_difference_observed"] = True
+        result["decision_difference"] = "answer_with_history_vs_abstain_without_history"
+        if restoration_stable_association_qualified is True:
+            result.update({
+                "classification": "history_present_answer_with_bound_citation_withheld_abstained_restoration_stable",
+                "history_changed_cognition": True,
+            })
+        else:
+            result["classification"] = (
+                "history_associated_semantic_decision_difference_observed_repeatability_unqualified")
+    elif restoration_stable_association_qualified is not True:
+        result["classification"] = "repeatability_not_qualified"
+    return result
+
+
 def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Measure correctness separately from output-digest differences."""
     if (len(scores) != len(CONDITION_ORDER)
