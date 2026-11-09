@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -18,7 +19,7 @@ import uuid
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 # Bind imports to this checkout even when WSL's login shell starts elsewhere.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -64,6 +65,10 @@ from sentientos.rootless_experimental_local_model import (
     EXPERIMENT_ROOT, RootlessExperimentalError, _no_symlink_path)
 from sentientos.rootless_experimental_ollama_epistemic_session import (
     RootlessExperimentalOllamaDevelopmentalSession)
+from sentientos.control_plane_kernel import ControlPlaneKernel
+from sentientos.host_resource_runtime import (
+    HostResourceRuntimeCoordinator, validate_evaluation)
+from sentientos.runtime_governor import RuntimeGovernor
 from sentientos.world_state_board import WorldStateBoardBuilder
 
 
@@ -91,16 +96,126 @@ def _runtime_observation(model_digest: str) -> tuple[dict[str, Any], str]:
     return observed, runtime_digest(observed)
 
 
-def _gpu_snapshot() -> dict[str, str] | None:
+def _gpu_snapshot() -> dict[str, Any] | None:
+    executable = shutil.which("nvidia-smi")
+    if executable is None and Path("/usr/lib/wsl/lib/nvidia-smi").is_file():
+        executable = "/usr/lib/wsl/lib/nvidia-smi"
+    if executable is None:
+        return None
     try:
-        result = subprocess.run(["nvidia-smi",
-            "--query-gpu=name,memory.total,memory.used",
-            "--format=csv,noheader"], capture_output=True, text=True,
+        result = subprocess.run([executable,
+            "--query-gpu=name,memory.total,memory.used,memory.free",
+            "--format=csv,noheader,nounits"], capture_output=True, text=True,
             timeout=5, check=True)
-        return {"sample": result.stdout.strip()[:512], "source": "nvidia-smi",
-            "scope": "host_sample_not_per_invocation"}
+        rows = [line.strip().split(",") for line in result.stdout.splitlines()
+            if line.strip()]
+        if len(rows) != 1 or len(rows[0]) != 4:
+            return None
+        name, total, used, free = (item.strip() for item in rows[0])
+        total_mib, used_mib, free_mib = int(total), int(used), int(free)
+        if (not name or min(total_mib, used_mib, free_mib) < 0
+                or total_mib <= 0 or used_mib > total_mib or free_mib > total_mib
+                or abs(total_mib - used_mib - free_mib) > 512):
+            return None
+        return {"name": name[:128], "memory_total_mib": total_mib,
+            "memory_used_mib": used_mib, "memory_free_mib": free_mib,
+            "source": "nvidia-smi", "scope": "host_sample_not_per_invocation"}
     except Exception:
         return None
+
+
+_GPU_RUNTIME_RESERVE_BYTES = 2 * 1024**3
+
+
+def _model_weight_bytes(manifest_path: Path) -> int:
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise RootlessExperimentalError("pinned_hermes_manifest_unreadable") from exc
+    layers = manifest.get("layers") if isinstance(manifest, dict) else None
+    if not isinstance(layers, list):
+        raise RootlessExperimentalError("pinned_hermes_model_layers_unavailable")
+    weights = [item.get("size") for item in layers
+        if isinstance(item, dict)
+        and item.get("mediaType") == "application/vnd.ollama.image.model"]
+    if (len(weights) != 1 or type(weights[0]) is not int
+            or weights[0] <= 0 or weights[0] > 64 * 1024**3):
+        raise RootlessExperimentalError("pinned_hermes_model_size_invalid")
+    return weights[0]
+
+
+def _require_gpu_headroom(snapshot: Mapping[str, Any] | None,
+        model_weight_bytes: int) -> Mapping[str, Any]:
+    if snapshot is None or type(snapshot.get("memory_free_mib")) is not int:
+        raise RootlessExperimentalError("gpu_memory_telemetry_unavailable")
+    required_bytes = model_weight_bytes + _GPU_RUNTIME_RESERVE_BYTES
+    free_bytes = int(snapshot["memory_free_mib"]) * 1024**2
+    if free_bytes < required_bytes:
+        raise RootlessExperimentalError("gpu_memory_headroom_insufficient")
+    return snapshot
+
+
+def _enforcing_resource_runtime() -> tuple[ControlPlaneKernel,
+        HostResourceRuntimeCoordinator]:
+    # The experiment must not inherit the repository's default shadow posture.
+    key = "SENTIENTOS_ENFORCEMENT_RUNTIME_GOVERNOR"
+    previous = os.environ.get(key)
+    os.environ[key] = "enforce"
+    try:
+        governor = RuntimeGovernor()
+    finally:
+        if previous is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = previous
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=RUN_ROOT / "resource-governance" / "kernel_decisions.jsonl")
+    coordinator = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=RUN_ROOT / "resource-observations")
+    return kernel, coordinator
+
+
+def _refresh_resource_evidence(coordinator: HostResourceRuntimeCoordinator,
+        *, correlation_id: str) -> dict[str, Any]:
+    evaluation = coordinator.run_cycle(correlation_id=correlation_id)
+    if evaluation is None or not validate_evaluation(evaluation).ok:
+        raise RootlessExperimentalError("host_resource_evidence_unavailable")
+    snapshot = evaluation.snapshot
+    if snapshot.cpu_utilization_percent is None or snapshot.ram_utilization_percent is None:
+        raise RootlessExperimentalError("host_resource_evidence_incomplete")
+    return {"evaluation_id": evaluation.evaluation_id,
+        "observed_at": evaluation.epoch.observed_at,
+        "pressure_labels": list(evaluation.pressure_report.pressure_labels),
+        "cpu_utilization_percent": snapshot.cpu_utilization_percent,
+        "ram_utilization_percent": snapshot.ram_utilization_percent,
+        "gpu_utilization_percent": snapshot.gpu_utilization_percent,
+        "vram_utilization_percent": snapshot.vram_utilization_percent}
+
+
+class _ResourceGuardedInvoker:
+    """Refresh host evidence and VRAM headroom before every governed inference."""
+
+    def __init__(self, delegate: Any, coordinator: HostResourceRuntimeCoordinator,
+            model_weight_bytes: int,
+            evidence_records: list[dict[str, Any]] | None = None) -> None:
+        self._delegate = delegate
+        self._coordinator = coordinator
+        self._model_weight_bytes = model_weight_bytes
+        self._evidence_records = evidence_records if evidence_records is not None else []
+        self._sequence = 0
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._delegate, name)
+
+    def invoke(self, request: Any, **kwargs: Any) -> Any:
+        self._sequence += 1
+        resource_record = _refresh_resource_evidence(self._coordinator,
+            correlation_id=f"{RUN_ID}-inference-{self._sequence}")
+        gpu = _require_gpu_headroom(_gpu_snapshot(), self._model_weight_bytes)
+        resource_record["gpu_memory_free_mib"] = gpu["memory_free_mib"]
+        resource_record["gpu_memory_total_mib"] = gpu["memory_total_mib"]
+        self._evidence_records.append(resource_record)
+        return self._delegate.invoke(request, **kwargs)
 
 
 def _model_residency_observed(model_name: str) -> bool | None:
@@ -556,6 +671,7 @@ def run() -> dict[str, Any]:
     if preexisting_residency:
         raise RootlessExperimentalError("pinned_hermes_already_resident")
     manifest_digest, manifest_size = stream_sha256(MANIFEST_PATH)
+    model_weight_bytes = _model_weight_bytes(MANIFEST_PATH)
     if manifest_digest != MANIFEST_PATH.stem:
         raise RootlessExperimentalError("pinned_hermes_manifest_digest_mismatch")
     RUN_ROOT.mkdir(parents=True, exist_ok=False, mode=0o700)
@@ -570,10 +686,21 @@ def run() -> dict[str, Any]:
         "purpose": ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE,
         "production_authority": False,
         "eligible_as_production_serving_evidence": False}
-    before_gpu = _gpu_snapshot()
+    before_gpu = _require_gpu_headroom(_gpu_snapshot(), model_weight_bytes)
+    kernel, resource_coordinator = _enforcing_resource_runtime()
+    initial_resource_evidence = _refresh_resource_evidence(resource_coordinator,
+        correlation_id=f"{RUN_ID}-initial-preflight")
+    initial_gpu = _require_gpu_headroom(_gpu_snapshot(), model_weight_bytes)
+    initial_resource_evidence["gpu_memory_free_mib"] = initial_gpu["memory_free_mib"]
+    initial_resource_evidence["gpu_memory_total_mib"] = initial_gpu["memory_total_mib"]
+    inference_resource_evidence: list[dict[str, Any]] = []
     session = RootlessExperimentalOllamaDevelopmentalSession(
         model_manifest_path=MANIFEST_PATH, model_name=MODEL_NAME,
-        root=RUN_ROOT, session_binding=binding)
+        root=RUN_ROOT, session_binding=binding,
+        kernel_factory=lambda _: kernel)
+    session.invoker = cast(Any, _ResourceGuardedInvoker(
+        session.invoker, resource_coordinator, model_weight_bytes,
+        inference_resource_evidence))
     # Bind the session to the identity actually loaded by the governed worker.
     session.session_binding["active_model_identity_digest"] = digest_payload(
         {"identity": session.active_model_identity})
@@ -1136,6 +1263,12 @@ def run() -> dict[str, Any]:
                 "ordinary_chat_allowed": False, "production_authority": False,
                 "tool_or_action_authority": False},
             "body_and_observer_posture": "synthetic_rehearsal_not_live_hardware",
+            "resource_preflight": {
+                "governor_mode": "enforce",
+                "host_evidence_refreshed_before_each_inference": True,
+                "required_gpu_free_bytes": model_weight_bytes + _GPU_RUNTIME_RESERVE_BYTES,
+                "samples": [initial_resource_evidence, *inference_resource_evidence],
+                "telemetry_scope": "host_sample_not_per_invocation"},
             "model_proposal_before_synthetic_action": {
                 "status": "verified_governed_companion_proposal",
                 "requested_pose": proposal["requested_pose"],
