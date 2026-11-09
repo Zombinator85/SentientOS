@@ -51,7 +51,7 @@ class CognitionEvidenceUnavailable(RuntimeError):
 
 @dataclass(frozen=True)
 class CompanionDevelopmentalCycleResult(ResidentDevelopmentalCycleResult):
-    """Cycle result plus the optional post-cognition self-model reconciliation."""
+    """Cycle result plus optional post-cognition owner reconciliations."""
 
     self_model_reconciliation_status: str = "not_configured"
     self_model_reconciliation_id: str | None = None
@@ -59,6 +59,13 @@ class CompanionDevelopmentalCycleResult(ResidentDevelopmentalCycleResult):
     self_model_reconciliation_generation: int | None = None
     self_model_claim_count: int | None = None
     self_model_reconciliation_error_type: str | None = None
+    epistemic_development_status: str = "not_configured"
+    epistemic_development_evidence_receipt_ids: tuple[str, ...] = ()
+    epistemic_development_state_receipt_ids: tuple[str, ...] = ()
+    epistemic_development_successor_state_ids: tuple[str, ...] = ()
+    epistemic_development_generations: tuple[int, ...] = ()
+    epistemic_development_next_tick_only: bool = True
+    epistemic_development_error_type: str | None = None
 
 
 def _request_bound_capture_freshness(observation: Mapping[str, Any]
@@ -313,6 +320,7 @@ class ResidentDevelopmentalCompanionBridge:
                  self_model_config: LongitudinalSelfModelRuntimeConfig | None = None,
                  epistemic_state_owner: PersistentEpistemicStateOwner | None = None,
                  epistemic_state_config: Mapping[str, Any] | None = None,
+                 epistemic_development_runtime: Any | None = None,
                  cognition_inference_gate: Any | None = None,
                  cognition_available: Any | None = None,
                  clock: Any | None = None) -> None:
@@ -356,6 +364,14 @@ class ResidentDevelopmentalCompanionBridge:
         if (epistemic_config.get("cognitive_consumption_enabled") is True
                 and epistemic_state_owner is None):
             raise ValueError("enabled_epistemic_projection_owner_required")
+        if epistemic_development_runtime is not None:
+            if epistemic_state_owner is None:
+                raise ValueError("epistemic_development_state_owner_required")
+            if getattr(epistemic_development_runtime, "owner", None) is not epistemic_state_owner:
+                raise ValueError("epistemic_development_owner_composition_mismatch")
+            if not callable(getattr(epistemic_development_runtime,
+                    "process_snapshot", None)):
+                raise TypeError("epistemic_development_runtime_invalid")
         self._owner = owner
         # Keep interactive inference in non-comparison mode. The separately
         # configured owner runs only the explicitly confirmed A/B/A experiment.
@@ -366,6 +382,7 @@ class ResidentDevelopmentalCompanionBridge:
         self._self_model_config = self_model_config
         self._epistemic_state_owner = epistemic_state_owner
         self._epistemic_state_config = epistemic_config
+        self._epistemic_development_runtime = epistemic_development_runtime
         self._cognition_inference_gate = cognition_inference_gate
         self._cognition_available = cognition_available
         self._clock = clock
@@ -686,6 +703,34 @@ class ResidentDevelopmentalCompanionBridge:
                 # separately rather than implying the whole cycle rolled back.
                 self_model_status = "degraded"
                 self_model_error_type = type(exc).__name__
+        epistemic_result: Any | None = None
+        epistemic_status = "not_configured"
+        epistemic_error_type: str | None = None
+        epistemic_runtime = self._epistemic_development_runtime
+        if epistemic_runtime is not None:
+            config = getattr(epistemic_runtime, "config", None)
+            if getattr(config, "enabled", False) is not True:
+                epistemic_status = "disabled"
+            else:
+                try:
+                    # Match the daemon's post-cognition, next-tick-only ordering.
+                    # The same validated snapshot that informed this cognition is
+                    # the sole input to the governed epistemic-development owner.
+                    if tick_time.endswith("-00:00"):
+                        raise ValueError("epistemic_development_tick_offset_unknown")
+                    instant = datetime.fromisoformat(tick_time.replace("Z", "+00:00"))
+                    if instant.tzinfo is None or instant.utcoffset() is None:
+                        raise ValueError("epistemic_development_tick_timezone_required")
+                    epistemic_result = epistemic_runtime.process_snapshot(
+                        snapshot, tick=int(instant.timestamp()),
+                        recorded_at=instant.isoformat())
+                    epistemic_status = str(getattr(
+                        epistemic_result, "status", "completed"))
+                except Exception as exc:
+                    # Cognition and its writeback may already be committed. Keep
+                    # that result and report this separately as a degraded owner.
+                    epistemic_status = "degraded"
+                    epistemic_error_type = type(exc).__name__
         return CompanionDevelopmentalCycleResult(
             **asdict(cycle),
             self_model_reconciliation_status=self_model_status,
@@ -701,7 +746,19 @@ class ResidentDevelopmentalCompanionBridge:
             self_model_claim_count=(
                 len(self_model_result.claims)
                 if self_model_result is not None else None),
-            self_model_reconciliation_error_type=self_model_error_type)
+            self_model_reconciliation_error_type=self_model_error_type,
+            epistemic_development_status=epistemic_status,
+            epistemic_development_evidence_receipt_ids=tuple(getattr(
+                epistemic_result, "evidence_receipt_ids", ())),
+            epistemic_development_state_receipt_ids=tuple(getattr(
+                epistemic_result, "state_receipt_ids", ())),
+            epistemic_development_successor_state_ids=tuple(getattr(
+                epistemic_result, "successor_state_ids", ())),
+            epistemic_development_generations=tuple(getattr(
+                epistemic_result, "generations", ())),
+            epistemic_development_next_tick_only=bool(getattr(
+                epistemic_result, "next_tick_only", True)),
+            epistemic_development_error_type=epistemic_error_type)
 
     def respond(self, *, request_id: str, question: str,
                 screen_observation: Mapping[str, Any] | None = None

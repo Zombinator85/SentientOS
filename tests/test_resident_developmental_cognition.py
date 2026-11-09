@@ -5913,6 +5913,107 @@ def test_operator_confirmed_bridge_cycle_writes_then_later_cognition_retrieves_h
     assert later.developmental_history_writeback_performed is False
 
 
+def test_companion_cycle_runs_configured_epistemic_owner_after_cognition(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    now = datetime.now(timezone.utc)
+    cognition, _fake = owner(tmp_path / "companion-epistemic-cycle",
+        allowed_source_kinds=("embodiment",))
+    epistemic_state_owner = object()
+    calls = []
+
+    class EpistemicRuntime:
+        owner = epistemic_state_owner
+        config = SimpleNamespace(enabled=True)
+
+        def process_snapshot(self, snapshot, *, tick, recorded_at):
+            calls.append(("epistemic", snapshot, tick, recorded_at))
+            return SimpleNamespace(status="state_advanced",
+                evidence_receipt_ids=("evidence-receipt-1",),
+                state_receipt_ids=("state-receipt-1",),
+                successor_state_ids=("epistemic-state-2",),
+                generations=(2,), next_tick_only=True)
+
+    original_run_tick = cognition.run_tick
+
+    def observe_cognition_then_run(*, snapshot, tick_id, prior_self_model=None,
+            prior_epistemic_state=None):
+        calls.append(("cognition", snapshot, tick_id, prior_epistemic_state))
+        return original_run_tick(snapshot=snapshot, tick_id=tick_id,
+            prior_self_model=prior_self_model,
+            prior_epistemic_state=prior_epistemic_state)
+
+    monkeypatch.setattr(cognition, "run_tick", observe_cognition_then_run)
+    screen = {"modality": "screen",
+        "text": "A fresh bounded test scene.",
+        "capture_digest": "c" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    bridge = ResidentDevelopmentalCompanionBridge(
+        cognition, epistemic_state_owner=epistemic_state_owner,
+        epistemic_state_config={"cognitive_consumption_enabled": False,
+            "max_cognitive_projection_count": 1},
+        epistemic_development_runtime=EpistemicRuntime(),
+        clock=lambda: now)
+
+    result = bridge.run_developmental_cycle(
+        tick_id="companion-epistemic-test", screen_observation=screen)
+
+    assert result.status == "completed"
+    assert result.written_record_id is not None
+    assert [item[0] for item in calls] == ["cognition", "epistemic"]
+    assert calls[0][1] is calls[1][1]
+    assert calls[1][2] == int(now.timestamp())
+    assert result.epistemic_development_status == "state_advanced"
+    assert result.epistemic_development_evidence_receipt_ids == (
+        "evidence-receipt-1",)
+    assert result.epistemic_development_state_receipt_ids == (
+        "state-receipt-1",)
+    assert result.epistemic_development_successor_state_ids == (
+        "epistemic-state-2",)
+    assert result.epistemic_development_generations == (2,)
+    assert result.epistemic_development_next_tick_only is True
+    assert result.epistemic_development_error_type is None
+
+
+def test_companion_epistemic_development_failure_does_not_erase_cognition_writeback(
+        tmp_path: Path) -> None:
+    from types import SimpleNamespace
+
+    now = datetime.now(timezone.utc)
+    cognition, _fake = owner(tmp_path / "companion-epistemic-failure",
+        allowed_source_kinds=("embodiment",))
+    epistemic_state_owner = object()
+
+    class FailingEpistemicRuntime:
+        owner = epistemic_state_owner
+        config = SimpleNamespace(enabled=True)
+
+        def process_snapshot(self, snapshot, *, tick, recorded_at):
+            raise RuntimeError("epistemic mutation storage unavailable")
+
+    screen = {"modality": "screen", "text": "A fresh bounded test scene.",
+        "capture_digest": "d" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    bridge = ResidentDevelopmentalCompanionBridge(
+        cognition, epistemic_state_owner=epistemic_state_owner,
+        epistemic_state_config={"cognitive_consumption_enabled": False,
+            "max_cognitive_projection_count": 1},
+        epistemic_development_runtime=FailingEpistemicRuntime(),
+        clock=lambda: now)
+
+    result = bridge.run_developmental_cycle(
+        tick_id="companion-epistemic-failure", screen_observation=screen)
+
+    assert result.status == "completed"
+    assert result.written_record_id is not None
+    assert result.epistemic_development_status == "degraded"
+    assert result.epistemic_development_error_type == "RuntimeError"
+    assert result.epistemic_development_evidence_receipt_ids == ()
+
+
 def test_developmental_cycle_composes_selected_verified_consequence_history(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     now = datetime.now(timezone.utc)

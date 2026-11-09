@@ -1591,6 +1591,7 @@ def main() -> int:
     self_model_config = None
     epistemic_state_owner = None
     epistemic_state_config = None
+    epistemic_development_runtime = None
     consequence_records_provider = None
     if args.enable_resident_cognition:
         from sentientos.codex_task_authority_admission import (
@@ -1690,6 +1691,48 @@ def main() -> int:
                 "max_cognitive_projection_count":
                     epistemic_payload["max_cognitive_projection_count"],
             }
+        epistemic_development_path = os.environ.get(
+            "SENTIENTOS_EPISTEMIC_DEVELOPMENT_CONFIG")
+        if epistemic_development_path:
+            if epistemic_state_owner is None:
+                parser.error(
+                    "epistemic development requires SENTIENTOS_EPISTEMIC_STATE_CONFIG")
+            from sentientos.codex_task_authority_admission import (
+                RESIDENT_EPISTEMIC_STATE_MUTATION,
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+            )
+            from sentientos.resident_epistemic_development import (
+                ResidentEpistemicDevelopmentRuntime,
+                load_epistemic_development_config,
+            )
+            from sentientos.resident_epistemic_state_mutation import (
+                ResidentEpistemicStateMutationController,
+            )
+            try:
+                development_config = load_epistemic_development_config(
+                    epistemic_development_path)
+                epistemic_ledger = AdmissionLedger(
+                    cognition_config.state_root / "epistemic_development"
+                    / "runtime_admissions.json")
+                epistemic_definitions = {
+                    RESIDENT_EPISTEMIC_STATE_MUTATION:
+                        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+                epistemic_controller = ResidentEpistemicStateMutationController(
+                    owner=epistemic_state_owner,
+                    admission_verifier=RuntimeAdmissionVerifier(
+                        definitions=epistemic_definitions, ledger=epistemic_ledger),
+                    current_sequence=epistemic_ledger.current_sequence,
+                    receipt_root=cognition_config.state_root / "epistemic_development")
+                epistemic_development_runtime = ResidentEpistemicDevelopmentRuntime(
+                    config=development_config, owner=epistemic_state_owner,
+                    mutation_controller=epistemic_controller,
+                    admission_authority=RuntimeAdmissionAuthority(
+                        definitions=epistemic_definitions, ledger=epistemic_ledger),
+                    admission_ledger=epistemic_ledger)
+            except Exception as exc:
+                parser.error(
+                    "epistemic development configuration is invalid: "
+                    + type(exc).__name__)
     adopted_body_pointer = None
     if args.avatar_body_pointer is not None:
         from sentientos.avatar_authoring import load_pointer
@@ -1748,7 +1791,8 @@ def main() -> int:
             resident_history_intervention_owner=resident_history_intervention_owner,
             self_model_owner=self_model_owner, self_model_config=self_model_config,
             epistemic_state_owner=epistemic_state_owner,
-            epistemic_state_config=epistemic_state_config)
+            epistemic_state_config=epistemic_state_config,
+            epistemic_development_runtime=epistemic_development_runtime)
         def release_model_for_gaming_resource_pressure(
                 reason_code: str) -> Mapping[str, Any] | None:
             if not invoker.model.is_resident():

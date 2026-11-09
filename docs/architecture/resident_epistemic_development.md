@@ -34,6 +34,24 @@ or mismatched selected run evidence, including evidence whose event time is late
 than the daemon tick, remains explicitly unresolved and does not create an
 epistemic position.
 
+The development companion can opt into this same owner without introducing a
+second epistemic store. Its launcher composes the runtime only when both
+`SENTIENTOS_EPISTEMIC_STATE_CONFIG` and
+`SENTIENTOS_EPISTEMIC_DEVELOPMENT_CONFIG` are explicitly supplied. After an
+operator-confirmed developmental cycle has run resident cognition and its
+developmental writeback, the bridge submits that exact cycle snapshot to the
+configured epistemic runtime. The later cognition projection reads the same
+persistent state owner, so the update is eligible only in a subsequent cycle.
+The cycle response reports epistemic status and evidence/state receipt identifiers
+separately from developmental-history and self-model receipts. If this optional
+owner fails, the already completed cognitive writeback remains intact and the
+epistemic result is reported as degraded.
+
+Without the development configuration, the companion performs no epistemic
+mutation and reports `not_configured`. A configured but disabled runtime reports
+`disabled`. These paths do not enable unattended desktop capture: the existing
+per-message screen opt-in and owner admission rules remain in effect.
+
 The runtime has no model invoker, proposition registration, calibration mutation,
 background thread, or cadence. Immutable custody and admission ledgers provide
 restart truth: exact existing bindings are not re-appended and an incomplete state

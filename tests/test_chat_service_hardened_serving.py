@@ -758,7 +758,14 @@ def test_developmental_cycle_adds_current_consequence_to_existing_bridge(tmp_pat
             return SimpleNamespace(status="completed", tick_id=kwargs["tick_id"],
                 snapshot_id="snapshot", selected_fact_ids=(), prior_record_ids=(),
                 written_record_id=None, writeback_receipt_id=None,
-                cognition_observation_ids=())
+                cognition_observation_ids=(),
+                epistemic_development_status="state_advanced",
+                epistemic_development_evidence_receipt_ids=("evidence-1",),
+                epistemic_development_state_receipt_ids=("state-1",),
+                epistemic_development_successor_state_ids=("epistemic-state-2",),
+                epistemic_development_generations=(2,),
+                epistemic_development_next_tick_only=True,
+                epistemic_development_error_type=None)
 
     svc = service(tmp_path, Inference(), screen_observer=Observer())
     svc.sessions = Sessions()
@@ -781,6 +788,13 @@ def test_developmental_cycle_adds_current_consequence_to_existing_bridge(tmp_pat
 
     assert [event[0] for event in events] == [
         "probe", "consequence", "screen", "cycle"]
+    assert result["epistemic_development_status"] == "state_advanced"
+    assert result["epistemic_development_evidence_receipt_ids"] == ["evidence-1"]
+    assert result["epistemic_development_state_receipt_ids"] == ["state-1"]
+    assert result["epistemic_development_successor_state_ids"] == [
+        "epistemic-state-2"]
+    assert result["epistemic_development_generations"] == [2]
+    assert result["epistemic_development_next_tick_only"] is True
     assert events[0][1]["assistant_response_digest"] == "c" * 64
     assert events[-1][1]["current_consequence_records"] == (consequence,)
     assert result["consequence_measurement"] == {
