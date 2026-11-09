@@ -420,6 +420,26 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                 if isinstance(decoded, dict) else None)
             response_text = (response_value.strip().lower()
                 if isinstance(response_value, str) else "")
+            pre_action_correlation = (
+                "companion-interaction-" + hashlib.sha256(
+                    (RUN_ID + ":pre-action-decision").encode("utf-8")).hexdigest()[:32]
+                + ":resident_developmental_cognition:companion-interaction")
+            is_pre_action_decision = (isinstance(request, dict)
+                and request.get("correlation_id") == pre_action_correlation)
+            pose_decision = (_pose_decision_from_response(response_value)
+                if is_pre_action_decision and isinstance(response_value, str) else None)
+            if not is_pre_action_decision:
+                pre_action_decision_classification = None
+            elif pose_decision is None and payload.get("output_digest") is None:
+                pre_action_decision_classification = "no_completed_model_output"
+            elif pose_decision is None:
+                pre_action_decision_classification = "completed_output_not_validated"
+            elif pose_decision["predicted_pose"] != pose_decision["requested_pose"]:
+                pre_action_decision_classification = "prediction_inconsistent_with_fixture"
+            elif pose_decision["requested_pose"] != "reach":
+                pre_action_decision_classification = "exact_schema_goal_not_met"
+            else:
+                pre_action_decision_classification = "exact_schema_goal_met"
             receipts.append({
                 "receipt_id": payload.get("receipt_id"),
                 "receipt_digest": payload.get("receipt_digest"),
@@ -444,6 +464,14 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                     if "idle" in response_text and citation_is_bound else
                     "other_or_unvalidated"),
                 "model_output_text_excluded": True,
+                "pre_action_decision_classification": pre_action_decision_classification,
+                "pre_action_requested_pose": (pose_decision["requested_pose"]
+                    if pose_decision is not None else None),
+                "pre_action_predicted_pose": (pose_decision["predicted_pose"]
+                    if pose_decision is not None else None),
+                "pre_action_prediction_consistent": (
+                    pose_decision["predicted_pose"] == pose_decision["requested_pose"]
+                    if pose_decision is not None else None),
             })
     records: list[dict[str, Any]] = []
     record_root = RUN_ROOT / "resident-cognition" / "history" / "records"
@@ -543,24 +571,18 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
 
 
 def _pose_decision_from_response(value: str) -> dict[str, str] | None:
+    """Accept only the exact bounded proposal schema; prose is not scored."""
     try:
         payload = json.loads(value)
     except (TypeError, json.JSONDecodeError):
-        payload = None
-    if isinstance(payload, dict):
-        requested = payload.get("requested_pose")
-        predicted = payload.get("predicted_pose")
-        if requested in {"reach", "idle"} and predicted in {"reach", "idle"}:
-            return {"requested_pose": requested, "predicted_pose": predicted}
-    requested_match = re.search(
-        r"requested_pose.*?\b(reach|idle)\b", value, flags=re.IGNORECASE | re.DOTALL)
-    predicted_match = re.search(
-        r"predicted_(?:encoder_)?pose.*?\b(reach|idle)\b",
-        value, flags=re.IGNORECASE | re.DOTALL)
-    if requested_match and predicted_match:
-        return {"requested_pose": requested_match.group(1).lower(),
-            "predicted_pose": predicted_match.group(1).lower()}
-    return None
+        return None
+    if (not isinstance(payload, dict)
+            or set(payload) != {"requested_pose", "predicted_pose"}
+            or payload.get("requested_pose") not in {"reach", "idle"}
+            or payload.get("predicted_pose") not in {"reach", "idle"}):
+        return None
+    return {"requested_pose": payload["requested_pose"],
+        "predicted_pose": payload["predicted_pose"]}
 
 
 def _verified_companion_replay(bridge: Any, owner: Any, *,

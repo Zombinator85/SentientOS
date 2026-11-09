@@ -1,5 +1,6 @@
 # mypy: disable-error-code="no-untyped-def"
 from importlib.util import module_from_spec, spec_from_file_location
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -384,3 +385,73 @@ def test_incomplete_run_artifact_preserves_blocked_resource_sample(
         "sentientos.rootless_ollama_embodied_cognition_failure:v2")
     assert artifact["resource_preflight_samples"] == [sample]
     assert "process attribution" in artifact["resource_preflight_sample_scope"]
+
+
+def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
+        runner, monkeypatch, tmp_path):
+    run_root = tmp_path / "run"
+    receipt_root = run_root / "inference-custody" / "receipts"
+    receipt_root.mkdir(parents=True)
+    run_id = "rootless-cognition-cycle-fixture"
+    monkeypatch.setattr(runner, "RUN_ROOT", run_root)
+    monkeypatch.setattr(runner, "RUN_ID", run_id)
+    monkeypatch.setattr(runner, "RESOURCE_PREFLIGHT_EVIDENCE", [])
+    monkeypatch.setattr(runner, "_verify_model_released",
+        lambda _: {"status": "target_model_not_resident"})
+    monkeypatch.setattr(runner, "_gpu_snapshot", lambda: None)
+    request_id = run_id + ":pre-action-decision"
+    tick_id = "companion-interaction-" + hashlib.sha256(
+        request_id.encode("utf-8")).hexdigest()[:32]
+    correlation_id = tick_id + ":resident_developmental_cognition:companion-interaction"
+    output_text = json.dumps({"disposition": "answer", "response": json.dumps({
+        "requested_pose": "idle", "predicted_pose": "idle"})})
+    receipt = {"receipt_id": "fixture-receipt", "receipt_digest": "d" * 64,
+        "purpose": "resident_developmental_companion_interaction",
+        "output_digest": "e" * 64, "reason_codes": [], "output_text": output_text,
+        "request": {"correlation_id": correlation_id,
+            "upstream_evidence": {"record_ids": []}}}
+    (receipt_root / "lmrec-fixture.json").write_text(json.dumps(receipt))
+
+    artifact_path = runner._persist_incomplete_run(
+        runner.RootlessExperimentalError("pre_action_goal_not_met"))
+
+    assert artifact_path is not None
+    artifact_text = artifact_path.read_text()
+    artifact = json.loads(artifact_text)
+    proposal = artifact["inference_receipts"][0]
+    assert proposal["pre_action_decision_classification"] == "exact_schema_goal_not_met"
+    assert proposal["pre_action_requested_pose"] == "idle"
+    assert proposal["pre_action_predicted_pose"] == "idle"
+    assert proposal["pre_action_prediction_consistent"] is True
+    assert proposal["model_output_text_excluded"] is True
+    assert output_text not in artifact_text
+
+    timeout_root = tmp_path / "timeout-run"
+    timeout_receipt_root = timeout_root / "inference-custody" / "receipts"
+    timeout_receipt_root.mkdir(parents=True)
+    timeout_receipt = {**receipt, "output_digest": None,
+        "reason_codes": ["timeout_worker_terminated", "timeout"]}
+    timeout_receipt.pop("output_text")
+    (timeout_receipt_root / "lmrec-timeout.json").write_text(
+        json.dumps(timeout_receipt))
+    monkeypatch.setattr(runner, "RUN_ROOT", timeout_root)
+    timeout_artifact_path = runner._persist_incomplete_run(
+        runner.RootlessExperimentalError("timeout"))
+
+    assert timeout_artifact_path is not None
+    timeout_artifact = json.loads(timeout_artifact_path.read_text())
+    timeout_proposal = timeout_artifact["inference_receipts"][0]
+    assert timeout_proposal["pre_action_decision_classification"] == (
+        "no_completed_model_output")
+    assert timeout_proposal["pre_action_requested_pose"] is None
+    assert timeout_proposal["pre_action_prediction_consistent"] is None
+
+
+def test_pose_decision_classifier_requires_exact_json_schema(runner):
+    assert runner._pose_decision_from_response(
+        '{"requested_pose":"reach","predicted_pose":"reach"}') == {
+            "requested_pose": "reach", "predicted_pose": "reach"}
+    assert runner._pose_decision_from_response(
+        'requested_pose: reach; predicted_pose: reach') is None
+    assert runner._pose_decision_from_response(
+        '{"requested_pose":"reach","predicted_pose":"reach","extra":"x"}') is None
