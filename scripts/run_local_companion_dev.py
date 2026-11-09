@@ -117,8 +117,14 @@ def _prepare_rootless_live_developmental_session(*, state: Path,
         "model_manifest_digest": model_digest,
         "runtime_attestation": "local_observation_only"}
     binding_digest = digest_payload
+    from sentientos.local_model_authority import (
+        ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES,
+    )
+
     preregistration = {
         "schema_version": "sentientos.live_companion_developmental_preregistration:v1",
+        "allowed_invocation_purposes": list(
+            ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES),
         "session_id": session_id,
         "run_id": run_id,
         "model_identity_digest": binding_digest({"identity": dict(model_identity)}),
@@ -887,6 +893,8 @@ class _TemporaryCompanionEdge:
     def __init__(self, *, windows_python: Path,
                  godot_executable: Path, godot_project: Path,
                  godot_headless: bool = False,
+                 companion_api_port: int = 5000,
+                 godot_opaque_observation_window: bool = False,
                  game_process_names: tuple[str, ...] = (),
                  screen_observation_process_names: tuple[str, ...] = (),
                  screen_observation_consent_minutes: int = 60,
@@ -937,6 +945,12 @@ class _TemporaryCompanionEdge:
         if type(godot_headless) is not bool:
             raise ValueError("godot_headless_must_be_boolean")
         self.godot_headless = godot_headless
+        if type(companion_api_port) is not int or not 1 <= companion_api_port <= 65535:
+            raise ValueError("companion_api_port_out_of_range")
+        self.companion_api_port = companion_api_port
+        if type(godot_opaque_observation_window) is not bool:
+            raise ValueError("godot_opaque_observation_window_must_be_boolean")
+        self.godot_opaque_observation_window = godot_opaque_observation_window
         if delivery_event_file is not None:
             delivery_event_file.parent.mkdir(parents=True, exist_ok=True)
         self.proprioception_observations = _LatestRendererObservation(
@@ -963,6 +977,8 @@ class _TemporaryCompanionEdge:
                 "godot_executable": _win_path(godot_executable),
                 "godot_project": _win_path(godot_project),
                 "godot_headless": godot_headless,
+                "companion_api_port": companion_api_port,
+                "godot_opaque_observation_window": godot_opaque_observation_window,
             }
             if game_process_names:
                 observer_source_key = secrets.token_bytes(32)
@@ -1365,13 +1381,17 @@ def main() -> int:
               "adoption authority or renderer effects"))
     parser.add_argument("--godot-headless", action="store_true",
                         help="Run the supervised development edge without opening a Godot window")
+    parser.add_argument("--godot-opaque-observation-window", action="store_true",
+                        help=("Run the avatar in an opaque dark window for consented "
+                              "foreground observation without transparent desktop underlay"))
     parser.add_argument("--local-speech-output", action="store_true",
                         help=("Expose opt-in local pyttsx3 speech; playback remains disabled "
                               "until approved for a conversation in the chat UI"))
     parser.add_argument("--screen-observation-process", action="append", default=[],
-                        metavar="GAME.exe",
+                        metavar="APPLICATION.exe",
                         help=("Configure launch-scoped consent for per-message local OCR on "
-                              "this allowlisted foreground game"))
+                              "this allowlisted foreground application, independently of the "
+                              "gaming-workload process allowlist"))
     parser.add_argument("--screen-observation-consent-minutes", type=int, default=60,
                         help="Expire opt-in screen OCR consent after 1 to 240 minutes")
     parser.add_argument("--screen-observation-foreground-wait-seconds",
@@ -1399,6 +1419,10 @@ def main() -> int:
         parser.error("screen observation requires the supervised Windows edge")
     if args.godot_headless and not all(value is not None for value in edge_args):
         parser.error("headless Godot requires the supervised Windows edge")
+    if args.godot_opaque_observation_window and args.godot_headless:
+        parser.error("opaque avatar observation window requires visible Godot")
+    if args.godot_opaque_observation_window and not args.screen_observation_process:
+        parser.error("opaque avatar observation window requires explicit screen observation opt-in")
     if (args.screen_observation_tesseract_executable is not None
             and not args.screen_observation_process):
         parser.error("a Tesseract executable requires screen observation opt-in")
@@ -1485,6 +1509,8 @@ def main() -> int:
     from sentientos.local_model_authority import (
         atomic_write_json, build_local_model_authority_map,
         build_developmental_companion_authority_map,
+        build_rootless_experimental_developmental_companion_authority_map,
+        ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES,
     )
 
     config = load_model_config()
@@ -1496,15 +1522,24 @@ def main() -> int:
         parser.error("rootless developmental session requires exactly one pinned Ollama candidate")
     allowed_roots = sorted({item.path.parent for item in config.candidates
                              if item.path is not None}, key=str)
-    authority = (build_developmental_companion_authority_map(
+    authority = (
+        build_rootless_experimental_developmental_companion_authority_map(
+            config, allowed_roots=allowed_roots)
+        if args.rootless_developmental_session else
+        build_developmental_companion_authority_map(
             config, allowed_roots=allowed_roots)
         if args.enable_resident_cognition else
         build_local_model_authority_map(config, allowed_roots=allowed_roots))
-    expected_purposes = (("local_user_chat",
-        "resident_developmental_retrieval_cognition")
+    expected_purposes = (
+        ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES
+        if args.rootless_developmental_session else
+        ("local_user_chat", "resident_developmental_retrieval_cognition")
         if args.enable_resident_cognition else ("local_user_chat",))
     for record in authority.records:
-        expected_disposition = ("development_companion_candidate"
+        expected_disposition = (
+            "rootless_experimental_developmental_companion_candidate"
+            if args.rootless_developmental_session else
+            "development_companion_candidate"
             if args.enable_resident_cognition else "development_only")
         if (record.disposition != expected_disposition
                 or record.runtime_eligibility_status != "eligible"
@@ -1547,7 +1582,8 @@ def main() -> int:
         rootless_session = RootlessExperimentalOllamaEpistemicSession.wrap_existing_developmental_invoker(
             invoker=invoker, root=session_root, session_binding=session_binding,
             runtime_bundle=runtime_bundle, workspace_root=rootless_workspace,
-            preregistration=preregistration)
+            preregistration=preregistration,
+            allowed_purposes=ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES)
         invoker = rootless_session
     resident_cognition_owner = None
     resident_history_intervention_owner = None
@@ -1673,6 +1709,9 @@ def main() -> int:
                 windows_python=args.windows_python, godot_executable=args.godot_exe,
                 godot_project=args.godot_project,
                 godot_headless=args.godot_headless,
+                companion_api_port=args.port,
+                godot_opaque_observation_window=(
+                    args.godot_opaque_observation_window),
                 game_process_names=tuple(args.game_process_name),
                 screen_observation_process_names=tuple(args.screen_observation_process),
                 screen_observation_consent_minutes=args.screen_observation_consent_minutes,
@@ -1762,6 +1801,9 @@ def main() -> int:
             "companion_output": ("temporary_mtls_windows_edge_and_godot"
                                  if edge else "not_configured"),
             "godot_headless": bool(edge and edge.godot_headless),
+            "godot_api_port": edge.companion_api_port if edge else None,
+            "godot_opaque_observation_window": bool(
+                edge and edge.godot_opaque_observation_window),
             "screen_observation_configured": bool(edge and edge.screen_observer),
             "companion_identity_posture": (
                 edge.identity_posture if edge else "unavailable"),

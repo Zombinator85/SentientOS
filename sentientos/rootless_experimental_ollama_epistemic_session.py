@@ -23,6 +23,7 @@ from .local_model_authority import (
     ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE,
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES,
+    ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES,
     build_rootless_experimental_epistemic_authority_map,
     build_rootless_experimental_developmental_authority_map,
     stream_sha256, LocalModelAuthorityMap,
@@ -214,8 +215,9 @@ class RootlessExperimentalOllamaEpistemicSession(
         authority = cast(LocalModelAuthorityMap, authority_value)
         allowed = tuple(allowed_purposes)
         if (not allowed or len(set(allowed)) != len(allowed)
-                or any(purpose not in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES
+                or any(purpose not in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES
                     for purpose in allowed)
+                or preregistration.get("allowed_invocation_purposes") != list(allowed)
                 or any(authority.record_for_active_identity(identity, purpose) is None
                     for purpose in allowed)):
             raise RootlessExperimentalError(

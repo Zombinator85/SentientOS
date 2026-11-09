@@ -9272,7 +9272,7 @@ def test_chat_service_composes_resident_reply_into_controlled_history_interventi
         def observe_question(self, observed_question):
             assert observed_question in {
                 question,
-                "Capture the current allowlisted foreground game for one operator-requested developmental cognition cycle.",
+                "Capture the current allowlisted foreground application for one operator-requested developmental cognition cycle.",
             }
             return self.observations.pop(0)
 

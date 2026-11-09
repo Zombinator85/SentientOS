@@ -10,8 +10,10 @@ pytestmark = pytest.mark.no_legacy_skip
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_model_authority import (build_local_model_authority_map,
-    build_developmental_companion_authority_map, validate_authority_map,
-    render_authority_map_markdown)
+    build_developmental_companion_authority_map,
+    build_rootless_experimental_developmental_companion_authority_map,
+    ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES,
+    validate_authority_map, render_authority_map_markdown)
 
 
 def test_authority_map_verifies_local_gguf_and_stable_when_moved(tmp_path: Path) -> None:
@@ -78,4 +80,45 @@ def test_developmental_companion_authority_is_local_chat_and_cognition_only(
     assert authority.record_for_active_identity(
         identity, "resident_developmental_interpretation") is None
     valid, reasons = validate_authority_map(authority.to_dict())
+    assert valid, reasons
+
+
+def test_rootless_developmental_companion_authority_is_explicit_and_bounded(
+        tmp_path: Path) -> None:
+    model = tmp_path / "ollama-model.gguf"
+    model.write_bytes(b"verified local development model")
+    import hashlib
+    digest = hashlib.sha256(model.read_bytes()).hexdigest()
+    config = ModelConfig(candidates=[ModelCandidate(path=model, engine="ollama",
+        name="local", options={"manifest_sha256": digest})])
+    normal = build_developmental_companion_authority_map(
+        config, allowed_roots=[tmp_path])
+    experimental = build_rootless_experimental_developmental_companion_authority_map(
+        config, allowed_roots=[tmp_path])
+    normal_record = normal.records[0]
+    record = experimental.records[0]
+
+    assert normal_record.allowed_invocation_purposes == (
+        "local_user_chat", "resident_developmental_retrieval_cognition")
+    assert record.runtime_eligibility_status == "eligible"
+    assert record.allowed_invocation_purposes == (
+        ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES)
+    assert record.disposition == (
+        "rootless_experimental_developmental_companion_candidate")
+    assert record.tool_posture == record.memory_posture == record.action_posture == "blocked"
+    identity = ActiveModelIdentity(engine=record.engine,
+        resolved_artifact_path=record.observed_metadata["resolved_artifact_path"],
+        semantic_artifact_identity=record.semantic_artifact_identity,
+        model_content_sha256=record.model_content_sha256,
+        artifact_size_bytes=record.artifact_size_bytes,
+        sidecar_metadata_digest=record.sidecar_metadata_digest,
+        configuration_digest=record.configuration_digest, candidate_index=0,
+        posture="development_only", fallback=False)
+    for purpose in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES:
+        assert experimental.record_for_active_identity(identity, purpose) == record
+    assert normal.record_for_active_identity(
+        identity, "resident_developmental_interpretation") is None
+    assert experimental.record_for_active_identity(
+        identity, "avatar_renderer_command") is None
+    valid, reasons = validate_authority_map(experimental.to_dict())
     assert valid, reasons
