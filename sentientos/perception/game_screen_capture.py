@@ -295,7 +295,17 @@ class WindowsGameScreenCapture:
             if type(window.overlapping_window_above) is not bool:
                 raise ScreenCaptureError("game_screen_window_order_invalid")
             if window.overlapping_window_above:
-                raise ScreenCaptureError("game_screen_overlapping_window_unsupported")
+                # A companion/browser window can briefly remain above the
+                # approved app while focus is being handed back. Never capture
+                # through it: retry only inside the operator-configured
+                # handoff window, then fail closed if the client area remains
+                # obscured.
+                remaining = foreground_deadline - self._monotonic()
+                if remaining <= 0:
+                    raise ScreenCaptureError(
+                        "game_screen_overlapping_window_unsupported")
+                self._sleep(min(0.1, remaining))
+                continue
             process_name = _normalize_process_name(window.process_name)
             if process_name in allowed_process_names:
                 break

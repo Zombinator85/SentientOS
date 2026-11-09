@@ -5027,7 +5027,14 @@ async def root_page() -> HTMLResponse:
                             control.disabled = true;
                             status.textContent = 'Screen consent expired. Restart the local companion with a new consent window before requesting another observation.';
                         } else if (data.capture_policy === 'allowlisted_session_polling') {
-                            status.textContent = 'Capture policy: allowlisted session polling; raw frames are discarded. This checkbox controls whether the latest OCR observation is included in a message.';
+                            const handoffSeconds = Number.isInteger(data.foreground_wait_seconds)
+                                ? data.foreground_wait_seconds : 0;
+                            const handoff = handoffSeconds > 0
+                                ? ' After Send, immediately return focus to the approved application within '
+                                    + handoffSeconds + ' seconds; capture proceeds only while its client area is unobscured.'
+                                : ' Keep the approved application focused and unobscured when you send.';
+                            status.textContent = 'Capture policy: allowlisted session polling; raw frames are discarded. This checkbox includes the latest OCR observation in this message.'
+                                + handoff;
                         } else {
                             const handoffSeconds = Number.isInteger(data.foreground_wait_seconds)
                                 ? data.foreground_wait_seconds : 0;

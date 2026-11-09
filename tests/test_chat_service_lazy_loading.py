@@ -2580,6 +2580,21 @@ def test_screen_status_distinguishes_capture_policy_from_message_inclusion(tmp_p
     }
 
 
+def test_polling_observation_ui_explains_bounded_focus_handoff(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    chat.configure_development_chat(
+        invoker=SimulationInvoker(), data_root=tmp_path,
+        screen_observer=lambda: None,
+        screen_capture_policy="allowlisted_session_polling",
+    )
+
+    page = client.get("/").text
+
+    assert "allowlisted session polling; raw frames are discarded" in page
+    assert "After Send, immediately return focus to the approved application within " in page
+    assert "capture proceeds only while its client area is unobscured" in page
+
+
 def test_screen_status_reports_expired_launch_consent_without_secrets(tmp_path):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()
@@ -2624,7 +2639,7 @@ def test_screen_status_exposes_bounded_foreground_handoff_duration(tmp_path):
     status = client.get("/screen-observation").json()
     assert status["foreground_wait_seconds"] == 5.0
     page = client.get("/").text
-    assert "return focus to the approved game within " in page
+    assert "return focus to the approved application within " in page
     assert "handoffSeconds" in page
 
 

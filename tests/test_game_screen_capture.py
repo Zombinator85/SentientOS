@@ -536,6 +536,56 @@ def test_capture_rejects_an_overlapping_window_above_foreground_before_reading_p
     assert frames == []
 
 
+def test_capture_waits_for_overlapping_window_to_clear_within_handoff() -> None:
+    covered = ForegroundGameWindow(
+        "ExampleGame.exe", 10, 20, 110, 70, overlapping_window_above=True)
+    windows = iter([covered, WINDOW])
+    ticks = iter([1.0, 1.1, 1.2])
+    waits: list[float] = []
+    frames: list[ForegroundGameWindow] = []
+    capture = WindowsGameScreenCapture(
+        consent_provider=lambda: CONSENT,
+        window_provider=lambda: next(windows),
+        frame_provider=lambda window: (frames.append(window) or FRAME),
+        clock=lambda: NOW,
+        monotonic=lambda: next(ticks),
+        foreground_wait_seconds=0.5,
+        sleep_fn=waits.append,
+    )
+
+    observation = capture()
+
+    assert waits == [pytest.approx(0.1)]
+    assert frames == [WINDOW]
+    assert observation["capture_scope"] == "allowlisted_foreground_game_client_area"
+    assert observation["raw_frame_retained"] is False
+
+
+def test_capture_fails_closed_when_overlap_persists_through_handoff() -> None:
+    covered = ForegroundGameWindow(
+        "ExampleGame.exe", 10, 20, 110, 70, overlapping_window_above=True)
+    windows = iter([covered, covered])
+    ticks = iter([1.0, 1.1, 1.2])
+    waits: list[float] = []
+    frames: list[ForegroundGameWindow] = []
+    capture = WindowsGameScreenCapture(
+        consent_provider=lambda: CONSENT,
+        window_provider=lambda: next(windows),
+        frame_provider=lambda window: (frames.append(window) or FRAME),
+        clock=lambda: NOW,
+        monotonic=lambda: next(ticks),
+        foreground_wait_seconds=0.15,
+        sleep_fn=waits.append,
+    )
+
+    with pytest.raises(ScreenCaptureError,
+                       match="game_screen_overlapping_window_unsupported"):
+        capture()
+
+    assert waits == [pytest.approx(0.05)]
+    assert frames == []
+
+
 def test_window_order_check_detects_intersections_and_ignores_nonoverlapping_windows() -> None:
     from sentientos.perception.game_screen_capture import _has_overlapping_window_above
 
