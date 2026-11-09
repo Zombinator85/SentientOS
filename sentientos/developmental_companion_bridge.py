@@ -188,6 +188,7 @@ def _screen_record(observation: Mapping[str, Any], *, staleness: str = "unknown"
 def build_companion_snapshot(*, screen_observation: Mapping[str, Any] | None = None,
         proprioception: Sequence[EmbodimentObservation] = (),
         historical_consequence_records: Sequence[Mapping[str, Any]] = (),
+        current_consequence_records: Sequence[Mapping[str, Any]] = (),
         screen_staleness: str = "unknown",
         screen_capture_age_seconds: int | None = None,
         clock: Any | None = None) -> WorldStateSnapshot:
@@ -215,9 +216,27 @@ def build_companion_snapshot(*, screen_observation: Mapping[str, Any] | None = N
                 for item in historical_consequence_records)):
         raise DevelopmentalCompanionBridgeError(
             "historical_consequence_projection_invalid")
+    if (not isinstance(current_consequence_records, (tuple, list))
+            or len(current_consequence_records) > MAX_COMPANION_CONSEQUENCE_RECORDS
+            or any(not isinstance(item, Mapping)
+                or item.get("source_kind") != "embodiment"
+                or not isinstance(item.get("digest"), str)
+                or item.get("digest") != record_digest(item)
+                or type(item.get("effect_claimed", False)) is not bool
+                or type(item.get("effect_proven", False)) is not bool
+                for item in current_consequence_records)):
+        raise DevelopmentalCompanionBridgeError(
+            "current_consequence_evidence_invalid")
+    if len(historical_consequence_records) + len(current_consequence_records) > \
+            MAX_COMPANION_CONSEQUENCE_RECORDS:
+        raise DevelopmentalCompanionBridgeError(
+            "companion_consequence_record_bound_exceeded")
     # Selected, verified historical records retain their timestamps and
     # uncertainty. The bridge never upgrades them into fresh observations.
     records.extend(historical_consequence_records)
+    # A just-measured consequence retains its own event time and uncertainty.
+    # It is never promoted to a proven effect.
+    records.extend(current_consequence_records)
     if len(records) > 64:
         raise DevelopmentalCompanionBridgeError(
             "companion_snapshot_source_bound_exceeded")
@@ -503,7 +522,8 @@ class ResidentDevelopmentalCompanionBridge:
             and "embodiment" in self._owner.config.allowed_source_kinds)
 
     def run_developmental_cycle(self, *, tick_id: str,
-            screen_observation: Mapping[str, Any]
+            screen_observation: Mapping[str, Any],
+            current_consequence_records: Sequence[Mapping[str, Any]] = ()
             ) -> CompanionDevelopmentalCycleResult:
         """Run one fresh-evidence tick through the existing governed writeback owner.
 
@@ -511,7 +531,8 @@ class ResidentDevelopmentalCompanionBridge:
         method never invents a second memory store or bypasses owner admission.
         """
         if (not isinstance(tick_id, str) or not tick_id.strip() or len(tick_id) > 256
-                or not isinstance(screen_observation, Mapping)):
+                or not isinstance(screen_observation, Mapping)
+                or not isinstance(current_consequence_records, (tuple, list))):
             raise DevelopmentalCompanionBridgeError(
                 "developmental_cycle_request_invalid")
         if not self.developmental_cycle_available():
@@ -567,6 +588,7 @@ class ResidentDevelopmentalCompanionBridge:
             screen_observation=screen_observation,
             proprioception=proprioception, screen_staleness="fresh",
             historical_consequence_records=consequence_records,
+            current_consequence_records=current_consequence_records,
             screen_capture_age_seconds=capture_age_seconds, clock=self._clock)
         if not snapshot.facts:
             raise CognitionEvidenceUnavailable()
