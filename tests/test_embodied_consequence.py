@@ -24,7 +24,7 @@ from sentientos.embodied_consequence import (
     score_strategy_experiment, build_strategy_decision_quality_preregistration,
     score_strategy_decision_quality, validate_world_state_projection_config, world_state_records,
     strategy_decision_quality_world_state_record,
-    _history_evidence_scope,
+    _history_evidence_scope, _identity, _verify_consequence_attribution,
 )
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.operator_codex_response_journal import (OperatorResponseJournalError,
@@ -186,6 +186,28 @@ def test_authenticated_bridge_observer_rejects_wrong_handoff_binding():
 def test_authenticated_bridge_observer_rejects_stale_measurement():
     with pytest.raises(EmbodiedConsequenceError,match="authenticated_observer_evidence_stale"):
         authenticated_observer_chain(observed_at="2034-12-31T23:59:00+00:00")
+
+
+@pytest.mark.parametrize("field", ("source_observed_at", "request_started_at"))
+def test_request_correlated_receipt_requires_timezone_aware_timestamps(field):
+    observer, handoff, expectation, report, observation = authenticated_observer_chain(
+        capture_request_id="d" * 32)
+    attribution, _ = evaluate_consequence(
+        expectation=expectation, handoff=handoff, current_body=pointer(),
+        renderer_report=report, observation=observation, evaluated_at=T2,
+        independent_observer_owner=observer)
+    altered = dict(attribution)
+    receipt = dict(attribution["observation_authentication_receipt"])
+    receipt[field] = "not-a-timestamp"
+    altered["observation_authentication_receipt"] = receipt
+    semantic = dict(altered)
+    semantic.pop("attribution_id")
+    semantic.pop("attribution_digest")
+    altered["attribution_id"], altered["attribution_digest"] = _identity(
+        "consequence", semantic)
+    with pytest.raises(EmbodiedConsequenceError,
+            match="consequence_observer_receipt_invalid"):
+        _verify_consequence_attribution(altered)
 
 
 @pytest.mark.parametrize("offset", (timedelta(minutes=2), -timedelta(minutes=2)))

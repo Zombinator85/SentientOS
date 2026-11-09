@@ -3083,6 +3083,17 @@ def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
                         or not isinstance(receipt.get("source_observed_at"), str)
                         or not isinstance(receipt.get("request_started_at"), str)))):
             raise EmbodiedConsequenceError("consequence_observer_receipt_invalid")
+        if (frozenset(receipt) - renderer_receipt_field
+                == frozenset(required | capture_fields | capture_timing_fields)):
+            for field in ("source_observed_at", "request_started_at"):
+                try:
+                    timestamp = _time(str(receipt.get(field)))
+                except (TypeError, ValueError) as exc:
+                    raise EmbodiedConsequenceError(
+                        "consequence_observer_receipt_invalid") from exc
+                if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+                    raise EmbodiedConsequenceError(
+                        "consequence_observer_receipt_invalid")
         if "renderer_report_receipt_identity" in receipt:
             renderer_identity = receipt.get("renderer_report_receipt_identity")
             try:
