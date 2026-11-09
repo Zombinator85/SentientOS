@@ -17,7 +17,7 @@ from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackRu
 from sentientos.embodied_consequence import (
     AuthenticatedBridgeIndependentObserver, ConsequenceStore, EmbodiedConsequenceError, SyntheticIndependentObserver,
     SyntheticRenderer, digest, evaluate_consequence, make_expectation, make_strategy_proposal,
-    WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4, run_strategy_experiment,
+    WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4, WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V5, run_strategy_experiment,
     build_operator_codex_strategy_packets, build_operator_codex_strategy_multi_event_packets,
     score_operator_codex_strategy_responses,
     score_operator_codex_strategy_multi_event_responses,
@@ -57,6 +57,51 @@ def test_explicit_world_state_projection_config_binds_developmental_history_runs
     duplicate["config_digest"]=digest(duplicate)
     with pytest.raises(EmbodiedConsequenceError,match="developmental_history_projection_run_invalid"):
         validate_world_state_projection_config(duplicate)
+
+
+def test_writer_only_consequence_store_configuration_preserves_empty_projection(tmp_path):
+    from scripts.run_local_companion_dev import _build_companion_consequence_records_provider
+
+    store_root = tmp_path / "empty-consequence-store"
+    config = {"schema_version": WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V5,
+        "enabled": True, "store_root": str(store_root),
+        "experiment_result_ids": [], "consequence_chain_ids": [],
+        "model_replacement_state_root": None, "model_replacement_runs": [],
+        "proposal_review_log_path": None, "proposal_review_receipt_ids": [],
+        "fulfillment_receipt_log_path": None, "fulfillment_receipt_ids": [],
+        "developmental_history_intervention_runs": [],
+        "live_consequence_store_enabled": True}
+    config["config_digest"] = digest(config)
+    config_path = tmp_path / "writer-only-projection.json"
+    config_path.write_text(json.dumps(config))
+
+    provider = _build_companion_consequence_records_provider(
+        config_path=str(config_path),
+        read_explicit_file=lambda path, **_kwargs: path.read_bytes())
+
+    assert provider is not None
+    assert store_root.is_dir()
+    assert provider() == ()
+    store = getattr(provider, "store", None)
+    assert store is not None
+    assert store.root == store_root.resolve()
+
+    disabled = dict(config, store_root=None, live_consequence_store_enabled=False)
+    disabled["config_digest"] = digest({key: item for key, item in disabled.items()
+        if key != "config_digest"})
+    with pytest.raises(EmbodiedConsequenceError,
+            match="world_state_projection_live_store_required"):
+        validate_world_state_projection_config(disabled)
+
+    legacy = dict(config)
+    legacy["schema_version"] = WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4
+    legacy.pop("live_consequence_store_enabled")
+    legacy["store_root"] = None
+    legacy["config_digest"] = digest({key: item for key, item in legacy.items()
+        if key != "config_digest"})
+    with pytest.raises(EmbodiedConsequenceError,
+            match="world_state_projection_selection_empty"):
+        validate_world_state_projection_config(legacy)
 
 
 def pointer():
