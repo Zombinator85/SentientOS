@@ -28,6 +28,7 @@ from .governed_local_model_invocation import (
     RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
     RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
     RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
+    RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA,
     validate_receipt,
 )
 from .canonical_memory import sentientos_memory_dir
@@ -5426,6 +5427,8 @@ class ResidentDevelopmentalCognitionOwner:
                 or objective_plan is not None or epistemic_revision_probe else "text",
             budget=request_budget,
             structured_output_schema=(
+                RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA
+                if objective_plan is not None else
                 RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
                 if companion_intervention else RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA
                 if interaction_question is not None else RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA

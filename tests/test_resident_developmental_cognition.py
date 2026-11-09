@@ -975,6 +975,15 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     run_result = cognition.run_objective_intervention_once(snapshot=snapshot(),
         tick_id="family-acquisition-run", objective_task=acquisition,
         request_id="family-acquisition", request_digest=request["request_digest"])
+    from sentientos.governed_local_model_invocation import (
+        RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA,
+    )
+    objective_requests = [item for item in fake.requests
+        if item.purpose == "resident_developmental_history_intervention_experiment"
+        and "objective_task_plan_digest" in item.upstream_evidence]
+    assert len(objective_requests) == 3
+    assert all(item.structured_output_schema == RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA
+        for item in objective_requests)
     run = cognition.experiments.load_run(run_result.changed_cognition_measurement_id)
     from sentientos.developmental_history_intervention_experiment import _digest as experiment_digest
     from sentientos.developmental_model_replacement_experiment import (

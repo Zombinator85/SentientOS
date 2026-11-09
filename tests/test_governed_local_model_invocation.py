@@ -18,6 +18,7 @@ from sentientos.governed_local_model_invocation import (
     RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA, RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
     RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
     RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA,
+    RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA,
 )
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.local_model import ActiveModelIdentity, ModelLoadError
@@ -698,6 +699,45 @@ def test_history_intervention_allows_only_canonical_companion_json(tmp_path: Pat
             correlation_id="companion-intervention-lesson-json",
             expected_output_format="json",
             structured_output_schema=RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA)
+    assert fake.calls == 0
+
+
+def test_objective_history_intervention_allows_only_canonical_scored_answer_json(
+        tmp_path: Path) -> None:
+    fake, inv = _invoker(tmp_path)
+    request = inv.build_request(
+        purpose="resident_developmental_history_intervention_experiment",
+        prompt="predict the preregistered held-out objective probes",
+        caller="resident_developmental_cognition",
+        correlation_id="objective-intervention-json",
+        expected_output_format="json",
+        upstream_evidence={"objective_task_plan_digest": "sha256:" + "a" * 64},
+        linkage={"condition_id": "history_present"},
+        structured_output_schema=RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA)
+    assert request.structured_output_schema == RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA
+    assert request.expected_output_format == "json"
+
+    with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
+        inv.build_request(
+            purpose="resident_developmental_history_intervention_experiment",
+            prompt="arbitrary output schema",
+            caller="resident_developmental_cognition",
+            correlation_id="objective-intervention-json-altered",
+            expected_output_format="json",
+            upstream_evidence={"objective_task_plan_digest": "sha256:" + "a" * 64},
+            linkage={"condition_id": "history_present"},
+            structured_output_schema={"type": "object", "additionalProperties": True})
+    # An objective answer schema cannot be smuggled into a conversational
+    # history intervention without the owner-bound preregistered plan digest.
+    with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
+        inv.build_request(
+            purpose="resident_developmental_history_intervention_experiment",
+            prompt="unbound objective output",
+            caller="resident_developmental_cognition",
+            correlation_id="objective-intervention-json-unbound",
+            expected_output_format="json",
+            linkage={"condition_id": "history_present"},
+            structured_output_schema=RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA)
     assert fake.calls == 0
 
 
