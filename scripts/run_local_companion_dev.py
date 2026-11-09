@@ -435,15 +435,26 @@ class _PreparedAvatarConsequenceEmitter:
             created_at = now.isoformat()
             turn_binding_digest = hashlib.sha256(
                 (session_id + "\0" + turn_id).encode("utf-8")).hexdigest()
+            measurement_request_id = metadata.get("measurement_request_id")
+            correlation_material = (session_id + "\0" + turn_id + "\0"
+                + output_digest + ("\0" + measurement_request_id
+                    if isinstance(measurement_request_id, str) else ""))
             correlation_digest = hashlib.sha256(
-                (session_id + "\0" + turn_id + "\0" + output_digest).encode(
-                    "utf-8")).hexdigest()
+                correlation_material.encode("utf-8")).hexdigest()
             correlation_id = "companion-avatar-nod-" + correlation_digest[:32]
             pointer = self._pointer
             handoff = renderer_handoff(pointer,
                 renderer_interface_id="sentientos-godot-companion",
                 requested_pose="nod", requested_expression="rest",
                 correlation_id=correlation_id, commanded_at=created_at)
+            assistant_text_digest = metadata.get(
+                "assistant_response_digest", output_digest)
+            requested = {"pose": "nod", "expression": "rest",
+                "assistant_turn_binding_digest": turn_binding_digest,
+                "assistant_text_digest": assistant_text_digest}
+            if isinstance(measurement_request_id, str):
+                requested["measurement_request_id_digest"] = hashlib.sha256(
+                    measurement_request_id.encode("utf-8")).hexdigest()
             expectation = make_expectation(
                 installation_body_id=str(pointer["installation_identity"]),
                 body_id=str(pointer["body_identity"]),
@@ -451,9 +462,7 @@ class _PreparedAvatarConsequenceEmitter:
                 body_manifest_digest=str(pointer["manifest_digest"]),
                 handoff_id=handoff["handoff_id"], handoff_digest=handoff["handoff_digest"],
                 renderer_interface_id="sentientos-godot-companion",
-                requested={"pose": "nod", "expression": "rest",
-                    "assistant_turn_binding_digest": turn_binding_digest,
-                    "assistant_text_digest": output_digest},
+                requested=requested,
                 predicted_observables={"avatar_visible": True, "avatar_motion": "nod"},
                 observable_fields=("avatar_visible", "avatar_motion"),
                 comparison_policy={"avatar_visible": {"kind": "exact"},

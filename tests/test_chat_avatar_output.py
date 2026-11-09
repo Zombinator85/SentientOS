@@ -88,6 +88,49 @@ def test_chat_avatar_output_requires_session_grant_and_emits_visual_only_state(t
     assert len(admission.calls) == 3
 
 
+def test_consequence_probe_requires_grant_and_is_one_shot(tmp_path) -> None:
+    target = tmp_path / "avatar_state.json"
+    admission = _AdmissionStub()
+    output = _controller(target, admission)
+    response_digest = "a" * 64
+
+    assert output.publish_consequence_probe(session_id="session-1",
+        turn_id="turn-" + "1" * 24, request_id="probe-1",
+        assistant_response_digest=response_digest) == {"status": "disabled"}
+    assert output.set_enabled("session-1", True)["enabled"] is True
+    result = output.publish_consequence_probe(session_id="session-1",
+        turn_id="turn-" + "1" * 24, request_id="probe-1",
+        assistant_response_digest=response_digest)
+    assert result == {"status": "emitted", "action": "one_shot_visual_nod",
+        "game_input_authorized": False, "renderer_effect_proven": False}
+    state = json.loads(target.read_text(encoding="utf-8"))
+    assert state["current_phrase"] == ""
+    assert state["motion"] == "nod"
+    assert state["metadata"]["source"] == "governed_avatar_consequence_probe"
+    assert admission.calls[-1]["metadata"]["approval_method"] == (
+        "local_developmental_cycle_confirmation")
+    assert admission.calls[-1]["metadata"]["measurement_request_id"] == "probe-1"
+    calls_after_emit = len(admission.calls)
+    assert output.publish_consequence_probe(session_id="session-1",
+        turn_id="turn-" + "1" * 24, request_id="probe-1",
+        assistant_response_digest=response_digest) == {"status": "duplicate_request"}
+    assert len(admission.calls) == calls_after_emit
+    output.close()
+
+
+def test_denied_consequence_probe_does_not_emit(tmp_path) -> None:
+    target = tmp_path / "avatar_state.json"
+    admission = _AdmissionStub((Decision.ALLOW, Decision.DENY))
+    output = _controller(target, admission)
+    assert output.set_enabled("session-1", True)["enabled"] is True
+    result = output.publish_consequence_probe(session_id="session-1",
+        turn_id="turn-" + "1" * 24, request_id="probe-denied",
+        assistant_response_digest="b" * 64)
+    assert result["status"] == "admission_denied"
+    assert not target.exists()
+    output.close()
+
+
 def test_chat_avatar_output_denial_and_expiry_fail_closed(tmp_path) -> None:
     target = tmp_path / "avatar_state.json"
     denied = _controller(target, _AdmissionStub((Decision.DENY,)))

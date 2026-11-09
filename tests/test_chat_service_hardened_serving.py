@@ -729,6 +729,7 @@ def test_developmental_cycle_adds_current_consequence_to_existing_bridge(tmp_pat
         "text": "I will nod.", "linkage": {
             "response_origin": "resident_developmental_cognition",
             "source_user_turn_id": "turn-" + "2" * 24,
+            "response_digest": "c" * 64,
         },
     }
     source = {"role": "user", "turn_id": "turn-" + "2" * 24, "text": "Hello."}
@@ -762,6 +763,11 @@ def test_developmental_cycle_adds_current_consequence_to_existing_bridge(tmp_pat
     svc = service(tmp_path, Inference(), screen_observer=Observer())
     svc.sessions = Sessions()
     svc._resident_cognition_bridge = Bridge()
+    class AvatarOutput:
+        def publish_consequence_probe(self, **kwargs):
+            events.append(("probe", kwargs))
+            return {"status": "emitted", "action": "one_shot_visual_nod"}
+    svc._avatar_output = AvatarOutput()
     svc._live_consequence_cycle_provider = lambda *_args: (
         events.append(("consequence", None))
         or {"status": "completed", "world_state_records": (consequence,),
@@ -771,9 +777,11 @@ def test_developmental_cycle_adds_current_consequence_to_existing_bridge(tmp_pat
 
     result = svc.run_developmental_cycle(
         session_id="session-1", assistant_turn_id=record["turn_id"],
-        request_id="cycle-1")
+        request_id="cycle-1", avatar_nod_confirmed=True)
 
-    assert [event[0] for event in events] == ["screen", "consequence", "cycle"]
+    assert [event[0] for event in events] == [
+        "probe", "consequence", "screen", "cycle"]
+    assert events[0][1]["assistant_response_digest"] == "c" * 64
     assert events[-1][1]["current_consequence_records"] == (consequence,)
     assert result["consequence_measurement"] == {
         "status": "completed", "error_type": None, "chain_id": "chain-1",
@@ -785,12 +793,46 @@ def test_developmental_cycle_adds_current_consequence_to_existing_bridge(tmp_pat
     }
 
 
+def test_developmental_cycle_does_not_send_avatar_action_when_cognition_is_deferred(
+        tmp_path):
+    class BlockedInference(Inference):
+        def cognition_available(self):
+            return False
+
+    events = []
+    class Observer:
+        def observe_question(self, _question):
+            events.append("screen")
+            return {"modality": "screen", "capture_digest": "sha256:" + "a" * 64}
+
+    class Bridge:
+        def respond(self, **_kwargs):
+            pass
+        def developmental_cycle_available(self):
+            return True
+
+    class AvatarOutput:
+        def publish_consequence_probe(self, **_kwargs):
+            events.append("avatar_action")
+            return {"status": "emitted"}
+
+    svc = service(tmp_path, BlockedInference(), screen_observer=Observer())
+    svc._resident_cognition_bridge = Bridge()
+    svc._avatar_output = AvatarOutput()
+    with pytest.raises(chat_service.CognitionWorkloadUnavailable):
+        svc.run_developmental_cycle(session_id="session-1",
+            assistant_turn_id="turn-" + "1" * 24, request_id="deferred-cycle",
+            avatar_nod_confirmed=True)
+    assert events == []
+
+
 def test_developmental_cycle_keeps_screen_writeback_path_when_optional_measurement_fails(
         tmp_path):
     record = {
         "role": "assistant", "turn_id": "turn-" + "1" * 24, "text": "A reply.",
         "linkage": {"response_origin": "resident_developmental_cognition",
-            "source_user_turn_id": "turn-" + "2" * 24},
+            "source_user_turn_id": "turn-" + "2" * 24,
+        "response_digest": "d" * 64},
     }
     source = {"role": "user", "turn_id": "turn-" + "2" * 24, "text": "Hello."}
 
@@ -823,13 +865,17 @@ def test_developmental_cycle_keeps_screen_writeback_path_when_optional_measureme
     svc.sessions = Sessions()
     bridge = Bridge()
     svc._resident_cognition_bridge = bridge
+    class AvatarOutput:
+        def publish_consequence_probe(self, **_kwargs):
+            return {"status": "emitted", "action": "one_shot_visual_nod"}
+    svc._avatar_output = AvatarOutput()
     def unavailable(*_args):
         raise TimeoutError("observer timeout")
     svc._live_consequence_cycle_provider = unavailable
 
     result = svc.run_developmental_cycle(
         session_id="session-1", assistant_turn_id=record["turn_id"],
-        request_id="cycle-2")
+        request_id="cycle-2", avatar_nod_confirmed=True)
 
     assert "current_consequence_records" not in bridge.kwargs
     assert result["status"] == "completed_without_writeback"

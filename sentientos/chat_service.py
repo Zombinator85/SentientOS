@@ -784,6 +784,7 @@ class DevelopmentalCycleRequest(BaseModel):
     assistant_turn_id: str
     request_id: str
     operator_confirmed: bool = False
+    avatar_nod_confirmed: bool = False
     operator_feedback: str | None = None
 
 
@@ -1167,7 +1168,8 @@ class PersistentConversationService:
 
     def run_developmental_cycle(self, *, session_id: str,
             assistant_turn_id: str, request_id: str,
-            operator_feedback: str | None = None) -> dict[str, Any]:
+            operator_feedback: str | None = None,
+            avatar_nod_confirmed: bool = False) -> dict[str, Any]:
         """Capture fresh local evidence and invoke the existing governed writeback owner."""
         if (not isinstance(session_id, str) or not session_id
                 or not isinstance(assistant_turn_id, str)
@@ -1179,7 +1181,12 @@ class PersistentConversationService:
         observer = self._screen_observer
         if bridge is None or observer is None:
             raise ChatRequestStateError("developmental_cycle_path_unavailable")
+        if type(avatar_nod_confirmed) is not bool:
+            raise ChatRequestStateError("developmental_cycle_avatar_confirmation_invalid")
         if not self.developmental_cycle_available():
+            raise CognitionWorkloadUnavailable()
+        cognition_available = getattr(self._inference, "cognition_available", None)
+        if callable(cognition_available) and cognition_available() is not True:
             raise CognitionWorkloadUnavailable()
         if operator_feedback is not None and not self.operator_feedback_available():
             raise ChatRequestStateError(
@@ -1228,21 +1235,31 @@ class PersistentConversationService:
                         or re.fullmatch(r"[0-9a-f]{64}", source_capture_digest) is None):
                     raise ChatRequestStateError(
                         "developmental_cycle_operator_feedback_requires_screen_evidence")
-            question = "Capture the current allowlisted foreground game for one operator-requested developmental cognition cycle."
-            question_observer = getattr(type(observer), "observe_question", None)
-            observation = (question_observer(observer, question)
-                if callable(question_observer) else observer())
-            if not isinstance(observation, Mapping):
-                raise RuntimeError("screen_observation_unavailable")
             consequence_measurement: Mapping[str, Any] | None = None
             current_consequence_records: tuple[Mapping[str, Any], ...] = ()
-            if self._live_consequence_cycle_provider is not None:
+            if avatar_nod_confirmed:
                 try:
-                    consequence_measurement = (
-                        self._live_consequence_cycle_provider(session_id, assistant_turn_id))
-                except Exception as exc:  # noqa: BLE001 - optional capture must fail open for screen writeback
-                    # The optional second measurement must not suppress the
-                    # ordinary operator-confirmed screen-evidence writeback.
+                    probe = getattr(self._avatar_output,
+                        "publish_consequence_probe", None)
+                    response_digest = linkage.get("response_digest")
+                    if (not callable(probe) or not isinstance(response_digest, str)
+                            or re.fullmatch(r"[0-9a-f]{64}", response_digest) is None):
+                        raise RuntimeError("avatar_consequence_action_unavailable")
+                    probe_result = probe(session_id=session_id,
+                        turn_id=assistant_turn_id, request_id=request_id,
+                        assistant_response_digest=response_digest)
+                    if not isinstance(probe_result, Mapping):
+                        raise RuntimeError("avatar_consequence_action_result_invalid")
+                    if probe_result.get("status") != "emitted":
+                        raise RuntimeError(str(probe_result.get("status")
+                            or "avatar_consequence_action_not_emitted"))
+                    if self._live_consequence_cycle_provider is None:
+                        raise RuntimeError("avatar_consequence_observer_unavailable")
+                    consequence_measurement = self._live_consequence_cycle_provider(
+                        session_id, assistant_turn_id)
+                    if consequence_measurement is None:
+                        raise RuntimeError("avatar_consequence_measurement_missing")
+                except Exception as exc:  # noqa: BLE001 - optional action must not block screen writeback
                     consequence_measurement = {
                         "status": "unavailable",
                         "error_type": type(exc).__name__,
@@ -1261,6 +1278,12 @@ class PersistentConversationService:
                     elif measurement_status != "unavailable":
                         raise RuntimeError(
                             "developmental_consequence_measurement_invalid")
+            question = "Capture the current allowlisted foreground game for one operator-requested developmental cognition cycle."
+            question_observer = getattr(type(observer), "observe_question", None)
+            observation = (question_observer(observer, question)
+                if callable(question_observer) else observer())
+            if not isinstance(observation, Mapping):
+                raise RuntimeError("screen_observation_unavailable")
             tick_id = "companion-developmental-cycle-" + hashlib.sha256(
                 f"{session_id}\0{assistant_turn_id}\0{request_id}".encode("utf-8")).hexdigest()[:32]
             if operator_feedback is not None:
@@ -3888,7 +3911,8 @@ async def developmental_cycle_endpoint(session_id: str,
         return await asyncio.to_thread(service.run_developmental_cycle,
             session_id=session_id, assistant_turn_id=request.assistant_turn_id,
             request_id=request.request_id,
-            operator_feedback=request.operator_feedback)
+            operator_feedback=request.operator_feedback,
+            avatar_nod_confirmed=request.avatar_nod_confirmed)
     except CognitionWorkloadUnavailable as exc:
         raise HTTPException(status_code=409,
             detail="developmental_cycle_deferred_during_gaming_workload") from exc
@@ -5304,7 +5328,8 @@ async def root_page() -> HTMLResponse:
                             return;
                         }
                     }
-                    if (!window.confirm('Capture one fresh, consented foreground-game observation and run the existing resident cognition tick? The screen evidence and your optional unverified report may be retained through governed developmental writeback. If a reply predicted an avatar nod, this may also request a separate local avatar-motion observation. The measurement can be indeterminate and does not prove an effect. This can make local model inference calls. Raw screen frames are discarded; no gameplay action is authorized.')) return;
+                    if (!window.confirm('Capture one fresh, consented foreground-game observation and run the existing resident cognition tick? The screen evidence and your optional unverified report may be retained through governed developmental writeback. This can make local model inference calls. Raw screen frames are discarded. No avatar motion is sent unless you approve it separately next.')) return;
+                    const avatarNodConfirmed = window.confirm('Optional action: authorize one brief, visual-only avatar nod now so the consequence observer can measure it immediately? This sends no game input and does not prove the nod took effect. Choose Cancel to run the screen-only developmental cycle.');
 
                     button.disabled = true;
                     const status = document.createElement('p');
@@ -5321,6 +5346,7 @@ async def root_page() -> HTMLResponse:
                                     assistant_turn_id: assistantTurnId,
                                     request_id: crypto.randomUUID(),
                                     operator_confirmed: true,
+                                    avatar_nod_confirmed: avatarNodConfirmed,
                                     operator_feedback: (typeof feedback === 'string'
                                         ? feedback.trim() || null : null),
                                 }),

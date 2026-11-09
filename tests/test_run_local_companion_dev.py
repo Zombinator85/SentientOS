@@ -450,6 +450,51 @@ def test_avatar_nod_expectation_binds_the_authorized_output_command():
     assert emitter.calls == [phrase, phrase, phrase]
 
 
+def test_fresh_measurement_nod_registers_expectation_before_dispatch():
+    import hashlib
+
+    from scripts.run_local_companion_dev import _PreparedAvatarConsequenceEmitter
+    from sentientos.local_model_authority import digest_payload
+
+    class Emitter:
+        def __init__(self):
+            self.calls = []
+        def emit_display_text(self, phrase, *, authorization=None, metadata=None):
+            self.calls.append((phrase, dict(metadata or {})))
+            return {"status": "sent", "renderer_effect_proven": False}
+
+    emitter = Emitter()
+    pointer = {"installation_identity": "test-installation",
+        "body_identity": "test-avatar", "body_generation": 1,
+        "manifest_digest": "sha256:" + "a" * 64,
+        "artifact_sha256": "sha256:" + "b" * 64,
+        "pointer_digest": "sha256:" + "c" * 64}
+    adapter = _PreparedAvatarConsequenceEmitter(
+        emitter=emitter, pointer=pointer, observer=object())
+    response_digest = "d" * 64
+    request_id = "cycle-request-1"
+    blank_digest = digest_payload({"text": ""})
+    metadata = {"source": "governed_avatar_consequence_probe",
+        "session_id": "session-probe", "turn_id": "turn-" + "5" * 24,
+        "output_digest": blank_digest,
+        "displayed_text_digest": "sha256:" + blank_digest,
+        "measurement_request_id": request_id,
+        "assistant_response_digest": response_digest}
+
+    assert adapter.emit_display_text("", metadata=metadata)["status"] == "sent"
+    expectation = adapter._prepared[(metadata["session_id"], metadata["turn_id"])]
+    requested = expectation["expectation"].requested
+    assert requested["assistant_text_digest"] == response_digest
+    assert requested["measurement_request_id_digest"] == hashlib.sha256(
+        request_id.encode("utf-8")).hexdigest()
+    assert emitter.calls[0][0] == ""
+    assert emitter.calls[0][1]["consequence_expectation_id"] == (
+        expectation["expectation"].expectation_id)
+    assert emitter.calls[0][1]["consequence_handoff_id"] == (
+        expectation["handoff"]["handoff_id"])
+    assert expectation["dispatch_status"] == "sent"
+
+
 def test_prepared_avatar_consequence_persists_bound_indeterminate_chain(tmp_path):
     from datetime import datetime, timezone
 
