@@ -6123,7 +6123,12 @@ def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(
                 "renderer_report_receipt_identity": asdict(self.receipt),
             }
 
+    receipt_attempts = []
+
     def renderer_receipt(*, expectation, handoff, session_id, turn_id, output_digest):
+        receipt_attempts.append(None)
+        if len(receipt_attempts) < 3:
+            return None
         return RendererReportReceiptIdentity(
             report_id="godot-renderer:godot-demo-integration-session:1",
             report_digest="sha256:" + "f" * 64,
@@ -6140,32 +6145,10 @@ def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(
     runner = _PreparedAvatarConsequenceEmitter(
         emitter=Emitter(), pointer=pointer, observer=observer,
         renderer_receipt_provider=renderer_receipt)
-    session_id, turn_id = "runner-session", "turn-" + "a" * 24
-    controller = ChatAvatarOutputController(runner,
-        admission_provider=_AdmissionStub())
-    assert controller.set_enabled(session_id, True)["enabled"] is True
-    probe = controller.publish_consequence_probe(
-        session_id=session_id, turn_id=turn_id,
-        request_id="runner-measurement-1", assistant_response_digest="1" * 64)
-    assert probe["status"] == "emitted"
-    assert probe["game_input_authorized"] is False
-    assert probe["renderer_effect_proven"] is False
-    dispatched_probe = runner._emitter.calls[-1]
-    assert dispatched_probe["metadata"]["source"] == "governed_avatar_consequence_probe"
-    staged = runner._prepared[(session_id, turn_id)]
-    assert staged["expectation"].requested["measurement_request_id_digest"] == (
-        hashlib.sha256(b"runner-measurement-1").hexdigest())
-    assert staged["expectation"].requested["assistant_text_digest"] == "1" * 64
-    assert dispatched_probe["metadata"]["consequence_expectation_id"] == (
-        staged["expectation"].expectation_id)
-    store = ConsequenceStore(tmp_path / "runner-writeback-chain")
-    measurement = runner.observe_and_store(
-        session_id=session_id, turn_id=turn_id, observer=observer, store=store)
-    assert measurement is not None and measurement["status"] == "completed"
-    records = measurement["world_state_records"]
-    assert len(records) == 6
-    assert all(record["effect_proven"] is False for record in records)
-
+    session_id = "runner-session"
+    user_turn_id, turn_id = "turn-" + "b" * 24, "turn-" + "a" * 24
+    cycle_request_id = "confirmed-measurement-1"
+    cognition_request_id = f"{session_id}:{user_turn_id}"
     screen = {"modality": "screen", "text": "bounded integration screen fixture",
         "capture_digest": "2" * 64,
         "capture_scope": "allowlisted_foreground_game_client_area",
@@ -6182,14 +6165,110 @@ def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(
         allowed_source_kinds=("embodiment",), max_selected_facts=8)
     bridge = ResidentDevelopmentalCompanionBridge(cognition,
         proprioception_provider=lambda: (proprioception,), clock=lambda: now)
-    cycle = bridge.run_developmental_cycle(
-        tick_id="runner-produced-eight-fact-cycle", screen_observation=screen,
-        current_consequence_records=records)
-    assert cycle.status == "completed"
-    assert cycle.written_record_id is not None
-    assert len(cycle.selected_fact_ids) == 8
-    assert fake.requests
+    interaction = bridge.respond(request_id=cognition_request_id,
+        question="Describe the current view.", screen_observation=screen)
+    assert interaction.status == "admitted_completed"
+    response_digest = interaction.response_digest
+    linkage = {
+        "source_user_turn_id": user_turn_id,
+        "response_origin": "resident_developmental_cognition",
+        "cognition_snapshot_id": interaction.snapshot_id,
+        "cognition_snapshot_digest": interaction.snapshot_digest,
+        "cognition_observation_id": interaction.cognition_observation_id,
+        "cognition_observation_digest": interaction.cognition_observation_digest,
+        "inference_receipt_id": interaction.inference_receipt_id,
+        "inference_receipt_digest": interaction.inference_receipt_digest,
+        "invocation_output_digest": interaction.invocation_output_digest,
+        "response_digest": response_digest,
+        "cognition_evidence_ids": list(interaction.evidence_ids),
+        "cognition_prior_record_ids": list(interaction.prior_record_ids),
+        "cognition_history_record_ids": list(interaction.history_record_ids),
+        "cognition_model_id": interaction.model_id,
+        "cognition_model_artifact_digest": interaction.model_artifact_digest,
+        "self_model_projection_id": interaction.self_model_projection_id,
+        "self_model_projection_digest": interaction.self_model_projection_digest,
+        "epistemic_projection_id": interaction.epistemic_projection_id,
+        "epistemic_projection_digest": interaction.epistemic_projection_digest,
+        "assistant_output_lineage": {
+            "status": "resident_cognition_interaction",
+            "cognition_observation_id": interaction.cognition_observation_id,
+            "cognition_observation_digest": interaction.cognition_observation_digest,
+            "inference_receipt_id": interaction.inference_receipt_id,
+            "inference_receipt_digest": interaction.inference_receipt_digest,
+            "invocation_output_digest": interaction.invocation_output_digest,
+            "response_digest": response_digest,
+        },
+    }
+    source_turn = {"role": "user", "turn_id": user_turn_id, "text": "Describe the view."}
+    assistant_turn = {"role": "assistant", "turn_id": turn_id,
+        "text": interaction.response, "linkage": linkage}
+
+    class Sessions:
+        def serialize_chat_requests(self, _session_id):
+            from contextlib import nullcontext
+            return nullcontext()
+        def load(self, _session_id):
+            return {"turns": [source_turn, assistant_turn]}
+
+    class InferenceGate:
+        def cognition_available(self):
+            return True
+
+    class ScreenObserver:
+        def observe_question(self, question):
+            assert "operator-requested developmental cognition cycle" in question
+            return screen
+
+    controller = ChatAvatarOutputController(runner,
+        admission_provider=_AdmissionStub())
+    assert controller.set_enabled(session_id, True)["enabled"] is True
+    store = ConsequenceStore(tmp_path / "runner-writeback-chain")
+    measurements = []
+
+    def measure(session, assistant_turn):
+        value = runner.observe_and_store(session_id=session, turn_id=assistant_turn,
+            observer=observer, store=store)
+        measurements.append(value)
+        return value
+
+    from sentientos.canonical_memory import CanonicalMemoryStore
+    from sentientos.chat_service import PersistentConversationService
+    service = PersistentConversationService(inference=InferenceGate(),
+        session_store=Sessions(), memory_store=CanonicalMemoryStore(
+            tmp_path / "runner-companion-memory"),
+        avatar_output=controller, screen_observer=ScreenObserver(),
+        resident_cognition_bridge=bridge,
+        live_consequence_cycle_provider=measure)
+    cycle = service.run_developmental_cycle(session_id=session_id,
+        assistant_turn_id=turn_id, request_id=cycle_request_id,
+        avatar_nod_confirmed=True)
+
+    assert cycle["status"] == "completed_writeback"
+    assert cycle["written_record_id"] is not None
+    assert cycle["writeback_receipt_id"] is not None
+    assert len(cycle["selected_fact_ids"]) == 8
+    assert cycle["consequence_measurement"] == {
+        "status": "completed", "error_type": None,
+        "chain_id": measurements[0]["chain_id"],
+        "classification": "indeterminate", "confidence": "unknown",
+        "quality": "partial", "effect_proven": False,
+        "renderer_effect_proven": False,
+        "observer_transport_authenticated": True,
+        "observation_accuracy_established": False,
+    }
+    assert len(measurements) == 1
+    measurement = measurements[0]
+    assert measurement is not None and measurement["status"] == "completed"
+    assert len(measurement["world_state_records"]) == 6
+    assert all(record["effect_proven"] is False
+        for record in measurement["world_state_records"])
+    dispatched_probe = runner._emitter.calls[-1]
+    assert dispatched_probe["metadata"]["source"] == "governed_avatar_consequence_probe"
+    staged = runner._prepared.get((session_id, turn_id))
+    assert staged is None
     assert observer.receipt is not None
+    assert len(receipt_attempts) == 3
+    assert fake.requests
     controller.close()
 
 
