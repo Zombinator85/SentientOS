@@ -126,6 +126,11 @@ def _gpu_snapshot() -> dict[str, Any] | None:
 
 
 _GPU_RUNTIME_RESERVE_BYTES = 2 * 1024**3
+# This is an experiment-quality gate, not a system-wide resource policy. A
+# history comparison should not begin while another workload is already using
+# a substantial share of the GPU; WSL cannot reliably attribute Windows GPU
+# clients to their owning application.
+_MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT = 25.0
 
 
 def _model_weight_bytes(manifest_path: Path) -> int:
@@ -214,9 +219,19 @@ class _ResourceGuardedInvoker:
         self._sequence += 1
         resource_record = _refresh_resource_evidence(self._coordinator,
             correlation_id=f"{RUN_ID}-inference-{self._sequence}")
+        gpu_utilization = resource_record.get("gpu_utilization_percent")
+        if (not isinstance(gpu_utilization, (int, float))
+                or isinstance(gpu_utilization, bool)
+                or not 0 <= gpu_utilization <= 100):
+            raise RootlessExperimentalError(
+                "gpu_utilization_telemetry_unavailable")
+        if gpu_utilization > _MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT:
+            raise RootlessExperimentalError("gpu_utilization_preflight_busy")
         gpu = _require_gpu_headroom(_gpu_snapshot(), self._model_weight_bytes)
         resource_record["gpu_memory_free_mib"] = gpu["memory_free_mib"]
         resource_record["gpu_memory_total_mib"] = gpu["memory_total_mib"]
+        resource_record["preinference_gpu_utilization_limit_percent"] = (
+            _MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT)
         self._evidence_records.append(resource_record)
         return self._delegate.invoke(request, **kwargs)
 

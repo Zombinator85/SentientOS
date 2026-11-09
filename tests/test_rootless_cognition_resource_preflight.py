@@ -71,7 +71,7 @@ def test_guard_does_not_enter_model_backend_without_headroom(runner, monkeypatch
     coordinator = SimpleNamespace()
     guarded = runner._ResourceGuardedInvoker(delegate, coordinator, 9 * 1024**3)
     monkeypatch.setattr(runner, "_refresh_resource_evidence",
-        lambda *args, **kwargs: None)
+        lambda *args, **kwargs: {"gpu_utilization_percent": 0})
     monkeypatch.setattr(runner, "_gpu_snapshot",
         lambda: {"memory_free_mib": 10000})
     with pytest.raises(runner.RootlessExperimentalError,
@@ -125,13 +125,17 @@ def test_guard_calls_backend_only_after_both_preflights(runner, monkeypatch):
     guarded = runner._ResourceGuardedInvoker(
         delegate, SimpleNamespace(), 9 * 1024**3, evidence)
     monkeypatch.setattr(runner, "_refresh_resource_evidence",
-        lambda *args, **kwargs: {"evaluation_id": "fresh"})
+        lambda *args, **kwargs: {"evaluation_id": "fresh",
+            "gpu_utilization_percent": 0})
     monkeypatch.setattr(runner, "_gpu_snapshot",
         lambda: {"memory_free_mib": 12000, "memory_total_mib": 12288})
     assert guarded.invoke(object()) == "inference"
     assert delegate.called is True
     assert evidence == [{"evaluation_id": "fresh",
-        "gpu_memory_free_mib": 12000, "gpu_memory_total_mib": 12288}]
+        "gpu_utilization_percent": 0,
+        "gpu_memory_free_mib": 12000, "gpu_memory_total_mib": 12288,
+        "preinference_gpu_utilization_limit_percent":
+            runner._MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT}]
 
 
 def test_resource_governor_enforcement_is_scoped_and_restored(
@@ -162,3 +166,25 @@ def test_resource_governor_enforcement_is_scoped_and_restored(
     assert observed_modes == ["enforce"]
     assert runner.os.environ.get("SENTIENTOS_ENFORCEMENT_RUNTIME_GOVERNOR") is None
     assert coordinator.kwargs["kernel"] is kernel
+
+
+@pytest.mark.parametrize("resource_record,reason", [
+    ({"gpu_utilization_percent": None}, "gpu_utilization_telemetry_unavailable"),
+    ({"gpu_utilization_percent": 80}, "gpu_utilization_preflight_busy"),
+])
+def test_guard_blocks_inference_without_quiet_gpu_preflight(
+        runner, monkeypatch, resource_record, reason):
+    class Delegate:
+        called = False
+
+        def invoke(self, request, **kwargs):
+            self.called = True
+            return "inference"
+
+    delegate = Delegate()
+    guarded = runner._ResourceGuardedInvoker(delegate, SimpleNamespace(), 9 * 1024**3)
+    monkeypatch.setattr(runner, "_refresh_resource_evidence",
+        lambda *args, **kwargs: resource_record)
+    with pytest.raises(runner.RootlessExperimentalError, match=reason):
+        guarded.invoke(object())
+    assert delegate.called is False
