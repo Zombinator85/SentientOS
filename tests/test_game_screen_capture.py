@@ -203,6 +203,29 @@ def _avatar_sequence_payloads():
     return payloads
 
 
+def test_avatar_sequence_mosaic_keeps_small_corner_avatar_visible():
+    from sentientos.perception.game_screen_capture import LocalOllamaScreenCaptioner
+
+    width, height = 1920, 1080
+    color = (11, 223, 242)
+    rgb = bytearray(width * height * 3)
+    for y in range(height - 60, height - 12):
+        for x in range(width - 60, width - 12):
+            offset = (y * width + x) * 3
+            rgb[offset:offset + 3] = bytes(color)
+
+    mosaic = LocalOllamaScreenCaptioner._avatar_sequence_mosaic(
+        CapturedGameFrame(width, height, bytes(rgb)))
+    visible_pixels = sum(
+        mosaic.rgb[offset:offset + 3] == bytes(color)
+        for offset in range(0, len(mosaic.rgb), 3))
+
+    # Keep the existing five-panel payload dimensions while retaining enough
+    # pixels to inspect a compact avatar parked against the lower-right edge.
+    assert (mosaic.width, mosaic.height) == (480, 320)
+    assert visible_pixels >= 220
+
+
 def test_avatar_temporal_measurement_binds_three_ordered_frames_without_promoting_confidence():
     import json
     from sentientos.perception.game_screen_capture import LocalOllamaScreenCaptioner
