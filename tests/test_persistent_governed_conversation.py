@@ -749,6 +749,8 @@ def test_chat_endpoint_and_local_ui_expose_per_message_screen_opt_in(
     assert b"Compare history impact (4 inference calls)" in page.body
     assert b"history-present / withheld / restored comparison" in page.body
     assert b"operator_confirmed: true" in page.body
+    assert b"return focus to the approved foreground app within" in page.body
+    assert b"only its client area is captured" in page.body
     assert b"Inspect the three responses (temporary)" in page.body
     assert b"condition.response_text" in page.body
     assert b"clearTerminalChatRequestIdentity(" in page.body

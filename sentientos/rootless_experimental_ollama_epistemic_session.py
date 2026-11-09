@@ -1,29 +1,31 @@
-"""Bounded rootless experimental epistemic session over local Ollama.
+"""Bounded rootless experimental epistemic and developmental sessions.
 
-This adapter keeps Ollama's development-only posture and grants one purpose:
-the four-call epistemic revision probe. It is not production serving authority.
+These adapters keep local Ollama in a development-only posture, enforce a
+small purpose and resource envelope, and verify persisted invocation receipts.
+They do not provide production serving authority.
 """
 from __future__ import annotations
 
 import json
 import re
 import urllib.request
+from contextlib import nullcontext
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .control_plane_kernel import ControlPlaneKernel
 from .governed_local_model_invocation import (
     GovernedLocalModelInvoker, validate_receipt,
 )
-from .local_model import LocalModel
+from .local_model import ActiveModelIdentity, LocalModel
 from .local_model_authority import (
     ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE,
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES,
     build_rootless_experimental_epistemic_authority_map,
     build_rootless_experimental_developmental_authority_map,
-    stream_sha256,
+    stream_sha256, LocalModelAuthorityMap,
 )
 from .local_runtime_provisioning import semantic_digest
 from .rootless_experimental_epistemic_session import (
@@ -45,7 +47,7 @@ ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS = 48_000
 
 class RootlessExperimentalOllamaEpistemicSession(
         RootlessExperimentalEpistemicSession):
-    """Four-call session bound to one digest-pinned, numeric-loopback Ollama tag."""
+    """Bounded rootless local-Ollama session for epistemic or developmental work."""
 
     def __init__(self, *, model_manifest_path: Path, model_name: str,
                  root: Path, session_binding: Mapping[str, Any],
@@ -163,6 +165,159 @@ class RootlessExperimentalOllamaEpistemicSession(
             runtime_root=self.runtime_root)
         self._correlations: set[str] = set()
         self._closed = False
+
+    @classmethod
+    def wrap_existing_developmental_invoker(
+            cls, *, invoker: Any, root: Path,
+            session_binding: Mapping[str, Any],
+            runtime_bundle: Mapping[str, Any],
+            workspace_root: Path,
+            preregistration: Mapping[str, Any],
+            allowed_purposes: tuple[str, ...] = (
+                "resident_developmental_retrieval_cognition",)
+            ) -> "RootlessExperimentalOllamaEpistemicSession":
+        """Bind an already-governed local companion invoker to a bounded experiment.
+
+        This adapter does not load or call a model. It preserves the supplied
+        invoker and receipt store while adding the rootless session linkage and
+        the same purpose, budget, and receipt checks as the standalone session.
+        """
+        self = cls.__new__(cls)
+        self.root = validate_experiment_root(root, workspace_root=workspace_root)
+        experiment_root = _no_symlink_path(
+            Path(workspace_root) / "sentientos-data" / "rootless-experimental")
+        try:
+            self.root.relative_to(experiment_root.resolve(strict=True))
+        except (ValueError, OSError) as exc:
+            raise RootlessExperimentalError(
+                "epistemic_session_root_outside_rootless_experiment") from exc
+        worker = getattr(invoker, "model", None)
+        identity = getattr(worker, "active_identity", None)
+        if not isinstance(identity, ActiveModelIdentity):
+            raise RootlessExperimentalError(
+                "ollama_experimental_existing_invoker_invalid")
+        identity_payload = identity.to_dict()
+        authority_value = getattr(invoker, "authority_map", None)
+        runtime_root = getattr(invoker, "runtime_root", None)
+        if (not isinstance(identity_payload, Mapping)
+                or identity_payload.get("engine") != "ollama"
+                or identity_payload.get("posture") != "development_only"
+                or identity_payload.get("fallback") is not False
+                or identity_payload.get("candidate_index") != 0
+                or not callable(getattr(authority_value, "record_for_active_identity", None))
+                or not isinstance(runtime_root, (str, Path))
+                or not isinstance(runtime_bundle, Mapping)
+                or not isinstance(session_binding, Mapping)
+                or not isinstance(preregistration, Mapping)):
+            raise RootlessExperimentalError(
+                "ollama_experimental_existing_invoker_invalid")
+        authority = cast(LocalModelAuthorityMap, authority_value)
+        allowed = tuple(allowed_purposes)
+        if (not allowed or len(set(allowed)) != len(allowed)
+                or any(purpose not in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES
+                    for purpose in allowed)
+                or any(authority.record_for_active_identity(identity, purpose) is None
+                    for purpose in allowed)):
+            raise RootlessExperimentalError(
+                "ollama_experimental_existing_invoker_authority_mismatch")
+        required = {"schema_version", "session_id", "run_id",
+            "preregistration_digest", "model_manifest_digest",
+            "runtime_bundle_digest", "active_model_identity_digest", "purpose",
+            "production_authority", "eligible_as_production_serving_evidence"}
+        digests = ("preregistration_digest", "model_manifest_digest",
+            "runtime_bundle_digest", "active_model_identity_digest")
+        runtime_digest = semantic_digest(dict(runtime_bundle))
+        if (set(session_binding) != required
+                or session_binding.get("schema_version")
+                    != "sentientos.rootless_experimental_cognition_session:v1"
+                or not isinstance(session_binding.get("session_id"), str)
+                or not session_binding["session_id"].startswith(
+                    "rootless-cognition-session-")
+                or not isinstance(session_binding.get("run_id"), str)
+                or not session_binding["run_id"].startswith(
+                    "rootless-cognition-cycle-")
+                or any(not isinstance(session_binding.get(key), str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", session_binding[key])
+                    for key in digests)
+                or session_binding.get("purpose")
+                    != ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE
+                or session_binding.get("production_authority") is not False
+                or session_binding.get("eligible_as_production_serving_evidence") is not False
+                or session_binding.get("model_manifest_digest")
+                    != identity_payload.get("model_content_sha256")
+                or session_binding.get("runtime_bundle_digest") != runtime_digest
+                or session_binding.get("active_model_identity_digest")
+                    != semantic_digest({"identity": dict(identity_payload)})
+                or session_binding.get("preregistration_digest")
+                    != semantic_digest(dict(preregistration))
+                or preregistration.get("session_id") != session_binding.get("session_id")
+                or preregistration.get("run_id") != session_binding.get("run_id")
+                or preregistration.get("model_identity_digest")
+                    != semantic_digest({"identity": dict(identity_payload)})
+                or preregistration.get("runtime_bundle_digest") != runtime_digest):
+            raise RootlessExperimentalError(
+                "epistemic_session_evidence_binding_mismatch")
+        self.experimental_profile = "developmental_cognition_cycle"
+        self.session_binding = dict(session_binding)
+        self.active_model_identity = dict(identity_payload)
+        self.authority_map = authority
+        self.worker = worker
+        self.invoker = invoker
+        self.runtime_root = Path(runtime_root).resolve()
+        try:
+            self.runtime_root.relative_to(self.root.resolve())
+        except ValueError as exc:
+            raise RootlessExperimentalError(
+                "developmental_session_receipt_root_outside_session") from exc
+        self.model_manifest = {
+            "manifest_digest": session_binding["model_manifest_digest"],
+            "artifact_sha256": session_binding["model_manifest_digest"],
+            "model_id": getattr(identity, "semantic_artifact_identity", "unknown"),
+            "schema_version": "sentientos.ollama_local_manifest_observation:v1"}
+        self.runtime_bundle = dict(runtime_bundle)
+        self.runtime_bundle_digest = runtime_digest
+        self._allowed_purposes = frozenset(allowed)
+        self._max_input_chars = ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS
+        self._max_output_chars = 4000
+        self._max_new_tokens = 512
+        self._max_timeout_seconds = 120
+        self._max_calls = ROOTLESS_DEVELOPMENTAL_MAX_CALLS
+        self._correlations = set()
+        self._closed = False
+        self._preregistration_bound = True
+        # The existing runner owns the invocation governor and lifecycle.
+        self._governance_context = cast(Any, nullcontext())
+        self._governance_context.__enter__()
+        return self
+
+    @property
+    def model(self) -> Any:
+        """Expose the current runner model through the bounded session."""
+        return self.invoker.model
+
+    @model.setter
+    def model(self, value: Any) -> None:
+        identity = getattr(value, "active_identity", None)
+        if (identity is None or identity.to_dict() != self.active_model_identity):
+            raise RootlessExperimentalError(
+                "ollama_experimental_session_model_switch_out_of_scope")
+        self.invoker.model = value
+        self.worker = value
+
+    def release_model_residency(self, **kwargs: Any) -> Any:
+        return self.invoker.release_model_residency(**kwargs)
+
+    def preload_model_residency(self, **kwargs: Any) -> Any:
+        return self.invoker.preload_model_residency(**kwargs)
+
+    def cancel_pending_generation(self) -> bool:
+        cancel = getattr(self.invoker, "cancel_pending_generation", None)
+        return cancel() is True if callable(cancel) else False
+
+    def register_evidence_sink(self, sink: Any) -> None:
+        register = getattr(self.invoker, "register_evidence_sink", None)
+        if callable(register):
+            register(sink)
 
     def build_request(self, **kwargs: Any) -> Any:
         purpose = kwargs.get("purpose")

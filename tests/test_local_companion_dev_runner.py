@@ -6,6 +6,7 @@ import queue
 
 from scripts.run_local_companion_dev import (
     _LatestRendererObservation,
+    _GamingResourcePressureGuard,
     _TemporaryCompanionEdge,
     _kill_windows_process_tree,
     _parse_edge_ready,
@@ -29,7 +30,7 @@ def test_gaming_resource_observation_releases_only_at_pressure_threshold():
 
     low = _apply_gaming_resource_observation(guard, 84.9,
         "2026-11-08T13:00:00+00:00", release)
-    assert low["admission_status"] == "admitted"
+    assert low["admission_status"] == "available"
     assert calls == []
 
     high = _apply_gaming_resource_observation(guard, 85.0,
@@ -136,7 +137,7 @@ def test_forward_lines_passes_renderer_reports_to_body_observation_cache(tmp_pat
 
     _TemporaryCompanionEdge._forward_lines(
         io.StringIO("RENDERER_REPORT " + json.dumps(payload) + "\n"),
-        lines, report_file, reports.append)
+        lines, report_file, renderer_observation_sink=reports.append)
 
     assert reports == [payload]
     assert report_file.read_text(encoding="utf-8").strip()
@@ -404,6 +405,7 @@ def test_supervised_screen_capture_uses_explicit_request_mode():
     worker = Path("scripts/local_companion_edge_dev_worker.py").read_text()
     runner = Path("scripts/run_local_companion_dev.py").read_text()
     assert "SCREEN_CAPTURE_READY policy=per-message" in worker
-    assert "screen_publisher.publish_once(capture_request_id=request_id)" in worker
+    assert "screen_publisher.publish_request" in worker
+    assert 'accepted=capture(request_payload["capture_request_id"],question=question)' in worker
     assert "SCREEN_PUMP_STARTED" not in worker
     assert "sentientos-dev-screen-observation-drain" not in runner

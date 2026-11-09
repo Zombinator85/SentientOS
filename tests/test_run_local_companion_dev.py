@@ -30,6 +30,96 @@ def test_screen_ocr_executable_path_is_converted_for_windows_edge():
             "/usr/bin/tesseract", convert_wsl_path=convert)
 
 
+def test_rootless_live_session_preregisters_private_scope_without_inference(
+        tmp_path, monkeypatch):
+    import json
+    import os
+
+    import scripts.run_local_companion_dev as runner
+    from sentientos.local_runtime_provisioning import semantic_digest
+
+    class VersionResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self, size):
+            assert size == 4096
+            return b'{"version":"test-ollama"}'
+
+    class Opener:
+        def open(self, request, timeout):
+            assert request.full_url == "http://127.0.0.1:11434/api/version"
+            assert request.method == "GET"
+            assert timeout == 5
+            return VersionResponse()
+
+    monkeypatch.setattr(runner.urllib.request, "build_opener",
+        lambda *handlers: Opener())
+    model_identity = {"model_content_sha256": "a" * 64,
+        "engine": "ollama", "posture": "development_only",
+        "fallback": False, "candidate_index": 0}
+    root, workspace, binding, runtime_bundle, preregistration = (
+        runner._prepare_rootless_live_developmental_session(
+            state=tmp_path / "private-state", model_identity=model_identity,
+            screen_process_names=("Godot_v4.7.2-stable_win64.exe",)))
+
+    record = json.loads((root / "session_binding.json").read_text())
+    assert record["preregistration"] == preregistration
+    assert record["session_binding"] == binding
+    assert record["preregistration_digest"] == semantic_digest(preregistration)
+    assert binding["runtime_bundle_digest"] == semantic_digest(runtime_bundle)
+    assert preregistration["observation_target_process_names"] == [
+        "Godot_v4.7.2-stable_win64.exe"]
+    assert preregistration["action_scope"] == (
+        "existing avatar reply animation only; no host actuation or gameplay input")
+    assert preregistration["production_authority"] is False
+    assert preregistration["eligible_as_production_serving_evidence"] is False
+    if os.name == "posix":
+        assert root.stat().st_mode & 0o777 == 0o700
+        assert (root / "session_binding.json").stat().st_mode & 0o777 == 0o600
+
+
+def test_rootless_session_requires_explicit_resident_and_screen_opt_in(
+        tmp_path, monkeypatch):
+    import sys
+
+    import scripts.run_local_companion_dev as runner
+
+    monkeypatch.setattr(sys, "argv", ["run_local_companion_dev",
+        "--state-dir", str(tmp_path), "--rootless-developmental-session"])
+    with pytest.raises(SystemExit) as error:
+        runner.main()
+
+    assert error.value.code == 2
+
+
+def test_rootless_live_session_rejects_symlinked_data_root_before_chmod(
+        tmp_path):
+    import scripts.run_local_companion_dev as runner
+
+    state = tmp_path / "private-state"
+    workspace = state / "rootless-workspace"
+    workspace.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir(mode=0o755)
+    data_root = workspace / "sentientos-data"
+    try:
+        data_root.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlinks unavailable")
+    before = outside.stat().st_mode & 0o777
+
+    with pytest.raises(ValueError, match="rootless_session_data_root_symlinked"):
+        runner._prepare_rootless_live_developmental_session(
+            state=state, model_identity={"model_content_sha256": "a" * 64},
+            screen_process_names=("Godot_v4.7.2-stable_win64.exe",))
+
+    assert outside.stat().st_mode & 0o777 == before
+
+
 def test_host_resource_log_exposes_timestamped_cpu_ram_gpu_and_vram():
     from scripts.run_local_companion_dev import _host_resource_log_payload
 
