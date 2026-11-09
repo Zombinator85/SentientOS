@@ -688,3 +688,20 @@ def test_prepared_avatar_consequence_persists_bound_indeterminate_chain(tmp_path
     assert chain["expectation"]["requested"]["assistant_text_digest"] == (
         metadata["output_digest"])
     assert store.world_state_records(consequence_chain_ids=(chain_id,))
+
+
+def test_godot_command_routes_to_selected_service_and_observation_mode():
+    import sys
+
+    sys.path.insert(0, "scripts")
+    from local_companion_edge_dev_worker import _godot_command
+
+    assert _godot_command("godot.exe", "project", headless=False,
+            companion_api_port=5103, opaque_observation_window=True) == [
+        "godot.exe", "--path", "project", "--",
+        "--sentientos-api-port=5103",
+        "--sentientos-opaque-observation-window",
+    ]
+    with pytest.raises(ValueError, match="companion_api_port_out_of_range"):
+        _godot_command("godot.exe", "project", headless=False,
+            companion_api_port=0)
