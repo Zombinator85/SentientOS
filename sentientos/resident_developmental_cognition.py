@@ -5585,8 +5585,10 @@ class ResidentDevelopmentalCognitionOwner:
             "current_projection_digest":current.projection_digest, "current_fact_ids":current.fact_ids,
             "retrieved_record_ids": record_ids,
             "retrieved_record_digests": record_digests,
-            "companion_history_citation_ids": (tuple(interaction_capture["history_record_ids"])
-                if interaction_capture is not None else ()),
+            "companion_history_citation_ids": (
+                tuple(interaction_capture["history_record_ids"])
+                if (interaction_capture is not None
+                    and condition_id == "companion-interaction") else ()),
             "developmental_projection_present": with_history,
             "self_model_projection_present": prior_self_model is not None,
             "self_model_projection_id": prior_self_model.projection_id if prior_self_model else None,
@@ -5651,8 +5653,10 @@ class ResidentDevelopmentalCognitionOwner:
             serving_session_receipt_digest=serving_session_receipt_digest,
             observed_at=receipt.observed_at,
             **_resource_linkage_fields(receipt),
-            companion_history_citation_ids=(tuple(interaction_capture["history_record_ids"])
-                if interaction_capture is not None else ()),
+            companion_history_citation_ids=(
+                tuple(interaction_capture["history_record_ids"])
+                if (interaction_capture is not None
+                    and condition_id == "companion-interaction") else ()),
             **epistemic_metadata,
         )
         if observation.schema_version == COGNITION_OBSERVATION_SCHEMA_V8:

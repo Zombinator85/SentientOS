@@ -945,8 +945,80 @@ def run() -> dict[str, Any]:
                     "restoration_stable_association_qualified")))
         semantic_history_changed = semantic_history_decision_qualification[
             "history_changed_cognition"]
+        # Keep a direct new-action decision probe distinct from historical
+        # recall. It uses the same existing resident history-intervention owner,
+        # the same current World-State snapshot, and a fresh experiment tick.
+        # The synthetic record says only that a prior predicted reach was
+        # followed by an observer-reported idle pose; it is not independent
+        # physical-effect evidence.
+        transfer_question = (
+            "Controlled new-decision transfer probe. This is a new synthetic task, "
+            "not a request to recall or quote the past. Choose one next action for "
+            "the current target: INSPECT or REACH. Read the current World-State and "
+            "eligible developmental history. If a history record for a prior reach "
+            "contains predicted pose reach and observer-reported pose idle, propose "
+            "INSPECT before another reach. If no such history record is available, "
+            "propose REACH based on the current target. Treat the old observer value "
+            "as an uncertain historical report, never as current truth. Return the "
+            "standard JSON response with disposition answer, evidence_ids [], "
+            "history_record_ids containing the exact cited record ID when history "
+            "supports INSPECT (otherwise []), and response exactly INSPECT or REACH. "
+            "This is a proposal only: do not claim that an action was authorized or "
+            "executed.")
+        transfer_intervention = (
+            intervention_owner.run_companion_history_intervention(
+                snapshot=later_pre_action_snapshot,
+                tick_id=RUN_ID + ":later-transfer-decision",
+                question=transfer_question))
+        if (transfer_intervention.status != "completed_controlled_intervention"
+                or not transfer_intervention.changed_cognition_measurement_id):
+            raise RootlessExperimentalError(
+                "history_transfer_intervention_measurement_missing")
+        transfer_conditions = list(transfer_intervention.conditions)
+        transfer_present, transfer_withheld, transfer_restored = (
+            transfer_conditions if len(transfer_conditions) == 3
+            else ({}, {}, {}))
+        transfer_controls_match = (
+            len(transfer_conditions) == 3
+            and transfer_present.get("current_fact_ids")
+                == transfer_withheld.get("current_fact_ids")
+                == transfer_restored.get("current_fact_ids")
+            and transfer_present.get("snapshot_digest")
+                == transfer_withheld.get("snapshot_digest")
+                == transfer_restored.get("snapshot_digest")
+            and transfer_present.get("generation_config")
+                == transfer_withheld.get("generation_config")
+                == transfer_restored.get("generation_config")
+            and transfer_present.get("active_model_identity")
+                == transfer_withheld.get("active_model_identity")
+                == transfer_restored.get("active_model_identity"))
+
+        def _transfer_decision_is(item: Mapping[str, Any], value: str) -> bool:
+            return (item.get("inference_status") == "admitted_completed"
+                and item.get("disposition") == "answer"
+                and item.get("response") == value)
+
+        transfer_history_cited = (
+            _history_citation_bound(transfer_present)
+            and _history_citation_bound(transfer_restored)
+            and not transfer_withheld.get("history_record_ids"))
+        transfer_restoration_stable = (
+            transfer_present.get("response_digest")
+                == transfer_restored.get("response_digest")
+            and transfer_present.get("output_digest")
+                == transfer_restored.get("output_digest"))
+        transfer_history_changed_new_decision = (
+            transfer_controls_match and transfer_history_cited
+            and transfer_restoration_stable
+            and _transfer_decision_is(transfer_present, "INSPECT")
+            and _transfer_decision_is(transfer_withheld, "REACH")
+            and _transfer_decision_is(transfer_restored, "INSPECT"))
+        transfer_classification = (
+            "history_associated_new_action_proposal_difference_restored"
+            if transfer_history_changed_new_decision else
+            "no_validated_new_action_transfer_difference")
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v5",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v6",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
@@ -1021,11 +1093,15 @@ def run() -> dict[str, Any]:
                 "history_change_classification":
                     semantic_history_decision_qualification["classification"],
                 "history_change_measurement": semantic_history_decision_qualification,
+                "history_changed_new_action_decision":
+                    transfer_history_changed_new_decision,
+                "new_action_decision_classification": transfer_classification,
                 "performance_improvement_established": False,
                 "real_operator_observation_demonstrated": False,
                 "real_action_consequence_demonstrated": False,
             },
             "later_companion_decision_intervention": {
+                "measurement_scope": "direct_historical_retrieval_not_new_action_transfer",
                 "status": companion_intervention.status,
                 "question_digest": companion_intervention.question_digest,
                 "changed_cognition_measurement_id":
@@ -1060,6 +1136,44 @@ def run() -> dict[str, Any]:
                 "action_authority": companion_intervention.action_authority,
                 "canonical_explicit_user_retention_mutated":
                     companion_intervention.canonical_explicit_user_retention_mutated,
+                "causal_or_learning_claim_made": False},
+            "history_transfer_intervention": {
+                "measurement_scope": "new_action_proposal_not_execution",
+                "status": transfer_intervention.status,
+                "question_digest": transfer_intervention.question_digest,
+                "changed_cognition_measurement_id":
+                    transfer_intervention.changed_cognition_measurement_id,
+                "response_text_classification":
+                    transfer_intervention.response_text_classification,
+                "history_changed_new_action_decision":
+                    transfer_history_changed_new_decision,
+                "classification": transfer_classification,
+                "controlled_inputs_match": transfer_controls_match,
+                "restored_prompt_matches":
+                    transfer_intervention.restored_prompt_matches,
+                "present_restored_output_digest_matches":
+                    transfer_restoration_stable,
+                "history_citation_bound": transfer_history_cited,
+                "conditions": [{
+                    "condition_id": item.get("condition_id"),
+                    "response": item.get("response"),
+                    "disposition": item.get("disposition"),
+                    "response_digest": item.get("response_digest"),
+                    "output_digest": item.get("output_digest"),
+                    "snapshot_digest": item.get("snapshot_digest"),
+                    "current_fact_ids": item.get("current_fact_ids"),
+                    "retrieved_record_ids": item.get("retrieved_record_ids"),
+                    "history_record_ids": list(item.get("history_record_ids", ())),
+                    "active_model_identity": item.get("active_model_identity"),
+                    "generation_config": item.get("generation_config"),
+                    "inference_status": item.get("inference_status"),
+                    "cognition_receipt_output_binding_verified":
+                        item.get("cognition_receipt_output_binding_verified"),
+                } for item in transfer_conditions],
+                "authority": transfer_intervention.authority,
+                "action_authority": transfer_intervention.action_authority,
+                "action_executed": False,
+                "performance_improvement_established": False,
                 "causal_or_learning_claim_made": False},
             "historical_companion_recall": {
                 "status": history_recall.get("status"),

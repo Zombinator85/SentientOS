@@ -5777,6 +5777,27 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         item["retrieved_record_ids"] for item in result.conditions]
     assert result.action_authority is False
     assert result.canonical_explicit_user_retention_mutated is False
+    intervention_observations = [
+        json.loads(path.read_text(encoding="utf-8"))
+        for path in compared_owner.observations_root.glob("*.json")
+        if json.loads(path.read_text(encoding="utf-8")).get("condition_id")
+            in {"history_present", "history_withheld", "history_restored"}]
+    assert len(intervention_observations) == 3
+    assert all(item["companion_history_citation_ids"] == []
+        for item in intervention_observations)
+    assert all("history_record_ids" not in item
+        for item in intervention_observations)
+    assert [bool(item["retrieved_record_ids"]) for item in intervention_observations
+        if item["condition_id"] != "history_withheld"] == [True, True]
+
+    # A later cycle reconstructs all prior observations from disk. Experimental
+    # history citations belong to history_record_ids; they must not be mistaken
+    # for the separate delivered-companion citation field.
+    subsequent = compared_owner.run_companion_history_intervention(
+        snapshot=source, tick_id="companion-decision-after-recovery",
+        question=("Choose the next pose and predict its encoder pose. Return "
+            "JSON with requested_pose and predicted_pose."))
+    assert subsequent.status == "completed_controlled_intervention"
 
 
 def test_companion_bridge_runs_existing_matched_history_intervention_on_fresh_screen(

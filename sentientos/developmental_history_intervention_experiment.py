@@ -630,8 +630,9 @@ class DevelopmentalExperimentStore:
                         or len(set(decision["history_record_ids"])) != len(decision["history_record_ids"])
                         or not set(decision["history_record_ids"]).issubset(
                             matched_observation.retrieved_record_ids)
-                        or tuple(decision["history_record_ids"])
-                            != tuple(matched_observation.companion_history_citation_ids)):
+                        or (condition_id == "companion-interaction"
+                            and tuple(decision["history_record_ids"])
+                                != tuple(matched_observation.companion_history_citation_ids))):
                     raise DevelopmentalHistoryInterventionError(
                         "run_artifact_companion_decisions_invalid")
                 normalization = decision.get("disposition_normalization")
