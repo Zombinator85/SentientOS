@@ -75,7 +75,7 @@ def test_guard_does_not_enter_model_backend_without_headroom(runner, monkeypatch
     monkeypatch.setattr(runner, "_refresh_resource_evidence",
         lambda *args, **kwargs: {"gpu_utilization_percent": 0})
     monkeypatch.setattr(runner, "_gpu_snapshot",
-        lambda: {"memory_free_mib": 10000})
+        lambda: {"memory_free_mib": 10000, "gpu_utilization_percent": 0})
     with pytest.raises(runner.RootlessExperimentalError,
             match="gpu_memory_headroom_insufficient"):
         guarded.invoke(object())
@@ -101,7 +101,9 @@ def test_guard_does_not_enter_model_backend_when_host_evidence_is_missing(
         delegate, coordinator, 9 * 1024**3, evidence)
     monkeypatch.setattr(runner, "_gpu_snapshot",
         lambda: {"memory_free_mib": 12000, "memory_total_mib": 12288,
-            "source": "nvidia-smi", "scope": "host_sample_not_per_invocation"})
+            "gpu_utilization_percent": 0, "sampled_at": "2026-11-09T00:00:00+00:00",
+            "source": "nvidia-smi",
+            "scope": "host_wide_invocation_boundary_sample_not_process_attributed"})
     def unavailable(*args, **kwargs):
         raise runner.RootlessExperimentalError("host_resource_evidence_unavailable")
     monkeypatch.setattr(runner, "_refresh_resource_evidence", unavailable)
@@ -116,10 +118,13 @@ def test_guard_does_not_enter_model_backend_when_host_evidence_is_missing(
 def test_gpu_snapshot_accepts_normal_wsl_reserved_memory_gap(runner, monkeypatch):
     monkeypatch.setattr(runner.shutil, "which", lambda _: "nvidia-smi")
     monkeypatch.setattr(runner.subprocess, "run", lambda *args, **kwargs:
-        SimpleNamespace(stdout="NVIDIA GeForce RTX 3060, 12288, 8783, 3331\n"))
+        SimpleNamespace(stdout="NVIDIA GeForce RTX 3060, 12288, 8783, 3331, 0\n"))
     snapshot = runner._gpu_snapshot()
     assert snapshot is not None
     assert snapshot["memory_free_mib"] == 3331
+    assert snapshot["gpu_utilization_percent"] == 0
+    assert snapshot["sampled_at"]
+    assert "not_process_attributed" in snapshot["scope"]
 
 
 def test_guard_calls_backend_only_after_both_preflights(runner, monkeypatch):
@@ -139,16 +144,95 @@ def test_guard_calls_backend_only_after_both_preflights(runner, monkeypatch):
             "gpu_utilization_percent": 0})
     monkeypatch.setattr(runner, "_gpu_snapshot",
         lambda: {"memory_free_mib": 12000, "memory_total_mib": 12288,
-            "source": "nvidia-smi", "scope": "host_sample_not_per_invocation"})
+            "gpu_utilization_percent": 0, "sampled_at": "2026-11-09T00:00:00+00:00",
+            "source": "nvidia-smi",
+            "scope": "host_wide_invocation_boundary_sample_not_process_attributed"})
     assert guarded.invoke(object()) == "inference"
     assert delegate.called is True
-    assert evidence == [{"inference_sequence": 1, "gate_status": "passed",
-        "evaluation_id": "fresh", "gpu_utilization_percent": 0,
-        "gpu_memory_free_mib": 12000, "gpu_memory_total_mib": 12288,
-        "gpu_memory_sample_source": "nvidia-smi",
-        "gpu_memory_sample_scope": "host_sample_not_per_invocation",
-        "preinference_gpu_utilization_limit_percent":
-            runner._MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT}]
+    assert len(evidence) == 1
+    record = evidence[0]
+    assert record["inference_sequence"] == 1
+    assert record["gate_status"] == "passed"
+    assert record["evaluation_id"] == "fresh"
+    assert record["gpu_utilization_percent"] == 0
+    assert record["nvidia_smi_gpu_utilization_percent"] == 0
+    assert record["gpu_memory_free_mib"] == 12000
+    assert record["gpu_memory_total_mib"] == 12288
+    assert record["preinference_gpu_utilization_limit_percent"] == (
+        runner._MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT)
+    assert record["invocation_started_at"]
+    assert record["invocation_finished_at"]
+    assert record["post_inference_gpu_sample"]["gpu_utilization_percent"] == 0
+
+
+def test_guard_blocks_when_direct_gpu_sample_is_busy_even_if_coordinator_is_quiet(
+        runner, monkeypatch):
+    class Delegate:
+        called = False
+
+        def invoke(self, request, **kwargs):
+            self.called = True
+            return "inference"
+
+    delegate = Delegate()
+    evidence: list[dict[str, Any]] = []
+    guarded = runner._ResourceGuardedInvoker(
+        delegate, SimpleNamespace(), 9 * 1024**3, evidence)
+    monkeypatch.setattr(runner, "_refresh_resource_evidence",
+        lambda *args, **kwargs: {"evaluation_id": "fresh",
+            "gpu_utilization_percent": 0})
+    monkeypatch.setattr(runner, "_gpu_snapshot",
+        lambda: {"memory_free_mib": 12000, "memory_total_mib": 12288,
+            "gpu_utilization_percent": 80,
+            "sampled_at": "2026-11-09T00:00:00+00:00",
+            "source": "nvidia-smi",
+            "scope": "host_wide_invocation_boundary_sample_not_process_attributed"})
+
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="gpu_utilization_preflight_busy"):
+        guarded.invoke(object())
+
+    assert delegate.called is False
+    assert evidence[0]["nvidia_smi_gpu_utilization_percent"] == 80
+    assert evidence[0]["gpu_sampled_at"] == "2026-11-09T00:00:00+00:00"
+    assert evidence[0]["gate_reason"] == "gpu_utilization_preflight_busy"
+
+
+def test_guard_preserves_post_inference_resource_sample_when_backend_fails(
+        runner, monkeypatch):
+    class Delegate:
+        def invoke(self, request, **kwargs):
+            raise RuntimeError("backend_failed")
+
+    evidence: list[dict[str, Any]] = []
+    guarded = runner._ResourceGuardedInvoker(
+        Delegate(), SimpleNamespace(), 9 * 1024**3, evidence)
+    monkeypatch.setattr(runner, "_refresh_resource_evidence",
+        lambda *args, **kwargs: {"evaluation_id": "fresh",
+            "gpu_utilization_percent": 0})
+    samples = iter((
+        {"memory_free_mib": 12000, "memory_total_mib": 12288,
+            "gpu_utilization_percent": 0,
+            "sampled_at": "2026-11-09T00:00:00+00:00",
+            "source": "nvidia-smi", "scope": "host_wide_invocation_boundary_sample_not_process_attributed"},
+        {"memory_free_mib": 6000, "memory_total_mib": 12288,
+            "gpu_utilization_percent": 82,
+            "sampled_at": "2026-11-09T00:00:02+00:00",
+            "source": "nvidia-smi", "scope": "host_wide_invocation_boundary_sample_not_process_attributed"},
+    ))
+    monkeypatch.setattr(runner, "_gpu_snapshot", lambda: next(samples))
+
+    with pytest.raises(RuntimeError, match="backend_failed"):
+        guarded.invoke(object())
+
+    record = evidence[0]
+    assert record["gate_status"] == "passed"
+    assert record["invocation_started_at"]
+    assert record["invocation_finished_at"]
+    assert record["post_inference_gpu_sample"]["gpu_utilization_percent"] == 82
+    assert record["post_inference_gpu_sample"]["memory_free_mib"] == 6000
+    assert record["post_inference_gpu_sample"]["sampled_at"] == (
+        "2026-11-09T00:00:02+00:00")
 
 
 def test_resource_governor_enforcement_is_scoped_and_restored(
@@ -198,6 +282,11 @@ def test_guard_blocks_inference_without_quiet_gpu_preflight(
     evidence: list[dict[str, Any]] = []
     guarded = runner._ResourceGuardedInvoker(
         delegate, SimpleNamespace(), 9 * 1024**3, evidence)
+    sampled_utilization = (resource_record.get("gpu_utilization_percent")
+        if type(resource_record.get("gpu_utilization_percent")) is int else 0)
+    monkeypatch.setattr(runner, "_gpu_snapshot",
+        lambda: {"memory_free_mib": 12000, "memory_total_mib": 12288,
+            "gpu_utilization_percent": sampled_utilization})
     monkeypatch.setattr(runner, "_refresh_resource_evidence",
         lambda *args, **kwargs: resource_record)
     with pytest.raises(runner.RootlessExperimentalError, match=reason):

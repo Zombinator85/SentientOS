@@ -106,22 +106,26 @@ def _gpu_snapshot() -> dict[str, Any] | None:
         return None
     try:
         result = subprocess.run([executable,
-            "--query-gpu=name,memory.total,memory.used,memory.free",
+            "--query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu",
             "--format=csv,noheader,nounits"], capture_output=True, text=True,
             timeout=5, check=True)
         rows = [line.strip().split(",") for line in result.stdout.splitlines()
             if line.strip()]
-        if len(rows) != 1 or len(rows[0]) != 4:
+        if len(rows) != 1 or len(rows[0]) != 5:
             return None
-        name, total, used, free = (item.strip() for item in rows[0])
+        name, total, used, free, utilization = (item.strip() for item in rows[0])
         total_mib, used_mib, free_mib = int(total), int(used), int(free)
+        utilization_percent = int(utilization)
         if (not name or min(total_mib, used_mib, free_mib) < 0
                 or total_mib <= 0 or used_mib > total_mib or free_mib > total_mib
+                or not 0 <= utilization_percent <= 100
                 or abs(total_mib - used_mib - free_mib) > 512):
             return None
         return {"name": name[:128], "memory_total_mib": total_mib,
             "memory_used_mib": used_mib, "memory_free_mib": free_mib,
-            "source": "nvidia-smi", "scope": "host_sample_not_per_invocation"}
+            "gpu_utilization_percent": utilization_percent,
+            "sampled_at": _now(), "source": "nvidia-smi",
+            "scope": "host_wide_invocation_boundary_sample_not_process_attributed"}
     except Exception:
         return None
 
@@ -245,11 +249,28 @@ class _ResourceGuardedInvoker:
             resource_record["gpu_memory_sample_source"] = gpu_snapshot.get("source")
             resource_record["gpu_memory_sample_scope"] = gpu_snapshot.get("scope")
         gpu_utilization = resource_record.get("gpu_utilization_percent")
+        sampled_gpu_utilization = (gpu_snapshot.get("gpu_utilization_percent")
+            if isinstance(gpu_snapshot, Mapping) else None)
+        resource_record["nvidia_smi_gpu_utilization_percent"] = (
+            sampled_gpu_utilization)
+        resource_record["gpu_sampled_at"] = (
+            gpu_snapshot.get("sampled_at")
+            if isinstance(gpu_snapshot, Mapping) else None)
+        resource_record["gpu_utilization_sample_source"] = (
+            gpu_snapshot.get("source")
+            if isinstance(gpu_snapshot, Mapping) else None)
+        resource_record["gpu_utilization_sample_scope"] = (
+            gpu_snapshot.get("scope")
+            if isinstance(gpu_snapshot, Mapping) else None)
         if (not isinstance(gpu_utilization, (int, float))
                 or isinstance(gpu_utilization, bool)
                 or not 0 <= gpu_utilization <= 100):
             blocked("gpu_utilization_telemetry_unavailable")
-        if gpu_utilization > _MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT:
+        if (type(sampled_gpu_utilization) is not int
+                or not 0 <= sampled_gpu_utilization <= 100):
+            blocked("gpu_utilization_telemetry_unavailable")
+        if max(float(gpu_utilization), sampled_gpu_utilization) > (
+                _MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT):
             blocked("gpu_utilization_preflight_busy")
 
         try:
@@ -261,8 +282,15 @@ class _ResourceGuardedInvoker:
         resource_record["preinference_gpu_utilization_limit_percent"] = (
             _MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT)
         resource_record["gate_status"] = "passed"
+        evidence_index = len(self._evidence_records)
         self._evidence_records.append(dict(resource_record))
-        return self._delegate.invoke(request, **kwargs)
+        resource_record["invocation_started_at"] = _now()
+        try:
+            return self._delegate.invoke(request, **kwargs)
+        finally:
+            resource_record["invocation_finished_at"] = _now()
+            resource_record["post_inference_gpu_sample"] = _gpu_snapshot()
+            self._evidence_records[evidence_index] = dict(resource_record)
 
 
 def _model_residency_observed(model_name: str) -> bool | None:
