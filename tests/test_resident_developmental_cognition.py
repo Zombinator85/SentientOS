@@ -9563,7 +9563,7 @@ def test_companion_cycle_persists_epistemic_state_for_later_cognition(
 
     write_bridge = ResidentDevelopmentalCompanionBridge(
         cognition, epistemic_state_owner=epistemic_owner,
-        epistemic_state_config={"cognitive_consumption_enabled": False,
+        epistemic_state_config={"cognitive_consumption_enabled": True,
             "max_cognitive_projection_count": 1},
         epistemic_development_runtime=epistemic_runtime,
         clock=lambda: clock_value[0])
