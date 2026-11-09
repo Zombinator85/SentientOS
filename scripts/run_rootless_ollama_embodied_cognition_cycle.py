@@ -39,6 +39,7 @@ from sentientos.codex_task_authority_admission import (
 )
 from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
 from sentientos.developmental_history_intervention_experiment import (
+    qualify_history_transfer_decision,
     qualify_restoration_stable_history_association,
     qualify_semantic_history_decision)
 from sentientos.world_state_board import WorldStateSnapshot
@@ -993,30 +994,17 @@ def run() -> dict[str, Any]:
                 == transfer_withheld.get("active_model_identity")
                 == transfer_restored.get("active_model_identity"))
 
-        def _transfer_decision_is(item: Mapping[str, Any], value: str) -> bool:
-            return (item.get("inference_status") == "admitted_completed"
-                and item.get("disposition") == "answer"
-                and item.get("response") == value)
-
-        transfer_history_cited = (
-            _history_citation_bound(transfer_present)
-            and _history_citation_bound(transfer_restored)
-            and not transfer_withheld.get("history_record_ids"))
-        transfer_restoration_stable = (
-            transfer_present.get("response_digest")
-                == transfer_restored.get("response_digest")
-            and transfer_present.get("output_digest")
-                == transfer_restored.get("output_digest"))
-        transfer_history_changed_new_decision = (
-            transfer_controls_match and transfer_history_cited
-            and transfer_restoration_stable
-            and _transfer_decision_is(transfer_present, "INSPECT")
-            and _transfer_decision_is(transfer_withheld, "REACH")
-            and _transfer_decision_is(transfer_restored, "INSPECT"))
-        transfer_classification = (
-            "history_associated_new_action_proposal_difference_restored"
-            if transfer_history_changed_new_decision else
-            "no_validated_new_action_transfer_difference")
+        transfer_qualification = qualify_history_transfer_decision(
+            conditions=transfer_conditions,
+            expected_history_record_id=first.written_record_id,
+            present_response="INSPECT", withheld_response="REACH",
+            restored_response="INSPECT",
+            restored_prompt_matches=transfer_intervention.restored_prompt_matches)
+        transfer_history_cited = transfer_qualification["expected_history_cited"]
+        transfer_restoration_stable = transfer_qualification["restoration_stable"]
+        transfer_history_changed_new_decision = transfer_qualification[
+            "history_changed_new_decision"]
+        transfer_classification = transfer_qualification["classification"]
         result = {
             "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v6",
             "run_id": RUN_ID, "status": "completed",
@@ -1138,6 +1126,7 @@ def run() -> dict[str, Any]:
                     companion_intervention.canonical_explicit_user_retention_mutated,
                 "causal_or_learning_claim_made": False},
             "history_transfer_intervention": {
+                **transfer_qualification,
                 "measurement_scope": "new_action_proposal_not_execution",
                 "status": transfer_intervention.status,
                 "question_digest": transfer_intervention.question_digest,
