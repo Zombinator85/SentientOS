@@ -629,8 +629,8 @@ def test_chat_speech_output_is_published_only_through_configured_controller(tmp_
             assert 'displayedDigest === deliveryDigest' in page.text
             assert "API-delivered transcript text differs" in page.text
             assert "event.failure_code" in page.text
-            assert "return focus to the approved game within the configured foreground wait" in page.text
-            assert "The approved game must already be foreground when you send." in page.text
+            assert "return focus to the approved application within the configured foreground wait" in page.text
+            assert "The approved application must already be foreground when you send." in page.text
             assert "Uncheck the screen option for text only" in page.text
             assert "String.fromCharCode(13)" in page.text
             assert "new URLSearchParams(window.location.search)" in page.text
