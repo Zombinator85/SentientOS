@@ -87,6 +87,27 @@ def test_avatar_command_requires_and_preserves_admission_binding():
     assert accepted.admission == admission
 
 
+def test_avatar_command_requires_complete_valid_consequence_lineage():
+    admission = {"receipt_id": "avatar-admission-7", "semantic_digest": "b" * 64}
+    lineage = {
+        "consequence_expectation_id": "expectation:lineage-1",
+        "consequence_expectation_digest": "sha256:" + "1" * 64,
+        "consequence_handoff_id": "handoff:lineage-1",
+        "consequence_handoff_digest": "sha256:" + "2" * 64,
+        "consequence_correlation_id": "correlation:lineage-1",
+    }
+    payload = {"output_mode": "chat_response_visual_only", "phrase": "hello",
+        "motion": "nod", **lineage}
+    accepted = receiver().accept(message(kind="avatar_command", payload=payload,
+        admission=admission))
+    assert {field: accepted.payload[field] for field in lineage} == lineage
+
+    with pytest.raises(CompanionBridgeError,
+            match="avatar_command_consequence_lineage_incomplete"):
+        message(kind="avatar_command", payload={key: value for key, value in payload.items()
+            if key != "consequence_handoff_digest"}, admission=admission)
+
+
 def test_avatar_command_without_admission_is_rejected_before_transport():
     with pytest.raises(CompanionBridgeError, match="avatar_command_admission_required"):
         message(kind="avatar_command", payload={"output_mode": "chat_response_visual_only"})

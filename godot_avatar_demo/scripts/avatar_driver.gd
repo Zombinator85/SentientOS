@@ -246,6 +246,17 @@ func _record_renderer_report(state: Dictionary, workload_mode: String, expressio
 		"effect_proven": false,
 		"independent_observation": false,
 	}
+	var lineage_fields := ["consequence_expectation_id", "consequence_expectation_digest",
+		"consequence_handoff_id", "consequence_handoff_digest", "consequence_correlation_id"]
+	var complete_lineage := true
+	for field in lineage_fields:
+		var value: Variant = command_metadata.get(field)
+		if not value is String or value.is_empty():
+			complete_lineage = false
+			break
+	if complete_lineage:
+		for field in lineage_fields:
+			report[field] = command_metadata[field]
 	var candidate_adapter: Node = _resolve_node(candidate_body_adapter_path)
 	if candidate_adapter and candidate_adapter.has_method("is_adopted_body_active") \
 			and candidate_adapter.is_adopted_body_active():

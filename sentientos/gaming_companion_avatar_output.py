@@ -335,6 +335,12 @@ class BridgeChatAvatarOutputEmitter:
         }
         if turn_id:
             payload["turn_id"] = turn_id
+        for field in ("consequence_expectation_id", "consequence_expectation_digest",
+                      "consequence_handoff_id", "consequence_handoff_digest",
+                      "consequence_correlation_id"):
+            value = metadata.get(field)
+            if value is not None:
+                payload[field] = value
         workload_mode = metadata.get("workload_mode")
         if workload_mode in {"normal", "gaming"}:
             payload["workload_mode"] = workload_mode
@@ -450,6 +456,18 @@ class WindowsGodotAvatarStateQueue:
         }
         if turn_id:
             metadata["turn_id"] = turn_id
+        lineage_fields = ("consequence_expectation_id", "consequence_expectation_digest",
+            "consequence_handoff_id", "consequence_handoff_digest",
+            "consequence_correlation_id")
+        present_lineage = [payload.get(field) for field in lineage_fields]
+        if any(value is not None for value in present_lineage):
+            if (any(not isinstance(value, str) or not value for value in present_lineage)
+                    or len(str(payload["consequence_expectation_digest"])) != 71
+                    or not str(payload["consequence_expectation_digest"]).startswith("sha256:")
+                    or len(str(payload["consequence_handoff_digest"])) != 71
+                    or not str(payload["consequence_handoff_digest"]).startswith("sha256:")):
+                return False
+            metadata.update({field: payload[field] for field in lineage_fields})
         workload = payload.get("workload_mode")
         if workload in {"normal", "gaming"}:
             metadata["workload_mode"] = workload

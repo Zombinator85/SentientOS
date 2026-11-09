@@ -7,7 +7,8 @@ runtime. It grants no action authority and does not claim causal attribution.
 from __future__ import annotations
 
 import threading
-from typing import Any, Callable, Mapping, Protocol, cast
+import time
+from typing import Any, Callable, Mapping, Protocol
 from uuid import uuid4
 
 from .gaming_companion_bridge import (
@@ -210,11 +211,13 @@ class RemoteAvatarConsequenceObserver:
         # callers cannot consume each other’s expectation-bound measurements.
         with self._lock:
             capture_request_id = uuid4().hex
+            request_started = time.monotonic()
             self._sender(expectation=expectation, handoff=handoff, report=report,
                          capture_request_id=capture_request_id)
             return self._observer.observe(
                 expectation=expectation, handoff=handoff, report=report,
-                capture_request_id=capture_request_id)
+                capture_request_id=capture_request_id,
+                request_started_monotonic=request_started)
 
     def consume_authentication_receipt(
             self, observation: IndependentConsequenceObservation
@@ -226,5 +229,4 @@ class RemoteAvatarConsequenceObserver:
         callers from reaching into its transport owner or losing capture
         provenance between observation and evaluation.
         """
-        return cast(dict[str, Any] | None,
-            self._observer.consume_authentication_receipt(observation))
+        return self._observer.consume_authentication_receipt(observation)

@@ -5,7 +5,8 @@ import hashlib
 import subprocess
 import sys
 from dataclasses import asdict, replace
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+import time
 from pathlib import Path
 
 import pytest
@@ -98,7 +99,9 @@ def numeric_chain(*, expected=1, observed=1, comparison_kind="numeric_tolerance"
     return handoff,expectation,report,observation
 
 
-def authenticated_observer_chain(*, wrong_handoff=False, observed_at=T2):
+def authenticated_observer_chain(*, wrong_handoff=False, observed_at=T2,
+        capture_request_id=None, wrong_capture_request=False, message_created_at=T2,
+        request_age_seconds=0.01):
     handoff=renderer_handoff(pointer(),renderer_interface_id="renderer:test:v1",
         requested_pose="wave",requested_expression="neutral",correlation_id="authenticated-corr",
         commanded_at=T0)
@@ -111,28 +114,41 @@ def authenticated_observer_chain(*, wrong_handoff=False, observed_at=T2):
         correlation_id="authenticated-corr",causal_principal_binding_digest=None,
         created_at=T0,expires_at=TX)
     report=SyntheticRenderer(applied={"pose":"wave"},started_at=T0,completed_at=T1).render_test(handoff)
-    payload={"schema_version":"sentientos.bridge_consequence_observation:v1",
+    payload={"schema_version":("sentientos.bridge_consequence_observation:v2"
+            if capture_request_id is not None else "sentientos.bridge_consequence_observation:v1"),
         "expectation_id":expectation.expectation_id,"expectation_digest":expectation.expectation_digest,
         "handoff_id":"handoff:bad" if wrong_handoff else handoff["handoff_id"],
         "handoff_digest":handoff["handoff_digest"],"renderer_report_id":report.report_id,
         "renderer_report_digest":report.report_digest,"correlation_id":expectation.correlation_id,
         "body_generation":expectation.body_generation,"observed":{"pose":"idle"},
         "observed_at":observed_at,"confidence":"medium","quality":"usable"}
+    if capture_request_id is not None:
+        payload["capture_request_id"] = ("f" * 32 if wrong_capture_request else capture_request_id)
+        payload["capture_provenance"] = {
+            "schema_version": "sentientos.screen_capture_provenance:v1",
+            "capture_digest": "a" * 64, "process_name_digest": "b" * 64,
+            "consent_id_digest": "c" * 64,
+            "capture_scope": "allowlisted_foreground_game_client_area",
+            "raw_frame_retained": False}
     key=b"authenticated-observer-test-key-material-32-bytes"
     bridge_receiver=CompanionBridgeReceiver(source_keys={"measurement-observer":key},
         expected_generations={"measurement-observer":"measurement-run-1"},
-        clock=lambda:datetime.fromisoformat(T2).timestamp())
+        clock=lambda:datetime.fromisoformat(T2).timestamp(),
+        max_clock_skew_seconds=(180.0 if capture_request_id is not None else 30.0))
     runtime=CompanionBridgeLoopbackRuntime(receiver=bridge_receiver,
         acknowledgment_source_id="companion-ack",acknowledgment_generation_id="ack-run-1",
         acknowledgment_key=b"authenticated-observer-ack-key-32-bytes-material")
     encoded=encode_message(kind="consequence",source_id="measurement-observer",
         session_id="consequence-session",generation_id="measurement-run-1",sequence=1,
-        payload=payload,key=key,created_at=T2)
+        payload=payload,key=key,created_at=message_created_at)
     runtime._messages.put(bridge_receiver.accept(encoded))
     owner=AuthenticatedBridgeIndependentObserver(runtime=runtime,
         observer_id="measurement-observer",generation_id="measurement-run-1",
         clock=lambda:datetime.fromisoformat(T2))
-    observation=owner.observe(expectation=expectation,handoff=handoff,report=report)
+    observation=owner.observe(expectation=expectation,handoff=handoff,report=report,
+        capture_request_id=capture_request_id,
+        request_started_monotonic=(time.monotonic() - request_age_seconds
+            if capture_request_id is not None else None))
     return owner,handoff,expectation,report,observation
 
 
@@ -169,6 +185,33 @@ def test_authenticated_bridge_observer_rejects_wrong_handoff_binding():
 def test_authenticated_bridge_observer_rejects_stale_measurement():
     with pytest.raises(EmbodiedConsequenceError,match="authenticated_observer_evidence_stale"):
         authenticated_observer_chain(observed_at="2034-12-31T23:59:00+00:00")
+
+
+@pytest.mark.parametrize("offset", (timedelta(minutes=2), -timedelta(minutes=2)))
+def test_request_correlated_observation_uses_monotonic_freshness_across_clock_skew(offset):
+    wall = datetime.fromisoformat(T2.replace("Z", "+00:00")) + offset
+    owner, _, _, _, observation = authenticated_observer_chain(
+        observed_at=wall.isoformat(), message_created_at=wall.isoformat(),
+        capture_request_id="d" * 32)
+    receipt = owner.consume_authentication_receipt(observation)
+    assert receipt["request_elapsed_seconds"] < 1
+    assert receipt["transport_authenticated_at_ingress"] is True
+
+
+
+
+def test_request_correlated_observer_rejects_delayed_measurement_receipt():
+    with pytest.raises(EmbodiedConsequenceError,
+            match="authenticated_observer_evidence_stale"):
+        authenticated_observer_chain(capture_request_id="e" * 32,
+            request_age_seconds=31.0)
+
+
+def test_request_correlated_observer_rejects_mismatched_capture_request_id():
+    with pytest.raises(EmbodiedConsequenceError,
+            match="authenticated_observer_evidence_binding_invalid"):
+        authenticated_observer_chain(capture_request_id="e" * 32,
+            wrong_capture_request=True)
 
 
 def test_synthetic_contradiction_projects_and_selects_for_developmental_writeback():

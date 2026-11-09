@@ -11,7 +11,7 @@ import time
 import base64
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping, cast
+from typing import Any, Mapping
 
 from .embodiment_self_observation import (
     EmbodimentEvidenceOwner,
@@ -31,6 +31,9 @@ _REPORT_FIELDS = frozenset({
     "apply_duration_usec", "body_generation", "effect_proven",
     "independent_observation", "source_digest",
 })
+_CONSEQUENCE_LINEAGE_FIELDS = frozenset({"consequence_expectation_id",
+    "consequence_expectation_digest", "consequence_handoff_id",
+    "consequence_handoff_digest", "consequence_correlation_id"})
 _ADOPTED_BODY_REPORT_FIELDS = frozenset({
     "status", "evidence_posture", "artifact_sha256", "manifest_digest",
     "pointer_digest", "adoption_receipt_digest", "authority_effects_performed",
@@ -318,9 +321,22 @@ def renderer_report_observation(report: Mapping[str, Any]) -> EmbodimentObservat
     later comparison with the authoritative pointer. It does not authenticate
     adoption or promote renderer state into independent observation.
     """
-    if (not isinstance(report, Mapping)
-            or set(report) not in (_REPORT_FIELDS, _REPORT_FIELDS | {"body_identity"})):
+    valid_shapes = {_REPORT_FIELDS, _REPORT_FIELDS | {"body_identity"},
+        _REPORT_FIELDS | _CONSEQUENCE_LINEAGE_FIELDS,
+        _REPORT_FIELDS | _CONSEQUENCE_LINEAGE_FIELDS | {"body_identity"}}
+    if not isinstance(report, Mapping) or set(report) not in valid_shapes:
         raise RendererReportIngressError("renderer_report_shape_invalid")
+    present_lineage = set(report) & _CONSEQUENCE_LINEAGE_FIELDS
+    if present_lineage:
+        if present_lineage != _CONSEQUENCE_LINEAGE_FIELDS:
+            raise RendererReportIngressError("renderer_report_consequence_lineage_invalid")
+        for field in ("consequence_expectation_id", "consequence_handoff_id",
+                      "consequence_correlation_id"):
+            if not isinstance(report.get(field), str) or not report[field]:
+                raise RendererReportIngressError("renderer_report_consequence_lineage_invalid")
+        for field in ("consequence_expectation_digest", "consequence_handoff_digest"):
+            if not isinstance(report.get(field), str) or not _SHA256.fullmatch(report[field]):
+                raise RendererReportIngressError("renderer_report_consequence_lineage_invalid")
     try:
         bounded = json.loads(json.dumps(report, ensure_ascii=False, allow_nan=False))
         encoded = json.dumps(bounded, sort_keys=True, separators=(",", ":"),
@@ -499,7 +515,7 @@ def renderer_report_world_state_record(report: Mapping[str, Any]) -> dict[str, A
     records = EmbodimentEvidenceOwner([observation]).world_state_records()
     if len(records) != 1:
         raise RendererReportIngressError("renderer_report_projection_invalid")
-    return cast(dict[str, Any], records[0])
+    return records[0]
 
 def compare_adopted_renderer_report_to_body_pointer(
         report: Mapping[str, Any], pointer: Mapping[str, Any]) -> dict[str, Any]:
