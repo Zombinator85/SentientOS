@@ -9499,3 +9499,119 @@ def test_chat_service_composes_resident_reply_into_controlled_history_interventi
     assert selections[1]["treatment"] == "withheld"
     assert selections[1]["selected_records"] == []
     assert selections[2]["selected_records"] == selections[0]["selected_records"]
+
+
+def test_companion_cycle_persists_epistemic_state_for_later_cognition(
+        tmp_path: Path) -> None:
+    """Exercise the companion with the real persistent epistemic owners.
+
+    The fixture model does not establish a real-model learning effect. This
+    integration test verifies that a governed write from one confirmed cycle
+    is committed and then delivered as prior context on a later turn.
+    """
+    from sentientos.codex_task_authority_admission import (
+        RESIDENT_EPISTEMIC_STATE_MUTATION,
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    )
+    from sentientos.resident_epistemic_development import (
+        EpistemicDevelopmentConfig, EpistemicDevelopmentRule,
+        ResidentEpistemicDevelopmentRuntime,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        ResidentEpistemicStateMutationController,
+    )
+
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    clock_value = [now]
+    cognition, fake = owner(tmp_path / "companion-cognition",
+        allowed_source_kinds=("embodiment",), max_selected_facts=1)
+    epistemic_owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("operator",))
+    proposition = make_proposition(namespace="operator",
+        subject="observation:bounded-local-screen", predicate="observation_posture",
+        object_value="one bounded local screen observation was supplied",
+        polarity="positive", qualifiers={"scope": "fixture-only"},
+        temporal_scope={"kind": "one_observation"},
+        context_scope={"source": "companion_integration_regression"},
+        proposition_class="descriptive")
+    epistemic_owner.register_proposition(proposition)
+    rule = EpistemicDevelopmentRule(
+        "record-bounded-screen-observation", proposition.proposition_id,
+        proposition.proposition_digest,
+        {"source_kind": "embodiment",
+            "subject_kind": "allowlisted_foreground_game_screen"},
+        "supports", "unknown_dependency", "bounded_fixture_observation")
+    ledger = AdmissionLedger(tmp_path / "epistemic-admissions.json")
+    definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION:
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+    mutation_controller = ResidentEpistemicStateMutationController(
+        owner=epistemic_owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=definitions, ledger=ledger),
+        current_sequence=ledger.current_sequence,
+        receipt_root=tmp_path / "epistemic-mutation-receipts")
+    epistemic_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 1, 1, (rule,), ("operator",)),
+        owner=epistemic_owner, mutation_controller=mutation_controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=definitions, ledger=ledger), admission_ledger=ledger)
+    screen = {"modality": "screen",
+        "text": "Fixture scene: one bounded observation; no external truth claim.",
+        "capture_digest": "e" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+
+    write_bridge = ResidentDevelopmentalCompanionBridge(
+        cognition, epistemic_state_owner=epistemic_owner,
+        epistemic_state_config={"cognitive_consumption_enabled": False,
+            "max_cognitive_projection_count": 1},
+        epistemic_development_runtime=epistemic_runtime,
+        clock=lambda: clock_value[0])
+    cycle = write_bridge.run_developmental_cycle(
+        tick_id="fixture-confirmed-cycle", screen_observation=screen)
+
+    assert cycle.status == "completed"
+    assert cycle.epistemic_development_status == "state_advanced"
+    assert cycle.epistemic_development_next_tick_only is True
+    assert len(cycle.epistemic_development_evidence_receipt_ids) == 1
+    assert len(cycle.epistemic_development_state_receipt_ids) == 1
+    assert cycle.epistemic_development_successor_state_ids
+    assert cycle.epistemic_development_generations == (0,)
+    state = epistemic_owner.current_state(proposition.proposition_id)
+    assert state is not None
+    assert state.stance == "provisionally_supported"
+    assert all(value is False for value in state.authority.values())
+
+    # Matched A/B/A turns hold current evidence, question, and time fixed.
+    # The fixture invoker returns the same answer in every condition, so this
+    # proves delivery/retrieval but records a null behavioral effect.
+    clock_value[0] = now + timedelta(seconds=2)
+    outcomes = []
+    for condition, consume in (("present", True), ("withheld", False),
+            ("restored", True)):
+        bridge = ResidentDevelopmentalCompanionBridge(
+            cognition, epistemic_state_owner=epistemic_owner,
+            epistemic_state_config={"cognitive_consumption_enabled": consume,
+                "max_cognitive_projection_count": 1},
+            clock=lambda: clock_value[0])
+        result = bridge.respond(request_id=f"fixture-later-turn-{condition}",
+            question="What bounded evidence is available?", screen_observation=screen)
+        outcomes.append((result, fake.requests[-1]))
+        assert result.status == "admitted_completed"
+        assert result.authority is False
+
+    results = [item[0] for item in outcomes]
+    requests = [item[1] for item in outcomes]
+    assert len({result.snapshot_digest for result in results}) == 1
+    assert [result.epistemic_projection_id is not None for result in results] == [
+        True, False, True]
+    assert [request.upstream_evidence["epistemic_state_ids"] for request in requests] == [
+        [state.state_id], [], [state.state_id]]
+    assert [result.response_digest for result in results] == [
+        results[0].response_digest] * 3
+    for result in results:
+        observation = cognition.verified_cognition_observation(
+            result.cognition_observation_id, result.cognition_observation_digest)
+        assert observation["epistemic_projection_present"] == (
+            result.epistemic_projection_id is not None)
+        assert observation["authority"] is False
