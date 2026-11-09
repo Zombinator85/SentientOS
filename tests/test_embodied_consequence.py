@@ -148,7 +148,8 @@ def authenticated_observer_chain(*, wrong_handoff=False, observed_at=T2,
     observation=owner.observe(expectation=expectation,handoff=handoff,report=report,
         capture_request_id=capture_request_id,
         request_started_monotonic=(time.monotonic() - request_age_seconds
-            if capture_request_id is not None else None))
+            if capture_request_id is not None else None),
+        request_started_at=T2 if capture_request_id is not None else None)
     return owner,handoff,expectation,report,observation
 
 
@@ -188,14 +189,32 @@ def test_authenticated_bridge_observer_rejects_stale_measurement():
 
 
 @pytest.mark.parametrize("offset", (timedelta(minutes=2), -timedelta(minutes=2)))
-def test_request_correlated_observation_uses_monotonic_freshness_across_clock_skew(offset):
+def test_request_correlated_observation_evaluates_and_persists_across_clock_skew(
+        offset, tmp_path):
     wall = datetime.fromisoformat(T2.replace("Z", "+00:00")) + offset
-    owner, _, _, _, observation = authenticated_observer_chain(
+    observer, handoff, expectation, report, observation = authenticated_observer_chain(
         observed_at=wall.isoformat(), message_created_at=wall.isoformat(),
         capture_request_id="d" * 32)
-    receipt = owner.consume_authentication_receipt(observation)
+    assert observation.observed_at == T2  # WSL-side receive clock, not Windows wall time.
+    attribution, comparison = evaluate_consequence(
+        expectation=expectation, handoff=handoff, current_body=pointer(),
+        renderer_report=report, observation=observation, evaluated_at=T2,
+        independent_observer_owner=observer)
+    receipt = attribution["observation_authentication_receipt"]
+    assert receipt["source_observed_at"] == wall.isoformat()
+    assert receipt["observation_time_posture"] == (
+        "authenticated_request_correlated_receiver_time")
     assert receipt["request_elapsed_seconds"] < 1
     assert receipt["transport_authenticated_at_ingress"] is True
+    store = ConsequenceStore(tmp_path / "skewed-consequence-store")
+    chain = store.put_consequence_chain(expectation=expectation, handoff=handoff,
+        renderer_report=report, observation=observation, attribution=attribution,
+        comparison=comparison)
+    loaded = store.load_verified_consequence_chain(chain["chain_id"])
+    assert loaded["observation"]["observed_at"] == T2
+    assert loaded["attribution"]["observation_authentication_receipt"][
+        "source_observed_at"] == wall.isoformat()
+    assert loaded["effect_proven"] is False
 
 
 

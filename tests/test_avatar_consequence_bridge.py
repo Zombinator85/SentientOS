@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
+import time
 
 import pytest
 
@@ -192,6 +193,8 @@ def test_explicit_avatar_measurement_traverses_authenticated_consequence_stream(
 
     class _RequestClient:
         def send(self, encoded):
+            # Include dispatch delay in the observation freshness interval.
+            time.sleep(0.03)
             request = request_receiver.accept(encoded)
             assert handler(request) is True
             return request
@@ -227,6 +230,9 @@ def test_explicit_avatar_measurement_traverses_authenticated_consequence_stream(
             "sample_offsets_seconds": sample_offsets,
         }
         assert receipt["capture_request_id"]
+        assert receipt["request_elapsed_seconds"] >= 0.02
+        assert receipt["observation_time_posture"] == (
+            "authenticated_request_correlated_receiver_time")
         assert comparison["counts"]["satisfied"] == 2
         assert attribution["classification"] == "indeterminate"
         assert attribution["effect_proven"] is False

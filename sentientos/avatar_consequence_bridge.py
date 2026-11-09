@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import threading
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Protocol
 from uuid import uuid4
 
@@ -255,6 +256,7 @@ class RemoteAvatarConsequenceObserver:
         with self._lock:
             capture_request_id = uuid4().hex
             request_started = time.monotonic()
+            request_started_at = datetime.now(timezone.utc).isoformat()
             self._sender(expectation=expectation, handoff=handoff, report=report,
                          renderer_receipt=renderer_receipt,
                          capture_request_id=capture_request_id)
@@ -262,7 +264,8 @@ class RemoteAvatarConsequenceObserver:
                 expectation=expectation, handoff=handoff, report=report,
                 renderer_receipt=renderer_receipt,
                 capture_request_id=capture_request_id,
-                request_started_monotonic=request_started)
+                request_started_monotonic=request_started,
+                request_started_at=request_started_at)
 
     def consume_authentication_receipt(
             self, observation: IndependentConsequenceObservation

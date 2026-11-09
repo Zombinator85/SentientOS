@@ -6042,6 +6042,122 @@ def test_developmental_cycle_admits_full_consequence_chain_with_screen_and_propr
             fact_ids=tuple(fact.fact_id for fact in partial_snapshot.facts))
 
 
+def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(tmp_path: Path) -> None:
+    """Select the runner's receipt-backed eight-fact shape without implying effect proof."""
+    from dataclasses import asdict
+    from sentientos.avatar_authoring import renderer_handoff
+    from sentientos.avatar_renderer_report_ingress import RendererReportReceiptIdentity
+    from sentientos.embodied_consequence import (
+        ConsequenceStore, evaluate_consequence, make_expectation,
+        make_independent_observation,
+    )
+
+    now = datetime.now(timezone.utc)
+    stamp = now.isoformat()
+    body = {"installation_identity": "installation-a", "body_identity": "body-a",
+        "body_generation": 2, "artifact_sha256": "sha256:" + "a" * 64,
+        "manifest_digest": "sha256:" + "b" * 64,
+        "pointer_digest": "sha256:" + "c" * 64}
+    handoff = renderer_handoff(body, renderer_interface_id="sentientos-godot-companion",
+        requested_pose="nod", requested_expression="rest",
+        correlation_id="receipt-cycle-correlation", commanded_at=stamp)
+    expectation = make_expectation(installation_body_id="installation-a",
+        body_id="body-a", body_generation=2, body_manifest_digest=body["manifest_digest"],
+        handoff_id=handoff["handoff_id"], handoff_digest=handoff["handoff_digest"],
+        renderer_interface_id="sentientos-godot-companion",
+        requested={"pose": "nod"}, predicted_observables={"avatar_visible": True,
+            "avatar_motion": "nod"}, observable_fields=("avatar_visible", "avatar_motion"),
+        comparison_policy={"avatar_visible": {"kind": "exact"},
+            "avatar_motion": {"kind": "exact"}},
+        expected_observation_source_class="authenticated_bridge_observer",
+        correlation_id=handoff["correlation_id"], causal_principal_binding_digest=None,
+        created_at=stamp, expires_at=(now + timedelta(minutes=2)).isoformat())
+    renderer_receipt = RendererReportReceiptIdentity(
+        report_id="godot-renderer:godot-demo-receipt-cycle:1",
+        report_digest="sha256:" + "d" * 64,
+        renderer_source_id="godot-adopted-body-demo",
+        renderer_generation_id="godot-demo-receipt-cycle", sequence=1,
+        session_id="receipt-cycle-session", turn_id="turn-" + "e" * 24,
+        output_digest="f" * 64,
+        expectation_id=expectation.expectation_id,
+        expectation_digest=expectation.expectation_digest,
+        handoff_id=handoff["handoff_id"], handoff_digest=handoff["handoff_digest"],
+        correlation_id=handoff["correlation_id"], body_generation=2)
+    observation = make_independent_observation(
+        observer_id="authenticated-observer", observation_source_class="authenticated_bridge_observer",
+        body_generation=2, expectation_id=expectation.expectation_id,
+        expectation_digest=expectation.expectation_digest, handoff_id=handoff["handoff_id"],
+        handoff_digest=handoff["handoff_digest"], renderer_report_id=renderer_receipt.report_id,
+        renderer_report_digest=renderer_receipt.report_digest,
+        correlation_id=handoff["correlation_id"],
+        observed={"avatar_visible": None, "avatar_motion": "uncertain"},
+        observed_at=stamp, confidence="unknown", quality="partial",
+        source_digest="sha256:" + "1" * 64, posture="rehearsal")
+    authentication_receipt = {
+        "schema_version": "sentientos.authenticated_observer_ingress_receipt:v1",
+        "observation_id": observation.observation_id,
+        "observation_digest": observation.observation_digest,
+        "observer_source_id": "authenticated-observer",
+        "session_id": "receipt-cycle-session", "generation_id": "observer-gen", "sequence": 1,
+        "message_id": "2" * 64, "signed_envelope_digest": observation.source_digest,
+        "received_at": stamp, "transport_authenticated_at_ingress": True,
+        "signature_reverified_on_load": False, "source_distinct_from_renderer": True,
+        "capture_request_id": "3" * 32,
+        "capture_provenance": {"schema_version": "sentientos.screen_capture_provenance:v1",
+            "capture_digest": "4" * 64, "process_name_digest": "5" * 64,
+            "consent_id_digest": "6" * 64,
+            "capture_scope": "allowlisted_foreground_game_client_area",
+            "raw_frame_retained": False},
+        "source_observed_at": stamp, "request_started_at": stamp,
+        "observation_time_posture": "authenticated_request_correlated_receiver_time",
+        "request_elapsed_seconds": 0.01,
+        "renderer_report_receipt_identity": asdict(renderer_receipt),
+    }
+
+    class ObserverOwner:
+        def consume_authentication_receipt(self, _observation):
+            return dict(authentication_receipt)
+
+    attribution, comparison = evaluate_consequence(
+        expectation=expectation, handoff=handoff,
+        current_body={"body_generation": 2, "pointer_digest": body["pointer_digest"]},
+        observation=observation, evaluated_at=stamp,
+        independent_observer_owner=ObserverOwner())
+    store = ConsequenceStore(tmp_path / "receipt-shape-chain")
+    chain = store.put_consequence_chain(expectation=expectation, handoff=handoff,
+        renderer_report=None, observation=observation, attribution=attribution,
+        comparison=comparison)
+    records = store.world_state_records(consequence_chain_ids=(chain["chain_id"],))
+    assert len(records) == 6
+    assert all(record["effect_proven"] is False for record in records)
+
+    screen = {"modality": "screen", "text": "A bounded fixture screen observation.",
+        "capture_digest": "7" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": stamp, "raw_frame_retained": False}
+    proprioception = EmbodimentObservation(
+        source_id="receipt-cycle-proprioception",
+        source_schema="sentientos.proprioception_fixture:v1",
+        source_digest=semantic_digest({"joint": 0.5}), observed_at=stamp,
+        provenance_class="synthetic_fixture", freshness="current", posture="synthetic_test",
+        evidence_class="sensor_observation", subject_id="avatar-body",
+        subject_kind="synthetic_avatar_body",
+        payload={"joint_state": {"arm": 0.5}, "sampled_at": stamp})
+    cognition, fake = owner(tmp_path / "receipt-shape-owner",
+        allowed_source_kinds=("embodiment",), max_selected_facts=8)
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        proprioception_provider=lambda: (proprioception,), clock=lambda: now)
+    cycle = bridge.run_developmental_cycle(tick_id="receipt-backed-runner-shape",
+        screen_observation=screen, current_consequence_records=records)
+    assert cycle.status == "completed"
+    assert cycle.written_record_id is not None
+    assert len(cycle.selected_fact_ids) == 8
+    assert fake.requests
+    assert attribution["observation_authentication_receipt"][
+        "renderer_report_receipt_identity"]["report_id"] == renderer_receipt.report_id
+    assert attribution["effect_proven"] is False
+
+
 def test_developmental_cycle_admits_current_consequence_evidence_without_upgrading_it(
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)

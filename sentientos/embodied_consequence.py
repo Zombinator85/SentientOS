@@ -371,7 +371,8 @@ class AuthenticatedBridgeIndependentObserver:
                 report: AvatarRendererReport | None,
                 renderer_receipt: Any | None = None,
                 capture_request_id: str | None = None,
-                request_started_monotonic: float | None = None
+                request_started_monotonic: float | None = None,
+                request_started_at: str | None = None
                 ) -> IndependentConsequenceObservation:
         from .gaming_companion_bridge import VerifiedBridgeMessage
         verify_expectation(expectation)
@@ -395,6 +396,17 @@ class AuthenticatedBridgeIndependentObserver:
                 and (not isinstance(capture_request_id, str)
                     or re.fullmatch(r"[0-9a-f]{32}", capture_request_id) is None)):
             raise EmbodiedConsequenceError("authenticated_observer_capture_request_invalid")
+        if request_started_at is not None:
+            try:
+                request_started_wall = _time(request_started_at)
+            except (TypeError, ValueError) as exc:
+                raise EmbodiedConsequenceError(
+                    "authenticated_observer_request_clock_invalid") from exc
+            if request_started_wall.tzinfo is None or request_started_wall.utcoffset() is None:
+                raise EmbodiedConsequenceError(
+                    "authenticated_observer_request_clock_invalid")
+        else:
+            request_started_wall = None
         if (request_started_monotonic is not None
                 and (isinstance(request_started_monotonic, bool)
                     or not isinstance(request_started_monotonic, (int, float))
@@ -468,12 +480,17 @@ class AuthenticatedBridgeIndependentObserver:
             # Windows and WSL wall clocks are independent. Freshness for this
             # one-shot request is established by its authenticated request ID
             # plus elapsed time measured locally with a monotonic clock.
-            if request_started_monotonic is None:
+            if request_started_monotonic is None or request_started_wall is None:
                 raise EmbodiedConsequenceError("authenticated_observer_request_clock_missing")
             elapsed = time.monotonic() - float(request_started_monotonic)
             if not math.isfinite(elapsed) or elapsed < 0 or elapsed > self._max_age:
                 raise EmbodiedConsequenceError("authenticated_observer_evidence_stale")
+            # The source timestamp belongs to Windows and may be skewed from this
+            # receiver's clock. Bind chronology to the locally timed, authenticated
+            # request/response interval; retain the source timestamp as provenance.
+            canonical_observed_at = received_at.astimezone(timezone.utc).isoformat()
         else:
+            canonical_observed_at = str(payload["observed_at"])
             age = (now.astimezone(timezone.utc) - observed_at.astimezone(timezone.utc)).total_seconds()
             if (age < -2.0 or age > self._max_age
                     or observed_at > envelope_created_at
@@ -491,7 +508,7 @@ class AuthenticatedBridgeIndependentObserver:
             renderer_report_id=expected_report_id,
             renderer_report_digest=expected_report_digest,
             correlation_id=expectation.correlation_id, observed=dict(observed),
-            observed_at=payload["observed_at"], confidence=payload["confidence"],
+            observed_at=canonical_observed_at, confidence=payload["confidence"],
             quality=payload["quality"], source_digest=source_digest, posture="rehearsal")
         receipt = {"schema_version": self.RECEIPT_SCHEMA,
             "observation_id": observation.observation_id,
@@ -509,9 +526,20 @@ class AuthenticatedBridgeIndependentObserver:
                 expected_renderer_source_id is None
                 or message.source_id != expected_renderer_source_id)}
         if payload.get("schema_version") == "sentientos.bridge_consequence_observation:v2":
+            if request_started_wall is None:
+                raise EmbodiedConsequenceError(
+                    "authenticated_observer_request_clock_missing")
             receipt["capture_request_id"] = payload["capture_request_id"]
             receipt["capture_provenance"] = dict(payload["capture_provenance"])
+            receipt["source_observed_at"] = payload["observed_at"]
+            receipt["request_started_at"] = request_started_wall.astimezone(
+                timezone.utc).isoformat()
+            receipt["observation_time_posture"] = (
+                "authenticated_request_correlated_receiver_time")
             receipt["request_elapsed_seconds"] = elapsed
+        if renderer_receipt is not None:
+            from dataclasses import asdict
+            receipt["renderer_report_receipt_identity"] = asdict(renderer_receipt)
         self._receipts[observation.observation_id] = receipt
         while len(self._receipts) > 32:
             self._receipts.pop(next(iter(self._receipts)))
@@ -3013,7 +3041,13 @@ def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
             "received_at", "transport_authenticated_at_ingress", "signature_reverified_on_load",
             "source_distinct_from_renderer"}
         capture_fields = {"capture_request_id", "capture_provenance", "request_elapsed_seconds"}
-        valid_receipt_fields = {frozenset(required), frozenset(required | capture_fields)}
+        capture_timing_fields = {"source_observed_at", "request_started_at",
+            "observation_time_posture"}
+        renderer_receipt_field = {"renderer_report_receipt_identity"}
+        base_receipt_shapes = {frozenset(required), frozenset(required | capture_fields),
+            frozenset(required | capture_fields | capture_timing_fields)}
+        valid_receipt_fields = base_receipt_shapes | {
+            frozenset(set(shape) | renderer_receipt_field) for shape in base_receipt_shapes}
         capture_elapsed = receipt.get("request_elapsed_seconds") if isinstance(receipt, Mapping) else None
         capture_elapsed_valid = (not isinstance(capture_elapsed, bool)
             and isinstance(capture_elapsed, (int, float))
@@ -3035,12 +3069,42 @@ def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
                 or re.fullmatch(r"sha256:[0-9a-f]{64}", str(receipt.get("signed_envelope_digest"))) is None
                 or not isinstance(receipt.get("message_id"), str)
                 or re.fullmatch(r"[0-9a-f]{64}", str(receipt.get("message_id"))) is None
-                or (frozenset(receipt) == frozenset(required | capture_fields)
+                or (frozenset(receipt) - renderer_receipt_field in {
+                        frozenset(required | capture_fields),
+                        frozenset(required | capture_fields | capture_timing_fields)}
                     and (not isinstance(receipt.get("capture_request_id"), str)
                         or re.fullmatch(r"[0-9a-f]{32}", str(receipt.get("capture_request_id"))) is None
                         or not capture_elapsed_valid
-                        or not isinstance(receipt.get("capture_provenance"), Mapping)))):
+                        or not isinstance(receipt.get("capture_provenance"), Mapping)))
+                or (frozenset(receipt) - renderer_receipt_field ==
+                        frozenset(required | capture_fields | capture_timing_fields)
+                    and (receipt.get("observation_time_posture") !=
+                            "authenticated_request_correlated_receiver_time"
+                        or not isinstance(receipt.get("source_observed_at"), str)
+                        or not isinstance(receipt.get("request_started_at"), str)))):
             raise EmbodiedConsequenceError("consequence_observer_receipt_invalid")
+        if "renderer_report_receipt_identity" in receipt:
+            renderer_identity = receipt.get("renderer_report_receipt_identity")
+            try:
+                from .avatar_renderer_report_ingress import (
+                    RendererReportReceiptIdentity,
+                    verify_renderer_report_receipt_identity,
+                )
+                if not isinstance(renderer_identity, Mapping):
+                    raise ValueError("renderer_report_receipt_identity_invalid")
+                typed_renderer_identity = RendererReportReceiptIdentity(**dict(renderer_identity))
+                verify_renderer_report_receipt_identity(typed_renderer_identity)
+            except (TypeError, ValueError) as exc:
+                raise EmbodiedConsequenceError(
+                    "consequence_renderer_report_receipt_identity_invalid") from exc
+            if (typed_renderer_identity.report_id != value.get("renderer_report_id")
+                    or typed_renderer_identity.report_digest != value.get("renderer_report_digest")
+                    or typed_renderer_identity.expectation_id != value.get("expectation_id")
+                    or typed_renderer_identity.handoff_id != value.get("handoff_id")
+                    or typed_renderer_identity.handoff_digest != value.get("handoff_digest")
+                    or typed_renderer_identity.body_generation != value.get("body_generation")):
+                raise EmbodiedConsequenceError(
+                    "consequence_renderer_report_receipt_identity_mismatch")
     elif receipt is not None:
         raise EmbodiedConsequenceError("consequence_observer_receipt_unexpected")
 

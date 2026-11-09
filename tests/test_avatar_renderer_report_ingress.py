@@ -402,6 +402,13 @@ def test_local_runner_renderer_receipt_requires_fresh_exact_turn_and_pointer_mat
     assert owner.renderer_receipt_for(
         expectation=expectation, handoff=handoff,
         session_id="session-1", turn_id="wrong-turn", output_digest="a" * 64) is None
+    intervening_update = dict(report)
+    intervening_update.update(sequence=2, turn_id="turn-3", output_digest="b" * 64)
+    _refresh_digest(intervening_update)
+    owner.update(intervening_update)
+    assert owner.renderer_receipt_for(
+        expectation=expectation, handoff=handoff,
+        session_id="session-1", turn_id="turn-2", output_digest="a" * 64) is None
     owner._sampled_monotonic = time.monotonic() - 10
     assert owner.renderer_receipt_for(
         expectation=expectation, handoff=handoff,
