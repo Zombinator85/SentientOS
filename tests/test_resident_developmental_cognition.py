@@ -5945,6 +5945,103 @@ def test_developmental_cycle_composes_selected_verified_consequence_history(
     assert fake.requests
 
 
+def test_developmental_cycle_admits_full_consequence_chain_with_screen_and_proprioception(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A complete projected chain plus current modalities fits one explicit budget."""
+    from sentientos.avatar_authoring import renderer_handoff
+    from sentientos.embodied_consequence import (
+        ConsequenceStore, SyntheticIndependentObserver, SyntheticRenderer,
+        evaluate_consequence, make_expectation,
+    )
+
+    now = datetime.now(timezone.utc)
+    stamp = now.isoformat()
+    body = {"installation_identity": "installation-a", "body_identity": "body-a",
+        "body_generation": 2, "artifact_sha256": "sha256:artifact",
+        "manifest_digest": "sha256:manifest", "pointer_digest": "sha256:pointer"}
+    handoff = renderer_handoff(body, renderer_interface_id="renderer:test:v1",
+        requested_pose="wave", requested_expression="neutral",
+        correlation_id="full-chain-correlation", commanded_at=stamp)
+    expectation = make_expectation(installation_body_id="installation-a",
+        body_id="body-a", body_generation=2, body_manifest_digest="sha256:manifest",
+        handoff_id=handoff["handoff_id"], handoff_digest=handoff["handoff_digest"],
+        renderer_interface_id="renderer:test:v1", requested={"pose": "wave"},
+        predicted_observables={"pose": "wave"}, observable_fields=("pose",),
+        comparison_policy={"pose": {"kind": "exact"}},
+        expected_observation_source_class="synthetic_independent_fixture",
+        correlation_id="full-chain-correlation", causal_principal_binding_digest=None,
+        created_at=stamp, expires_at=(now + timedelta(minutes=5)).isoformat())
+    report = SyntheticRenderer(applied={"pose": "wave"}, started_at=stamp,
+        completed_at=(now + timedelta(milliseconds=20)).isoformat()).render_test(handoff)
+    observation = SyntheticIndependentObserver(observer_id="separate-test-observer",
+        observed={"pose": "wave"},
+        observed_at=(now + timedelta(milliseconds=40)).isoformat()).observe(
+            expectation=expectation, handoff=handoff, report=report)
+    attribution, comparison = evaluate_consequence(expectation=expectation,
+        handoff=handoff, current_body=body, renderer_report=report,
+        observation=observation,
+        evaluated_at=(now + timedelta(milliseconds=60)).isoformat())
+
+    store = ConsequenceStore(tmp_path / "full-chain-store")
+    chain = store.put_consequence_chain(expectation=expectation, handoff=handoff,
+        renderer_report=report, observation=observation, attribution=attribution,
+        comparison=comparison)
+    consequence_records = store.world_state_records(
+        consequence_chain_ids=(chain["chain_id"],))
+    assert len(consequence_records) == 7  # six component records plus the chain summary
+    assert {record["subject_kind"] for record in consequence_records} == {
+        "embodied_action_expectation", "avatar_renderer_handoff",
+        "avatar_renderer_report", "avatar_independently_observed_state",
+        "embodied_consequence_attribution", "embodied_prediction_comparison",
+        "embodied_consequence_chain"}
+
+    screen = {"modality": "screen", "text": "Fresh bounded synthetic test scene.",
+        "capture_digest": "7" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    proprioception = EmbodimentObservation(
+        source_id="fixture-joint-state", source_schema="sentientos.proprioception_fixture:v1",
+        source_digest=semantic_digest({"joint": 0.75}), observed_at=stamp,
+        provenance_class="synthetic_fixture", freshness="current", posture="synthetic_test",
+        evidence_class="sensor_observation", subject_id="avatar-body",
+        subject_kind="synthetic_avatar_body",
+        payload={"joint_state": {"arm": 0.75}, "sampled_at": stamp})
+    cognition, fake = owner(tmp_path / "cognition-full-chain",
+        allowed_source_kinds=("embodiment",), max_selected_facts=9)
+    captured: dict[str, Any] = {}
+    original_run_tick = cognition.run_tick
+
+    def capture_run_tick(*, snapshot, tick_id, prior_self_model=None,
+            prior_epistemic_state=None):
+        captured["snapshot"] = snapshot
+        return original_run_tick(snapshot=snapshot, tick_id=tick_id,
+            prior_self_model=prior_self_model,
+            prior_epistemic_state=prior_epistemic_state)
+
+    monkeypatch.setattr(cognition, "run_tick", capture_run_tick)
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        proprioception_provider=lambda: (proprioception,), clock=lambda: now)
+
+    cycle = bridge.run_developmental_cycle(tick_id="full-chain-current-cycle",
+        screen_observation=screen, current_consequence_records=consequence_records)
+
+    snapshot_value = captured["snapshot"]
+    assert snapshot_value.validation_posture == "valid"
+    assert len(snapshot_value.facts) == 9
+    assert set(cycle.selected_fact_ids) == {fact.fact_id for fact in snapshot_value.facts}
+    assert cycle.status == "completed"
+    assert cycle.written_record_id is not None
+    assert cycle.writeback_receipt_id is not None
+    assert fake.requests
+
+    partial_snapshot = build_companion_snapshot(screen_observation=screen,
+        proprioception=(proprioception,), current_consequence_records=consequence_records[:-1],
+        clock=lambda: now)
+    with pytest.raises(DevelopmentalWritebackError, match="selected_evidence_unbounded"):
+        cognition.writeback.select_evidence(partial_snapshot,
+            fact_ids=tuple(fact.fact_id for fact in partial_snapshot.facts))
+
+
 def test_developmental_cycle_admits_current_consequence_evidence_without_upgrading_it(
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)
