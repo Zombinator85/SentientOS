@@ -6123,7 +6123,12 @@ def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(
                 "renderer_report_receipt_identity": asdict(self.receipt),
             }
 
+    receipt_attempts = []
+
     def renderer_receipt(*, expectation, handoff, session_id, turn_id, output_digest):
+        receipt_attempts.append(None)
+        if len(receipt_attempts) < 3:
+            return None
         return RendererReportReceiptIdentity(
             report_id="godot-renderer:godot-demo-integration-session:1",
             report_digest="sha256:" + "f" * 64,
@@ -6262,6 +6267,7 @@ def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(
     staged = runner._prepared.get((session_id, turn_id))
     assert staged is None
     assert observer.receipt is not None
+    assert len(receipt_attempts) == 3
     assert fake.requests
     controller.close()
 

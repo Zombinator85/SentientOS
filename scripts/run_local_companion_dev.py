@@ -396,11 +396,16 @@ class _PreparedAvatarConsequenceEmitter:
     """Bind an explicit chat prediction to the already-governed avatar output."""
     def __init__(self, *, emitter: Any, pointer: Mapping[str, Any] | None,
             observer: Any | None,
-            renderer_receipt_provider: Callable[..., Any] | None = None) -> None:
+            renderer_receipt_provider: Callable[..., Any] | None = None,
+            renderer_receipt_wait_seconds: float = 5.0) -> None:
         self._emitter = emitter
         self._pointer = dict(pointer) if isinstance(pointer, Mapping) else None
         self._observer = observer
+        if (type(renderer_receipt_wait_seconds) not in {int, float}
+                or not 0 <= renderer_receipt_wait_seconds <= 5.0):
+            raise ValueError("renderer_receipt_wait_invalid")
         self._renderer_receipt_provider = renderer_receipt_provider
+        self._renderer_receipt_wait_seconds = float(renderer_receipt_wait_seconds)
         self._lock = threading.Lock()
         self._prepared: dict[tuple[str, str], dict[str, Any]] = {}
         self._inflight: set[tuple[str, str]] = set()
@@ -535,13 +540,20 @@ class _PreparedAvatarConsequenceEmitter:
                 observation_args = {
                     "expectation": expectation, "handoff": handoff, "report": None}
                 if self._renderer_receipt_provider is not None:
-                    renderer_receipt = self._renderer_receipt_provider(
-                        expectation=expectation, handoff=handoff,
-                        session_id=session_id, turn_id=turn_id,
-                        output_digest=staged["output_digest"])
-                    if renderer_receipt is None:
-                        raise RuntimeError("avatar_renderer_receipt_unavailable")
-                    observation_args["renderer_receipt"] = renderer_receipt
+                    receipt_deadline = (time.monotonic()
+                        + self._renderer_receipt_wait_seconds)
+                    while True:
+                        renderer_receipt = self._renderer_receipt_provider(
+                            expectation=expectation, handoff=handoff,
+                            session_id=session_id, turn_id=turn_id,
+                            output_digest=staged["output_digest"])
+                        if renderer_receipt is not None:
+                            observation_args["renderer_receipt"] = renderer_receipt
+                            break
+                        remaining = receipt_deadline - time.monotonic()
+                        if remaining <= 0:
+                            raise RuntimeError("avatar_renderer_receipt_unavailable")
+                        time.sleep(min(0.05, remaining))
                 observation = observer.observe(**observation_args)
                 staged["observation"] = observation
             attribution = staged.get("attribution")
