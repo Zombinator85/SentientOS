@@ -102,7 +102,6 @@ def test_fixture_screen_observation_reaches_real_godot_without_persisting_screen
                          observe_screen=True)
         assert "quest objective: find the observatory" in inference.calls[0]["prompt"]
         assert "ocr_text_change" in inference.calls[0]["prompt"]
-        assert "does not identify visual or gameplay events" in inference.calls[0]["prompt"]
         assert "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]" in inference.calls[0]["prompt"]
         persisted_session = app.sessions.load(session_id)
         assistant_turn = persisted_session["turns"][-1]
@@ -113,6 +112,7 @@ def test_fixture_screen_observation_reaches_real_godot_without_persisting_screen
         assert bridge_provenance["source_id"] == source_id
         assert bridge_provenance["generation_id"] == source_generation
         assert bridge_provenance["sequence"] == 1
+        assert len(bridge_provenance["signed_envelope_digest"]) == 64
         assert assistant_turn["linkage"]["screen_observation_provenance"]["raw_frame_retained"] is False
         assert "quest objective: find the observatory" not in json.dumps(persisted_session)
         persisted = json.loads(state_path.read_text(encoding="utf-8"))

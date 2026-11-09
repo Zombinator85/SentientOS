@@ -3181,10 +3181,11 @@ class PersistentConversationService:
             if isinstance(bridge_provenance, Mapping):
                 bridge_fields = {
                     "message_id", "source_id", "session_id", "generation_id",
-                    "sequence", "created_at", "payload_digest",
+                    "sequence", "created_at", "payload_digest", "signed_envelope_digest",
                 }
                 message_id = bridge_provenance.get("message_id")
                 payload_digest = bridge_provenance.get("payload_digest")
+                signed_envelope_digest = bridge_provenance.get("signed_envelope_digest")
                 source_id = bridge_provenance.get("source_id")
                 source_session_id = bridge_provenance.get("session_id")
                 generation_id = bridge_provenance.get("generation_id")
@@ -3195,6 +3196,10 @@ class PersistentConversationService:
                         and all(character in "0123456789abcdef" for character in message_id)
                         and isinstance(payload_digest, str) and len(payload_digest) == 64
                         and all(character in "0123456789abcdef" for character in payload_digest)
+                        and isinstance(signed_envelope_digest, str)
+                        and len(signed_envelope_digest) == 64
+                        and all(character in "0123456789abcdef"
+                                for character in signed_envelope_digest)
                         and isinstance(source_id, str) and source_id
                         and isinstance(source_session_id, str) and source_session_id
                         and isinstance(generation_id, str) and generation_id
