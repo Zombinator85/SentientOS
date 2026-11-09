@@ -31,6 +31,10 @@ ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES = (
     "resident_developmental_retrieval_cognition",
     "resident_developmental_history_intervention_experiment",
 )
+ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES = (
+    "local_user_chat",
+    *ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES,
+)
 
 
 def _canon(obj: Any) -> bytes:
@@ -165,6 +169,11 @@ class LocalModelAuthorityMap:
                 and record.engine == "ollama"
                 and identity.posture == "development_only"
                 and purpose in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES)
+            rootless_ollama_developmental_companion_match = (
+                record.disposition == "rootless_experimental_developmental_companion_candidate"
+                and record.engine == "ollama"
+                and identity.posture == "development_only"
+                and purpose in ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES)
             development_companion_match = (
                 record.disposition == "development_companion_candidate"
                 and record.engine == "ollama"
@@ -188,6 +197,7 @@ class LocalModelAuthorityMap:
                 and (production_match or rootless_experimental_match
                     or rootless_epistemic_match or rootless_ollama_epistemic_match
                     or rootless_ollama_developmental_match
+                    or rootless_ollama_developmental_companion_match
                     or development_companion_match or development_chat_match)
                 and not identity.fallback
             ):
@@ -373,6 +383,43 @@ def build_rootless_experimental_model_authority_map(
             "blocked_count": sum(r.runtime_eligibility_status == "blocked" for r in records),
             "degraded_count": sum(r.runtime_eligibility_status == "degraded" for r in records),
             "provider_network_posture": "blocked", "execution_posture": "rootless_experimental"},
+    )
+
+
+def build_rootless_experimental_developmental_companion_authority_map(
+    config: ModelConfig | None = None, *, allowed_roots: Sequence[Path] | None = None,
+    observed_at: str | None = None,
+) -> LocalModelAuthorityMap:
+    """Admit local chat and the bounded developmental cycle in one opt-in runner.
+
+    The caller must wrap the invoker in the rootless developmental session.
+    Normal companion authority remains retrieval-only, and tool, memory,
+    action, commissioning, and production purposes remain excluded.
+    """
+    candidates = build_local_model_authority_map(
+        config, allowed_roots=allowed_roots, observed_at=observed_at)
+    records = tuple(replace(
+        record,
+        allowed_invocation_purposes=(
+            ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES
+            if record.engine == "ollama"
+            and record.runtime_eligibility_status == "eligible"
+            else ()),
+        disposition="rootless_experimental_developmental_companion_candidate",
+        proof_references=(*record.proof_references,
+            "sentientos/local_model_authority.py:rootless-experimental-developmental-companion"),
+    ) for record in candidates.records)
+    semantic = {"schema_version": AUTHORITY_SCHEMA_VERSION,
+        "records": [record.to_dict() for record in records]}
+    map_digest = digest_payload(semantic)
+    return LocalModelAuthorityMap(
+        records=records, map_id="lmam-" + map_digest[:24],
+        map_digest=map_digest, generated_at=candidates.generated_at,
+        summary={"eligible_count": sum(r.runtime_eligibility_status == "eligible" for r in records),
+            "blocked_count": sum(r.runtime_eligibility_status == "blocked" for r in records),
+            "degraded_count": sum(r.runtime_eligibility_status == "degraded" for r in records),
+            "provider_network_posture": "blocked",
+            "execution_posture": "rootless_experimental_developmental_companion"},
     )
 
 

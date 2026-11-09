@@ -6,6 +6,7 @@ pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos.local_model_authority import (
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES,
+    ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES,
     ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
 )
 from sentientos.rootless_experimental_local_model import RootlessExperimentalError
@@ -79,10 +80,12 @@ def test_existing_companion_invoker_is_bound_to_rootless_receipt_custody(
     identity_payload = identity.to_dict()
     model = SimpleNamespace(active_identity=identity)
     purpose = ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES[1]
+    allowed_purposes = ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES
 
     class Authority:
         def record_for_active_identity(self, active_identity, requested):
-            return object() if active_identity is identity and requested == purpose else None
+            return (object() if active_identity is identity
+                and requested in allowed_purposes else None)
 
     invoker = _Invoker()
     invoker.model = model
@@ -97,6 +100,7 @@ def test_existing_companion_invoker_is_bound_to_rootless_receipt_custody(
         "run_id": "rootless-cognition-cycle-test",
         "model_identity_digest": semantic_digest({"identity": identity_payload}),
         "runtime_bundle_digest": semantic_digest(runtime_bundle),
+        "allowed_invocation_purposes": list(allowed_purposes),
     }
     binding = {
         "schema_version": "sentientos.rootless_experimental_cognition_session:v1",
@@ -113,17 +117,33 @@ def test_existing_companion_invoker_is_bound_to_rootless_receipt_custody(
     session = RootlessExperimentalOllamaEpistemicSession.wrap_existing_developmental_invoker(
         invoker=invoker, root=session_root, workspace_root=workspace,
         session_binding=binding, runtime_bundle=runtime_bundle,
-        preregistration=preregistration)
+        preregistration=preregistration, allowed_purposes=allowed_purposes)
     with pytest.raises(RootlessExperimentalError,
             match="epistemic_session_evidence_binding_mismatch"):
         RootlessExperimentalOllamaEpistemicSession.wrap_existing_developmental_invoker(
             invoker=invoker, root=session_root, workspace_root=workspace,
             session_binding=binding, runtime_bundle=runtime_bundle,
-            preregistration={**preregistration, "run_id": "different-run"})
+            preregistration={**preregistration, "run_id": "different-run"},
+            allowed_purposes=allowed_purposes)
+    with pytest.raises(RootlessExperimentalError,
+            match="ollama_experimental_existing_invoker_authority_mismatch"):
+        RootlessExperimentalOllamaEpistemicSession.wrap_existing_developmental_invoker(
+            invoker=invoker, root=session_root, workspace_root=workspace,
+            session_binding=binding, runtime_bundle=runtime_bundle,
+            preregistration={**preregistration,
+                "allowed_invocation_purposes": list(allowed_purposes[:-1])},
+            allowed_purposes=allowed_purposes)
     kwargs = _kwargs(purpose, "bounded-call")
     request = session.build_request(**kwargs)
     assert request.linkage["rootless_experimental_session"] == binding
     assert session.invoke(request)[0] is request
+    for index, admitted_purpose in enumerate(allowed_purposes):
+        if admitted_purpose == purpose:
+            continue
+        admitted = session.build_request(**_kwargs(
+            admitted_purpose, f"bounded-call-{index}"))
+        assert admitted.linkage["rootless_experimental_session"] == binding
+        session.invoke(admitted)
     assert session.model is model
     session.model = model
     assert invoker.model is model
@@ -164,7 +184,7 @@ def test_existing_companion_invoker_is_bound_to_rootless_receipt_custody(
 
     with pytest.raises(RootlessExperimentalError,
             match="ollama_experimental_session_request_out_of_scope"):
-        session.build_request(**_kwargs("local_user_chat", "out-of-scope"))
+        session.build_request(**_kwargs("avatar_renderer_command", "out-of-scope"))
     forged = {**receipt, "request": {**receipt["request"],
         "linkage": {"rootless_experimental_session": {**binding,
             "session_id": "rootless-cognition-session-other"}}}}

@@ -73,6 +73,11 @@ def test_rootless_live_session_preregisters_private_scope_without_inference(
     assert binding["runtime_bundle_digest"] == semantic_digest(runtime_bundle)
     assert preregistration["observation_target_process_names"] == [
         "Godot_v4.7.2-stable_win64.exe"]
+    from sentientos.local_model_authority import (
+        ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES,
+    )
+    assert preregistration["allowed_invocation_purposes"] == list(
+        ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES)
     assert preregistration["action_scope"] == (
         "existing avatar reply animation only; no host actuation or gameplay input")
     assert preregistration["production_authority"] is False

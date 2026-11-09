@@ -117,8 +117,14 @@ def _prepare_rootless_live_developmental_session(*, state: Path,
         "model_manifest_digest": model_digest,
         "runtime_attestation": "local_observation_only"}
     binding_digest = digest_payload
+    from sentientos.local_model_authority import (
+        ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES,
+    )
+
     preregistration = {
         "schema_version": "sentientos.live_companion_developmental_preregistration:v1",
+        "allowed_invocation_purposes": list(
+            ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES),
         "session_id": session_id,
         "run_id": run_id,
         "model_identity_digest": binding_digest({"identity": dict(model_identity)}),
@@ -1486,6 +1492,8 @@ def main() -> int:
     from sentientos.local_model_authority import (
         atomic_write_json, build_local_model_authority_map,
         build_developmental_companion_authority_map,
+        build_rootless_experimental_developmental_companion_authority_map,
+        ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES,
     )
 
     config = load_model_config()
@@ -1497,15 +1505,24 @@ def main() -> int:
         parser.error("rootless developmental session requires exactly one pinned Ollama candidate")
     allowed_roots = sorted({item.path.parent for item in config.candidates
                              if item.path is not None}, key=str)
-    authority = (build_developmental_companion_authority_map(
+    authority = (
+        build_rootless_experimental_developmental_companion_authority_map(
+            config, allowed_roots=allowed_roots)
+        if args.rootless_developmental_session else
+        build_developmental_companion_authority_map(
             config, allowed_roots=allowed_roots)
         if args.enable_resident_cognition else
         build_local_model_authority_map(config, allowed_roots=allowed_roots))
-    expected_purposes = (("local_user_chat",
-        "resident_developmental_retrieval_cognition")
+    expected_purposes = (
+        ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES
+        if args.rootless_developmental_session else
+        ("local_user_chat", "resident_developmental_retrieval_cognition")
         if args.enable_resident_cognition else ("local_user_chat",))
     for record in authority.records:
-        expected_disposition = ("development_companion_candidate"
+        expected_disposition = (
+            "rootless_experimental_developmental_companion_candidate"
+            if args.rootless_developmental_session else
+            "development_companion_candidate"
             if args.enable_resident_cognition else "development_only")
         if (record.disposition != expected_disposition
                 or record.runtime_eligibility_status != "eligible"
@@ -1548,7 +1565,8 @@ def main() -> int:
         rootless_session = RootlessExperimentalOllamaEpistemicSession.wrap_existing_developmental_invoker(
             invoker=invoker, root=session_root, session_binding=session_binding,
             runtime_bundle=runtime_bundle, workspace_root=rootless_workspace,
-            preregistration=preregistration)
+            preregistration=preregistration,
+            allowed_purposes=ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES)
         invoker = rootless_session
     resident_cognition_owner = None
     resident_history_intervention_owner = None
