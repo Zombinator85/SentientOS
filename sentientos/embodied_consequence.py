@@ -563,8 +563,6 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
     if renderer_report: verify_renderer_report(renderer_report)
     if observation:
         verify_independent_observation(observation)
-        if observation.observation_source_class != expectation.expected_observation_source_class:
-            raise EmbodiedConsequenceError("observation_source_class_mismatch")
     if fulfillment_receipt and fulfillment_receipt.get("effect_proven") is True:
         raise EmbodiedConsequenceError("unverified_fulfillment_receipt_cannot_prove_effect")
     now = _time(evaluated_at)
