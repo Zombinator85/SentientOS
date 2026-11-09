@@ -3146,7 +3146,8 @@ class RuntimeMaintenanceSurfaces:
                         result = developmental_owner.run_objective_intervention_once(
                             snapshot=self._world_state_snapshot, tick_id=tick_id,
                             objective_task=objective_task_for_request(staged_request),
-                            request_id=request_id, request_digest=request_digest)
+                            request_id=request_id, request_digest=request_digest,
+                            prior_epistemic_state=prior_epistemic_state)
                         objective_request_status = result.status
                         if (result.status == "objective_intervention_completed"
                                 and result.changed_cognition_measurement_id is not None):

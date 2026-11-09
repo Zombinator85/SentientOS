@@ -7093,13 +7093,37 @@ def test_sentientosd_consumes_staged_objective_once_without_recurring_owner_conf
     fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
     fake.objective_plan_root = tmp_path / "cognition" / "state" / "developmental_experiments" / "protocols"
     cognition, _ = owner(tmp_path / "cognition", comparison=True, invoker=fake)
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic-objective", allowed_namespaces=["embodiment"])
+    prior_proposition = make_proposition(namespace="embodiment", subject="body:g1",
+        predicate="healthy", object_value=True, polarity="positive", qualifiers={},
+        temporal_scope={"kind": "prior"}, context_scope={},
+        proposition_class="descriptive")
+    epistemic.register_proposition(prior_proposition)
+    epistemic.commit_update(proposition_id=prior_proposition.proposition_id,
+        expected_predecessor_digest=None, stance="unknown", reason="initialization",
+        active_binding_ids=[], correlation_id="objective-prior", tick=1,
+        recorded_at="2026-01-01T00:00:00Z")
+    captured_objective_context: dict[str, object] = {}
+    original_objective_runner = cognition.run_objective_intervention_once
+
+    def capture_objective_context(**kwargs):
+        captured_objective_context.update(kwargs)
+        return original_objective_runner(**kwargs)
+
+    monkeypatch.setattr(cognition, "run_objective_intervention_once",
+        capture_objective_context)
     seeded = cognition.run_tick(snapshot=snapshot(), tick_id="daemon-objective-history-seed")
     assert seeded.written_record_id
     request = stage_objective_request(tmp_path / "cognition" / "state",
         request_id="daemon-objective-once", task=ObjectivePredictionTask(3, 2, 7))
     surfaces = RuntimeMaintenanceSurfaces(tmp_path,
         runtime_state_root=tmp_path / "runtime-objective",
-        resident_developmental_owner=cognition)  # type: ignore[arg-type]
+        resident_developmental_owner=cognition,
+        epistemic_state_owner=epistemic,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True})  # type: ignore[arg-type]
     tick = "2026-10-13T00:00:00+00:00"
     surfaces.build_world_state_board(tick_id=tick)
     result = surfaces.run_resident_developmental_cognition(tick_id=tick)
@@ -7110,11 +7134,18 @@ def test_sentientosd_consumes_staged_objective_once_without_recurring_owner_conf
     assert result["objective_measurement_summary"]["status"] == "verified_objective_measurement"
     assert result["objective_measurement_summary"]["actual_nonsynthetic_inference_verified"] is False
     assert len(result["objective_measurement_summary"]["conditions"]) == 3
+    objective_prior = captured_objective_context.get("prior_epistemic_state")
+    assert objective_prior is not None
+    assert objective_prior.proposition_ids == (prior_proposition.proposition_id,)
     assert request.exists()
     trial_requests = [item for item in fake.requests
         if item.purpose == "resident_developmental_history_intervention_experiment"
         and "objective_task_plan_digest" in item.upstream_evidence]
     assert len(trial_requests) == 3
+    assert {item.upstream_evidence["epistemic_projection_id"]
+        for item in trial_requests} == {objective_prior.projection_id}
+    assert {item.upstream_evidence["epistemic_projection_digest"]
+        for item in trial_requests} == {objective_prior.projection_digest}
 
     # The staged file remains as custody evidence. Its durable request identity
     # prevents another trial, while ordinary cognition may continue next tick.
