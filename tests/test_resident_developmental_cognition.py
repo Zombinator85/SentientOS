@@ -9169,3 +9169,154 @@ def test_rootless_developmental_session_binding_is_identity_and_namespace_bound(
     assert not _valid_rootless_epistemic_session_binding({
         **binding, "purpose": "local_user_chat",
     })
+
+
+
+def test_chat_service_composes_resident_reply_into_controlled_history_intervention(
+        tmp_path: Path) -> None:
+    """Exercise the operator A/B/A route from saved reply to matched fresh evidence."""
+    from scripts.run_local_companion_dev import _build_resident_cognition_owner_pair
+    from sentientos.canonical_memory import CanonicalMemoryStore
+    from sentientos.chat_service import PersistentConversationService
+
+    now = datetime.now(timezone.utc)
+    template, fake = owner(tmp_path / "chat-service-history-intervention",
+        comparison=True, allowed_source_kinds=("embodiment",))
+    interaction_owner, intervention_owner = _build_resident_cognition_owner_pair(
+        config=template.config, writeback=template.writeback,
+        admission_authority=template.admission_authority, invoker=template.invoker,
+        current_sequence=template.current_sequence)
+    assert intervention_owner is not None
+
+    initial_screen = {"modality": "screen",
+        "text": "A bounded local observation of the test scene.",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    seeded = interaction_owner.run_tick(snapshot=build_companion_snapshot(
+        screen_observation=initial_screen, clock=lambda: now),
+        tick_id="service-history-seed")
+    assert seeded.written_record_id is not None
+
+    question = "What did the earlier scene show?"
+    fake.companion_output_override = {
+        "disposition": "answer", "response": "The previous scene showed a blue sign.",
+        "evidence_ids": ["__CURRENT_FACT__"],
+        "history_record_ids": [seeded.written_record_id]}
+    fake.companion_output_by_condition = {
+        "history_present": {
+            "disposition": "answer",
+            "response": "The earlier scene showed a blue sign.",
+            "evidence_ids": ["__CURRENT_FACT__"],
+            "history_record_ids": [seeded.written_record_id]},
+        "history_withheld": {
+            "disposition": "abstain", "response": "I cannot determine that from this scene.",
+            "evidence_ids": ["__CURRENT_FACT__"], "history_record_ids": []},
+        "history_restored": {
+            "disposition": "answer",
+            "response": "The earlier scene showed a blue sign.",
+            "evidence_ids": ["__CURRENT_FACT__"],
+            "history_record_ids": [seeded.written_record_id]},
+    }
+    bridge = ResidentDevelopmentalCompanionBridge(
+        interaction_owner, history_intervention_owner=intervention_owner,
+        clock=lambda: now)
+    session_id = "history-intervention-session"
+    source_turn_id = "turn-" + "b" * 24
+    assistant_turn_id = "turn-" + "a" * 24
+    interaction = bridge.respond(
+        request_id=f"{session_id}:{source_turn_id}", question=question,
+        screen_observation=initial_screen)
+    assert interaction.status == "admitted_completed"
+
+    response_digest = interaction.response_digest
+    linkage = {
+        "response_origin": "resident_developmental_cognition",
+        "source_user_turn_id": source_turn_id,
+        "cognition_snapshot_id": interaction.snapshot_id,
+        "cognition_snapshot_digest": interaction.snapshot_digest,
+        "cognition_observation_id": interaction.cognition_observation_id,
+        "cognition_observation_digest": interaction.cognition_observation_digest,
+        "inference_receipt_id": interaction.inference_receipt_id,
+        "inference_receipt_digest": interaction.inference_receipt_digest,
+        "invocation_output_digest": interaction.invocation_output_digest,
+        "response_digest": response_digest,
+        "cognition_evidence_ids": list(interaction.evidence_ids),
+        "cognition_prior_record_ids": list(interaction.prior_record_ids),
+        "cognition_history_record_ids": list(interaction.history_record_ids),
+        "cognition_model_id": interaction.model_id,
+        "cognition_model_artifact_digest": interaction.model_artifact_digest,
+        "self_model_projection_id": interaction.self_model_projection_id,
+        "self_model_projection_digest": interaction.self_model_projection_digest,
+        "epistemic_projection_id": interaction.epistemic_projection_id,
+        "epistemic_projection_digest": interaction.epistemic_projection_digest,
+        "assistant_output_lineage": {
+            "status": "resident_cognition_interaction",
+            "cognition_observation_id": interaction.cognition_observation_id,
+            "cognition_observation_digest": interaction.cognition_observation_digest,
+            "inference_receipt_id": interaction.inference_receipt_id,
+            "inference_receipt_digest": interaction.inference_receipt_digest,
+            "invocation_output_digest": interaction.invocation_output_digest,
+            "response_digest": response_digest,
+        },
+    }
+    user_turn = {"role": "user", "turn_id": source_turn_id, "text": question}
+    assistant_turn = {"role": "assistant", "turn_id": assistant_turn_id,
+        "text": interaction.response, "linkage": linkage}
+
+    class Sessions:
+        def serialize_chat_requests(self, _session_id):
+            from contextlib import nullcontext
+            return nullcontext()
+
+        def load(self, _session_id):
+            return {"turns": [user_turn, assistant_turn]}
+
+    class InferenceGate:
+        def cognition_available(self):
+            return True
+
+    followup_screen = {**initial_screen, "capture_digest": "c" * 64}
+
+    class ScreenObserver:
+        def observe_question(self, observed_question):
+            assert observed_question == question
+            return followup_screen
+
+    service = PersistentConversationService(
+        inference=InferenceGate(), session_store=Sessions(),
+        memory_store=CanonicalMemoryStore(tmp_path / "chat-service-memory"),
+        screen_observer=ScreenObserver(),
+        resident_cognition_bridge=bridge)
+    result = service.run_history_intervention(
+        session_id=session_id, assistant_turn_id=assistant_turn_id,
+        request_id="operator-history-comparison-1")
+
+    assert result["status"] == "completed_controlled_intervention"
+    assert result["restored_prompt_matches"] is True
+    assert result["conditions"] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert result["response_text_classification"] == (
+        "history_presence_associated_stable_response_text_difference")
+    assert result["performance_improvement_established"] is False
+    assert result["authority"] is False
+    assert result["action_authority"] is False
+    conditions = result["condition_responses"]
+    assert conditions[0]["disposition"] == "answer"
+    assert conditions[1]["disposition"] == "abstain"
+    assert conditions[2]["response_text"] == conditions[0]["response_text"]
+    assert seeded.written_record_id in interaction.history_record_ids
+    comparison_requests = [request for request in fake.requests
+        if request.purpose == "resident_developmental_history_intervention_experiment"
+        and "history_present" in request.linkage]
+    assert [request.linkage["history_present"] for request in comparison_requests] == [
+        True, False, True]
+    selections = [request.upstream_evidence["developmental_history_selection"]
+        for request in comparison_requests]
+    stored_history = template.writeback.store.get(seeded.written_record_id)
+    assert selections[0]["selected_records"] == [{
+        "record_id": seeded.written_record_id,
+        "record_digest": stored_history.record_digest}]
+    assert selections[1]["treatment"] == "withheld"
+    assert selections[1]["selected_records"] == []
+    assert selections[2]["selected_records"] == selections[0]["selected_records"]
