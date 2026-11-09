@@ -519,6 +519,48 @@ def test_capture_accepts_only_allowlisted_foreground_client_area() -> None:
     assert "process_name" not in observation_payload
 
 
+def test_capture_rejects_an_overlapping_window_above_foreground_before_reading_pixels() -> None:
+    frames: list[ForegroundGameWindow] = []
+    covered_window = ForegroundGameWindow(
+        "ExampleGame.exe", 10, 20, 110, 70, overlapping_window_above=True)
+    capture = WindowsGameScreenCapture(
+        consent_provider=lambda: CONSENT,
+        window_provider=lambda: covered_window,
+        frame_provider=lambda window: (frames.append(window) or FRAME),
+        clock=lambda: NOW,
+        monotonic=lambda: 1.0,
+    )
+
+    with pytest.raises(ScreenCaptureError, match="game_screen_overlapping_window_unsupported"):
+        capture()
+    assert frames == []
+
+
+def test_window_order_check_detects_intersections_and_ignores_nonoverlapping_windows() -> None:
+    from sentientos.perception.game_screen_capture import _has_overlapping_window_above
+
+    class FakeWin32Gui:
+        def __init__(self, rectangles: dict[int, tuple[int, int, int, int]]) -> None:
+            self.rectangles = rectangles
+        def GetWindow(self, handle: int, _command: int) -> int:
+            return {1: 2, 2: 3, 3: 0}.get(handle, 0)
+        def IsWindowVisible(self, handle: int) -> bool:
+            return True
+        def IsIconic(self, handle: int) -> bool:
+            return False
+        def GetWindowRect(self, handle: int) -> tuple[int, int, int, int]:
+            return self.rectangles[handle]
+
+    target = (10, 20, 110, 70)
+    nonoverlap_then_overlap = FakeWin32Gui({
+        2: (200, 200, 300, 300), 3: (100, 60, 130, 90)})
+    only_nonoverlap = FakeWin32Gui({
+        2: (200, 200, 300, 300), 3: (120, 80, 130, 90)})
+
+    assert _has_overlapping_window_above(nonoverlap_then_overlap, 1, target) is True
+    assert _has_overlapping_window_above(only_nonoverlap, 1, target) is False
+
+
 def test_capture_rejects_layered_foreground_window_before_reading_pixels() -> None:
     frames: list[ForegroundGameWindow] = []
     layered_window = ForegroundGameWindow("ExampleGame.exe", 10, 20, 110, 70, layered=True)

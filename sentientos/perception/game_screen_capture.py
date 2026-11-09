@@ -99,6 +99,7 @@ class ForegroundGameWindow:
     right: int
     bottom: int
     layered: bool = False
+    overlapping_window_above: bool = False
 
 
 @dataclass(frozen=True)
@@ -147,6 +148,26 @@ def _validate_consent(consent: GameScreenCaptureConsent, *, now: datetime) -> tu
     return names
 
 
+def _has_overlapping_window_above(win32gui: Any, handle: int,
+        target_rect: tuple[int, int, int, int]) -> bool:
+    """Reject desktop-rectangle captures with another visible HWND above them."""
+    target_left, target_top, target_right, target_bottom = target_rect
+    cursor = win32gui.GetWindow(handle, 3)  # GW_HWNDPREV: next window above in Z order.
+    visited: set[int] = set()
+    while cursor:
+        numeric_cursor = int(cursor)
+        if numeric_cursor in visited or len(visited) >= 512:
+            raise ScreenCaptureError("game_screen_window_order_unavailable")
+        visited.add(numeric_cursor)
+        if win32gui.IsWindowVisible(cursor) and not win32gui.IsIconic(cursor):
+            left, top, right, bottom = win32gui.GetWindowRect(cursor)
+            if (left < target_right and right > target_left
+                    and top < target_bottom and bottom > target_top):
+                return True
+        cursor = win32gui.GetWindow(cursor, 3)
+    return False
+
+
 def _windows_foreground_game_window() -> ForegroundGameWindow:
     if os.name != "nt":
         raise ScreenCaptureError("game_screen_capture_windows_only")
@@ -169,8 +190,12 @@ def _windows_foreground_game_window() -> ForegroundGameWindow:
         left, top, right, bottom = win32gui.GetClientRect(handle)
         screen_left, screen_top = win32gui.ClientToScreen(handle, (left, top))
         screen_right, screen_bottom = win32gui.ClientToScreen(handle, (right, bottom))
-        return ForegroundGameWindow(str(process_name), int(screen_left), int(screen_top),
-                                    int(screen_right), int(screen_bottom), layered=layered)
+        target_rect = (int(screen_left), int(screen_top),
+                       int(screen_right), int(screen_bottom))
+        overlapping_window_above = _has_overlapping_window_above(
+            win32gui, handle, target_rect)
+        return ForegroundGameWindow(str(process_name), *target_rect,
+            layered=layered, overlapping_window_above=overlapping_window_above)
     except ScreenCaptureError:
         raise
     except Exception as exc:
@@ -267,6 +292,10 @@ class WindowsGameScreenCapture:
                 raise ScreenCaptureError("game_screen_window_style_invalid")
             if window.layered:
                 raise ScreenCaptureError("game_screen_layered_window_unsupported")
+            if type(window.overlapping_window_above) is not bool:
+                raise ScreenCaptureError("game_screen_window_order_invalid")
+            if window.overlapping_window_above:
+                raise ScreenCaptureError("game_screen_overlapping_window_unsupported")
             process_name = _normalize_process_name(window.process_name)
             if process_name in allowed_process_names:
                 break
