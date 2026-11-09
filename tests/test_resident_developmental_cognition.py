@@ -5949,6 +5949,83 @@ def test_split_companion_owners_keep_interaction_and_confirmed_comparison_availa
     assert len(comparison.conditions) == 3
 
 
+def test_operator_writeback_flows_into_later_owner_paired_history_comparison(
+        tmp_path: Path) -> None:
+    from scripts.run_local_companion_dev import _build_resident_cognition_owner_pair
+    from sentientos.developmental_companion_bridge import make_operator_feedback_record
+
+    now = datetime.now(timezone.utc)
+    template, fake = owner(tmp_path / "writeback-abac", comparison=True,
+        allowed_source_kinds=("embodiment", "operator_input"), max_selected_facts=2)
+    interaction_owner, intervention_owner = _build_resident_cognition_owner_pair(
+        config=template.config, writeback=template.writeback,
+        admission_authority=template.admission_authority, invoker=template.invoker,
+        current_sequence=template.current_sequence)
+    assert intervention_owner is not None
+
+    source_screen = {"modality": "screen",
+        "text": "Visual summary: two candle flames beside the altar.",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    followup_screen = {**source_screen, "capture_digest": "b" * 64}
+    bridge = ResidentDevelopmentalCompanionBridge(
+        interaction_owner, history_intervention_owner=intervention_owner,
+        clock=lambda: now)
+
+    fake.companion_output_override = {
+        "disposition": "answer", "response": "I see two visible candle flames.",
+        "evidence_ids": ["__CURRENT_FACT__"], "history_record_ids": []}
+    source_reply = bridge.respond(request_id="paired-source-reply",
+        question="Describe the candle flames.", screen_observation=source_screen)
+    assert source_reply.status == "admitted_completed"
+
+    feedback = make_operator_feedback_record(
+        "There are four candle objects; two are lit.",
+        request_id="paired-feedback-request", assistant_turn_id="turn-" + "a" * 24,
+        assistant_response_digest=source_reply.response_digest,
+        source_capture_digest=source_screen["capture_digest"],
+        followup_capture_digest=followup_screen["capture_digest"],
+        observed_at=now.isoformat())
+    assert bridge.operator_feedback_available() is True
+    cycle = bridge.run_developmental_cycle(tick_id="paired-writeback",
+        screen_observation=followup_screen, operator_feedback=feedback)
+    assert cycle.written_record_id is not None
+    assert cycle.writeback_receipt_id is not None
+
+    fake.companion_output_override = {
+        "disposition": "answer", "response": "The retained observation distinguishes objects from flames.",
+        "evidence_ids": ["__CURRENT_FACT__"],
+        "history_record_ids": [cycle.written_record_id]}
+    later = bridge.respond(request_id="paired-later-response",
+        question="What did the earlier correction teach?", screen_observation=followup_screen)
+    assert cycle.written_record_id in later.history_record_ids
+
+    fake.companion_output_by_condition = {
+        condition: {"disposition": "answer",
+            "response": ("The earlier correction distinguishes objects from flames."
+                if condition != "history_withheld" else "The current capture shows two flames."),
+            "evidence_ids": ["__CURRENT_FACT__"],
+            "history_record_ids": ([cycle.written_record_id]
+                if condition != "history_withheld" else [])}
+        for condition in ("history_present", "history_withheld", "history_restored")}
+    comparison = bridge.compare_history_intervention(
+        tick_id="paired-writeback-abac",
+        question="What did the earlier correction teach?",
+        screen_observation=followup_screen)
+
+    assert comparison.status == "completed_controlled_intervention"
+    assert tuple(item["condition_id"] for item in comparison.conditions) == (
+        "history_present", "history_withheld", "history_restored")
+    assert comparison.restored_prompt_matches is True
+    assert comparison.response_text_classification == (
+        "history_presence_associated_stable_response_text_difference")
+    assert comparison.action_authority is False
+    assert all(cycle.written_record_id in item["history_record_ids"]
+        for item in (comparison.conditions[0], comparison.conditions[2]))
+    assert comparison.conditions[1]["history_record_ids"] == ()
+
+
 def test_request_bound_history_capture_preserves_bridge_provenance_across_clock_skew(
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)
