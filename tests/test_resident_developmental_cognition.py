@@ -6044,7 +6044,7 @@ def test_developmental_cycle_admits_full_consequence_chain_with_screen_and_propr
 
 def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(
         tmp_path: Path) -> None:
-    """Exercise the runner adapter's projection through the real writeback owner."""
+    """Exercise local confirmation through runner measurement and real writeback."""
     from dataclasses import asdict
     from scripts.run_local_companion_dev import _PreparedAvatarConsequenceEmitter
     from sentientos.avatar_renderer_report_ingress import RendererReportReceiptIdentity
@@ -6052,6 +6052,8 @@ def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(
         AuthenticatedBridgeIndependentObserver, ConsequenceStore,
         make_independent_observation,
     )
+    from sentientos.chat_avatar_output import ChatAvatarOutputController
+    from tests.test_chat_avatar_output import _AdmissionStub
 
     now = datetime.now(timezone.utc)
     stamp = now.isoformat()
@@ -6064,7 +6066,11 @@ def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(
     }
 
     class Emitter:
-        def emit_display_text(self, _phrase, *, authorization=None, metadata=None):
+        def __init__(self):
+            self.calls = []
+
+        def emit_display_text(self, phrase, *, authorization=None, metadata=None):
+            self.calls.append({"phrase": phrase, "metadata": dict(metadata or {})})
             return {"status": "sent", "renderer_effect_proven": False}
 
     class Observer:
@@ -6135,16 +6141,23 @@ def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(
         emitter=Emitter(), pointer=pointer, observer=observer,
         renderer_receipt_provider=renderer_receipt)
     session_id, turn_id = "runner-session", "turn-" + "a" * 24
-    blank_digest = digest_payload({"text": ""})
-    metadata = {
-        "source": "governed_avatar_consequence_probe",
-        "session_id": session_id, "turn_id": turn_id,
-        "output_digest": blank_digest,
-        "displayed_text_digest": "sha256:" + blank_digest,
-        "measurement_request_id": "runner-measurement-1",
-        "assistant_response_digest": "1" * 64,
-    }
-    assert runner.emit_display_text("", metadata=metadata)["status"] == "sent"
+    controller = ChatAvatarOutputController(runner,
+        admission_provider=_AdmissionStub())
+    assert controller.set_enabled(session_id, True)["enabled"] is True
+    probe = controller.publish_consequence_probe(
+        session_id=session_id, turn_id=turn_id,
+        request_id="runner-measurement-1", assistant_response_digest="1" * 64)
+    assert probe["status"] == "emitted"
+    assert probe["game_input_authorized"] is False
+    assert probe["renderer_effect_proven"] is False
+    dispatched_probe = runner._emitter.calls[-1]
+    assert dispatched_probe["metadata"]["source"] == "governed_avatar_consequence_probe"
+    staged = runner._prepared[(session_id, turn_id)]
+    assert staged["expectation"].requested["measurement_request_id_digest"] == (
+        hashlib.sha256(b"runner-measurement-1").hexdigest())
+    assert staged["expectation"].requested["assistant_text_digest"] == "1" * 64
+    assert dispatched_probe["metadata"]["consequence_expectation_id"] == (
+        staged["expectation"].expectation_id)
     store = ConsequenceStore(tmp_path / "runner-writeback-chain")
     measurement = runner.observe_and_store(
         session_id=session_id, turn_id=turn_id, observer=observer, store=store)
@@ -6177,6 +6190,7 @@ def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(
     assert len(cycle.selected_fact_ids) == 8
     assert fake.requests
     assert observer.receipt is not None
+    controller.close()
 
 
 
