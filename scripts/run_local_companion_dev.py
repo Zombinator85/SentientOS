@@ -406,15 +406,26 @@ class _PreparedAvatarConsequenceEmitter:
             metadata: Mapping[str, Any] | None = None) -> dict[str, Any]:
         from sentientos.avatar_authoring import renderer_handoff
         from sentientos.embodied_consequence import make_expectation
+        from sentientos.local_model_authority import digest_payload
 
         metadata = metadata if isinstance(metadata, Mapping) else {}
         key = (metadata.get("session_id"), metadata.get("turn_id"))
         staged: dict[str, Any] | None = None
+        output_digest = metadata.get("output_digest")
+        response_digest_valid = (
+            isinstance(output_digest, str)
+            and output_digest == digest_payload({"text": phrase}))
         if (self._observer is not None and self._pointer is not None
-                and all(isinstance(item, str) and item for item in key)):
+                and all(isinstance(item, str) and item for item in key)
+                and response_digest_valid):
             now = datetime.now(timezone.utc)
             created_at = now.isoformat()
-            correlation_id = "companion-avatar-nod-" + uuid.uuid4().hex
+            turn_binding_digest = hashlib.sha256(
+                (key[0] + "\0" + key[1]).encode("utf-8")).hexdigest()
+            correlation_digest = hashlib.sha256(
+                (key[0] + "\0" + key[1] + "\0" + output_digest).encode(
+                    "utf-8")).hexdigest()
+            correlation_id = "companion-avatar-nod-" + correlation_digest[:32]
             pointer = self._pointer
             handoff = renderer_handoff(pointer,
                 renderer_interface_id="sentientos-godot-companion",
@@ -427,7 +438,9 @@ class _PreparedAvatarConsequenceEmitter:
                 body_manifest_digest=str(pointer["manifest_digest"]),
                 handoff_id=handoff["handoff_id"], handoff_digest=handoff["handoff_digest"],
                 renderer_interface_id="sentientos-godot-companion",
-                requested={"pose": "nod", "expression": "rest"},
+                requested={"pose": "nod", "expression": "rest",
+                    "assistant_turn_binding_digest": turn_binding_digest,
+                    "assistant_text_digest": output_digest},
                 predicted_observables={"avatar_visible": True, "avatar_motion": "nod"},
                 observable_fields=("avatar_visible", "avatar_motion"),
                 comparison_policy={"avatar_visible": {"kind": "exact"},
@@ -437,7 +450,7 @@ class _PreparedAvatarConsequenceEmitter:
                 created_at=created_at,
                 expires_at=(now + timedelta(minutes=5)).isoformat())
             staged = {"expectation": expectation, "handoff": handoff,
-                "output_digest": metadata.get("output_digest"),
+                "output_digest": output_digest,
                 "pointer_digest": pointer.get("pointer_digest"),
                 "dispatch_status": "pending"}
         result = self._emitter.emit_display_text(
@@ -478,7 +491,9 @@ class _PreparedAvatarConsequenceEmitter:
             attribution=attribution, comparison=comparison)
         records = store.world_state_records(consequence_chain_ids=(chain["chain_id"],))
         return {"status": "completed", "chain_id": chain["chain_id"],
-            "classification": comparison.get("classification"),
+            # Classification belongs to the governed attribution owner; the
+            # comparison record contains per-observable outcomes only.
+            "classification": attribution.get("classification"),
             "confidence": observation.confidence, "quality": observation.quality,
             "effect_proven": False, "world_state_records": tuple(records),
             "observer_transport_authenticated": True,

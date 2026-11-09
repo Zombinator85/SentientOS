@@ -391,6 +391,9 @@ def test_development_chat_speech_is_opt_in_and_uses_local_controller(
 
 def test_avatar_nod_expectation_binds_the_authorized_output_command():
     from scripts.run_local_companion_dev import _PreparedAvatarConsequenceEmitter
+    from sentientos.local_model_authority import digest_payload
+
+    phrase = "I can help with that."
 
     class Emitter:
         def __init__(self):
@@ -413,14 +416,114 @@ def test_avatar_nod_expectation_binds_the_authorized_output_command():
         emitter=emitter, pointer=pointer, observer=observer)
     metadata = {
         "session_id": "session-test", "turn_id": "turn-test",
-        "output_digest": "sha256:" + "d" * 64,
+        "output_digest": digest_payload({"text": phrase}),
     }
 
     assert adapter.emit_display_text(
-        "I can help with that.", metadata=metadata)["status"] == "sent"
+        phrase, metadata=metadata)["status"] == "sent"
     staged = adapter._prepared[("session-test", "turn-test")]
     assert staged["expectation"].predicted_observables == {
         "avatar_visible": True, "avatar_motion": "nod"}
+    assert staged["expectation"].requested["assistant_text_digest"] == metadata["output_digest"]
+    assert len(staged["expectation"].requested["assistant_turn_binding_digest"]) == 64
     assert staged["dispatch_status"] == "sent"
     assert not any(staged["expectation"].authority.values())
-    assert emitter.calls == ["I can help with that."]
+    invalid_metadata = {
+        **metadata, "turn_id": "turn-" + "3" * 24,
+        "output_digest": "0" * 64,
+    }
+    assert adapter.emit_display_text(
+        phrase, metadata=invalid_metadata)["status"] == "sent"
+    assert ("session-test", invalid_metadata["turn_id"]) not in adapter._prepared
+    assert emitter.calls == [phrase, phrase]
+
+
+def test_prepared_avatar_consequence_persists_bound_indeterminate_chain(tmp_path):
+    from datetime import datetime, timezone
+
+    from scripts.run_local_companion_dev import _PreparedAvatarConsequenceEmitter
+    from sentientos.embodied_consequence import (
+        AuthenticatedBridgeIndependentObserver,
+        ConsequenceStore,
+        make_independent_observation,
+    )
+    from sentientos.local_model_authority import digest_payload
+
+    class Emitter:
+        def emit_display_text(self, _phrase, *, authorization=None, metadata=None):
+            return {"status": "sent", "renderer_effect_proven": False}
+
+    class Observer:
+        def observe(self, *, expectation, handoff, report):
+            return make_independent_observation(
+                observer_id="windows-avatar-consequence",
+                observation_source_class="authenticated_bridge_observer",
+                body_generation=expectation.body_generation,
+                expectation_id=expectation.expectation_id,
+                expectation_digest=expectation.expectation_digest,
+                handoff_id=handoff["handoff_id"],
+                handoff_digest=handoff["handoff_digest"],
+                renderer_report_id=None, renderer_report_digest=None,
+                correlation_id=expectation.correlation_id,
+                observed={"avatar_visible": True, "avatar_motion": "nod"},
+                observed_at=datetime.now(timezone.utc).isoformat(),
+                confidence="unknown", quality="partial",
+                source_digest="sha256:" + "e" * 64, posture="rehearsal")
+        def consume_authentication_receipt(self, observation):
+            return {
+                "schema_version": AuthenticatedBridgeIndependentObserver.RECEIPT_SCHEMA,
+                "observation_id": observation.observation_id,
+                "observation_digest": observation.observation_digest,
+                "observer_source_id": observation.observer_id,
+                "session_id": "bridge-session",
+                "generation_id": "bridge-generation",
+                "sequence": 1, "message_id": "f" * 64,
+                "signed_envelope_digest": observation.source_digest,
+                "received_at": datetime.now(timezone.utc).isoformat(),
+                "transport_authenticated_at_ingress": True,
+                "signature_reverified_on_load": False,
+                "source_distinct_from_renderer": True,
+            }
+
+    phrase = "I can help with that."
+    pointer = {
+        "installation_identity": "test-installation",
+        "body_identity": "test-avatar",
+        "body_generation": 1,
+        "manifest_digest": "sha256:" + "a" * 64,
+        "artifact_sha256": "sha256:" + "b" * 64,
+        "pointer_digest": "sha256:" + "c" * 64,
+    }
+    metadata = {"session_id": "session-bound",
+        "turn_id": "turn-" + "4" * 24,
+        "output_digest": digest_payload({"text": phrase})}
+    observer = Observer()
+    adapter = _PreparedAvatarConsequenceEmitter(
+        emitter=Emitter(), pointer=pointer, observer=observer)
+    store = ConsequenceStore(tmp_path / "consequence-store")
+
+    adapter.emit_display_text(phrase, metadata=metadata)
+    result = adapter.observe_and_store(
+        session_id=metadata["session_id"], turn_id=metadata["turn_id"],
+        observer=observer, store=store)
+
+    assert result is not None
+    assert result["classification"] == "indeterminate"
+    assert result["confidence"] == "unknown"
+    assert result["quality"] == "partial"
+    assert result["effect_proven"] is False
+    assert result["observer_transport_authenticated"] is True
+    assert result["observation_accuracy_established"] is False
+    expectation_fact = next(record for record in result["world_state_records"]
+        if record["subject_kind"] == "embodied_action_expectation")
+    assert expectation_fact["payload"]["requested"]["assistant_text_digest"] == (
+        metadata["output_digest"])
+    assert len(expectation_fact["payload"]["requested"][
+        "assistant_turn_binding_digest"]) == 64
+    chain_id = result["chain_id"]
+    chain = store.load_verified_consequence_chain(chain_id)
+    assert chain["attribution"]["classification"] == "indeterminate"
+    assert chain["effect_proven"] is False
+    assert chain["expectation"]["requested"]["assistant_text_digest"] == (
+        metadata["output_digest"])
+    assert store.world_state_records(consequence_chain_ids=(chain_id,))
