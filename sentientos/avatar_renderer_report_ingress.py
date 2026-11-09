@@ -11,7 +11,7 @@ import time
 import base64
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from .embodiment_self_observation import (
     EmbodimentEvidenceOwner,
@@ -30,6 +30,10 @@ _REPORT_FIELDS = frozenset({
     "output_mode", "commanded_state", "renderer_state", "frame_delta_seconds",
     "apply_duration_usec", "body_generation", "effect_proven",
     "independent_observation", "source_digest",
+})
+_ADOPTED_BODY_REPORT_FIELDS = frozenset({
+    "status", "evidence_posture", "artifact_sha256", "manifest_digest",
+    "pointer_digest", "adoption_receipt_digest", "authority_effects_performed",
 })
 
 
@@ -308,8 +312,14 @@ class RendererReportCaptureOwner:
 
 
 def renderer_report_observation(report: Mapping[str, Any]) -> EmbodimentObservation:
-    """Convert one Godot self-report into unverified embodiment evidence."""
-    if not isinstance(report, Mapping) or set(report) != _REPORT_FIELDS:
+    """Convert one Godot self-report into unverified embodiment evidence.
+
+    The adopted-body branch preserves the renderer's asserted body lineage for
+    later comparison with the authoritative pointer. It does not authenticate
+    adoption or promote renderer state into independent observation.
+    """
+    if (not isinstance(report, Mapping)
+            or set(report) not in (_REPORT_FIELDS, _REPORT_FIELDS | {"body_identity"})):
         raise RendererReportIngressError("renderer_report_shape_invalid")
     try:
         bounded = json.loads(json.dumps(report, ensure_ascii=False, allow_nan=False))
@@ -319,18 +329,45 @@ def renderer_report_observation(report: Mapping[str, Any]) -> EmbodimentObservat
         raise RendererReportIngressError("renderer_report_not_bounded_json") from exc
     if len(encoded) > MAX_RENDERER_REPORT_BYTES:
         raise RendererReportIngressError("renderer_report_too_large")
+    renderer_source_id = bounded.get("source_id")
+    body_generation = bounded.get("body_generation")
+    renderer_state = bounded.get("renderer_state")
     if (bounded["schema_version"] not in {RENDERER_REPORT_SCHEMA_V1, RENDERER_REPORT_SCHEMA}
             or bounded["evidence_class"] != "avatar_renderer_reported_state"
-            or bounded["source_id"] != "godot-procedural-demo"
             or not isinstance(bounded["renderer_generation_id"], str)
             or not bounded["renderer_generation_id"].startswith("godot-demo-")
             or type(bounded["sequence"]) is not int or bounded["sequence"] < 1
             or not isinstance(bounded["reported_at"], str) or not bounded["reported_at"]
-            or bounded["body_generation"] != "godot-procedural-demo-unadopted"
             or bounded["effect_proven"] is not False
             or bounded["independent_observation"] is not False
             or not isinstance(bounded["source_digest"], str)
             or not _SHA256.fullmatch(bounded["source_digest"])):
+        raise RendererReportIngressError("renderer_report_identity_invalid")
+    adopted_body = (renderer_state.get("adopted_body")
+                    if isinstance(renderer_state, Mapping) else None)
+    if renderer_source_id == "godot-procedural-demo":
+        if (body_generation != "godot-procedural-demo-unadopted"
+                or "body_identity" in bounded or adopted_body is not None):
+            raise RendererReportIngressError("renderer_report_identity_invalid")
+    elif renderer_source_id == "godot-adopted-body-demo":
+        if (bounded["schema_version"] != RENDERER_REPORT_SCHEMA
+                or "body_identity" not in bounded
+                or not isinstance(bounded.get("body_identity"), str)
+                or not bounded["body_identity"] or len(bounded["body_identity"]) > 128
+                or type(body_generation) is not int or body_generation < 1
+                or not isinstance(adopted_body, Mapping)
+                or set(adopted_body) != _ADOPTED_BODY_REPORT_FIELDS
+                or adopted_body.get("status") != "active"
+                or adopted_body.get("evidence_posture")
+                    != "trusted_loader_adoption_receipt_verified"
+                or adopted_body.get("authority_effects_performed") is not False
+                or not isinstance(adopted_body.get("artifact_sha256"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", str(adopted_body.get("artifact_sha256"))) is None
+                or any(not isinstance(adopted_body.get(field), str)
+                    or _SHA256.fullmatch(str(adopted_body[field])) is None
+                    for field in ("manifest_digest", "pointer_digest", "adoption_receipt_digest"))):
+            raise RendererReportIngressError("renderer_report_adopted_body_lineage_invalid")
+    else:
         raise RendererReportIngressError("renderer_report_identity_invalid")
     source_payload = dict(bounded)
     claimed_source_digest = source_payload.pop("source_digest")
@@ -350,6 +387,8 @@ def renderer_report_observation(report: Mapping[str, Any]) -> EmbodimentObservat
     renderer_state_fields = {"expression", "motion", "applied_render_cap_fps"}
     if bounded["schema_version"] == RENDERER_REPORT_SCHEMA:
         renderer_state_fields.add("speech")
+    if renderer_source_id == "godot-adopted-body-demo":
+        renderer_state_fields.add("adopted_body")
     intensity = state.get("intensity") if isinstance(state, dict) else None
     frame_delta = bounded["frame_delta_seconds"]
     apply_duration = bounded["apply_duration_usec"]
@@ -399,7 +438,9 @@ def renderer_report_observation(report: Mapping[str, Any]) -> EmbodimentObservat
         source_schema=str(bounded["schema_version"]),
         source_digest=report_digest,
         observed_at=bounded["reported_at"],
-        provenance_class="godot_procedural_demo_unverified",
+        provenance_class=("godot_adopted_body_renderer_self_report_unverified"
+            if renderer_source_id == "godot-adopted-body-demo"
+            else "godot_procedural_demo_unverified"),
         freshness="unknown",
         posture="synthetic_test",
         evidence_class="avatar_renderer_reported_state",
@@ -458,4 +499,4 @@ def renderer_report_world_state_record(report: Mapping[str, Any]) -> dict[str, A
     records = EmbodimentEvidenceOwner([observation]).world_state_records()
     if len(records) != 1:
         raise RendererReportIngressError("renderer_report_projection_invalid")
-    return records[0]
+    return cast(dict[str, Any], records[0])

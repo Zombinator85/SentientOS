@@ -356,6 +356,7 @@ class BridgeScreenObservationProvider:
                 "payload_digest": hashlib.sha256(json.dumps(
                     dict(latest.payload), sort_keys=True, separators=(",", ":"),
                     ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest(),
+                "signed_envelope_digest": hashlib.sha256(latest.signed_envelope).hexdigest(),
             },
         }
 

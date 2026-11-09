@@ -64,6 +64,42 @@ def _build_resident_cognition_owner_pair(*, config: Any, writeback: Any,
     return interaction_owner, intervention_owner
 
 
+def _build_companion_consequence_records_provider(*, config_path: str,
+        read_explicit_file: Callable[..., bytes]
+        ) -> Callable[[], tuple[Mapping[str, Any], ...]] | None:
+    """Expose selected, digest-verified consequence history to companion cycles."""
+    from sentientos.embodied_consequence import (
+        ConsequenceStore, validate_world_state_projection_config,
+    )
+
+    raw = read_explicit_file(Path(config_path), max_bytes=65_536)
+    config = validate_world_state_projection_config(json.loads(raw.decode("utf-8")))
+    if not config["enabled"]:
+        return None
+    consequence_ids = tuple(config["consequence_chain_ids"])
+    if not consequence_ids:
+        return None
+    store = ConsequenceStore(Path(config["store_root"]), create_root=False)
+
+    def provide() -> tuple[Mapping[str, Any], ...]:
+        # A prediction-comparison record carries exact expected/observed
+        # fields and the result while retaining its chain-bound digest.
+        # Project one concise record per selected verified chain so current
+        # screen/proprioception evidence can still fit cognition selection.
+        records = store.world_state_records(consequence_chain_ids=consequence_ids)
+        comparisons = tuple(item for item in records
+            if item.get("subject_kind") == "embodied_prediction_comparison")
+        if len(comparisons) != len(consequence_ids):
+            raise ValueError("companion_consequence_comparison_selection_invalid")
+        if len(comparisons) > 32:
+            raise ValueError("companion_consequence_projection_record_bound_exceeded")
+        return comparisons
+
+    # Fail at startup if the selected custody cannot be read and verified.
+    provide()
+    return provide
+
+
 def _normalize_windows_edge_executable(
         executable: str, *, convert_wsl_path: Callable[[Path], str]) -> str:
     """Convert an explicit mounted Windows executable path for the Windows edge."""
@@ -501,6 +537,10 @@ class _TemporaryCompanionEdge:
             BridgeScreenObservationProvider, RequestDrivenScreenObservation,
             ScreenCaptureRequestSender,
         )
+        from sentientos.avatar_consequence_bridge import (
+            AvatarConsequenceMeasurementRequestSender, RemoteAvatarConsequenceObserver,
+        )
+        from sentientos.embodied_consequence import AuthenticatedBridgeIndependentObserver
         from sentientos.gaming_companion_tls_transport import (
             CompanionBridgeMutualTLSClient,
         )
@@ -515,6 +555,9 @@ class _TemporaryCompanionEdge:
         self.foreground_game_detector: Any | None = None
         self._screen_runtime: Any | None = None
         self.screen_observer: Any | None = None
+        self._avatar_consequence_runtime: Any | None = None
+        self.avatar_consequence_observer: Any | None = None
+        self._avatar_consequence_request_material: tuple[Any, ...] | None = None
         self._lines: queue.Queue[str] = queue.Queue()
         self._report_file: Path | None = None
         self._delivery_event_file = delivery_event_file
@@ -639,6 +682,42 @@ class _TemporaryCompanionEdge:
                         raise ValueError("screen_observation_vision_model_invalid")
                     config["screen_observation"]["vision_model"] = (
                         screen_observation_vision_model)
+                    avatar_request_key = secrets.token_bytes(32)
+                    avatar_source_key = secrets.token_bytes(32)
+                    avatar_ack_key = secrets.token_bytes(32)
+                    avatar_request_id = "wsl-avatar-consequence-request"
+                    avatar_request_generation = "wsl-avatar-consequence-request-dev-1"
+                    avatar_source_id = "windows-avatar-consequence"
+                    avatar_source_generation = "windows-avatar-consequence-dev-1"
+                    avatar_ack_id = "wsl-avatar-consequence-ack"
+                    avatar_ack_generation = "wsl-avatar-consequence-ack-dev-1"
+                    self._avatar_consequence_runtime = CompanionBridgeLoopbackRuntime(
+                        receiver=CompanionBridgeReceiver(
+                            source_keys={avatar_source_id: avatar_source_key},
+                            expected_generations={avatar_source_id: avatar_source_generation}),
+                        acknowledgment_source_id=avatar_ack_id,
+                        acknowledgment_generation_id=avatar_ack_generation,
+                        acknowledgment_key=avatar_ack_key, queue_capacity=8,
+                        socket_timeout_seconds=1.5)
+                    avatar_consequence_port = self._avatar_consequence_runtime.start()
+                    avatar_cfg = {
+                        "request_source_id": avatar_request_id,
+                        "request_generation_id": avatar_request_generation,
+                        "request_key": base64.b64encode(avatar_request_key).decode("ascii"),
+                        "port": avatar_consequence_port,
+                        "source_id": avatar_source_id,
+                        "source_generation_id": avatar_source_generation,
+                        "source_key": base64.b64encode(avatar_source_key).decode("ascii"),
+                        "ack_source_id": avatar_ack_id,
+                        "ack_generation_id": avatar_ack_generation,
+                        "ack_key": base64.b64encode(avatar_ack_key).decode("ascii"),
+                    }
+                    config["screen_observation"]["avatar_consequence"] = avatar_cfg
+                    # The Windows listener chooses an ephemeral port; construct the
+                    # authenticated request sender after EDGE_READY reports it.
+                    self._avatar_consequence_request_material = (
+                        avatar_request_key, avatar_request_id, avatar_request_generation,
+                        avatar_source_id, avatar_source_generation)
                 if screen_observation_tesseract_executable is not None:
                     executable = screen_observation_tesseract_executable
                     if (not isinstance(executable, str) or not executable
@@ -707,6 +786,34 @@ class _TemporaryCompanionEdge:
                     consent_expires_at=config["screen_observation"]["consent_expires_at"],
                     foreground_wait_seconds=config["screen_observation"][
                         "foreground_wait_seconds"])
+                if self._avatar_consequence_runtime is not None:
+                    request_material = self._avatar_consequence_request_material
+                    if request_material is None:
+                        raise RuntimeError("avatar_consequence_request_material_unavailable")
+                    (avatar_request_key, avatar_request_id, avatar_request_generation,
+                     avatar_source_id, avatar_source_generation) = request_material
+                    avatar_request_client = CompanionBridgeMutualTLSClient(
+                        address=windows_ip, port=port, server_hostname="windows-edge.test",
+                        tls_context=client_context,
+                        acknowledgment_receiver=CompanionBridgeReceiver(
+                            source_keys={"windows-edge-dev": avatar_ack},
+                            expected_generations={"windows-edge-dev":
+                                "windows-avatar-ack-dev-1"}),
+                        expected_server_certificate_sha256=edge["pin"],
+                        timeout_seconds=4.0)
+                    avatar_sender = AvatarConsequenceMeasurementRequestSender(
+                        client=avatar_request_client, source_id=avatar_request_id,
+                        session_id="wsl-avatar-consequence-request",
+                        generation_id=avatar_request_generation,
+                        source_key=avatar_request_key)
+                    authenticated_observer = AuthenticatedBridgeIndependentObserver(
+                        runtime=self._avatar_consequence_runtime,
+                        observer_id=avatar_source_id,
+                        generation_id=avatar_source_generation,
+                        max_observation_age_seconds=30.0,
+                        receive_timeout_seconds=30.0)
+                    self.avatar_consequence_observer = RemoteAvatarConsequenceObserver(
+                        request_sender=avatar_sender, observer=authenticated_observer)
             self._sender = MutualTLSAvatarCommandSender(
                 client=client, source_id="wsl-core-dev", session_id=None,
                 generation_id="wsl-avatar-dev-1", source_key=avatar_key,
@@ -840,6 +947,9 @@ class _TemporaryCompanionEdge:
                     if self._screen_runtime is not None:
                         self._screen_runtime.close()
                         self._screen_runtime = None
+                    if self._avatar_consequence_runtime is not None:
+                        self._avatar_consequence_runtime.close()
+                        self._avatar_consequence_runtime = None
                 finally:
                     self._temporary.cleanup()
 
@@ -1026,6 +1136,7 @@ def main() -> int:
     self_model_config = None
     epistemic_state_owner = None
     epistemic_state_config = None
+    consequence_records_provider = None
     if args.enable_resident_cognition:
         from sentientos.codex_task_authority_admission import (
             RESIDENT_DEVELOPMENTAL_WRITEBACK,
@@ -1042,6 +1153,19 @@ def main() -> int:
         from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
         from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
         from sentientos.windows_handle_custody import read_explicit_file
+
+        consequence_projection_path = os.environ.get(
+            "SENTIENTOS_EMBODIED_CONSEQUENCE_PROJECTION_CONFIG")
+        if consequence_projection_path:
+            try:
+                consequence_records_provider = (
+                    _build_companion_consequence_records_provider(
+                        config_path=consequence_projection_path,
+                        read_explicit_file=read_explicit_file))
+            except Exception as exc:
+                parser.error(
+                    "embodied consequence projection configuration is invalid: "
+                    + type(exc).__name__)
 
         cognition_config = load_resident_cognition_config(
             os.environ[RESIDENT_COGNITION_CONFIG_ENV])
@@ -1142,6 +1266,7 @@ def main() -> int:
             gaming_keep_alive=args.gaming_keep_alive,
             screen_observer=edge.screen_observer if edge else None,
             proprioception_provider=(edge.proprioception_observations if edge else None),
+            consequence_records_provider=consequence_records_provider,
             screen_capture_policy=("allowlisted_session_polling"
                 if args.screen_observation_process else "request_driven"),
             local_speech_output=args.local_speech_output,

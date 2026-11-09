@@ -15,7 +15,7 @@ import secrets
 import stat
 from types import ModuleType
 from dataclasses import asdict, dataclass, replace
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, cast
 from .windows_handle_custody import (WindowsHandleCustodyError,
@@ -332,6 +332,154 @@ class SyntheticIndependentObserver:
             posture="synthetic_test")
 
 
+
+class AuthenticatedBridgeIndependentObserver:
+    """Consume one authenticated consequence message from a dedicated bridge runtime.
+
+    Transport authentication binds a configured source key to the envelope; it
+    does not establish that the source measured reality correctly or that the
+    action caused the reported consequence. The runtime must be dedicated to
+    this observer stream so an unrelated message is never silently consumed.
+    """
+
+    RECEIPT_SCHEMA = "sentientos.authenticated_observer_ingress_receipt:v1"
+
+    def __init__(self, *, runtime: Any, observer_id: str, generation_id: str,
+                 clock: Any = None, max_observation_age_seconds: float = 30.0,
+                 receive_timeout_seconds: float = 1.0) -> None:
+        from .gaming_companion_bridge_runtime import CompanionBridgeLoopbackRuntime
+        if not isinstance(runtime, CompanionBridgeLoopbackRuntime):
+            raise EmbodiedConsequenceError("authenticated_observer_runtime_required")
+        if (not isinstance(observer_id, str) or not observer_id
+                or not isinstance(generation_id, str) or not generation_id):
+            raise EmbodiedConsequenceError("authenticated_observer_identity_invalid")
+        for name, value, maximum in (("age", max_observation_age_seconds, 300.0),
+                                     ("timeout", receive_timeout_seconds, 30.0)):
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(float(value)) or not 0 < value <= maximum):
+                raise EmbodiedConsequenceError("authenticated_observer_" + name + "_invalid")
+        self._runtime = runtime
+        self._observer_id = observer_id
+        self._generation_id = generation_id
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._max_age = float(max_observation_age_seconds)
+        self._timeout = float(receive_timeout_seconds)
+        self._receipts: dict[str, dict[str, Any]] = {}
+
+    def observe(self, *, expectation: EmbodiedActionExpectation, handoff: Mapping[str, Any],
+                report: AvatarRendererReport | None,
+                capture_request_id: str | None = None) -> IndependentConsequenceObservation:
+        from .gaming_companion_bridge import VerifiedBridgeMessage
+        verify_expectation(expectation)
+        verify_renderer_handoff(handoff)
+        if report is not None:
+            verify_renderer_report(report)
+        if expectation.expected_observation_source_class != "authenticated_bridge_observer":
+            raise EmbodiedConsequenceError("authenticated_observer_source_class_mismatch")
+        if (capture_request_id is not None
+                and (not isinstance(capture_request_id, str)
+                    or re.fullmatch(r"[0-9a-f]{32}", capture_request_id) is None)):
+            raise EmbodiedConsequenceError("authenticated_observer_capture_request_invalid")
+        if (expectation.handoff_id != handoff.get("handoff_id")
+                or expectation.handoff_digest != handoff.get("handoff_digest")
+                or expectation.correlation_id != handoff.get("correlation_id")
+                or expectation.body_generation != handoff.get("body_generation")
+                or expectation.body_manifest_digest != handoff.get("body_manifest_digest")
+                or (report is not None and (report.handoff_id != handoff.get("handoff_id")
+                    or report.handoff_digest != handoff.get("handoff_digest")
+                    or report.correlation_id != expectation.correlation_id
+                    or report.body_generation != expectation.body_generation))):
+            raise EmbodiedConsequenceError("authenticated_observer_request_lineage_invalid")
+        try:
+            message = self._runtime.receive(timeout=self._timeout)
+        except Exception as exc:
+            raise EmbodiedConsequenceError("authenticated_observer_message_unavailable") from exc
+        if not isinstance(message, VerifiedBridgeMessage):
+            raise EmbodiedConsequenceError("authenticated_observer_message_unverified")
+        if (message.kind != "consequence" or message.source_id != self._observer_id
+                or message.generation_id != self._generation_id
+                or message.admission is not None or not message.signed_envelope):
+            raise EmbodiedConsequenceError("authenticated_observer_message_binding_invalid")
+        payload = message.payload
+        expected_report_id = report.report_id if report is not None else None
+        expected_report_digest = report.report_digest if report is not None else None
+        bindings = ((payload.get("expectation_id"), expectation.expectation_id),
+            (payload.get("expectation_digest"), expectation.expectation_digest),
+            (payload.get("handoff_id"), handoff.get("handoff_id")),
+            (payload.get("handoff_digest"), handoff.get("handoff_digest")),
+            (payload.get("renderer_report_id"), expected_report_id),
+            (payload.get("renderer_report_digest"), expected_report_digest),
+            (payload.get("correlation_id"), expectation.correlation_id),
+            (payload.get("body_generation"), expectation.body_generation))
+        observed = payload.get("observed")
+        if (any(actual != wanted for actual, wanted in bindings)
+                or (capture_request_id is not None
+                    and payload.get("capture_request_id") != capture_request_id)
+                or not isinstance(observed, Mapping)
+                or not set(observed).issubset(set(expectation.observable_fields))
+                or not observed
+                or (report is not None and message.source_id == report.renderer_id)):
+            raise EmbodiedConsequenceError("authenticated_observer_evidence_binding_invalid")
+        try:
+            now_value = self._clock()
+            now = now_value if isinstance(now_value, datetime) else datetime.fromtimestamp(float(now_value), timezone.utc)
+            observed_at = _time(str(payload.get("observed_at")))
+            received_at = now
+            envelope_created_at = _time(message.created_at)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise EmbodiedConsequenceError("authenticated_observer_clock_invalid") from exc
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise EmbodiedConsequenceError("authenticated_observer_clock_timezone_required")
+        age = (now.astimezone(timezone.utc) - observed_at.astimezone(timezone.utc)).total_seconds()
+        if (age < -2.0 or age > self._max_age
+                or observed_at > envelope_created_at
+                or (report is not None and observed_at < _time(report.completed_at))
+                or (handoff.get("commanded_at") is not None
+                    and observed_at < _time(str(handoff["commanded_at"])))):
+            raise EmbodiedConsequenceError("authenticated_observer_evidence_stale")
+        source_digest = "sha256:" + hashlib.sha256(message.signed_envelope).hexdigest()
+        observation = make_independent_observation(observer_id=message.source_id,
+            observation_source_class="authenticated_bridge_observer",
+            body_generation=expectation.body_generation,
+            expectation_id=expectation.expectation_id,
+            expectation_digest=expectation.expectation_digest,
+            handoff_id=handoff["handoff_id"], handoff_digest=handoff["handoff_digest"],
+            renderer_report_id=expected_report_id,
+            renderer_report_digest=expected_report_digest,
+            correlation_id=expectation.correlation_id, observed=dict(observed),
+            observed_at=payload["observed_at"], confidence=payload["confidence"],
+            quality=payload["quality"], source_digest=source_digest, posture="rehearsal")
+        receipt = {"schema_version": self.RECEIPT_SCHEMA,
+            "observation_id": observation.observation_id,
+            "observation_digest": observation.observation_digest,
+            "observer_source_id": message.source_id,
+            "session_id": message.session_id,
+            "generation_id": message.generation_id,
+            "sequence": message.sequence,
+            "message_id": message.message_id,
+            "signed_envelope_digest": source_digest,
+            "received_at": received_at.astimezone(timezone.utc).isoformat(),
+            "transport_authenticated_at_ingress": True,
+            "signature_reverified_on_load": False,
+            "source_distinct_from_renderer": report is None or message.source_id != report.renderer_id}
+        if payload.get("schema_version") == "sentientos.bridge_consequence_observation:v2":
+            receipt["capture_request_id"] = payload["capture_request_id"]
+            receipt["capture_provenance"] = dict(payload["capture_provenance"])
+        self._receipts[observation.observation_id] = receipt
+        while len(self._receipts) > 32:
+            self._receipts.pop(next(iter(self._receipts)))
+        return observation
+
+    def consume_authentication_receipt(
+            self, observation: IndependentConsequenceObservation) -> dict[str, Any] | None:
+        receipt = self._receipts.pop(observation.observation_id, None)
+        if (receipt is None or receipt.get("observation_digest") != observation.observation_digest
+                or observation.observation_source_class != "authenticated_bridge_observer"):
+            return None
+        return dict(receipt)
+
+
+
 def _exact_json_equal(expected: Any, observed: Any) -> bool:
     """Compare JSON values without Python's bool-as-int equality behavior."""
     if type(expected) is not type(observed):
@@ -391,12 +539,12 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
                          fulfillment_receipt: Mapping[str, Any] | None = None,
                          causal_principal_binding_digest: str | None = None,
                          measured_evidence: Sequence[Mapping[str, Any]] = (), evaluated_at: str,
-                         consequence_store: Any | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
-    # This owner has no authenticated measurement-source issuer or admission
-    # contract. Accepting caller-supplied mappings here would preserve them
-    # under the semantic label ``measured_evidence`` and make that unsupported
-    # claim available to later World-State consumers. Keep the argument for
-    # API compatibility, but fail closed until a real source owner can bind it.
+                         consequence_store: Any | None = None,
+                         independent_observer_owner: Any | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+    # The authenticated bridge observer below binds one typed measurement
+    # source to one observation. It does not issue arbitrary measured-evidence
+    # claims or establish their truth. Keep this compatibility argument closed
+    # until a dedicated measurement-evidence owner can bind those claims.
     if measured_evidence:
         raise EmbodiedConsequenceError("measured_evidence_source_unavailable")
     # A digest-shaped principal reference is still only a caller assertion.
@@ -413,7 +561,8 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
         # remains unfit for World-State publication until its full lineage is valid.
         handoff_integrity_valid = False
     if renderer_report: verify_renderer_report(renderer_report)
-    if observation: verify_independent_observation(observation)
+    if observation:
+        verify_independent_observation(observation)
     if fulfillment_receipt and fulfillment_receipt.get("effect_proven") is True:
         raise EmbodiedConsequenceError("unverified_fulfillment_receipt_cannot_prove_effect")
     now = _time(evaluated_at)
@@ -458,6 +607,10 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
     if generation_mismatch: classification = "body_generation_mismatch"
     elif mismatch: classification = "correlation_mismatch"
     elif stale: classification = "indeterminate"
+    elif (observation is not None
+            and observation.observation_source_class == "authenticated_bridge_observer"
+            and (observation.quality != "usable" or observation.confidence in {"low", "unknown"})):
+        classification = "indeterminate"
     elif renderer_report and renderer_report.renderer_status == "failed": classification = "execution_failed"
     elif observation is None: classification = "renderer_report_only" if renderer_report else "observation_missing"
     elif counts["contradicted"] and counts["satisfied"]: classification = "expectation_partially_satisfied"
@@ -480,6 +633,14 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
         "observation_digest":observation.observation_digest if observation else None,"observable_results":rows,"counts":counts,
         "universal_numeric_loss":None,"authority":dict(FALSE_AUTHORITY)}
     comparison_base["comparison_id"], comparison_base["comparison_digest"] = _identity("prediction-comparison", comparison_base)
+    observation_authentication_receipt = None
+    if observation is not None and observation.observation_source_class == "authenticated_bridge_observer":
+        consume_receipt = getattr(independent_observer_owner, "consume_authentication_receipt", None)
+        if not callable(consume_receipt):
+            raise EmbodiedConsequenceError("authenticated_observer_receipt_owner_required")
+        observation_authentication_receipt = consume_receipt(observation)
+        if not isinstance(observation_authentication_receipt, Mapping):
+            raise EmbodiedConsequenceError("authenticated_observer_receipt_missing")
     attribution_base = {"schema_version":ATTRIBUTION_SCHEMA,"expectation_id":expectation.expectation_id,
         "expectation_digest":expectation.expectation_digest,"handoff_id":handoff.get("handoff_id"),"handoff_digest":handoff.get("handoff_digest"),
         "renderer_report_id":renderer_report.report_id if renderer_report else None,"renderer_report_digest":renderer_report.report_digest if renderer_report else None,
@@ -489,10 +650,15 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
         "classification":classification,"causal_attribution_posture":causal,"commanded_value":dict(expectation.requested),
         "predicted_value":dict(expectation.predicted_observables),"renderer_reported_value":dict(renderer_report.applied) if renderer_report else None,
         "independently_observed_value":dict(observation.observed) if observation else None,
-        "observation_independence_posture": "unverified_caller_assertion" if observation else "no_observation",
+        "observation_independence_posture": (
+            "authenticated_source_distinct_from_renderer_at_ingress"
+            if observation_authentication_receipt is not None else
+            "unverified_caller_assertion" if observation else "no_observation"),
         "proven_consequence_value":proven,
         "effect_proven":effect_proven,"causal_principal_binding_digest":causal_principal_binding_digest,
         "measured_evidence":list(measured_evidence),"evaluated_at":evaluated_at,"authority":dict(FALSE_AUTHORITY)}
+    if observation_authentication_receipt is not None:
+        attribution_base["observation_authentication_receipt"] = dict(observation_authentication_receipt)
     attribution_base["attribution_id"], attribution_base["attribution_digest"] = _identity("consequence", attribution_base)
     if consequence_store is not None:
         persist_chain = getattr(consequence_store, "put_consequence_chain", None)
@@ -563,6 +729,17 @@ def world_state_records(*, expectation: EmbodiedActionExpectation, handoff: Mapp
             or attribution.get("renderer_report_digest") != (renderer_report.report_digest if renderer_report else None)
             or attribution.get("effect_proven") is not False):
         raise EmbodiedConsequenceError("consequence_world_state_lineage_invalid")
+    authenticated_posture = attribution.get("observation_independence_posture") == "authenticated_source_distinct_from_renderer_at_ingress"
+    if authenticated_posture != bool(observation is not None and observation.observation_source_class == "authenticated_bridge_observer"):
+        raise EmbodiedConsequenceError("consequence_world_state_observer_posture_invalid")
+    if authenticated_posture:
+        receipt = attribution.get("observation_authentication_receipt")
+        if (not isinstance(receipt, Mapping) or observation is None
+                or receipt.get("observer_source_id") != observation.observer_id
+                or receipt.get("signed_envelope_digest") != observation.source_digest
+                or receipt.get("source_distinct_from_renderer") is not True
+                or (renderer_report is not None and receipt.get("observer_source_id") == renderer_report.renderer_id)):
+            raise EmbodiedConsequenceError("consequence_world_state_observer_receipt_mismatch")
     records = [{"source_kind":"embodiment","source_id":expectation.expectation_id,"schema_version":EXPECTATION_SCHEMA,
         "digest":expectation.expectation_digest,"subject_id":expectation.expectation_id,"subject_kind":"embodied_action_expectation",
         "stage":"proposal","disposition":"preregistered","observed_at":expectation.created_at,"effect_claimed":False,"effect_proven":False,"payload":asdict(expectation)},
@@ -2770,8 +2947,35 @@ def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
             or value.get("classification") not in ATTRIBUTION_RESULTS
             or value.get("causal_attribution_posture") not in CAUSAL_POSTURES
             or value.get("observation_independence_posture") not in {
-                "unverified_caller_assertion", "no_observation"}):
+                "unverified_caller_assertion", "no_observation",
+                "authenticated_source_distinct_from_renderer_at_ingress"}):
         raise EmbodiedConsequenceError("consequence_attribution_binding_invalid")
+    posture = value.get("observation_independence_posture")
+    receipt = value.get("observation_authentication_receipt")
+    if posture == "authenticated_source_distinct_from_renderer_at_ingress":
+        required = {"schema_version", "observation_id", "observation_digest", "observer_source_id",
+            "session_id", "generation_id", "sequence", "message_id", "signed_envelope_digest",
+            "received_at", "transport_authenticated_at_ingress", "signature_reverified_on_load",
+            "source_distinct_from_renderer"}
+        if (not isinstance(receipt, Mapping) or set(receipt) != required
+                or receipt.get("schema_version") != AuthenticatedBridgeIndependentObserver.RECEIPT_SCHEMA
+                or receipt.get("observation_id") != value.get("observation_id")
+                or receipt.get("observation_digest") != value.get("observation_digest")
+                or not isinstance(receipt.get("observer_source_id"), str)
+                or not receipt.get("observer_source_id")
+                or not isinstance(receipt.get("session_id"), str) or not receipt.get("session_id")
+                or not isinstance(receipt.get("generation_id"), str) or not receipt.get("generation_id")
+                or type(receipt.get("sequence")) is not int or receipt.get("sequence", 0) < 1
+                or receipt.get("transport_authenticated_at_ingress") is not True
+                or receipt.get("signature_reverified_on_load") is not False
+                or receipt.get("source_distinct_from_renderer") is not True
+                or not isinstance(receipt.get("signed_envelope_digest"), str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", str(receipt.get("signed_envelope_digest"))) is None
+                or not isinstance(receipt.get("message_id"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", str(receipt.get("message_id"))) is None):
+            raise EmbodiedConsequenceError("consequence_observer_receipt_invalid")
+    elif receipt is not None:
+        raise EmbodiedConsequenceError("consequence_observer_receipt_unexpected")
 
 
 def _strategy_prior_consequence_binding(history_record: Mapping[str, Any],

@@ -579,6 +579,8 @@ def test_dispatcher_routes_only_authenticated_additional_message_kinds():
         renderer_sink=lambda *_: True,
         additional_message_handlers={
             "screen_capture_request": lambda message:
+                calls.append(message.payload["capture_request_id"]) is None,
+            "avatar_consequence_request": lambda message:
                 calls.append(message.payload["capture_request_id"]) is None})
     request = VerifiedBridgeMessage(
         "1" * 64, "screen_capture_request", "wsl-screen-request-dev",
@@ -586,6 +588,13 @@ def test_dispatcher_routes_only_authenticated_additional_message_kinds():
         datetime.now(timezone.utc).isoformat(),
         {"capture_request_id": "0123456789abcdef0123456789abcdef"}, None)
     assert dispatcher.dispatch_one(request) is True
-    assert calls == ["0123456789abcdef0123456789abcdef"]
-    assert dispatcher.status().accepted == 1
+    avatar_request = VerifiedBridgeMessage(
+        "2" * 64, "avatar_consequence_request", "wsl-avatar-consequence-request",
+        "wsl-avatar-consequence-request", "wsl-avatar-consequence-request-dev-1", 1,
+        datetime.now(timezone.utc).isoformat(),
+        {"capture_request_id": "abcdef0123456789abcdef0123456789"}, None)
+    assert dispatcher.dispatch_one(avatar_request) is True
+    assert calls == ["0123456789abcdef0123456789abcdef",
+                     "abcdef0123456789abcdef0123456789"]
+    assert dispatcher.status().accepted == 2
     assert dispatcher.status().rejected == 0

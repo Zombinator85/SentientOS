@@ -11,8 +11,10 @@ from pathlib import Path
 import pytest
 
 from sentientos.avatar_authoring import renderer_handoff
+from sentientos.gaming_companion_bridge import CompanionBridgeReceiver, encode_message
+from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackRuntime
 from sentientos.embodied_consequence import (
-    ConsequenceStore, EmbodiedConsequenceError, SyntheticIndependentObserver,
+    AuthenticatedBridgeIndependentObserver, ConsequenceStore, EmbodiedConsequenceError, SyntheticIndependentObserver,
     SyntheticRenderer, digest, evaluate_consequence, make_expectation, make_strategy_proposal,
     WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4, run_strategy_experiment,
     build_operator_codex_strategy_packets, build_operator_codex_strategy_multi_event_packets,
@@ -94,6 +96,79 @@ def numeric_chain(*, expected=1, observed=1, comparison_kind="numeric_tolerance"
         observed={"value":observed},observed_at=observed_at).observe(
             expectation=expectation,handoff=handoff,report=report)
     return handoff,expectation,report,observation
+
+
+def authenticated_observer_chain(*, wrong_handoff=False, observed_at=T2):
+    handoff=renderer_handoff(pointer(),renderer_interface_id="renderer:test:v1",
+        requested_pose="wave",requested_expression="neutral",correlation_id="authenticated-corr",
+        commanded_at=T0)
+    expectation=make_expectation(installation_body_id="installation-a",body_id="body-a",
+        body_generation=2,body_manifest_digest="sha256:manifest",handoff_id=handoff["handoff_id"],
+        handoff_digest=handoff["handoff_digest"],renderer_interface_id="renderer:test:v1",
+        requested={"pose":"wave"},predicted_observables={"pose":"wave"},
+        observable_fields=("pose",),comparison_policy={"pose":{"kind":"exact"}},
+        expected_observation_source_class="authenticated_bridge_observer",
+        correlation_id="authenticated-corr",causal_principal_binding_digest=None,
+        created_at=T0,expires_at=TX)
+    report=SyntheticRenderer(applied={"pose":"wave"},started_at=T0,completed_at=T1).render_test(handoff)
+    payload={"schema_version":"sentientos.bridge_consequence_observation:v1",
+        "expectation_id":expectation.expectation_id,"expectation_digest":expectation.expectation_digest,
+        "handoff_id":"handoff:bad" if wrong_handoff else handoff["handoff_id"],
+        "handoff_digest":handoff["handoff_digest"],"renderer_report_id":report.report_id,
+        "renderer_report_digest":report.report_digest,"correlation_id":expectation.correlation_id,
+        "body_generation":expectation.body_generation,"observed":{"pose":"idle"},
+        "observed_at":observed_at,"confidence":"medium","quality":"usable"}
+    key=b"authenticated-observer-test-key-material-32-bytes"
+    bridge_receiver=CompanionBridgeReceiver(source_keys={"measurement-observer":key},
+        expected_generations={"measurement-observer":"measurement-run-1"},
+        clock=lambda:datetime.fromisoformat(T2).timestamp())
+    runtime=CompanionBridgeLoopbackRuntime(receiver=bridge_receiver,
+        acknowledgment_source_id="companion-ack",acknowledgment_generation_id="ack-run-1",
+        acknowledgment_key=b"authenticated-observer-ack-key-32-bytes-material")
+    encoded=encode_message(kind="consequence",source_id="measurement-observer",
+        session_id="consequence-session",generation_id="measurement-run-1",sequence=1,
+        payload=payload,key=key,created_at=T2)
+    runtime._messages.put(bridge_receiver.accept(encoded))
+    owner=AuthenticatedBridgeIndependentObserver(runtime=runtime,
+        observer_id="measurement-observer",generation_id="measurement-run-1",
+        clock=lambda:datetime.fromisoformat(T2))
+    observation=owner.observe(expectation=expectation,handoff=handoff,report=report)
+    return owner,handoff,expectation,report,observation
+
+
+def test_authenticated_bridge_observation_binds_ingress_receipt_without_proving_effect():
+    owner,handoff,expectation,report,observation=authenticated_observer_chain()
+    with pytest.raises(EmbodiedConsequenceError,match="authenticated_observer_receipt_owner_required"):
+        evaluate_consequence(expectation=expectation,handoff=handoff,current_body=pointer(),
+            renderer_report=report,observation=observation,evaluated_at=T2)
+    attribution,comparison=evaluate_consequence(expectation=expectation,handoff=handoff,
+        current_body=pointer(),renderer_report=report,observation=observation,
+        evaluated_at=T2,independent_observer_owner=owner)
+    with pytest.raises(EmbodiedConsequenceError,match="authenticated_observer_receipt_missing"):
+        evaluate_consequence(expectation=expectation,handoff=handoff,current_body=pointer(),
+            renderer_report=report,observation=observation,evaluated_at=T2,
+            independent_observer_owner=owner)
+    receipt=attribution["observation_authentication_receipt"]
+    assert receipt["transport_authenticated_at_ingress"] is True
+    assert receipt["signature_reverified_on_load"] is False
+    assert receipt["signed_envelope_digest"]==observation.source_digest
+    assert attribution["observation_independence_posture"]=="authenticated_source_distinct_from_renderer_at_ingress"
+    assert attribution["effect_proven"] is False
+    assert attribution["causal_attribution_posture"]=="external_interference_possible"
+    records=world_state_records(expectation=expectation,handoff=handoff,renderer_report=report,
+        observation=observation,attribution=attribution,comparison=comparison)
+    projected=next(row for row in records if row["subject_kind"]=="embodied_consequence_attribution")
+    assert projected["payload"]["observation_authentication_receipt"]==receipt
+
+
+def test_authenticated_bridge_observer_rejects_wrong_handoff_binding():
+    with pytest.raises(EmbodiedConsequenceError,match="authenticated_observer_evidence_binding_invalid"):
+        authenticated_observer_chain(wrong_handoff=True)
+
+
+def test_authenticated_bridge_observer_rejects_stale_measurement():
+    with pytest.raises(EmbodiedConsequenceError,match="authenticated_observer_evidence_stale"):
+        authenticated_observer_chain(observed_at="2034-12-31T23:59:00+00:00")
 
 
 def test_synthetic_contradiction_projects_and_selects_for_developmental_writeback():
@@ -334,6 +409,35 @@ def test_present_withheld_restored_strategy_experiment_and_external_score(tmp_pa
     recovered=run_strategy_experiment(protocol=protocol,history_record=record,situation=situation,
         backend=recovered_backend,consequence=attribution,store=ConsequenceStore(tmp_path))
     assert recovered["experiment_result_id"]==result["experiment_result_id"]
+
+    from scripts.run_local_companion_dev import (
+        _build_companion_consequence_records_provider,
+    )
+    handoff, expectation, report, observation, attribution, comparison = chain()
+    stored_chain=store.put_consequence_chain(expectation=expectation,handoff=handoff,
+        renderer_report=report,observation=observation,attribution=attribution,
+        comparison=comparison)
+    projection_config={"schema_version":WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4,
+        "enabled":True,"store_root":str(tmp_path),
+        "experiment_result_ids":[],
+        "consequence_chain_ids":[stored_chain["chain_id"]],
+        "model_replacement_state_root":None,
+        "model_replacement_runs":[],"proposal_review_log_path":None,
+        "proposal_review_receipt_ids":[],"fulfillment_receipt_log_path":None,
+        "fulfillment_receipt_ids":[],"developmental_history_intervention_runs":[]}
+    projection_config["config_digest"]=digest(projection_config)
+    projection_path=tmp_path/"projection.json"
+    projection_path.write_text(json.dumps(projection_config))
+    provider=_build_companion_consequence_records_provider(
+        config_path=str(projection_path),
+        read_explicit_file=lambda path, **_kwargs: path.read_bytes())
+    assert provider is not None
+    projected=provider()
+    assert projected==tuple(item for item in store.world_state_records(
+        consequence_chain_ids=(stored_chain["chain_id"],))
+        if item["subject_kind"]=="embodied_prediction_comparison")
+    assert len(projected)==1
+    assert projected[0]["payload"]["observable_results"]
     assert recovered_backend.calls==[]
 
 

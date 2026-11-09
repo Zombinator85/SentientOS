@@ -25,7 +25,7 @@ from .resident_developmental_cognition import (
     ResidentDevelopmentalCognitionOwner,
     ResidentDevelopmentalCycleResult,
 )
-from .world_state_board import WorldStateBoardBuilder, WorldStateSnapshot
+from .world_state_board import WorldStateBoardBuilder, WorldStateSnapshot, record_digest
 
 
 class DevelopmentalCompanionBridgeError(ValueError):
@@ -40,6 +40,7 @@ class CognitionWorkloadUnavailable(RuntimeError):
 
 MAX_HISTORY_INTERVENTION_CAPTURE_AGE = timedelta(seconds=60)
 MAX_HISTORY_INTERVENTION_FUTURE_SKEW = timedelta(seconds=5)
+MAX_COMPANION_CONSEQUENCE_RECORDS = 32
 
 
 class CognitionEvidenceUnavailable(RuntimeError):
@@ -100,7 +101,11 @@ def _request_bound_capture_freshness(observation: Mapping[str, Any]
             or not isinstance(provenance.get("payload_digest"), str)
             or len(provenance["payload_digest"]) != 64
             or any(character not in "0123456789abcdef"
-                for character in provenance["payload_digest"])):
+                for character in provenance["payload_digest"])
+            or not isinstance(provenance.get("signed_envelope_digest"), str)
+            or len(provenance["signed_envelope_digest"]) != 64
+            or any(character not in "0123456789abcdef"
+                for character in provenance["signed_envelope_digest"])):
         raise DevelopmentalCompanionBridgeError("history_intervention_capture_freshness_invalid")
     return freshness
 
@@ -169,7 +174,8 @@ def _screen_record(observation: Mapping[str, Any], *, staleness: str = "unknown"
                 "bridge_message_provenance": {
                     key: observation["bridge_message_provenance"][key]
                     for key in ("message_id", "source_id", "session_id",
-                        "generation_id", "sequence", "created_at", "payload_digest")
+                        "generation_id", "sequence", "created_at", "payload_digest",
+                        "signed_envelope_digest")
                 },
                 **({key: observation[key] for key in (
                     "process_name_digest", "consent_id_digest", "backend",
@@ -235,6 +241,7 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
 def build_companion_snapshot(*, screen_observation: Mapping[str, Any] | None = None,
         proprioception: Sequence[EmbodimentObservation] = (),
         operator_feedback: Mapping[str, Any] | None = None,
+        historical_consequence_records: Sequence[Mapping[str, Any]] = (),
         screen_staleness: str = "unknown",
         screen_capture_age_seconds: int | None = None,
         clock: Any | None = None) -> WorldStateSnapshot:
@@ -256,6 +263,23 @@ def build_companion_snapshot(*, screen_observation: Mapping[str, Any] | None = N
         except (TypeError, ValueError) as exc:
             raise DevelopmentalCompanionBridgeError(
                 "proprioception_evidence_invalid") from exc
+    if (not isinstance(historical_consequence_records, (tuple, list))
+            or len(historical_consequence_records) > MAX_COMPANION_CONSEQUENCE_RECORDS
+            or any(not isinstance(item, Mapping)
+                or item.get("source_kind") != "embodiment"
+                or not isinstance(item.get("digest"), str)
+                or item.get("digest") != record_digest(item)
+                or type(item.get("effect_claimed", False)) is not bool
+                or type(item.get("effect_proven", False)) is not bool
+                for item in historical_consequence_records)):
+        raise DevelopmentalCompanionBridgeError(
+            "historical_consequence_projection_invalid")
+    # Selected, verified historical records retain their timestamps and
+    # uncertainty. The bridge never upgrades them into fresh observations.
+    records.extend(historical_consequence_records)
+    if len(records) > 64:
+        raise DevelopmentalCompanionBridgeError(
+            "companion_snapshot_source_bound_exceeded")
     return WorldStateBoardBuilder(clock=clock).build(records)
 
 
@@ -265,6 +289,7 @@ class ResidentDevelopmentalCompanionBridge:
     def __init__(self, owner: ResidentDevelopmentalCognitionOwner, *,
                  history_intervention_owner: ResidentDevelopmentalCognitionOwner | None = None,
                  proprioception_provider: Any | None = None,
+                 consequence_records_provider: Any | None = None,
                  self_model_owner: Any | None = None,
                  self_model_config: LongitudinalSelfModelRuntimeConfig | None = None,
                  epistemic_state_owner: PersistentEpistemicStateOwner | None = None,
@@ -288,6 +313,9 @@ class ResidentDevelopmentalCompanionBridge:
         if (proprioception_provider is not None
                 and not callable(proprioception_provider)):
             raise TypeError("proprioception_provider_must_be_callable")
+        if (consequence_records_provider is not None
+                and not callable(consequence_records_provider)):
+            raise TypeError("consequence_records_provider_must_be_callable")
         if cognition_inference_gate is not None and not callable(cognition_inference_gate):
             raise TypeError("cognition_inference_gate_invalid")
         if cognition_available is not None and not callable(cognition_available):
@@ -314,6 +342,7 @@ class ResidentDevelopmentalCompanionBridge:
         # configured owner runs only the explicitly confirmed A/B/A experiment.
         self._history_intervention_owner = history_intervention_owner or owner
         self._proprioception_provider = proprioception_provider
+        self._consequence_records_provider = consequence_records_provider
         self._self_model_owner = self_model_owner
         self._self_model_config = self_model_config
         self._epistemic_state_owner = epistemic_state_owner
@@ -586,13 +615,30 @@ class ResidentDevelopmentalCompanionBridge:
         tick_time, projection_tick = self._projection_boundary()
         prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
             tick_id=tick_time, projection_tick=projection_tick)
+        consequence_records: Sequence[Mapping[str, Any]] = ()
+        if self._consequence_records_provider is not None:
+            try:
+                value = self._consequence_records_provider()
+            except Exception as exc:
+                raise DevelopmentalCompanionBridgeError(
+                    "historical_consequence_projection_unavailable") from exc
+            if (not isinstance(value, (tuple, list))
+                    or len(value) > MAX_COMPANION_CONSEQUENCE_RECORDS):
+                raise DevelopmentalCompanionBridgeError(
+                    "historical_consequence_projection_invalid")
+            consequence_records = tuple(value)
         snapshot = build_companion_snapshot(
             screen_observation=screen_observation,
             proprioception=proprioception, operator_feedback=operator_feedback,
             screen_staleness="fresh",
+            historical_consequence_records=consequence_records,
             screen_capture_age_seconds=capture_age_seconds, clock=self._clock)
         if not snapshot.facts:
             raise CognitionEvidenceUnavailable()
+        if (self._consequence_records_provider is not None
+                and len(snapshot.facts) > self._owner.config.max_selected_facts):
+            raise DevelopmentalCompanionBridgeError(
+                "developmental_cycle_fact_selection_capacity_insufficient")
         gate = (self._cognition_inference_gate()
             if self._cognition_inference_gate is not None else nullcontext())
         with gate:

@@ -109,6 +109,21 @@ World-State evidence at tick N
 
 Interpretation does not become truth; a candidate has no authority by itself; admission is not execution; durable storage does not prove learning; retrieval does not prove causation. Canonical explicit user-retention storage remains physically and semantically separate from developmental history.
 
+The local development companion can opt into the existing embodied-consequence
+projection using SENTIENTOS_EMBODIED_CONSEQUENCE_PROJECTION_CONFIG. Its launcher
+validates the explicit projection configuration, selects only named
+consequence-chain IDs, and re-verifies those immutable artifacts when an
+operator-confirmed developmental cycle runs. The selected records join that
+cycle's fresh consented observation and proprioception in one bounded
+World-State snapshot. This is historical evidence: timestamps and uncertainty
+are preserved in one chain-bound prediction-comparison fact per selected
+chain. The cycle fails before inference if all current and historical facts
+cannot fit the configured evidence-selection budget. Chain records retain
+current_truth: false and effect_proven: false, and this connection grants no
+action authority. Ordinary
+chat remains non-writeback; no real action or production consequence has been
+demonstrated by this integration.
+
 ## Current developmental experiments
 
 ### History intervention
