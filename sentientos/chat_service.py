@@ -5282,6 +5282,7 @@ async def root_page() -> HTMLResponse:
                     }
                 }
 
+
                 async function runDevelopmentalCycle(assistantTurnId, button, entry,
                         feedbackAvailable) {
                     let feedback = null;
@@ -5296,6 +5297,7 @@ async def root_page() -> HTMLResponse:
                         }
                     }
                     if (!window.confirm('Capture one fresh, consented foreground-game observation and run the existing resident cognition tick? The screen evidence and your optional unverified report may be retained through governed developmental writeback. If a reply predicted an avatar nod, this may also request a separate local avatar-motion observation. The measurement can be indeterminate and does not prove an effect. This can make local model inference calls. Raw screen frames are discarded; no gameplay action is authorized.')) return;
+
                     button.disabled = true;
                     const status = document.createElement('p');
                     status.textContent = 'Capturing fresh evidence for the governed developmental cycle...';

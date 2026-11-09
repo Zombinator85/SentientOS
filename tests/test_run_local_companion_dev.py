@@ -389,7 +389,7 @@ def test_development_chat_speech_is_opt_in_and_uses_local_controller(
         chat_service.close_production_chat()
 
 
-def test_avatar_nod_prediction_is_staged_only_for_explicit_prediction_text():
+def test_avatar_nod_expectation_binds_the_authorized_output_command():
     from scripts.run_local_companion_dev import _PreparedAvatarConsequenceEmitter
 
     class Emitter:
@@ -418,13 +418,9 @@ def test_avatar_nod_prediction_is_staged_only_for_explicit_prediction_text():
 
     assert adapter.emit_display_text(
         "I can help with that.", metadata=metadata)["status"] == "sent"
-    assert adapter._prepared == {}
-
-    assert adapter.emit_display_text(
-        "I will nod while I answer.", metadata=metadata)["status"] == "sent"
     staged = adapter._prepared[("session-test", "turn-test")]
     assert staged["expectation"].predicted_observables == {
         "avatar_visible": True, "avatar_motion": "nod"}
     assert staged["dispatch_status"] == "sent"
     assert not any(staged["expectation"].authority.values())
-    assert emitter.calls == ["I can help with that.", "I will nod while I answer."]
+    assert emitter.calls == ["I can help with that."]

@@ -402,10 +402,6 @@ class _PreparedAvatarConsequenceEmitter:
         self._lock = threading.Lock()
         self._prepared: dict[tuple[str, str], dict[str, Any]] = {}
 
-    @staticmethod
-    def _predicts_nod(phrase: str) -> bool:
-        return bool(re.search(r"\bI(?:'ll| will) nod\b", phrase, re.IGNORECASE))
-
     def emit_display_text(self, phrase: str, *, authorization: Any = None,
             metadata: Mapping[str, Any] | None = None) -> dict[str, Any]:
         from sentientos.avatar_authoring import renderer_handoff
@@ -415,8 +411,7 @@ class _PreparedAvatarConsequenceEmitter:
         key = (metadata.get("session_id"), metadata.get("turn_id"))
         staged: dict[str, Any] | None = None
         if (self._observer is not None and self._pointer is not None
-                and all(isinstance(item, str) and item for item in key)
-                and self._predicts_nod(phrase)):
+                and all(isinstance(item, str) and item for item in key)):
             now = datetime.now(timezone.utc)
             created_at = now.isoformat()
             correlation_id = "companion-avatar-nod-" + uuid.uuid4().hex
