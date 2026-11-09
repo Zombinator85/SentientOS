@@ -102,7 +102,6 @@ def test_fixture_screen_observation_reaches_real_godot_without_persisting_screen
                          observe_screen=True)
         assert "quest objective: find the observatory" in inference.calls[0]["prompt"]
         assert "ocr_text_change" in inference.calls[0]["prompt"]
-        assert "does not identify visual or gameplay events" in inference.calls[0]["prompt"]
         assert "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]" in inference.calls[0]["prompt"]
         persisted_session = app.sessions.load(session_id)
         assistant_turn = persisted_session["turns"][-1]
@@ -113,6 +112,7 @@ def test_fixture_screen_observation_reaches_real_godot_without_persisting_screen
         assert bridge_provenance["source_id"] == source_id
         assert bridge_provenance["generation_id"] == source_generation
         assert bridge_provenance["sequence"] == 1
+        assert len(bridge_provenance["signed_envelope_digest"]) == 64
         assert assistant_turn["linkage"]["screen_observation_provenance"]["raw_frame_retained"] is False
         assert "quest objective: find the observatory" not in json.dumps(persisted_session)
         persisted = json.loads(state_path.read_text(encoding="utf-8"))
@@ -123,6 +123,14 @@ def test_fixture_screen_observation_reaches_real_godot_without_persisting_screen
         forwarded = AvatarStateForwarder(state_path)._read_state()
         assert forwarded is not None
         assert forwarded["workload_mode"] == "gaming"
+        renderer_lineage = {
+            "consequence_expectation_id": "expectation:godot-probe",
+            "consequence_expectation_digest": "sha256:" + "1" * 64,
+            "consequence_handoff_id": "handoff:godot-probe",
+            "consequence_handoff_digest": "sha256:" + "2" * 64,
+            "consequence_correlation_id": "correlation:godot-probe",
+        }
+        forwarded["metadata"].update(renderer_lineage)
         environment = dict(os.environ)
         environment.update({
             "XDG_CACHE_HOME": str(tmp_path / "cache"),
@@ -145,6 +153,9 @@ def test_fixture_screen_observation_reaches_real_godot_without_persisting_screen
         assert renderer_report["session_id"] == session_id
         assert renderer_report["turn_id"] == persisted["metadata"]["turn_id"]
         assert renderer_report["output_digest"] == persisted["metadata"]["output_digest"]
+        assert {key: renderer_report[key] for key in renderer_lineage} == renderer_lineage
+        assert renderer_report["effect_proven"] is False
+        assert renderer_report["independent_observation"] is False
         assert renderer_report["renderer_state"]["applied_render_cap_fps"] == 15
 
         record = renderer_report_world_state_record(renderer_report)

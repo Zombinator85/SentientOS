@@ -152,13 +152,13 @@ def test_avatar_measurement_uses_explicit_local_cpu_vision_and_preserves_provena
     assert request["options"]["num_gpu"] == 0
     assert len(request["messages"][1]["images"]) == 5
     assert "Do not use renderer reports or prior frames" in request["messages"][0]["content"]
-    assert measurement["observed"] == {
-        "avatar_visible": True, "avatar_motion": "wave"}
+    assert measurement["observed"] == {"avatar_visible": True}
+    assert "always return motion as uncertain" in request["messages"][0]["content"]
     assert measurement["observed_at"] == payload["captured_at"]
     assert measurement["capture_digest"] == capture_digest
     assert measurement["confidence"] == "unknown"
     assert measurement["model_reported_confidence"] == "high"
-    assert measurement["quality"] == "partial"
+    assert measurement["quality"] == "unknown"
     assert measurement["raw_frame_retained"] is False
     assert "rgb" not in measurement
     assert seen["closed"] is True
@@ -182,6 +182,105 @@ def test_avatar_measurement_rejects_capture_digest_mismatch_before_inference():
         captioner.measure_companion_avatar(payload)
 
 
+
+def _avatar_sequence_payloads():
+    import hashlib
+    from datetime import timedelta
+    base_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    payloads = []
+    for index, offset in enumerate((0.0, 0.5, 1.0)):
+        rgb = bytes([index + 10]) * (FRAME.width * FRAME.height * 3)
+        frame_digest = hashlib.sha256(
+            f"{FRAME.width}x{FRAME.height}:".encode("ascii") + rgb).hexdigest()
+        payloads.append({
+            "width": FRAME.width, "height": FRAME.height, "rgb": rgb,
+            "capture_digest": frame_digest,
+            "captured_at": (base_time + timedelta(seconds=index * 0.5)).isoformat().replace("+00:00", "Z"),
+            "capture_scope": "allowlisted_foreground_game_client_area",
+            "process_name_digest": "b" * 64, "consent_id_digest": "c" * 64,
+            "raw_frame_retained": False, "sample_offset_seconds": offset,
+        })
+    return payloads
+
+
+def test_avatar_sequence_mosaic_keeps_small_corner_avatar_visible():
+    from sentientos.perception.game_screen_capture import LocalOllamaScreenCaptioner
+
+    width, height = 1920, 1080
+    color = (11, 223, 242)
+    rgb = bytearray(width * height * 3)
+    for y in range(height - 60, height - 12):
+        for x in range(width - 60, width - 12):
+            offset = (y * width + x) * 3
+            rgb[offset:offset + 3] = bytes(color)
+
+    mosaic = LocalOllamaScreenCaptioner._avatar_sequence_mosaic(
+        CapturedGameFrame(width, height, bytes(rgb)))
+    visible_pixels = sum(
+        mosaic.rgb[offset:offset + 3] == bytes(color)
+        for offset in range(0, len(mosaic.rgb), 3))
+
+    # Keep the existing five-panel payload dimensions while retaining enough
+    # pixels to inspect a compact avatar parked against the lower-right edge.
+    assert (mosaic.width, mosaic.height) == (480, 320)
+    assert visible_pixels >= 220
+
+
+def test_avatar_temporal_measurement_binds_three_ordered_frames_without_promoting_confidence():
+    import json
+    from sentientos.perception.game_screen_capture import LocalOllamaScreenCaptioner
+
+    seen = {}
+    class Response:
+        status = 200
+        def read(self, _limit):
+            return b'{"message":{"content":"{\\"visible\\":true,\\"motion\\":\\"nod\\",\\"confidence\\":\\"high\\"}"}}'
+    class Connection:
+        def request(self, method, path, *, body, headers):
+            seen.update(method=method, path=path, body=body, headers=headers)
+        def getresponse(self):
+            return Response()
+        def close(self):
+            seen["closed"] = True
+
+    payloads = _avatar_sequence_payloads()
+    captioner = LocalOllamaScreenCaptioner(
+        model="qwen3.5:2b-q4_K_M",
+        connection_factory=lambda *_args, **_kwargs: Connection())
+    result = captioner.measure_companion_avatar_sequence(payloads)
+    request = json.loads(seen["body"])
+    assert len(request["messages"][1]["images"]) == 3
+    assert request["options"]["num_gpu"] == 0
+    assert "chronological samples" in request["messages"][0]["content"]
+    assert "single frame cannot establish motion" in request["messages"][0]["content"]
+    assert result["observed"] == {"avatar_visible": True, "avatar_motion": "nod"}
+    assert result["sample_capture_digests"] == [item["capture_digest"] for item in payloads]
+    assert result["sample_offsets_seconds"] == [0.0, 0.5, 1.0]
+    assert result["capture_sequence_digest"]
+    assert result["confidence"] == "unknown"
+    assert result["model_reported_confidence"] == "high"
+    assert result["quality"] == "partial"
+    assert result["raw_frame_retained"] is False
+    assert seen["closed"] is True
+
+
+def test_avatar_temporal_measurement_rejects_mixed_consent_and_unordered_frames():
+    from sentientos.perception.game_screen_capture import (
+        LocalOllamaScreenCaptioner, ScreenCaptureError)
+
+    captioner = LocalOllamaScreenCaptioner(
+        model="qwen3.5:2b-q4_K_M",
+        connection_factory=lambda *_args, **_kwargs: pytest.fail("inference must not run"))
+    mixed = _avatar_sequence_payloads()
+    mixed[1]["consent_id_digest"] = "d" * 64
+    with pytest.raises(ScreenCaptureError, match="game_screen_avatar_sequence_provenance_mismatch"):
+        captioner.measure_companion_avatar_sequence(mixed)
+    unordered = _avatar_sequence_payloads()
+    unordered[2]["sample_offset_seconds"] = 0.4
+    with pytest.raises(ScreenCaptureError, match="game_screen_avatar_sequence_order_invalid"):
+        captioner.measure_companion_avatar_sequence(unordered)
+
+
 def test_avatar_observer_builder_captures_only_when_explicitly_called(monkeypatch):
     from sentientos.perception import game_screen_capture
 
@@ -189,9 +288,11 @@ def test_avatar_observer_builder_captures_only_when_explicitly_called(monkeypatc
     seen = {"captures": 0, "consent_provider": None, "model": None}
 
     class Capture:
-        def __init__(self, *, consent_provider, foreground_wait_seconds):
+        def __init__(self, *, consent_provider, foreground_wait_seconds,
+                     min_interval_seconds):
             seen["consent_provider"] = consent_provider
             seen["foreground_wait_seconds"] = foreground_wait_seconds
+            seen["min_interval_seconds"] = min_interval_seconds
         def __call__(self):
             seen["captures"] += 1
             return payload
@@ -199,18 +300,22 @@ def test_avatar_observer_builder_captures_only_when_explicitly_called(monkeypatc
     class Captioner:
         def __init__(self, *, model):
             seen["model"] = model
-        def measure_companion_avatar(self, value):
-            return {"observed_at": value["captured_at"], "raw_frame_retained": False}
+        def measure_companion_avatar_sequence(self, values):
+            seen["sample_count"] = len(values)
+            return {"sample_count": len(values), "raw_frame_retained": False}
 
     monkeypatch.setattr(game_screen_capture, "WindowsGameScreenCapture", Capture)
+    monkeypatch.setattr(game_screen_capture.time, "sleep", lambda _seconds: None)
     observer = game_screen_capture.build_windows_game_screen_avatar_observer(
         consent_provider=lambda: CONSENT, vision_model="qwen3.5:2b-q4_K_M",
         foreground_wait_seconds=2, captioner_factory=Captioner)
     assert seen["captures"] == 0
     assert seen["consent_provider"] is not None
     assert seen["model"] == "qwen3.5:2b-q4_K_M"
-    assert observer() == {"observed_at": payload["captured_at"], "raw_frame_retained": False}
-    assert seen["captures"] == 1
+    assert observer() == {"sample_count": 3, "raw_frame_retained": False}
+    assert seen["captures"] == 3
+    assert seen["sample_count"] == 3
+    assert seen["min_interval_seconds"] == 0.5
 
 
 def test_ocr_filters_sentientos_overlay_labels_but_keeps_game_text():

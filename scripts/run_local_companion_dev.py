@@ -77,11 +77,11 @@ def _build_companion_consequence_records_provider(*, config_path: str,
     if not config["enabled"]:
         return None
     consequence_ids = tuple(config["consequence_chain_ids"])
-    if not consequence_ids:
-        return None
     store = ConsequenceStore(Path(config["store_root"]), create_root=False)
 
     def provide() -> tuple[Mapping[str, Any], ...]:
+        if not consequence_ids:
+            return ()
         # A prediction-comparison record carries exact expected/observed
         # fields and the result while retaining its chain-bound digest.
         # Project one concise record per selected verified chain so current
@@ -97,6 +97,8 @@ def _build_companion_consequence_records_provider(*, config_path: str,
 
     # Fail at startup if the selected custody cannot be read and verified.
     provide()
+    # This is still the existing durable owner; the adapter holds no history.
+    provide.store = store  # type: ignore[attr-defined]
     return provide
 
 
@@ -390,6 +392,194 @@ def _apply_gaming_resource_observation(
     return state
 
 
+class _PreparedAvatarConsequenceEmitter:
+    """Bind an explicit chat prediction to the already-governed avatar output."""
+    def __init__(self, *, emitter: Any, pointer: Mapping[str, Any] | None,
+            observer: Any | None,
+            renderer_receipt_provider: Callable[..., Any] | None = None) -> None:
+        self._emitter = emitter
+        self._pointer = dict(pointer) if isinstance(pointer, Mapping) else None
+        self._observer = observer
+        self._renderer_receipt_provider = renderer_receipt_provider
+        self._lock = threading.Lock()
+        self._prepared: dict[tuple[str, str], dict[str, Any]] = {}
+        self._inflight: set[tuple[str, str]] = set()
+
+    def emit_display_text(self, phrase: str, *, authorization: Any = None,
+            metadata: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        from sentientos.avatar_authoring import renderer_handoff
+        from sentientos.embodied_consequence import make_expectation
+        from sentientos.local_model_authority import digest_payload
+
+        metadata = metadata if isinstance(metadata, Mapping) else {}
+        session_id = metadata.get("session_id")
+        turn_id = metadata.get("turn_id")
+        output_digest = metadata.get("output_digest")
+        key: tuple[str, str] | None = None
+        staged: dict[str, Any] | None = None
+        expected_display_digest = "sha256:" + digest_payload({"text": phrase})
+        displayed_digest = metadata.get("displayed_text_digest")
+        if displayed_digest is None and not metadata.get("phrase_truncated", False):
+            # Compatibility for direct, untruncated callers: the complete
+            # answer digest must also match the visible phrase.
+            if output_digest == digest_payload({"text": phrase}):
+                displayed_digest = expected_display_digest
+        if (self._observer is not None and self._pointer is not None
+                and metadata.get("source") != "governed_chat_workload_status"
+                and isinstance(session_id, str) and session_id
+                and isinstance(turn_id, str) and turn_id
+                and isinstance(output_digest, str)
+                and displayed_digest == expected_display_digest):
+            key = (session_id, turn_id)
+            now = datetime.now(timezone.utc)
+            created_at = now.isoformat()
+            turn_binding_digest = hashlib.sha256(
+                (session_id + "\0" + turn_id).encode("utf-8")).hexdigest()
+            measurement_request_id = metadata.get("measurement_request_id")
+            correlation_material = (session_id + "\0" + turn_id + "\0"
+                + output_digest + ("\0" + measurement_request_id
+                    if isinstance(measurement_request_id, str) else ""))
+            correlation_digest = hashlib.sha256(
+                correlation_material.encode("utf-8")).hexdigest()
+            correlation_id = "companion-avatar-nod-" + correlation_digest[:32]
+            pointer = self._pointer
+            handoff = renderer_handoff(pointer,
+                renderer_interface_id="sentientos-godot-companion",
+                requested_pose="nod", requested_expression="rest",
+                correlation_id=correlation_id, commanded_at=created_at)
+            assistant_text_digest = metadata.get(
+                "assistant_response_digest", output_digest)
+            requested = {"pose": "nod", "expression": "rest",
+                "assistant_turn_binding_digest": turn_binding_digest,
+                "assistant_text_digest": assistant_text_digest}
+            if isinstance(measurement_request_id, str):
+                requested["measurement_request_id_digest"] = hashlib.sha256(
+                    measurement_request_id.encode("utf-8")).hexdigest()
+            expectation = make_expectation(
+                installation_body_id=str(pointer["installation_identity"]),
+                body_id=str(pointer["body_identity"]),
+                body_generation=int(pointer["body_generation"]),
+                body_manifest_digest=str(pointer["manifest_digest"]),
+                handoff_id=handoff["handoff_id"], handoff_digest=handoff["handoff_digest"],
+                renderer_interface_id="sentientos-godot-companion",
+                requested=requested,
+                predicted_observables={"avatar_visible": True, "avatar_motion": "nod"},
+                observable_fields=("avatar_visible", "avatar_motion"),
+                comparison_policy={"avatar_visible": {"kind": "exact"},
+                    "avatar_motion": {"kind": "exact"}},
+                expected_observation_source_class="authenticated_bridge_observer",
+                correlation_id=correlation_id, causal_principal_binding_digest=None,
+                created_at=created_at,
+                expires_at=(now + timedelta(minutes=5)).isoformat())
+            staged = {"expectation": expectation, "handoff": handoff,
+                "output_digest": output_digest,
+                "pointer_digest": pointer.get("pointer_digest"),
+                "dispatch_status": "pending"}
+        dispatch_metadata = dict(metadata)
+        if staged is not None:
+            expectation, handoff = staged["expectation"], staged["handoff"]
+            dispatch_metadata.update({
+                "consequence_expectation_id": expectation.expectation_id,
+                "consequence_expectation_digest": expectation.expectation_digest,
+                "consequence_handoff_id": handoff["handoff_id"],
+                "consequence_handoff_digest": handoff["handoff_digest"],
+                "consequence_correlation_id": expectation.correlation_id,
+            })
+        result = self._emitter.emit_display_text(
+            phrase, authorization=authorization, metadata=dispatch_metadata)
+        if staged is not None and key is not None:
+            staged["dispatch_status"] = result.get("status")
+            with self._lock:
+                self._prepared[key] = staged
+                # Bounded, in-memory, one-shot queue; it is not developmental memory.
+                while len(self._prepared) > 16:
+                    self._prepared.pop(next(iter(self._prepared)))
+        return dict(result)
+
+    def emit_phrase(self, phrase: str, *, started_at: float | None = None,
+            speaking: bool | None = None, muted: bool = False,
+            metadata: Mapping[str, Any] | None = None,
+            authorization: Any = None) -> dict[str, Any]:
+        """Delegate speech timing without predicting a new avatar action."""
+        return dict(self._emitter.emit_phrase(phrase, started_at=started_at,
+            speaking=speaking, muted=muted, metadata=metadata,
+            authorization=authorization))
+
+    def emit_idle(self, *, authorization: Any = None,
+            metadata: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        """Delegate clearing/workload updates without staging an expectation."""
+        return dict(self._emitter.emit_idle(authorization=authorization,
+            metadata=metadata))
+
+    def observe_and_store(self, *, session_id: str, turn_id: str,
+            observer: Any, store: Any) -> dict[str, Any] | None:
+        from sentientos.embodied_consequence import evaluate_consequence
+
+        key = (session_id, turn_id)
+        with self._lock:
+            staged = self._prepared.get(key)
+            if staged is None:
+                return None
+            if key in self._inflight:
+                raise RuntimeError("avatar_consequence_observation_already_inflight")
+            self._inflight.add(key)
+        try:
+            if staged.get("dispatch_status") != "sent":
+                raise RuntimeError("avatar_prediction_dispatch_not_confirmed")
+            pointer = self._pointer
+            if (pointer is None or pointer.get("pointer_digest") != staged.get("pointer_digest")):
+                raise RuntimeError("avatar_prediction_body_pointer_changed")
+            expectation, handoff = staged["expectation"], staged["handoff"]
+            observation = staged.get("observation")
+            if observation is None:
+                observation_args = {
+                    "expectation": expectation, "handoff": handoff, "report": None}
+                if self._renderer_receipt_provider is not None:
+                    renderer_receipt = self._renderer_receipt_provider(
+                        expectation=expectation, handoff=handoff,
+                        session_id=session_id, turn_id=turn_id,
+                        output_digest=staged["output_digest"])
+                    if renderer_receipt is None:
+                        raise RuntimeError("avatar_renderer_receipt_unavailable")
+                    observation_args["renderer_receipt"] = renderer_receipt
+                observation = observer.observe(**observation_args)
+                staged["observation"] = observation
+            attribution = staged.get("attribution")
+            comparison = staged.get("comparison")
+            if attribution is None or comparison is None:
+                attribution, comparison = evaluate_consequence(
+                    expectation=expectation, handoff=handoff,
+                    current_body={"body_generation": pointer["body_generation"],
+                        "pointer_digest": pointer["pointer_digest"]},
+                    observation=observation,
+                    evaluated_at=datetime.now(timezone.utc).isoformat(),
+                    independent_observer_owner=observer)
+                staged["attribution"] = attribution
+                staged["comparison"] = comparison
+            chain_id = staged.get("chain_id")
+            if not isinstance(chain_id, str):
+                chain = store.put_consequence_chain(expectation=expectation, handoff=handoff,
+                    renderer_report=None, observation=observation,
+                    attribution=attribution, comparison=comparison)
+                chain_id = str(chain["chain_id"])
+                staged["chain_id"] = chain_id
+            records = store.world_state_records(consequence_chain_ids=(chain_id,))
+            with self._lock:
+                if self._prepared.get(key) is staged:
+                    self._prepared.pop(key, None)
+            return {"status": "completed", "chain_id": chain_id,
+                # Classification belongs to the governed attribution owner; the
+                # comparison record contains per-observable outcomes only.
+                "classification": attribution.get("classification"),
+                "confidence": observation.confidence, "quality": observation.quality,
+                "effect_proven": False, "world_state_records": tuple(records),
+                "observer_transport_authenticated": True,
+                "observation_accuracy_established": False}
+        finally:
+            with self._lock:
+                self._inflight.discard(key)
+
+
 class _LatestRendererObservation:
     """Expose only a fresh, explicitly unverified Godot body self-report."""
     def __init__(self, *, max_age_seconds: float = 5.0,
@@ -399,6 +589,7 @@ class _LatestRendererObservation:
         self._max_age = float(max_age_seconds)
         self._lock = threading.Lock()
         self._observation: Any | None = None
+        self._renderer_report: dict[str, Any] | None = None
         self._sampled_monotonic = 0.0
         self._adopted_body_pointer = (dict(adopted_body_pointer)
             if adopted_body_pointer is not None else None)
@@ -411,6 +602,7 @@ class _LatestRendererObservation:
         )
         comparison = None
         observation: Any | None = None
+        renderer_report: dict[str, Any] | None = None
         try:
             observation = renderer_report_observation(report)
             if self._adopted_body_pointer is not None:
@@ -423,12 +615,48 @@ class _LatestRendererObservation:
                         **dict(observation.payload),
                         "body_pointer_comparison": comparison,
                     })
+                    renderer_report = dict(report)
         except Exception:
             observation = None
         with self._lock:
             self._observation = observation
+            self._renderer_report = renderer_report
             self._body_pointer_comparison = comparison
             self._sampled_monotonic = time.monotonic() if observation is not None else 0.0
+
+    def renderer_receipt_for(self, *, expectation: Any, handoff: Mapping[str, Any],
+            session_id: str, turn_id: str, output_digest: str) -> Any | None:
+        """Return only the fresh Godot self-report matching this exact staged turn."""
+        from sentientos.avatar_renderer_report_ingress import (
+            renderer_report_receipt_identity,
+        )
+
+        now = time.monotonic()
+        with self._lock:
+            report = self._renderer_report
+            observation = self._observation
+            comparison = self._body_pointer_comparison
+            sampled = self._sampled_monotonic
+            if (report is None or observation is None
+                    or not isinstance(comparison, Mapping)
+                    or comparison.get("lineage_match") is not True
+                    or now - sampled > self._max_age):
+                return None
+            report = dict(report)
+        try:
+            receipt = renderer_report_receipt_identity(report)
+        except Exception:
+            return None
+        if (receipt.session_id != session_id or receipt.turn_id != turn_id
+                or receipt.output_digest != output_digest
+                or receipt.expectation_id != expectation.expectation_id
+                or receipt.expectation_digest != expectation.expectation_digest
+                or receipt.handoff_id != handoff.get("handoff_id")
+                or receipt.handoff_digest != handoff.get("handoff_digest")
+                or receipt.correlation_id != expectation.correlation_id
+                or receipt.body_generation != expectation.body_generation):
+            return None
+        return receipt
 
     def body_pointer_comparison(self) -> dict[str, Any] | None:
         """Return the last comparison without upgrading renderer self-report."""
@@ -445,6 +673,7 @@ class _LatestRendererObservation:
                 return ()
             if now - sampled > self._max_age:
                 self._observation = None
+                self._renderer_report = None
                 self._sampled_monotonic = 0.0
                 return ()
             return (observation,)
@@ -722,7 +951,10 @@ class _TemporaryCompanionEdge:
                     self._avatar_consequence_runtime = CompanionBridgeLoopbackRuntime(
                         receiver=CompanionBridgeReceiver(
                             source_keys={avatar_source_id: avatar_source_key},
-                            expected_generations={avatar_source_id: avatar_source_generation}),
+                            expected_generations={avatar_source_id: avatar_source_generation},
+                            # This receiver accepts only the dedicated, request-correlated
+                            # consequence stream; monotonic request age is its freshness gate.
+                            max_clock_skew_seconds=180.0),
                         acknowledgment_source_id=avatar_ack_id,
                         acknowledgment_generation_id=avatar_ack_generation,
                         acknowledgment_key=avatar_ack_key, queue_capacity=8,
@@ -846,7 +1078,11 @@ class _TemporaryCompanionEdge:
                 client=client, source_id="wsl-core-dev", session_id=None,
                 generation_id="wsl-avatar-dev-1", source_key=avatar_key,
                 admission_receipt_builder=receipt_builder)
-            self.emitter = BridgeChatAvatarOutputEmitter(self._sender)
+            self._base_emitter = BridgeChatAvatarOutputEmitter(self._sender)
+            self.emitter = _PreparedAvatarConsequenceEmitter(
+                emitter=self._base_emitter, pointer=adopted_body_pointer,
+                observer=self.avatar_consequence_observer,
+                renderer_receipt_provider=self.proprioception_observations.renderer_receipt_for)
             self.state_file = root / "edge-runtime" / "avatar_state.json"
             self.identity_posture = "temporary_test_mtls_identities"
         except Exception:
@@ -1191,12 +1427,14 @@ def main() -> int:
 
         consequence_projection_path = os.environ.get(
             "SENTIENTOS_EMBODIED_CONSEQUENCE_PROJECTION_CONFIG")
+        consequence_store = None
         if consequence_projection_path:
             try:
                 consequence_records_provider = (
                     _build_companion_consequence_records_provider(
                         config_path=consequence_projection_path,
                         read_explicit_file=read_explicit_file))
+                consequence_store = getattr(consequence_records_provider, "store", None)
             except Exception as exc:
                 parser.error(
                     "embodied consequence projection configuration is invalid: "
@@ -1313,6 +1551,12 @@ def main() -> int:
             screen_capture_policy=("allowlisted_session_polling"
                 if args.screen_observation_process else "request_driven"),
             local_speech_output=args.local_speech_output,
+            live_consequence_cycle_provider=(
+                (lambda session_id, turn_id: edge.emitter.observe_and_store(
+                    session_id=session_id, turn_id=turn_id,
+                    observer=edge.avatar_consequence_observer, store=consequence_store))
+                if edge is not None and consequence_store is not None
+                    and edge.avatar_consequence_observer is not None else None),
             resident_cognition_owner=resident_cognition_owner,
             resident_history_intervention_owner=resident_history_intervention_owner,
             self_model_owner=self_model_owner, self_model_config=self_model_config,

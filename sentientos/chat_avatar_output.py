@@ -61,6 +61,7 @@ class ChatAvatarOutputController:
         self._grants: dict[str, _SessionGrant] = {}
         self._pending_clears: dict[str, _SessionGrant | None] = {}
         self._last_responses: dict[str, tuple[str, str, str]] = {}
+        self._probe_requests: dict[tuple[str, str], None] = {}
         self._speech_started_at: dict[tuple[str, str], float] = {}
         self._workload_modes: dict[str, str] = {}
 
@@ -209,6 +210,9 @@ class ChatAvatarOutputController:
             metadata = {
                 "source": "governed_chat_response", "session_id": session_id,
                 "turn_id": turn_id, "output_digest": output_digest,
+                # Keep complete response identity distinct from the possibly
+                # truncated renderer-visible phrase.
+                "displayed_text_digest": _digest({"text": visible}),
                 "approval_grant_digest": grant.grant_digest,
                 "phrase_truncated": len(text) > MAX_AVATAR_DISPLAY_PHRASE_CHARS,
                 "output_mode": self.SCOPE,
@@ -227,6 +231,70 @@ class ChatAvatarOutputController:
             else:
                 self._workload_modes.pop(session_id, None)
         return {"status": "emitted", "phrase_truncated": len(text) > MAX_AVATAR_DISPLAY_PHRASE_CHARS}
+
+    def publish_consequence_probe(self, *, session_id: str, turn_id: str,
+                                  request_id: str,
+                                  assistant_response_digest: str) -> dict[str, Any]:
+        """Admit one operator-confirmed visual nod for immediate measurement."""
+        self._validate_session_id(session_id)
+        if (not isinstance(turn_id, str)
+                or re.fullmatch(r"turn-[0-9a-f]{24}", turn_id) is None
+                or not isinstance(request_id, str)
+                or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", request_id) is None
+                or not isinstance(assistant_response_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", assistant_response_digest) is None):
+            raise ValueError("avatar_consequence_probe_binding_invalid")
+        # A separate local UI confirmation is required by the endpoint. The
+        # session grant must also remain active; neither condition alone is
+        # sufficient to emit the visual command.
+        with self._lock:
+            grant = self._grants.get(session_id)
+            if grant is None or grant.expires_at <= self._clock():
+                return {"status": "disabled"}
+            request_key = (session_id, request_id)
+            if request_key in self._probe_requests:
+                return {"status": "duplicate_request"}
+            # Bound this request-scoped replay ledger to recent one-shot probes.
+            if len(self._probe_requests) >= 512:
+                self._probe_requests.pop(next(iter(self._probe_requests)))
+            self._probe_requests[request_key] = None
+            context = {"grant_digest": grant.grant_digest,
+                "session_id": session_id, "turn_id": turn_id,
+                "scope": self.SCOPE, "action": "one_shot_consequence_nod",
+                "measurement_request_id": request_id}
+            context_hash = _digest(context)
+            output_digest = _digest({"text": ""})[len("sha256:"):]
+            admission_metadata = {"approved_by": grant.approved_by,
+                "approval_method": "local_developmental_cycle_confirmation",
+                "approval_scope": self.SCOPE,
+                "approval_grant_digest": grant.grant_digest,
+                "session_id": session_id, "source_turn_id": turn_id,
+                "action_kind": "avatar_consequence_probe",
+                "measurement_request_id": request_id}
+            admission = self._admit(
+                request_type=RequestType.AVATAR_EMISSION,
+                requester_id="bridge", intent_hash=output_digest,
+                context_hash=context_hash, policy_version="v1-static",
+                metadata=admission_metadata)
+            if admission.decision is not Decision.ALLOW:
+                return {"status": "admission_denied",
+                    "reason": admission.reason.value}
+            record = admission.record
+            if (record.request_type is not RequestType.AVATAR_EMISSION
+                    or record.intent_hash != output_digest
+                    or record.context_hash != context_hash):
+                raise RuntimeError("avatar_consequence_probe_authority_binding_invalid")
+            metadata = {"source": "governed_avatar_consequence_probe",
+                "session_id": session_id, "turn_id": turn_id,
+                "output_digest": output_digest,
+                "displayed_text_digest": _digest({"text": ""}),
+                "phrase_truncated": False, "output_mode": self.SCOPE,
+                "measurement_request_id": request_id,
+                "assistant_response_digest": assistant_response_digest}
+            self._emitter.emit_display_text("", authorization=record,
+                metadata=metadata)
+        return {"status": "emitted", "action": "one_shot_visual_nod",
+            "game_input_authorized": False, "renderer_effect_proven": False}
 
     def publish_speech_timing(self, event: Mapping[str, Any]) -> Mapping[str, Any]:
         """Publish actual local playback timing for the currently displayed turn.

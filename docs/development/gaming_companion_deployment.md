@@ -697,6 +697,22 @@ some headroom within the new bound; it does not qualify capture success or
 visual usefulness on a game screen. A real Cronos request still timed out at
 the prior 9-second bound, so rerun it on the updated candidate.
 
+The same `--screen-observation-vision-model` option also enables the
+request-only avatar-consequence observer in the supervised development runner.
+It reuses the Windows game's foreground allowlist and expiring consent, captures
+a separate frame only after an operator confirms **Learn from current scene**,
+and uses the named local CPU vision model to measure avatar visibility and
+motion. The raw frame remains transient. When an adopted body pointer and the
+authenticated observer/consequence store are available, the authorized chat
+avatar nod is bound to a typed expectation before dispatch; the later confirmed
+cycle may capture and compare that consequence, then pass its digest-bound
+World-State records through the existing resident developmental writeback path.
+The observer currently reports unknown confidence and partial quality, so the
+comparison remains indeterminate. Transport authentication establishes message
+provenance, not visual accuracy, action effect, or causal attribution. This
+feature is integration code until a same-session Windows/Godot run demonstrates
+the complete cycle.
+
 OCR text enters only the current governed inference prompt, labeled as
 untrusted screen data. It is not added to the user's transcript or memory. The
 session and invocation linkage retain only bounded capture and text digests,
@@ -768,10 +784,15 @@ subjective approvals between implementation steps.
    displayed answer is audible and that the latest played turn ID matches the
    visible assistant reply turn. Send one follow-up and confirm playback state and
    interruption behavior.
-4. Compare the displayed answer with the saved transcript and available raw,
+4. If a typed avatar nod expectation was staged and the observer/store are
+   configured, explicitly approve one developmental cycle. Confirm the separate
+   avatar-motion measurement is reported with its confidence/quality and that
+   an indeterminate result does not claim a proven effect. Inspect the exact
+   consequence chain and verify it enters the same governed developmental tick.
+5. Compare the displayed answer with the saved transcript and available raw,
    transcript, API, and delivery diagnostics. Record whether the model answered,
    a deterministic policy supplied the answer, or a later policy changed it.
-5. Record the operator's final assessment of usefulness, continuity, and whether
+6. Record the operator's final assessment of usefulness, continuity, and whether
    the companion stayed available during the game without requiring a browser
    switch.
 

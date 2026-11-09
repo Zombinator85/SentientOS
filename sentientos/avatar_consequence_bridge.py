@@ -7,7 +7,9 @@ runtime. It grants no action authority and does not claim causal attribution.
 from __future__ import annotations
 
 import threading
-from typing import Any, Callable, Mapping, Protocol, cast
+import time
+from datetime import datetime, timezone
+from typing import Any, Callable, Mapping, Protocol
 from uuid import uuid4
 
 from .gaming_companion_bridge import (
@@ -39,11 +41,23 @@ class AvatarConsequenceBridgeError(ValueError):
 def _request_payload(*, expectation: EmbodiedActionExpectation,
                      handoff: Mapping[str, Any],
                      report: AvatarRendererReport | None,
+                     renderer_receipt: Any | None = None,
                      capture_request_id: str) -> dict[str, Any]:
     verify_expectation(expectation)
     verify_renderer_handoff(handoff)
     if report is not None:
         verify_renderer_report(report)
+    if report is not None and renderer_receipt is not None:
+        raise AvatarConsequenceBridgeError("avatar_consequence_renderer_reference_ambiguous")
+    if renderer_receipt is not None:
+        from .avatar_renderer_report_ingress import (
+            verify_renderer_report_receipt_identity,
+        )
+        try:
+            verify_renderer_report_receipt_identity(renderer_receipt)
+        except ValueError as exc:
+            raise AvatarConsequenceBridgeError(
+                "avatar_consequence_renderer_receipt_invalid") from exc
     if (not isinstance(capture_request_id, str)
             or len(capture_request_id) != 32
             or any(char not in "0123456789abcdef" for char in capture_request_id)):
@@ -57,7 +71,14 @@ def _request_payload(*, expectation: EmbodiedActionExpectation,
                 report.handoff_id != handoff.get("handoff_id")
                 or report.handoff_digest != handoff.get("handoff_digest")
                 or report.correlation_id != expectation.correlation_id
-                or report.body_generation != expectation.body_generation))):
+                or report.body_generation != expectation.body_generation))
+            or (renderer_receipt is not None and (
+                renderer_receipt.expectation_id != expectation.expectation_id
+                or renderer_receipt.expectation_digest != expectation.expectation_digest
+                or renderer_receipt.handoff_id != handoff.get("handoff_id")
+                or renderer_receipt.handoff_digest != handoff.get("handoff_digest")
+                or renderer_receipt.correlation_id != expectation.correlation_id
+                or renderer_receipt.body_generation != expectation.body_generation))):
         raise AvatarConsequenceBridgeError("avatar_consequence_request_lineage_invalid")
     return {
         "schema_version": AVATAR_CONSEQUENCE_REQUEST_SCHEMA,
@@ -66,8 +87,10 @@ def _request_payload(*, expectation: EmbodiedActionExpectation,
         "expectation_digest": expectation.expectation_digest,
         "handoff_id": handoff["handoff_id"],
         "handoff_digest": handoff["handoff_digest"],
-        "renderer_report_id": report.report_id if report is not None else None,
-        "renderer_report_digest": report.report_digest if report is not None else None,
+        "renderer_report_id": (report.report_id if report is not None
+            else renderer_receipt.report_id if renderer_receipt is not None else None),
+        "renderer_report_digest": (report.report_digest if report is not None
+            else renderer_receipt.report_digest if renderer_receipt is not None else None),
         "correlation_id": expectation.correlation_id,
         "body_generation": expectation.body_generation,
     }
@@ -93,9 +116,11 @@ class AvatarConsequenceMeasurementRequestSender:
     def __call__(self, *, expectation: EmbodiedActionExpectation,
                  handoff: Mapping[str, Any],
                  report: AvatarRendererReport | None = None,
+                 renderer_receipt: Any | None = None,
                  capture_request_id: str | None = None) -> VerifiedBridgeMessage:
         payload = _request_payload(
             expectation=expectation, handoff=handoff, report=report,
+            renderer_receipt=renderer_receipt,
             capture_request_id=capture_request_id or uuid4().hex)
         with self._lock:
             sequence = self._sequence + 1
@@ -143,14 +168,31 @@ class AvatarConsequenceCaptureRequestHandler:
         if not isinstance(measurement, Mapping):
             raise AvatarConsequenceBridgeError("avatar_consequence_measurement_invalid")
         observed = measurement.get("observed")
+        sequence_fields = (
+            "capture_sequence_digest", "sample_capture_digests",
+            "sample_captured_at", "sample_offsets_seconds",
+        )
+        present_sequence_fields = [field in measurement for field in sequence_fields]
+        if any(present_sequence_fields) and not all(present_sequence_fields):
+            raise AvatarConsequenceBridgeError(
+                "avatar_consequence_measurement_sequence_provenance_invalid")
+        sequence_measurement = all(present_sequence_fields)
         provenance = {
-            "schema_version": "sentientos.screen_capture_provenance:v1",
+            "schema_version": ("sentientos.screen_capture_provenance:v2"
+                if sequence_measurement else "sentientos.screen_capture_provenance:v1"),
             "capture_digest": measurement.get("capture_digest"),
             "process_name_digest": measurement.get("process_name_digest"),
             "consent_id_digest": measurement.get("consent_id_digest"),
             "capture_scope": measurement.get("capture_scope"),
             "raw_frame_retained": measurement.get("raw_frame_retained"),
         }
+        sequence_timestamps = measurement.get("sample_captured_at")
+        sequence_last_timestamp = (
+            sequence_timestamps[-1]
+            if isinstance(sequence_timestamps, (list, tuple)) and sequence_timestamps
+            else None)
+        if sequence_measurement:
+            provenance.update({field: measurement.get(field) for field in sequence_fields})
         if (not isinstance(observed, Mapping)
                 or set(observed) != {"avatar_visible", "avatar_motion"}
                 or observed.get("avatar_visible") not in (True, False, None)
@@ -160,7 +202,9 @@ class AvatarConsequenceCaptureRequestHandler:
                 or measurement.get("confidence") != "unknown"
                 or measurement.get("quality") not in {"partial", "unknown"}
                 or measurement.get("raw_frame_retained") is not False
-                or not isinstance(measurement.get("observed_at"), str)):
+                or not isinstance(measurement.get("observed_at"), str)
+                or (sequence_measurement and measurement.get("observed_at")
+                    != sequence_last_timestamp)):
             raise AvatarConsequenceBridgeError("avatar_consequence_measurement_contract_invalid")
         payload = {
             "schema_version": CONSEQUENCE_OBSERVATION_SCHEMA_V2,
@@ -204,17 +248,24 @@ class RemoteAvatarConsequenceObserver:
 
     def observe(self, *, expectation: EmbodiedActionExpectation,
                 handoff: Mapping[str, Any],
-                report: AvatarRendererReport | None = None
+                report: AvatarRendererReport | None = None,
+                renderer_receipt: Any | None = None
                 ) -> IndependentConsequenceObservation:
         # Keep the dedicated receive stream one-request-at-a-time so concurrent
         # callers cannot consume each other’s expectation-bound measurements.
         with self._lock:
             capture_request_id = uuid4().hex
+            request_started = time.monotonic()
+            request_started_at = datetime.now(timezone.utc).isoformat()
             self._sender(expectation=expectation, handoff=handoff, report=report,
+                         renderer_receipt=renderer_receipt,
                          capture_request_id=capture_request_id)
             return self._observer.observe(
                 expectation=expectation, handoff=handoff, report=report,
-                capture_request_id=capture_request_id)
+                renderer_receipt=renderer_receipt,
+                capture_request_id=capture_request_id,
+                request_started_monotonic=request_started,
+                request_started_at=request_started_at)
 
     def consume_authentication_receipt(
             self, observation: IndependentConsequenceObservation
@@ -226,5 +277,4 @@ class RemoteAvatarConsequenceObserver:
         callers from reaching into its transport owner or losing capture
         provenance between observation and evaluation.
         """
-        return cast(dict[str, Any] | None,
-            self._observer.consume_authentication_receipt(observation))
+        return self._observer.consume_authentication_receipt(observation)

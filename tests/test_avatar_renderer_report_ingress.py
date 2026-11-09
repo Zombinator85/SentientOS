@@ -15,7 +15,9 @@ from sentientos.avatar_renderer_report_ingress import (
     RendererReportCaptureOwner,
     RendererReportEvidenceStore,
     renderer_report_observation,
+    renderer_report_receipt_identity,
     renderer_report_world_state_record,
+    verify_renderer_report_receipt_identity,
 )
 from sentientos.gaming_companion_bridge import CompanionBridgeReceiver, encode_message
 from sentientos.gaming_companion_bridge_runtime import (
@@ -362,6 +364,57 @@ def test_adopted_renderer_pointer_comparison_rejects_tampered_pointer_digest():
 
 
 
+def test_local_runner_renderer_receipt_requires_fresh_exact_turn_and_pointer_match():
+    from types import SimpleNamespace
+    from scripts.run_local_companion_dev import _LatestRendererObservation
+
+    report = _adopted_body_report()
+    report.update({
+        "consequence_expectation_id": "expectation:test",
+        "consequence_expectation_digest": "sha256:" + "1" * 64,
+        "consequence_handoff_id": "handoff:test",
+        "consequence_handoff_digest": "sha256:" + "2" * 64,
+        "consequence_correlation_id": "trial:test",
+    })
+    _refresh_digest(report)
+    pointer = _body_pointer_for_report(report)
+    owner = _LatestRendererObservation(
+        adopted_body_pointer=pointer, max_age_seconds=5.0)
+    owner.update(report)
+    expectation = SimpleNamespace(
+        expectation_id="expectation:test",
+        expectation_digest="sha256:" + "1" * 64,
+        correlation_id="trial:test",
+        body_generation=4,
+    )
+    handoff = {
+        "handoff_id": "handoff:test",
+        "handoff_digest": "sha256:" + "2" * 64,
+    }
+
+    receipt = owner.renderer_receipt_for(
+        expectation=expectation, handoff=handoff,
+        session_id="session-1", turn_id="turn-2", output_digest="a" * 64)
+
+    assert receipt is not None
+    assert receipt.report_id == "godot-renderer:godot-demo-12345:1"
+    assert receipt.expectation_id == expectation.expectation_id
+    assert owner.renderer_receipt_for(
+        expectation=expectation, handoff=handoff,
+        session_id="session-1", turn_id="wrong-turn", output_digest="a" * 64) is None
+    intervening_update = dict(report)
+    intervening_update.update(sequence=2, turn_id="turn-3", output_digest="b" * 64)
+    _refresh_digest(intervening_update)
+    owner.update(intervening_update)
+    assert owner.renderer_receipt_for(
+        expectation=expectation, handoff=handoff,
+        session_id="session-1", turn_id="turn-2", output_digest="a" * 64) is None
+    owner._sampled_monotonic = time.monotonic() - 10
+    assert owner.renderer_receipt_for(
+        expectation=expectation, handoff=handoff,
+        session_id="session-1", turn_id="turn-2", output_digest="a" * 64) is None
+
+
 def test_local_runner_only_exposes_proprioception_when_adopted_pointer_lineage_matches():
     from scripts.run_local_companion_dev import _LatestRendererObservation
 
@@ -427,3 +480,58 @@ def test_adopted_renderer_pointer_comparison_rejects_malformed_pointer_fields(
     with pytest.raises(RendererReportIngressError,
             match="renderer_body_pointer_integrity_invalid"):
         compare_adopted_renderer_report_to_body_pointer(report, pointer)
+
+
+def test_renderer_report_preserves_complete_consequence_command_lineage():
+    report = _report()
+    lineage = {
+        "consequence_expectation_id": "expectation:lineage-1",
+        "consequence_expectation_digest": "sha256:" + "1" * 64,
+        "consequence_handoff_id": "handoff:lineage-1",
+        "consequence_handoff_digest": "sha256:" + "2" * 64,
+        "consequence_correlation_id": "correlation:lineage-1",
+    }
+    report.update(lineage)
+    _refresh_digest(report)
+    observation = renderer_report_observation(report)
+    assert observation is not None
+
+    partial = _report()
+    partial["consequence_handoff_id"] = "handoff:lineage-1"
+    _refresh_digest(partial)
+    with pytest.raises(RendererReportIngressError,
+            match="renderer_report_shape_invalid|renderer_report_consequence_lineage_invalid"):
+        renderer_report_observation(partial)
+
+
+def test_adopted_renderer_receipt_preserves_exact_action_lineage_without_effect_proof():
+    report = _adopted_body_report()
+    report.update({
+        "session_id": "session-1",
+        "turn_id": "turn-2",
+        "output_digest": "e" * 64,
+        "output_mode": "chat_response_visual_only",
+        "consequence_expectation_id": "expectation:test",
+        "consequence_expectation_digest": "sha256:" + "1" * 64,
+        "consequence_handoff_id": "handoff:test",
+        "consequence_handoff_digest": "sha256:" + "2" * 64,
+        "consequence_correlation_id": "trial:test",
+    })
+    _refresh_digest(report)
+
+    receipt = renderer_report_receipt_identity(report)
+
+    assert receipt.report_id == "godot-renderer:godot-demo-12345:1"
+    assert receipt.report_digest == renderer_report_observation(report).source_digest
+    assert receipt.session_id == "session-1" and receipt.turn_id == "turn-2"
+    assert receipt.output_digest == "e" * 64
+    assert receipt.expectation_id == "expectation:test"
+    assert receipt.handoff_id == "handoff:test"
+    assert receipt.correlation_id == "trial:test"
+    assert receipt.body_generation == 4
+    verify_renderer_report_receipt_identity(receipt)
+    assert renderer_report_observation(report).effect_proven is False
+
+    from dataclasses import replace
+    with pytest.raises(RendererReportIngressError, match="receipt_identity_invalid"):
+        verify_renderer_report_receipt_identity(replace(receipt, report_id="forged-renderer-id"))

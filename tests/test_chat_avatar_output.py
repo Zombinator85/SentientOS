@@ -88,6 +88,49 @@ def test_chat_avatar_output_requires_session_grant_and_emits_visual_only_state(t
     assert len(admission.calls) == 3
 
 
+def test_consequence_probe_requires_grant_and_is_one_shot(tmp_path) -> None:
+    target = tmp_path / "avatar_state.json"
+    admission = _AdmissionStub()
+    output = _controller(target, admission)
+    response_digest = "a" * 64
+
+    assert output.publish_consequence_probe(session_id="session-1",
+        turn_id="turn-" + "1" * 24, request_id="probe-1",
+        assistant_response_digest=response_digest) == {"status": "disabled"}
+    assert output.set_enabled("session-1", True)["enabled"] is True
+    result = output.publish_consequence_probe(session_id="session-1",
+        turn_id="turn-" + "1" * 24, request_id="probe-1",
+        assistant_response_digest=response_digest)
+    assert result == {"status": "emitted", "action": "one_shot_visual_nod",
+        "game_input_authorized": False, "renderer_effect_proven": False}
+    state = json.loads(target.read_text(encoding="utf-8"))
+    assert state["current_phrase"] == ""
+    assert state["motion"] == "nod"
+    assert state["metadata"]["source"] == "governed_avatar_consequence_probe"
+    assert admission.calls[-1]["metadata"]["approval_method"] == (
+        "local_developmental_cycle_confirmation")
+    assert admission.calls[-1]["metadata"]["measurement_request_id"] == "probe-1"
+    calls_after_emit = len(admission.calls)
+    assert output.publish_consequence_probe(session_id="session-1",
+        turn_id="turn-" + "1" * 24, request_id="probe-1",
+        assistant_response_digest=response_digest) == {"status": "duplicate_request"}
+    assert len(admission.calls) == calls_after_emit
+    output.close()
+
+
+def test_denied_consequence_probe_does_not_emit(tmp_path) -> None:
+    target = tmp_path / "avatar_state.json"
+    admission = _AdmissionStub((Decision.ALLOW, Decision.DENY))
+    output = _controller(target, admission)
+    assert output.set_enabled("session-1", True)["enabled"] is True
+    result = output.publish_consequence_probe(session_id="session-1",
+        turn_id="turn-" + "1" * 24, request_id="probe-denied",
+        assistant_response_digest="b" * 64)
+    assert result["status"] == "admission_denied"
+    assert not target.exists()
+    output.close()
+
+
 def test_chat_avatar_output_denial_and_expiry_fail_closed(tmp_path) -> None:
     target = tmp_path / "avatar_state.json"
     denied = _controller(target, _AdmissionStub((Decision.DENY,)))
@@ -254,3 +297,46 @@ def test_speech_timing_updates_only_the_current_granted_turn(tmp_path) -> None:
     state = json.loads(target.read_text(encoding="utf-8"))
     assert state["speaking"] is False
     assert state["metadata"]["speech_timing"]["event"] == "speech_interrupted"
+
+
+def test_prepared_avatar_adapter_keeps_full_text_digest_and_emitter_protocol(tmp_path) -> None:
+    from scripts.run_local_companion_dev import _PreparedAvatarConsequenceEmitter
+
+    class Emitter:
+        def __init__(self):
+            self.calls = []
+        def emit_display_text(self, phrase, *, authorization=None, metadata=None):
+            self.calls.append(("display", phrase))
+            return {"status": "sent"}
+        def emit_phrase(self, phrase, *, started_at=None, speaking=None,
+                        muted=False, metadata=None, authorization=None):
+            self.calls.append(("phrase", phrase))
+            return {"status": "sent"}
+        def emit_idle(self, *, authorization=None, metadata=None):
+            self.calls.append(("idle", ""))
+            return {"status": "sent"}
+
+    base = Emitter()
+    pointer = {"installation_identity": "install", "body_identity": "avatar",
+        "body_generation": 1, "manifest_digest": "sha256:" + "a" * 64,
+        "artifact_sha256": "sha256:" + "c" * 64,
+        "pointer_digest": "sha256:" + "b" * 64}
+    adapter = _PreparedAvatarConsequenceEmitter(
+        emitter=base, pointer=pointer, observer=object())
+    admission = _AdmissionStub()
+    controller = ChatAvatarOutputController(adapter, admission_provider=admission)
+    assert controller.set_enabled("session-long", True)["enabled"] is True
+    controller.set_workload_mode("session-long", "gaming")
+    assert base.calls[-1][0] == "idle"
+    text = "x" * 3000
+    digest = digest_payload({"text": text})
+    assert controller.publish_response(session_id="session-long", turn_id="turn-long",
+        text=text, output_digest=digest)["phrase_truncated"] is True
+    staged = adapter._prepared[("session-long", "turn-long")]
+    assert staged["expectation"].requested["assistant_text_digest"] == digest
+    assert len(base.calls[-1][1]) == 2048
+    assert controller.publish_speech_timing({"session_id": "session-long",
+        "turn_id": "turn-long", "event": "speech_started"})["status"] == "emitted"
+    controller.close()
+    assert any(kind == "phrase" for kind, _ in base.calls)
+    assert base.calls[-1][0] == "idle"

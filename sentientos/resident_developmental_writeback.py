@@ -42,6 +42,7 @@ PURPOSE = "resident_developmental_interpretation"
 COGNITION_LESSON_PROVENANCE_KIND = "history_conditioned_cognition_conclusion:v1"
 MAX_SELECTED_FACTS = 16
 MAX_SELECTED_EVIDENCE_BYTES = 6000
+MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES = 65_536
 MAX_RESOURCE_LINEAGE_SELECTED_EVIDENCE_BYTES = 10_240
 # A verified five-condition replacement run has a larger but still tightly
 # bounded lineage vector. This allowance is limited to one v2 embodiment fact;
@@ -549,7 +550,208 @@ def _selected_fact_byte_limit(facts: Sequence[Mapping[str, Any]]) -> int:
                 and projection.get("schema_version")
                     == "sentientos.resource_interpretation_projection:v1"):
             return MAX_RESOURCE_LINEAGE_SELECTED_EVIDENCE_BYTES
+    if (_is_complete_companion_consequence_cycle_selection(facts)
+            or _is_complete_companion_receipt_consequence_cycle_selection(facts)):
+        return MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES
     return MAX_SELECTED_EVIDENCE_BYTES
+
+
+def _is_complete_companion_consequence_cycle_selection(
+        facts: Sequence[Mapping[str, Any]]) -> bool:
+    """Recognize only a closed chain with its screen and proprioception."""
+    if len(facts) != 9:
+        return False
+    required_chain_kinds = {
+        "embodied_action_expectation", "avatar_renderer_handoff",
+        "avatar_renderer_report", "avatar_independently_observed_state",
+        "embodied_consequence_attribution", "embodied_prediction_comparison",
+        "embodied_consequence_chain",
+    }
+    by_kind: dict[str, list[Mapping[str, Any]]] = {}
+    for fact in facts:
+        source = fact.get("source")
+        subject = fact.get("subject")
+        if (not isinstance(source, Mapping) or source.get("kind") != "embodiment"
+                or not isinstance(subject, Mapping)
+                or type(fact.get("effect_proven")) is not bool
+                or fact.get("effect_proven") is not False
+                or type(fact.get("effect_claimed")) is not bool
+                or fact.get("effect_claimed") is not False):
+            return False
+        by_kind.setdefault(str(subject.get("subject_kind")), []).append(fact)
+    if any(len(by_kind.get(kind, ())) != 1 for kind in required_chain_kinds):
+        return False
+    summary = by_kind["embodied_consequence_chain"][0]
+    summary_source = summary.get("source")
+    summary_payload = summary.get("payload")
+    if not isinstance(summary_source, Mapping) or not isinstance(summary_payload, Mapping):
+        return False
+    components = [by_kind[kind][0]
+        for kind in required_chain_kinds - {"embodied_consequence_chain"}]
+    component_sources_raw = [fact.get("source") for fact in components]
+    if any(not isinstance(source, Mapping) for source in component_sources_raw):
+        return False
+    component_sources = [source for source in component_sources_raw
+        if isinstance(source, Mapping)]
+    if len(component_sources) != 6:
+        return False
+    component_ids = [source.get("source_id") for source in component_sources]
+    projected_ids = summary_payload.get("component_source_ids")
+    projected_digests = summary_payload.get("component_record_digests")
+    if (any(not isinstance(identity, str) for identity in component_ids)
+            or any(not isinstance(source.get("digest"), str)
+                for source in component_sources)
+            or not isinstance(summary_source.get("source_id"), str)
+            or len(set(component_ids)) != 6
+            or summary_payload.get("chain_id") != summary_source.get("source_id")
+            or summary_payload.get("effect_proven") is not False
+            or summary_payload.get("current_truth") is not False
+            or not isinstance(projected_ids, list) or not isinstance(projected_digests, list)
+            or len(projected_ids) != 6 or len(projected_digests) != 6
+            or any(not isinstance(identity, str) for identity in projected_ids)
+            or any(not isinstance(value, str) for value in projected_digests)
+            or set(projected_ids) != set(component_ids)):
+        return False
+    digest_by_id = {source.get("source_id"): source.get("digest")
+        for source in component_sources}
+    if any(digest_by_id.get(identity) != record_digest
+            for identity, record_digest in zip(projected_ids, projected_digests)):
+        return False
+    extra_facts = [fact for kind, values in by_kind.items()
+        if kind not in required_chain_kinds for fact in values]
+    if len(extra_facts) != 2:
+        return False
+    screen_facts = [fact for fact in extra_facts
+        if fact.get("subject", {}).get("subject_kind") == "allowlisted_foreground_game_screen"
+        and isinstance(fact.get("payload"), Mapping)
+        and fact["payload"].get("capture_scope")
+            == "allowlisted_foreground_game_client_area"
+        and fact["payload"].get("raw_frame_retained") is False]
+    proprioception_facts = [fact for fact in extra_facts
+        if isinstance(fact.get("payload"), Mapping)
+        and fact["payload"].get("embodiment_evidence_class") in {
+            "sensor_observation", "actuator_observation", "avatar_commanded_state",
+            "avatar_renderer_reported_state", "avatar_independently_observed_state"}
+        and fact["payload"].get("observer_issuer_posture")
+            == "unverified_caller_assertion"]
+    return len(screen_facts) == 1 and len(proprioception_facts) == 1
+
+
+def _is_complete_companion_receipt_consequence_cycle_selection(
+        facts: Sequence[Mapping[str, Any]]) -> bool:
+    """Recognize the runner's closed chain when the renderer proof is a receipt identity.
+
+    The authenticated renderer receipt is not treated as a full renderer report or
+    as evidence that movement occurred. This exact eight-fact shape exists because
+    the runner stores expectation, handoff, observation, attribution, comparison,
+    chain summary, screen, and proprioception, while keeping the report as a
+    digest-bound receipt reference inside authenticated observation provenance.
+    """
+    if len(facts) != 8:
+        return False
+    required_kinds = {
+        "embodied_action_expectation", "avatar_renderer_handoff",
+        "avatar_independently_observed_state", "embodied_consequence_attribution",
+        "embodied_prediction_comparison", "embodied_consequence_chain",
+    }
+    by_kind: dict[str, list[Mapping[str, Any]]] = {}
+    for fact in facts:
+        source, subject, payload = fact.get("source"), fact.get("subject"), fact.get("payload")
+        if (not isinstance(source, Mapping) or source.get("kind") != "embodiment"
+                or not isinstance(subject, Mapping)
+                or not isinstance(payload, Mapping)
+                or type(fact.get("effect_proven")) is not bool
+                or fact.get("effect_proven") is not False
+                or type(fact.get("effect_claimed")) is not bool
+                or fact.get("effect_claimed") is not False):
+            return False
+        by_kind.setdefault(str(subject.get("subject_kind")), []).append(fact)
+    if any(len(by_kind.get(kind, ())) != 1 for kind in required_kinds):
+        return False
+    if not required_kinds.issubset(by_kind):
+        return False
+    chain = by_kind["embodied_consequence_chain"][0]
+    chain_source, chain_payload = chain.get("source"), chain.get("payload")
+    components = [by_kind[kind][0] for kind in required_kinds
+        if kind != "embodied_consequence_chain"]
+    component_sources = [fact.get("source") for fact in components]
+    if (not isinstance(chain_source, Mapping) or not isinstance(chain_payload, Mapping)
+            or any(not isinstance(source, Mapping) for source in component_sources)
+            or len(component_sources) != 5
+            or chain_payload.get("chain_id") != chain_source.get("source_id")
+            or chain_payload.get("effect_proven") is not False
+            or chain_payload.get("current_truth") is not False):
+        return False
+    typed_component_sources = [source for source in component_sources
+        if isinstance(source, Mapping)]
+    if len(typed_component_sources) != len(component_sources):
+        return False
+    source_ids = [source.get("source_id") for source in typed_component_sources]
+    source_digests = [source.get("digest") for source in typed_component_sources]
+    projected_ids, projected_digests = (chain_payload.get("component_source_ids"),
+        chain_payload.get("component_record_digests"))
+    if (any(not isinstance(value, str) for value in source_ids + source_digests)
+            or not isinstance(projected_ids, list) or not isinstance(projected_digests, list)
+            or len(projected_ids) != 5 or len(projected_digests) != 5
+            or set(projected_ids) != set(source_ids)
+            or {identity: source_digests[source_ids.index(identity)]
+                for identity in projected_ids} != dict(zip(projected_ids, projected_digests))):
+        return False
+
+    observation = by_kind["avatar_independently_observed_state"][0].get("payload")
+    attribution = by_kind["embodied_consequence_attribution"][0].get("payload")
+    if not isinstance(observation, Mapping) or not isinstance(attribution, Mapping):
+        return False
+    authentication = attribution.get("observation_authentication_receipt")
+    renderer_identity = (authentication.get("renderer_report_receipt_identity")
+        if isinstance(authentication, Mapping) else None)
+    if (not isinstance(renderer_identity, Mapping)
+            or not isinstance(authentication, Mapping)
+            or authentication.get("transport_authenticated_at_ingress") is not True
+            or authentication.get("observation_time_posture")
+                != "authenticated_request_correlated_receiver_time"
+            or not isinstance(authentication.get("capture_request_id"), str)
+            or not isinstance(authentication.get("capture_provenance"), Mapping)):
+        return False
+    try:
+        from .avatar_renderer_report_ingress import (
+            RendererReportReceiptIdentity, verify_renderer_report_receipt_identity,
+        )
+        identity = RendererReportReceiptIdentity(**dict(renderer_identity))
+        verify_renderer_report_receipt_identity(identity)
+    except (TypeError, ValueError):
+        return False
+    expectation = by_kind["embodied_action_expectation"][0]
+    handoff = by_kind["avatar_renderer_handoff"][0]
+    expectation_source, handoff_source = expectation.get("source"), handoff.get("source")
+    expectation_payload, handoff_payload = expectation.get("payload"), handoff.get("payload")
+    if (not isinstance(expectation_source, Mapping) or not isinstance(handoff_source, Mapping)
+            or not isinstance(expectation_payload, Mapping) or not isinstance(handoff_payload, Mapping)
+            or observation.get("renderer_report_id") != identity.report_id
+            or observation.get("renderer_report_digest") != identity.report_digest
+            or identity.expectation_id != expectation_source.get("source_id")
+            or identity.expectation_id != expectation_payload.get("expectation_id")
+            or identity.expectation_digest != expectation_payload.get("expectation_digest")
+            or identity.handoff_id != handoff_source.get("source_id")
+            or identity.handoff_id != handoff_payload.get("handoff_id")
+            or identity.handoff_digest != handoff_payload.get("handoff_digest")
+            or identity.correlation_id != expectation_payload.get("correlation_id")
+            or identity.body_generation != expectation_payload.get("body_generation")):
+        return False
+    extras = [fact for fact in facts
+        if fact.get("subject", {}).get("subject_kind") not in required_kinds]
+    screen = [fact for fact in extras
+        if fact.get("subject", {}).get("subject_kind") == "allowlisted_foreground_game_screen"
+        and fact.get("payload", {}).get("capture_scope")
+            == "allowlisted_foreground_game_client_area"
+        and fact.get("payload", {}).get("raw_frame_retained") is False]
+    proprioception = [fact for fact in extras
+        if fact.get("payload", {}).get("embodiment_evidence_class") in {
+            "sensor_observation", "actuator_observation", "avatar_commanded_state",
+            "avatar_renderer_reported_state", "avatar_independently_observed_state"}
+        and fact.get("payload", {}).get("observer_issuer_posture")
+            == "unverified_caller_assertion"]
+    return len(extras) == 2 and len(screen) == 1 and len(proprioception) == 1
 
 
 def _model_replacement_interpretation_projection(
