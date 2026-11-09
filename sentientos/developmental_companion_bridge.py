@@ -1,8 +1,9 @@
 """Request-scoped bridge from consented companion evidence to resident cognition.
 
-This adapter does not own memory or write developmental history. It converts one
-already-consented local observation into a transient World-State snapshot and
-delegates the decision to the existing ResidentDevelopmentalCognitionOwner.
+This adapter does not own memory. Ordinary interactive replies do not write
+developmental history. An explicitly operator-confirmed local cycle may convert
+one fresh observation into a transient World-State snapshot and delegate to the
+existing governed ResidentDevelopmentalCognitionOwner writeback path.
 """
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ from .resident_developmental_cognition import (
     ResidentCompanionHistoryInterventionResult,
     ResidentCompanionInteractionResult,
     ResidentDevelopmentalCognitionOwner,
+    ResidentDevelopmentalCycleResult,
 )
 from .world_state_board import WorldStateBoardBuilder, WorldStateSnapshot
 
@@ -443,6 +445,76 @@ class ResidentDevelopmentalCompanionBridge:
         with gate:
             return self._history_intervention_owner.run_companion_history_intervention(
                 snapshot=snapshot, tick_id=tick_id, question=question,
+                prior_self_model=prior_self_model,
+                prior_epistemic_state=prior_epistemic_state)
+
+    def developmental_cycle_available(self) -> bool:
+        """Whether an explicitly confirmed, governed writeback cycle is configured."""
+        return (self.can_handle()
+            and self._owner.config.enabled is True
+            and self._owner.config.comparison_enabled is False
+            and self._owner.objective_task is None
+            and "embodiment" in self._owner.config.allowed_source_kinds)
+
+    def run_developmental_cycle(self, *, tick_id: str,
+            screen_observation: Mapping[str, Any]
+            ) -> ResidentDevelopmentalCycleResult:
+        """Run one fresh-evidence tick through the existing governed writeback owner.
+
+        Callers must put this behind an explicit operator confirmation. This
+        method never invents a second memory store or bypasses owner admission.
+        """
+        if (not isinstance(tick_id, str) or not tick_id.strip() or len(tick_id) > 256
+                or not isinstance(screen_observation, Mapping)):
+            raise DevelopmentalCompanionBridgeError(
+                "developmental_cycle_request_invalid")
+        if not self.developmental_cycle_available():
+            raise CognitionWorkloadUnavailable()
+        proprioception: Sequence[EmbodimentObservation] = ()
+        if self._proprioception_provider is not None:
+            value = self._proprioception_provider()
+            if not isinstance(value, (tuple, list)) or any(
+                    not isinstance(item, EmbodimentObservation) for item in value):
+                raise DevelopmentalCompanionBridgeError(
+                    "proprioception_provider_output_invalid")
+            proprioception = tuple(value)
+        _screen_record(screen_observation)
+        now = self._clock() if callable(self._clock) else datetime.now(timezone.utc)
+        if isinstance(now, str):
+            try:
+                now = datetime.fromisoformat(now.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise DevelopmentalCompanionBridgeError(
+                    "developmental_cycle_clock_invalid") from exc
+        request_freshness = _request_bound_capture_freshness(screen_observation)
+        capture_age_seconds = None
+        if request_freshness is None:
+            captured_at = datetime.fromisoformat(
+                str(screen_observation["captured_at"]).replace("Z", "+00:00"))
+            if (not isinstance(now, datetime) or now.tzinfo is None
+                    or now.utcoffset() is None or captured_at.tzinfo is None
+                    or captured_at.utcoffset() is None):
+                raise DevelopmentalCompanionBridgeError(
+                    "developmental_cycle_capture_time_invalid")
+            capture_age = now.astimezone(timezone.utc) - captured_at.astimezone(timezone.utc)
+            if (capture_age < -MAX_HISTORY_INTERVENTION_FUTURE_SKEW
+                    or capture_age > MAX_HISTORY_INTERVENTION_CAPTURE_AGE):
+                raise DevelopmentalCompanionBridgeError(
+                    "developmental_cycle_capture_not_fresh")
+            capture_age_seconds = int(max(0.0, capture_age.total_seconds()))
+        tick_time, projection_tick = self._projection_boundary()
+        prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
+            tick_id=tick_time, projection_tick=projection_tick)
+        snapshot = build_companion_snapshot(
+            screen_observation=screen_observation,
+            proprioception=proprioception, screen_staleness="fresh",
+            screen_capture_age_seconds=capture_age_seconds, clock=self._clock)
+        if not snapshot.facts:
+            raise CognitionEvidenceUnavailable()
+        gate = (self._cognition_inference_gate()
+            if self._cognition_inference_gate is not None else nullcontext())
+        with gate:
+            return self._owner.run_tick(snapshot=snapshot, tick_id=tick_id,
                 prior_self_model=prior_self_model,
                 prior_epistemic_state=prior_epistemic_state)
 

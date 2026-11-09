@@ -5827,6 +5827,55 @@ def test_companion_bridge_runs_existing_matched_history_intervention_on_fresh_sc
     assert result.canonical_explicit_user_retention_mutated is False
 
 
+def test_operator_confirmed_bridge_cycle_writes_then_later_cognition_retrieves_history(
+        tmp_path: Path) -> None:
+    now = datetime.now(timezone.utc)
+    cognition, fake = owner(tmp_path / "operator-cycle",
+        allowed_source_kinds=("embodiment",))
+    screen = {"modality": "screen",
+        "text": "A fresh, bounded operator-approved observation of a test scene.",
+        "capture_digest": "d" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
+    assert bridge.developmental_cycle_available() is True
+
+    cycle = bridge.run_developmental_cycle(
+        tick_id="operator-confirmed-cycle-1", screen_observation=screen)
+
+    assert cycle.status == "completed"
+    assert cycle.written_record_id is not None
+    assert cycle.writeback_receipt_id is not None
+    assert cycle.canonical_explicit_user_retention_mutated is False
+    fake.companion_output_override = {
+        "disposition": "answer", "response": "I can use the retained lesson.",
+        "evidence_ids": ["__CURRENT_FACT__"],
+        "history_record_ids": [cycle.written_record_id]}
+    later = bridge.respond(request_id="later-cognition-cycle",
+        question="What can you learn from the current scene?", screen_observation=screen)
+    assert later.status == "admitted_completed"
+    assert cycle.written_record_id in later.history_record_ids
+    assert later.developmental_history_writeback_performed is False
+
+
+def test_operator_confirmed_bridge_cycle_rejects_stale_capture_before_inference(
+        tmp_path: Path) -> None:
+    now = datetime.now(timezone.utc)
+    cognition, fake = owner(tmp_path / "stale-cycle",
+        allowed_source_kinds=("embodiment",))
+    stale_screen = {"modality": "screen", "text": "old scene",
+        "capture_digest": "e" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": (now - timedelta(minutes=2)).isoformat(),
+        "raw_frame_retained": False}
+    bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
+    with pytest.raises(DevelopmentalCompanionBridgeError,
+            match="developmental_cycle_capture_not_fresh"):
+        bridge.run_developmental_cycle(tick_id="stale-cycle-1",
+            screen_observation=stale_screen)
+    assert fake.requests == []
+
+
 def test_split_companion_owners_keep_interaction_and_confirmed_comparison_available(
         tmp_path: Path) -> None:
     from scripts.run_local_companion_dev import _build_resident_cognition_owner_pair
