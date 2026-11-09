@@ -519,6 +519,22 @@ def test_capture_accepts_only_allowlisted_foreground_client_area() -> None:
     assert "process_name" not in observation_payload
 
 
+def test_capture_rejects_layered_foreground_window_before_reading_pixels() -> None:
+    frames: list[ForegroundGameWindow] = []
+    layered_window = ForegroundGameWindow("ExampleGame.exe", 10, 20, 110, 70, layered=True)
+    capture = WindowsGameScreenCapture(
+        consent_provider=lambda: CONSENT,
+        window_provider=lambda: layered_window,
+        frame_provider=lambda window: (frames.append(window) or FRAME),
+        clock=lambda: NOW,
+        monotonic=lambda: 1.0,
+    )
+
+    with pytest.raises(ScreenCaptureError, match="game_screen_layered_window_unsupported"):
+        capture()
+    assert frames == []
+
+
 def test_capture_waits_for_explicitly_requested_game_to_return_to_foreground() -> None:
     windows = iter([
         ForegroundGameWindow("Browser.exe", 0, 0, 100, 50),

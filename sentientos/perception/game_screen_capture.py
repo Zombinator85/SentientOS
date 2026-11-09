@@ -98,6 +98,7 @@ class ForegroundGameWindow:
     top: int
     right: int
     bottom: int
+    layered: bool = False
 
 
 @dataclass(frozen=True)
@@ -160,11 +161,16 @@ def _windows_foreground_game_window() -> ForegroundGameWindow:
             raise ScreenCaptureError("game_screen_window_minimized")
         _thread_id, process_id = win32process.GetWindowThreadProcessId(handle)
         process_name = psutil.Process(int(process_id)).name()
+        # MSS captures composited desktop pixels inside a rectangle, not the
+        # HWND surface. A layered/transparent window could expose unrelated
+        # content behind it while being labeled app-only; fail closed.
+        extended_style = int(win32gui.GetWindowLong(handle, -20))
+        layered = bool(extended_style & 0x00080000)  # WS_EX_LAYERED
         left, top, right, bottom = win32gui.GetClientRect(handle)
         screen_left, screen_top = win32gui.ClientToScreen(handle, (left, top))
         screen_right, screen_bottom = win32gui.ClientToScreen(handle, (right, bottom))
         return ForegroundGameWindow(str(process_name), int(screen_left), int(screen_top),
-                                    int(screen_right), int(screen_bottom))
+                                    int(screen_right), int(screen_bottom), layered=layered)
     except ScreenCaptureError:
         raise
     except Exception as exc:
@@ -257,6 +263,10 @@ class WindowsGameScreenCapture:
                 continue
             if type(window) is not ForegroundGameWindow:
                 raise ScreenCaptureError("game_screen_window_invalid")
+            if type(window.layered) is not bool:
+                raise ScreenCaptureError("game_screen_window_style_invalid")
+            if window.layered:
+                raise ScreenCaptureError("game_screen_layered_window_unsupported")
             process_name = _normalize_process_name(window.process_name)
             if process_name in allowed_process_names:
                 break
