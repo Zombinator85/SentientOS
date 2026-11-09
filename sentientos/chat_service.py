@@ -48,7 +48,7 @@ from .production_chat_resource_context import (
 from .gaming_workload_policy import GamingWorkloadPolicy, WorkloadMode
 from .developmental_companion_bridge import (
     CognitionEvidenceUnavailable, CognitionWorkloadUnavailable,
-    ResidentDevelopmentalCompanionBridge,
+    ResidentDevelopmentalCompanionBridge, make_operator_feedback_record,
 )
 from .conversation_session import (
     ConversationChatLockTimeout, ConversationSessionStore, assemble_local_chat_context,
@@ -784,6 +784,7 @@ class DevelopmentalCycleRequest(BaseModel):
     assistant_turn_id: str
     request_id: str
     operator_confirmed: bool = False
+    operator_feedback: str | None = None
 
 
 class ChatRequest(BaseModel):
@@ -931,6 +932,14 @@ def _saved_transcript_response_diagnostics(
             and isinstance(linkage.get("cognition_observation_id"), str)
             and isinstance(linkage.get("cognition_observation_digest"), str))
         screen = linkage.get("screen_observation_provenance")
+        response_digest = linkage.get("response_digest")
+        result["operator_feedback_available"] = (
+            result["developmental_history_intervention_available"] is True
+            and isinstance(response_digest, str)
+            and re.fullmatch(r"[0-9a-f]{64}", response_digest) is not None
+            and isinstance(screen, Mapping)
+            and isinstance(screen.get("capture_digest"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", screen["capture_digest"]) is not None)
         if isinstance(screen, Mapping):
             safe_screen: dict[str, object] = {"raw_frame_retained": False}
             text_status = screen.get("text_status")
@@ -1144,8 +1153,14 @@ class PersistentConversationService:
         return (self._screen_observer is not None and callable(available)
             and available() is True)
 
+    def operator_feedback_available(self) -> bool:
+        bridge = self._resident_cognition_bridge
+        available = getattr(bridge, "operator_feedback_available", None)
+        return callable(available) and available() is True
+
     def run_developmental_cycle(self, *, session_id: str,
-            assistant_turn_id: str, request_id: str) -> dict[str, Any]:
+            assistant_turn_id: str, request_id: str,
+            operator_feedback: str | None = None) -> dict[str, Any]:
         """Capture fresh local evidence and invoke the existing governed writeback owner."""
         if (not isinstance(session_id, str) or not session_id
                 or not isinstance(assistant_turn_id, str)
@@ -1159,6 +1174,9 @@ class PersistentConversationService:
             raise ChatRequestStateError("developmental_cycle_path_unavailable")
         if not self.developmental_cycle_available():
             raise CognitionWorkloadUnavailable()
+        if operator_feedback is not None and not self.operator_feedback_available():
+            raise ChatRequestStateError(
+                "developmental_cycle_operator_feedback_not_enabled")
         with self.sessions.serialize_chat_requests(session_id):
             session = self.sessions.load(session_id)
             assistant = next((turn for turn in session["turns"]
@@ -1184,6 +1202,25 @@ class PersistentConversationService:
                     request_id=cognition_request_id) is not True):
                 raise ChatRequestStateError(
                     "developmental_cycle_prior_response_unverified")
+            feedback_record = None
+            source_capture_digest: str | None = None
+            feedback_observed_at = datetime.now(timezone.utc).isoformat().replace(
+                "+00:00", "Z")
+            if operator_feedback is not None:
+                if (not isinstance(operator_feedback, str)
+                        or not operator_feedback.strip()
+                        or len(operator_feedback) > 800
+                        or len(operator_feedback.encode("utf-8")) > 2048):
+                    raise ChatRequestStateError(
+                        "developmental_cycle_operator_feedback_invalid")
+                source_provenance = linkage.get("screen_observation_provenance")
+                source_capture_digest = (
+                    source_provenance.get("capture_digest")
+                    if isinstance(source_provenance, Mapping) else None)
+                if (not isinstance(source_capture_digest, str)
+                        or re.fullmatch(r"[0-9a-f]{64}", source_capture_digest) is None):
+                    raise ChatRequestStateError(
+                        "developmental_cycle_operator_feedback_requires_screen_evidence")
             question = "Capture the current allowlisted foreground game for one operator-requested developmental cognition cycle."
             question_observer = getattr(type(observer), "observe_question", None)
             observation = (question_observer(observer, question)
@@ -1192,8 +1229,28 @@ class PersistentConversationService:
                 raise RuntimeError("screen_observation_unavailable")
             tick_id = "companion-developmental-cycle-" + hashlib.sha256(
                 f"{session_id}\0{assistant_turn_id}\0{request_id}".encode("utf-8")).hexdigest()[:32]
+            if operator_feedback is not None:
+                response_digest = linkage.get("response_digest")
+                followup_capture_digest = observation.get("capture_digest")
+                if (not isinstance(response_digest, str)
+                        or re.fullmatch(r"[0-9a-f]{64}", response_digest) is None
+                        or not isinstance(followup_capture_digest, str)
+                        or re.fullmatch(r"[0-9a-f]{64}", followup_capture_digest) is None):
+                    raise ChatRequestStateError(
+                        "developmental_cycle_operator_feedback_lineage_invalid")
+                if source_capture_digest is None:
+                    raise ChatRequestStateError(
+                        "developmental_cycle_operator_feedback_requires_screen_evidence")
+                feedback_record = make_operator_feedback_record(
+                    operator_feedback, request_id=request_id,
+                    assistant_turn_id=assistant_turn_id,
+                    assistant_response_digest=response_digest,
+                    source_capture_digest=source_capture_digest,
+                    followup_capture_digest=followup_capture_digest,
+                    observed_at=feedback_observed_at)
             result = bridge.run_developmental_cycle(
-                tick_id=tick_id, screen_observation=observation)
+                tick_id=tick_id, screen_observation=observation,
+                operator_feedback=feedback_record)
         if result.status != "completed":
             raise ChatRequestStateError("developmental_cycle_not_completed")
         return {
@@ -1207,6 +1264,9 @@ class PersistentConversationService:
             "written_record_id": result.written_record_id,
             "writeback_receipt_id": result.writeback_receipt_id,
             "cognition_observation_ids": list(result.cognition_observation_ids),
+            "operator_feedback_included": feedback_record is not None,
+            "operator_feedback_posture": ("operator_assertion_unverified"
+                if feedback_record is not None else None),
             "raw_frame_retained": False,
         }
 
@@ -3755,7 +3815,8 @@ async def developmental_cycle_endpoint(session_id: str,
         service = _get_conversation_service()
         return await asyncio.to_thread(service.run_developmental_cycle,
             session_id=session_id, assistant_turn_id=request.assistant_turn_id,
-            request_id=request.request_id)
+            request_id=request.request_id,
+            operator_feedback=request.operator_feedback)
     except CognitionWorkloadUnavailable as exc:
         raise HTTPException(status_code=409,
             detail="developmental_cycle_deferred_during_gaming_workload") from exc
@@ -4145,6 +4206,9 @@ async def inspect_session_turns(session_id: str, request: Request) -> dict[str, 
             diagnostics["developmental_cycle_available"] = (
                 developmental_cycle_available is True
                 and diagnostics.get("developmental_history_intervention_available") is True)
+            diagnostics["operator_feedback_available"] = (
+                service.operator_feedback_available() is True
+                and diagnostics.get("operator_feedback_available") is True)
             displayed["response_diagnostics"] = diagnostics
         display_turns.append(displayed)
     return {
@@ -5079,7 +5143,9 @@ async def root_page() -> HTMLResponse:
                                     cycleButton.textContent =
                                         'Learn from current scene (governed writeback)';
                                     cycleButton.addEventListener('click', () =>
-                                        runDevelopmentalCycle(turn.turn_id, cycleButton, entry));
+                                        runDevelopmentalCycle(turn.turn_id, cycleButton, entry,
+                                            turn.response_diagnostics.operator_feedback_available
+                                                === true));
                                     entry.appendChild(cycleButton);
                                 }
                             }
@@ -5152,8 +5218,20 @@ async def root_page() -> HTMLResponse:
                     }
                 }
 
-                async function runDevelopmentalCycle(assistantTurnId, button, entry) {
-                    if (!window.confirm('Capture one fresh, consented foreground-game observation and run the existing resident cognition tick? If an eligible lesson is produced, the governed developmental-writeback owner will retain it for later cognition. This can make local model inference calls. Raw screen frames are discarded; no gameplay action is authorized.')) return;
+                async function runDevelopmentalCycle(assistantTurnId, button, entry,
+                        feedbackAvailable) {
+                    let feedback = null;
+                    if (feedbackAvailable) {
+                        feedback = window.prompt(
+                            'Optional: enter your correction or independently noticed detail. It will be stored as an unverified operator report, separate from the screen capture, and may be retained if the governed owner selects it. Leave blank to run without a correction.',
+                            '');
+                        if (feedback === null) return;
+                        if (feedback.length > 800) {
+                            window.alert('Keep the operator report under 800 characters.');
+                            return;
+                        }
+                    }
+                    if (!window.confirm('Capture one fresh, consented foreground-game observation and run the existing resident cognition tick? The screen evidence and your optional unverified report may be retained through governed developmental writeback. This can make local model inference calls. Raw screen frames are discarded; no gameplay action is authorized.')) return;
                     button.disabled = true;
                     const status = document.createElement('p');
                     status.textContent = 'Capturing fresh evidence for the governed developmental cycle...';
@@ -5169,6 +5247,8 @@ async def root_page() -> HTMLResponse:
                                     assistant_turn_id: assistantTurnId,
                                     request_id: crypto.randomUUID(),
                                     operator_confirmed: true,
+                                    operator_feedback: (typeof feedback === 'string'
+                                        ? feedback.trim() || null : null),
                                 }),
                             });
                         const data = await response.json().catch(() => ({}));
@@ -5181,6 +5261,9 @@ async def root_page() -> HTMLResponse:
                             ? 'Governed developmental writeback completed. Record: '
                                 + String(data.written_record_id || 'unavailable')
                                 + '; receipt: ' + String(data.writeback_receipt_id || 'unavailable')
+                                + (data.operator_feedback_included === true
+                                    ? '; your report was included as unverified operator evidence'
+                                    : '')
                                 + '. History influence and performance improvement are not yet established.'
                             : 'The developmental tick completed, but no eligible lesson was written to history.';
                     } catch (_) {

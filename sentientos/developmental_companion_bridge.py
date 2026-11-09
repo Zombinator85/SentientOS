@@ -8,6 +8,8 @@ existing governed ResidentDevelopmentalCognitionOwner writeback path.
 from __future__ import annotations
 
 import hashlib
+import json
+import re
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping, Sequence
@@ -166,8 +168,60 @@ def _screen_record(observation: Mapping[str, Any], *, staleness: str = "unknown"
     }
 
 
+def make_operator_feedback_record(feedback: str, *, request_id: str,
+        assistant_turn_id: str, assistant_response_digest: str,
+        source_capture_digest: str, followup_capture_digest: str,
+        observed_at: str) -> dict[str, Any]:
+    """Represent explicit local operator feedback as an unverified report."""
+    if (not isinstance(feedback, str) or not feedback.strip()
+            or len(feedback) > 800 or len(feedback.encode("utf-8")) > 2048
+            or not isinstance(request_id, str) or not request_id
+            or not isinstance(assistant_turn_id, str) or not assistant_turn_id
+            or not isinstance(assistant_response_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", assistant_response_digest) is None
+            or not isinstance(source_capture_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", source_capture_digest) is None
+            or not isinstance(followup_capture_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", followup_capture_digest) is None
+            or not isinstance(observed_at, str) or not observed_at):
+        raise DevelopmentalCompanionBridgeError(
+            "operator_feedback_contract_invalid")
+    normalized = feedback.strip()
+    semantic = {
+        "schema_version": "sentientos.local_operator_feedback:v1",
+        "request_id": request_id,
+        "assistant_turn_id": assistant_turn_id,
+        "assistant_response_digest": assistant_response_digest,
+        "source_capture_digest": source_capture_digest,
+        "followup_capture_digest": followup_capture_digest,
+        "assertion_text": normalized,
+        "assertion_digest": hashlib.sha256(normalized.encode("utf-8")).hexdigest(),
+        "evidence_posture": "operator_assertion_unverified",
+        "authority": {"decision": False, "admission": False,
+            "execution": False, "adoption": False, "truth": False},
+    }
+    identity = hashlib.sha256(json.dumps(semantic, sort_keys=True,
+        separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+    return {
+        "source_kind": "operator_input",
+        "source_id": f"local-operator-feedback:{identity}",
+        "schema_version": semantic["schema_version"],
+        "subject_id": f"assistant-turn:{assistant_turn_id}",
+        "subject_kind": "operator_reported_companion_feedback",
+        "stage": "observation",
+        "disposition": "reported",
+        "evidence_strength": "operator_assertion_unverified",
+        "observed_at": observed_at,
+        "staleness": "fresh",
+        "effect_claimed": False,
+        "effect_proven": False,
+        "payload": semantic,
+    }
+
+
 def build_companion_snapshot(*, screen_observation: Mapping[str, Any] | None = None,
         proprioception: Sequence[EmbodimentObservation] = (),
+        operator_feedback: Mapping[str, Any] | None = None,
         screen_staleness: str = "unknown",
         screen_capture_age_seconds: int | None = None,
         clock: Any | None = None) -> WorldStateSnapshot:
@@ -178,6 +232,11 @@ def build_companion_snapshot(*, screen_observation: Mapping[str, Any] | None = N
             raise DevelopmentalCompanionBridgeError("consented_screen_observation_invalid")
         records.append(_screen_record(screen_observation, staleness=screen_staleness,
             capture_age_seconds=screen_capture_age_seconds))
+    if operator_feedback is not None:
+        if not isinstance(operator_feedback, Mapping):
+            raise DevelopmentalCompanionBridgeError(
+                "operator_feedback_contract_invalid")
+        records.append(dict(operator_feedback))
     if proprioception:
         try:
             records.extend(EmbodimentEvidenceOwner(proprioception).world_state_records())
@@ -456,8 +515,13 @@ class ResidentDevelopmentalCompanionBridge:
             and self._owner.objective_task is None
             and "embodiment" in self._owner.config.allowed_source_kinds)
 
+    def operator_feedback_available(self) -> bool:
+        return (self.developmental_cycle_available()
+            and "operator_input" in self._owner.config.allowed_source_kinds)
+
     def run_developmental_cycle(self, *, tick_id: str,
-            screen_observation: Mapping[str, Any]
+            screen_observation: Mapping[str, Any],
+            operator_feedback: Mapping[str, Any] | None = None
             ) -> ResidentDevelopmentalCycleResult:
         """Run one fresh-evidence tick through the existing governed writeback owner.
 
@@ -507,7 +571,8 @@ class ResidentDevelopmentalCompanionBridge:
             tick_id=tick_time, projection_tick=projection_tick)
         snapshot = build_companion_snapshot(
             screen_observation=screen_observation,
-            proprioception=proprioception, screen_staleness="fresh",
+            proprioception=proprioception, operator_feedback=operator_feedback,
+            screen_staleness="fresh",
             screen_capture_age_seconds=capture_age_seconds, clock=self._clock)
         if not snapshot.facts:
             raise CognitionEvidenceUnavailable()

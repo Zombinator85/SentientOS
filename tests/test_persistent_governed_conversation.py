@@ -131,19 +131,26 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
         tmp_path: Path) -> None:
     observations = []
     class Bridge:
+        def __init__(self):
+            self.feedback_allowed = True
+
         def respond(self, *, request_id, question, screen_observation=None):
             raise AssertionError("cycle test does not invoke ordinary chat")
 
         def developmental_cycle_available(self):
             return True
 
+        def operator_feedback_available(self):
+            return self.feedback_allowed
+
         def verify_committed_response(self, *, linkage, response_text, request_id):
             return (linkage.get("response_origin") == "resident_developmental_cognition"
                 and response_text == "A saved answer."
                 and request_id.endswith(linkage["source_user_turn_id"]))
 
-        def run_developmental_cycle(self, *, tick_id, screen_observation):
-            observations.append((tick_id, screen_observation))
+        def run_developmental_cycle(self, *, tick_id, screen_observation,
+                operator_feedback=None):
+            observations.append((tick_id, screen_observation, operator_feedback))
             return SimpleNamespace(status="completed", tick_id=tick_id,
                 snapshot_id="snapshot-cycle", selected_fact_ids=("fact-1",),
                 prior_record_ids=(), written_record_id="record-1",
@@ -161,10 +168,13 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
         text="A saved answer.", linkage={
             "source_user_turn_id": source["turn_id"],
             "response_origin": "resident_developmental_cognition",
+            "response_digest": "c" * 64,
+            "screen_observation_provenance": {"capture_digest": "b" * 64},
         })
 
     result = app.run_developmental_cycle(session_id=session_id,
-        assistant_turn_id=assistant["turn_id"], request_id="development-cycle-1")
+        assistant_turn_id=assistant["turn_id"], request_id="development-cycle-1",
+        operator_feedback="Four candle objects are present; two are lit.")
 
     assert result["status"] == "completed_writeback"
     assert result["written_record_id"] == "record-1"
@@ -172,7 +182,26 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
     assert result["raw_frame_retained"] is False
     assert observations[0][0].startswith("companion-developmental-cycle-")
     assert observations[0][1] is capture
+    feedback = observations[0][2]
+    assert feedback["source_kind"] == "operator_input"
+    assert feedback["evidence_strength"] == "operator_assertion_unverified"
+    assert feedback["payload"]["assertion_text"] == (
+        "Four candle objects are present; two are lit.")
+    assert feedback["payload"]["assistant_turn_id"] == assistant["turn_id"]
+    assert feedback["payload"]["assistant_response_digest"] == assistant["linkage"][
+        "response_digest"]
+    assert feedback["payload"]["source_capture_digest"] == "b" * 64
+    assert feedback["payload"]["followup_capture_digest"] == "a" * 64
+    assert result["operator_feedback_included"] is True
+    assert result["operator_feedback_posture"] == "operator_assertion_unverified"
     assert len(app.sessions.load(session_id)["turns"]) == 2
+    app._resident_cognition_bridge.feedback_allowed = False
+    with pytest.raises(chat_service.ChatRequestStateError,
+            match="developmental_cycle_operator_feedback_not_enabled"):
+        app.run_developmental_cycle(session_id=session_id,
+            assistant_turn_id=assistant["turn_id"], request_id="feedback-not-allowed",
+            operator_feedback="Do not retain this report.")
+    assert len(observations) == 1
 
 
 def test_developmental_cycle_endpoint_requires_local_explicit_confirmation() -> None:

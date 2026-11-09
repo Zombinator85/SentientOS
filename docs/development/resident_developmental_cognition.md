@@ -135,8 +135,15 @@ to that saved reply, serializes it with conversation work, and invokes the
 existing owner's ordinary run_tick and governed developmental-writeback
 controller. It creates no additional memory store or admission authority. The
 result distinguishes a retained record and receipt from a completed tick with no
-eligible lesson. Repeating the same request identity cannot reuse a completed
-tick. No gameplay action is authorized by this control. Cognition inference is
+eligible lesson. When the verified reply has capture lineage, the operator may
+also enter a bounded correction when `operator_input` is explicitly included
+in the resident cognition owner's `allowed_source_kinds`. That text is stored as
+a separate `operator_assertion_unverified` World-State report, bound by digest
+to the saved reply and both captures. It is not independent sensor evidence or
+proof that an
+action occurred; the UI asks for explicit confirmation before the capture and
+writeback. Repeating the same request identity cannot reuse a completed tick. No
+gameplay action is authorized by this control. Cognition inference is
 serialized against model-profile changes and unavailable during gaming workload
 mode. The option remains off by default and does not reconfigure a running
 companion.
