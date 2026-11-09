@@ -16,7 +16,8 @@ from sentientos.resident_developmental_writeback import (
     EFFECTS, PRINCIPAL, PURPOSE, CognitionObservation, DevelopmentalCandidate, DevelopmentalHistoryStore,
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
     SelectedEvidence, _has_bounded_integrity_controller_observation, _identity,
-    measure_changed_cognition,
+    MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES,
+    MAX_SELECTED_EVIDENCE_BYTES, _selected_fact_byte_limit, measure_changed_cognition,
 )
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateBoardBuilder
@@ -96,6 +97,99 @@ def test_integrity_controller_v2_digest_is_bounded_before_cognition_qualificatio
         schema="sentientos.integrity_controller_observation:v2", failed_digest="A" * 64))
     assert not _has_bounded_integrity_controller_observation(selection(
         schema="sentientos.integrity_controller_observation:v2", failed_digest="short"))
+
+
+def test_receipt_consequence_cycle_requires_valid_lineage_for_expanded_budget() -> None:
+    from dataclasses import asdict
+
+    from sentientos.avatar_renderer_report_ingress import RendererReportReceiptIdentity
+
+    identity = RendererReportReceiptIdentity(
+        report_id="godot-renderer:godot-demo-budget-test:1",
+        report_digest="sha256:" + "a" * 64,
+        renderer_source_id="godot-adopted-body-demo",
+        renderer_generation_id="godot-demo-budget-test", sequence=1,
+        session_id="session-test", turn_id="turn-test",
+        output_digest="b" * 64,
+        expectation_id="expectation-test", expectation_digest="sha256:" + "c" * 64,
+        handoff_id="handoff-test", handoff_digest="sha256:" + "d" * 64,
+        correlation_id="correlation-test", body_generation=1,
+    )
+    component_kinds = (
+        "embodied_action_expectation", "avatar_renderer_handoff",
+        "avatar_independently_observed_state", "embodied_consequence_attribution",
+        "embodied_prediction_comparison",
+    )
+    component_ids = [identity.expectation_id, identity.handoff_id, "component:2",
+        "component:3", "component:4"]
+    component_digests = ["sha256:" + format(index, "064x")
+        for index, _ in enumerate(component_kinds)]
+    facts = []
+    for kind, source_id, source_digest in zip(
+            component_kinds, component_ids, component_digests):
+        payload = {"bounded_context": "x" * 1300}
+        if kind == "embodied_action_expectation":
+            payload.update({"expectation_id": identity.expectation_id,
+                "expectation_digest": identity.expectation_digest,
+                "correlation_id": identity.correlation_id,
+                "body_generation": identity.body_generation})
+        elif kind == "avatar_renderer_handoff":
+            payload.update({"handoff_id": identity.handoff_id,
+                "handoff_digest": identity.handoff_digest})
+        elif kind == "avatar_independently_observed_state":
+            payload.update({"renderer_report_id": identity.report_id,
+                "renderer_report_digest": identity.report_digest})
+        elif kind == "embodied_consequence_attribution":
+            payload["observation_authentication_receipt"] = {
+                "transport_authenticated_at_ingress": True,
+                "observation_time_posture":
+                    "authenticated_request_correlated_receiver_time",
+                "capture_request_id": "e" * 32,
+                "capture_provenance": {"capture_scope":
+                    "allowlisted_foreground_game_client_area"},
+                "renderer_report_receipt_identity": asdict(identity),
+            }
+        facts.append({"source": {"kind": "embodiment", "source_id": source_id,
+                "digest": source_digest},
+            "subject": {"subject_kind": kind}, "payload": payload,
+            "effect_proven": False, "effect_claimed": False})
+
+    chain_id = "chain:receipt-budget"
+    chain_digest = "sha256:" + "f" * 64
+    facts.append({"source": {"kind": "embodiment", "source_id": chain_id,
+            "digest": chain_digest},
+        "subject": {"subject_kind": "embodied_consequence_chain"},
+        "payload": {"chain_id": chain_id, "effect_proven": False,
+            "current_truth": False, "component_source_ids": component_ids,
+            "component_record_digests": component_digests,
+            "bounded_context": "x" * 1300},
+        "effect_proven": False, "effect_claimed": False})
+    facts.extend((
+        {"source": {"kind": "embodiment", "source_id": "screen:test",
+            "digest": "sha256:" + "1" * 64},
+         "subject": {"subject_kind": "allowlisted_foreground_game_screen"},
+         "payload": {"capture_scope": "allowlisted_foreground_game_client_area",
+             "raw_frame_retained": False, "bounded_context": "x" * 1300},
+         "effect_proven": False, "effect_claimed": False},
+        {"source": {"kind": "embodiment", "source_id": "proprioception:test",
+            "digest": "sha256:" + "2" * 64},
+         "subject": {"subject_kind": "proprioceptive_state"},
+         "payload": {"embodiment_evidence_class": "sensor_observation",
+             "observer_issuer_posture": "unverified_caller_assertion",
+             "bounded_context": "x" * 1300},
+         "effect_proven": False, "effect_claimed": False},
+    ))
+
+    assert len(facts) == 8
+    assert _selected_fact_byte_limit(facts) == (
+        MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES)
+    assert MAX_SELECTED_EVIDENCE_BYTES < sum(
+        len(json.dumps(fact, sort_keys=True).encode("utf-8")) for fact in facts)
+
+    malformed = json.loads(json.dumps(facts))
+    malformed[3]["payload"]["observation_authentication_receipt"][
+        "renderer_report_receipt_identity"]["handoff_id"] = "different-handoff"
+    assert _selected_fact_byte_limit(malformed) == MAX_SELECTED_EVIDENCE_BYTES
 
 
 def test_successful_selected_evidence_candidate_admitted_append_receipt_retrieval_and_restart(tmp_path: Path) -> None:
