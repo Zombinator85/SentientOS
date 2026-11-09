@@ -1282,10 +1282,13 @@ class PersistentConversationService:
                     source_capture_digest=source_capture_digest,
                     followup_capture_digest=followup_capture_digest,
                     observed_at=feedback_observed_at)
-            result = bridge.run_developmental_cycle(
-                tick_id=tick_id, screen_observation=observation,
-                operator_feedback=feedback_record,
-                current_consequence_records=current_consequence_records)
+            cycle_kwargs: dict[str, Any] = {
+                "tick_id": tick_id, "screen_observation": observation,
+                "operator_feedback": feedback_record,
+            }
+            if current_consequence_records:
+                cycle_kwargs["current_consequence_records"] = current_consequence_records
+            result = bridge.run_developmental_cycle(**cycle_kwargs)
         if result.status != "completed":
             raise ChatRequestStateError("developmental_cycle_not_completed")
         return {
