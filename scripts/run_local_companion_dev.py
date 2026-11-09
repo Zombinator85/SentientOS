@@ -34,13 +34,17 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.request
 import uuid
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, cast
+from typing import TYPE_CHECKING, Any, Callable, Mapping, cast
 
 ROOT = Path(__file__).resolve().parents[1]
+
+if TYPE_CHECKING:
+    from sentientos.foreground_game_detection import ForegroundGameObservation
 
 
 def _build_resident_cognition_owner_pair(*, config: Any, writeback: Any,
@@ -62,6 +66,102 @@ def _build_resident_cognition_owner_pair(*, config: Any, writeback: Any,
             admission_authority=admission_authority, invoker=invoker,
             current_sequence=current_sequence)
     return interaction_owner, intervention_owner
+
+
+def _prepare_rootless_live_developmental_session(*, state: Path,
+        model_identity: Mapping[str, Any],
+        screen_process_names: tuple[str, ...]
+        ) -> tuple[Path, Path, dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Create private, non-serving session custody for one live companion run."""
+    from sentientos.local_model_authority import digest_payload
+    from sentientos.local_runtime_provisioning import semantic_digest
+
+    model_digest = model_identity.get("model_content_sha256")
+    if (not isinstance(model_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", model_digest) is None):
+        raise ValueError("rootless_session_model_identity_invalid")
+    workspace = state / "rootless-workspace"
+    workspace.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if workspace.is_symlink():
+        raise ValueError("rootless_session_workspace_symlinked")
+    os.chmod(workspace, 0o700)
+    data_root = workspace / "sentientos-data"
+    data_root.mkdir(mode=0o700, exist_ok=True)
+    if data_root.is_symlink():
+        raise ValueError("rootless_session_data_root_symlinked")
+    os.chmod(data_root, 0o700)
+    experiment_root = data_root / "rootless-experimental"
+    experiment_root.mkdir(mode=0o700, exist_ok=True)
+    if experiment_root.is_symlink():
+        raise ValueError("rootless_session_experiment_root_symlinked")
+    os.chmod(experiment_root, 0o700)
+    sessions_root = experiment_root / "live-companion-sessions"
+    sessions_root.mkdir(mode=0o700, exist_ok=True)
+    if sessions_root.is_symlink():
+        raise ValueError("rootless_session_sessions_root_symlinked")
+    os.chmod(sessions_root, 0o700)
+    suffix = secrets.token_hex(10)
+    run_id = "rootless-cognition-cycle-" + suffix
+    session_id = "rootless-cognition-session-" + suffix
+    root = sessions_root / run_id
+    runtime_request = urllib.request.Request(
+        "http://127.0.0.1:11434/api/version", method="GET")
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(runtime_request, timeout=5) as response:
+        runtime_observation = json.loads(response.read(4096).decode("utf-8"))
+    if not isinstance(runtime_observation, Mapping):
+        raise ValueError("ollama_runtime_observation_invalid")
+    runtime_bundle = {
+        "backend": "ollama-loopback",
+        "version": str(runtime_observation.get("version", "unknown")),
+        "model_manifest_digest": model_digest,
+        "runtime_attestation": "local_observation_only"}
+    binding_digest = digest_payload
+    preregistration = {
+        "schema_version": "sentientos.live_companion_developmental_preregistration:v1",
+        "session_id": session_id,
+        "run_id": run_id,
+        "model_identity_digest": binding_digest({"identity": dict(model_identity)}),
+        "runtime_bundle_digest": semantic_digest(runtime_bundle),
+        "observation_target_process_names": sorted(set(screen_process_names)),
+        "observation_scope": "request-driven local capture of allowlisted foreground client; raw frame transient",
+        "action_scope": "existing avatar reply animation only; no host actuation or gameplay input",
+        "history_conditions": ["present", "withheld", "restored"],
+        "production_authority": False,
+        "eligible_as_production_serving_evidence": False,
+    }
+    session_binding = {
+        "schema_version": "sentientos.rootless_experimental_cognition_session:v1",
+        "session_id": session_id,
+        "run_id": run_id,
+        "preregistration_digest": semantic_digest(preregistration),
+        "model_manifest_digest": model_digest,
+        "runtime_bundle_digest": semantic_digest(runtime_bundle),
+        "active_model_identity_digest": binding_digest({"identity": dict(model_identity)}),
+        "purpose": "rootless_experimental_developmental_cognition_cycle",
+        "production_authority": False,
+        "eligible_as_production_serving_evidence": False,
+    }
+    record = {"preregistration": preregistration,
+        "preregistration_digest": session_binding["preregistration_digest"],
+        "session_binding": session_binding}
+    root.mkdir(mode=0o700, exist_ok=False)
+    record_path = root / "session_binding.json"
+    payload = (json.dumps(record, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False) + "\n").encode("utf-8")
+    descriptor = os.open(record_path,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+        0o600)
+    with os.fdopen(descriptor, "wb") as stream:
+        stream.write(payload)
+        stream.flush()
+        os.fsync(stream.fileno())
+    directory_fd = os.open(root, os.O_RDONLY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+    return root, workspace, session_binding, runtime_bundle, preregistration
 
 
 def _build_companion_consequence_records_provider(*, config_path: str,
@@ -218,7 +318,8 @@ class _LatestForegroundObservation:
             name="sentientos-dev-foreground-drain", daemon=True)
         self._thread.start()
 
-    def observe(self, process_names: tuple[str, ...] | list[str]):
+    def observe(self, process_names: tuple[str, ...] | list[str]
+            ) -> ForegroundGameObservation:
         from sentientos.foreground_game_detection import ForegroundGameObservation
         from sentientos.foreground_game_detection import normalize_game_process_names
         requested = normalize_game_process_names(process_names)
@@ -1106,7 +1207,7 @@ class _TemporaryCompanionEdge:
             raise
 
     @staticmethod
-    def _forward_lines(stream, target: queue.Queue[str], report_file: Path,
+    def _forward_lines(stream: Any, target: queue.Queue[str], report_file: Path,
                        delivery_event_file: Path | None = None,
             renderer_observation_sink: Callable[[Mapping[str, Any]], None] | None = None) -> None:
         ready_seen = False
@@ -1252,6 +1353,9 @@ def main() -> int:
     parser.add_argument("--enable-resident-cognition", action="store_true",
         help=("Opt in to the configured resident cognition owner; inference is "
               "serialized with chat and disabled while automatic gaming mode is active"))
+    parser.add_argument("--rootless-developmental-session", action="store_true",
+        help=("Bind resident cognition to a bounded, non-serving rootless experiment "
+              "session with per-invocation receipt verification"))
     parser.add_argument("--windows-python", type=Path)
     parser.add_argument("--godot-exe", type=Path)
     parser.add_argument("--godot-project", type=Path)
@@ -1324,6 +1428,9 @@ def main() -> int:
             parser.error("resident cognition requires automatic workload mode and an allowlisted foreground observer")
         if not os.environ.get("SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG"):
             parser.error("resident cognition requires SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG")
+    if args.rootless_developmental_session and (
+            not args.enable_resident_cognition or not args.screen_observation_process):
+        parser.error("rootless developmental session requires resident cognition and an allowlisted screen observer")
     state = args.state_dir.expanduser().resolve()
     state.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(state, 0o700)
@@ -1385,6 +1492,8 @@ def main() -> int:
             item.engine != "ollama" or item.path is None
             for item in config.candidates):
         parser.error("development composition requires one model or normal+gaming Ollama candidates")
+    if args.rootless_developmental_session and len(config.candidates) != 1:
+        parser.error("rootless developmental session requires exactly one pinned Ollama candidate")
     allowed_roots = sorted({item.path.parent for item in config.candidates
                              if item.path is not None}, key=str)
     authority = (build_developmental_companion_authority_map(
@@ -1415,8 +1524,31 @@ def main() -> int:
     model = models[0]
     model_profiles = {"normal": models[0], "gaming": models[-1]}
     atomic_write_json(state / "model-authority-map.json", authority.to_dict())
-    invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
-        runtime_root=state / "invocations")
+    rootless_session = None
+    invocation_root = state / "invocations"
+    if args.rootless_developmental_session:
+        try:
+            (session_root, rootless_workspace, session_binding,
+                    runtime_bundle, preregistration) = (
+                _prepare_rootless_live_developmental_session(
+                    state=state, model_identity=model.active_identity.to_dict(),
+                    screen_process_names=tuple(args.screen_observation_process)))
+            invocation_root = session_root / "inference-custody"
+            invocation_root.mkdir(mode=0o700, parents=True, exist_ok=False)
+            from sentientos.rootless_experimental_ollama_epistemic_session import (
+                RootlessExperimentalOllamaEpistemicSession,
+            )
+        except Exception as exc:
+            parser.error("rootless developmental session could not be prepared: "
+                + type(exc).__name__)
+    invoker: Any = GovernedLocalModelInvoker(model=model, authority_map=authority,
+        runtime_root=invocation_root)
+    if args.rootless_developmental_session:
+        rootless_session = RootlessExperimentalOllamaEpistemicSession.wrap_existing_developmental_invoker(
+            invoker=invoker, root=session_root, session_binding=session_binding,
+            runtime_bundle=runtime_bundle, workspace_root=rootless_workspace,
+            preregistration=preregistration)
+        invoker = rootless_session
     resident_cognition_owner = None
     resident_history_intervention_owner = None
     self_model_owner = None
@@ -1582,8 +1714,8 @@ def main() -> int:
                 reason_code: str) -> Mapping[str, Any] | None:
             if not invoker.model.is_resident():
                 return None
-            return invoker.release_model_residency(
-                reason_code=reason_code, cancel_active=False).to_dict()
+            return cast(Mapping[str, Any], invoker.release_model_residency(
+                reason_code=reason_code, cancel_active=False).to_dict())
 
         def observe_gaming_vram(
                 utilization_percent: float | None,
@@ -1624,6 +1756,9 @@ def main() -> int:
                 if resident_cognition_owner is not None else "disabled"),
             "resident_history_intervention": ("separate_operator_confirmed_owner"
                 if resident_history_intervention_owner is not None else "disabled"),
+            "rootless_experimental_session": (
+                rootless_session.session_binding["session_id"]
+                if rootless_session is not None else None),
             "companion_output": ("temporary_mtls_windows_edge_and_godot"
                                  if edge else "not_configured"),
             "godot_headless": bool(edge and edge.godot_headless),
@@ -1642,15 +1777,19 @@ def main() -> int:
             close_production_chat()
         finally:
             try:
-                if host_resource_sampler is not None:
-                    host_resource_sampler.close()
+                if rootless_session is not None:
+                    rootless_session.close()
             finally:
                 try:
-                    if edge is not None:
-                        edge.close()
+                    if host_resource_sampler is not None:
+                        host_resource_sampler.close()
                 finally:
-                    fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
-                    lock_handle.close()
+                    try:
+                        if edge is not None:
+                            edge.close()
+                    finally:
+                        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+                        lock_handle.close()
     return 0
 
 
