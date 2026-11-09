@@ -316,6 +316,10 @@ def test_request_driven_capture_publishes_only_the_matching_message_observation(
         first_request_id = observed["capture_request_id"]
         assert first_request_id and first_request_id != stale_request_id
         assert observed["text"] == "Quest\nFind the key"
+        freshness = observed["capture_freshness"]
+        assert freshness["basis"] == "request_correlated_monotonic_upper_bound"
+        assert freshness["capture_request_id"] == first_request_id
+        assert freshness["capture_age_upper_bound_ms"] <= 100
         changed = request_driven()
         assert len(capture_calls) == 3
         assert changed["capture_request_id"] != first_request_id
@@ -399,6 +403,32 @@ def test_request_bound_capture_uses_monotonic_deadline_across_host_clock_skew():
     finally:
         request_driven.close()
         request_runtime.close()
+        runtime.close()
+
+
+def test_request_bound_freshness_includes_blocked_authenticated_dispatch():
+    import time
+    from types import SimpleNamespace
+
+    class DelayedRequestSender(ScreenCaptureRequestSender):
+        def __call__(self, capture_request_id, question=None):
+            time.sleep(0.04)
+            return None
+
+    runtime, _, provider = _setup()
+    sender = DelayedRequestSender(client=SimpleNamespace(send=lambda _data: None),
+        source_id="screen-request-source", session_id="screen-request-session",
+        generation_id="screen-request-generation", source_key=b"x" * 32)
+    provider.wait_for_request = lambda request_id, timeout_seconds: {
+        **_payload(), "capture_request_id": request_id,
+    }
+    observer = RequestDrivenScreenObservation(
+        request_sender=sender, provider=provider, timeout_seconds=1)
+    try:
+        observed = observer()
+        assert observed["capture_freshness"]["capture_age_upper_bound_ms"] >= 30
+    finally:
+        observer.close()
         runtime.close()
 
 

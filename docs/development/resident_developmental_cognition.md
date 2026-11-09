@@ -90,6 +90,38 @@ observation, inference receipt, and response digests, then verifies those bindin
 on idempotent recovery instead of invoking cognition a second time. This stored
 reply remains distinct from developmental-history writeback.
 
+The local companion launcher keeps ordinary serving and controlled comparison
+in separate `ResidentDevelopmentalCognitionOwner` instances when
+`comparison_enabled` is explicitly enabled. The serving owner is always
+constructed with comparison disabled; the comparison owner shares the exact
+history root, state root, writeback controller, and governed model invoker, and
+is used only by the local, operator-confirmed history-intervention endpoint.
+Both owners use the resident composition lock and one durable store, so this
+split does not create another memory or admission system. Without the explicit
+flag, the comparison owner is not constructed and the UI does not offer that
+experiment.
+
+A saved resident-cognition reply may expose an explicit **Compare history impact
+(4 inference calls)** control when the existing comparison owner is configured and the
+workload gate permits cognition. After operator confirmation, the local-only
+endpoint verifies the saved reply, captures one fresh consented screen observation,
+and calls the existing history-present / history-withheld / history-restored owner
+with the original bounded question and one matched World-State snapshot. A
+request-driven screen capture is correlated to a one-time capture request; its age is
+bounded monotonically from before authenticated request dispatch through
+observation receipt, so bridge-send delay is included and Windows/WSL wall-clock
+comparisons are avoided. The World-State snapshot retains the
+capture request ID, bridge message provenance, process and consent digests, and OCR
+or vision status. The cognition bridge does not independently reauthenticate the
+bridge message, so evidence remains qualified as a bounded local capture. Fallback
+caller-provided timestamps must be within 60 seconds and no more than 5 seconds in
+the future. Raw frames are not retained. The result reports response-text stability
+and measurement identity, not performance improvement.
+The three comparison conditions run after the normal developmental interpretation,
+so the experiment may make up to four local inference calls. It remains unavailable
+during a gaming workload. It grants no action authority and is not automatically run
+during chat.
+
 The local development companion runner can opt in to this owner-level bridge
 with `--enable-resident-cognition`. It requires an explicit resident-cognition
 configuration, automatic foreground-game workload detection, and the supervised

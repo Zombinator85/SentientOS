@@ -772,6 +772,13 @@ class ProductionChatComposition:
     def ready(self) -> bool:
         return self._serving.serving_is_current()
 
+class HistoryInterventionRequest(BaseModel):
+    session_id: str
+    assistant_turn_id: str
+    request_id: str
+    operator_confirmed: bool = False
+
+
 class ChatRequest(BaseModel):
     message: str
     session_id: str | None = None
@@ -912,6 +919,10 @@ def _saved_transcript_response_diagnostics(
     saved_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
     result["saved_transcript_text_sha256"] = saved_digest
     if isinstance(linkage, Mapping):
+        result["developmental_history_intervention_available"] = (
+            linkage.get("response_origin") == "resident_developmental_cognition"
+            and isinstance(linkage.get("cognition_observation_id"), str)
+            and isinstance(linkage.get("cognition_observation_digest"), str))
         screen = linkage.get("screen_observation_provenance")
         if isinstance(screen, Mapping):
             safe_screen: dict[str, object] = {"raw_frame_retained": False}
@@ -1043,6 +1054,82 @@ class PersistentConversationService:
         self.retention_writer = AdmittedRetentionWriter(
             memory_store, admission_gate=self.admission_gate)
         self.context_budget_chars = context_budget_chars; self.memory_budget_chars = memory_budget_chars
+
+    def history_intervention_available(self) -> bool:
+        bridge = self._resident_cognition_bridge
+        available = getattr(bridge, "history_intervention_available", None)
+        return (self._screen_observer is not None and callable(available)
+            and available() is True)
+
+    def run_history_intervention(self, *, session_id: str,
+            assistant_turn_id: str, request_id: str) -> dict[str, Any]:
+        """Run an explicitly requested present/withheld/restored cognition comparison."""
+        if (not isinstance(session_id, str) or not session_id
+                or not isinstance(assistant_turn_id, str)
+                or not re.fullmatch(r"turn-[0-9a-f]{24}", assistant_turn_id)
+                or not isinstance(request_id, str)
+                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", request_id)):
+            raise ChatRequestStateError("history_intervention_request_invalid")
+        bridge = self._resident_cognition_bridge
+        observer = self._screen_observer
+        if bridge is None or observer is None:
+            raise ChatRequestStateError("history_intervention_path_unavailable")
+        if not self.history_intervention_available():
+            raise CognitionWorkloadUnavailable()
+        with self.sessions.serialize_chat_requests(session_id):
+            session = self.sessions.load(session_id)
+            assistant = next((turn for turn in session["turns"]
+                if turn.get("turn_id") == assistant_turn_id
+                and turn.get("role") == "assistant"), None)
+            linkage = assistant.get("linkage") if isinstance(assistant, Mapping) else None
+            if (not isinstance(assistant, Mapping) or not isinstance(linkage, Mapping)
+                    or linkage.get("response_origin")
+                        != "resident_developmental_cognition"):
+                raise ChatRequestStateError(
+                    "history_intervention_requires_resident_cognition_reply")
+            source_turn_id = linkage.get("source_user_turn_id")
+            source_turn = next((turn for turn in session["turns"]
+                if turn.get("turn_id") == source_turn_id
+                and turn.get("role") == "user"), None)
+            question = source_turn.get("text") if isinstance(source_turn, Mapping) else None
+            if not isinstance(question, str) or not question.strip() or len(question) > 1200:
+                raise ChatRequestStateError(
+                    "history_intervention_source_question_unavailable")
+            cognition_request_id = f"{session_id}:{source_turn_id}"
+            verifier = getattr(bridge, "verify_committed_response", None)
+            if (not callable(verifier) or verifier(linkage=linkage,
+                    response_text=str(assistant.get("text", "")),
+                    request_id=cognition_request_id) is not True):
+                raise ChatRequestStateError(
+                    "history_intervention_prior_response_unverified")
+            question_observer = getattr(type(observer), "observe_question", None)
+            observation = (question_observer(observer, question)
+                if callable(question_observer) else observer())
+            if not isinstance(observation, Mapping):
+                raise RuntimeError("screen_observation_unavailable")
+            tick_id = "companion-history-intervention-" + hashlib.sha256(
+                f"{session_id}\0{request_id}".encode("utf-8")).hexdigest()[:32]
+            result = bridge.compare_history_intervention(
+                tick_id=tick_id, question=question,
+                screen_observation=observation)
+        return {
+            "status": result.status,
+            "tick_id": result.tick_id,
+            "measurement_id": result.changed_cognition_measurement_id,
+            "response_text_classification": result.response_text_classification,
+            "restored_prompt_matches": result.restored_prompt_matches,
+            "conditions": [str(item.get("condition_id", "unknown"))
+                for item in result.conditions],
+            "condition_responses": [{
+                "condition_id": str(item.get("condition_id", "unknown")),
+                "response_text": str(item.get("response", ""))[:4000],
+                "disposition": str(item.get("disposition", "unknown")),
+            } for item in result.conditions],
+            "authority": result.authority,
+            "action_authority": result.action_authority,
+            "performance_improvement_established": False,
+            "raw_frame_retained": False,
+        }
 
     def create_session(self) -> str:
         """Create an empty session so clients can bind their first request idempotently."""
@@ -3466,6 +3553,7 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                local_speech_output: bool = False,
                                resident_cognition_bridge: Any | None = None,
                                resident_cognition_owner: Any | None = None,
+                               resident_history_intervention_owner: Any | None = None,
                                proprioception_provider: Any | None = None,
                                self_model_owner: Any | None = None,
                                self_model_config: Any | None = None,
@@ -3498,6 +3586,7 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
             raise ValueError("provide_bridge_or_owner_not_both")
         resident_cognition_bridge = ResidentDevelopmentalCompanionBridge(
             resident_cognition_owner,
+            history_intervention_owner=resident_history_intervention_owner,
             proprioception_provider=proprioception_provider,
             self_model_owner=self_model_owner, self_model_config=self_model_config,
             epistemic_state_owner=epistemic_state_owner,
@@ -3566,6 +3655,41 @@ def _chat_stream_event(event: Mapping[str, object]) -> str:
     event_type = str(event.get("type", "message"))
     data = json.dumps(dict(event), ensure_ascii=True, separators=(",", ":"))
     return f"event: {event_type}\ndata: {data}\n\n"
+
+
+@APP.post("/sessions/{session_id}/history-intervention")
+async def history_intervention_endpoint(session_id: str,
+        request: HistoryInterventionRequest, http_request: Request) -> dict[str, Any]:
+    """Run a local history comparison only after explicit confirmation."""
+    client_host = getattr(getattr(http_request, "client", None), "host", None)
+    try:
+        local_client = isinstance(client_host, str) and ipaddress.ip_address(client_host).is_loopback
+    except ValueError:
+        local_client = False
+    if not local_client:
+        raise HTTPException(status_code=403,
+            detail="history_intervention_local_access_required")
+    if request.session_id != session_id or request.operator_confirmed is not True:
+        raise HTTPException(status_code=400,
+            detail="history_intervention_operator_confirmation_required")
+    try:
+        service = _get_conversation_service()
+        return await asyncio.to_thread(service.run_history_intervention,
+            session_id=session_id, assistant_turn_id=request.assistant_turn_id,
+            request_id=request.request_id)
+    except CognitionWorkloadUnavailable as exc:
+        raise HTTPException(status_code=409,
+            detail="history_intervention_deferred_during_gaming_workload") from exc
+    except ChatRequestStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404,
+            detail="conversation_session_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503,
+            detail="history_intervention_not_completed") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @APP.post("/chat/stream")
@@ -3890,6 +4014,8 @@ async def inspect_session_turns(session_id: str, request: Request) -> dict[str, 
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=503,
             detail="conversation_session_unavailable_or_invalid") from exc
+    service = _get_conversation_service()
+    intervention_available = service.history_intervention_available()
     turns = session["turns"]
     visible_turns = turns[-100:]
     display_turns: list[dict[str, Any]] = []
@@ -3897,8 +4023,11 @@ async def inspect_session_turns(session_id: str, request: Request) -> dict[str, 
         displayed = {key: turn[key] for key in (
             "turn_id", "sequence", "role", "timestamp", "text")}
         if turn.get("role") == "assistant":
-            displayed["response_diagnostics"] = (
-                _saved_transcript_response_diagnostics(turn))
+            diagnostics = _saved_transcript_response_diagnostics(turn)
+            diagnostics["developmental_history_intervention_available"] = (
+                intervention_available is True
+                and diagnostics.get("developmental_history_intervention_available") is True)
+            displayed["response_diagnostics"] = diagnostics
         display_turns.append(displayed)
     return {
         "session_id": session_id,
@@ -4812,6 +4941,18 @@ async def root_page() -> HTMLResponse:
                             if (turn.role === 'assistant') {
                                 await appendSavedTurnDiagnostics(
                                     entry, content, turn.response_diagnostics);
+                                if (turn.response_diagnostics
+                                        && turn.response_diagnostics
+                                            .developmental_history_intervention_available
+                                            === true) {
+                                    const experimentButton = document.createElement('button');
+                                    experimentButton.type = 'button';
+                                    experimentButton.textContent =
+                                        'Compare history impact (4 inference calls)';
+                                    experimentButton.addEventListener('click', () =>
+                                        runHistoryIntervention(turn.turn_id, experimentButton, entry));
+                                    entry.appendChild(experimentButton);
+                                }
                             }
                             container.appendChild(entry);
                         }
@@ -4824,6 +4965,64 @@ async def root_page() -> HTMLResponse:
                         container.appendChild(unavailable);
                     }
                 }
+                async function runHistoryIntervention(assistantTurnId, button, entry) {
+                    if (!window.confirm('Run a matched history-present / withheld / restored comparison? This uses up to four local model inference calls and one fresh consented screen observation. It runs only when the workload gate allows it. This measures response differences; it does not prove improved performance.')) return;
+                    button.disabled = true;
+                    const status = document.createElement('p');
+                    status.textContent = 'Running the three-condition comparison...';
+                    entry.appendChild(status);
+                    try {
+                        const sessionId = await ensureConversationSession();
+                        const response = await fetch('/sessions/' + encodeURIComponent(sessionId)
+                            + '/history-intervention', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    session_id: sessionId,
+                                    assistant_turn_id: assistantTurnId,
+                                    request_id: crypto.randomUUID(),
+                                    operator_confirmed: true,
+                                }),
+                            });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                            status.textContent = typeof data.detail === 'string'
+                                ? data.detail : 'History comparison did not complete.';
+                            return;
+                        }
+                        status.textContent = 'History comparison: '
+                            + data.response_text_classification
+                            + '; restored prompt matches: '
+                            + (data.restored_prompt_matches ? 'yes' : 'no')
+                            + '; performance improvement: not established.';
+                        const comparedResponses = Array.isArray(data.condition_responses)
+                            ? data.condition_responses : [];
+                        if (comparedResponses.length === 3) {
+                            const details = document.createElement('details');
+                            const summary = document.createElement('summary');
+                            summary.textContent = 'Inspect the three responses (temporary)';
+                            details.appendChild(summary);
+                            const list = document.createElement('ol');
+                            comparedResponses.forEach((condition) => {
+                                const item = document.createElement('li');
+                                const label = document.createElement('strong');
+                                label.textContent = String(condition.condition_id || 'condition');
+                                const responseText = document.createElement('p');
+                                responseText.textContent = String(condition.response_text || '');
+                                item.appendChild(label);
+                                item.appendChild(responseText);
+                                list.appendChild(item);
+                            });
+                            details.appendChild(list);
+                            entry.appendChild(details);
+                        }
+                    } catch (_) {
+                        status.textContent = 'History comparison did not complete.';
+                    } finally {
+                        button.disabled = false;
+                    }
+                }
+
                 async function refreshAvatarOutput(preserveStatus = false) {
                     const control = document.getElementById('avatar-output-enabled');
                     const status = document.getElementById('avatar-output-status');
