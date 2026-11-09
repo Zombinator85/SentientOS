@@ -9193,31 +9193,12 @@ def test_chat_service_composes_resident_reply_into_controlled_history_interventi
         "capture_digest": "a" * 64,
         "capture_scope": "allowlisted_foreground_game_client_area",
         "captured_at": now.isoformat(), "raw_frame_retained": False}
-    seeded = interaction_owner.run_tick(snapshot=build_companion_snapshot(
-        screen_observation=initial_screen, clock=lambda: now),
-        tick_id="service-history-seed")
-    assert seeded.written_record_id is not None
-
     question = "What did the earlier scene show?"
     fake.companion_output_override = {
         "disposition": "answer", "response": "The previous scene showed a blue sign.",
         "evidence_ids": ["__CURRENT_FACT__"],
-        "history_record_ids": [seeded.written_record_id]}
-    fake.companion_output_by_condition = {
-        "history_present": {
-            "disposition": "answer",
-            "response": "The earlier scene showed a blue sign.",
-            "evidence_ids": ["__CURRENT_FACT__"],
-            "history_record_ids": [seeded.written_record_id]},
-        "history_withheld": {
-            "disposition": "abstain", "response": "I cannot determine that from this scene.",
-            "evidence_ids": ["__CURRENT_FACT__"], "history_record_ids": []},
-        "history_restored": {
-            "disposition": "answer",
-            "response": "The earlier scene showed a blue sign.",
-            "evidence_ids": ["__CURRENT_FACT__"],
-            "history_record_ids": [seeded.written_record_id]},
-    }
+        "history_record_ids": []}
+    fake.companion_output_by_condition = {}
     bridge = ResidentDevelopmentalCompanionBridge(
         interaction_owner, history_intervention_owner=intervention_owner,
         clock=lambda: now)
@@ -9270,7 +9251,10 @@ def test_chat_service_composes_resident_reply_into_controlled_history_interventi
             return nullcontext()
 
         def load(self, _session_id):
-            return {"turns": [user_turn, assistant_turn]}
+            return {"turns": list(self.turns)}
+
+        def __init__(self):
+            self.turns = [user_turn, assistant_turn]
 
     class InferenceGate:
         def cognition_available(self):
@@ -9279,15 +9263,48 @@ def test_chat_service_composes_resident_reply_into_controlled_history_interventi
     followup_screen = {**initial_screen, "capture_digest": "c" * 64}
 
     class ScreenObserver:
-        def observe_question(self, observed_question):
-            assert observed_question == question
-            return followup_screen
+        def __init__(self):
+            self.observations = [
+                followup_screen,
+                {**followup_screen, "capture_digest": "d" * 64},
+            ]
 
+        def observe_question(self, observed_question):
+            assert observed_question in {
+                question,
+                "Capture the current allowlisted foreground game for one operator-requested developmental cognition cycle.",
+            }
+            return self.observations.pop(0)
+
+    sessions = Sessions()
     service = PersistentConversationService(
-        inference=InferenceGate(), session_store=Sessions(),
+        inference=InferenceGate(), session_store=sessions,
         memory_store=CanonicalMemoryStore(tmp_path / "chat-service-memory"),
         screen_observer=ScreenObserver(),
         resident_cognition_bridge=bridge)
+    cycle = service.run_developmental_cycle(
+        session_id=session_id, assistant_turn_id=assistant_turn_id,
+        request_id="operator-developmental-writeback-1")
+    assert cycle["status"] == "completed_writeback"
+    written_record_id = cycle["written_record_id"]
+    assert isinstance(written_record_id, str) and written_record_id
+
+    fake.companion_output_by_condition = {
+        "history_present": {
+            "disposition": "answer",
+            "response": "The earlier scene showed a blue sign.",
+            "evidence_ids": ["__CURRENT_FACT__"],
+            "history_record_ids": [written_record_id]},
+        "history_withheld": {
+            "disposition": "abstain",
+            "response": "I cannot determine that from this scene.",
+            "evidence_ids": ["__CURRENT_FACT__"], "history_record_ids": []},
+        "history_restored": {
+            "disposition": "answer",
+            "response": "The earlier scene showed a blue sign.",
+            "evidence_ids": ["__CURRENT_FACT__"],
+            "history_record_ids": [written_record_id]},
+    }
     result = service.run_history_intervention(
         session_id=session_id, assistant_turn_id=assistant_turn_id,
         request_id="operator-history-comparison-1")
@@ -9305,7 +9322,7 @@ def test_chat_service_composes_resident_reply_into_controlled_history_interventi
     assert conditions[0]["disposition"] == "answer"
     assert conditions[1]["disposition"] == "abstain"
     assert conditions[2]["response_text"] == conditions[0]["response_text"]
-    assert seeded.written_record_id in interaction.history_record_ids
+    assert interaction.history_record_ids == ()
     comparison_requests = [request for request in fake.requests
         if request.purpose == "resident_developmental_history_intervention_experiment"
         and "history_present" in request.linkage]
@@ -9313,9 +9330,9 @@ def test_chat_service_composes_resident_reply_into_controlled_history_interventi
         True, False, True]
     selections = [request.upstream_evidence["developmental_history_selection"]
         for request in comparison_requests]
-    stored_history = template.writeback.store.get(seeded.written_record_id)
+    stored_history = template.writeback.store.get(written_record_id)
     assert selections[0]["selected_records"] == [{
-        "record_id": seeded.written_record_id,
+        "record_id": written_record_id,
         "record_digest": stored_history.record_digest}]
     assert selections[1]["treatment"] == "withheld"
     assert selections[1]["selected_records"] == []
