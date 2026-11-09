@@ -685,6 +685,9 @@ opaque dark background. The foreground capture owner still rejects layered
 windows and any overlapping window above the target; this option does not
 bypass consent, allowlisting, or per-message opt-in. Use it with a
 `--screen-observation-process` allowlist entry for the Godot executable.
+The supervised runner also passes its loopback chat `--port` into Godot, so a
+non-default port cannot silently route the visible companion back to an older
+service listening on port 5000.
 The same development runner can optionally add a one-sentence visual
 summary with the screen-observation-vision-model option. This uses the named
 Ollama model through 127.0.0.1:11434 on the Windows edge host, downscales the

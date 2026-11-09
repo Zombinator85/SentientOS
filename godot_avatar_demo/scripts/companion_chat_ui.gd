@@ -2,7 +2,8 @@ extends Control
 ## Development-only text interface for the supervised loopback chat service.
 ## Screen observation is a one-message local OCR/vision opt-in; transcript retention stays off.
 
-const API_BASE := "http://127.0.0.1:5000"
+const DEFAULT_API_PORT := 5000
+const API_PORT_ARGUMENT_PREFIX := "--sentientos-api-port="
 const MAX_VISIBLE_MESSAGES := 12
 const CHAT_WINDOW_SIZE := Vector2i(520, 620)
 const AVATAR_WINDOW_SIZE := Vector2i(140, 140)
@@ -26,6 +27,7 @@ const GLOBAL_HOTKEY_PORT := 60178
 const GLOBAL_HOTKEY_TOGGLE_PACKET := "sentientos.toggle_chat.v1"
 const OPAQUE_OBSERVATION_WINDOW_ARGUMENT := "--sentientos-opaque-observation-window"
 
+var _api_port := DEFAULT_API_PORT
 var _request: HTTPRequest
 var _runtime_status_request: HTTPRequest
 var _runtime_status_timer: Timer
@@ -138,6 +140,7 @@ func _process(_delta: float) -> void:
 
 
 func _ready() -> void:
+	_api_port = _api_port_from_user_args(OS.get_cmdline_user_args())
 	_load_ui_preferences()
 	_build_interface()
 	_start_global_hotkey_bridge()
@@ -177,6 +180,24 @@ func _ready() -> void:
 	_refresh_runtime_status()
 	_runtime_status_timer.start()
 	_update_session_status()
+
+
+func _api_base() -> String:
+	return "http://127.0.0.1:%d" % _api_port
+
+
+func _api_port_from_user_args(user_args: PackedStringArray) -> int:
+	for argument in user_args:
+		if not argument.begins_with(API_PORT_ARGUMENT_PREFIX):
+			continue
+		var port_text := argument.trim_prefix(API_PORT_ARGUMENT_PREFIX)
+		if not port_text.is_valid_int():
+			return DEFAULT_API_PORT
+		var port := int(port_text)
+		if port < 1 or port > 65535:
+			return DEFAULT_API_PORT
+		return port
+	return DEFAULT_API_PORT
 
 
 func _is_opaque_observation_window_requested(user_args: PackedStringArray) -> bool:
@@ -700,7 +721,7 @@ func _refresh_runtime_status() -> void:
 	if _runtime_status_in_flight:
 		return
 	_runtime_status_in_flight = true
-	var error := _runtime_status_request.request(API_BASE + "/runtime-status")
+	var error := _runtime_status_request.request(_api_base() + "/runtime-status")
 	if error != OK:
 		_runtime_status_in_flight = false
 		_runtime_status_label.text = "Local runtime status unavailable."
@@ -740,7 +761,7 @@ func _refresh_speech_output_status() -> void:
 	_speech_output_in_flight = true
 	_speech_output_action = "status"
 	var error := _speech_output_request.request(
-		API_BASE + "/speech-output?session_id=" + _session_id)
+		_api_base() + "/speech-output?session_id=" + _session_id)
 	if error != OK:
 		_speech_output_in_flight = false
 		_speech_output_toggle.disabled = true
@@ -773,7 +794,7 @@ func _request_speech_output_change(enabled: bool, action: String) -> void:
 	var headers := PackedStringArray(["Content-Type: application/json"])
 	var body := JSON.stringify({"session_id": _session_id, "enabled": enabled})
 	var error := _speech_output_request.request(
-		API_BASE + "/speech-output", headers, HTTPClient.METHOD_POST, body)
+		_api_base() + "/speech-output", headers, HTTPClient.METHOD_POST, body)
 	if error != OK:
 		_speech_output_in_flight = false
 		_speech_output_status_label.text = "Unavailable"
@@ -854,7 +875,7 @@ func _select_profile_then(next_action: String) -> void:
 	_start_button.disabled = true
 	_resume_button.disabled = true
 	_start_button.text = "Selecting game-aware profile…"
-	var error := _request.request(API_BASE + "/workload-mode")
+	var error := _request.request(_api_base() + "/workload-mode")
 	if error != OK:
 		_fail_request("Could not read the game profile configuration (%s)." % error_string(error))
 
@@ -892,7 +913,7 @@ func _send_message(submitted_text: String = "") -> void:
 	_stream_reply_message_index = -1
 	_stream_user_message = message
 	_stream_recovery_attempt = 0
-	var error := _stream_client.connect_to_host("127.0.0.1", 5000)
+	var error := _stream_client.connect_to_host("127.0.0.1", _api_port)
 	if error != OK:
 		_finish_stream_failure("The streaming connection could not start (%s)." % error_string(error))
 
@@ -921,7 +942,7 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 				"mode": "automatic",
 				"game_process_names": process_names,
 			})
-			var error := _request.request(API_BASE + "/workload-mode", headers, HTTPClient.METHOD_POST, body_text)
+			var error := _request.request(_api_base() + "/workload-mode", headers, HTTPClient.METHOD_POST, body_text)
 			if error != OK:
 				_fail_request("Could not select the automatic profile (%s)." % error_string(error))
 		"set_workload_mode":
@@ -930,12 +951,12 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 				return
 			if _next_after_profile == "load_sessions":
 				_pending_action = "load_sessions"
-				var error := _request.request(API_BASE + "/sessions")
+				var error := _request.request(_api_base() + "/sessions")
 				if error != OK:
 					_fail_request("Could not list recent conversations (%s)." % error_string(error))
 			else:
 				_pending_action = "create_session"
-				var error := _request.request(API_BASE + "/sessions", PackedStringArray(), HTTPClient.METHOD_POST, "")
+				var error := _request.request(_api_base() + "/sessions", PackedStringArray(), HTTPClient.METHOD_POST, "")
 				if error != OK:
 					_fail_request("Could not create a conversation (%s)." % error_string(error))
 		"load_sessions":
@@ -954,7 +975,7 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 				_fail_request("There is no recent active conversation to resume.")
 				return
 			_pending_action = "load_turns"
-			var error := _request.request(API_BASE + "/sessions/" + _session_id + "/turns")
+			var error := _request.request(_api_base() + "/sessions/" + _session_id + "/turns")
 			if error != OK:
 				_fail_request("Could not load the recent conversation (%s)." % error_string(error))
 		"load_turns":
@@ -981,7 +1002,7 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 			_pending_action = "enable_avatar"
 			var output_body := JSON.stringify({"session_id": _session_id, "enabled": true})
 			var headers := PackedStringArray(["Content-Type: application/json"])
-			var error := _request.request(API_BASE + "/avatar-output", headers, HTTPClient.METHOD_POST, output_body)
+			var error := _request.request(_api_base() + "/avatar-output", headers, HTTPClient.METHOD_POST, output_body)
 			if error != OK:
 				_fail_request("The visual companion connection could not resume (%s)." % error_string(error))
 		"create_session":
@@ -997,7 +1018,7 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 			_pending_action = "enable_avatar"
 			var output_body := JSON.stringify({"session_id": _session_id, "enabled": true})
 			var headers := PackedStringArray(["Content-Type: application/json"])
-			var error := _request.request(API_BASE + "/avatar-output", headers, HTTPClient.METHOD_POST, output_body)
+			var error := _request.request(_api_base() + "/avatar-output", headers, HTTPClient.METHOD_POST, output_body)
 			if error != OK:
 				_fail_request("The visual companion connection could not start (%s)." % error_string(error))
 		"enable_avatar":
@@ -1154,7 +1175,7 @@ func _request_stream_commit_recovery() -> void:
 		return
 	_pending_action = "recover_stream_commit"
 	var error := _request.request(
-		API_BASE + "/sessions/" + _session_id.uri_encode() + "/turns")
+		_api_base() + "/sessions/" + _session_id.uri_encode() + "/turns")
 	if error != OK:
 		_retry_stream_commit_recovery()
 

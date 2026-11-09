@@ -213,18 +213,26 @@ def test_parse_edge_ready_includes_exact_godot_pid() -> None:
 def test_godot_headless_development_option_does_not_change_visible_launch(monkeypatch) -> None:
     monkeypatch.syspath_prepend("scripts")
     from scripts.local_companion_edge_dev_worker import _godot_command
+    import pytest
 
     assert _godot_command("godot.exe", "project", headless=False) == [
-        "godot.exe", "--path", "project"
+        "godot.exe", "--path", "project", "--", "--sentientos-api-port=5000"
     ]
-    assert _godot_command("godot.exe", "project", headless=True) == [
-        "godot.exe", "--headless", "--path", "project"
+    assert _godot_command("godot.exe", "project", headless=True,
+                          companion_api_port=5101) == [
+        "godot.exe", "--headless", "--path", "project", "--",
+        "--sentientos-api-port=5101",
     ]
     assert _godot_command("godot.exe", "project", headless=False,
+                          companion_api_port=5102,
                           opaque_observation_window=True) == [
         "godot.exe", "--path", "project", "--",
+        "--sentientos-api-port=5102",
         "--sentientos-opaque-observation-window",
     ]
+    with pytest.raises(ValueError, match="companion_api_port_out_of_range"):
+        _godot_command("godot.exe", "project", headless=False,
+                       companion_api_port=70000)
 
 
 def test_worker_waits_for_the_selected_godot_udp_listener() -> None:

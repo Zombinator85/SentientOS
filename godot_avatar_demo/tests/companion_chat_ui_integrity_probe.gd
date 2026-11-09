@@ -8,6 +8,14 @@ func _initialize():
 	var ui = ui_script.new()
 	ui._build_interface()
 	_check(not ui._chat_panel.visible, "chat hidden by default")
+	_check(ui._api_port_from_user_args(PackedStringArray()) == 5000,
+		"default companion API port remains 5000")
+	_check(ui._api_port_from_user_args(PackedStringArray([
+		"--sentientos-api-port=5102"])) == 5102,
+		"runner-selected companion API port is honored")
+	_check(ui._api_port_from_user_args(PackedStringArray([
+		"--sentientos-api-port=70000"])) == 5000,
+		"invalid companion API port falls back to the default")
 	_check(not ui._is_opaque_observation_window_requested(PackedStringArray()),
 		"transparent overlay remains the default window mode")
 	_check(ui._is_opaque_observation_window_requested(PackedStringArray([

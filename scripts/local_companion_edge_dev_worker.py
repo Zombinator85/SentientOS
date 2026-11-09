@@ -27,13 +27,17 @@ def _readline(stream, target):
     for line in stream:
         target.put(line.rstrip())
 
-def _godot_command(executable, project, *, headless, opaque_observation_window=False):
+def _godot_command(executable, project, *, headless, companion_api_port=5000, opaque_observation_window=False):
+    if type(companion_api_port) is not int or not 1 <= companion_api_port <= 65535:
+        raise ValueError("companion_api_port_out_of_range")
     command=[executable]
     if headless:
         command.append("--headless")
     command.extend(["--path",project])
+    user_args=["--sentientos-api-port="+str(companion_api_port)]
     if opaque_observation_window:
-        command.extend(["--", "--sentientos-opaque-observation-window"])
+        user_args.append("--sentientos-opaque-observation-window")
+    command.extend(["--", *user_args])
     return command
 
 def _udp_port_is_bound(port):
@@ -337,6 +341,7 @@ def main():
         print("EDGE_STARTUP phase=godot_process_create",flush=True)
         godot=subprocess.Popen(_godot_command(
             executable,project,headless=cfg.get("godot_headless") is True,
+            companion_api_port=cfg.get("companion_api_port", 5000),
             opaque_observation_window=(
                 cfg.get("godot_opaque_observation_window") is True)),env=env,
             stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)

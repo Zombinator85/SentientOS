@@ -893,6 +893,7 @@ class _TemporaryCompanionEdge:
     def __init__(self, *, windows_python: Path,
                  godot_executable: Path, godot_project: Path,
                  godot_headless: bool = False,
+                 companion_api_port: int = 5000,
                  godot_opaque_observation_window: bool = False,
                  game_process_names: tuple[str, ...] = (),
                  screen_observation_process_names: tuple[str, ...] = (),
@@ -944,6 +945,9 @@ class _TemporaryCompanionEdge:
         if type(godot_headless) is not bool:
             raise ValueError("godot_headless_must_be_boolean")
         self.godot_headless = godot_headless
+        if type(companion_api_port) is not int or not 1 <= companion_api_port <= 65535:
+            raise ValueError("companion_api_port_out_of_range")
+        self.companion_api_port = companion_api_port
         if type(godot_opaque_observation_window) is not bool:
             raise ValueError("godot_opaque_observation_window_must_be_boolean")
         self.godot_opaque_observation_window = godot_opaque_observation_window
@@ -973,6 +977,7 @@ class _TemporaryCompanionEdge:
                 "godot_executable": _win_path(godot_executable),
                 "godot_project": _win_path(godot_project),
                 "godot_headless": godot_headless,
+                "companion_api_port": companion_api_port,
                 "godot_opaque_observation_window": godot_opaque_observation_window,
             }
             if game_process_names:
@@ -1704,6 +1709,7 @@ def main() -> int:
                 windows_python=args.windows_python, godot_executable=args.godot_exe,
                 godot_project=args.godot_project,
                 godot_headless=args.godot_headless,
+                companion_api_port=args.port,
                 godot_opaque_observation_window=(
                     args.godot_opaque_observation_window),
                 game_process_names=tuple(args.game_process_name),
@@ -1795,6 +1801,7 @@ def main() -> int:
             "companion_output": ("temporary_mtls_windows_edge_and_godot"
                                  if edge else "not_configured"),
             "godot_headless": bool(edge and edge.godot_headless),
+            "godot_api_port": edge.companion_api_port if edge else None,
             "godot_opaque_observation_window": bool(
                 edge and edge.godot_opaque_observation_window),
             "screen_observation_configured": bool(edge and edge.screen_observer),
