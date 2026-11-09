@@ -5329,7 +5329,24 @@ async def root_page() -> HTMLResponse:
                         }
                     }
                     if (!window.confirm('Capture one fresh, consented foreground-game observation and run the existing resident cognition tick? The screen evidence and your optional unverified report may be retained through governed developmental writeback. This can make local model inference calls. Raw screen frames are discarded. No avatar motion is sent unless you approve it separately next.')) return;
-                    const avatarNodConfirmed = window.confirm('Optional action: authorize one brief, visual-only avatar nod now so the consequence observer can measure it immediately? This sends no game input and does not prove the nod took effect. Choose Cancel to run the screen-only developmental cycle.');
+                    let foregroundWaitSeconds = 0;
+                    try {
+                        const screenStatusResponse = await fetch('/screen-observation');
+                        if (screenStatusResponse.ok) {
+                            const screenStatus = await screenStatusResponse.json();
+                            if (Number.isInteger(screenStatus.foreground_wait_seconds)) {
+                                foregroundWaitSeconds = Math.max(0,
+                                    screenStatus.foreground_wait_seconds);
+                            }
+                        }
+                    } catch (_) {
+                        // Keep the operator prompt conservative if status is unavailable.
+                    }
+                    const focusHandoff = foregroundWaitSeconds > 0
+                        ? ' After choosing Yes or Cancel, immediately return focus to the approved foreground app within '
+                            + foregroundWaitSeconds + ' seconds; only its client area is captured.'
+                        : ' Keep the approved foreground app focused for capture; only its client area is captured.';
+                    const avatarNodConfirmed = window.confirm('Optional action: authorize one brief, visual-only avatar nod now so the consequence observer can measure it immediately? This sends no game input and does not prove the nod took effect. Choose Cancel to run the screen-only developmental cycle.' + focusHandoff);
 
                     button.disabled = true;
                     const status = document.createElement('p');
