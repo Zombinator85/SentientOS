@@ -17,6 +17,7 @@ from sentientos.avatar_consequence_bridge import (
 )
 from sentientos.embodied_consequence import (
     AuthenticatedBridgeIndependentObserver,
+    ConsequenceStore,
     SyntheticRenderer,
     evaluate_consequence,
     make_expectation,
@@ -94,7 +95,7 @@ def _adopted_renderer_report_for(expectation, handoff):
     return report
 
 
-def test_explicit_avatar_measurement_traverses_authenticated_consequence_stream():
+def test_explicit_avatar_measurement_traverses_authenticated_consequence_stream(tmp_path):
     now = datetime.now(timezone.utc)
     command_at = (now - timedelta(seconds=3)).isoformat()
     report_done = (now - timedelta(seconds=2)).isoformat()
@@ -258,6 +259,22 @@ def test_explicit_avatar_measurement_traverses_authenticated_consequence_stream(
             if record["source_id"] == receipt_attribution["attribution_id"])
         assert attribution_record["payload"]["renderer_report_id"] == renderer_receipt.report_id
         assert attribution_record["payload"]["renderer_report_digest"] == renderer_receipt.report_digest
+        store = ConsequenceStore(tmp_path / "renderer-receipt-chain")
+        chain = store.put_consequence_chain(
+            expectation=expectation, handoff=handoff, renderer_report=None,
+            observation=receipt_observation, attribution=receipt_attribution,
+            comparison=receipt_comparison)
+        loaded = store.load_verified_consequence_chain(chain["chain_id"])
+        assert loaded["renderer_report"] is None
+        assert loaded["observation"]["renderer_report_id"] == renderer_receipt.report_id
+        assert loaded["observation"]["renderer_report_digest"] == renderer_receipt.report_digest
+        reloaded_records = store.world_state_records(
+            consequence_chain_ids=(chain["chain_id"],))
+        reloaded_attribution = next(record for record in reloaded_records
+            if record["source_id"] == receipt_attribution["attribution_id"])
+        assert reloaded_attribution["payload"]["renderer_report_id"] == renderer_receipt.report_id
+        assert reloaded_attribution["payload"]["renderer_report_digest"] == renderer_receipt.report_digest
+        assert all(record["effect_proven"] is False for record in reloaded_records)
     finally:
         consequence_runtime.close()
 
