@@ -795,9 +795,9 @@ def run() -> dict[str, Any]:
             "conditions": [{
                 "condition_id": item.get("condition_id"),
                 "correct_count": (item.get("score", {}).get("correct_count")
-                    if isinstance(item.get("score"), Mapping) else None),
+                    if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
                 "probe_count": (item.get("score", {}).get("probe_count")
-                    if isinstance(item.get("score"), Mapping) else None),
+                    if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
                 "output_digest": item.get("output_digest"),
                 "retrieved_record_ids": item.get("retrieved_record_ids", []),
                 "inference_receipt_id": item.get("inference_receipt_id"),
