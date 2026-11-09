@@ -369,6 +369,7 @@ class AuthenticatedBridgeIndependentObserver:
 
     def observe(self, *, expectation: EmbodiedActionExpectation, handoff: Mapping[str, Any],
                 report: AvatarRendererReport | None,
+                renderer_receipt: Any | None = None,
                 capture_request_id: str | None = None,
                 request_started_monotonic: float | None = None
                 ) -> IndependentConsequenceObservation:
@@ -377,6 +378,17 @@ class AuthenticatedBridgeIndependentObserver:
         verify_renderer_handoff(handoff)
         if report is not None:
             verify_renderer_report(report)
+        if report is not None and renderer_receipt is not None:
+            raise EmbodiedConsequenceError("authenticated_observer_renderer_reference_ambiguous")
+        if renderer_receipt is not None:
+            from .avatar_renderer_report_ingress import (
+                verify_renderer_report_receipt_identity,
+            )
+            try:
+                verify_renderer_report_receipt_identity(renderer_receipt)
+            except ValueError as exc:
+                raise EmbodiedConsequenceError(
+                    "authenticated_observer_renderer_receipt_invalid") from exc
         if expectation.expected_observation_source_class != "authenticated_bridge_observer":
             raise EmbodiedConsequenceError("authenticated_observer_source_class_mismatch")
         if (capture_request_id is not None
@@ -397,7 +409,14 @@ class AuthenticatedBridgeIndependentObserver:
                 or (report is not None and (report.handoff_id != handoff.get("handoff_id")
                     or report.handoff_digest != handoff.get("handoff_digest")
                     or report.correlation_id != expectation.correlation_id
-                    or report.body_generation != expectation.body_generation))):
+                    or report.body_generation != expectation.body_generation))
+                or (renderer_receipt is not None and (
+                    renderer_receipt.expectation_id != expectation.expectation_id
+                    or renderer_receipt.expectation_digest != expectation.expectation_digest
+                    or renderer_receipt.handoff_id != handoff.get("handoff_id")
+                    or renderer_receipt.handoff_digest != handoff.get("handoff_digest")
+                    or renderer_receipt.correlation_id != expectation.correlation_id
+                    or renderer_receipt.body_generation != expectation.body_generation))):
             raise EmbodiedConsequenceError("authenticated_observer_request_lineage_invalid")
         try:
             message = self._runtime.receive(timeout=self._timeout)
@@ -410,8 +429,13 @@ class AuthenticatedBridgeIndependentObserver:
                 or message.admission is not None or not message.signed_envelope):
             raise EmbodiedConsequenceError("authenticated_observer_message_binding_invalid")
         payload = message.payload
-        expected_report_id = report.report_id if report is not None else None
-        expected_report_digest = report.report_digest if report is not None else None
+        expected_report_id = (report.report_id if report is not None
+            else renderer_receipt.report_id if renderer_receipt is not None else None)
+        expected_report_digest = (report.report_digest if report is not None
+            else renderer_receipt.report_digest if renderer_receipt is not None else None)
+        expected_renderer_source_id = (report.renderer_id if report is not None
+            else renderer_receipt.renderer_source_id
+            if renderer_receipt is not None else None)
         bindings = ((payload.get("expectation_id"), expectation.expectation_id),
             (payload.get("expectation_digest"), expectation.expectation_digest),
             (payload.get("handoff_id"), handoff.get("handoff_id")),
@@ -427,7 +451,8 @@ class AuthenticatedBridgeIndependentObserver:
                 or not isinstance(observed, Mapping)
                 or not set(observed).issubset(set(expectation.observable_fields))
                 or not observed
-                or (report is not None and message.source_id == report.renderer_id)):
+                or (expected_renderer_source_id is not None
+                    and message.source_id == expected_renderer_source_id)):
             raise EmbodiedConsequenceError("authenticated_observer_evidence_binding_invalid")
         try:
             now_value = self._clock()
@@ -480,7 +505,9 @@ class AuthenticatedBridgeIndependentObserver:
             "received_at": received_at.astimezone(timezone.utc).isoformat(),
             "transport_authenticated_at_ingress": True,
             "signature_reverified_on_load": False,
-            "source_distinct_from_renderer": report is None or message.source_id != report.renderer_id}
+            "source_distinct_from_renderer": (
+                expected_renderer_source_id is None
+                or message.source_id != expected_renderer_source_id)}
         if payload.get("schema_version") == "sentientos.bridge_consequence_observation:v2":
             receipt["capture_request_id"] = payload["capture_request_id"]
             receipt["capture_provenance"] = dict(payload["capture_provenance"])
@@ -661,9 +688,13 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
         observation_authentication_receipt = consume_receipt(observation)
         if not isinstance(observation_authentication_receipt, Mapping):
             raise EmbodiedConsequenceError("authenticated_observer_receipt_missing")
+    renderer_report_id = (renderer_report.report_id if renderer_report is not None
+        else observation.renderer_report_id if observation is not None else None)
+    renderer_report_digest = (renderer_report.report_digest if renderer_report is not None
+        else observation.renderer_report_digest if observation is not None else None)
     attribution_base = {"schema_version":ATTRIBUTION_SCHEMA,"expectation_id":expectation.expectation_id,
         "expectation_digest":expectation.expectation_digest,"handoff_id":handoff.get("handoff_id"),"handoff_digest":handoff.get("handoff_digest"),
-        "renderer_report_id":renderer_report.report_id if renderer_report else None,"renderer_report_digest":renderer_report.report_digest if renderer_report else None,
+        "renderer_report_id":renderer_report_id,"renderer_report_digest":renderer_report_digest,
         "observation_id":observation.observation_id if observation else None,"observation_digest":observation.observation_digest if observation else None,
         "comparison_id":comparison_base["comparison_id"],"comparison_digest":comparison_base["comparison_digest"],
         "body_generation":expectation.body_generation,"current_body_pointer_digest":current_body.get("pointer_digest"),
@@ -700,6 +731,10 @@ def world_state_records(*, expectation: EmbodiedActionExpectation, handoff: Mapp
         verify_renderer_report(renderer_report)
     if observation is not None:
         verify_independent_observation(observation)
+    renderer_report_id = (renderer_report.report_id if renderer_report is not None
+        else observation.renderer_report_id if observation is not None else None)
+    renderer_report_digest = (renderer_report.report_digest if renderer_report is not None
+        else observation.renderer_report_digest if observation is not None else None)
     _verify_consequence_attribution(attribution)
     semantic_comparison = {key: value for key, value in comparison.items()
         if key not in {"comparison_id", "comparison_digest"}}
@@ -745,8 +780,8 @@ def world_state_records(*, expectation: EmbodiedActionExpectation, handoff: Mapp
                 or (renderer_report is not None and (
                     observation.renderer_report_id != renderer_report.report_id
                     or observation.renderer_report_digest != renderer_report.report_digest))))
-            or attribution.get("renderer_report_id") != (renderer_report.report_id if renderer_report else None)
-            or attribution.get("renderer_report_digest") != (renderer_report.report_digest if renderer_report else None)
+            or attribution.get("renderer_report_id") != renderer_report_id
+            or attribution.get("renderer_report_digest") != renderer_report_digest
             or attribution.get("effect_proven") is not False):
         raise EmbodiedConsequenceError("consequence_world_state_lineage_invalid")
     authenticated_posture = attribution.get("observation_independence_posture") == "authenticated_source_distinct_from_renderer_at_ingress"

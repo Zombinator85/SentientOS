@@ -7,6 +7,9 @@ import json
 import pytest
 
 from scripts.avatar_authoring import renderer_handoff
+from sentientos.avatar_renderer_report_ingress import (
+    renderer_report_observation, renderer_report_receipt_identity,
+)
 from sentientos.avatar_consequence_bridge import (
     AvatarConsequenceCaptureRequestHandler,
     AvatarConsequenceMeasurementRequestSender,
@@ -17,6 +20,7 @@ from sentientos.embodied_consequence import (
     SyntheticRenderer,
     evaluate_consequence,
     make_expectation,
+    world_state_records,
 )
 from sentientos.gaming_companion_bridge import (
     AVATAR_CONSEQUENCE_REQUEST_SCHEMA, CompanionBridgeReceiver, encode_message,
@@ -31,6 +35,63 @@ pytestmark = pytest.mark.no_legacy_skip
 
 def _sha(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _adopted_renderer_report_for(expectation, handoff):
+    report = {
+        "schema_version": "sentientos.avatar_renderer_report:v2",
+        "evidence_class": "avatar_renderer_reported_state",
+        "source_id": "godot-adopted-body-demo",
+        "renderer_generation_id": "godot-demo-12345",
+        "sequence": 1,
+        "reported_at": datetime.now(timezone.utc).isoformat(),
+        "session_id": "avatar-trial-session",
+        "turn_id": "assistant-turn-1",
+        "output_digest": _sha("authorized assistant text"),
+        "output_mode": "chat_response_visual_only",
+        "commanded_state": {
+            "expression": "neutral", "mood": "calm", "intensity": 0.0,
+            "motion": "wave", "workload_mode": "gaming",
+        },
+        "renderer_state": {
+            "expression": {"status": "procedural_fallback_applied"},
+            "motion": {
+                "active_motion": "wave", "animation_player_active": False,
+                "head_rotation_radians": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "left_arm_rotation_radians": {"x": 0.0, "y": 0.0, "z": -0.39},
+                "body_position": {"x": 0.0, "y": 0.66, "z": 0.0},
+                "observed_nodes": {"head": True, "left_arm": True, "body": True},
+            },
+            "applied_render_cap_fps": 15,
+            "speech": {"status": "not_requested", "phoneme_claimed": False},
+            "adopted_body": {
+                "status": "active",
+                "evidence_posture": "trusted_loader_adoption_receipt_verified",
+                "artifact_sha256": "a" * 64,
+                "manifest_digest": "sha256:" + "b" * 64,
+                "pointer_digest": "sha256:" + "c" * 64,
+                "adoption_receipt_digest": "sha256:" + "d" * 64,
+                "authority_effects_performed": False,
+            },
+        },
+        "frame_delta_seconds": 0.016,
+        "apply_duration_usec": 500,
+        "body_identity": "companion-avatar-v4",
+        "body_generation": expectation.body_generation,
+        "effect_proven": False,
+        "independent_observation": False,
+        "consequence_expectation_id": expectation.expectation_id,
+        "consequence_expectation_digest": expectation.expectation_digest,
+        "consequence_handoff_id": handoff["handoff_id"],
+        "consequence_handoff_digest": handoff["handoff_digest"],
+        "consequence_correlation_id": expectation.correlation_id,
+        "source_digest": "",
+    }
+    report["source_digest"] = "sha256:" + hashlib.sha256(json.dumps(
+        {key: value for key, value in report.items() if key != "source_digest"},
+        sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False,
+    ).encode("utf-8")).hexdigest()
+    return report
 
 
 def test_explicit_avatar_measurement_traverses_authenticated_consequence_stream():
@@ -169,6 +230,34 @@ def test_explicit_avatar_measurement_traverses_authenticated_consequence_stream(
         assert attribution["classification"] == "indeterminate"
         assert attribution["effect_proven"] is False
         assert attribution["causal_attribution_posture"] != "causally_established"
+
+
+        # Carry a Godot self-report as an untrusted reference through authenticated capture.
+        renderer_report = _adopted_renderer_report_for(expectation, handoff)
+        renderer_receipt = renderer_report_receipt_identity(renderer_report)
+        receipt_observation = remote.observe(
+            expectation=expectation, handoff=handoff, renderer_receipt=renderer_receipt)
+        receipt_attribution, receipt_comparison = evaluate_consequence(
+            expectation=expectation, handoff=handoff, current_body=body,
+            renderer_report=None, observation=receipt_observation,
+            independent_observer_owner=remote,
+            evaluated_at=datetime.now(timezone.utc).isoformat())
+        records = world_state_records(
+            expectation=expectation, handoff=handoff, renderer_report=None,
+            observation=receipt_observation, attribution=receipt_attribution,
+            comparison=receipt_comparison)
+        assert renderer_report_observation(renderer_report).effect_proven is False
+        assert receipt_observation.renderer_report_id == renderer_receipt.report_id
+        assert receipt_observation.renderer_report_digest == renderer_receipt.report_digest
+        assert receipt_attribution["renderer_report_id"] == renderer_receipt.report_id
+        assert receipt_attribution["renderer_report_digest"] == renderer_receipt.report_digest
+        assert receipt_attribution["effect_proven"] is False
+        assert receipt_attribution["classification"] == "indeterminate"
+        assert all(record["effect_proven"] is False for record in records)
+        attribution_record = next(record for record in records
+            if record["source_id"] == receipt_attribution["attribution_id"])
+        assert attribution_record["payload"]["renderer_report_id"] == renderer_receipt.report_id
+        assert attribution_record["payload"]["renderer_report_digest"] == renderer_receipt.report_digest
     finally:
         consequence_runtime.close()
 

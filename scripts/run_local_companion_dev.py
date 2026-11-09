@@ -395,10 +395,12 @@ def _apply_gaming_resource_observation(
 class _PreparedAvatarConsequenceEmitter:
     """Bind an explicit chat prediction to the already-governed avatar output."""
     def __init__(self, *, emitter: Any, pointer: Mapping[str, Any] | None,
-            observer: Any | None) -> None:
+            observer: Any | None,
+            renderer_receipt_provider: Callable[..., Any] | None = None) -> None:
         self._emitter = emitter
         self._pointer = dict(pointer) if isinstance(pointer, Mapping) else None
         self._observer = observer
+        self._renderer_receipt_provider = renderer_receipt_provider
         self._lock = threading.Lock()
         self._prepared: dict[tuple[str, str], dict[str, Any]] = {}
         self._inflight: set[tuple[str, str]] = set()
@@ -521,8 +523,17 @@ class _PreparedAvatarConsequenceEmitter:
             expectation, handoff = staged["expectation"], staged["handoff"]
             observation = staged.get("observation")
             if observation is None:
-                observation = observer.observe(
-                    expectation=expectation, handoff=handoff, report=None)
+                observation_args = {
+                    "expectation": expectation, "handoff": handoff, "report": None}
+                if self._renderer_receipt_provider is not None:
+                    renderer_receipt = self._renderer_receipt_provider(
+                        expectation=expectation, handoff=handoff,
+                        session_id=session_id, turn_id=turn_id,
+                        output_digest=staged["output_digest"])
+                    if renderer_receipt is None:
+                        raise RuntimeError("avatar_renderer_receipt_unavailable")
+                    observation_args["renderer_receipt"] = renderer_receipt
+                observation = observer.observe(**observation_args)
                 staged["observation"] = observation
             attribution = staged.get("attribution")
             comparison = staged.get("comparison")
@@ -569,6 +580,7 @@ class _LatestRendererObservation:
         self._max_age = float(max_age_seconds)
         self._lock = threading.Lock()
         self._observation: Any | None = None
+        self._renderer_report: dict[str, Any] | None = None
         self._sampled_monotonic = 0.0
         self._adopted_body_pointer = (dict(adopted_body_pointer)
             if adopted_body_pointer is not None else None)
@@ -581,6 +593,7 @@ class _LatestRendererObservation:
         )
         comparison = None
         observation: Any | None = None
+        renderer_report: dict[str, Any] | None = None
         try:
             observation = renderer_report_observation(report)
             if self._adopted_body_pointer is not None:
@@ -593,12 +606,48 @@ class _LatestRendererObservation:
                         **dict(observation.payload),
                         "body_pointer_comparison": comparison,
                     })
+                    renderer_report = dict(report)
         except Exception:
             observation = None
         with self._lock:
             self._observation = observation
+            self._renderer_report = renderer_report
             self._body_pointer_comparison = comparison
             self._sampled_monotonic = time.monotonic() if observation is not None else 0.0
+
+    def renderer_receipt_for(self, *, expectation: Any, handoff: Mapping[str, Any],
+            session_id: str, turn_id: str, output_digest: str) -> Any | None:
+        """Return only the fresh Godot self-report matching this exact staged turn."""
+        from sentientos.avatar_renderer_report_ingress import (
+            renderer_report_receipt_identity,
+        )
+
+        now = time.monotonic()
+        with self._lock:
+            report = self._renderer_report
+            observation = self._observation
+            comparison = self._body_pointer_comparison
+            sampled = self._sampled_monotonic
+            if (report is None or observation is None
+                    or not isinstance(comparison, Mapping)
+                    or comparison.get("lineage_match") is not True
+                    or now - sampled > self._max_age):
+                return None
+            report = dict(report)
+        try:
+            receipt = renderer_report_receipt_identity(report)
+        except Exception:
+            return None
+        if (receipt.session_id != session_id or receipt.turn_id != turn_id
+                or receipt.output_digest != output_digest
+                or receipt.expectation_id != expectation.expectation_id
+                or receipt.expectation_digest != expectation.expectation_digest
+                or receipt.handoff_id != handoff.get("handoff_id")
+                or receipt.handoff_digest != handoff.get("handoff_digest")
+                or receipt.correlation_id != expectation.correlation_id
+                or receipt.body_generation != expectation.body_generation):
+            return None
+        return receipt
 
     def body_pointer_comparison(self) -> dict[str, Any] | None:
         """Return the last comparison without upgrading renderer self-report."""
@@ -615,6 +664,7 @@ class _LatestRendererObservation:
                 return ()
             if now - sampled > self._max_age:
                 self._observation = None
+                self._renderer_report = None
                 self._sampled_monotonic = 0.0
                 return ()
             return (observation,)
@@ -1022,7 +1072,8 @@ class _TemporaryCompanionEdge:
             self._base_emitter = BridgeChatAvatarOutputEmitter(self._sender)
             self.emitter = _PreparedAvatarConsequenceEmitter(
                 emitter=self._base_emitter, pointer=adopted_body_pointer,
-                observer=self.avatar_consequence_observer)
+                observer=self.avatar_consequence_observer,
+                renderer_receipt_provider=self.proprioception_observations.renderer_receipt_for)
             self.state_file = root / "edge-runtime" / "avatar_state.json"
             self.identity_posture = "temporary_test_mtls_identities"
         except Exception:
