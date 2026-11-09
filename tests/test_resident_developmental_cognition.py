@@ -5883,6 +5883,135 @@ def test_operator_confirmed_bridge_cycle_writes_then_later_cognition_retrieves_h
     assert later.developmental_history_writeback_performed is False
 
 
+def test_confirmed_cycle_reconciles_proprioception_after_cognition_for_later_ticks(
+        tmp_path: Path) -> None:
+    from sentientos.longitudinal_self_model import (
+        LongitudinalSelfModelOwner, LongitudinalSelfModelRuntimeConfig,
+    )
+
+    moments = [datetime(2026, 11, 8, 12, 0, tzinfo=timezone.utc)]
+    cognition, fake = owner(tmp_path / "cognition-self-model",
+        allowed_source_kinds=("embodiment",))
+    self_model = LongitudinalSelfModelOwner(tmp_path / "self-model")
+    self_model_config = LongitudinalSelfModelRuntimeConfig(
+        enabled=True, custody_root=tmp_path / "self-model",
+        cognitive_consumption_enabled=True, max_projection_claims=4,
+        allowed_predicates=("embodiment.renderer_reported_pose",),
+        installation_id="companion-cycle-fixture")
+    payload = {"renderer_reported_pose": "idle"}
+    source_digest = semantic_digest({"class": "avatar_renderer_reported_state",
+        "subject": "avatar", "payload": payload,
+        "time": moments[0].isoformat()})
+    proprioception = EmbodimentObservation(
+        source_id="fixture:renderer-report:1", source_schema="fixture:renderer:v1",
+        source_digest=source_digest, observed_at=moments[0].isoformat(),
+        provenance_class="synthetic", freshness="fresh", posture="synthetic_test",
+        evidence_class="avatar_renderer_reported_state", subject_id="avatar",
+        subject_kind="avatar", payload=payload)
+    screen = {"modality": "screen", "text": "A fresh, bounded test scene.",
+        "capture_digest": "f" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": moments[0].isoformat(), "raw_frame_retained": False}
+    bridge = ResidentDevelopmentalCompanionBridge(
+        cognition, proprioception_provider=lambda: (proprioception,),
+        self_model_owner=self_model, self_model_config=self_model_config,
+        clock=lambda: moments[0])
+    seed_snapshot = build_companion_snapshot(
+        screen_observation=screen, clock=lambda: moments[0])
+    seeded = cognition.run_tick(snapshot=seed_snapshot, tick_id="seed-history")
+    assert seeded.written_record_id is not None
+
+    cycle = bridge.run_developmental_cycle(
+        tick_id="opaque-companion-cycle-id", screen_observation=screen)
+
+    assert cycle.status == "completed"
+    assert cycle.written_record_id is not None
+    assert cycle.self_model_reconciliation_status == "reconciled"
+    assert cycle.self_model_reconciliation_generation == 1
+    assert cycle.self_model_claim_count is not None
+    assert cycle.self_model_claim_count >= 1
+    cycle_observation = cognition.verified_cognition_observation(
+        cycle.cognition_observation_ids[0])
+    assert cycle_observation["self_model_projection_present"] is False
+    assert cycle_observation["self_model_projection_id"] is None
+    reconciliation = self_model.reconstruct()
+    assert reconciliation is not None
+    assert reconciliation.tick_id == moments[0].isoformat()
+    claim = next(item for item in reconciliation.claims
+        if item.predicate == "embodiment.renderer_reported_pose")
+    assert claim.value == "idle"
+    assert claim.freshness == "unknown"
+    assert claim.current_truth is False
+    assert not any(claim.authority.values())
+
+    moments[0] += timedelta(seconds=1)
+    fake.companion_output_override = {
+        "disposition": "answer", "response": "The prior renderer report is available.",
+        "evidence_ids": ["__CURRENT_FACT__"], "history_record_ids": [],
+    }
+    later = bridge.respond(request_id="later-self-model-cycle",
+        question="What was the avatar's prior reported pose?", screen_observation=screen)
+    assert later.self_model_projection_id is not None
+    assert later.self_model_projection_digest is not None
+    assert later.self_model_projection_id != ""
+    assert later.developmental_history_writeback_performed is False
+    later_observation = cognition.verified_cognition_observation(
+        later.cognition_observation_id, later.cognition_observation_digest)
+    assert later_observation["self_model_projection_id"] == later.self_model_projection_id
+    assert later_observation["self_model_projection_digest"] == (
+        later.self_model_projection_digest)
+    later_projection = self_model.cognitive_projection(
+        before_tick=moments[0].isoformat(), max_claims=4,
+        allowed_predicates=self_model_config.allowed_predicates)
+    assert later_projection is not None
+    assert later_projection.source_reconciliation_id == reconciliation.reconciliation_id
+    assert later_projection.source_reconciliation_digest == (
+        reconciliation.reconciliation_digest)
+    assert later_projection.source_tick == reconciliation.tick_id
+    assert later_projection.projection_id == later.self_model_projection_id
+    assert later_projection.projection_digest == later.self_model_projection_digest
+
+
+def test_self_model_reconciliation_failure_preserves_completed_writeback(
+        tmp_path: Path) -> None:
+    from types import SimpleNamespace
+
+    now = datetime.now(timezone.utc)
+    cognition, _ = owner(tmp_path / "reconciliation-failure",
+        allowed_source_kinds=("embodiment",))
+    screen = {"modality": "screen", "text": "A fresh bounded test observation.",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    seed_snapshot = build_companion_snapshot(
+        screen_observation=screen, clock=lambda: now)
+    seeded = cognition.run_tick(snapshot=seed_snapshot, tick_id="seed-failure-history")
+    assert seeded.written_record_id is not None
+
+    class FailingSelfModelOwner:
+        def cognitive_projection(self, **_kwargs):
+            return None
+
+        def reconcile(self, *_args, **_kwargs):
+            raise OSError("synthetic reconciliation failure")
+
+    config = SimpleNamespace(enabled=True, cognitive_consumption_enabled=True,
+        max_projection_claims=4, allowed_predicates=())
+    bridge = ResidentDevelopmentalCompanionBridge(
+        cognition, self_model_owner=FailingSelfModelOwner(),
+        self_model_config=config, clock=lambda: now)
+
+    cycle = bridge.run_developmental_cycle(
+        tick_id="reconciliation-failure-cycle", screen_observation=screen)
+
+    assert cycle.status == "completed"
+    assert cycle.written_record_id is not None
+    assert cycle.writeback_receipt_id is not None
+    assert cycle.self_model_reconciliation_status == "degraded"
+    assert cycle.self_model_reconciliation_error_type == "OSError"
+    assert cycle.self_model_reconciliation_id is None
+
+
 def test_operator_confirmed_bridge_cycle_rejects_stale_capture_before_inference(
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)
