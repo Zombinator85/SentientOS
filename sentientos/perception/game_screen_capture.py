@@ -672,8 +672,12 @@ class LocalOllamaScreenCaptioner:
     def _avatar_sequence_mosaic(cls, frame: CapturedGameFrame) -> CapturedGameFrame:
         """Build a small, fixed-layout view covering screen corners and center."""
         _validate_frame(frame)
-        crop_width = max(1, round(frame.width * 0.55))
-        crop_height = max(1, round(frame.height * 0.55))
+        # The companion is intentionally small in a screen corner. A broad
+        # half-screen crop makes a 40–50 px avatar nearly disappear when each
+        # panel is reduced to 160 px. Keep the same five-panel request budget,
+        # but zoom into the corners and center so the avatar remains legible.
+        crop_width = max(1, round(frame.width * 0.25))
+        crop_height = max(1, round(frame.height * 0.25))
         x_positions = (0, frame.width - crop_width, (frame.width - crop_width) // 2)
         y_positions = (0, frame.height - crop_height, (frame.height - crop_height) // 2)
         regions = (
