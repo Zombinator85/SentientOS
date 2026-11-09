@@ -5923,6 +5923,59 @@ def test_developmental_cycle_composes_selected_verified_consequence_history(
     assert fake.requests
 
 
+def test_developmental_cycle_admits_current_consequence_evidence_without_upgrading_it(
+        tmp_path: Path) -> None:
+    now = datetime.now(timezone.utc)
+    cognition, fake = owner(tmp_path / "current-consequence-cycle",
+        allowed_source_kinds=("embodiment",), max_selected_facts=2)
+    screen = {"modality": "screen", "text": "A fresh bounded screen observation.",
+        "capture_digest": "6" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    consequence = {
+        "source_kind": "embodiment",
+        "source_id": "comparison:" + "c" * 24,
+        "schema_version": "sentientos.embodied_prediction_comparison:v1",
+        "subject_id": "expectation:" + "c" * 24,
+        "subject_kind": "embodied_prediction_comparison",
+        "stage": "observation", "disposition": "indeterminate",
+        "observed_at": now.isoformat(),
+        "payload": {"classification": "indeterminate",
+            "confidence": "unknown", "quality": "partial",
+            "observed": {"avatar_visible": None, "avatar_motion": "uncertain"},
+            "effect_proven": False},
+        "effect_claimed": False, "effect_proven": False,
+    }
+    consequence["digest"] = record_digest(consequence)
+    captured = {}
+    original_run_tick = cognition.run_tick
+    def capture_run_tick(*, snapshot, tick_id, prior_self_model=None,
+            prior_epistemic_state=None):
+        captured["snapshot"] = snapshot
+        return original_run_tick(snapshot=snapshot, tick_id=tick_id,
+            prior_self_model=prior_self_model,
+            prior_epistemic_state=prior_epistemic_state)
+    cognition.run_tick = capture_run_tick
+    bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
+
+    cycle = bridge.run_developmental_cycle(
+        tick_id="cycle-current-consequence",
+        screen_observation=screen,
+        current_consequence_records=(consequence,))
+
+    assert cycle.status == "completed"
+    assert cycle.written_record_id is not None
+    snapshot = captured["snapshot"]
+    consequence_fact = next(fact for fact in snapshot.facts
+        if fact.source.source_id == consequence["source_id"])
+    assert consequence_fact.payload["classification"] == "indeterminate"
+    assert consequence_fact.payload["effect_proven"] is False
+    assert consequence_fact.source.digest == consequence["digest"]
+    assert consequence_fact.observed_at == consequence["observed_at"]
+    assert consequence_fact.fact_id in cycle.selected_fact_ids
+    assert fake.requests
+
+
 def test_developmental_cycle_rejects_unbounded_or_invalid_consequence_projection(
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)

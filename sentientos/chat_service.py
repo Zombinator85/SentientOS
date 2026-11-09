@@ -5220,7 +5220,7 @@ async def root_page() -> HTMLResponse:
                 }
 
                 async function runDevelopmentalCycle(assistantTurnId, button, entry) {
-                    if (!window.confirm('Capture one fresh, consented foreground-game observation and run the existing resident cognition tick? If an eligible lesson is produced, the governed developmental-writeback owner will retain it for later cognition. When a reply explicitly predicted an avatar nod, this may also request one separate local avatar-motion observation. Raw frames are discarded; that measurement can be indeterminate and does not prove an effect. This can make local model inference calls; no gameplay action is authorized.')) return;
+                    if (!window.confirm('Capture one fresh, consented foreground-game observation and run the existing resident cognition tick? If an eligible lesson is produced, the governed developmental-writeback owner will retain it for later cognition. When the authorized avatar nod path is configured, this may also request one separate local avatar-motion observation for that nod. Raw frames are discarded; that measurement can be indeterminate and does not prove an effect. This can make local model inference calls; no gameplay action is authorized.')) return;
                     button.disabled = true;
                     const status = document.createElement('p');
                     status.textContent = 'Capturing fresh evidence for the governed developmental cycle...';
