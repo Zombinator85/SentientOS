@@ -387,3 +387,44 @@ def test_development_chat_speech_is_opt_in_and_uses_local_controller(
         assert len(constructed) == 1
     finally:
         chat_service.close_production_chat()
+
+
+def test_avatar_nod_prediction_is_staged_only_for_explicit_prediction_text():
+    from scripts.run_local_companion_dev import _PreparedAvatarConsequenceEmitter
+
+    class Emitter:
+        def __init__(self):
+            self.calls = []
+        def emit_display_text(self, phrase, *, authorization=None, metadata=None):
+            self.calls.append(phrase)
+            return {"status": "sent", "renderer_effect_proven": False}
+
+    emitter = Emitter()
+    observer = object()
+    pointer = {
+        "installation_identity": "test-installation",
+        "body_identity": "test-avatar",
+        "body_generation": 1,
+        "manifest_digest": "sha256:" + "a" * 64,
+        "artifact_sha256": "sha256:" + "b" * 64,
+        "pointer_digest": "sha256:" + "c" * 64,
+    }
+    adapter = _PreparedAvatarConsequenceEmitter(
+        emitter=emitter, pointer=pointer, observer=observer)
+    metadata = {
+        "session_id": "session-test", "turn_id": "turn-test",
+        "output_digest": "sha256:" + "d" * 64,
+    }
+
+    assert adapter.emit_display_text(
+        "I can help with that.", metadata=metadata)["status"] == "sent"
+    assert adapter._prepared == {}
+
+    assert adapter.emit_display_text(
+        "I will nod while I answer.", metadata=metadata)["status"] == "sent"
+    staged = adapter._prepared[("session-test", "turn-test")]
+    assert staged["expectation"].predicted_observables == {
+        "avatar_visible": True, "avatar_motion": "nod"}
+    assert staged["dispatch_status"] == "sent"
+    assert not any(staged["expectation"].authority.values())
+    assert emitter.calls == ["I can help with that.", "I will nod while I answer."]

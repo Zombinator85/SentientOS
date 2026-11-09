@@ -1050,7 +1050,10 @@ class PersistentConversationService:
                  speech_output: ChatSpeechOutput | None = None,
                  screen_observer: Callable[[], Mapping[str, object] | None] | None = None,
                  screen_capture_policy: str = "request_driven",
-                 resident_cognition_bridge: Any | None = None) -> None:
+                 resident_cognition_bridge: Any | None = None,
+                 live_consequence_cycle_provider: Callable[
+                     [str, str], Mapping[str, Any] | None
+                 ] | None = None) -> None:
         self._inference = inference; self.sessions = session_store; self.memories = memory_store
         self._avatar_output = avatar_output
         self._avatar_workload_sync_lock = threading.Lock()
@@ -1066,6 +1069,10 @@ class PersistentConversationService:
                 and not callable(getattr(resident_cognition_bridge, "respond", None))):
             raise TypeError("resident_cognition_bridge_invalid")
         self._resident_cognition_bridge = resident_cognition_bridge
+        if (live_consequence_cycle_provider is not None
+                and not callable(live_consequence_cycle_provider)):
+            raise TypeError("live_consequence_cycle_provider_must_be_callable")
+        self._live_consequence_cycle_provider = live_consequence_cycle_provider
         self.admission_gate = admission_gate or ExplicitRetentionAdmissionGate()
         self.retention_writer = AdmittedRetentionWriter(
             memory_store, admission_gate=self.admission_gate)
@@ -1227,6 +1234,33 @@ class PersistentConversationService:
                 if callable(question_observer) else observer())
             if not isinstance(observation, Mapping):
                 raise RuntimeError("screen_observation_unavailable")
+            consequence_measurement: Mapping[str, Any] | None = None
+            current_consequence_records: tuple[Mapping[str, Any], ...] = ()
+            if self._live_consequence_cycle_provider is not None:
+                try:
+                    consequence_measurement = (
+                        self._live_consequence_cycle_provider(session_id, assistant_turn_id))
+                except Exception as exc:  # noqa: BLE001 - optional capture must fail open for screen writeback
+                    # The optional second measurement must not suppress the
+                    # ordinary operator-confirmed screen-evidence writeback.
+                    consequence_measurement = {
+                        "status": "unavailable",
+                        "error_type": type(exc).__name__,
+                        "effect_proven": False,
+                    }
+                if consequence_measurement is not None:
+                    measurement_status = consequence_measurement.get("status")
+                    if measurement_status == "completed":
+                        records = consequence_measurement.get("world_state_records")
+                        if (not isinstance(records, (tuple, list))
+                                or not records or len(records) > 32
+                                or any(not isinstance(item, Mapping) for item in records)):
+                            raise RuntimeError(
+                                "developmental_consequence_measurement_invalid")
+                        current_consequence_records = tuple(records)
+                    elif measurement_status != "unavailable":
+                        raise RuntimeError(
+                            "developmental_consequence_measurement_invalid")
             tick_id = "companion-developmental-cycle-" + hashlib.sha256(
                 f"{session_id}\0{assistant_turn_id}\0{request_id}".encode("utf-8")).hexdigest()[:32]
             if operator_feedback is not None:
@@ -1250,7 +1284,8 @@ class PersistentConversationService:
                     observed_at=feedback_observed_at)
             result = bridge.run_developmental_cycle(
                 tick_id=tick_id, screen_observation=observation,
-                operator_feedback=feedback_record)
+                operator_feedback=feedback_record,
+                current_consequence_records=current_consequence_records)
         if result.status != "completed":
             raise ChatRequestStateError("developmental_cycle_not_completed")
         return {
@@ -1279,6 +1314,18 @@ class PersistentConversationService:
             "self_model_reconciliation_error_type": getattr(
                 result, "self_model_reconciliation_error_type", None),
             "raw_frame_retained": False,
+            "consequence_measurement": ({
+                "status": consequence_measurement.get("status"),
+                "error_type": consequence_measurement.get("error_type"),
+                "chain_id": consequence_measurement.get("chain_id"),
+                "classification": consequence_measurement.get("classification"),
+                "confidence": consequence_measurement.get("confidence"),
+                "quality": consequence_measurement.get("quality"),
+                "effect_proven": False,
+                "renderer_effect_proven": False,
+                "observer_transport_authenticated": consequence_measurement.get("observer_transport_authenticated") is True,
+                "observation_accuracy_established": False,
+            } if consequence_measurement is not None else None),
         }
 
     def create_session(self) -> str:
@@ -3701,6 +3748,9 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                ] | None = None,
                                screen_capture_policy: str = "request_driven",
                                local_speech_output: bool = False,
+                               live_consequence_cycle_provider: Callable[
+                                   [str, str], Mapping[str, Any] | None
+                               ] | None = None,
                                resident_cognition_bridge: Any | None = None,
                                resident_cognition_owner: Any | None = None,
                                resident_history_intervention_owner: Any | None = None,
@@ -3764,7 +3814,8 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
         avatar_output=avatar_output, speech_output=speech_output,
         screen_observer=screen_observer,
         screen_capture_policy=screen_capture_policy,
-        resident_cognition_bridge=resident_cognition_bridge)
+        resident_cognition_bridge=resident_cognition_bridge,
+        live_consequence_cycle_provider=live_consequence_cycle_provider)
     _PRODUCTION_COMPOSITION = None
     return inference
 
@@ -5244,7 +5295,7 @@ async def root_page() -> HTMLResponse:
                             return;
                         }
                     }
-                    if (!window.confirm('Capture one fresh, consented foreground-game observation and run the existing resident cognition tick? The screen evidence and your optional unverified report may be retained through governed developmental writeback. This can make local model inference calls. Raw screen frames are discarded; no gameplay action is authorized.')) return;
+                    if (!window.confirm('Capture one fresh, consented foreground-game observation and run the existing resident cognition tick? The screen evidence and your optional unverified report may be retained through governed developmental writeback. If a reply predicted an avatar nod, this may also request a separate local avatar-motion observation. The measurement can be indeterminate and does not prove an effect. This can make local model inference calls. Raw screen frames are discarded; no gameplay action is authorized.')) return;
                     button.disabled = true;
                     const status = document.createElement('p');
                     status.textContent = 'Capturing fresh evidence for the governed developmental cycle...';
@@ -5280,6 +5331,16 @@ async def root_page() -> HTMLResponse:
                                     + String(data.self_model_reconciliation_error_type || 'unknown')
                                     + '); the developmental writeback result is reported separately.'
                                 : ' Longitudinal self-model reconciliation is not configured.';
+                        const consequence = data.consequence_measurement;
+                        const consequenceSummary = consequence
+                            ? consequence.status === 'completed'
+                                ? ' Avatar consequence measurement: '
+                                    + String(consequence.classification || 'unavailable')
+                                    + ' (confidence ' + String(consequence.confidence || 'unknown')
+                                    + ', quality ' + String(consequence.quality || 'unknown')
+                                    + '). Measurement transport was authenticated; observation accuracy and effect are not proven.'
+                                : ' Avatar consequence measurement was unavailable; no effect is proven.'
+                            : '';
                         status.textContent = data.status === 'completed_writeback'
                             ? 'Governed developmental writeback completed. Record: '
                                 + String(data.written_record_id || 'unavailable')
@@ -5288,9 +5349,9 @@ async def root_page() -> HTMLResponse:
                                     ? '; your report was included as unverified operator evidence'
                                     : '')
                                 + '. History influence and performance improvement are not yet established.'
-                                + selfModelSummary
+                                + consequenceSummary + selfModelSummary
                             : 'The developmental tick completed, but no eligible lesson was written to history.'
-                                + selfModelSummary;
+                                + consequenceSummary + selfModelSummary;
                     } catch (_) {
                         status.textContent = 'Developmental cycle did not complete.';
                     } finally {

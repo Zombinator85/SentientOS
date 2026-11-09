@@ -1,10 +1,11 @@
 # mypy: ignore-errors
 from __future__ import annotations
 
-from types import SimpleNamespace
+from contextlib import contextmanager
 import hashlib
 import json
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -717,3 +718,120 @@ def test_failure_preserves_user_turn_without_assistant_or_fallback(tmp_path, sta
 def test_conversation_service_has_no_raw_execution_escape_hatch(tmp_path):
     app = service(tmp_path, Inference())
     assert not any(hasattr(app, name) for name in ("model", "invoker", "backend", "process", "serving"))
+
+
+def test_developmental_cycle_adds_current_consequence_to_existing_bridge(tmp_path):
+    events = []
+    screen = {"modality": "screen", "capture_digest": "sha256:" + "a" * 64}
+    consequence = {"source_kind": "embodiment", "digest": "sha256:" + "b" * 64}
+    record = {
+        "role": "assistant", "turn_id": "turn-" + "1" * 24,
+        "text": "I will nod.", "linkage": {
+            "response_origin": "resident_developmental_cognition",
+            "source_user_turn_id": "turn-" + "2" * 24,
+        },
+    }
+    source = {"role": "user", "turn_id": "turn-" + "2" * 24, "text": "Hello."}
+
+    class Sessions:
+        @contextmanager
+        def serialize_chat_requests(self, _session_id):
+            yield
+        def load(self, _session_id):
+            return {"turns": [source, record]}
+
+    class Observer:
+        def observe_question(self, question):
+            events.append(("screen", question))
+            return screen
+
+    class Bridge:
+        def respond(self, **_kwargs):
+            pass
+        def developmental_cycle_available(self):
+            return True
+        def verify_committed_response(self, **_kwargs):
+            return True
+        def run_developmental_cycle(self, **kwargs):
+            events.append(("cycle", kwargs))
+            return SimpleNamespace(status="completed", tick_id=kwargs["tick_id"],
+                snapshot_id="snapshot", selected_fact_ids=(), prior_record_ids=(),
+                written_record_id=None, writeback_receipt_id=None,
+                cognition_observation_ids=())
+
+    svc = service(tmp_path, Inference(), screen_observer=Observer())
+    svc.sessions = Sessions()
+    svc._resident_cognition_bridge = Bridge()
+    svc._live_consequence_cycle_provider = lambda *_args: (
+        events.append(("consequence", None))
+        or {"status": "completed", "world_state_records": (consequence,),
+            "chain_id": "chain-1", "classification": "indeterminate",
+            "confidence": "unknown", "quality": "partial",
+            "observer_transport_authenticated": True})
+
+    result = svc.run_developmental_cycle(
+        session_id="session-1", assistant_turn_id=record["turn_id"],
+        request_id="cycle-1")
+
+    assert [event[0] for event in events] == ["screen", "consequence", "cycle"]
+    assert events[-1][1]["current_consequence_records"] == (consequence,)
+    assert result["consequence_measurement"] == {
+        "status": "completed", "error_type": None, "chain_id": "chain-1",
+        "classification": "indeterminate", "confidence": "unknown",
+        "quality": "partial", "effect_proven": False,
+        "renderer_effect_proven": False,
+        "observer_transport_authenticated": True,
+        "observation_accuracy_established": False,
+    }
+
+
+def test_developmental_cycle_keeps_screen_writeback_path_when_optional_measurement_fails(
+        tmp_path):
+    record = {
+        "role": "assistant", "turn_id": "turn-" + "1" * 24, "text": "A reply.",
+        "linkage": {"response_origin": "resident_developmental_cognition",
+            "source_user_turn_id": "turn-" + "2" * 24},
+    }
+    source = {"role": "user", "turn_id": "turn-" + "2" * 24, "text": "Hello."}
+
+    class Sessions:
+        @contextmanager
+        def serialize_chat_requests(self, _session_id):
+            yield
+        def load(self, _session_id):
+            return {"turns": [source, record]}
+
+    class Observer:
+        def observe_question(self, _question):
+            return {"modality": "screen", "capture_digest": "sha256:" + "a" * 64}
+
+    class Bridge:
+        def respond(self, **_kwargs):
+            pass
+        def developmental_cycle_available(self):
+            return True
+        def verify_committed_response(self, **_kwargs):
+            return True
+        def run_developmental_cycle(self, **kwargs):
+            self.kwargs = kwargs
+            return SimpleNamespace(status="completed", tick_id=kwargs["tick_id"],
+                snapshot_id="snapshot", selected_fact_ids=(), prior_record_ids=(),
+                written_record_id=None, writeback_receipt_id=None,
+                cognition_observation_ids=())
+
+    svc = service(tmp_path, Inference(), screen_observer=Observer())
+    svc.sessions = Sessions()
+    bridge = Bridge()
+    svc._resident_cognition_bridge = bridge
+    def unavailable(*_args):
+        raise TimeoutError("observer timeout")
+    svc._live_consequence_cycle_provider = unavailable
+
+    result = svc.run_developmental_cycle(
+        session_id="session-1", assistant_turn_id=record["turn_id"],
+        request_id="cycle-2")
+
+    assert "current_consequence_records" not in bridge.kwargs
+    assert result["status"] == "completed_without_writeback"
+    assert result["consequence_measurement"]["status"] == "unavailable"
+    assert result["consequence_measurement"]["effect_proven"] is False
