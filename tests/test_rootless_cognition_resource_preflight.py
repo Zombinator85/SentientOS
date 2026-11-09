@@ -69,7 +69,9 @@ def test_guard_does_not_enter_model_backend_without_headroom(runner, monkeypatch
 
     delegate = Delegate()
     coordinator = SimpleNamespace()
-    guarded = runner._ResourceGuardedInvoker(delegate, coordinator, 9 * 1024**3)
+    evidence: list[dict[str, Any]] = []
+    guarded = runner._ResourceGuardedInvoker(
+        delegate, coordinator, 9 * 1024**3, evidence)
     monkeypatch.setattr(runner, "_refresh_resource_evidence",
         lambda *args, **kwargs: {"gpu_utilization_percent": 0})
     monkeypatch.setattr(runner, "_gpu_snapshot",
@@ -78,6 +80,9 @@ def test_guard_does_not_enter_model_backend_without_headroom(runner, monkeypatch
             match="gpu_memory_headroom_insufficient"):
         guarded.invoke(object())
     assert delegate.called is False
+    assert evidence[0]["gate_status"] == "blocked"
+    assert evidence[0]["gate_reason"] == "gpu_memory_headroom_insufficient"
+    assert evidence[0]["gpu_memory_free_mib"] == 10000
 
 
 def test_guard_does_not_enter_model_backend_when_host_evidence_is_missing(
@@ -91,9 +96,12 @@ def test_guard_does_not_enter_model_backend_when_host_evidence_is_missing(
 
     delegate = Delegate()
     coordinator = SimpleNamespace()
-    guarded = runner._ResourceGuardedInvoker(delegate, coordinator, 9 * 1024**3)
+    evidence: list[dict[str, Any]] = []
+    guarded = runner._ResourceGuardedInvoker(
+        delegate, coordinator, 9 * 1024**3, evidence)
     monkeypatch.setattr(runner, "_gpu_snapshot",
-        lambda: {"memory_free_mib": 12000, "memory_total_mib": 12288})
+        lambda: {"memory_free_mib": 12000, "memory_total_mib": 12288,
+            "source": "nvidia-smi", "scope": "host_sample_not_per_invocation"})
     def unavailable(*args, **kwargs):
         raise runner.RootlessExperimentalError("host_resource_evidence_unavailable")
     monkeypatch.setattr(runner, "_refresh_resource_evidence", unavailable)
@@ -101,6 +109,8 @@ def test_guard_does_not_enter_model_backend_when_host_evidence_is_missing(
             match="host_resource_evidence_unavailable"):
         guarded.invoke(object())
     assert delegate.called is False
+    assert evidence[0]["gate_status"] == "blocked"
+    assert evidence[0]["gate_reason"] == "host_resource_evidence_unavailable"
 
 
 def test_gpu_snapshot_accepts_normal_wsl_reserved_memory_gap(runner, monkeypatch):
@@ -128,12 +138,15 @@ def test_guard_calls_backend_only_after_both_preflights(runner, monkeypatch):
         lambda *args, **kwargs: {"evaluation_id": "fresh",
             "gpu_utilization_percent": 0})
     monkeypatch.setattr(runner, "_gpu_snapshot",
-        lambda: {"memory_free_mib": 12000, "memory_total_mib": 12288})
+        lambda: {"memory_free_mib": 12000, "memory_total_mib": 12288,
+            "source": "nvidia-smi", "scope": "host_sample_not_per_invocation"})
     assert guarded.invoke(object()) == "inference"
     assert delegate.called is True
-    assert evidence == [{"evaluation_id": "fresh",
-        "gpu_utilization_percent": 0,
+    assert evidence == [{"inference_sequence": 1, "gate_status": "passed",
+        "evaluation_id": "fresh", "gpu_utilization_percent": 0,
         "gpu_memory_free_mib": 12000, "gpu_memory_total_mib": 12288,
+        "gpu_memory_sample_source": "nvidia-smi",
+        "gpu_memory_sample_scope": "host_sample_not_per_invocation",
         "preinference_gpu_utilization_limit_percent":
             runner._MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT}]
 
@@ -182,9 +195,34 @@ def test_guard_blocks_inference_without_quiet_gpu_preflight(
             return "inference"
 
     delegate = Delegate()
-    guarded = runner._ResourceGuardedInvoker(delegate, SimpleNamespace(), 9 * 1024**3)
+    evidence: list[dict[str, Any]] = []
+    guarded = runner._ResourceGuardedInvoker(
+        delegate, SimpleNamespace(), 9 * 1024**3, evidence)
     monkeypatch.setattr(runner, "_refresh_resource_evidence",
         lambda *args, **kwargs: resource_record)
     with pytest.raises(runner.RootlessExperimentalError, match=reason):
         guarded.invoke(object())
     assert delegate.called is False
+    assert evidence[0]["gate_status"] == "blocked"
+    assert evidence[0]["gate_reason"] == reason
+
+
+def test_incomplete_run_artifact_preserves_blocked_resource_sample(
+        runner, monkeypatch, tmp_path):
+    run_root = tmp_path / "run"
+    run_root.mkdir()
+    sample = {"inference_sequence": 1, "gpu_utilization_percent": 80,
+        "gate_status": "blocked", "gate_reason": "gpu_utilization_preflight_busy"}
+    monkeypatch.setattr(runner, "RUN_ROOT", run_root)
+    monkeypatch.setattr(runner, "RESOURCE_PREFLIGHT_EVIDENCE", [sample])
+    monkeypatch.setattr(runner, "_verify_model_released",
+        lambda _: {"status": "target_model_not_resident"})
+    monkeypatch.setattr(runner, "_gpu_snapshot", lambda: None)
+    artifact_path = runner._persist_incomplete_run(
+        runner.RootlessExperimentalError("gpu_utilization_preflight_busy"))
+    assert artifact_path is not None
+    artifact = json.loads(artifact_path.read_text())
+    assert artifact["schema_version"] == (
+        "sentientos.rootless_ollama_embodied_cognition_failure:v2")
+    assert artifact["resource_preflight_samples"] == [sample]
+    assert "process attribution" in artifact["resource_preflight_sample_scope"]
