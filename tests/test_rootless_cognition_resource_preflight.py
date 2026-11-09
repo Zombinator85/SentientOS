@@ -1,9 +1,9 @@
 # mypy: disable-error-code="no-untyped-def"
-import importlib
+from importlib.util import module_from_spec, spec_from_file_location
 import json
-import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -14,9 +14,14 @@ pytestmark = pytest.mark.no_legacy_skip
 def runner(monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE",
         str(tmp_path / "private-workspace"))
-    sys.modules.pop("scripts.run_rootless_ollama_embodied_cognition_cycle", None)
-    return importlib.import_module(
-        "scripts.run_rootless_ollama_embodied_cognition_cycle")
+    script_path = (Path(__file__).resolve().parents[1] / "scripts"
+        / "run_rootless_ollama_embodied_cognition_cycle.py")
+    spec = spec_from_file_location("rootless_cognition_cycle_test_module",
+        script_path)
+    assert spec is not None and spec.loader is not None
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_model_weight_size_is_read_from_pinned_ollama_manifest(runner, tmp_path):
@@ -105,3 +110,55 @@ def test_gpu_snapshot_accepts_normal_wsl_reserved_memory_gap(runner, monkeypatch
     snapshot = runner._gpu_snapshot()
     assert snapshot is not None
     assert snapshot["memory_free_mib"] == 3331
+
+
+def test_guard_calls_backend_only_after_both_preflights(runner, monkeypatch):
+    class Delegate:
+        called = False
+
+        def invoke(self, request, **kwargs):
+            self.called = True
+            return "inference"
+
+    delegate = Delegate()
+    evidence: list[dict[str, Any]] = []
+    guarded = runner._ResourceGuardedInvoker(
+        delegate, SimpleNamespace(), 9 * 1024**3, evidence)
+    monkeypatch.setattr(runner, "_refresh_resource_evidence",
+        lambda *args, **kwargs: {"evaluation_id": "fresh"})
+    monkeypatch.setattr(runner, "_gpu_snapshot",
+        lambda: {"memory_free_mib": 12000, "memory_total_mib": 12288})
+    assert guarded.invoke(object()) == "inference"
+    assert delegate.called is True
+    assert evidence == [{"evaluation_id": "fresh",
+        "gpu_memory_free_mib": 12000, "gpu_memory_total_mib": 12288}]
+
+
+def test_resource_governor_enforcement_is_scoped_and_restored(
+        runner, monkeypatch, tmp_path):
+    observed_modes = []
+
+    class Governor:
+        def __init__(self):
+            observed_modes.append(runner.os.environ.get(
+                "SENTIENTOS_ENFORCEMENT_RUNTIME_GOVERNOR"))
+
+    class Kernel:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class Coordinator:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "shadow")
+    monkeypatch.delenv("SENTIENTOS_ENFORCEMENT_RUNTIME_GOVERNOR",
+        raising=False)
+    monkeypatch.setattr(runner, "RuntimeGovernor", Governor)
+    monkeypatch.setattr(runner, "ControlPlaneKernel", Kernel)
+    monkeypatch.setattr(runner, "HostResourceRuntimeCoordinator", Coordinator)
+    monkeypatch.setattr(runner, "RUN_ROOT", tmp_path / "run")
+    kernel, coordinator = runner._enforcing_resource_runtime()
+    assert observed_modes == ["enforce"]
+    assert runner.os.environ.get("SENTIENTOS_ENFORCEMENT_RUNTIME_GOVERNOR") is None
+    assert coordinator.kwargs["kernel"] is kernel

@@ -66,6 +66,7 @@ from sentientos.rootless_experimental_local_model import (
 from sentientos.rootless_experimental_ollama_epistemic_session import (
     RootlessExperimentalOllamaDevelopmentalSession)
 from sentientos.control_plane_kernel import ControlPlaneKernel
+from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.host_resource_runtime import (
     HostResourceRuntimeCoordinator, validate_evaluation)
 from sentientos.runtime_governor import RuntimeGovernor
@@ -162,6 +163,8 @@ def _enforcing_resource_runtime() -> tuple[ControlPlaneKernel,
     previous = os.environ.get(key)
     os.environ[key] = "enforce"
     try:
+        if resolve_policy().runtime_governor != "enforce":
+            raise RootlessExperimentalError("runtime_governor_enforcement_unavailable")
         governor = RuntimeGovernor()
     finally:
         if previous is None:
