@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import hashlib
+import json
 
 import pytest
 
@@ -88,10 +89,32 @@ def test_explicit_avatar_measurement_traverses_authenticated_consequence_stream(
     capture_digest = _sha("captured-pixels")
     process_digest = _sha("Cronos-Win64-Shipping.exe")
     consent_digest = _sha("operator-consent-id")
+    sample_digests = [_sha("avatar-frame-1"), _sha("avatar-frame-2"), capture_digest]
+    sample_times = [
+        (now - timedelta(seconds=1.5)).isoformat(),
+        (now - timedelta(seconds=1)).isoformat(),
+        observed_at,
+    ]
+    sample_offsets = [0.0, 0.5, 1.0]
+    sequence_binding = {
+        "sample_capture_digests": sample_digests,
+        "sample_captured_at": sample_times,
+        "sample_offsets_seconds": sample_offsets,
+        "process_name_digest": process_digest,
+        "consent_id_digest": consent_digest,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+    }
+    sequence_digest = hashlib.sha256(json.dumps(
+        sequence_binding, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=True).encode("utf-8")).hexdigest()
     measurement = {
         "observed": {"avatar_visible": True, "avatar_motion": "wave"},
         "observed_at": observed_at,
         "capture_digest": capture_digest,
+        "capture_sequence_digest": sequence_digest,
+        "sample_capture_digests": sample_digests,
+        "sample_captured_at": sample_times,
+        "sample_offsets_seconds": sample_offsets,
         "process_name_digest": process_digest,
         "consent_id_digest": consent_digest,
         "capture_scope": "allowlisted_foreground_game_client_area",
@@ -130,12 +153,16 @@ def test_explicit_avatar_measurement_traverses_authenticated_consequence_stream(
             evaluated_at=datetime.now(timezone.utc).isoformat())
         receipt = attribution["observation_authentication_receipt"]
         assert receipt["capture_provenance"] == {
-            "schema_version": "sentientos.screen_capture_provenance:v1",
+            "schema_version": "sentientos.screen_capture_provenance:v2",
             "capture_digest": capture_digest,
             "process_name_digest": process_digest,
             "consent_id_digest": consent_digest,
             "capture_scope": "allowlisted_foreground_game_client_area",
             "raw_frame_retained": False,
+            "capture_sequence_digest": sequence_digest,
+            "sample_capture_digests": sample_digests,
+            "sample_captured_at": sample_times,
+            "sample_offsets_seconds": sample_offsets,
         }
         assert receipt["capture_request_id"]
         assert comparison["counts"]["satisfied"] == 2

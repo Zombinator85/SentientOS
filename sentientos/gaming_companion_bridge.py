@@ -44,6 +44,11 @@ CONSEQUENCE_CAPTURE_PROVENANCE_FIELDS = frozenset({
     "schema_version", "capture_digest", "process_name_digest", "consent_id_digest",
     "capture_scope", "raw_frame_retained",
 })
+CONSEQUENCE_CAPTURE_SEQUENCE_PROVENANCE_FIELDS = frozenset(
+    CONSEQUENCE_CAPTURE_PROVENANCE_FIELDS | {
+        "capture_sequence_digest", "sample_capture_digests",
+        "sample_captured_at", "sample_offsets_seconds",
+    })
 AVATAR_COMMAND_FIELDS = frozenset({"output_mode", "phrase", "expression", "motion", "mood",
                                    "intensity", "workload_mode", "output_digest", "turn_id",
                                    "speech_timing", "consequence_expectation_id",
@@ -271,8 +276,6 @@ def _validate_message(kind: str, payload: Mapping[str, Any], admission: Mapping[
                 raise CompanionBridgeError("consequence_observation_capture_request_invalid")
             provenance = payload.get("capture_provenance")
             if (not isinstance(provenance, Mapping)
-                    or set(provenance) != CONSEQUENCE_CAPTURE_PROVENANCE_FIELDS
-                    or provenance.get("schema_version") != "sentientos.screen_capture_provenance:v1"
                     or provenance.get("capture_scope") != "allowlisted_foreground_game_client_area"
                     or provenance.get("raw_frame_retained") is not False):
                 raise CompanionBridgeError("consequence_observation_capture_provenance_invalid")
@@ -280,6 +283,61 @@ def _validate_message(kind: str, payload: Mapping[str, Any], admission: Mapping[
                 if (not isinstance(provenance.get(field), str)
                         or _SHA256.fullmatch(provenance[field]) is None):
                     raise CompanionBridgeError("consequence_observation_capture_provenance_invalid")
+            if (set(provenance) == CONSEQUENCE_CAPTURE_PROVENANCE_FIELDS
+                    and provenance.get("schema_version") == "sentientos.screen_capture_provenance:v1"):
+                pass
+            elif (set(provenance) == CONSEQUENCE_CAPTURE_SEQUENCE_PROVENANCE_FIELDS
+                    and provenance.get("schema_version") == "sentientos.screen_capture_provenance:v2"):
+                digests = provenance.get("sample_capture_digests")
+                timestamps = provenance.get("sample_captured_at")
+                offsets = provenance.get("sample_offsets_seconds")
+                sequence_digest = provenance.get("capture_sequence_digest")
+                if (not isinstance(digests, list) or not 3 <= len(digests) <= 5
+                        or not isinstance(timestamps, list) or len(timestamps) != len(digests)
+                        or not isinstance(offsets, list) or len(offsets) != len(digests)
+                        or any(not isinstance(value, str) or _SHA256.fullmatch(value) is None
+                               for value in digests)
+                        or any(not isinstance(value, str) or not value or len(value) > 64
+                               for value in timestamps)
+                        or any(isinstance(value, bool) or not isinstance(value, (int, float))
+                               or not math.isfinite(float(value)) or float(value) < 0
+                               for value in offsets)
+                        or any(float(right) - float(left) < 0.35
+                               or float(right) - float(left) > 2.0
+                               for left, right in zip(offsets, offsets[1:]))
+                        or float(offsets[-1]) - float(offsets[0]) > 5.0
+                        or not isinstance(sequence_digest, str)
+                        or _SHA256.fullmatch(sequence_digest) is None
+                        or provenance.get("capture_digest") != digests[-1]):
+                    raise CompanionBridgeError("consequence_observation_capture_provenance_invalid")
+                parsed_times = []
+                try:
+                    parsed_times = [datetime.fromisoformat(value.replace("Z", "+00:00"))
+                                    for value in timestamps]
+                except ValueError as exc:
+                    raise CompanionBridgeError(
+                        "consequence_observation_capture_provenance_invalid") from exc
+                if (any(value.tzinfo is None or value.utcoffset() is None
+                        for value in parsed_times)
+                        or any(right <= left for left, right in zip(
+                            parsed_times, parsed_times[1:]))):
+                    raise CompanionBridgeError("consequence_observation_capture_provenance_invalid")
+                sequence_binding = {
+                    "sample_capture_digests": digests,
+                    "sample_captured_at": timestamps,
+                    "sample_offsets_seconds": offsets,
+                    "process_name_digest": provenance["process_name_digest"],
+                    "consent_id_digest": provenance["consent_id_digest"],
+                    "capture_scope": provenance["capture_scope"],
+                }
+                expected_sequence_digest = hashlib.sha256(json.dumps(
+                    sequence_binding, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=True).encode("utf-8")).hexdigest()
+                if sequence_digest != expected_sequence_digest:
+                    raise CompanionBridgeError(
+                        "consequence_observation_capture_provenance_invalid")
+            else:
+                raise CompanionBridgeError("consequence_observation_capture_provenance_invalid")
         else:
             raise CompanionBridgeError("consequence_observation_shape_invalid")
         for field in ("expectation_id", "handoff_id", "correlation_id"):

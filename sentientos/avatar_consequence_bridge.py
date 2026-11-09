@@ -144,14 +144,31 @@ class AvatarConsequenceCaptureRequestHandler:
         if not isinstance(measurement, Mapping):
             raise AvatarConsequenceBridgeError("avatar_consequence_measurement_invalid")
         observed = measurement.get("observed")
+        sequence_fields = (
+            "capture_sequence_digest", "sample_capture_digests",
+            "sample_captured_at", "sample_offsets_seconds",
+        )
+        present_sequence_fields = [field in measurement for field in sequence_fields]
+        if any(present_sequence_fields) and not all(present_sequence_fields):
+            raise AvatarConsequenceBridgeError(
+                "avatar_consequence_measurement_sequence_provenance_invalid")
+        sequence_measurement = all(present_sequence_fields)
         provenance = {
-            "schema_version": "sentientos.screen_capture_provenance:v1",
+            "schema_version": ("sentientos.screen_capture_provenance:v2"
+                if sequence_measurement else "sentientos.screen_capture_provenance:v1"),
             "capture_digest": measurement.get("capture_digest"),
             "process_name_digest": measurement.get("process_name_digest"),
             "consent_id_digest": measurement.get("consent_id_digest"),
             "capture_scope": measurement.get("capture_scope"),
             "raw_frame_retained": measurement.get("raw_frame_retained"),
         }
+        sequence_timestamps = measurement.get("sample_captured_at")
+        sequence_last_timestamp = (
+            sequence_timestamps[-1]
+            if isinstance(sequence_timestamps, (list, tuple)) and sequence_timestamps
+            else None)
+        if sequence_measurement:
+            provenance.update({field: measurement.get(field) for field in sequence_fields})
         if (not isinstance(observed, Mapping)
                 or set(observed) != {"avatar_visible", "avatar_motion"}
                 or observed.get("avatar_visible") not in (True, False, None)
@@ -161,7 +178,9 @@ class AvatarConsequenceCaptureRequestHandler:
                 or measurement.get("confidence") != "unknown"
                 or measurement.get("quality") not in {"partial", "unknown"}
                 or measurement.get("raw_frame_retained") is not False
-                or not isinstance(measurement.get("observed_at"), str)):
+                or not isinstance(measurement.get("observed_at"), str)
+                or (sequence_measurement and measurement.get("observed_at")
+                    != sequence_last_timestamp)):
             raise AvatarConsequenceBridgeError("avatar_consequence_measurement_contract_invalid")
         payload = {
             "schema_version": CONSEQUENCE_OBSERVATION_SCHEMA_V2,
