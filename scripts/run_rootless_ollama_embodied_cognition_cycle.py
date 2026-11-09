@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 import uuid
@@ -136,6 +137,8 @@ _GPU_RUNTIME_RESERVE_BYTES = 2 * 1024**3
 # a substantial share of the GPU; WSL cannot reliably attribute Windows GPU
 # clients to their owning application.
 _MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT = 25.0
+_INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS = 1.0
+_MAX_DURING_INFERENCE_GPU_SAMPLES = 512
 
 
 def _model_weight_bytes(manifest_path: Path) -> int:
@@ -285,10 +288,46 @@ class _ResourceGuardedInvoker:
         evidence_index = len(self._evidence_records)
         self._evidence_records.append(dict(resource_record))
         resource_record["invocation_started_at"] = _now()
+        stop_sampling = threading.Event()
+        during_samples: list[dict[str, Any]] = []
+        sample_failures = 0
+
+        def sample_during_inference() -> None:
+            nonlocal sample_failures
+            while not stop_sampling.wait(
+                    _INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS):
+                try:
+                    sample = _gpu_snapshot()
+                except Exception:
+                    sample = None
+                if not isinstance(sample, Mapping):
+                    sample_failures += 1
+                    continue
+                if len(during_samples) < _MAX_DURING_INFERENCE_GPU_SAMPLES:
+                    during_samples.append(dict(sample))
+                else:
+                    sample_failures += 1
+
+        sampler = threading.Thread(
+            target=sample_during_inference,
+            name="sentientos-inference-gpu-sampler",
+            daemon=True)
+        sampler.start()
         try:
             return self._delegate.invoke(request, **kwargs)
         finally:
+            stop_sampling.set()
+            sampler.join(timeout=6.0)
             resource_record["invocation_finished_at"] = _now()
+            resource_record["during_inference_gpu_samples"] = list(during_samples)
+            resource_record["during_inference_gpu_sample_failures_or_omissions"] = (
+                sample_failures)
+            resource_record["during_inference_gpu_sampling_interval_seconds"] = (
+                _INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS)
+            resource_record["during_inference_gpu_sampling_status"] = (
+                "sampler_join_timeout" if sampler.is_alive()
+                else "sampled" if during_samples
+                else "no_intermediate_sample")
             resource_record["post_inference_gpu_sample"] = _gpu_snapshot()
             self._evidence_records[evidence_index] = dict(resource_record)
 

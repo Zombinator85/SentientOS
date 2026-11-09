@@ -1,6 +1,7 @@
 # mypy: disable-error-code="no-untyped-def"
 from importlib.util import module_from_spec, spec_from_file_location
 import json
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -233,6 +234,44 @@ def test_guard_preserves_post_inference_resource_sample_when_backend_fails(
     assert record["post_inference_gpu_sample"]["memory_free_mib"] == 6000
     assert record["post_inference_gpu_sample"]["sampled_at"] == (
         "2026-11-09T00:00:02+00:00")
+
+
+def test_guard_collects_bounded_host_samples_during_inference(
+        runner, monkeypatch):
+    class Delegate:
+        def invoke(self, request, **kwargs):
+            time.sleep(0.03)
+            return "inference"
+
+    evidence: list[dict[str, Any]] = []
+    guarded = runner._ResourceGuardedInvoker(
+        Delegate(), SimpleNamespace(), 9 * 1024**3, evidence)
+    monkeypatch.setattr(runner, "_INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS", 0.001)
+    monkeypatch.setattr(runner, "_refresh_resource_evidence",
+        lambda *args, **kwargs: {"evaluation_id": "fresh",
+            "gpu_utilization_percent": 0})
+    calls = 0
+
+    def snapshot():
+        nonlocal calls
+        calls += 1
+        return {"memory_free_mib": 12000, "memory_total_mib": 12288,
+            "gpu_utilization_percent": min(calls, 100),
+            "sampled_at": f"2026-11-09T00:00:{calls:02d}+00:00",
+            "source": "nvidia-smi",
+            "scope": "host_wide_invocation_boundary_sample_not_process_attributed"}
+
+    monkeypatch.setattr(runner, "_gpu_snapshot", snapshot)
+
+    assert guarded.invoke(object()) == "inference"
+
+    record = evidence[0]
+    assert record["during_inference_gpu_sampling_status"] == "sampled"
+    assert record["during_inference_gpu_sampling_interval_seconds"] == 0.001
+    assert 1 <= len(record["during_inference_gpu_samples"]) <= (
+        runner._MAX_DURING_INFERENCE_GPU_SAMPLES)
+    assert all("not_process_attributed" in sample["scope"]
+        for sample in record["during_inference_gpu_samples"])
 
 
 def test_resource_governor_enforcement_is_scoped_and_restored(
