@@ -409,21 +409,23 @@ class _PreparedAvatarConsequenceEmitter:
         from sentientos.local_model_authority import digest_payload
 
         metadata = metadata if isinstance(metadata, Mapping) else {}
-        key = (metadata.get("session_id"), metadata.get("turn_id"))
-        staged: dict[str, Any] | None = None
+        session_id = metadata.get("session_id")
+        turn_id = metadata.get("turn_id")
         output_digest = metadata.get("output_digest")
-        response_digest_valid = (
-            isinstance(output_digest, str)
-            and output_digest == digest_payload({"text": phrase}))
+        key: tuple[str, str] | None = None
+        staged: dict[str, Any] | None = None
         if (self._observer is not None and self._pointer is not None
-                and all(isinstance(item, str) and item for item in key)
-                and response_digest_valid):
+                and isinstance(session_id, str) and session_id
+                and isinstance(turn_id, str) and turn_id
+                and isinstance(output_digest, str)
+                and output_digest == digest_payload({"text": phrase})):
+            key = (session_id, turn_id)
             now = datetime.now(timezone.utc)
             created_at = now.isoformat()
             turn_binding_digest = hashlib.sha256(
-                (key[0] + "\0" + key[1]).encode("utf-8")).hexdigest()
+                (session_id + "\0" + turn_id).encode("utf-8")).hexdigest()
             correlation_digest = hashlib.sha256(
-                (key[0] + "\0" + key[1] + "\0" + output_digest).encode(
+                (session_id + "\0" + turn_id + "\0" + output_digest).encode(
                     "utf-8")).hexdigest()
             correlation_id = "companion-avatar-nod-" + correlation_digest[:32]
             pointer = self._pointer
@@ -455,7 +457,7 @@ class _PreparedAvatarConsequenceEmitter:
                 "dispatch_status": "pending"}
         result = self._emitter.emit_display_text(
             phrase, authorization=authorization, metadata=metadata)
-        if staged is not None:
+        if staged is not None and key is not None:
             staged["dispatch_status"] = result.get("status")
             with self._lock:
                 self._prepared[key] = staged
