@@ -220,6 +220,11 @@ def test_godot_headless_development_option_does_not_change_visible_launch(monkey
     assert _godot_command("godot.exe", "project", headless=True) == [
         "godot.exe", "--headless", "--path", "project"
     ]
+    assert _godot_command("godot.exe", "project", headless=False,
+                          opaque_observation_window=True) == [
+        "godot.exe", "--path", "project", "--",
+        "--sentientos-opaque-observation-window",
+    ]
 
 
 def test_worker_waits_for_the_selected_godot_udp_listener() -> None:

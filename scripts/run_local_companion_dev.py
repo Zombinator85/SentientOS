@@ -893,6 +893,7 @@ class _TemporaryCompanionEdge:
     def __init__(self, *, windows_python: Path,
                  godot_executable: Path, godot_project: Path,
                  godot_headless: bool = False,
+                 godot_opaque_observation_window: bool = False,
                  game_process_names: tuple[str, ...] = (),
                  screen_observation_process_names: tuple[str, ...] = (),
                  screen_observation_consent_minutes: int = 60,
@@ -943,6 +944,9 @@ class _TemporaryCompanionEdge:
         if type(godot_headless) is not bool:
             raise ValueError("godot_headless_must_be_boolean")
         self.godot_headless = godot_headless
+        if type(godot_opaque_observation_window) is not bool:
+            raise ValueError("godot_opaque_observation_window_must_be_boolean")
+        self.godot_opaque_observation_window = godot_opaque_observation_window
         if delivery_event_file is not None:
             delivery_event_file.parent.mkdir(parents=True, exist_ok=True)
         self.proprioception_observations = _LatestRendererObservation(
@@ -969,6 +973,7 @@ class _TemporaryCompanionEdge:
                 "godot_executable": _win_path(godot_executable),
                 "godot_project": _win_path(godot_project),
                 "godot_headless": godot_headless,
+                "godot_opaque_observation_window": godot_opaque_observation_window,
             }
             if game_process_names:
                 observer_source_key = secrets.token_bytes(32)
@@ -1371,6 +1376,9 @@ def main() -> int:
               "adoption authority or renderer effects"))
     parser.add_argument("--godot-headless", action="store_true",
                         help="Run the supervised development edge without opening a Godot window")
+    parser.add_argument("--godot-opaque-observation-window", action="store_true",
+                        help=("Run the avatar in an opaque dark window for consented "
+                              "foreground observation without transparent desktop underlay"))
     parser.add_argument("--local-speech-output", action="store_true",
                         help=("Expose opt-in local pyttsx3 speech; playback remains disabled "
                               "until approved for a conversation in the chat UI"))
@@ -1406,6 +1414,10 @@ def main() -> int:
         parser.error("screen observation requires the supervised Windows edge")
     if args.godot_headless and not all(value is not None for value in edge_args):
         parser.error("headless Godot requires the supervised Windows edge")
+    if args.godot_opaque_observation_window and args.godot_headless:
+        parser.error("opaque avatar observation window requires visible Godot")
+    if args.godot_opaque_observation_window and not args.screen_observation_process:
+        parser.error("opaque avatar observation window requires explicit screen observation opt-in")
     if (args.screen_observation_tesseract_executable is not None
             and not args.screen_observation_process):
         parser.error("a Tesseract executable requires screen observation opt-in")
@@ -1692,6 +1704,8 @@ def main() -> int:
                 windows_python=args.windows_python, godot_executable=args.godot_exe,
                 godot_project=args.godot_project,
                 godot_headless=args.godot_headless,
+                godot_opaque_observation_window=(
+                    args.godot_opaque_observation_window),
                 game_process_names=tuple(args.game_process_name),
                 screen_observation_process_names=tuple(args.screen_observation_process),
                 screen_observation_consent_minutes=args.screen_observation_consent_minutes,
@@ -1781,6 +1795,8 @@ def main() -> int:
             "companion_output": ("temporary_mtls_windows_edge_and_godot"
                                  if edge else "not_configured"),
             "godot_headless": bool(edge and edge.godot_headless),
+            "godot_opaque_observation_window": bool(
+                edge and edge.godot_opaque_observation_window),
             "screen_observation_configured": bool(edge and edge.screen_observer),
             "companion_identity_posture": (
                 edge.identity_posture if edge else "unavailable"),

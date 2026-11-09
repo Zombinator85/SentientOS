@@ -678,6 +678,13 @@ local `tesseract` executable on `PATH`; the launcher does not install or
 download these components. The supervised local development runner also accepts
 `--screen-observation-tesseract-executable PATH` when screen observation is
 explicitly enabled; an absolute Windows path avoids changing the global PATH.
+For an explicitly consented avatar-consequence experiment, the runner can also
+start Godot with `--godot-opaque-observation-window`. This keeps the default
+transparent desktop avatar unchanged but launches the experiment target with an
+opaque dark background. The foreground capture owner still rejects layered
+windows and any overlapping window above the target; this option does not
+bypass consent, allowlisting, or per-message opt-in. Use it with a
+`--screen-observation-process` allowlist entry for the Godot executable.
 The same development runner can optionally add a one-sentence visual
 summary with the screen-observation-vision-model option. This uses the named
 Ollama model through 127.0.0.1:11434 on the Windows edge host, downscales the

@@ -24,6 +24,7 @@ const SPEAK_REPLIES_KEY := "speak_replies"
 const OBSERVE_GAME_SCREEN_KEY := "observe_game_screen"
 const GLOBAL_HOTKEY_PORT := 60178
 const GLOBAL_HOTKEY_TOGGLE_PACKET := "sentientos.toggle_chat.v1"
+const OPAQUE_OBSERVATION_WINDOW_ARGUMENT := "--sentientos-opaque-observation-window"
 
 var _request: HTTPRequest
 var _runtime_status_request: HTTPRequest
@@ -141,11 +142,7 @@ func _ready() -> void:
 	_build_interface()
 	_start_global_hotkey_bridge()
 	var root_window := get_window()
-	RenderingServer.set_default_clear_color(Color(0, 0, 0, 0))
-	if root_window != null and DisplayServer.is_window_transparency_available():
-		root_window.transparent = true
-		root_window.get_viewport().transparent_bg = true
-		root_window.set_flag(Window.FLAG_TRANSPARENT, true)
+	_apply_window_capture_mode(root_window, OS.get_cmdline_user_args())
 	_restore_overlay_position(root_window)
 	call_deferred("_apply_restored_overlay_position")
 	_set_chat_visible(false)
@@ -180,6 +177,30 @@ func _ready() -> void:
 	_refresh_runtime_status()
 	_runtime_status_timer.start()
 	_update_session_status()
+
+
+func _is_opaque_observation_window_requested(user_args: PackedStringArray) -> bool:
+	return user_args.has(OPAQUE_OBSERVATION_WINDOW_ARGUMENT)
+
+
+func _apply_window_capture_mode(root_window: Window, user_args: PackedStringArray) -> void:
+	var opaque_observation_window := _is_opaque_observation_window_requested(user_args)
+	var transparent_window := DisplayServer.is_window_transparency_available() \
+		and not opaque_observation_window
+	var background_color := Color(0, 0, 0, 0)
+	if not transparent_window:
+		background_color = Color(0.018, 0.027, 0.037, 1.0)
+	RenderingServer.set_default_clear_color(background_color)
+	if root_window == null:
+		return
+	root_window.transparent = transparent_window
+	root_window.get_viewport().transparent_bg = transparent_window
+	root_window.set_flag(Window.FLAG_TRANSPARENT, transparent_window)
+	if not transparent_window:
+		var world_environment := get_node_or_null("../../WorldEnvironment") as WorldEnvironment
+		if world_environment != null and world_environment.environment != null:
+			world_environment.environment.background_mode = Environment.BG_COLOR
+			world_environment.environment.background_color = background_color
 
 
 func _build_interface() -> void:

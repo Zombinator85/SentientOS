@@ -27,11 +27,13 @@ def _readline(stream, target):
     for line in stream:
         target.put(line.rstrip())
 
-def _godot_command(executable, project, *, headless):
+def _godot_command(executable, project, *, headless, opaque_observation_window=False):
     command=[executable]
     if headless:
         command.append("--headless")
     command.extend(["--path",project])
+    if opaque_observation_window:
+        command.extend(["--", "--sentientos-opaque-observation-window"])
     return command
 
 def _udp_port_is_bound(port):
@@ -334,7 +336,9 @@ def main():
         executable=cfg["godot_executable"];project=cfg["godot_project"]
         print("EDGE_STARTUP phase=godot_process_create",flush=True)
         godot=subprocess.Popen(_godot_command(
-            executable,project,headless=cfg.get("godot_headless") is True),env=env,
+            executable,project,headless=cfg.get("godot_headless") is True,
+            opaque_observation_window=(
+                cfg.get("godot_opaque_observation_window") is True)),env=env,
             stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         print("EDGE_STARTUP phase=godot_process_started pid="+str(godot.pid)
             +" avatar_listen_port="+str(avatar_listen_port),flush=True)
