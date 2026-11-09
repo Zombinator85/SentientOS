@@ -9,8 +9,8 @@ import pytest
 
 from sentientos.developmental_history_intervention_experiment import (
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
-    make_protocol, qualify_restoration_stable_history_association,
-    qualify_semantic_history_decision, qualify_history_transfer_decision,
+    make_protocol, qualify_history_transfer_decision,
+    qualify_restoration_stable_history_association, qualify_semantic_history_decision,
     summarize, verify_protocol,
 )
 from sentientos.local_model_authority import digest_payload

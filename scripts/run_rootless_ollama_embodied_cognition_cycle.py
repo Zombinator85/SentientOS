@@ -979,27 +979,13 @@ def run() -> dict[str, Any]:
         transfer_present, transfer_withheld, transfer_restored = (
             transfer_conditions if len(transfer_conditions) == 3
             else ({}, {}, {}))
-        transfer_controls_match = (
-            len(transfer_conditions) == 3
-            and transfer_present.get("current_fact_ids")
-                == transfer_withheld.get("current_fact_ids")
-                == transfer_restored.get("current_fact_ids")
-            and transfer_present.get("snapshot_digest")
-                == transfer_withheld.get("snapshot_digest")
-                == transfer_restored.get("snapshot_digest")
-            and transfer_present.get("generation_config")
-                == transfer_withheld.get("generation_config")
-                == transfer_restored.get("generation_config")
-            and transfer_present.get("active_model_identity")
-                == transfer_withheld.get("active_model_identity")
-                == transfer_restored.get("active_model_identity"))
-
         transfer_qualification = qualify_history_transfer_decision(
             conditions=transfer_conditions,
             expected_history_record_id=first.written_record_id,
             present_response="INSPECT", withheld_response="REACH",
             restored_response="INSPECT",
             restored_prompt_matches=transfer_intervention.restored_prompt_matches)
+        transfer_controls_match = transfer_qualification["controlled_inputs_match"]
         transfer_history_cited = transfer_qualification["expected_history_cited"]
         transfer_restoration_stable = transfer_qualification["restoration_stable"]
         transfer_history_changed_new_decision = transfer_qualification[
