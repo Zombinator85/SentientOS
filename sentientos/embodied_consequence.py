@@ -435,7 +435,8 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
     if observation:
         mismatch |= any((observation.expectation_id != expectation.expectation_id, observation.expectation_digest != expectation.expectation_digest,
             observation.handoff_id != expectation.handoff_id, observation.handoff_digest != expectation.handoff_digest,
-            observation.correlation_id != expectation.correlation_id))
+            observation.correlation_id != expectation.correlation_id,
+            observation.observation_source_class != expectation.expected_observation_source_class))
         generation_mismatch |= observation.body_generation != expectation.body_generation
         if renderer_report and (observation.renderer_report_id != renderer_report.report_id or observation.renderer_report_digest != renderer_report.report_digest): mismatch = True
         if _time(observation.observed_at) < _time(renderer_report.started_at if renderer_report else expectation.created_at):
