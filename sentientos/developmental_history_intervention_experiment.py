@@ -1214,39 +1214,58 @@ def qualify_restoration_stable_history_association(*, validity: Any,
 
 def qualify_history_transfer_decision(
         *, conditions: Sequence[Mapping[str, Any]],
-        expected_history_record_id: str,
+        expected_history_record_id: str, expected_current_fact_id: str,
         present_response: str, withheld_response: str,
         restored_response: str, restored_prompt_matches: Any) -> dict[str, Any]:
-    """Qualify a new decision only when the exact developmental record supports it.
+    """Qualify a new decision only with exact current and historical citations.
 
     This checks A/B/A controls and citations; it does not establish action
-    execution, causal learning, or improved performance.
+    execution, causal learning, or improved performance. An output difference
+    without both citation classes is retained as an unqualified observation.
     """
     result = {
-        "schema_version": "sentientos.history_transfer_decision_qualification:v1",
+        "schema_version": "sentientos.history_transfer_decision_qualification:v2",
         "measurement_scope": "history_conditioned_new_decision_proposal",
         "classification": "not_qualified",
         "controlled_inputs_match": False,
+        "target_evidence_cited": False,
         "expected_history_cited": False,
         "restoration_stable": False,
+        "response_difference_observed": False,
+        "restored_response_matches_present": False,
         "history_changed_new_decision": False,
+        "qualification_failure_codes": [],
         "action_executed": False,
         "performance_improvement_established": False,
     }
     if (len(conditions) != 3 or not isinstance(expected_history_record_id, str)
             or not expected_history_record_id
+            or not isinstance(expected_current_fact_id, str)
+            or not expected_current_fact_id
             or restored_prompt_matches is not True):
         result["classification"] = "controls_or_restoration_not_qualified"
+        result["qualification_failure_codes"] = [
+            "conditions_identity_or_restoration_invalid"]
         return result
     present, withheld, restored = conditions
     if tuple(row.get("condition_id") for row in conditions) != CONDITION_ORDER:
         result["classification"] = "condition_order_invalid"
+        result["qualification_failure_codes"] = ["condition_order_invalid"]
         return result
     control_fields = ("current_fact_ids", "snapshot_digest",
         "generation_config", "active_model_identity")
     controls_match = all(present.get(key) == withheld.get(key) == restored.get(key)
         for key in control_fields)
     result["controlled_inputs_match"] = controls_match
+    def cited_target(row: Mapping[str, Any]) -> bool:
+        citations = row.get("evidence_ids")
+        current_facts = row.get("current_fact_ids")
+        return (isinstance(citations, (list, tuple))
+            and isinstance(current_facts, (list, tuple))
+            and expected_current_fact_id in citations
+            and expected_current_fact_id in current_facts)
+    target_cited = all(cited_target(row) for row in conditions)
+    result["target_evidence_cited"] = target_cited
     def cited_expected(row: Mapping[str, Any]) -> bool:
         citations = row.get("history_record_ids")
         retrieved = row.get("retrieved_record_ids")
@@ -1260,6 +1279,10 @@ def qualify_history_transfer_decision(
     stable = (present.get("response_digest") == restored.get("response_digest")
         and present.get("output_digest") == restored.get("output_digest"))
     result["restoration_stable"] = stable
+    response_difference = present.get("response") != withheld.get("response")
+    restored_response_matches = present.get("response") == restored.get("response")
+    result["response_difference_observed"] = response_difference
+    result["restored_response_matches_present"] = restored_response_matches
     outcomes_match_contract = (
         all(row.get("inference_status") == "admitted_completed"
             and row.get("cognition_receipt_output_binding_verified") is True
@@ -1269,14 +1292,32 @@ def qualify_history_transfer_decision(
         and present.get("response") == present_response
         and withheld.get("response") == withheld_response
         and restored.get("response") == restored_response)
-    qualified = (controls_match and expected_cited and stable
-        and outcomes_match_contract
+    qualified = (controls_match and target_cited and expected_cited and stable
+        and outcomes_match_contract and response_difference
+        and restored_response_matches
         and present_response != withheld_response
         and restored_response == present_response)
     result["history_changed_new_decision"] = qualified
+    failures = []
+    if not controls_match:
+        failures.append("controlled_inputs_mismatch")
+    if not target_cited:
+        failures.append("current_target_evidence_not_cited_in_all_conditions")
+    if not expected_cited:
+        failures.append("expected_history_record_not_cited_in_present_and_restored")
+    if not stable or not restored_response_matches:
+        failures.append("history_restoration_not_stable")
+    if not outcomes_match_contract:
+        failures.append("inference_or_response_contract_not_satisfied")
+    if not response_difference:
+        failures.append("no_response_difference_observed")
+    result["qualification_failure_codes"] = failures
     result["classification"] = (
         "history_associated_new_decision_difference_exact_record_restored"
-        if qualified else "no_validated_new_decision_transfer_difference")
+        if qualified else (
+            "response_difference_observed_but_support_or_controls_unqualified"
+            if response_difference else
+            "no_validated_new_decision_transfer_difference"))
     return result
 
 

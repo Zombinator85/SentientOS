@@ -1689,6 +1689,12 @@ def run() -> dict[str, Any]:
         # existing evidence sets and limits.
         later_action_decision_snapshot, _ = _pre_action_source(
             pose="reach", include_current_target=True)
+        target_fact_ids = tuple(fact.fact_id
+            for fact in later_action_decision_snapshot.facts
+            if fact.subject.subject_id == "synthetic-target-1")
+        if len(target_fact_ids) != 1:
+            raise RootlessExperimentalError(
+                "later_action_target_fact_identity_invalid")
         transfer_intervention = (
             intervention_owner.run_companion_history_intervention(
                 snapshot=later_action_decision_snapshot,
@@ -1706,6 +1712,7 @@ def run() -> dict[str, Any]:
         transfer_qualification = qualify_history_transfer_decision(
             conditions=transfer_conditions,
             expected_history_record_id=first.written_record_id,
+            expected_current_fact_id=target_fact_ids[0],
             present_response="INSPECT", withheld_response="REACH",
             restored_response="INSPECT",
             restored_prompt_matches=transfer_intervention.restored_prompt_matches)
@@ -1828,6 +1835,7 @@ def run() -> dict[str, Any]:
                     "active_model_identity": item.get("active_model_identity"),
                     "snapshot_digest": item.get("snapshot_digest"),
                     "current_fact_ids": item.get("current_fact_ids"),
+                    "evidence_ids": list(item.get("evidence_ids", ())),
                     "retrieved_record_ids": item.get("retrieved_record_ids"),
                     "history_record_ids": list(item.get("history_record_ids", ())),
                     "inference_receipt_id": item.get("inference_receipt_id"),
@@ -1859,6 +1867,12 @@ def run() -> dict[str, Any]:
                 "present_restored_output_digest_matches":
                     transfer_restoration_stable,
                 "history_citation_bound": transfer_history_cited,
+                "target_evidence_cited": transfer_qualification[
+                    "target_evidence_cited"],
+                "response_difference_observed": transfer_qualification[
+                    "response_difference_observed"],
+                "qualification_failure_codes": transfer_qualification[
+                    "qualification_failure_codes"],
                 "conditions": [{
                     "condition_id": item.get("condition_id"),
                     "response": item.get("response"),
@@ -1867,6 +1881,7 @@ def run() -> dict[str, Any]:
                     "output_digest": item.get("output_digest"),
                     "snapshot_digest": item.get("snapshot_digest"),
                     "current_fact_ids": item.get("current_fact_ids"),
+                    "evidence_ids": list(item.get("evidence_ids", ())),
                     "retrieved_record_ids": item.get("retrieved_record_ids"),
                     "history_record_ids": list(item.get("history_record_ids", ())),
                     "active_model_identity": item.get("active_model_identity"),

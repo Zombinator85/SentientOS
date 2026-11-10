@@ -434,6 +434,7 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
         return {
             "condition_id": condition,
             "current_fact_ids": ["fact-current"],
+            "evidence_ids": ["fact-current"],
             "snapshot_digest": "sha256:snapshot",
             "generation_config": {"temperature": 0},
             "active_model_identity": {"model": "model-a"},
@@ -454,9 +455,12 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
     ]
     qualified = qualify_history_transfer_decision(
         conditions=conditions, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
         present_response="INSPECT", withheld_response="REACH",
         restored_response="INSPECT", restored_prompt_matches=True)
     assert qualified["history_changed_new_decision"] is True
+    assert qualified["target_evidence_cited"] is True
+    assert qualified["response_difference_observed"] is True
     assert qualified["expected_history_cited"] is True
     assert qualified["performance_improvement_established"] is False
 
@@ -465,10 +469,27 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
     irrelevant_citation[0]["retrieved_record_ids"] = ["devrec-other"]
     rejected = qualify_history_transfer_decision(
         conditions=irrelevant_citation, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
         present_response="INSPECT", withheld_response="REACH",
         restored_response="INSPECT", restored_prompt_matches=True)
     assert rejected["history_changed_new_decision"] is False
+    assert rejected["target_evidence_cited"] is True
     assert rejected["expected_history_cited"] is False
+    assert rejected["classification"] == (
+        "response_difference_observed_but_support_or_controls_unqualified")
+    assert "expected_history_record_not_cited_in_present_and_restored" in (
+        rejected["qualification_failure_codes"])
+
+    missing_target = [dict(item) for item in conditions]
+    missing_target[1]["evidence_ids"] = []
+    target_rejected = qualify_history_transfer_decision(
+        conditions=missing_target, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert target_rejected["response_difference_observed"] is True
+    assert target_rejected["target_evidence_cited"] is False
+    assert target_rejected["history_changed_new_decision"] is False
 
     null_result = [dict(item) for item in conditions]
     null_result[0]["response"] = null_result[1]["response"] = "REACH"
@@ -476,7 +497,9 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
     null_result[0]["output_digest"] = null_result[1]["output_digest"] = "output-REACH"
     unchanged = qualify_history_transfer_decision(
         conditions=null_result, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
         present_response="INSPECT", withheld_response="REACH",
         restored_response="INSPECT", restored_prompt_matches=True)
     assert unchanged["history_changed_new_decision"] is False
+    assert unchanged["response_difference_observed"] is False
     assert unchanged["classification"] == "no_validated_new_decision_transfer_difference"
