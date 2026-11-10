@@ -878,9 +878,9 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
             elif pose_decision["predicted_pose"] != pose_decision["requested_pose"]:
                 pre_action_decision_classification = "prediction_inconsistent_with_fixture"
             elif pose_decision["requested_pose"] != "reach":
-                pre_action_decision_classification = "exact_schema_goal_not_met"
+                pre_action_decision_classification = "exact_pair_goal_not_met"
             else:
-                pre_action_decision_classification = "exact_schema_goal_met"
+                pre_action_decision_classification = "exact_pair_goal_met"
             receipts.append({
                 "receipt_id": payload.get("receipt_id"),
                 "receipt_digest": payload.get("receipt_digest"),
@@ -1012,19 +1012,15 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
     return target
 
 
-def _pose_decision_from_response(value: str) -> dict[str, str] | None:
-    """Accept only the exact bounded proposal schema; prose is not scored."""
-    try:
-        payload = json.loads(value)
-    except (TypeError, json.JSONDecodeError):
+def _pose_decision_from_response(value: Any) -> dict[str, str] | None:
+    """Accept only an exact bounded action/prediction token; prose is unscored."""
+    if not isinstance(value, str):
         return None
-    if (not isinstance(payload, dict)
-            or set(payload) != {"requested_pose", "predicted_pose"}
-            or payload.get("requested_pose") not in {"reach", "idle"}
-            or payload.get("predicted_pose") not in {"reach", "idle"}):
+    poses = {"reach", "idle"}
+    parts = value.split("->")
+    if (len(parts) != 2 or any(part not in poses for part in parts)):
         return None
-    return {"requested_pose": payload["requested_pose"],
-        "predicted_pose": payload["predicted_pose"]}
+    return {"requested_pose": parts[0], "predicted_pose": parts[1]}
 
 
 def _verified_companion_replay(bridge: Any, owner: Any, *,
@@ -1421,10 +1417,12 @@ def run() -> dict[str, Any]:
             "resulting encoder pose using the supplied deterministic transition "
             "table. The current encoder pose is idle and both poses are available. "
             "The table means choosing reach predicts encoder pose reach; choosing "
-            "idle predicts encoder pose idle. Return exactly one JSON object with "
-            "requested_pose and predicted_pose, each either reach or idle. This "
-            "is a proposal only; do not claim an action occurred. Base the "
-            "choice on the supplied current evidence and task goal.")
+            "idle predicts encoder pose idle. In your response field, return "
+            "exactly one of these tokens with no prose: reach->reach, "
+            "reach->idle, idle->reach, or idle->idle. The first pose is the "
+            "requested action and the second is your prediction. This is a "
+            "proposal only; do not claim an action occurred. Base the choice on "
+            "the supplied current evidence and task goal.")
         cognitive_decision = _verified_companion_replay(
             decision_bridge, decision_owner, screen_observation=pre_action_screen,
             request_id=RUN_ID + ":pre-action-decision", question=decision_question)
@@ -1441,14 +1439,9 @@ def run() -> dict[str, Any]:
                     "history_record_ids": cognitive_decision.get("history_record_ids"),
                     "response": cognitive_decision.get("validated_response"),
                 }, sort_keys=True))
-        try:
-            proposal = json.loads(cognitive_decision["validated_response"])
-        except (KeyError, TypeError, json.JSONDecodeError) as exc:
-            raise RootlessExperimentalError("pre_action_cognition_proposal_invalid") from exc
-        if (not isinstance(proposal, dict)
-                or set(proposal) != {"requested_pose", "predicted_pose"}
-                or proposal.get("requested_pose") not in {"reach", "idle"}
-                or proposal.get("predicted_pose") not in {"reach", "idle"}):
+        proposal = _pose_decision_from_response(
+            cognitive_decision.get("validated_response"))
+        if proposal is None:
             raise RootlessExperimentalError("pre_action_cognition_proposal_invalid")
         expected_prediction = {"reach": "reach", "idle": "idle"}[proposal["requested_pose"]]
         if proposal["predicted_pose"] != expected_prediction:

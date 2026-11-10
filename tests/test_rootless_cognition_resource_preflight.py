@@ -813,8 +813,7 @@ def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
     tick_id = "companion-interaction-" + hashlib.sha256(
         request_id.encode("utf-8")).hexdigest()[:32]
     correlation_id = tick_id + ":resident_developmental_cognition:companion-interaction"
-    output_text = json.dumps({"disposition": "answer", "response": json.dumps({
-        "requested_pose": "idle", "predicted_pose": "idle"})})
+    output_text = json.dumps({"disposition": "answer", "response": "idle->idle"})
     receipt = {"receipt_id": "fixture-receipt", "receipt_digest": "d" * 64,
         "purpose": "resident_developmental_companion_interaction",
         "output_digest": "e" * 64, "reason_codes": [], "output_text": output_text,
@@ -829,7 +828,7 @@ def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
     artifact_text = artifact_path.read_text()
     artifact = json.loads(artifact_text)
     proposal = artifact["inference_receipts"][0]
-    assert proposal["pre_action_decision_classification"] == "exact_schema_goal_not_met"
+    assert proposal["pre_action_decision_classification"] == "exact_pair_goal_not_met"
     assert proposal["pre_action_requested_pose"] == "idle"
     assert proposal["pre_action_predicted_pose"] == "idle"
     assert proposal["pre_action_prediction_consistent"] is True
@@ -857,14 +856,15 @@ def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
     assert timeout_proposal["pre_action_prediction_consistent"] is None
 
 
-def test_pose_decision_classifier_requires_exact_json_schema(runner):
-    assert runner._pose_decision_from_response(
-        '{"requested_pose":"reach","predicted_pose":"reach"}') == {
-            "requested_pose": "reach", "predicted_pose": "reach"}
-    assert runner._pose_decision_from_response(
-        'requested_pose: reach; predicted_pose: reach') is None
-    assert runner._pose_decision_from_response(
-        '{"requested_pose":"reach","predicted_pose":"reach","extra":"x"}') is None
+def test_pose_decision_classifier_requires_exact_action_prediction_token(runner):
+    assert runner._pose_decision_from_response("reach->reach") == {
+        "requested_pose": "reach", "predicted_pose": "reach"}
+    assert runner._pose_decision_from_response("idle->reach") == {
+        "requested_pose": "idle", "predicted_pose": "reach"}
+    for invalid in ("reach", "reach -> reach", "REACH->REACH",
+            "reach->reach because the target is clear",
+            '{"requested_pose":"reach","predicted_pose":"reach"}', None):
+        assert runner._pose_decision_from_response(invalid) is None
 
 
 def test_transfer_decision_prompt_requires_grounded_current_evidence(runner):
