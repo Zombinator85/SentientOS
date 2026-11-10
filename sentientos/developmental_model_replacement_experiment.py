@@ -1707,15 +1707,33 @@ class ObjectivePredictionTask:
             "task": self.specification(), "nonce": self.commitment_nonce})
         if self.additional_probe_inputs:
             inputs = [self.probe_input, *self.additional_probe_inputs]
+            question = f"Predict the outputs for inputs {inputs} from the historical examples."
+            synthetic_training: dict[str, Any] = {}
+            if (self.task_family_id is not None
+                    and not self.requires_task_family_history):
+                examples = [
+                    {"input": 0, "output": self.offset},
+                    {"input": 1, "output": self.multiplier + self.offset},
+                ]
+                question = (
+                    "The synthetic deterministic fixture supplies two verified "
+                    f"training observations: {examples}. Predict outputs for "
+                    f"inputs {inputs} using those observations.")
+                synthetic_training = {
+                    "synthetic_training_observations": examples,
+                    "training_evidence_provenance":
+                        "deterministic_fixture_oracle_not_physical_measurement",
+                }
             return {"task_digest": task_digest,
                 "task_digest_posture": "salted_private_oracle_commitment:v1",
-                "question": f"Predict the outputs for inputs {inputs} from the historical examples.",
+                "question": question,
                 "answer_format": 'Exactly one JSON object: {"answers": [<integer>, ...]}',
                 "probe_inputs": inputs, "probe_count": len(inputs),
                 **({"task_family_id": self.task_family_id,
                     "family_posture": "operator_declared_protocol_bound",
                     "requires_task_family_history": self.requires_task_family_history}
-                    if self.task_family_id is not None else {})}
+                    if self.task_family_id is not None else {}),
+                **synthetic_training}
         return {"task_digest": task_digest,
             "task_digest_posture": "salted_private_oracle_commitment:v1",
             "question": f"Predict the output for input {self.probe_input} from the historical examples.",

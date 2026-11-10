@@ -169,6 +169,35 @@ def test_public_task_commitments_do_not_hash_low_entropy_oracle_inputs(tmp_path)
             assert digest(candidate.specification()) != descriptor['task_digest']
 
 
+
+def test_family_acquisition_discloses_only_explicit_synthetic_training_evidence():
+    acquisition = ObjectivePredictionTask(
+        3, 2, 7, (8, 9), task_family_id="affine-family")
+    descriptor = acquisition.public_descriptor()
+    assert descriptor["synthetic_training_observations"] == [
+        {"input": 0, "output": 2},
+        {"input": 1, "output": 5},
+    ]
+    assert descriptor["training_evidence_provenance"] == (
+        "deterministic_fixture_oracle_not_physical_measurement")
+    assert "multiplier" not in descriptor and "offset" not in descriptor
+
+    transfer = ObjectivePredictionTask(
+        3, 2, 13, (14, 15), task_family_id="affine-family",
+        requires_task_family_history=True)
+    transfer_descriptor = transfer.public_descriptor()
+    assert "synthetic_training_observations" not in transfer_descriptor
+    assert "training_evidence_provenance" not in transfer_descriptor
+    assert "historical examples" in transfer_descriptor["question"]
+
+
+def test_public_task_commitments_do_not_hash_low_entropy_oracle_inputs(tmp_path):
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+    descriptor = task.public_descriptor()
+    assert "synthetic_training_observations" not in descriptor
+    assert "training_evidence_provenance" not in descriptor
+
+
 def test_historical_oracle_bearing_plan_remains_verifiable(tmp_path):
     from sentientos.developmental_history_intervention_experiment import (
         DevelopmentalExperimentStore, LEGACY_OBJECTIVE_SCHEMA, _digest as experiment_digest,
