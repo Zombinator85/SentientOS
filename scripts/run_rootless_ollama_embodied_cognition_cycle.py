@@ -77,6 +77,7 @@ from sentientos.runtime_admission import (
 from sentientos.rootless_experimental_local_model import (
     EXPERIMENT_ROOT, RootlessExperimentalError, _no_symlink_path)
 from sentientos.rootless_experimental_ollama_epistemic_session import (
+    ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED,
     RootlessExperimentalOllamaDevelopmentalSession)
 from sentientos.control_plane_kernel import ControlPlaneKernel
 from sentientos.federated_enforcement_policy import resolve_policy
@@ -102,6 +103,14 @@ def _experiment_seed_from_environment() -> int:
 
 
 EXPERIMENT_SEED = _experiment_seed_from_environment()
+
+
+def _experiment_seed_provenance() -> dict[str, int]:
+    """Keep task randomization distinct from the fixed inference seed."""
+    return {
+        "task_generation_seed": EXPERIMENT_SEED,
+        "requested_backend_seed": ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED,
+    }
 
 
 def _objective_condition_score(condition: Mapping[str, Any]) -> Any:
@@ -1707,11 +1716,11 @@ def run() -> dict[str, Any]:
             "history_changed_new_decision"]
         transfer_classification = transfer_qualification["classification"]
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v6",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v7",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
-            "requested_backend_seed": 42,
+            **_experiment_seed_provenance(),
             "model_artifact_size_bytes": manifest_size,
             "runtime_observation": runtime, "runtime_observation_digest": runtime_sha,
             "active_model_identity": session.active_model_identity,

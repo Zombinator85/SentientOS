@@ -81,6 +81,15 @@ def test_affine_transfer_eligibility_rejects_invalid_accurate_counts(runner, val
             "retained_accurate_example_count": value})
 
 
+def test_experiment_seed_provenance_separates_task_and_backend_seeds(
+        runner, monkeypatch):
+    monkeypatch.setattr(runner, "EXPERIMENT_SEED", 20261115)
+    assert runner._experiment_seed_provenance() == {
+        "task_generation_seed": 20261115,
+        "requested_backend_seed": 42,
+    }
+
+
 def test_model_weight_size_is_read_from_pinned_ollama_manifest(runner, tmp_path):
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps({"layers": [
