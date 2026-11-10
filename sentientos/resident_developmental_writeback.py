@@ -52,9 +52,13 @@ MAX_MODEL_REPLACEMENT_SELECTED_EVIDENCE_BYTES = 8192
 # of invocation and score identities. Keep its writeback allowance narrow to
 # one explicitly projected experiment fact.
 MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES = 10_240
+# A bounded task-family trial gains provenance and receipt chronology when it
+# is projected through the authenticated owner. Keep that extra envelope
+# allowance limited to the validated historical-only trial shape.
+MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES = 12_288
 # A scored objective-family trial carries three matched outputs, evaluator
 # scores, and retained per-probe results. Its prompt can exceed the general
-# 8 KB writeback input budget while the selected evidence byte cap stays at 6 KB.
+# 8 KB writeback input budget while remaining under its narrowly selected cap.
 MAX_OBJECTIVE_TASK_FAMILY_INPUT_CHARS = 16_384
 # A single preregistered strategy-quality vector is larger than a general
 # evidence fact but remains bounded to 12 KB and carries no execution claim.
@@ -515,7 +519,7 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
 def _writeback_input_limit(facts: Sequence[Mapping[str, Any]]) -> int:
     if (len(facts) == 1
             and _selected_fact_byte_limit(facts)
-                == MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES
+                == MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES
             and _is_bounded_objective_task_family_trial(facts[0])):
         return MAX_OBJECTIVE_TASK_FAMILY_INPUT_CHARS
     return (52_000 if _selected_fact_byte_limit(facts) == 48_000 else 8000)
@@ -578,6 +582,8 @@ def _selected_fact_byte_limit(facts: Sequence[Mapping[str, Any]]) -> int:
                 and isinstance(projection, Mapping)
                 and projection.get("schema_version")
                     == "sentientos.developmental_history_interpretation_projection:v1"):
+            if _is_bounded_objective_task_family_trial(fact):
+                return MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES
             return MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES
         quality_result = (payload.get("decision_quality_result")
             if isinstance(payload, Mapping) else None)

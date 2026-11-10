@@ -18,6 +18,7 @@ from sentientos.resident_developmental_writeback import (
     SelectedEvidence, _has_bounded_integrity_controller_observation, _identity,
     MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES,
     MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES, MAX_SELECTED_EVIDENCE_BYTES,
+    MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES,
     _selected_fact_byte_limit, _writeback_input_limit, measure_changed_cognition,
 )
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
@@ -193,7 +194,7 @@ def test_receipt_consequence_cycle_requires_valid_lineage_for_expanded_budget() 
     assert _selected_fact_byte_limit(malformed) == MAX_SELECTED_EVIDENCE_BYTES
 
 
-def test_objective_task_family_trial_gets_narrow_prompt_budget_without_expanding_evidence_cap():
+def test_objective_task_family_trial_gets_narrow_selected_evidence_and_prompt_budgets():
     fact = {
         "source": {"kind": "embodiment", "source_id": "developmental-history-run:trial",
             "digest": "sha256:" + "a" * 64},
@@ -227,11 +228,14 @@ def test_objective_task_family_trial_gets_narrow_prompt_budget_without_expanding
     }
 
     assert _selected_fact_byte_limit([fact]) == (
-        MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES)
+        MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES)
+    assert MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES == 12_288
     assert _writeback_input_limit([fact]) == 16_384
 
     malformed = json.loads(json.dumps(fact))
     malformed["payload"]["task_family_posture"] = "unbound"
+    assert _selected_fact_byte_limit([malformed]) == (
+        MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES)
     assert _writeback_input_limit([malformed]) == 8000
 
 
