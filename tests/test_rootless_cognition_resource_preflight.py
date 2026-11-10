@@ -56,6 +56,31 @@ def runner(monkeypatch, tmp_path):
     return module
 
 
+@pytest.mark.parametrize(("accurate_count", "expected"), [
+    (0, False),
+    (1, False),
+    (2, True),
+    (3, True),
+])
+def test_affine_transfer_requires_two_accurate_acquisition_examples(
+        runner, accurate_count, expected):
+    eligibility = runner._objective_transfer_eligibility({
+        "retained_accurate_example_count": accurate_count})
+    assert eligibility["eligible"] is expected
+    assert eligibility["accurate_example_count"] == accurate_count
+    assert eligibility["required_accurate_example_count"] == 2
+    assert eligibility["reason"] == (
+        None if expected else "insufficient_accurate_acquisition_examples")
+
+
+@pytest.mark.parametrize("value", [True, -1, 1.0, "2", None])
+def test_affine_transfer_eligibility_rejects_invalid_accurate_counts(runner, value):
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_acquisition_accuracy_count_invalid"):
+        runner._objective_transfer_eligibility({
+            "retained_accurate_example_count": value})
+
+
 def test_model_weight_size_is_read_from_pinned_ollama_manifest(runner, tmp_path):
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps({"layers": [
