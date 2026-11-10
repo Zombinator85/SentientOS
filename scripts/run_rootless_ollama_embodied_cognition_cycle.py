@@ -1871,6 +1871,12 @@ def run() -> dict[str, Any]:
                     "target_evidence_cited"],
                 "response_difference_observed": transfer_qualification[
                     "response_difference_observed"],
+                "history_conditioned_response_difference_observed_under_matched_controls": (
+                    transfer_qualification[
+                        "history_conditioned_response_difference_observed_under_matched_controls"]),
+                "history_treatment_bound": transfer_qualification[
+                    "history_treatment_bound"],
+                "grounded_new_decision_qualified": transfer_history_changed_new_decision,
                 "qualification_failure_codes": transfer_qualification[
                     "qualification_failure_codes"],
                 "conditions": [{

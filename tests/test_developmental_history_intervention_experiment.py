@@ -461,6 +461,8 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
     assert qualified["history_changed_new_decision"] is True
     assert qualified["target_evidence_cited"] is True
     assert qualified["response_difference_observed"] is True
+    assert qualified["history_conditioned_response_difference_observed_under_matched_controls"] is True
+    assert qualified["history_treatment_bound"] is True
     assert qualified["expected_history_cited"] is True
     assert qualified["performance_improvement_established"] is False
 
@@ -476,9 +478,29 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
     assert rejected["target_evidence_cited"] is True
     assert rejected["expected_history_cited"] is False
     assert rejected["classification"] == (
-        "response_difference_observed_but_support_or_controls_unqualified")
+        "response_difference_observed_but_history_treatment_or_controls_unqualified")
+    assert rejected["history_conditioned_response_difference_observed_under_matched_controls"] is False
     assert "expected_history_record_not_cited_in_present_and_restored" in (
         rejected["qualification_failure_codes"])
+
+    missing_history_citation = [dict(item) for item in conditions]
+    missing_history_citation[0]["history_record_ids"] = []
+    missing_history_citation[2]["history_record_ids"] = []
+    for item in missing_history_citation:
+        item["evidence_ids"] = []
+    ungrounded = qualify_history_transfer_decision(
+        conditions=missing_history_citation,
+        expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert ungrounded["history_treatment_bound"] is True
+    assert ungrounded["history_conditioned_response_difference_observed_under_matched_controls"] is True
+    assert ungrounded["history_changed_new_decision"] is False
+    assert ungrounded["target_evidence_cited"] is False
+    assert ungrounded["expected_history_cited"] is False
+    assert ungrounded["classification"] == (
+        "controlled_history_conditioned_response_difference_observed_but_proposal_support_unqualified")
 
     missing_target = [dict(item) for item in conditions]
     missing_target[1]["evidence_ids"] = []
@@ -490,6 +512,18 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
     assert target_rejected["response_difference_observed"] is True
     assert target_rejected["target_evidence_cited"] is False
     assert target_rejected["history_changed_new_decision"] is False
+    assert target_rejected["history_conditioned_response_difference_observed_under_matched_controls"] is True
+
+    retrieval_mismatch = [dict(item) for item in conditions]
+    retrieval_mismatch[0]["retrieved_record_ids"] = ["devrec-other"]
+    unbound = qualify_history_transfer_decision(
+        conditions=retrieval_mismatch, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert unbound["response_difference_observed"] is True
+    assert unbound["history_treatment_bound"] is False
+    assert unbound["history_conditioned_response_difference_observed_under_matched_controls"] is False
 
     null_result = [dict(item) for item in conditions]
     null_result[0]["response"] = null_result[1]["response"] = "REACH"

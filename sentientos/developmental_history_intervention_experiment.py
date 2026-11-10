@@ -1224,15 +1224,17 @@ def qualify_history_transfer_decision(
     without both citation classes is retained as an unqualified observation.
     """
     result = {
-        "schema_version": "sentientos.history_transfer_decision_qualification:v2",
+        "schema_version": "sentientos.history_transfer_decision_qualification:v3",
         "measurement_scope": "history_conditioned_new_decision_proposal",
         "classification": "not_qualified",
         "controlled_inputs_match": False,
         "target_evidence_cited": False,
         "expected_history_cited": False,
+        "history_treatment_bound": False,
         "restoration_stable": False,
         "response_difference_observed": False,
         "restored_response_matches_present": False,
+        "history_conditioned_response_difference_observed_under_matched_controls": False,
         "history_changed_new_decision": False,
         "qualification_failure_codes": [],
         "action_executed": False,
@@ -1276,6 +1278,17 @@ def qualify_history_transfer_decision(
     expected_cited = (cited_expected(present) and cited_expected(restored)
         and not withheld.get("history_record_ids"))
     result["expected_history_cited"] = expected_cited
+    def exact_history_treatment(row: Mapping[str, Any], *, present: bool) -> bool:
+        retrieved = row.get("retrieved_record_ids")
+        if not isinstance(retrieved, (list, tuple)):
+            return False
+        expected = (expected_history_record_id,) if present else ()
+        return tuple(retrieved) == expected
+    treatment_bound = (
+        exact_history_treatment(present, present=True)
+        and exact_history_treatment(withheld, present=False)
+        and exact_history_treatment(restored, present=True))
+    result["history_treatment_bound"] = treatment_bound
     stable = (present.get("response_digest") == restored.get("response_digest")
         and present.get("output_digest") == restored.get("output_digest"))
     result["restoration_stable"] = stable
@@ -1292,11 +1305,15 @@ def qualify_history_transfer_decision(
         and present.get("response") == present_response
         and withheld.get("response") == withheld_response
         and restored.get("response") == restored_response)
-    qualified = (controls_match and target_cited and expected_cited and stable
+    response_effect_observed = (
+        controls_match and treatment_bound and stable
         and outcomes_match_contract and response_difference
         and restored_response_matches
         and present_response != withheld_response
         and restored_response == present_response)
+    result["history_conditioned_response_difference_observed_under_matched_controls"] = (
+        response_effect_observed)
+    qualified = (response_effect_observed and target_cited and expected_cited)
     result["history_changed_new_decision"] = qualified
     failures = []
     if not controls_match:
@@ -1305,6 +1322,8 @@ def qualify_history_transfer_decision(
         failures.append("current_target_evidence_not_cited_in_all_conditions")
     if not expected_cited:
         failures.append("expected_history_record_not_cited_in_present_and_restored")
+    if not treatment_bound:
+        failures.append("history_retrieval_not_exactly_bound_to_present_restored_arms")
     if not stable or not restored_response_matches:
         failures.append("history_restoration_not_stable")
     if not outcomes_match_contract:
@@ -1315,9 +1334,11 @@ def qualify_history_transfer_decision(
     result["classification"] = (
         "history_associated_new_decision_difference_exact_record_restored"
         if qualified else (
-            "response_difference_observed_but_support_or_controls_unqualified"
-            if response_difference else
-            "no_validated_new_decision_transfer_difference"))
+            "controlled_history_conditioned_response_difference_observed_but_proposal_support_unqualified"
+            if response_effect_observed else (
+                "response_difference_observed_but_history_treatment_or_controls_unqualified"
+                if response_difference else
+                "no_validated_new_decision_transfer_difference")))
     return result
 
 
