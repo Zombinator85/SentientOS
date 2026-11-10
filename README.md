@@ -65,6 +65,14 @@ A local Hermes history-present/withheld/restored experiment has produced an outp
 
 Screen capture and gameplay workload have separate process allowlists. A standalone Godot executable can be explicitly allowlisted as the foreground observation target while the game-process allowlist continues to control gaming workload policy. Each capture remains request-scoped and operator-confirmed.
 
+### Rootless local-model experiment update (2026-11-09)
+
+The local Hermes A/B/A evidence separates into two outcomes. In a synthetic history-recall probe, history-present and history-restored retrieved the same retained record and produced the same decision; history-withheld retrieved no record and abstained. This supports a restoration-stable, history-associated recall decision in that probe. In a separate synthetic new-action transfer probe, all three conditions produced the same output digest and no task-family citation. No action-transfer effect or performance improvement was demonstrated.
+
+Two later attempts are not interpretable as negative cognition results: one produced invalid acquisition answers in every condition and the existing governed writeback validator rejected them; another terminated on worker timeout before producing an answer. Neither is evidence that Cronos caused the failure. The earlier experiment artifacts do not bind an exact source revision, so they cannot support source-specific replication. Future rootless run artifacts should include the source fingerprint added by PR #3610. PR #3611 additionally treats unusable acquisition as a skipped condition and continues independent comparisons without weakening writeback validation.
+
+These remain synthetic probes. They do not demonstrate real observation, physical action, independently measured consequence, successful developmental writeback, longitudinal learning, or improved performance. The live developmental cycle remains outstanding.
+
 ## Current construction checkpoint (2026-10-19 11:35 UTC)
 
 Sequence 459 verifies the nightly workflow repairs already present on main. Historical runs showed Administrator was missing from both audit paths; current definitions require it, keep the initial audit job read-only, and isolate safe repair write permissions to the conditional repair job. Latest scheduled runs passed on older heads, but Audit repair was skipped.
