@@ -42,6 +42,12 @@ def _digest(value: Any) -> str:
     return "sha256:" + str(digest_payload(value))
 
 
+def _valid_sha256_digest(value: Any) -> bool:
+    return (type(value) is str and len(value) == 71
+        and value.startswith("sha256:")
+        and all(character in "0123456789abcdef" for character in value[7:]))
+
+
 @dataclass(frozen=True)
 class DevelopmentalHistoryInterventionProtocol:
     protocol_id: str
@@ -1254,7 +1260,8 @@ def qualify_history_transfer_decision(
     present_prompt_digest = present.get("prompt_digest")
     restored_prompt_digest = restored.get("prompt_digest")
     prompt_digest_match = (
-        isinstance(present_prompt_digest, str) and bool(present_prompt_digest)
+        _valid_sha256_digest(present_prompt_digest)
+        and _valid_sha256_digest(restored_prompt_digest)
         and present_prompt_digest == restored_prompt_digest)
     restored_prompt_exact_match = (
         restored_prompt_matches is True and prompt_digest_match)
