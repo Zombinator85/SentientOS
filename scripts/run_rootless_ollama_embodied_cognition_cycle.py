@@ -34,6 +34,17 @@ if workspace.is_symlink():
 os.chmod(workspace, 0o700)
 os.environ["SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE"] = str(workspace)
 
+# Isolate governance writes before importing RuntimeGovernor or its federated
+# governance singleton. The runner is a one-shot process, so this scoped
+# environment cannot redirect the live companion's or daemon's state.
+RUN_ID = "rootless-cognition-cycle-" + uuid.uuid4().hex[:20]
+RUN_ROOT = (workspace / "sentientos-data" / "rootless-experimental"
+    / "developmental-cognition-cycles" / RUN_ID)
+governance_root = RUN_ROOT / "resource-governance"
+os.environ["SENTIENTOS_GOVERNOR_ROOT"] = str(governance_root / "governor")
+os.environ["SENTIENTOS_FEDERATION_ROOT"] = str(governance_root / "federation")
+os.environ["SENTIENTOS_REPO_ROOT"] = str(Path(__file__).resolve().parents[1])
+
 from sentientos.avatar_authoring import renderer_handoff
 from sentientos.codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK,
@@ -77,8 +88,6 @@ from sentientos.world_state_board import WorldStateBoardBuilder
 MODEL_NAME = os.environ.get("SENTIENTOS_HERMES_MODEL", "sentientos-hermes4:14b-q4km")
 MANIFEST_PATH = EXPERIMENT_ROOT / "ollama-model-manifests" / (
     "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce.json")
-RUN_ID = "rootless-cognition-cycle-" + uuid.uuid4().hex[:20]
-RUN_ROOT = EXPERIMENT_ROOT / "developmental-cognition-cycles" / RUN_ID
 RUN_STAGE = "startup"
 RESOURCE_PREFLIGHT_EVIDENCE: list[dict[str, Any]] = []
 _SOURCE_FINGERPRINT_MAX_BYTES = 32 * 1024 * 1024
@@ -184,24 +193,28 @@ def _gpu_snapshot() -> dict[str, Any] | None:
         return None
     try:
         result = subprocess.run([executable,
-            "--query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu",
+            "--query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu,temperature.gpu",
             "--format=csv,noheader,nounits"], capture_output=True, text=True,
             timeout=5, check=True)
         rows = [line.strip().split(",") for line in result.stdout.splitlines()
             if line.strip()]
-        if len(rows) != 1 or len(rows[0]) != 5:
+        if len(rows) != 1 or len(rows[0]) != 6:
             return None
-        name, total, used, free, utilization = (item.strip() for item in rows[0])
+        name, total, used, free, utilization, temperature = (
+            item.strip() for item in rows[0])
         total_mib, used_mib, free_mib = int(total), int(used), int(free)
         utilization_percent = int(utilization)
+        temperature_celsius = float(temperature)
         if (not name or min(total_mib, used_mib, free_mib) < 0
                 or total_mib <= 0 or used_mib > total_mib or free_mib > total_mib
                 or not 0 <= utilization_percent <= 100
+                or not 0 <= temperature_celsius <= 120
                 or abs(total_mib - used_mib - free_mib) > 512):
             return None
         return {"name": name[:128], "memory_total_mib": total_mib,
             "memory_used_mib": used_mib, "memory_free_mib": free_mib,
             "gpu_utilization_percent": utilization_percent,
+            "temperature_celsius": temperature_celsius,
             "sampled_at": _now(), "source": "nvidia-smi",
             "scope": "host_wide_invocation_boundary_sample_not_process_attributed"}
     except Exception:
@@ -209,11 +222,15 @@ def _gpu_snapshot() -> dict[str, Any] | None:
 
 
 _GPU_RUNTIME_RESERVE_BYTES = 2 * 1024**3
+_GPU_RESIDENT_INFERENCE_RESERVE_BYTES = 1 * 1024**3
 # This is an experiment-quality gate, not a system-wide resource policy. A
 # history comparison should not begin while another workload is already using
 # a substantial share of the GPU; WSL cannot reliably attribute Windows GPU
 # clients to their owning application.
 _MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT = 25.0
+_MAX_EXPERIMENT_GPU_TEMPERATURE_CELSIUS = 82
+_MAX_PREINFERENCE_GPU_ATTEMPTS = 3
+_PREINFERENCE_GPU_RETRY_INTERVAL_SECONDS = 1.0
 _INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS = 1.0
 _MAX_DURING_INFERENCE_GPU_SAMPLES = 512
 
@@ -236,10 +253,17 @@ def _model_weight_bytes(manifest_path: Path) -> int:
 
 
 def _require_gpu_headroom(snapshot: Mapping[str, Any] | None,
-        model_weight_bytes: int) -> Mapping[str, Any]:
+        model_weight_bytes: int, *, model_resident: bool = False
+        ) -> Mapping[str, Any]:
     if snapshot is None or type(snapshot.get("memory_free_mib")) is not int:
         raise RootlessExperimentalError("gpu_memory_telemetry_unavailable")
-    required_bytes = model_weight_bytes + _GPU_RUNTIME_RESERVE_BYTES
+    if (not isinstance(snapshot.get("temperature_celsius"), (int, float))
+            or isinstance(snapshot.get("temperature_celsius"), bool)):
+        raise RootlessExperimentalError("gpu_temperature_telemetry_unavailable")
+    if snapshot["temperature_celsius"] > _MAX_EXPERIMENT_GPU_TEMPERATURE_CELSIUS:
+        raise RootlessExperimentalError("gpu_temperature_limit_exceeded")
+    required_bytes = (_GPU_RESIDENT_INFERENCE_RESERVE_BYTES if model_resident
+        else model_weight_bytes + _GPU_RUNTIME_RESERVE_BYTES)
     free_bytes = int(snapshot["memory_free_mib"]) * 1024**2
     if free_bytes < required_bytes:
         raise RootlessExperimentalError("gpu_memory_headroom_insufficient")
@@ -290,11 +314,13 @@ class _ResourceGuardedInvoker:
 
     def __init__(self, delegate: Any, coordinator: HostResourceRuntimeCoordinator,
             model_weight_bytes: int,
-            evidence_records: list[dict[str, Any]] | None = None) -> None:
+            evidence_records: list[dict[str, Any]] | None = None,
+            model_name: str | None = None) -> None:
         self._delegate = delegate
         self._coordinator = coordinator
         self._model_weight_bytes = model_weight_bytes
         self._evidence_records = evidence_records if evidence_records is not None else []
+        self._model_name = model_name
         self._sequence = 0
 
     def __getattr__(self, name: str) -> Any:
@@ -307,60 +333,117 @@ class _ResourceGuardedInvoker:
             "gate_status": "blocked",
         }
 
+        preflight_samples: list[dict[str, Any]] = []
+
         def blocked(reason: str) -> NoReturn:
             resource_record["gate_reason"] = reason
+            resource_record["preinference_gpu_samples"] = list(preflight_samples)
             self._evidence_records.append(dict(resource_record))
             raise RootlessExperimentalError(reason)
 
-        try:
-            fresh_resource = _refresh_resource_evidence(self._coordinator,
-                correlation_id=f"{RUN_ID}-inference-{self._sequence}")
-        except Exception as exc:
-            resource_record["gate_reason"] = _failure_code(exc)
-            self._evidence_records.append(dict(resource_record))
-            raise
-        resource_record.update(fresh_resource)
-        gpu_snapshot = _gpu_snapshot()
-        if isinstance(gpu_snapshot, Mapping):
-            resource_record["gpu_memory_free_mib"] = gpu_snapshot.get(
-                "memory_free_mib")
-            resource_record["gpu_memory_total_mib"] = gpu_snapshot.get(
-                "memory_total_mib")
-            resource_record["gpu_memory_sample_source"] = gpu_snapshot.get("source")
-            resource_record["gpu_memory_sample_scope"] = gpu_snapshot.get("scope")
-        gpu_utilization = resource_record.get("gpu_utilization_percent")
-        sampled_gpu_utilization = (gpu_snapshot.get("gpu_utilization_percent")
-            if isinstance(gpu_snapshot, Mapping) else None)
-        resource_record["nvidia_smi_gpu_utilization_percent"] = (
-            sampled_gpu_utilization)
-        resource_record["gpu_sampled_at"] = (
-            gpu_snapshot.get("sampled_at")
-            if isinstance(gpu_snapshot, Mapping) else None)
-        resource_record["gpu_utilization_sample_source"] = (
-            gpu_snapshot.get("source")
-            if isinstance(gpu_snapshot, Mapping) else None)
-        resource_record["gpu_utilization_sample_scope"] = (
-            gpu_snapshot.get("scope")
-            if isinstance(gpu_snapshot, Mapping) else None)
-        if (not isinstance(gpu_utilization, (int, float))
-                or isinstance(gpu_utilization, bool)
-                or not 0 <= gpu_utilization <= 100):
-            blocked("gpu_utilization_telemetry_unavailable")
-        if (type(sampled_gpu_utilization) is not int
-                or not 0 <= sampled_gpu_utilization <= 100):
-            blocked("gpu_utilization_telemetry_unavailable")
-        if max(float(gpu_utilization), sampled_gpu_utilization) > (
-                _MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT):
+        fresh_resource: dict[str, Any] | None = None
+        gpu_snapshot: Mapping[str, Any] | None = None
+        for attempt in range(1, _MAX_PREINFERENCE_GPU_ATTEMPTS + 1):
+            try:
+                fresh_resource = _refresh_resource_evidence(self._coordinator,
+                    correlation_id=f"{RUN_ID}-inference-{self._sequence}-preflight-{attempt}")
+            except Exception as exc:
+                resource_record["gate_reason"] = _failure_code(exc)
+                resource_record["preinference_gpu_samples"] = preflight_samples
+                self._evidence_records.append(dict(resource_record))
+                raise
+            gpu_sample = _gpu_snapshot()
+            host_util = fresh_resource.get("gpu_utilization_percent")
+            direct_util = (gpu_sample.get("gpu_utilization_percent")
+                if isinstance(gpu_sample, Mapping) else None)
+            preflight_samples.append({
+                "attempt": attempt,
+                "host_gpu_utilization_percent": host_util,
+                "direct_gpu_utilization_percent": direct_util,
+                "memory_free_mib": (gpu_sample.get("memory_free_mib")
+                    if isinstance(gpu_sample, Mapping) else None),
+                "temperature_celsius": (gpu_sample.get("temperature_celsius")
+                    if isinstance(gpu_sample, Mapping) else None),
+                "sampled_at": (gpu_sample.get("sampled_at")
+                    if isinstance(gpu_sample, Mapping) else None),
+                "source": (gpu_sample.get("source")
+                    if isinstance(gpu_sample, Mapping) else None),
+            })
+            if not isinstance(gpu_sample, Mapping):
+                blocked("gpu_utilization_telemetry_unavailable")
+            gpu_snapshot = gpu_sample
+            resource_record["gpu_memory_free_mib"] = gpu_sample.get("memory_free_mib")
+            resource_record["gpu_memory_total_mib"] = gpu_sample.get("memory_total_mib")
+            resource_record["nvidia_smi_gpu_utilization_percent"] = direct_util
+            resource_record["gpu_sampled_at"] = gpu_sample.get("sampled_at")
+            resource_record["gpu_utilization_sample_source"] = gpu_sample.get("source")
+            resource_record["gpu_utilization_sample_scope"] = gpu_sample.get("scope")
+            if (not isinstance(gpu_sample.get("temperature_celsius"), (int, float))
+                    or isinstance(gpu_sample.get("temperature_celsius"), bool)):
+                blocked("gpu_temperature_telemetry_unavailable")
+            resource_record["gpu_temperature_celsius"] = gpu_sample["temperature_celsius"]
+            resource_record["gpu_temperature_limit_celsius"] = (
+                _MAX_EXPERIMENT_GPU_TEMPERATURE_CELSIUS)
+            if gpu_sample["temperature_celsius"] > _MAX_EXPERIMENT_GPU_TEMPERATURE_CELSIUS:
+                blocked("gpu_temperature_limit_exceeded")
+            if (host_util is not None
+                    and (not isinstance(host_util, (int, float))
+                        or isinstance(host_util, bool)
+                        or not 0 <= host_util <= 100)):
+                blocked("host_gpu_utilization_telemetry_invalid")
+            if (type(direct_util) is not int or not 0 <= direct_util <= 100):
+                blocked("gpu_utilization_telemetry_unavailable")
+            resource_record["host_gpu_utilization_telemetry_missing"] = (
+                host_util is None)
+            effective_gpu_util = max(
+                float(host_util) if host_util is not None else 0.0,
+                float(direct_util))
+            preflight_samples[-1]["effective_gpu_utilization_percent"] = effective_gpu_util
+            if effective_gpu_util <= _MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT:
+                break
+            if attempt < _MAX_PREINFERENCE_GPU_ATTEMPTS:
+                time.sleep(_PREINFERENCE_GPU_RETRY_INTERVAL_SECONDS)
+        else:
+            resource_record["preinference_gpu_samples"] = preflight_samples
             blocked("gpu_utilization_preflight_busy")
 
+        assert fresh_resource is not None and gpu_snapshot is not None
+        resource_record.update(fresh_resource)
+        resource_record["preinference_gpu_samples"] = preflight_samples
+        resource_record["gpu_memory_free_mib"] = gpu_snapshot.get("memory_free_mib")
+        resource_record["gpu_memory_total_mib"] = gpu_snapshot.get("memory_total_mib")
+        resource_record["gpu_memory_sample_source"] = gpu_snapshot.get("source")
+        resource_record["gpu_memory_sample_scope"] = gpu_snapshot.get("scope")
+        resource_record["nvidia_smi_gpu_utilization_percent"] = (
+            gpu_snapshot.get("gpu_utilization_percent"))
+        resource_record["gpu_sampled_at"] = gpu_snapshot.get("sampled_at")
+        resource_record["gpu_utilization_sample_source"] = gpu_snapshot.get("source")
+        resource_record["gpu_utilization_sample_scope"] = gpu_snapshot.get("scope")
+        model_resident = False
+        if self._model_name is not None:
+            observed_residency = _model_residency_observed(self._model_name)
+            if observed_residency is None:
+                blocked("model_residency_telemetry_unavailable")
+            model_resident = observed_residency
+        resource_record["model_resident_at_preflight"] = model_resident
         try:
-            gpu = _require_gpu_headroom(gpu_snapshot, self._model_weight_bytes)
+            gpu = _require_gpu_headroom(gpu_snapshot, self._model_weight_bytes,
+                model_resident=model_resident)
         except RootlessExperimentalError as exc:
             blocked(_failure_code(exc))
         resource_record["gpu_memory_free_mib"] = gpu["memory_free_mib"]
         resource_record["gpu_memory_total_mib"] = gpu["memory_total_mib"]
+        resource_record["required_gpu_headroom_bytes"] = (
+            _GPU_RESIDENT_INFERENCE_RESERVE_BYTES if model_resident
+            else self._model_weight_bytes + _GPU_RUNTIME_RESERVE_BYTES)
         resource_record["preinference_gpu_utilization_limit_percent"] = (
             _MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT)
+        resource_record["effective_preinference_gpu_utilization_percent"] = (
+            max(float(fresh_resource["gpu_utilization_percent"])
+                if isinstance(fresh_resource.get("gpu_utilization_percent"), (int, float))
+                    and not isinstance(fresh_resource.get("gpu_utilization_percent"), bool)
+                else 0.0,
+                float(gpu_snapshot["gpu_utilization_percent"])))
         resource_record["gate_status"] = "passed"
         evidence_index = len(self._evidence_records)
         self._evidence_records.append(dict(resource_record))
@@ -369,9 +452,11 @@ class _ResourceGuardedInvoker:
         during_samples: list[dict[str, Any]] = []
         sample_failures = 0
         sample_attempts = 0
+        thermal_hot_streak = 0
+        low_memory_streak = 0
 
         def sample_during_inference() -> None:
-            nonlocal sample_attempts, sample_failures
+            nonlocal sample_attempts, sample_failures, thermal_hot_streak, low_memory_streak
             while sample_attempts < _MAX_DURING_INFERENCE_GPU_SAMPLES:
                 if stop_sampling.wait(_INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS):
                     return
@@ -383,6 +468,20 @@ class _ResourceGuardedInvoker:
                 if not isinstance(sample, Mapping):
                     sample_failures += 1
                     continue
+                temperature = sample.get("temperature_celsius")
+                if not isinstance(temperature, (int, float)) or isinstance(temperature, bool):
+                    sample_failures += 1
+                elif temperature > _MAX_EXPERIMENT_GPU_TEMPERATURE_CELSIUS:
+                    thermal_hot_streak += 1
+                else:
+                    thermal_hot_streak = 0
+                free_mib = sample.get("memory_free_mib")
+                if type(free_mib) is not int:
+                    sample_failures += 1
+                elif free_mib < _GPU_RESIDENT_INFERENCE_RESERVE_BYTES // 1024**2:
+                    low_memory_streak += 1
+                else:
+                    low_memory_streak = 0
                 if len(during_samples) < _MAX_DURING_INFERENCE_GPU_SAMPLES:
                     during_samples.append(dict(sample))
                 else:
@@ -413,7 +512,15 @@ class _ResourceGuardedInvoker:
                 else "sampled" if during_samples
                 else "no_intermediate_sample")
             resource_record["post_inference_gpu_sample"] = _gpu_snapshot()
+            resource_record["thermal_abort_after_call"] = thermal_hot_streak >= 2
+            resource_record["thermal_hot_sample_streak"] = thermal_hot_streak
+            resource_record["low_memory_abort_after_call"] = low_memory_streak >= 2
+            resource_record["low_memory_sample_streak"] = low_memory_streak
             self._evidence_records[evidence_index] = dict(resource_record)
+            if thermal_hot_streak >= 2:
+                raise RootlessExperimentalError("gpu_temperature_limit_sustained")
+            if low_memory_streak >= 2:
+                raise RootlessExperimentalError("gpu_memory_headroom_lost_during_inference")
 
 
 def _model_residency_observed(model_name: str) -> bool | None:
@@ -966,7 +1073,7 @@ def run() -> dict[str, Any]:
         kernel_factory=lambda _: kernel)
     session.invoker = cast(Any, _ResourceGuardedInvoker(
         session.invoker, resource_coordinator, model_weight_bytes,
-        inference_resource_evidence))
+        inference_resource_evidence, model_name=MODEL_NAME))
     # Bind the session to the identity actually loaded by the governed worker.
     session.session_binding["active_model_identity_digest"] = digest_payload(
         {"identity": session.active_model_identity})
