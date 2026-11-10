@@ -5773,6 +5773,10 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         for item in result.conditions)
     assert [item["condition_id"] for item in result.conditions] == [
         "history_present", "history_withheld", "history_restored"]
+    assert initial.written_record_id in result.conditions[0]["retrieved_record_ids"]
+    assert result.conditions[1]["retrieved_record_ids"] == []
+    assert result.conditions[0]["retrieved_record_ids"] == (
+        result.conditions[2]["retrieved_record_ids"])
     assert [json.loads(item["response"])["requested_pose"]
         for item in (result.conditions[0], result.conditions[2])] == ["idle", "idle"]
     withheld = result.conditions[1]
@@ -6824,7 +6828,10 @@ def test_operator_writeback_flows_into_later_owner_paired_history_comparison(
     assert comparison.action_authority is False
     assert all(cycle.written_record_id in item["history_record_ids"]
         for item in (comparison.conditions[0], comparison.conditions[2]))
+    assert all(cycle.written_record_id in item["retrieved_record_ids"]
+        for item in (comparison.conditions[0], comparison.conditions[2]))
     assert comparison.conditions[1]["history_record_ids"] == ()
+    assert comparison.conditions[1]["retrieved_record_ids"] == []
 
 
 def test_request_bound_history_capture_preserves_bridge_provenance_across_clock_skew(
@@ -9538,6 +9545,12 @@ def test_chat_service_composes_resident_reply_into_controlled_history_interventi
     assert conditions[0]["disposition"] == "answer"
     assert conditions[1]["disposition"] == "abstain"
     assert conditions[2]["response_text"] == conditions[0]["response_text"]
+    assert conditions[0]["retrieved_record_ids"] == [written_record_id]
+    assert conditions[1]["retrieved_record_ids"] == []
+    assert conditions[2]["retrieved_record_ids"] == [written_record_id]
+    assert conditions[0]["history_record_ids"] == [written_record_id]
+    assert conditions[1]["history_record_ids"] == []
+    assert conditions[2]["history_record_ids"] == [written_record_id]
     assert interaction.history_record_ids == ()
     comparison_requests = [request for request in fake.requests
         if request.purpose == "resident_developmental_history_intervention_experiment"

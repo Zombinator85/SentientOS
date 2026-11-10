@@ -87,9 +87,14 @@ def test_explicit_history_intervention_uses_fresh_observation_and_returns_measur
                 tick_id=tick_id, changed_cognition_measurement_id="measure-1",
                 response_text_classification="no_observable_response_text_difference",
                 restored_prompt_matches=True,
-                conditions=({"condition_id": "history_present", "response": "A."},
-                    {"condition_id": "history_withheld", "response": "B."},
-                    {"condition_id": "history_restored", "response": "A."}),
+                conditions=({"condition_id": "history_present", "response": "A.",
+                        "retrieved_record_ids": ("lesson-1",),
+                        "history_record_ids": ("lesson-1",)},
+                    {"condition_id": "history_withheld", "response": "B.",
+                        "retrieved_record_ids": ()},
+                    {"condition_id": "history_restored", "response": "A.",
+                        "retrieved_record_ids": ("lesson-1",),
+                        "history_record_ids": ("lesson-1",)}),
                 authority=False, action_authority=False)
 
     capture = {"modality": "screen", "text": "fresh local observation",
@@ -117,11 +122,14 @@ def test_explicit_history_intervention_uses_fresh_observation_and_returns_measur
     assert result["performance_improvement_established"] is False
     assert result["condition_responses"] == [
         {"condition_id": "history_present", "response_text": "A.",
-            "disposition": "unknown"},
+            "disposition": "unknown", "retrieved_record_ids": ["lesson-1"],
+            "history_record_ids": ["lesson-1"]},
         {"condition_id": "history_withheld", "response_text": "B.",
-            "disposition": "unknown"},
+            "disposition": "unknown", "retrieved_record_ids": [],
+            "history_record_ids": []},
         {"condition_id": "history_restored", "response_text": "A.",
-            "disposition": "unknown"},
+            "disposition": "unknown", "retrieved_record_ids": ["lesson-1"],
+            "history_record_ids": ["lesson-1"]},
     ]
     assert observations[0][1] == "What is one visible detail?"
     assert observations[0][2] is capture
