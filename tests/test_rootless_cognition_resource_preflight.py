@@ -777,6 +777,15 @@ def test_objective_transfer_requires_matching_present_restored_and_withheld_hist
     assert set(observed) == {
         "history_present", "history_withheld", "history_restored"}
 
+    duplicate = [dict(item) for item in conditions]
+    duplicate[2] = {**duplicate[2], "condition_id": "history_present"}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_observation_lineage_incomplete"):
+        runner._objective_transfer_observations(duplicate, acquisition_id)
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_observation_lineage_incomplete"):
+        runner._objective_transfer_observations(conditions + [None], acquisition_id)
+
     leaked = [dict(item) for item in conditions]
     leaked[1] = {"condition_id": "history_withheld",
         "retrieved_record_ids": [acquisition_id]}
@@ -838,6 +847,10 @@ def test_objective_transfer_report_preserves_score_and_history_lineage(runner):
             match="objective_family_transfer_report_conditions_incomplete"):
         runner._objective_transfer_condition_summaries(
             malformed_scores, observations, acquisition_id)
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_report_conditions_incomplete"):
+        runner._objective_transfer_condition_summaries(
+            scores + [None], observations, acquisition_id)
 
     mismatched_receipt = list(scores)
     mismatched_receipt[1] = {**mismatched_receipt[1],

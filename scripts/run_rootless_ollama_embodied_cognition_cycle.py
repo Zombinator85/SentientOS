@@ -181,16 +181,17 @@ def _objective_transfer_eligibility(acquisition_summary: Mapping[str, Any]) -> d
 
 def _objective_transfer_observations(
         conditions: Any, acquisition_record_id: str) -> dict[str, Mapping[str, Any]]:
-    if not isinstance(conditions, list):
+    if (not isinstance(conditions, list) or len(conditions) != 3
+            or any(not isinstance(item, Mapping) for item in conditions)):
         raise RootlessExperimentalError(
             "objective_family_transfer_observation_lineage_incomplete")
     observations: dict[str, Mapping[str, Any]] = {}
     for item in conditions:
-        if not isinstance(item, Mapping):
-            continue
         condition_id = item.get("condition_id")
-        if isinstance(condition_id, str):
-            observations[condition_id] = item
+        if not isinstance(condition_id, str) or condition_id in observations:
+            raise RootlessExperimentalError(
+                "objective_family_transfer_observation_lineage_incomplete")
+        observations[condition_id] = item
     if set(observations) != {
             "history_present", "history_withheld", "history_restored"}:
         raise RootlessExperimentalError(
@@ -216,8 +217,9 @@ def _objective_transfer_condition_summaries(
     """Keep each scored condition bound to its retrieved-history and receipt evidence."""
     expected_conditions = ("history_present", "history_withheld", "history_restored")
     if (not isinstance(scores, list)
-            or tuple(item.get("condition_id") for item in scores
-                if isinstance(item, Mapping)) != expected_conditions
+            or len(scores) != len(expected_conditions)
+            or any(not isinstance(item, Mapping) for item in scores)
+            or tuple(item.get("condition_id") for item in scores) != expected_conditions
             or set(observations) != set(expected_conditions)):
         raise RootlessExperimentalError(
             "objective_family_transfer_report_conditions_incomplete")
@@ -1155,8 +1157,7 @@ def _synthetic_current_target_record() -> dict[str, Any]:
         evidence_class="sensor_observation",
         subject_id="synthetic-target-1", subject_kind="target_object",
         payload={**payload, "sampled_at": observed_at})
-    return cast(dict[str, Any],
-        EmbodimentEvidenceOwner([observation]).world_state_records()[0])
+    return EmbodimentEvidenceOwner([observation]).world_state_records()[0]
 
 
 def run() -> dict[str, Any]:
