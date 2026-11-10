@@ -17,8 +17,8 @@ from sentientos.resident_developmental_writeback import (
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
     SelectedEvidence, _has_bounded_integrity_controller_observation, _identity,
     MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES,
-    MAX_SELECTED_EVIDENCE_BYTES, _selected_fact_byte_limit, _writeback_input_limit,
-    measure_changed_cognition,
+    MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES, MAX_SELECTED_EVIDENCE_BYTES,
+    _selected_fact_byte_limit, _writeback_input_limit, measure_changed_cognition,
 )
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateBoardBuilder
@@ -203,13 +203,21 @@ def test_objective_task_family_trial_gets_narrow_prompt_budget_without_expanding
             "task_family_posture": "operator_declared_protocol_bound",
             "objective_task_commitment_posture": "salted_private_oracle_commitment:v1",
             "objective_task_family": "synthetic-affine-family",
+            "interpretation_projection": {
+                "schema_version": "sentientos.developmental_history_interpretation_projection:v1"},
             "objective_task_descriptor": {"task_family_id": "synthetic-affine-family",
                 "task_digest_posture": "salted_private_oracle_commitment:v1",
                 "task_digest": "sha256:" + "b" * 64},
-            "objective_scores": [{"condition_id": condition, "score_digest": "sha256:" + "c" * 64,
-                "evaluator": "deterministic_exact_integer_suite_oracle_v2",
-                "status": "incorrect"} for condition in (
-                    "history_present", "history_withheld", "history_restored")],
+            "objective_scores": [
+                {"condition_id": "history_present", "score_digest": "sha256:" + "c" * 64,
+                 "schema_version": "sentientos.objective_task_score:v3",
+                 "plan_digest": "sha256:" + "d" * 64,
+                 "task_digest": "sha256:" + "b" * 64,
+                 "evaluator": "deterministic_exact_integer_suite_oracle_v2",
+                 "status": "incorrect"},
+                *[{"condition_id": condition, "score_digest": "sha256:" + "c" * 64,
+                   "status": "incorrect"} for condition in (
+                    "history_withheld", "history_restored")]],
             "conditions": [{"condition_id": condition} for condition in (
                 "history_present", "history_withheld", "history_restored")],
             "acquisition_examples": [{"probe_input": 7, "observed_answer": 20,
@@ -218,7 +226,8 @@ def test_objective_task_family_trial_gets_narrow_prompt_budget_without_expanding
         "effect_proven": False,
     }
 
-    assert _selected_fact_byte_limit([fact]) == MAX_SELECTED_EVIDENCE_BYTES
+    assert _selected_fact_byte_limit([fact]) == (
+        MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES)
     assert _writeback_input_limit([fact]) == 16_384
 
     malformed = json.loads(json.dumps(fact))

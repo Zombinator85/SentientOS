@@ -460,6 +460,7 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
     scores = payload.get("objective_scores") if isinstance(payload, Mapping) else None
     conditions = payload.get("conditions") if isinstance(payload, Mapping) else None
     examples = payload.get("acquisition_examples") if isinstance(payload, Mapping) else None
+    projection = payload.get("interpretation_projection") if isinstance(payload, Mapping) else None
     if not (isinstance(source, Mapping) and source.get("kind") == "embodiment"
             and isinstance(subject, Mapping)
             and subject.get("subject_kind") == "developmental_history_intervention_experiment"
@@ -470,6 +471,9 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
             and payload.get("task_family_posture") == "operator_declared_protocol_bound"
             and payload.get("objective_task_commitment_posture")
                 == "salted_private_oracle_commitment:v1"
+            and isinstance(projection, Mapping)
+            and projection.get("schema_version")
+                == "sentientos.developmental_history_interpretation_projection:v1"
             and isinstance(descriptor, Mapping)
             and isinstance(descriptor.get("task_family_id"), str)
             and descriptor.get("task_family_id") == payload.get("objective_task_family")
@@ -489,16 +493,25 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
                 and isinstance(row.get("score_digest"), str)
                 and len(row["score_digest"]) == 71
                 and row["score_digest"].startswith("sha256:")
-                and row.get("evaluator")
-                    == "deterministic_exact_integer_suite_oracle_v2"
                 and row.get("status") in {"correct", "incorrect", "invalid_answer"}
                 for row in scores)):
         return False
-    return True
+    history_score = next((row for row in scores if isinstance(row, Mapping)
+        and row.get("condition_id") == "history_present"), None)
+    return (isinstance(history_score, Mapping)
+        and history_score.get("schema_version") == "sentientos.objective_task_score:v3"
+        and history_score.get("evaluator") == "deterministic_exact_integer_suite_oracle_v2"
+        and history_score.get("task_digest") == descriptor.get("task_digest")
+        and isinstance(history_score.get("plan_digest"), str)
+        and len(history_score["plan_digest"]) == 71
+        and history_score["plan_digest"].startswith("sha256:"))
 
 
 def _writeback_input_limit(facts: Sequence[Mapping[str, Any]]) -> int:
-    if len(facts) == 1 and _is_bounded_objective_task_family_trial(facts[0]):
+    if (len(facts) == 1
+            and _selected_fact_byte_limit(facts)
+                == MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES
+            and _is_bounded_objective_task_family_trial(facts[0])):
         return MAX_OBJECTIVE_TASK_FAMILY_INPUT_CHARS
     return (52_000 if _selected_fact_byte_limit(facts) == 48_000 else 8000)
 
