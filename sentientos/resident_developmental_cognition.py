@@ -5685,6 +5685,25 @@ class ResidentDevelopmentalCognitionOwner:
         if observation.schema_version == COGNITION_OBSERVATION_SCHEMA_V8:
             self._verify_observation_invocation(asdict(observation))
         if interaction_capture is not None:
+            matched_control_inputs = {
+                "schema_version": "sentientos.history_intervention_matched_inputs:v1",
+                "question_digest": _digest({"question": interaction_question}),
+                "snapshot_digest": snapshot.digest,
+                "current_projection_digest": current.projection_digest,
+                "prior_self_model_digest": _digest(
+                    asdict(prior_self_model) if prior_self_model is not None else None),
+                "prior_epistemic_state_digest": _digest(
+                    asdict(prior_epistemic_state)
+                    if prior_epistemic_state is not None else None),
+                "response_contract": (context.get("companion_response_contract")
+                    if interaction_question is not None else None),
+                "instruction_digest": _digest({
+                    "instruction": COMPANION_HISTORY_INTERVENTION_INSTRUCTION
+                    if companion_intervention else "companion_interaction_instruction:v1"}),
+                "response_schema_digest": _digest(
+                    dict(request.structured_output_schema)
+                    if request.structured_output_schema is not None else None),
+            }
             interaction_capture.update({
                 "condition_id": condition_id,
                 "cognition_observation_id": observation.observation_id,
@@ -5701,6 +5720,10 @@ class ResidentDevelopmentalCognitionOwner:
                 "snapshot_digest": snapshot.digest,
                 "current_fact_ids": list(current.fact_ids),
                 "retrieved_record_ids": list(record_ids),
+                # This digest excludes the developmental-history treatment so
+                # A/B/A can verify that all other semantic inputs stayed fixed.
+                "matched_control_inputs": matched_control_inputs,
+                "matched_control_inputs_digest": _digest(matched_control_inputs),
             })
         if epistemic_revision_probe:
             capture: dict[str, Any] = {

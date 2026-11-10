@@ -5784,6 +5784,13 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         "history_unavailable_sentinel_means_abstention")
     assert "HISTORY_UNAVAILABLE" not in json.dumps(decision_audit)
     assert all(item["snapshot_digest"] == source.digest for item in result.conditions)
+    matched_controls = [item["matched_control_inputs"] for item in result.conditions]
+    assert matched_controls[0] == matched_controls[1] == matched_controls[2]
+    assert all(item["matched_control_inputs_digest"] == "sha256:" + digest_payload(
+        item["matched_control_inputs"]) for item in result.conditions)
+    assert matched_controls[0]["question_digest"] == "sha256:" + digest_payload({
+        "question": "For the synthetic avatar, choose the next pose and predict "
+            "its encoder pose. Return JSON with requested_pose and predicted_pose."})
     intervention_requests = [request for request in fake.requests
         if request.purpose == "resident_developmental_history_intervention_experiment"
         and request.linkage.get("condition_id") in

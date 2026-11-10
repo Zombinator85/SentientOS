@@ -1224,10 +1224,11 @@ def qualify_history_transfer_decision(
     without both citation classes is retained as an unqualified observation.
     """
     result = {
-        "schema_version": "sentientos.history_transfer_decision_qualification:v3",
+        "schema_version": "sentientos.history_transfer_decision_qualification:v4",
         "measurement_scope": "history_conditioned_new_decision_proposal",
         "classification": "not_qualified",
         "controlled_inputs_match": False,
+        "matched_non_history_inputs_bound": False,
         "target_evidence_cited": False,
         "expected_history_cited": False,
         "history_treatment_bound": False,
@@ -1256,8 +1257,29 @@ def qualify_history_transfer_decision(
         return result
     control_fields = ("current_fact_ids", "snapshot_digest",
         "generation_config", "active_model_identity")
-    controls_match = all(present.get(key) == withheld.get(key) == restored.get(key)
+    base_controls_match = all(
+        present.get(key) == withheld.get(key) == restored.get(key)
         for key in control_fields)
+    matched_input_fields = {
+        "schema_version", "question_digest", "snapshot_digest",
+        "current_projection_digest", "prior_self_model_digest",
+        "prior_epistemic_state_digest", "response_contract",
+        "instruction_digest", "response_schema_digest",
+    }
+    def valid_matched_inputs(row: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        value = row.get("matched_control_inputs")
+        if (not isinstance(value, Mapping) or set(value) != matched_input_fields
+                or value.get("schema_version")
+                    != "sentientos.history_intervention_matched_inputs:v1"
+                or row.get("matched_control_inputs_digest") != _digest(dict(value))):
+            return None
+        return value
+    matched_inputs = tuple(valid_matched_inputs(row) for row in conditions)
+    matched_inputs_bound = (
+        all(value is not None for value in matched_inputs)
+        and matched_inputs[0] == matched_inputs[1] == matched_inputs[2])
+    controls_match = base_controls_match and matched_inputs_bound
+    result["matched_non_history_inputs_bound"] = matched_inputs_bound
     result["controlled_inputs_match"] = controls_match
     def cited_target(row: Mapping[str, Any]) -> bool:
         citations = row.get("evidence_ids")
