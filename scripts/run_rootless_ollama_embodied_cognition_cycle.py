@@ -214,8 +214,9 @@ def _objective_task_pair(seed: int) -> tuple[ObjectivePredictionTask, ObjectiveP
 
 TRANSFER_DECISION_QUESTION = (
     "Controlled new-decision probe on a new synthetic task, not past recall. "
-    "Choose one action for the current target: INSPECT or REACH. Read the "
-    "current World-State and eligible history. In each "
+    "The current synthetic target is visible and within reach; its hazard status "
+    "is unknown. Choose one action for it: INSPECT or REACH. Read the current "
+    "World-State and eligible history. In each "
     "historical_embodiment_reports entry, compare "
     "reported_values.predicted_observation.pose with "
     "reported_values.observer_report_field.pose. If it records predicted "
@@ -984,7 +985,8 @@ def _pre_action_source(*, pose: str = "idle") -> tuple[Any, EmbodimentObservatio
 
 
 def _embodied_source(*, requested_pose: str, predicted_pose: str
-        ) -> tuple[WorldStateSnapshot, dict[str, Any], EmbodimentObservation]:
+        ) -> tuple[WorldStateSnapshot, dict[str, Any], EmbodimentObservation,
+            list[dict[str, Any]]]:
     commanded_at = (datetime.now(timezone.utc) - timedelta(seconds=8)).isoformat()
     renderer_completed_at = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
     observed_at = (datetime.now(timezone.utc) - timedelta(seconds=4)).isoformat()
@@ -1061,7 +1063,25 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
             "observation_independence_posture"],
         "action_execution_posture": "synthetic_fixture_only",
     }
-    return snapshot, evidence_summary, self_report
+    return snapshot, evidence_summary, self_report, selected_records
+
+
+def _synthetic_current_target_record() -> dict[str, Any]:
+    """Describe the current target for the later synthetic action-choice probe."""
+    observed_at = datetime.now(timezone.utc).isoformat()
+    payload = {"visible": True, "distance": "within_reach",
+        "hazard_status": "unknown", "fixture_posture": "synthetic_test"}
+    observation = EmbodimentObservation(
+        source_id=RUN_ID + ":synthetic-current-target",
+        source_schema="sentientos.synthetic_environment_target_observation:v1",
+        source_digest=semantic_digest(payload),
+        observed_at=observed_at,
+        provenance_class="deterministic_synthetic_fixture",
+        freshness="current", posture="synthetic_test",
+        evidence_class="sensor_observation",
+        subject_id="synthetic-target-1", subject_kind="target_object",
+        payload={**payload, "sampled_at": observed_at})
+    return EmbodimentEvidenceOwner([observation]).world_state_records()[0]
 
 
 def run() -> dict[str, Any]:
@@ -1207,7 +1227,7 @@ def run() -> dict[str, Any]:
                 "pre_action_prediction_inconsistent_with_deterministic_fixture")
         if proposal["requested_pose"] != "reach":
             raise RootlessExperimentalError("pre_action_goal_not_met")
-        snapshot, evidence, proprioception = _embodied_source(
+        snapshot, evidence, proprioception, consequence_records = _embodied_source(
             requested_pose=proposal["requested_pose"],
             predicted_pose=proposal["predicted_pose"])
         RUN_STAGE = "governed_developmental_writeback"
@@ -1221,7 +1241,12 @@ def run() -> dict[str, Any]:
         # rather than treating a plausible conversational difference as
         # evidence of improved performance.
         RUN_STAGE = "objective_task_family_acquisition"
-        later_pre_action_snapshot = snapshot
+        # The later action-choice comparison needs a current target fact to
+        # ground its decision. The prior snapshot held only proprioception and
+        # the previous consequence, so asking for a target-grounded action
+        # otherwise created an under-specified probe.
+        later_pre_action_snapshot = WorldStateBoardBuilder().build(
+            [*consequence_records, _synthetic_current_target_record()])
         objective_family = "rootless_integer_affine_transfer"
         acquisition_task, transfer_task = _objective_task_pair(EXPERIMENT_SEED)
         acquisition_request_id = RUN_ID + ":objective-family-acquisition"

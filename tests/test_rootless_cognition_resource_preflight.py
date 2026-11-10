@@ -813,3 +813,24 @@ def test_resource_refresh_records_disk_headroom_and_fails_closed(runner, monkeyp
             match="host_disk_headroom_insufficient"):
         runner._refresh_resource_evidence(coordinator,
             correlation_id="low-disk-test")
+
+
+def test_later_action_probe_has_current_synthetic_target_evidence(runner):
+    from sentientos.world_state_board import validate_snapshot
+
+    target = runner._synthetic_current_target_record()
+    snapshot = runner.WorldStateBoardBuilder().build([target])
+
+    assert validate_snapshot(snapshot).valid
+    assert len(snapshot.facts) == 1
+    fact = snapshot.facts[0]
+    assert fact.subject.subject_id == "synthetic-target-1"
+    assert fact.subject.subject_kind == "target_object"
+    assert fact.payload["visible"] is True
+    assert fact.payload["distance"] == "within_reach"
+    assert fact.payload["hazard_status"] == "unknown"
+    assert fact.payload["evidence_posture"] == "synthetic_test"
+    assert fact.payload["declared_provenance_class"] == (
+        "deterministic_synthetic_fixture")
+    assert fact.effect_proven is False
+    assert fact.effect_claimed is False
