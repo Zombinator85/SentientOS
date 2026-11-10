@@ -81,10 +81,87 @@ RUN_ID = "rootless-cognition-cycle-" + uuid.uuid4().hex[:20]
 RUN_ROOT = EXPERIMENT_ROOT / "developmental-cognition-cycles" / RUN_ID
 RUN_STAGE = "startup"
 RESOURCE_PREFLIGHT_EVIDENCE: list[dict[str, Any]] = []
+_SOURCE_FINGERPRINT_MAX_BYTES = 32 * 1024 * 1024
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _worktree_content_fingerprint(root: Path) -> dict[str, Any]:
+    """Fingerprint tracked edits; withhold it when untracked content is present."""
+    unavailable = {"worktree_content_status": "unavailable",
+        "worktree_content_digest": None}
+    try:
+        diff = subprocess.run(["git", "diff", "--binary", "--no-ext-diff",
+            "--no-textconv", "HEAD"], cwd=root, capture_output=True, timeout=10,
+            check=True)
+        untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard",
+            "-z"], cwd=root, capture_output=True, timeout=10, check=True)
+        diff_raw = diff.stdout
+        untracked_raw = untracked.stdout
+        diff_bytes = diff_raw if isinstance(diff_raw, bytes) else str(
+            diff_raw).encode("utf-8")
+        untracked_bytes = untracked_raw if isinstance(untracked_raw, bytes) else str(
+            untracked_raw).encode("utf-8")
+        if any(item for item in untracked_bytes.split(b"\0") if item):
+            return {"worktree_content_status": "untracked_paths_present",
+                "worktree_content_digest": None}
+        if len(diff_bytes) > _SOURCE_FINGERPRINT_MAX_BYTES:
+            return {"worktree_content_status": "size_limit_exceeded",
+                "worktree_content_digest": None}
+        return {"worktree_content_status": "complete",
+            "worktree_content_digest": hashlib.sha256(diff_bytes).hexdigest()}
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return unavailable
+
+
+def _source_provenance(repo_root: Path | None = None) -> dict[str, Any]:
+    """Bind experiment evidence to a revision without retaining local paths."""
+    root = (Path(__file__).resolve().parents[1] if repo_root is None
+        else Path(repo_root).resolve())
+    unavailable = {
+        "schema_version": "sentientos.source_revision_provenance:v1",
+        "observation_status": "unavailable",
+        "repository_revision": None,
+        "worktree_clean": None,
+        "worktree_status_entry_count": None,
+        "worktree_status_digest": None,
+        "worktree_content_status": "unavailable",
+        "worktree_content_digest": None,
+        "worktree_paths_retained": False,
+    }
+    try:
+        revision_result = subprocess.run(["git", "rev-parse", "--verify", "HEAD"],
+            cwd=root, capture_output=True, timeout=5, check=True)
+        revision_raw = revision_result.stdout
+        revision = (revision_raw.decode("ascii", errors="strict").strip()
+            if isinstance(revision_raw, bytes) else str(revision_raw).strip())
+        if re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", revision) is None:
+            return unavailable
+        status_result = subprocess.run(["git", "status", "--porcelain=v1", "-z",
+            "--untracked-files=all"], cwd=root, capture_output=True, timeout=10,
+            check=True)
+        status_raw = status_result.stdout
+        status_bytes = (status_raw if isinstance(status_raw, bytes)
+            else str(status_raw).encode("utf-8"))
+        entries = [item for item in status_bytes.split(b"\0") if item]
+        content_provenance = _worktree_content_fingerprint(root)
+        return {
+            **unavailable,
+            "observation_status": "observed",
+            "repository_revision": revision,
+            "worktree_clean": not entries,
+            "worktree_status_entry_count": len(entries),
+            "worktree_status_digest": hashlib.sha256(status_bytes).hexdigest(),
+            **content_provenance,
+        }
+    except (OSError, UnicodeError, subprocess.CalledProcessError,
+            subprocess.TimeoutExpired):
+        return unavailable
+
+
+RUN_SOURCE_PROVENANCE = _source_provenance()
 
 
 def _runtime_observation(model_digest: str) -> tuple[dict[str, Any], str]:
@@ -537,10 +614,11 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                     "raw_question_and_response_excluded": True,
                 })
     artifact = {
-        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v2",
+        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v3",
         "run_id": RUN_ID,
         "status": "incomplete",
         "execution_posture": "rootless_experimental_nonproduction",
+        "source_provenance": dict(RUN_SOURCE_PROVENANCE),
         "model_id": MODEL_NAME,
         "model_manifest_digest": MANIFEST_PATH.stem,
         "stage": RUN_STAGE,
@@ -1463,9 +1541,10 @@ def run() -> dict[str, Any]:
             "history_changed_new_decision"]
         transfer_classification = transfer_qualification["classification"]
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v6",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v7",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
+            "source_provenance": dict(RUN_SOURCE_PROVENANCE),
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
             "requested_backend_seed": 42,
             "model_artifact_size_bytes": manifest_size,
