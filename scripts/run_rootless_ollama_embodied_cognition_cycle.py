@@ -137,11 +137,11 @@ def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
                 != ["history_present", "history_withheld", "history_restored"]):
         raise RootlessExperimentalError(
             "objective_family_acquisition_scores_incomplete")
-    score_rows = [_objective_condition_score(item) for item in scores]
-    if any(not isinstance(score, Mapping) for score in score_rows):
+    evaluation_rows = [_objective_condition_score(item) for item in scores]
+    if any(not isinstance(evaluation, Mapping) for evaluation in evaluation_rows):
         raise RootlessExperimentalError(
             "objective_family_acquisition_score_invalid")
-    present, withheld, restored = score_rows
+    present, withheld, restored = evaluation_rows
     probe_results = present.get("probe_results")
     correct_count = present.get("correct_count")
     probe_count = present.get("probe_count")
@@ -155,10 +155,10 @@ def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
         raise RootlessExperimentalError(
             "objective_family_acquisition_score_invalid")
     condition_correct_counts: list[int] = []
-    for score in score_rows:
-        count = score.get("correct_count")
+    for evaluation in evaluation_rows:
+        count = evaluation.get("correct_count")
         if (type(count) is not int or not 0 <= count <= probe_count
-                or score.get("probe_count") != probe_count):
+                or evaluation.get("probe_count") != probe_count):
             raise RootlessExperimentalError(
                 "objective_family_acquisition_score_invalid")
         condition_correct_counts.append(count)
