@@ -796,18 +796,23 @@ def test_objective_transfer_report_preserves_score_and_history_lineage(runner):
     acquisition_id = "devrec-acquisition"
     conditions = [
         {"condition_id": "history_present",
-            "retrieved_record_ids": [acquisition_id]},
-        {"condition_id": "history_withheld", "retrieved_record_ids": []},
+            "retrieved_record_ids": [acquisition_id], "inference_receipt_id": "receipt-0",
+            "inference_receipt_digest": "receipt-digest-0", "output_digest": "output-0"},
+        {"condition_id": "history_withheld", "retrieved_record_ids": [],
+            "inference_receipt_id": "receipt-1", "inference_receipt_digest": "receipt-digest-1",
+            "output_digest": "output-1"},
         {"condition_id": "history_restored",
-            "retrieved_record_ids": [acquisition_id]},
+            "retrieved_record_ids": [acquisition_id], "inference_receipt_id": "receipt-2",
+            "inference_receipt_digest": "receipt-digest-2", "output_digest": "output-2"},
     ]
     observations = runner._objective_transfer_observations(conditions, acquisition_id)
     scores = [{
         "condition_id": condition_id,
         "score": {"correct_count": 1, "probe_count": 3,
-            "status": "partially_correct", "output_digest": f"digest-{index}"},
+            "status": "partially_correct", "output_digest": f"output-{index}"},
         "inference_receipt_id": f"receipt-{index}",
         "inference_receipt_digest": f"receipt-digest-{index}",
+        "invocation_output_digest": f"output-{index}",
     } for index, condition_id in enumerate((
         "history_present", "history_withheld", "history_restored"))]
 
@@ -817,7 +822,7 @@ def test_objective_transfer_report_preserves_score_and_history_lineage(runner):
     assert [item["condition_id"] for item in summaries] == [
         "history_present", "history_withheld", "history_restored"]
     assert [item["output_digest"] for item in summaries] == [
-        "digest-0", "digest-1", "digest-2"]
+        "output-0", "output-1", "output-2"]
     assert [item["retrieved_record_ids"] for item in summaries] == [
         [acquisition_id], [], [acquisition_id]]
     assert [item["task_family_history_record_id_retrieved"]
@@ -833,6 +838,22 @@ def test_objective_transfer_report_preserves_score_and_history_lineage(runner):
             match="objective_family_transfer_report_conditions_incomplete"):
         runner._objective_transfer_condition_summaries(
             malformed_scores, observations, acquisition_id)
+
+    mismatched_receipt = list(scores)
+    mismatched_receipt[1] = {**mismatched_receipt[1],
+        "inference_receipt_digest": "different-receipt"}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_report_lineage_invalid"):
+        runner._objective_transfer_condition_summaries(
+            mismatched_receipt, observations, acquisition_id)
+
+    mismatched_output = list(scores)
+    mismatched_output[1] = {**mismatched_output[1],
+        "invocation_output_digest": "different-output"}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_report_lineage_invalid"):
+        runner._objective_transfer_condition_summaries(
+            mismatched_output, observations, acquisition_id)
 
 
 

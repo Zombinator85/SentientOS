@@ -227,13 +227,25 @@ def _objective_transfer_condition_summaries(
             raise RootlessExperimentalError(
                 "objective_family_transfer_report_conditions_incomplete")
         observation = observations[condition_id]
+        receipt_id = item.get("inference_receipt_id")
+        receipt_digest = item.get("inference_receipt_digest")
+        output_digest = item.get("invocation_output_digest")
+        score = item.get("score")
+        score_mapping = score if isinstance(score, Mapping) else {}  # invariant-allow: score is report metadata only
+        if (not isinstance(score, Mapping)  # invariant-allow: score is evaluation metadata only
+                or score_mapping.get("output_digest") != output_digest
+                or not isinstance(receipt_id, str) or not receipt_id
+                or not isinstance(receipt_digest, str) or not receipt_digest
+                or observation.get("inference_receipt_id") != receipt_id
+                or observation.get("inference_receipt_digest") != receipt_digest
+                or observation.get("output_digest") != output_digest):
+            raise RootlessExperimentalError(
+                "objective_family_transfer_report_lineage_invalid")
         retrieved_record_ids = observation.get("retrieved_record_ids", [])
         if (not isinstance(retrieved_record_ids, (list, tuple))
                 or any(not isinstance(record_id, str) for record_id in retrieved_record_ids)):
             raise RootlessExperimentalError(
                 "objective_family_transfer_report_lineage_invalid")
-        score = item.get("score")
-        score_mapping = score if isinstance(score, Mapping) else {}  # invariant-allow: score is reporting metadata, not decision utility
         summaries.append({
             "condition_id": condition_id,
             "correct_count": score_mapping.get("correct_count"),
