@@ -449,6 +449,7 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
     def row(condition: str, response: str, cited: list[str]) -> dict[str, object]:
         return {
             "condition_id": condition,
+            "prompt_digest": "sha256:prompt-present-restored",
             "matched_control_inputs": dict(matched_inputs),
             "matched_control_inputs_digest": "sha256:" + digest_payload(matched_inputs),
             "current_fact_ids": ["fact-current"],
@@ -477,6 +478,7 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
         present_response="INSPECT", withheld_response="REACH",
         restored_response="INSPECT", restored_prompt_matches=True)
     assert qualified["history_changed_new_decision"] is True
+    assert qualified["restored_prompt_exact_match"] is True
     assert qualified["matched_non_history_inputs_bound"] is True
     assert qualified["target_evidence_cited"] is True
     assert qualified["response_difference_observed"] is True
@@ -559,6 +561,18 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
         restored_response="INSPECT", restored_prompt_matches=True)
     assert tampered["matched_non_history_inputs_bound"] is False
     assert tampered["controlled_inputs_match"] is False
+
+    prompt_mismatch = [dict(item) for item in conditions]
+    prompt_mismatch[2]["prompt_digest"] = "sha256:different-restoration"
+    restored_mismatch = qualify_history_transfer_decision(
+        conditions=prompt_mismatch, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert restored_mismatch["restored_prompt_exact_match"] is False
+    assert restored_mismatch["history_conditioned_response_difference_observed_under_matched_controls"] is False
+    assert "restored_prompt_digest_mismatch" in (
+        restored_mismatch["qualification_failure_codes"])
 
     retrieval_mismatch = [dict(item) for item in conditions]
     retrieval_mismatch[0]["retrieved_record_ids"] = ["devrec-other"]

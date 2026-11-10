@@ -1229,6 +1229,7 @@ def qualify_history_transfer_decision(
         "classification": "not_qualified",
         "controlled_inputs_match": False,
         "matched_non_history_inputs_bound": False,
+        "restored_prompt_exact_match": False,
         "target_evidence_cited": False,
         "expected_history_cited": False,
         "history_treatment_bound": False,
@@ -1244,13 +1245,20 @@ def qualify_history_transfer_decision(
     if (len(conditions) != 3 or not isinstance(expected_history_record_id, str)
             or not expected_history_record_id
             or not isinstance(expected_current_fact_id, str)
-            or not expected_current_fact_id
-            or restored_prompt_matches is not True):
+            or not expected_current_fact_id):
         result["classification"] = "controls_or_restoration_not_qualified"
         result["qualification_failure_codes"] = [
             "conditions_identity_or_restoration_invalid"]
         return result
     present, withheld, restored = conditions
+    present_prompt_digest = present.get("prompt_digest")
+    restored_prompt_digest = restored.get("prompt_digest")
+    prompt_digest_match = (
+        isinstance(present_prompt_digest, str) and bool(present_prompt_digest)
+        and present_prompt_digest == restored_prompt_digest)
+    restored_prompt_exact_match = (
+        restored_prompt_matches is True and prompt_digest_match)
+    result["restored_prompt_exact_match"] = restored_prompt_exact_match
     if tuple(row.get("condition_id") for row in conditions) != CONDITION_ORDER:
         result["classification"] = "condition_order_invalid"
         result["qualification_failure_codes"] = ["condition_order_invalid"]
@@ -1332,7 +1340,7 @@ def qualify_history_transfer_decision(
     response_effect_observed = (
         controls_match and treatment_bound and stable
         and outcomes_match_contract and response_difference
-        and restored_response_matches
+        and restored_response_matches and restored_prompt_exact_match
         and present_response != withheld_response
         and restored_response == present_response)
     result["history_conditioned_response_difference_observed_under_matched_controls"] = (
@@ -1342,6 +1350,8 @@ def qualify_history_transfer_decision(
     failures = []
     if not controls_match:
         failures.append("controlled_inputs_mismatch")
+    if not restored_prompt_exact_match:
+        failures.append("restored_prompt_digest_mismatch")
     if not target_cited:
         failures.append("current_target_evidence_not_cited_in_all_conditions")
     if not expected_cited:
