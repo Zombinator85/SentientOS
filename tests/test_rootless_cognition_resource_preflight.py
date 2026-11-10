@@ -892,8 +892,24 @@ def test_seeded_objective_task_pairs_are_reproducible_and_distinct(runner):
     assert acquisition.specification()["task_family_id"] == (
         transfer.specification()["task_family_id"])
     assert transfer.specification()["requires_task_family_history"] is True
+    assert acquisition.specification()["task_family_id"] == (
+        "rootless_integer_affine_transfer_low_range_v1")
     assert set(acquisition.specification()["probe_inputs"]).isdisjoint(
         transfer.specification()["probe_inputs"])
+    for task in first:
+        specification = task.specification()
+        assert specification["multiplier"] in {2, 3}
+        assert specification["offset"] in {0, 1, 2}
+        inputs = specification["probe_inputs"]
+        assert len(inputs) == 3
+        if specification["requires_task_family_history"]:
+            assert all(6 <= item <= 9 for item in inputs)
+            assert max(specification["multiplier"] * item
+                + specification["offset"] for item in inputs) <= 29
+        else:
+            assert all(2 <= item <= 5 for item in inputs)
+            assert max(specification["multiplier"] * item
+                + specification["offset"] for item in inputs) <= 17
 
 
 def test_experiment_seed_environment_is_bounded_and_validated(runner, monkeypatch):

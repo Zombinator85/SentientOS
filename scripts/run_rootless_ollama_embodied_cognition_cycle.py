@@ -97,6 +97,8 @@ from sentientos.world_state_board import WorldStateBoardBuilder
 MODEL_NAME = os.environ.get("SENTIENTOS_HERMES_MODEL", "sentientos-hermes4:14b-q4km")
 _MAX_EXPERIMENT_SEED = 2**32 - 1
 _MIN_EXPERIMENT_DISK_FREE_BYTES = 2 * 1024**3
+_OBJECTIVE_TRANSFER_TASK_FAMILY = (
+    "rootless_integer_affine_transfer_low_range_v1")
 
 
 def _experiment_seed_from_environment() -> int:
@@ -297,11 +299,16 @@ def _objective_task_pair(seed: int) -> tuple[ObjectivePredictionTask, ObjectiveP
     if type(seed) is not int or not 0 < seed <= _MAX_EXPERIMENT_SEED:
         raise RootlessExperimentalError("hermes_experiment_seed_invalid")
     generator = random.Random(seed)
-    multiplier = generator.randrange(2, 6)
-    offset = generator.randrange(1, 10)
-    acquisition_inputs = tuple(sorted(generator.sample(range(4, 10), 3)))
-    transfer_inputs = tuple(sorted(generator.sample(range(12, 20), 3)))
-    family = "rootless_integer_affine_transfer"
+    # Keep the exact-scored calibration within small arithmetic bounds. The
+    # earlier 2..5 multiplier, 1..9 offset, and 12..19 transfer inputs made
+    # baseline accuracy conflate history use with multi-digit mental math.
+    # Distinct input ranges still require transfer to unseen examples, while
+    # the seed continues to vary the mapping and concrete probes.
+    multiplier = generator.randrange(2, 4)
+    offset = generator.randrange(0, 3)
+    acquisition_inputs = tuple(sorted(generator.sample(range(2, 6), 3)))
+    transfer_inputs = tuple(sorted(generator.sample(range(6, 10), 3)))
+    family = _OBJECTIVE_TRANSFER_TASK_FAMILY
     acquisition = ObjectivePredictionTask(
         multiplier=multiplier, offset=offset, probe_input=acquisition_inputs[0],
         additional_probe_inputs=acquisition_inputs[1:], task_family_id=family)
@@ -1464,7 +1471,7 @@ def run() -> dict[str, Any]:
         # evidence of improved performance.
         RUN_STAGE = "objective_task_family_acquisition"
         later_pre_action_snapshot = snapshot
-        objective_family = "rootless_integer_affine_transfer"
+        objective_family = _OBJECTIVE_TRANSFER_TASK_FAMILY
         acquisition_task, transfer_task = _objective_task_pair(EXPERIMENT_SEED)
         acquisition_request_id = RUN_ID + ":objective-family-acquisition"
         stage_objective_request(
