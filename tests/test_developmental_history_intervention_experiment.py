@@ -9,8 +9,9 @@ import pytest
 
 from sentientos.developmental_history_intervention_experiment import (
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
-    make_protocol, qualify_restoration_stable_history_association,
-    qualify_semantic_history_decision, summarize, verify_protocol,
+    make_protocol, qualify_history_transfer_decision,
+    qualify_restoration_stable_history_association, qualify_semantic_history_decision,
+    summarize, verify_protocol,
 )
 from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import (
@@ -426,3 +427,56 @@ def test_semantic_history_decision_qualification_separates_effect_from_improveme
     assert unstable["classification"] == (
         "history_associated_semantic_decision_difference_observed_repeatability_unqualified")
     assert unstable["performance_improvement_established"] is False
+
+
+def test_history_transfer_requires_exact_expected_record_and_restored_decision() -> None:
+    def row(condition: str, response: str, cited: list[str]) -> dict[str, object]:
+        return {
+            "condition_id": condition,
+            "current_fact_ids": ["fact-current"],
+            "snapshot_digest": "sha256:snapshot",
+            "generation_config": {"temperature": 0},
+            "active_model_identity": {"model": "model-a"},
+            "inference_status": "admitted_completed",
+            "cognition_receipt_output_binding_verified": True,
+            "disposition": "answer",
+            "response": response,
+            "response_digest": "digest-" + response,
+            "output_digest": "output-" + response,
+            "retrieved_record_ids": ["devrec-expected"] if cited else [],
+            "history_record_ids": cited,
+        }
+
+    conditions = [
+        row("history_present", "INSPECT", ["devrec-expected"]),
+        row("history_withheld", "REACH", []),
+        row("history_restored", "INSPECT", ["devrec-expected"]),
+    ]
+    qualified = qualify_history_transfer_decision(
+        conditions=conditions, expected_history_record_id="devrec-expected",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert qualified["history_changed_new_decision"] is True
+    assert qualified["expected_history_cited"] is True
+    assert qualified["performance_improvement_established"] is False
+
+    irrelevant_citation = [dict(item) for item in conditions]
+    irrelevant_citation[0]["history_record_ids"] = ["devrec-other"]
+    irrelevant_citation[0]["retrieved_record_ids"] = ["devrec-other"]
+    rejected = qualify_history_transfer_decision(
+        conditions=irrelevant_citation, expected_history_record_id="devrec-expected",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert rejected["history_changed_new_decision"] is False
+    assert rejected["expected_history_cited"] is False
+
+    null_result = [dict(item) for item in conditions]
+    null_result[0]["response"] = null_result[1]["response"] = "REACH"
+    null_result[0]["response_digest"] = null_result[1]["response_digest"] = "digest-REACH"
+    null_result[0]["output_digest"] = null_result[1]["output_digest"] = "output-REACH"
+    unchanged = qualify_history_transfer_decision(
+        conditions=null_result, expected_history_record_id="devrec-expected",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert unchanged["history_changed_new_decision"] is False
+    assert unchanged["classification"] == "no_validated_new_decision_transfer_difference"

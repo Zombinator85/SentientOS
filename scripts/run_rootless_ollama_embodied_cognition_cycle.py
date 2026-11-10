@@ -10,15 +10,17 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 import uuid
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, NoReturn, cast
 
 # Bind imports to this checkout even when WSL's login shell starts elsewhere.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -39,8 +41,10 @@ from sentientos.codex_task_authority_admission import (
 )
 from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
 from sentientos.developmental_history_intervention_experiment import (
+    qualify_history_transfer_decision,
     qualify_restoration_stable_history_association,
     qualify_semantic_history_decision)
+from sentientos.developmental_model_replacement_experiment import ObjectivePredictionTask
 from sentientos.world_state_board import WorldStateSnapshot
 from sentientos.embodiment_self_observation import (
     EmbodimentEvidenceOwner, EmbodimentObservation, semantic_digest)
@@ -52,7 +56,8 @@ from sentientos.local_model_authority import (
 from sentientos.local_runtime_provisioning import semantic_digest as runtime_digest
 from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner,
-    ResidentDevelopmentalCognitionError)
+    ResidentDevelopmentalCognitionError, load_objective_request,
+    objective_task_for_request, stage_objective_request)
 from sentientos.resident_developmental_writeback import (
     ResidentDevelopmentalWritebackController)
 from sentientos.runtime_admission import (
@@ -61,6 +66,11 @@ from sentientos.rootless_experimental_local_model import (
     EXPERIMENT_ROOT, RootlessExperimentalError, _no_symlink_path)
 from sentientos.rootless_experimental_ollama_epistemic_session import (
     RootlessExperimentalOllamaDevelopmentalSession)
+from sentientos.control_plane_kernel import ControlPlaneKernel
+from sentientos.federated_enforcement_policy import resolve_policy
+from sentientos.host_resource_runtime import (
+    HostResourceRuntimeCoordinator, validate_evaluation)
+from sentientos.runtime_governor import RuntimeGovernor
 from sentientos.world_state_board import WorldStateBoardBuilder
 
 
@@ -70,6 +80,7 @@ MANIFEST_PATH = EXPERIMENT_ROOT / "ollama-model-manifests" / (
 RUN_ID = "rootless-cognition-cycle-" + uuid.uuid4().hex[:20]
 RUN_ROOT = EXPERIMENT_ROOT / "developmental-cognition-cycles" / RUN_ID
 RUN_STAGE = "startup"
+RESOURCE_PREFLIGHT_EVIDENCE: list[dict[str, Any]] = []
 
 
 def _now() -> str:
@@ -88,16 +99,244 @@ def _runtime_observation(model_digest: str) -> tuple[dict[str, Any], str]:
     return observed, runtime_digest(observed)
 
 
-def _gpu_snapshot() -> dict[str, str] | None:
+def _gpu_snapshot() -> dict[str, Any] | None:
+    executable = shutil.which("nvidia-smi")
+    if executable is None and Path("/usr/lib/wsl/lib/nvidia-smi").is_file():
+        executable = "/usr/lib/wsl/lib/nvidia-smi"
+    if executable is None:
+        return None
     try:
-        result = subprocess.run(["nvidia-smi",
-            "--query-gpu=name,memory.total,memory.used",
-            "--format=csv,noheader"], capture_output=True, text=True,
+        result = subprocess.run([executable,
+            "--query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu",
+            "--format=csv,noheader,nounits"], capture_output=True, text=True,
             timeout=5, check=True)
-        return {"sample": result.stdout.strip()[:512], "source": "nvidia-smi",
-            "scope": "host_sample_not_per_invocation"}
+        rows = [line.strip().split(",") for line in result.stdout.splitlines()
+            if line.strip()]
+        if len(rows) != 1 or len(rows[0]) != 5:
+            return None
+        name, total, used, free, utilization = (item.strip() for item in rows[0])
+        total_mib, used_mib, free_mib = int(total), int(used), int(free)
+        utilization_percent = int(utilization)
+        if (not name or min(total_mib, used_mib, free_mib) < 0
+                or total_mib <= 0 or used_mib > total_mib or free_mib > total_mib
+                or not 0 <= utilization_percent <= 100
+                or abs(total_mib - used_mib - free_mib) > 512):
+            return None
+        return {"name": name[:128], "memory_total_mib": total_mib,
+            "memory_used_mib": used_mib, "memory_free_mib": free_mib,
+            "gpu_utilization_percent": utilization_percent,
+            "sampled_at": _now(), "source": "nvidia-smi",
+            "scope": "host_wide_invocation_boundary_sample_not_process_attributed"}
     except Exception:
         return None
+
+
+_GPU_RUNTIME_RESERVE_BYTES = 2 * 1024**3
+# This is an experiment-quality gate, not a system-wide resource policy. A
+# history comparison should not begin while another workload is already using
+# a substantial share of the GPU; WSL cannot reliably attribute Windows GPU
+# clients to their owning application.
+_MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT = 25.0
+_INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS = 1.0
+_MAX_DURING_INFERENCE_GPU_SAMPLES = 512
+
+
+def _model_weight_bytes(manifest_path: Path) -> int:
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise RootlessExperimentalError("pinned_hermes_manifest_unreadable") from exc
+    layers = manifest.get("layers") if isinstance(manifest, dict) else None
+    if not isinstance(layers, list):
+        raise RootlessExperimentalError("pinned_hermes_model_layers_unavailable")
+    weights = [item.get("size") for item in layers
+        if isinstance(item, dict)
+        and item.get("mediaType") == "application/vnd.ollama.image.model"]
+    if (len(weights) != 1 or type(weights[0]) is not int
+            or weights[0] <= 0 or weights[0] > 64 * 1024**3):
+        raise RootlessExperimentalError("pinned_hermes_model_size_invalid")
+    return weights[0]
+
+
+def _require_gpu_headroom(snapshot: Mapping[str, Any] | None,
+        model_weight_bytes: int) -> Mapping[str, Any]:
+    if snapshot is None or type(snapshot.get("memory_free_mib")) is not int:
+        raise RootlessExperimentalError("gpu_memory_telemetry_unavailable")
+    required_bytes = model_weight_bytes + _GPU_RUNTIME_RESERVE_BYTES
+    free_bytes = int(snapshot["memory_free_mib"]) * 1024**2
+    if free_bytes < required_bytes:
+        raise RootlessExperimentalError("gpu_memory_headroom_insufficient")
+    return snapshot
+
+
+def _enforcing_resource_runtime() -> tuple[ControlPlaneKernel,
+        HostResourceRuntimeCoordinator]:
+    # The experiment must not inherit the repository's default shadow posture.
+    key = "SENTIENTOS_ENFORCEMENT_RUNTIME_GOVERNOR"
+    previous = os.environ.get(key)
+    os.environ[key] = "enforce"
+    try:
+        if resolve_policy().runtime_governor != "enforce":
+            raise RootlessExperimentalError("runtime_governor_enforcement_unavailable")
+        governor = RuntimeGovernor()
+    finally:
+        if previous is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = previous
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=RUN_ROOT / "resource-governance" / "kernel_decisions.jsonl")
+    coordinator = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=RUN_ROOT / "resource-observations")
+    return kernel, coordinator
+
+
+def _refresh_resource_evidence(coordinator: HostResourceRuntimeCoordinator,
+        *, correlation_id: str) -> dict[str, Any]:
+    evaluation = coordinator.run_cycle(correlation_id=correlation_id)
+    if evaluation is None or not validate_evaluation(evaluation).ok:
+        raise RootlessExperimentalError("host_resource_evidence_unavailable")
+    snapshot = evaluation.snapshot
+    if snapshot.cpu_utilization_percent is None or snapshot.ram_utilization_percent is None:
+        raise RootlessExperimentalError("host_resource_evidence_incomplete")
+    return {"evaluation_id": evaluation.evaluation_id,
+        "observed_at": evaluation.epoch.observed_at,
+        "pressure_labels": list(evaluation.pressure_report.pressure_labels),
+        "cpu_utilization_percent": snapshot.cpu_utilization_percent,
+        "ram_utilization_percent": snapshot.ram_utilization_percent,
+        "gpu_utilization_percent": snapshot.gpu_utilization_percent,
+        "vram_utilization_percent": snapshot.vram_utilization_percent}
+
+
+class _ResourceGuardedInvoker:
+    """Refresh host evidence and VRAM headroom before every governed inference."""
+
+    def __init__(self, delegate: Any, coordinator: HostResourceRuntimeCoordinator,
+            model_weight_bytes: int,
+            evidence_records: list[dict[str, Any]] | None = None) -> None:
+        self._delegate = delegate
+        self._coordinator = coordinator
+        self._model_weight_bytes = model_weight_bytes
+        self._evidence_records = evidence_records if evidence_records is not None else []
+        self._sequence = 0
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._delegate, name)
+
+    def invoke(self, request: Any, **kwargs: Any) -> Any:
+        self._sequence += 1
+        resource_record: dict[str, Any] = {
+            "inference_sequence": self._sequence,
+            "gate_status": "blocked",
+        }
+
+        def blocked(reason: str) -> NoReturn:
+            resource_record["gate_reason"] = reason
+            self._evidence_records.append(dict(resource_record))
+            raise RootlessExperimentalError(reason)
+
+        try:
+            fresh_resource = _refresh_resource_evidence(self._coordinator,
+                correlation_id=f"{RUN_ID}-inference-{self._sequence}")
+        except Exception as exc:
+            resource_record["gate_reason"] = _failure_code(exc)
+            self._evidence_records.append(dict(resource_record))
+            raise
+        resource_record.update(fresh_resource)
+        gpu_snapshot = _gpu_snapshot()
+        if isinstance(gpu_snapshot, Mapping):
+            resource_record["gpu_memory_free_mib"] = gpu_snapshot.get(
+                "memory_free_mib")
+            resource_record["gpu_memory_total_mib"] = gpu_snapshot.get(
+                "memory_total_mib")
+            resource_record["gpu_memory_sample_source"] = gpu_snapshot.get("source")
+            resource_record["gpu_memory_sample_scope"] = gpu_snapshot.get("scope")
+        gpu_utilization = resource_record.get("gpu_utilization_percent")
+        sampled_gpu_utilization = (gpu_snapshot.get("gpu_utilization_percent")
+            if isinstance(gpu_snapshot, Mapping) else None)
+        resource_record["nvidia_smi_gpu_utilization_percent"] = (
+            sampled_gpu_utilization)
+        resource_record["gpu_sampled_at"] = (
+            gpu_snapshot.get("sampled_at")
+            if isinstance(gpu_snapshot, Mapping) else None)
+        resource_record["gpu_utilization_sample_source"] = (
+            gpu_snapshot.get("source")
+            if isinstance(gpu_snapshot, Mapping) else None)
+        resource_record["gpu_utilization_sample_scope"] = (
+            gpu_snapshot.get("scope")
+            if isinstance(gpu_snapshot, Mapping) else None)
+        if (not isinstance(gpu_utilization, (int, float))
+                or isinstance(gpu_utilization, bool)
+                or not 0 <= gpu_utilization <= 100):
+            blocked("gpu_utilization_telemetry_unavailable")
+        if (type(sampled_gpu_utilization) is not int
+                or not 0 <= sampled_gpu_utilization <= 100):
+            blocked("gpu_utilization_telemetry_unavailable")
+        if max(float(gpu_utilization), sampled_gpu_utilization) > (
+                _MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT):
+            blocked("gpu_utilization_preflight_busy")
+
+        try:
+            gpu = _require_gpu_headroom(gpu_snapshot, self._model_weight_bytes)
+        except RootlessExperimentalError as exc:
+            blocked(_failure_code(exc))
+        resource_record["gpu_memory_free_mib"] = gpu["memory_free_mib"]
+        resource_record["gpu_memory_total_mib"] = gpu["memory_total_mib"]
+        resource_record["preinference_gpu_utilization_limit_percent"] = (
+            _MAX_PREINFERENCE_GPU_UTILIZATION_PERCENT)
+        resource_record["gate_status"] = "passed"
+        evidence_index = len(self._evidence_records)
+        self._evidence_records.append(dict(resource_record))
+        resource_record["invocation_started_at"] = _now()
+        stop_sampling = threading.Event()
+        during_samples: list[dict[str, Any]] = []
+        sample_failures = 0
+        sample_attempts = 0
+
+        def sample_during_inference() -> None:
+            nonlocal sample_attempts, sample_failures
+            while sample_attempts < _MAX_DURING_INFERENCE_GPU_SAMPLES:
+                if stop_sampling.wait(_INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS):
+                    return
+                sample_attempts += 1
+                try:
+                    sample = _gpu_snapshot()
+                except Exception:
+                    sample = None
+                if not isinstance(sample, Mapping):
+                    sample_failures += 1
+                    continue
+                if len(during_samples) < _MAX_DURING_INFERENCE_GPU_SAMPLES:
+                    during_samples.append(dict(sample))
+                else:
+                    sample_failures += 1
+
+        sampler = threading.Thread(
+            target=sample_during_inference,
+            name="sentientos-inference-gpu-sampler",
+            daemon=True)
+        sampler.start()
+        try:
+            return self._delegate.invoke(request, **kwargs)
+        finally:
+            stop_sampling.set()
+            sampler.join(timeout=6.0)
+            resource_record["invocation_finished_at"] = _now()
+            resource_record["during_inference_gpu_samples"] = list(during_samples)
+            resource_record["during_inference_gpu_sample_failures_or_omissions"] = (
+                sample_failures)
+            resource_record["during_inference_gpu_sample_attempt_count"] = (
+                sample_attempts)
+            resource_record["during_inference_gpu_sampling_interval_seconds"] = (
+                _INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS)
+            resource_record["during_inference_gpu_sampling_status"] = (
+                "sampler_join_timeout" if sampler.is_alive()
+                else "sampling_window_exhausted"
+                    if sample_attempts >= _MAX_DURING_INFERENCE_GPU_SAMPLES
+                else "sampled" if during_samples
+                else "no_intermediate_sample")
+            resource_record["post_inference_gpu_sample"] = _gpu_snapshot()
+            self._evidence_records[evidence_index] = dict(resource_record)
 
 
 def _model_residency_observed(model_name: str) -> bool | None:
@@ -181,6 +420,26 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                 if isinstance(decoded, dict) else None)
             response_text = (response_value.strip().lower()
                 if isinstance(response_value, str) else "")
+            pre_action_correlation = (
+                "companion-interaction-" + hashlib.sha256(
+                    (RUN_ID + ":pre-action-decision").encode("utf-8")).hexdigest()[:32]
+                + ":resident_developmental_cognition:companion-interaction")
+            is_pre_action_decision = (isinstance(request, dict)
+                and request.get("correlation_id") == pre_action_correlation)
+            pose_decision = (_pose_decision_from_response(response_value)
+                if is_pre_action_decision and isinstance(response_value, str) else None)
+            if not is_pre_action_decision:
+                pre_action_decision_classification = None
+            elif pose_decision is None and payload.get("output_digest") is None:
+                pre_action_decision_classification = "no_completed_model_output"
+            elif pose_decision is None:
+                pre_action_decision_classification = "completed_output_not_validated"
+            elif pose_decision["predicted_pose"] != pose_decision["requested_pose"]:
+                pre_action_decision_classification = "prediction_inconsistent_with_fixture"
+            elif pose_decision["requested_pose"] != "reach":
+                pre_action_decision_classification = "exact_schema_goal_not_met"
+            else:
+                pre_action_decision_classification = "exact_schema_goal_met"
             receipts.append({
                 "receipt_id": payload.get("receipt_id"),
                 "receipt_digest": payload.get("receipt_digest"),
@@ -205,6 +464,14 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                     if "idle" in response_text and citation_is_bound else
                     "other_or_unvalidated"),
                 "model_output_text_excluded": True,
+                "pre_action_decision_classification": pre_action_decision_classification,
+                "pre_action_requested_pose": (pose_decision["requested_pose"]
+                    if pose_decision is not None else None),
+                "pre_action_predicted_pose": (pose_decision["predicted_pose"]
+                    if pose_decision is not None else None),
+                "pre_action_prediction_consistent": (
+                    pose_decision["predicted_pose"] == pose_decision["requested_pose"]
+                    if pose_decision is not None else None),
             })
     records: list[dict[str, Any]] = []
     record_root = RUN_ROOT / "resident-cognition" / "history" / "records"
@@ -270,13 +537,18 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                     "raw_question_and_response_excluded": True,
                 })
     artifact = {
-        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v1",
+        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v2",
         "run_id": RUN_ID,
         "status": "incomplete",
         "execution_posture": "rootless_experimental_nonproduction",
         "model_id": MODEL_NAME,
         "model_manifest_digest": MANIFEST_PATH.stem,
         "stage": RUN_STAGE,
+        "resource_preflight_samples": [dict(item)
+            for item in RESOURCE_PREFLIGHT_EVIDENCE],
+        "resource_preflight_sample_scope": (
+            "host snapshots immediately before each inference; no during-inference "
+            "process attribution"),
         "failure_type": type(exc).__name__,
         "failure_code": _failure_code(exc),
         "inference_receipts": receipts,
@@ -299,24 +571,18 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
 
 
 def _pose_decision_from_response(value: str) -> dict[str, str] | None:
+    """Accept only the exact bounded proposal schema; prose is not scored."""
     try:
         payload = json.loads(value)
     except (TypeError, json.JSONDecodeError):
-        payload = None
-    if isinstance(payload, dict):
-        requested = payload.get("requested_pose")
-        predicted = payload.get("predicted_pose")
-        if requested in {"reach", "idle"} and predicted in {"reach", "idle"}:
-            return {"requested_pose": requested, "predicted_pose": predicted}
-    requested_match = re.search(
-        r"requested_pose.*?\b(reach|idle)\b", value, flags=re.IGNORECASE | re.DOTALL)
-    predicted_match = re.search(
-        r"predicted_(?:encoder_)?pose.*?\b(reach|idle)\b",
-        value, flags=re.IGNORECASE | re.DOTALL)
-    if requested_match and predicted_match:
-        return {"requested_pose": requested_match.group(1).lower(),
-            "predicted_pose": predicted_match.group(1).lower()}
-    return None
+        return None
+    if (not isinstance(payload, dict)
+            or set(payload) != {"requested_pose", "predicted_pose"}
+            or payload.get("requested_pose") not in {"reach", "idle"}
+            or payload.get("predicted_pose") not in {"reach", "idle"}):
+        return None
+    return {"requested_pose": payload["requested_pose"],
+        "predicted_pose": payload["predicted_pose"]}
 
 
 def _verified_companion_replay(bridge: Any, owner: Any, *,
@@ -553,6 +819,7 @@ def run() -> dict[str, Any]:
     if preexisting_residency:
         raise RootlessExperimentalError("pinned_hermes_already_resident")
     manifest_digest, manifest_size = stream_sha256(MANIFEST_PATH)
+    model_weight_bytes = _model_weight_bytes(MANIFEST_PATH)
     if manifest_digest != MANIFEST_PATH.stem:
         raise RootlessExperimentalError("pinned_hermes_manifest_digest_mismatch")
     RUN_ROOT.mkdir(parents=True, exist_ok=False, mode=0o700)
@@ -567,10 +834,21 @@ def run() -> dict[str, Any]:
         "purpose": ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE,
         "production_authority": False,
         "eligible_as_production_serving_evidence": False}
-    before_gpu = _gpu_snapshot()
+    before_gpu = _require_gpu_headroom(_gpu_snapshot(), model_weight_bytes)
+    kernel, resource_coordinator = _enforcing_resource_runtime()
+    initial_resource_evidence = _refresh_resource_evidence(resource_coordinator,
+        correlation_id=f"{RUN_ID}-initial-preflight")
+    initial_gpu = _require_gpu_headroom(_gpu_snapshot(), model_weight_bytes)
+    initial_resource_evidence["gpu_memory_free_mib"] = initial_gpu["memory_free_mib"]
+    initial_resource_evidence["gpu_memory_total_mib"] = initial_gpu["memory_total_mib"]
+    inference_resource_evidence = RESOURCE_PREFLIGHT_EVIDENCE
     session = RootlessExperimentalOllamaDevelopmentalSession(
         model_manifest_path=MANIFEST_PATH, model_name=MODEL_NAME,
-        root=RUN_ROOT, session_binding=binding)
+        root=RUN_ROOT, session_binding=binding,
+        kernel_factory=lambda _: kernel)
+    session.invoker = cast(Any, _ResourceGuardedInvoker(
+        session.invoker, resource_coordinator, model_weight_bytes,
+        inference_resource_evidence))
     # Bind the session to the identity actually loaded by the governed worker.
     session.session_binding["active_model_identity_digest"] = digest_payload(
         {"identity": session.active_model_identity})
@@ -681,6 +959,131 @@ def run() -> dict[str, Any]:
         if not first.written_record_id:
             raise RootlessExperimentalError("governed_developmental_writeback_not_created")
         durable = owner.writeback.store.get(first.written_record_id)
+        # Follow the hand-written decision probe with the resident owner's
+        # preregistered exact-scored task-family path. This keeps the model's
+        # later transfer decision tied to retained, oracle-scored history
+        # rather than treating a plausible conversational difference as
+        # evidence of improved performance.
+        RUN_STAGE = "objective_task_family_acquisition"
+        later_pre_action_snapshot = snapshot
+        objective_family = "rootless_integer_affine_transfer"
+        acquisition_task = ObjectivePredictionTask(
+            multiplier=3, offset=2, probe_input=7,
+            additional_probe_inputs=(8, 9), task_family_id=objective_family)
+        acquisition_request_id = RUN_ID + ":objective-family-acquisition"
+        stage_objective_request(
+            state_root, request_id=acquisition_request_id, task=acquisition_task)
+        acquisition_request = load_objective_request(state_root)
+        if acquisition_request is None:
+            raise RootlessExperimentalError("objective_family_acquisition_request_missing")
+        acquisition_result = owner.run_objective_intervention_once(
+            snapshot=later_pre_action_snapshot,
+            tick_id=RUN_ID + ":objective-family-acquisition",
+            objective_task=acquisition_task,
+            request_id=acquisition_request_id,
+            request_digest=acquisition_request["request_digest"])
+        if (acquisition_result.status != "objective_intervention_completed"
+                or not acquisition_result.changed_cognition_measurement_id):
+            raise RootlessExperimentalError("objective_family_acquisition_incomplete")
+        acquisition_run = owner.experiments.load_run(
+            acquisition_result.changed_cognition_measurement_id)
+        acquisition_records = owner.experiments.world_state_records(run_refs=((
+            acquisition_run["run_id"], acquisition_run["run_digest"]),))
+        if len(acquisition_records) != 1:
+            raise RootlessExperimentalError("objective_family_acquisition_projection_invalid")
+        acquisition_world = WorldStateBoardBuilder().build(acquisition_records)
+        acquisition_writeback = owner.run_tick(snapshot=acquisition_world,
+            tick_id=RUN_ID + ":objective-family-acquisition-writeback")
+        if not acquisition_writeback.written_record_id:
+            raise RootlessExperimentalError("objective_family_acquisition_writeback_missing")
+        acquisition_history_record = owner.writeback.store.get(
+            acquisition_writeback.written_record_id)
+        if not any(isinstance(fact, Mapping)
+                and isinstance(fact.get("payload"), Mapping)
+                and fact["payload"].get("objective_task_family") == objective_family
+                for fact in acquisition_history_record.candidate.get("selected_facts", [])):
+            raise RootlessExperimentalError("objective_family_history_not_retained")
+
+        RUN_STAGE = "objective_task_family_transfer"
+        transfer_task = ObjectivePredictionTask(
+            multiplier=3, offset=2, probe_input=11,
+            additional_probe_inputs=(12, 13), task_family_id=objective_family,
+            requires_task_family_history=True)
+        transfer_request_id = RUN_ID + ":objective-family-transfer"
+        stage_objective_request(
+            state_root, request_id=transfer_request_id, task=transfer_task)
+        transfer_request = load_objective_request(state_root)
+        if transfer_request is None:
+            raise RootlessExperimentalError("objective_family_transfer_request_missing")
+        transfer_objective_task = objective_task_for_request(transfer_request)
+        objective_transfer_result = owner.run_objective_intervention_once(
+            snapshot=later_pre_action_snapshot,
+            tick_id=RUN_ID + ":objective-family-transfer",
+            objective_task=transfer_objective_task,
+            request_id=transfer_request_id,
+            request_digest=transfer_request["request_digest"])
+        if (objective_transfer_result.status != "objective_intervention_completed"
+                or not objective_transfer_result.changed_cognition_measurement_id):
+            raise RootlessExperimentalError("objective_family_transfer_incomplete")
+        objective_transfer_run = owner.experiments.load_run(
+            objective_transfer_result.changed_cognition_measurement_id)
+        objective_transfer_conditions = objective_transfer_run.get("conditions", [])
+        objective_transfer_scores = objective_transfer_run.get("objective_scores", [])
+        if len(objective_transfer_conditions) != 3 or len(objective_transfer_scores) != 3:
+            raise RootlessExperimentalError("objective_family_transfer_conditions_incomplete")
+        objective_transfer_evaluation = objective_transfer_run.get(
+            "objective_evaluation", {})
+        transfer_records = owner.experiments.world_state_records(run_refs=((
+            objective_transfer_run["run_id"], objective_transfer_run["run_digest"]),))
+        if len(transfer_records) != 1:
+            raise RootlessExperimentalError("objective_family_transfer_projection_invalid")
+        transfer_world = WorldStateBoardBuilder().build(transfer_records)
+        transfer_writeback = owner.run_tick(snapshot=transfer_world,
+            tick_id=RUN_ID + ":objective-family-transfer-writeback")
+        if not transfer_writeback.written_record_id:
+            raise RootlessExperimentalError("objective_family_transfer_writeback_missing")
+        transfer_progression = owner.verified_objective_task_family_progression(
+            request_refs=((acquisition_request_id,
+                    acquisition_request["request_digest"]),
+                (transfer_request_id, transfer_request["request_digest"])))
+        if (transfer_progression.get("status") != "comparable_scored_episodes"
+                or len(transfer_progression.get("episodes", [])) != 2):
+            raise RootlessExperimentalError("objective_family_progression_unverified")
+        objective_transfer_history = {
+            "status": "completed_scored_intervention",
+            "measurement_id": objective_transfer_result.changed_cognition_measurement_id,
+            "run_id": objective_transfer_run.get("run_id"),
+            "run_digest": objective_transfer_run.get("run_digest"),
+            "task_family_id": objective_family,
+            "acquisition_history_record_id": acquisition_history_record.record_id,
+            "transfer_history_record_id": transfer_writeback.written_record_id,
+            "acquisition_request_digest": acquisition_request["request_digest"],
+            "transfer_request_digest": transfer_request["request_digest"],
+            "longitudinal_progression_status": transfer_progression.get("status"),
+            "longitudinal_episode_count": len(transfer_progression.get("episodes", [])),
+            "history_correct_probe_delta": objective_transfer_evaluation.get(
+                "history_correct_probe_delta"),
+            "restoration_correct_probe_delta": objective_transfer_evaluation.get(
+                "restoration_correct_probe_delta"),
+            "condition_correct_counts": objective_transfer_evaluation.get(
+                "condition_correct_counts"),
+            "conditions": [{
+                "condition_id": item.get("condition_id"),
+                "correct_count": (item.get("score", {}).get("correct_count")
+                    if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
+                "probe_count": (item.get("score", {}).get("probe_count")
+                    if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
+                "output_digest": item.get("output_digest"),
+                "retrieved_record_ids": item.get("retrieved_record_ids", []),
+                "inference_receipt_id": item.get("inference_receipt_id"),
+                "inference_receipt_digest": item.get("inference_receipt_digest"),
+                "inference_status": item.get("inference_status"),
+            } for item in objective_transfer_scores],
+            "authority": False,
+            "action_executed": False,
+            "performance_improvement_established": False,
+            "scope": "single_model_synthetic_exact_scored_task_family_transfer",
+        }
         intervention_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, True),
@@ -945,8 +1348,53 @@ def run() -> dict[str, Any]:
                     "restoration_stable_association_qualified")))
         semantic_history_changed = semantic_history_decision_qualification[
             "history_changed_cognition"]
+        # Keep a direct new-action decision probe distinct from historical
+        # recall. It uses the same existing resident history-intervention owner,
+        # the same current World-State snapshot, and a fresh experiment tick.
+        # The synthetic record says only that a prior predicted reach was
+        # followed by an observer-reported idle pose; it is not independent
+        # physical-effect evidence.
+        transfer_question = (
+            "Controlled new-decision transfer probe. This is a new synthetic task, "
+            "not a request to recall or quote the past. Choose one next action for "
+            "the current target: INSPECT or REACH. Read the current World-State and "
+            "eligible developmental history. If a history record for a prior reach "
+            "contains predicted pose reach and observer-reported pose idle, propose "
+            "INSPECT before another reach. If no such history record is available, "
+            "propose REACH based on the current target. Treat the old observer value "
+            "as an uncertain historical report, never as current truth. Return the "
+            "standard JSON response with disposition answer, evidence_ids [], "
+            "history_record_ids containing the exact cited record ID when history "
+            "supports INSPECT (otherwise []), and response exactly INSPECT or REACH. "
+            "This is a proposal only: do not claim that an action was authorized or "
+            "executed.")
+        transfer_intervention = (
+            intervention_owner.run_companion_history_intervention(
+                snapshot=later_pre_action_snapshot,
+                tick_id=RUN_ID + ":later-transfer-decision",
+                question=transfer_question))
+        if (transfer_intervention.status != "completed_controlled_intervention"
+                or not transfer_intervention.changed_cognition_measurement_id):
+            raise RootlessExperimentalError(
+                "history_transfer_intervention_measurement_missing")
+        transfer_conditions = list(transfer_intervention.conditions)
+        transfer_present, transfer_withheld, transfer_restored = (
+            transfer_conditions if len(transfer_conditions) == 3
+            else ({}, {}, {}))
+        transfer_qualification = qualify_history_transfer_decision(
+            conditions=transfer_conditions,
+            expected_history_record_id=first.written_record_id,
+            present_response="INSPECT", withheld_response="REACH",
+            restored_response="INSPECT",
+            restored_prompt_matches=transfer_intervention.restored_prompt_matches)
+        transfer_controls_match = transfer_qualification["controlled_inputs_match"]
+        transfer_history_cited = transfer_qualification["expected_history_cited"]
+        transfer_restoration_stable = transfer_qualification["restoration_stable"]
+        transfer_history_changed_new_decision = transfer_qualification[
+            "history_changed_new_decision"]
+        transfer_classification = transfer_qualification["classification"]
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v5",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v6",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
@@ -963,6 +1411,12 @@ def run() -> dict[str, Any]:
                 "ordinary_chat_allowed": False, "production_authority": False,
                 "tool_or_action_authority": False},
             "body_and_observer_posture": "synthetic_rehearsal_not_live_hardware",
+            "resource_preflight": {
+                "governor_mode": "enforce",
+                "host_evidence_refreshed_before_each_inference": True,
+                "required_gpu_free_bytes": model_weight_bytes + _GPU_RUNTIME_RESERVE_BYTES,
+                "samples": [initial_resource_evidence, *inference_resource_evidence],
+                "telemetry_scope": "host_sample_not_per_invocation"},
             "model_proposal_before_synthetic_action": {
                 "status": "verified_governed_companion_proposal",
                 "requested_pose": proposal["requested_pose"],
@@ -1021,11 +1475,15 @@ def run() -> dict[str, Any]:
                 "history_change_classification":
                     semantic_history_decision_qualification["classification"],
                 "history_change_measurement": semantic_history_decision_qualification,
+                "history_changed_new_action_decision":
+                    transfer_history_changed_new_decision,
+                "new_action_decision_classification": transfer_classification,
                 "performance_improvement_established": False,
                 "real_operator_observation_demonstrated": False,
                 "real_action_consequence_demonstrated": False,
             },
             "later_companion_decision_intervention": {
+                "measurement_scope": "direct_historical_retrieval_not_new_action_transfer",
                 "status": companion_intervention.status,
                 "question_digest": companion_intervention.question_digest,
                 "changed_cognition_measurement_id":
@@ -1061,6 +1519,57 @@ def run() -> dict[str, Any]:
                 "canonical_explicit_user_retention_mutated":
                     companion_intervention.canonical_explicit_user_retention_mutated,
                 "causal_or_learning_claim_made": False},
+            "history_transfer_intervention": {
+                **transfer_qualification,
+                "measurement_scope": "new_action_proposal_not_execution",
+                "status": transfer_intervention.status,
+                "question_digest": transfer_intervention.question_digest,
+                "changed_cognition_measurement_id":
+                    transfer_intervention.changed_cognition_measurement_id,
+                "response_text_classification":
+                    transfer_intervention.response_text_classification,
+                "history_changed_new_action_decision":
+                    transfer_history_changed_new_decision,
+                "classification": transfer_classification,
+                "controlled_inputs_match": transfer_controls_match,
+                "restored_prompt_matches":
+                    transfer_intervention.restored_prompt_matches,
+                "present_restored_output_digest_matches":
+                    transfer_restoration_stable,
+                "history_citation_bound": transfer_history_cited,
+                "conditions": [{
+                    "condition_id": item.get("condition_id"),
+                    "response": item.get("response"),
+                    "disposition": item.get("disposition"),
+                    "response_digest": item.get("response_digest"),
+                    "output_digest": item.get("output_digest"),
+                    "snapshot_digest": item.get("snapshot_digest"),
+                    "current_fact_ids": item.get("current_fact_ids"),
+                    "retrieved_record_ids": item.get("retrieved_record_ids"),
+                    "history_record_ids": list(item.get("history_record_ids", ())),
+                    "active_model_identity": item.get("active_model_identity"),
+                    "generation_config": item.get("generation_config"),
+                    "inference_status": item.get("inference_status"),
+                    "cognition_receipt_output_binding_verified":
+                        item.get("cognition_receipt_output_binding_verified"),
+                } for item in transfer_conditions],
+                "authority": transfer_intervention.authority,
+                "action_authority": transfer_intervention.action_authority,
+                "action_executed": False,
+                "performance_improvement_established": False,
+                "causal_or_learning_claim_made": False},
+            "objective_task_family_transfer": {
+                **objective_transfer_history,
+                "history_condition_difference_observed": (
+                    objective_transfer_evaluation.get(
+                        "history_correct_probe_delta") not in (None, 0)),
+                "restoration_matches_present": (
+                    objective_transfer_evaluation.get(
+                        "restoration_correct_probe_delta") == 0),
+                "causal_or_learning_claim_made": False,
+                "interpretation": (
+                    "one preregistered same-model exact-scored transfer episode; "
+                    "not a general learning or real-world performance claim")},
             "historical_companion_recall": {
                 "status": history_recall.get("status"),
                 "response": history_recall.get("response"),

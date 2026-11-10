@@ -28,6 +28,7 @@ from .governed_local_model_invocation import (
     RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
     RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
     RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA,
+    RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA,
     validate_receipt,
 )
 from .canonical_memory import sentientos_memory_dir
@@ -5426,6 +5427,8 @@ class ResidentDevelopmentalCognitionOwner:
                 or objective_plan is not None or epistemic_revision_probe else "text",
             budget=request_budget,
             structured_output_schema=(
+                RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA
+                if objective_plan is not None else
                 RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
                 if companion_intervention else RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA
                 if interaction_question is not None else RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA
@@ -5585,8 +5588,10 @@ class ResidentDevelopmentalCognitionOwner:
             "current_projection_digest":current.projection_digest, "current_fact_ids":current.fact_ids,
             "retrieved_record_ids": record_ids,
             "retrieved_record_digests": record_digests,
-            "companion_history_citation_ids": (tuple(interaction_capture["history_record_ids"])
-                if interaction_capture is not None else ()),
+            "companion_history_citation_ids": (
+                tuple(interaction_capture["history_record_ids"])
+                if (interaction_capture is not None
+                    and condition_id == "companion-interaction") else ()),
             "developmental_projection_present": with_history,
             "self_model_projection_present": prior_self_model is not None,
             "self_model_projection_id": prior_self_model.projection_id if prior_self_model else None,
@@ -5651,8 +5656,10 @@ class ResidentDevelopmentalCognitionOwner:
             serving_session_receipt_digest=serving_session_receipt_digest,
             observed_at=receipt.observed_at,
             **_resource_linkage_fields(receipt),
-            companion_history_citation_ids=(tuple(interaction_capture["history_record_ids"])
-                if interaction_capture is not None else ()),
+            companion_history_citation_ids=(
+                tuple(interaction_capture["history_record_ids"])
+                if (interaction_capture is not None
+                    and condition_id == "companion-interaction") else ()),
             **epistemic_metadata,
         )
         if observation.schema_version == COGNITION_OBSERVATION_SCHEMA_V8:

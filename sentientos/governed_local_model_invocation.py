@@ -181,6 +181,24 @@ RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA = (
 RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA = (
     RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA)
 
+# Objective history interventions use one closed JSON shape for both single
+# probes and suites.  The deterministic scorer still binds the exact probe
+# count and rejects non-canonical or incomplete answers; this schema only
+# constrains generation to the appropriate answer container.
+RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA = {
+    "type": "object",
+    "oneOf": [
+        {"required": ["answer"]},
+        {"required": ["answers"]},
+    ],
+    "additionalProperties": False,
+    "properties": {
+        "answer": {"type": "integer"},
+        "answers": {"type": "array", "minItems": 2, "maxItems": 16,
+            "items": {"type": "integer"}},
+    },
+}
+
 
 def companion_history_output_schema(condition_id: Any) -> Mapping[str, Any]:
     return RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
@@ -833,8 +851,12 @@ class GovernedLocalModelInvoker:
                 raise ValueError("structured_output_schema_not_canonical")
             expected_intervention_schema = companion_history_output_schema(
                 (linkage or {}).get("condition_id"))
+            is_objective_task = "objective_task_plan_digest" in (upstream_evidence or {})
+            allowed_intervention_schemas = [expected_intervention_schema]
+            if is_objective_task:
+                allowed_intervention_schemas.append(RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA)
             if (purpose == INTERVENTION_PURPOSE
-                    and dict(structured_output_schema) != expected_intervention_schema):
+                    and dict(structured_output_schema) not in allowed_intervention_schemas):
                 raise ValueError("structured_output_schema_not_canonical")
         return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=deepcopy(dict(structured_output_schema)) if structured_output_schema is not None else None)
 
@@ -899,7 +921,12 @@ class GovernedLocalModelInvoker:
             elif request.purpose == INTERVENTION_PURPOSE:
                 expected_intervention_schema = companion_history_output_schema(
                     request.linkage.get("condition_id"))
-                if schema != expected_intervention_schema:
+                is_objective_task = "objective_task_plan_digest" in request.upstream_evidence
+                allowed_intervention_schemas = [expected_intervention_schema]
+                if is_objective_task:
+                    allowed_intervention_schemas.append(
+                        RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA)
+                if schema not in allowed_intervention_schemas:
                     reasons.append("structured_output_schema_not_canonical")
             elif request.purpose != "resident_developmental_interpretation": reasons.append("structured_output_schema_invalid")
         if request.purpose == "genesis_proposal_advice":
