@@ -1234,7 +1234,9 @@ def _synthetic_current_target_record() -> dict[str, Any]:
         evidence_class="sensor_observation",
         subject_id="synthetic-target-1", subject_kind="target_object",
         payload={**payload, "sampled_at": observed_at})
-    return EmbodimentEvidenceOwner([observation]).world_state_records()[0]
+    records: list[dict[str, Any]] = EmbodimentEvidenceOwner(
+        [observation]).world_state_records()
+    return records[0]
 
 
 def _objective_family_acquisition_readiness(run_payload: Mapping[str, Any]) -> dict[str, Any]:
