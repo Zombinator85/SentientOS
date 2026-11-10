@@ -69,6 +69,11 @@ MAX_DURABLE_RECORD_ROOT_BYTES = 134_217_728
 class DevelopmentalWritebackError(ValueError):
     """Fail-closed runtime boundary violation."""
 
+    def __init__(self, message: str, *, diagnostic: Mapping[str, Any] | None = None) -> None:
+        super().__init__(message)
+        # Structural metadata only; callers must not persist evidence text.
+        self.diagnostic = dict(diagnostic) if diagnostic is not None else None
+
 
 def _valid_optional_lower_sha256(value: Any) -> bool:
     return (value is None or (type(value) is str and len(value) == 64
@@ -2375,8 +2380,24 @@ class ResidentDevelopmentalWritebackController:
         raw = SelectedEvidence(snapshot.snapshot_id, snapshot.digest, facts, sources, conflicts)
         encoded_size = len(json.dumps(raw.semantic_payload(), sort_keys=True,
             separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
-        if encoded_size > _selected_fact_byte_limit(facts):
-            raise DevelopmentalWritebackError("selected_evidence_unbounded")
+        byte_limit = _selected_fact_byte_limit(facts)
+        if encoded_size > byte_limit:
+            raise DevelopmentalWritebackError("selected_evidence_unbounded",
+                diagnostic={
+                    "schema_version": "sentientos.developmental_evidence_selection_failure:v1",
+                    "encoded_size_bytes": encoded_size,
+                    "byte_limit": byte_limit,
+                    "fact_count": len(facts),
+                    "source_count": len(sources),
+                    "conflict_count": len(conflicts),
+                    "fact_subject_kinds": sorted({
+                        str(fact.get("subject", {}).get("subject_kind", "unknown"))
+                        for fact in facts if isinstance(fact.get("subject"), Mapping)}),
+                    "source_kinds": sorted({source.kind for source in sources_by_id.values()
+                        if source.source_id in source_ids}),
+                    "bounded_objective_trial": (
+                        len(facts) == 1 and _is_bounded_objective_task_family_trial(facts[0])),
+                })
         sid, digest = _identity("devsel", raw.semantic_payload())
         return replace(raw, selection_id=sid, selection_digest=digest)
 

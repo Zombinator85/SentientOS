@@ -978,6 +978,7 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                     "target_value_classification": target_value,
                     "raw_question_and_response_excluded": True,
                 })
+    failure_diagnostic = getattr(exc, "diagnostic", None)
     artifact = {
         "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v4",
         "run_id": RUN_ID,
@@ -994,6 +995,8 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
             "process attribution"),
         "failure_type": type(exc).__name__,
         "failure_code": _failure_code(exc),
+        "failure_diagnostic": (dict(failure_diagnostic)
+            if isinstance(failure_diagnostic, Mapping) else None),
         "inference_receipts": receipts,
         "governed_developmental_records": records,
         "hosted_companion_deliveries": hosted_deliveries,

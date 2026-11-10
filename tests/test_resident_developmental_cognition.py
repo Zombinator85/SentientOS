@@ -6413,9 +6413,16 @@ def test_developmental_cycle_admits_full_consequence_chain_with_screen_and_propr
     partial_snapshot = build_companion_snapshot(screen_observation=screen,
         proprioception=(proprioception,), current_consequence_records=consequence_records[:-1],
         clock=lambda: now)
-    with pytest.raises(DevelopmentalWritebackError, match="selected_evidence_unbounded"):
+    with pytest.raises(DevelopmentalWritebackError, match="selected_evidence_unbounded") as failure:
         cognition.writeback.select_evidence(partial_snapshot,
             fact_ids=tuple(fact.fact_id for fact in partial_snapshot.facts))
+    diagnostic = failure.value.diagnostic
+    assert diagnostic is not None
+    assert diagnostic["schema_version"] == (
+        "sentientos.developmental_evidence_selection_failure:v1")
+    assert diagnostic["encoded_size_bytes"] > diagnostic["byte_limit"]
+    assert diagnostic["fact_count"] == len(partial_snapshot.facts)
+    assert "payload_text" not in diagnostic
 
 
 def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(

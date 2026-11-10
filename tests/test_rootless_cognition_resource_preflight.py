@@ -786,13 +786,21 @@ def test_incomplete_run_artifact_preserves_blocked_resource_sample(
     monkeypatch.setattr(runner, "_verify_model_released",
         lambda _: {"status": "target_model_not_resident"})
     monkeypatch.setattr(runner, "_gpu_snapshot", lambda: None)
-    artifact_path = runner._persist_incomplete_run(
-        runner.RootlessExperimentalError("gpu_utilization_preflight_busy"))
+    failure = runner.RootlessExperimentalError("gpu_utilization_preflight_busy")
+    failure.diagnostic = {
+        "schema_version": "sentientos.developmental_evidence_selection_failure:v1",
+        "encoded_size_bytes": 12000, "byte_limit": 10240,
+        "fact_count": 1, "source_count": 1, "conflict_count": 0,
+        "fact_subject_kinds": ["synthetic_fixture"],
+        "source_kinds": ["embodiment"], "bounded_objective_trial": False}
+    artifact_path = runner._persist_incomplete_run(failure)
     assert artifact_path is not None
     artifact = json.loads(artifact_path.read_text())
     assert artifact["schema_version"] == (
         "sentientos.rootless_ollama_embodied_cognition_failure:v4")
     assert artifact["resource_preflight_samples"] == [sample]
+    assert artifact["failure_diagnostic"]["encoded_size_bytes"] == 12000
+    assert artifact["failure_diagnostic"]["byte_limit"] == 10240
     assert artifact["source_provenance"] == runner.RUN_SOURCE_PROVENANCE
     assert "process attribution" in artifact["resource_preflight_sample_scope"]
 
