@@ -784,3 +784,32 @@ def test_objective_acquisition_summary_counts_only_verified_scored_examples(runn
     with pytest.raises(runner.RootlessExperimentalError,
             match="objective_family_acquisition_score_invalid"):
         runner._objective_acquisition_summary(run)
+
+
+
+def test_resource_refresh_records_disk_headroom_and_fails_closed(runner, monkeypatch):
+    snapshot = SimpleNamespace(cpu_utilization_percent=4.0,
+        ram_utilization_percent=35.0, disk_free_bytes=8 * 1024**3,
+        disk_utilization_percent=22.0, gpu_utilization_percent=2.0,
+        vram_utilization_percent=20.0)
+    evaluation = SimpleNamespace(evaluation_id="resource-eval",
+        snapshot=snapshot, epoch=SimpleNamespace(observed_at="time"),
+        pressure_report=SimpleNamespace(pressure_labels=()))
+    coordinator = SimpleNamespace(run_cycle=lambda **kwargs: evaluation)
+    monkeypatch.setattr(runner, "validate_evaluation",
+        lambda _: SimpleNamespace(ok=True))
+    evidence = runner._refresh_resource_evidence(
+        coordinator, correlation_id="disk-headroom-test")
+    assert evidence["disk_free_bytes"] == 8 * 1024**3
+    assert evidence["disk_utilization_percent"] == 22.0
+
+    snapshot.disk_free_bytes = None
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="host_disk_evidence_incomplete"):
+        runner._refresh_resource_evidence(coordinator,
+            correlation_id="missing-disk-test")
+    snapshot.disk_free_bytes = runner._MIN_EXPERIMENT_DISK_FREE_BYTES - 1
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="host_disk_headroom_insufficient"):
+        runner._refresh_resource_evidence(coordinator,
+            correlation_id="low-disk-test")

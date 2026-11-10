@@ -1709,21 +1709,30 @@ class ObjectivePredictionTask:
             inputs = [self.probe_input, *self.additional_probe_inputs]
             question = f"Predict the outputs for inputs {inputs} from the historical examples."
             synthetic_training: dict[str, Any] = {}
-            if (self.task_family_id is not None
-                    and not self.requires_task_family_history):
-                examples = [
-                    {"input": 0, "output": self.offset},
-                    {"input": 1, "output": self.multiplier + self.offset},
-                ]
-                question = (
-                    "The synthetic deterministic fixture supplies two verified "
-                    f"training observations: {examples}. Predict outputs for "
-                    f"inputs {inputs} using those observations.")
-                synthetic_training = {
-                    "synthetic_training_observations": examples,
-                    "training_evidence_provenance":
-                        "deterministic_fixture_oracle_not_physical_measurement",
-                }
+            if self.task_family_id is not None:
+                family_rule = (
+                    "This family shares one fixed integer affine mapping: "
+                    "output = m * input + b. ")
+                if self.requires_task_family_history:
+                    question = (
+                        family_rule
+                        + "Parameters are hidden. Use only retrieved same-family "
+                        "evaluator-scored history examples to predict outputs for "
+                        f"inputs {inputs}.")
+                else:
+                    examples = [
+                        {"input": 0, "output": self.offset},
+                        {"input": 1, "output": self.multiplier + self.offset},
+                    ]
+                    question = (
+                        family_rule
+                        + f"Verified examples from this mapping: {examples}. Predict "
+                        f"outputs for inputs {inputs}.")
+                    synthetic_training = {
+                        "synthetic_training_observations": examples,
+                        "training_evidence_provenance":
+                            "deterministic_fixture_oracle_not_physical_measurement",
+                    }
             return {"task_digest": task_digest,
                 "task_digest_posture": "salted_private_oracle_commitment:v1",
                 "question": question,

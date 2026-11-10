@@ -88,6 +88,7 @@ from sentientos.world_state_board import WorldStateBoardBuilder
 
 MODEL_NAME = os.environ.get("SENTIENTOS_HERMES_MODEL", "sentientos-hermes4:14b-q4km")
 _MAX_EXPERIMENT_SEED = 2**32 - 1
+_MIN_EXPERIMENT_DISK_FREE_BYTES = 2 * 1024**3
 
 
 def _experiment_seed_from_environment() -> int:
@@ -365,11 +366,17 @@ def _refresh_resource_evidence(coordinator: HostResourceRuntimeCoordinator,
     snapshot = evaluation.snapshot
     if snapshot.cpu_utilization_percent is None or snapshot.ram_utilization_percent is None:
         raise RootlessExperimentalError("host_resource_evidence_incomplete")
+    if type(snapshot.disk_free_bytes) is not int or snapshot.disk_free_bytes < 0:
+        raise RootlessExperimentalError("host_disk_evidence_incomplete")
+    if snapshot.disk_free_bytes < _MIN_EXPERIMENT_DISK_FREE_BYTES:
+        raise RootlessExperimentalError("host_disk_headroom_insufficient")
     return {"evaluation_id": evaluation.evaluation_id,
         "observed_at": evaluation.epoch.observed_at,
         "pressure_labels": list(evaluation.pressure_report.pressure_labels),
         "cpu_utilization_percent": snapshot.cpu_utilization_percent,
         "ram_utilization_percent": snapshot.ram_utilization_percent,
+        "disk_free_bytes": snapshot.disk_free_bytes,
+        "disk_utilization_percent": snapshot.disk_utilization_percent,
         "gpu_utilization_percent": snapshot.gpu_utilization_percent,
         "vram_utilization_percent": snapshot.vram_utilization_percent}
 

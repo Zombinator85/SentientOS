@@ -456,3 +456,31 @@ def test_generation_posture_and_purpose_are_fixed(tmp_path: Path) -> None:
         assert call["purpose"] == PURPOSE
         assert call["generation_posture"] == {"temperature": 0, "hardware_determinism_claimed": False}
         assert call["budget"]["max_new_tokens"] == 512
+
+
+
+def test_family_task_descriptor_states_rule_without_leaking_transfer_parameters() -> None:
+    acquisition = ObjectivePredictionTask(3, 9, 5,
+        additional_probe_inputs=(7, 9),
+        task_family_id="rootless_integer_affine_transfer")
+    acquisition_descriptor = acquisition.public_descriptor()
+    acquisition_question = acquisition_descriptor["question"]
+    assert "fixed integer affine mapping" in acquisition_question
+    assert "output = m * input + b" in acquisition_question
+    assert "Verified examples from this mapping" in acquisition_question
+    assert len(acquisition_question) < 250
+
+    transfer = ObjectivePredictionTask(3, 9, 15,
+        additional_probe_inputs=(17, 19),
+        task_family_id="rootless_integer_affine_transfer",
+        requires_task_family_history=True)
+    transfer_descriptor = transfer.public_descriptor()
+    transfer_question = transfer_descriptor["question"]
+    assert "fixed integer affine mapping" in transfer_question
+    assert "Parameters are hidden" in transfer_question
+    assert "retrieved same-family evaluator-scored history" in transfer_question
+    assert "synthetic_training_observations" not in transfer_descriptor
+    assert "Verified examples from this mapping" not in transfer_question
+    assert len(transfer_question) < 250
+    assert transfer_descriptor["task_digest_posture"] == (
+        "salted_private_oracle_commitment:v1")
