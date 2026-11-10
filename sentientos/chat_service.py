@@ -1153,6 +1153,11 @@ class PersistentConversationService:
                     if isinstance(record_id, str)][:32]
                     if isinstance(item.get("retrieved_record_ids", ()), (tuple, list))
                     else []),
+                "history_record_ids": ([record_id[:256]
+                    for record_id in item.get("history_record_ids", ())
+                    if isinstance(record_id, str)][:32]
+                    if isinstance(item.get("history_record_ids", ()), (tuple, list))
+                    else []),
             } for item in result.conditions],
             "authority": result.authority,
             "action_authority": result.action_authority,
@@ -5333,8 +5338,14 @@ async def root_page() -> HTMLResponse:
                                         typeof recordId === 'string') : [];
                                 const retrieval = document.createElement('p');
                                 retrieval.textContent = 'Retrieved history records: '
-                                    + (retrieved.length ? retrieved.join(', ') : 'none reported');
-                                item.append(label, responseText, retrieval);
+                                    + (retrieved.length ? retrieved.join(', ') : 'none');
+                                const cited = Array.isArray(condition.history_record_ids)
+                                    ? condition.history_record_ids.filter((recordId) =>
+                                        typeof recordId === 'string') : [];
+                                const citations = document.createElement('p');
+                                citations.textContent = 'Cited history records: '
+                                    + (cited.length ? cited.join(', ') : 'none');
+                                item.append(label, responseText, retrieval, citations);
                                 list.appendChild(item);
                             });
                             details.appendChild(list);
