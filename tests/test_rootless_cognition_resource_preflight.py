@@ -698,9 +698,12 @@ def test_pose_decision_classifier_requires_exact_json_schema(runner):
 def test_transfer_decision_prompt_requires_grounded_current_evidence(runner):
     question = runner.TRANSFER_DECISION_QUESTION
     assert len(question) <= 1200
-    assert "evidence_ids containing the exact current fact ID" in question
+    assert "evidence_ids with the exact current fact ID" in question
     assert "evidence_ids []" not in question
-    assert "history_record_ids containing the exact cited record ID" in question
+    assert "history_record_ids with the exact cited record ID" in question
+    assert "reported_values.predicted_observation.pose" in question
+    assert "reported_values.observer_report_field.pose" in question
+    assert "not proof of physical effect" in question
 
 
 

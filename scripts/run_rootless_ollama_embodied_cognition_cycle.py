@@ -212,21 +212,22 @@ def _objective_task_pair(seed: int) -> tuple[ObjectivePredictionTask, ObjectiveP
 
 
 TRANSFER_DECISION_QUESTION = (
-    "Controlled new-decision transfer probe. This is a new synthetic task, "
-    "not a request to recall or quote the past. Choose one next action for "
-    "the current target: INSPECT or REACH. Read the current World-State and "
-    "eligible developmental history. If a history record for a prior reach "
-    "contains predicted pose reach and observer-reported pose idle, propose "
-    "INSPECT before another reach. If no such history record is available, "
-    "propose REACH based on the current target. Treat the old observer value "
-    "as an uncertain historical report, never as current truth. Return the "
-    "standard JSON response with disposition answer, evidence_ids containing "
-    "the exact current fact ID that grounds the target, history_record_ids "
-    "containing the exact cited record ID when history supports INSPECT "
-    "(otherwise []), and response exactly INSPECT or REACH. If no current "
-    "fact grounds the target, abstain with response HISTORY_UNAVAILABLE and "
-    "no citations. This is a proposal only: do not claim that an action was "
-    "authorized or executed.")
+    "Controlled new-decision probe on a new synthetic task, not past recall. "
+    "Choose one action for the current target: INSPECT or REACH. Read the "
+    "current World-State and eligible history. In each "
+    "historical_embodiment_reports entry, compare "
+    "reported_values.predicted_observation.pose with "
+    "reported_values.observer_report_field.pose. If it records predicted "
+    "reach followed by observer-reported idle, choose INSPECT before another "
+    "reach as cautious information gathering, not proof of physical effect. "
+    "Without that record, choose REACH from the current target. Treat past "
+    "values as uncertain reports, never current truth. Return JSON "
+    "disposition answer, evidence_ids with the exact current fact ID grounding "
+    "the target, history_record_ids with the exact cited record ID supporting "
+    "INSPECT (otherwise []), and response exactly INSPECT or REACH. If no "
+    "current fact grounds the target, abstain with response "
+    "HISTORY_UNAVAILABLE and no citations. This is a proposal only; do not "
+    "claim action authority or execution.")
 MANIFEST_PATH = EXPERIMENT_ROOT / "ollama-model-manifests" / (
     "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce.json")
 RUN_STAGE = "startup"
