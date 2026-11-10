@@ -56,6 +56,116 @@ def runner(monkeypatch, tmp_path):
     return module
 
 
+def test_task_family_acquisition_requires_complete_typed_probe_results(runner):
+    descriptor = {"probe_inputs": [7, 8, 9]}
+    invalid = {"protocol": {"objective_task_descriptor": descriptor},
+        "objective_scores": [{"condition_id": "history_present", "score": {
+            "status": "invalid_answer", "probe_count": 3, "probe_results": []}}]}
+    invalid_result = runner._objective_family_acquisition_readiness(invalid)
+    assert invalid_result == {
+        "eligible": False,
+        "classification": "acquisition_output_not_eligible_for_task_family_history",
+        "score_status": "invalid_answer",
+        "probe_result_count": 0,
+        "required_probe_count": 3,
+    }
+
+    # Incorrect but well-formed answers remain valid acquisition evidence:
+    # the evaluator's false labels are useful for measuring later transfer.
+    incorrect = {"protocol": {"objective_task_descriptor": descriptor},
+        "objective_scores": [{"condition_id": "history_present", "score": {
+            "status": "incorrect", "probe_count": 3,
+            "probe_results": [
+                {"probe_input": 7, "observed_answer": 20, "correct": False},
+                {"probe_input": 8, "observed_answer": 23, "correct": False},
+                {"probe_input": 9, "observed_answer": 26, "correct": False},
+            ]}}]}
+    assert runner._objective_family_acquisition_readiness(incorrect)["eligible"] is True
+
+    reordered = {"protocol": {"objective_task_descriptor": descriptor},
+        "objective_scores": [{"condition_id": "history_present", "score": {
+            "status": "incorrect", "probe_count": 3,
+            "probe_results": [
+                {"probe_input": 8, "observed_answer": 23, "correct": False},
+                {"probe_input": 7, "observed_answer": 20, "correct": False},
+                {"probe_input": 9, "observed_answer": 26, "correct": False},
+            ]}}]}
+    assert runner._objective_family_acquisition_readiness(reordered)["eligible"] is False
+
+    malformed = {"protocol": {"objective_task_descriptor": descriptor},
+        "objective_scores": [{"condition_id": "history_present", "score": {
+            "status": "incorrect", "probe_count": 3,
+            "probe_results": [
+                {"probe_input": 7, "observed_answer": 20, "correct": False},
+                {"probe_input": 8, "observed_answer": "23", "correct": False},
+                {"probe_input": 9, "observed_answer": 26, "correct": False},
+            ]}}]}
+    assert runner._objective_family_acquisition_readiness(malformed)["eligible"] is False
+def test_source_provenance_records_revision_and_hashes_worktree_paths_only(
+        runner, monkeypatch, tmp_path):
+    dirty_status = b" M private-session.json\0?? screenshots/frame.png\0"
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        if args[1] == "rev-parse":
+            return SimpleNamespace(stdout=b"a" * 40 + b"\n")
+        if args[1] == "status":
+            return SimpleNamespace(stdout=dirty_status)
+        if args[1] == "diff":
+            return SimpleNamespace(stdout=b"tracked source diff")
+        if args[1] == "ls-files":
+            return SimpleNamespace(stdout=b"screenshots/frame.png\0")
+        raise AssertionError(args)
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    provenance = runner._source_provenance(tmp_path)
+
+    assert provenance["observation_status"] == "observed"
+    assert provenance["repository_revision"] == "a" * 40
+    assert provenance["worktree_clean"] is False
+    assert provenance["worktree_status_entry_count"] == 2
+    assert provenance["worktree_status_digest"] == hashlib.sha256(
+        dirty_status).hexdigest()
+    assert provenance["worktree_content_status"] == "untracked_paths_present"
+    assert provenance["worktree_content_digest"] is None
+    assert provenance["worktree_paths_retained"] is False
+    assert "private-session.json" not in repr(provenance)
+    assert "screenshots/frame.png" not in repr(provenance)
+    assert calls[0][1]["cwd"] == tmp_path
+    assert calls[1][1]["cwd"] == tmp_path
+
+
+def test_source_provenance_fingerprints_tracked_diff_without_storing_it(
+        runner, monkeypatch, tmp_path):
+    diff = {"value": b"first tracked edit"}
+
+    def fake_run(args, **kwargs):
+        if args[1] == "rev-parse":
+            return SimpleNamespace(stdout=b"b" * 40 + b"\n")
+        if args[1] == "status":
+            return SimpleNamespace(stdout=b" M private-source.py\0")
+        if args[1] == "diff":
+            return SimpleNamespace(stdout=diff["value"])
+        if args[1] == "ls-files":
+            return SimpleNamespace(stdout=b"")
+        raise AssertionError(args)
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    first = runner._source_provenance(tmp_path)
+    diff["value"] = b"second tracked edit"
+    second = runner._source_provenance(tmp_path)
+
+    assert first["worktree_content_status"] == "complete"
+    assert first["worktree_content_digest"] == hashlib.sha256(
+        b"first tracked edit").hexdigest()
+    assert second["worktree_content_digest"] == hashlib.sha256(
+        b"second tracked edit").hexdigest()
+    assert first["worktree_content_digest"] != second["worktree_content_digest"]
+    assert "first tracked edit" not in repr(first)
+    assert "private-source.py" not in repr(first)
+
+
 def test_model_weight_size_is_read_from_pinned_ollama_manifest(runner, tmp_path):
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps({"layers": [
@@ -595,8 +705,9 @@ def test_incomplete_run_artifact_preserves_blocked_resource_sample(
     assert artifact_path is not None
     artifact = json.loads(artifact_path.read_text())
     assert artifact["schema_version"] == (
-        "sentientos.rootless_ollama_embodied_cognition_failure:v2")
+        "sentientos.rootless_ollama_embodied_cognition_failure:v3")
     assert artifact["resource_preflight_samples"] == [sample]
+    assert artifact["source_provenance"] == runner.RUN_SOURCE_PROVENANCE
     assert "process attribution" in artifact["resource_preflight_sample_scope"]
 
 

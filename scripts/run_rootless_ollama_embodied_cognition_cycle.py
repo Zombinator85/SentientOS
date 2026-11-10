@@ -90,10 +90,87 @@ MANIFEST_PATH = EXPERIMENT_ROOT / "ollama-model-manifests" / (
     "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce.json")
 RUN_STAGE = "startup"
 RESOURCE_PREFLIGHT_EVIDENCE: list[dict[str, Any]] = []
+_SOURCE_FINGERPRINT_MAX_BYTES = 32 * 1024 * 1024
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _worktree_content_fingerprint(root: Path) -> dict[str, Any]:
+    """Fingerprint tracked edits; withhold it when untracked content is present."""
+    unavailable = {"worktree_content_status": "unavailable",
+        "worktree_content_digest": None}
+    try:
+        diff = subprocess.run(["git", "diff", "--binary", "--no-ext-diff",
+            "--no-textconv", "HEAD"], cwd=root, capture_output=True, timeout=10,
+            check=True)
+        untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard",
+            "-z"], cwd=root, capture_output=True, timeout=10, check=True)
+        diff_raw = diff.stdout
+        untracked_raw = untracked.stdout
+        diff_bytes = diff_raw if isinstance(diff_raw, bytes) else str(
+            diff_raw).encode("utf-8")
+        untracked_bytes = untracked_raw if isinstance(untracked_raw, bytes) else str(
+            untracked_raw).encode("utf-8")
+        if any(item for item in untracked_bytes.split(b"\0") if item):
+            return {"worktree_content_status": "untracked_paths_present",
+                "worktree_content_digest": None}
+        if len(diff_bytes) > _SOURCE_FINGERPRINT_MAX_BYTES:
+            return {"worktree_content_status": "size_limit_exceeded",
+                "worktree_content_digest": None}
+        return {"worktree_content_status": "complete",
+            "worktree_content_digest": hashlib.sha256(diff_bytes).hexdigest()}
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return unavailable
+
+
+def _source_provenance(repo_root: Path | None = None) -> dict[str, Any]:
+    """Bind experiment evidence to a revision without retaining local paths."""
+    root = (Path(__file__).resolve().parents[1] if repo_root is None
+        else Path(repo_root).resolve())
+    unavailable = {
+        "schema_version": "sentientos.source_revision_provenance:v1",
+        "observation_status": "unavailable",
+        "repository_revision": None,
+        "worktree_clean": None,
+        "worktree_status_entry_count": None,
+        "worktree_status_digest": None,
+        "worktree_content_status": "unavailable",
+        "worktree_content_digest": None,
+        "worktree_paths_retained": False,
+    }
+    try:
+        revision_result = subprocess.run(["git", "rev-parse", "--verify", "HEAD"],
+            cwd=root, capture_output=True, timeout=5, check=True)
+        revision_raw = revision_result.stdout
+        revision = (revision_raw.decode("ascii", errors="strict").strip()
+            if isinstance(revision_raw, bytes) else str(revision_raw).strip())
+        if re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", revision) is None:
+            return unavailable
+        status_result = subprocess.run(["git", "status", "--porcelain=v1", "-z",
+            "--untracked-files=all"], cwd=root, capture_output=True, timeout=10,
+            check=True)
+        status_raw = status_result.stdout
+        status_bytes = (status_raw if isinstance(status_raw, bytes)
+            else str(status_raw).encode("utf-8"))
+        entries = [item for item in status_bytes.split(b"\0") if item]
+        content_provenance = _worktree_content_fingerprint(root)
+        return {
+            **unavailable,
+            "observation_status": "observed",
+            "repository_revision": revision,
+            "worktree_clean": not entries,
+            "worktree_status_entry_count": len(entries),
+            "worktree_status_digest": hashlib.sha256(status_bytes).hexdigest(),
+            **content_provenance,
+        }
+    except (OSError, UnicodeError, subprocess.CalledProcessError,
+            subprocess.TimeoutExpired):
+        return unavailable
+
+
+RUN_SOURCE_PROVENANCE = _source_provenance()
 
 
 def _runtime_observation(model_digest: str) -> tuple[dict[str, Any], str]:
@@ -644,10 +721,11 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                     "raw_question_and_response_excluded": True,
                 })
     artifact = {
-        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v2",
+        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v3",
         "run_id": RUN_ID,
         "status": "incomplete",
         "execution_posture": "rootless_experimental_nonproduction",
+        "source_provenance": dict(RUN_SOURCE_PROVENANCE),
         "model_id": MODEL_NAME,
         "model_manifest_digest": MANIFEST_PATH.stem,
         "stage": RUN_STAGE,
@@ -915,6 +993,46 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
     return snapshot, evidence_summary, self_report
 
 
+def _objective_family_acquisition_readiness(run_payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Check whether a scored acquisition contains complete typed examples.
+
+    Invalid or truncated model output remains a scored experimental outcome,
+    but it cannot be promoted into task-family acquisition history.
+    """
+    protocol = run_payload.get("protocol")
+    descriptor = (protocol.get("objective_task_descriptor")
+        if isinstance(protocol, Mapping) else None)
+    probes = descriptor.get("probe_inputs") if isinstance(descriptor, Mapping) else None
+    required = len(probes) if isinstance(probes, list) else 0
+    scores = run_payload.get("objective_scores")
+    present = next((row for row in scores if isinstance(row, Mapping)
+        and row.get("condition_id") == "history_present"), None) \
+        if isinstance(scores, list) else None
+    evaluation = present.get("score") if isinstance(present, Mapping) else None
+    results = evaluation.get("probe_results") if isinstance(evaluation, Mapping) else None
+    status = evaluation.get("status") if isinstance(evaluation, Mapping) else None
+    complete_results = (isinstance(probes, list) and isinstance(results, list)
+        and required > 0 and len(results) == required
+        and all(isinstance(item, Mapping)
+            and type(item.get("probe_input")) is int
+            and item.get("probe_input") == probes[index]
+            and type(item.get("observed_answer")) is int
+            and type(item.get("correct")) is bool
+            for index, item in enumerate(results)))
+    eligible = (isinstance(evaluation, Mapping) and status in {"correct", "incorrect"}
+        and complete_results and evaluation.get("probe_count") == required)
+    return {
+        "eligible": eligible,
+        "classification": ("complete_typed_acquisition_examples"
+            if eligible else "acquisition_output_not_eligible_for_task_family_history"),
+        "score_status": status if status in {
+            "correct", "incorrect", "invalid_answer", "output_truncated",
+            "output_unavailable"} else "unknown",
+        "probe_result_count": len(results) if isinstance(results, list) else 0,
+        "required_probe_count": required,
+    }
+
+
 def run() -> dict[str, Any]:
     global RUN_STAGE
     RUN_STAGE = "model_and_runtime_preflight"
@@ -1094,103 +1212,132 @@ def run() -> dict[str, Any]:
             raise RootlessExperimentalError("objective_family_acquisition_incomplete")
         acquisition_run = owner.experiments.load_run(
             acquisition_result.changed_cognition_measurement_id)
-        acquisition_records = owner.experiments.world_state_records(run_refs=((
-            acquisition_run["run_id"], acquisition_run["run_digest"]),))
-        if len(acquisition_records) != 1:
-            raise RootlessExperimentalError("objective_family_acquisition_projection_invalid")
-        acquisition_world = WorldStateBoardBuilder().build(acquisition_records)
-        acquisition_writeback = owner.run_tick(snapshot=acquisition_world,
-            tick_id=RUN_ID + ":objective-family-acquisition-writeback")
-        if not acquisition_writeback.written_record_id:
-            raise RootlessExperimentalError("objective_family_acquisition_writeback_missing")
-        acquisition_history_record = owner.writeback.store.get(
-            acquisition_writeback.written_record_id)
-        if not any(isinstance(fact, Mapping)
-                and isinstance(fact.get("payload"), Mapping)
-                and fact["payload"].get("objective_task_family") == objective_family
-                for fact in acquisition_history_record.candidate.get("selected_facts", [])):
-            raise RootlessExperimentalError("objective_family_history_not_retained")
-
-        RUN_STAGE = "objective_task_family_transfer"
-        transfer_task = ObjectivePredictionTask(
-            multiplier=3, offset=2, probe_input=11,
-            additional_probe_inputs=(12, 13), task_family_id=objective_family,
-            requires_task_family_history=True)
-        transfer_request_id = RUN_ID + ":objective-family-transfer"
-        stage_objective_request(
-            state_root, request_id=transfer_request_id, task=transfer_task)
-        transfer_request = load_objective_request(state_root)
-        if transfer_request is None:
-            raise RootlessExperimentalError("objective_family_transfer_request_missing")
-        transfer_objective_task = objective_task_for_request(transfer_request)
-        objective_transfer_result = owner.run_objective_intervention_once(
-            snapshot=later_pre_action_snapshot,
-            tick_id=RUN_ID + ":objective-family-transfer",
-            objective_task=transfer_objective_task,
-            request_id=transfer_request_id,
-            request_digest=transfer_request["request_digest"])
-        if (objective_transfer_result.status != "objective_intervention_completed"
-                or not objective_transfer_result.changed_cognition_measurement_id):
-            raise RootlessExperimentalError("objective_family_transfer_incomplete")
-        objective_transfer_run = owner.experiments.load_run(
-            objective_transfer_result.changed_cognition_measurement_id)
-        objective_transfer_conditions = objective_transfer_run.get("conditions", [])
-        objective_transfer_scores = objective_transfer_run.get("objective_scores", [])
-        if len(objective_transfer_conditions) != 3 or len(objective_transfer_scores) != 3:
-            raise RootlessExperimentalError("objective_family_transfer_conditions_incomplete")
-        objective_transfer_evaluation = objective_transfer_run.get(
-            "objective_evaluation", {})
-        transfer_records = owner.experiments.world_state_records(run_refs=((
-            objective_transfer_run["run_id"], objective_transfer_run["run_digest"]),))
-        if len(transfer_records) != 1:
-            raise RootlessExperimentalError("objective_family_transfer_projection_invalid")
-        transfer_world = WorldStateBoardBuilder().build(transfer_records)
-        transfer_writeback = owner.run_tick(snapshot=transfer_world,
-            tick_id=RUN_ID + ":objective-family-transfer-writeback")
-        if not transfer_writeback.written_record_id:
-            raise RootlessExperimentalError("objective_family_transfer_writeback_missing")
-        transfer_progression = owner.verified_objective_task_family_progression(
-            request_refs=((acquisition_request_id,
-                    acquisition_request["request_digest"]),
-                (transfer_request_id, transfer_request["request_digest"])))
-        if (transfer_progression.get("status") != "comparable_scored_episodes"
-                or len(transfer_progression.get("episodes", [])) != 2):
-            raise RootlessExperimentalError("objective_family_progression_unverified")
-        objective_transfer_history = {
-            "status": "completed_scored_intervention",
-            "measurement_id": objective_transfer_result.changed_cognition_measurement_id,
-            "run_id": objective_transfer_run.get("run_id"),
-            "run_digest": objective_transfer_run.get("run_digest"),
+        acquisition_readiness = _objective_family_acquisition_readiness(acquisition_run)
+        objective_transfer_evaluation: dict[str, Any] = {
+            "assessment": "not_run_no_eligible_acquisition_examples",
+            "history_correct_probe_delta": None,
+            "restoration_correct_probe_delta": None,
+            "condition_correct_counts": None,
+            "probe_count": acquisition_readiness["required_probe_count"],
+        }
+        objective_transfer_history: dict[str, Any] = {
+            "status": "skipped_acquisition_outputs_unusable",
             "task_family_id": objective_family,
-            "acquisition_history_record_id": acquisition_history_record.record_id,
-            "transfer_history_record_id": transfer_writeback.written_record_id,
-            "acquisition_request_digest": acquisition_request["request_digest"],
-            "transfer_request_digest": transfer_request["request_digest"],
-            "longitudinal_progression_status": transfer_progression.get("status"),
-            "longitudinal_episode_count": len(transfer_progression.get("episodes", [])),
-            "history_correct_probe_delta": objective_transfer_evaluation.get(
-                "history_correct_probe_delta"),
-            "restoration_correct_probe_delta": objective_transfer_evaluation.get(
-                "restoration_correct_probe_delta"),
-            "condition_correct_counts": objective_transfer_evaluation.get(
-                "condition_correct_counts"),
-            "conditions": [{
-                "condition_id": item.get("condition_id"),
-                "correct_count": (item.get("score", {}).get("correct_count")
-                    if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
-                "probe_count": (item.get("score", {}).get("probe_count")
-                    if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
-                "output_digest": item.get("output_digest"),
-                "retrieved_record_ids": item.get("retrieved_record_ids", []),
-                "inference_receipt_id": item.get("inference_receipt_id"),
-                "inference_receipt_digest": item.get("inference_receipt_digest"),
-                "inference_status": item.get("inference_status"),
-            } for item in objective_transfer_scores],
+            "acquisition_measurement_id": acquisition_result.changed_cognition_measurement_id,
+            "acquisition_score_status": acquisition_readiness["score_status"],
+            "acquisition_readiness_classification": acquisition_readiness["classification"],
+            "acquisition_probe_result_count": acquisition_readiness["probe_result_count"],
+            "required_probe_count": acquisition_readiness["required_probe_count"],
+            "acquisition_history_record_id": None,
+            "transfer_history_record_id": None,
+            "longitudinal_progression_status": "not_run_no_eligible_acquisition_examples",
+            "longitudinal_episode_count": 0,
+            "history_correct_probe_delta": None,
+            "restoration_correct_probe_delta": None,
+            "condition_correct_counts": None,
             "authority": False,
             "action_executed": False,
             "performance_improvement_established": False,
             "scope": "single_model_synthetic_exact_scored_task_family_transfer",
         }
+        if acquisition_readiness["eligible"]:
+            acquisition_records = owner.experiments.world_state_records(run_refs=((
+                acquisition_run["run_id"], acquisition_run["run_digest"]),))
+            if len(acquisition_records) != 1:
+                raise RootlessExperimentalError("objective_family_acquisition_projection_invalid")
+            acquisition_world = WorldStateBoardBuilder().build(acquisition_records)
+            acquisition_writeback = owner.run_tick(snapshot=acquisition_world,
+                tick_id=RUN_ID + ":objective-family-acquisition-writeback")
+            if not acquisition_writeback.written_record_id:
+                raise RootlessExperimentalError("objective_family_acquisition_writeback_missing")
+            acquisition_history_record = owner.writeback.store.get(
+                acquisition_writeback.written_record_id)
+            if not any(isinstance(fact, Mapping)
+                    and isinstance(fact.get("payload"), Mapping)
+                    and fact["payload"].get("objective_task_family") == objective_family
+                    for fact in acquisition_history_record.candidate.get("selected_facts", [])):
+                raise RootlessExperimentalError("objective_family_history_not_retained")
+
+            RUN_STAGE = "objective_task_family_transfer"
+            transfer_task = ObjectivePredictionTask(
+                multiplier=3, offset=2, probe_input=11,
+                additional_probe_inputs=(12, 13), task_family_id=objective_family,
+                requires_task_family_history=True)
+            transfer_request_id = RUN_ID + ":objective-family-transfer"
+            stage_objective_request(
+                state_root, request_id=transfer_request_id, task=transfer_task)
+            transfer_request = load_objective_request(state_root)
+            if transfer_request is None:
+                raise RootlessExperimentalError("objective_family_transfer_request_missing")
+            transfer_objective_task = objective_task_for_request(transfer_request)
+            objective_transfer_result = owner.run_objective_intervention_once(
+                snapshot=later_pre_action_snapshot,
+                tick_id=RUN_ID + ":objective-family-transfer",
+                objective_task=transfer_objective_task,
+                request_id=transfer_request_id,
+                request_digest=transfer_request["request_digest"])
+            if (objective_transfer_result.status != "objective_intervention_completed"
+                    or not objective_transfer_result.changed_cognition_measurement_id):
+                raise RootlessExperimentalError("objective_family_transfer_incomplete")
+            objective_transfer_run = owner.experiments.load_run(
+                objective_transfer_result.changed_cognition_measurement_id)
+            objective_transfer_conditions = objective_transfer_run.get("conditions", [])
+            objective_transfer_scores = objective_transfer_run.get("objective_scores", [])
+            if len(objective_transfer_conditions) != 3 or len(objective_transfer_scores) != 3:
+                raise RootlessExperimentalError("objective_family_transfer_conditions_incomplete")
+            objective_transfer_evaluation = objective_transfer_run.get(
+                "objective_evaluation", {})
+            transfer_records = owner.experiments.world_state_records(run_refs=((
+                objective_transfer_run["run_id"], objective_transfer_run["run_digest"]),))
+            if len(transfer_records) != 1:
+                raise RootlessExperimentalError("objective_family_transfer_projection_invalid")
+            transfer_world = WorldStateBoardBuilder().build(transfer_records)
+            transfer_writeback = owner.run_tick(snapshot=transfer_world,
+                tick_id=RUN_ID + ":objective-family-transfer-writeback")
+            if not transfer_writeback.written_record_id:
+                raise RootlessExperimentalError("objective_family_transfer_writeback_missing")
+            transfer_progression = owner.verified_objective_task_family_progression(
+                request_refs=((acquisition_request_id,
+                        acquisition_request["request_digest"]),
+                    (transfer_request_id, transfer_request["request_digest"])))
+            if (transfer_progression.get("status") != "comparable_scored_episodes"
+                    or len(transfer_progression.get("episodes", [])) != 2):
+                raise RootlessExperimentalError("objective_family_progression_unverified")
+            objective_transfer_history = {
+                "status": "completed_scored_intervention",
+                "measurement_id": objective_transfer_result.changed_cognition_measurement_id,
+                "run_id": objective_transfer_run.get("run_id"),
+                "run_digest": objective_transfer_run.get("run_digest"),
+                "task_family_id": objective_family,
+                "acquisition_history_record_id": acquisition_history_record.record_id,
+                "transfer_history_record_id": transfer_writeback.written_record_id,
+                "acquisition_request_digest": acquisition_request["request_digest"],
+                "transfer_request_digest": transfer_request["request_digest"],
+                "longitudinal_progression_status": transfer_progression.get("status"),
+                "longitudinal_episode_count": len(transfer_progression.get("episodes", [])),
+                "history_correct_probe_delta": objective_transfer_evaluation.get(
+                    "history_correct_probe_delta"),
+                "restoration_correct_probe_delta": objective_transfer_evaluation.get(
+                    "restoration_correct_probe_delta"),
+                "condition_correct_counts": objective_transfer_evaluation.get(
+                    "condition_correct_counts"),
+                "conditions": [{
+                    "condition_id": item.get("condition_id"),
+                    "correct_count": (item.get("score", {}).get("correct_count")
+                        if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
+                    "probe_count": (item.get("score", {}).get("probe_count")
+                        if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
+                    "output_digest": item.get("output_digest"),
+                    "retrieved_record_ids": item.get("retrieved_record_ids", []),
+                    "inference_receipt_id": item.get("inference_receipt_id"),
+                    "inference_receipt_digest": item.get("inference_receipt_digest"),
+                    "inference_status": item.get("inference_status"),
+                } for item in objective_transfer_scores],
+                "authority": False,
+                "action_executed": False,
+                "performance_improvement_established": False,
+                "scope": "single_model_synthetic_exact_scored_task_family_transfer",
+            }
         intervention_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, True),
@@ -1501,9 +1648,10 @@ def run() -> dict[str, Any]:
             "history_changed_new_decision"]
         transfer_classification = transfer_qualification["classification"]
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v6",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v7",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
+            "source_provenance": dict(RUN_SOURCE_PROVENANCE),
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
             "requested_backend_seed": 42,
             "model_artifact_size_bytes": manifest_size,
