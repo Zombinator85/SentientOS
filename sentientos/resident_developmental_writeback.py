@@ -507,13 +507,127 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
         return False
     history_score = next((row for row in scores if isinstance(row, Mapping)
         and row.get("condition_id") == "history_present"), None)
-    return (isinstance(history_score, Mapping)
-        and history_score.get("schema_version") == "sentientos.objective_task_score:v3"
-        and history_score.get("evaluator") == "deterministic_exact_integer_suite_oracle_v2"
-        and history_score.get("task_digest") == descriptor.get("task_digest")
-        and isinstance(history_score.get("plan_digest"), str)
-        and len(history_score["plan_digest"]) == 71
-        and history_score["plan_digest"].startswith("sha256:"))
+    if not (isinstance(history_score, Mapping)
+            and history_score.get("schema_version") == "sentientos.objective_task_score:v3"
+            and history_score.get("evaluator") == "deterministic_exact_integer_suite_oracle_v2"
+            and history_score.get("task_digest") == descriptor.get("task_digest")
+            and isinstance(history_score.get("plan_digest"), str)
+            and len(history_score["plan_digest"]) == 71
+            and history_score["plan_digest"].startswith("sha256:")):
+        return False
+
+    expected_conditions = ("history_present", "history_withheld", "history_restored")
+
+    def valid_digest(value: Any) -> bool:
+        if not isinstance(value, str):
+            return False
+        raw = value.removeprefix("sha256:")
+        return (len(raw) == 64 and all(character in "0123456789abcdef" for character in raw)
+            and len(value) in {64, 71})
+
+    def valid_timestamp(value: Any) -> bool:
+        if not isinstance(value, str) or len(value) > 64 or value.endswith("-00:00"):
+            return False
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        return parsed.tzinfo is not None
+
+    # The expanded selection budget is reserved for actual owner-projected
+    # trial records: all condition observations and invocation receipts must
+    # be internally bound, with event times supplied by those receipts.
+    condition_rows = conditions
+    if (not isinstance(condition_rows, list)
+            or tuple(row.get("condition_id") for row in condition_rows
+                if isinstance(row, Mapping)) != expected_conditions
+            or any(not isinstance(row, Mapping) for row in condition_rows)):
+        return False
+    for row in condition_rows:
+        for key in ("observation_id", "request_id", "inference_receipt_id"):
+            if not isinstance(row.get(key), str) or not row[key] or len(row[key]) > 160:
+                return False
+        # Rootless development has no serving-session identity; receipt/request
+        # binding remains authoritative and the experiment owner documents that
+        # absence. A present serving session must still be a bounded identity.
+        serving_session_id = row.get("serving_session_id")
+        if (serving_session_id is not None
+                and (not isinstance(serving_session_id, str)
+                    or not serving_session_id or len(serving_session_id) > 160)):
+            return False
+        for key in ("observation_digest", "output_digest", "request_digest",
+                "inference_receipt_digest"):
+            if not valid_digest(row.get(key)):
+                return False
+        if not valid_timestamp(row.get("observed_at")):
+            return False
+
+    event_times = payload.get("condition_event_times")
+    if (payload.get("event_time_posture")
+            != "all_condition_invocation_receipt_times_verified"
+            or not isinstance(event_times, list) or len(event_times) != 3
+            or not all(valid_timestamp(value) for value in event_times)):
+        return False
+
+    execution_rows = payload.get("execution_evidence_conditions")
+    if (payload.get("execution_evidence_scope")
+            != "authenticated_owner_receipt_not_independent_backend_observation"
+            or payload.get("independent_backend_observation") is not False
+            or not isinstance(execution_rows, list) or len(execution_rows) != 3
+            or tuple(row.get("condition_id") for row in execution_rows
+                if isinstance(row, Mapping)) != expected_conditions
+            or any(not isinstance(row, Mapping) for row in execution_rows)):
+        return False
+    allowed_execution_postures = {
+        "receipt_reports_simulation_or_no_backend_entry",
+        "verified_owner_receipt_reports_backend_entry",
+        "receipt_does_not_establish_backend_entry",
+    }
+    for condition_row, execution_row in zip(condition_rows, execution_rows):
+        if (execution_row.get("receipt_identity_verified") is not True
+                or execution_row.get("invocation_receipt_id")
+                    != condition_row.get("inference_receipt_id")
+                or execution_row.get("invocation_receipt_digest")
+                    != condition_row.get("inference_receipt_digest")
+                or not isinstance(execution_row.get("receipt_status"), str)
+                or execution_row.get("posture") not in allowed_execution_postures
+                or execution_row.get("independent_backend_observation") is not False
+                or (execution_row.get("local_model_inference_effect") is not None
+                    and type(execution_row["local_model_inference_effect"]) is not bool)
+                or (execution_row.get("fallback_occurred") is not None
+                    and type(execution_row["fallback_occurred"]) is not bool)):
+            return False
+        if (execution_row["posture"] == "verified_owner_receipt_reports_backend_entry"
+                and (execution_row.get("receipt_status") != "admitted_completed"
+                    or execution_row.get("local_model_inference_effect") is not True
+                    or execution_row.get("fallback_occurred") is not False)):
+            return False
+        if (execution_row["posture"] == "receipt_reports_simulation_or_no_backend_entry"
+                and execution_row.get("local_model_inference_effect") is not False):
+            return False
+
+    expected_execution_posture = (
+        "all_owner_receipts_report_backend_entry"
+        if all(row["posture"] == "verified_owner_receipt_reports_backend_entry"
+            for row in execution_rows)
+        else "one_or_more_conditions_simulated_or_no_backend_entry"
+        if any(row["posture"] == "receipt_reports_simulation_or_no_backend_entry"
+            for row in execution_rows)
+        else "one_or_more_receipts_do_not_establish_backend_entry")
+    if payload.get("execution_evidence_posture") != expected_execution_posture:
+        return False
+
+    # Historical examples must be tied to the exact evaluator-scored present
+    # condition, rather than being arbitrary content under the expanded cap.
+    if any(not isinstance(example, Mapping)
+            or type(example.get("probe_input")) is not int
+            or type(example.get("observed_answer")) is not int
+            or type(example.get("evaluator_correct")) is not bool
+            or example.get("source_score_digest") != history_score.get("score_digest")
+            or example.get("source_condition") != "history_present"
+            for example in examples):
+        return False
+    return True
 
 
 def _writeback_input_limit(facts: Sequence[Mapping[str, Any]]) -> int:

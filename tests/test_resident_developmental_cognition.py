@@ -2165,9 +2165,26 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         tmp_path: Path) -> None:
     """Fixture-only episode chain: acquired examples are reused after owner reconstruction."""
     from scripts.stage_resident_objective_intervention import stage_request
+    from sentientos.resident_developmental_writeback import (
+        MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES)
 
     fake = InstallationCustodyFakeInvoker()
-    fake.active_model_identity = {"provider": "fixture", "model": "episode-model"}
+    # Model identity in the live Hermes path carries the serving artifact and
+    # backend identity alongside the short display name. Keep this fixture
+    # receipt-bound and realistic enough to exercise the bounded-envelope
+    # headroom needed by an authenticated developmental-history trial.
+    fake.active_model_identity = {
+        "provider": "fixture", "model": "episode-model",
+        "artifact_digest": "sha256:" + "1" * 64,
+        "runtime": "ollama", "runtime_version": "0.13.0",
+        "backend": "cuda", "quantization": "Q4_K_M",
+        "model_manifest": {
+            "schema": "sentientos.local_model_manifest:v1",
+            "architecture": "llama", "format": "gguf",
+            "weight_digest": "sha256:" + "2" * 64,
+            "configuration_digest": "sha256:" + "3" * 64,
+        },
+    }
     _bind_fixture_installation_custody(tmp_path, fake)
     fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
@@ -2206,6 +2223,11 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         for item in execution_evidence["execution_evidence_conditions"])
     feedback = cognition.run_tick(snapshot=source_world, tick_id="episode-acquisition-feedback")
     assert feedback.written_record_id
+    selected = cognition.writeback.select_evidence(source_world,
+        fact_ids=feedback.selected_fact_ids)
+    selected_size = len(json.dumps(selected.semantic_payload(), sort_keys=True,
+        separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+    assert 10_240 < selected_size <= MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES
     admitted = cognition.writeback.store.get(feedback.written_record_id)
     family_fact = next(fact for fact in admitted.candidate["selected_facts"]
         if fact["payload"].get("objective_task_family") == "integer_affine_prediction")
