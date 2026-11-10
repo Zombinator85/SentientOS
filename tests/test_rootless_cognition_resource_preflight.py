@@ -26,6 +26,53 @@ def runner(monkeypatch, tmp_path):
     return module
 
 
+def test_task_family_acquisition_requires_complete_typed_probe_results(runner):
+    descriptor = {"probe_inputs": [7, 8, 9]}
+    invalid = {"protocol": {"objective_task_descriptor": descriptor},
+        "objective_scores": [{"condition_id": "history_present", "score": {
+            "status": "invalid_answer", "probe_count": 3, "probe_results": []}}]}
+    invalid_result = runner._objective_family_acquisition_readiness(invalid)
+    assert invalid_result == {
+        "eligible": False,
+        "classification": "acquisition_output_not_eligible_for_task_family_history",
+        "score_status": "invalid_answer",
+        "probe_result_count": 0,
+        "required_probe_count": 3,
+    }
+
+    # Incorrect but well-formed answers remain valid acquisition evidence:
+    # the evaluator's false labels are useful for measuring later transfer.
+    incorrect = {"protocol": {"objective_task_descriptor": descriptor},
+        "objective_scores": [{"condition_id": "history_present", "score": {
+            "status": "incorrect", "probe_count": 3,
+            "probe_results": [
+                {"probe_input": 7, "observed_answer": 20, "correct": False},
+                {"probe_input": 8, "observed_answer": 23, "correct": False},
+                {"probe_input": 9, "observed_answer": 26, "correct": False},
+            ]}}]}
+    assert runner._objective_family_acquisition_readiness(incorrect)["eligible"] is True
+
+    reordered = {"protocol": {"objective_task_descriptor": descriptor},
+        "objective_scores": [{"condition_id": "history_present", "score": {
+            "status": "incorrect", "probe_count": 3,
+            "probe_results": [
+                {"probe_input": 8, "observed_answer": 23, "correct": False},
+                {"probe_input": 7, "observed_answer": 20, "correct": False},
+                {"probe_input": 9, "observed_answer": 26, "correct": False},
+            ]}}]}
+    assert runner._objective_family_acquisition_readiness(reordered)["eligible"] is False
+
+    malformed = {"protocol": {"objective_task_descriptor": descriptor},
+        "objective_scores": [{"condition_id": "history_present", "score": {
+            "status": "incorrect", "probe_count": 3,
+            "probe_results": [
+                {"probe_input": 7, "observed_answer": 20, "correct": False},
+                {"probe_input": 8, "observed_answer": "23", "correct": False},
+                {"probe_input": 9, "observed_answer": 26, "correct": False},
+            ]}}]}
+    assert runner._objective_family_acquisition_readiness(malformed)["eligible"] is False
+
+
 def test_model_weight_size_is_read_from_pinned_ollama_manifest(runner, tmp_path):
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps({"layers": [
