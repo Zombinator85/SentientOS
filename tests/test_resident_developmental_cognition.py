@@ -2547,6 +2547,17 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         for request in heldout_requests}
     assert set(heldout_request_by_condition) == {
         "history_present", "history_withheld", "history_restored"}
+    present_prompt = json.loads(heldout_request_by_condition["history_present"].prompt)
+    [present_history_packet] = present_prompt["developmental_history"]
+    [present_experience] = present_history_packet["task_relevant_experience"]
+    # Objective transfer uses the compact admitted-history projection so
+    # repeated custody/resource metadata doesn't consume the model context.
+    # The task examples and exact provenance identities remain available.
+    assert "source_bindings_digest" in present_history_packet
+    assert "source_bindings" not in present_history_packet
+    assert present_experience["source_fact_id"]
+    assert present_experience["source_run_digest"]
+    assert present_experience["examples"]
     present_projection = heldout_request_by_condition["history_present"].upstream_evidence[
         "task_family_history_prompt_projection"]
     withheld_projection = heldout_request_by_condition["history_withheld"].upstream_evidence[

@@ -5480,7 +5480,12 @@ class ResidentDevelopmentalCognitionOwner:
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
                 projection=prior_epistemic_state, history_present=with_history,
-                compact_history_for_input=interaction_question is not None))
+                # Interactive chat and objective-transfer cognition both run
+                # under bounded serving context windows. Keep admitted task-family
+                # examples and their source identities without repeating bulky
+                # custody and resource detail in the inference prompt.
+                compact_history_for_input=(interaction_question is not None
+                    or objective_plan is not None)))
         if with_history and not record_ids:
             raise ResidentDevelopmentalCognitionError("history_context_budget_exhausted")
         if epistemic_revision_probe_prompt_preview:
