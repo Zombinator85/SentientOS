@@ -199,12 +199,11 @@ def _objective_transfer_observations(
     for condition_id in ("history_present", "history_restored"):
         retrieved_ids = observations[condition_id].get("retrieved_record_ids", [])
         if (not isinstance(retrieved_ids, (list, tuple))
-                or acquisition_record_id not in retrieved_ids):
+                or list(retrieved_ids) != [acquisition_record_id]):
             raise RootlessExperimentalError(
                 "objective_family_transfer_history_not_retrieved")
     withheld_ids = observations["history_withheld"].get("retrieved_record_ids", [])
-    if (not isinstance(withheld_ids, (list, tuple))
-            or acquisition_record_id in withheld_ids):
+    if (not isinstance(withheld_ids, (list, tuple)) or withheld_ids):
         raise RootlessExperimentalError(
             "objective_family_transfer_withheld_history_leaked")
     return observations

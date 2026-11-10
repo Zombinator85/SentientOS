@@ -799,6 +799,20 @@ def test_objective_transfer_requires_matching_present_restored_and_withheld_hist
             match="objective_family_transfer_history_not_retrieved"):
         runner._objective_transfer_observations(missing, acquisition_id)
 
+    decoy_present = [dict(item) for item in conditions]
+    decoy_present[0] = {**decoy_present[0],
+        "retrieved_record_ids": [acquisition_id, "unrelated-record"]}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_history_not_retrieved"):
+        runner._objective_transfer_observations(decoy_present, acquisition_id)
+
+    decoy_withheld = [dict(item) for item in conditions]
+    decoy_withheld[1] = {**decoy_withheld[1],
+        "retrieved_record_ids": ["unrelated-record"]}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_withheld_history_leaked"):
+        runner._objective_transfer_observations(decoy_withheld, acquisition_id)
+
 
 
 def test_objective_transfer_report_preserves_score_and_history_lineage(runner):
