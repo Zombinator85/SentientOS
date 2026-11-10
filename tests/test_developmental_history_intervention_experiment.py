@@ -444,6 +444,7 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
         "invocation_budget_digest": "sha256:budget",
         "instruction_digest": "sha256:instruction",
         "response_schema_digest": "sha256:schema",
+        "history_neutral_prompt_digest": "sha256:neutral-prompt",
     }
     def row(condition: str, response: str, cited: list[str]) -> dict[str, object]:
         return {

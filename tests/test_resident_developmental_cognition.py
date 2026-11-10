@@ -5714,6 +5714,61 @@ def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp
     assert result.changed_cognition_measurement_id is not None
 
 
+def test_history_neutral_prompt_digest_removes_only_history_treatment_fields() -> None:
+    from sentientos.resident_developmental_cognition import (
+        _history_neutral_prompt_digest,
+    )
+
+    common = {
+        "companion_question": "What should happen next?",
+        "current_evidence": {"fact_id": "fact-current", "value": "target visible"},
+        "instruction": "Use the evidence; history has no authority.",
+        "developmental_history_posture": "historical_interpretation_not_current_truth",
+        "developmental_history_retrieval_policy_id": "task_family_probe_overlap_then_recency_fill:v2",
+        "developmental_history_target_model_identity": {"model": "model-a"},
+    }
+    present = {
+        **common,
+        "developmental_history": [{"record_id": "devrec-" + "a" * 24}],
+        "historical_embodiment_reports": [{"record_id": "devrec-" + "a" * 24}],
+        "history_citation_allowlist": ["devrec-" + "a" * 24],
+        "developmental_history_selection": {
+            "schema_version": "sentientos.developmental_history_prompt_selection:v2",
+            "policy": "most_recent_complete_record_suffix:v1",
+            "retrieval_policy_id": "task_family_probe_overlap_then_recency_fill:v2",
+            "task_family_id": "family-a", "treatment": "present",
+            "available_records": [{"record_id": "devrec-" + "a" * 24}],
+            "selected_records": [{"record_id": "devrec-" + "a" * 24}],
+            "omitted_records": [], "omitted_records_digest": "sha256:a",
+            "omission_reason": None, "selection_digest": "sha256:b",
+        },
+    }
+    withheld = {
+        **common,
+        "developmental_history": [],
+        "historical_embodiment_reports": [],
+        "history_citation_allowlist": [],
+        "developmental_history_selection": {
+            "schema_version": "sentientos.developmental_history_prompt_selection:v2",
+            "policy": "most_recent_complete_record_suffix:v1",
+            "retrieval_policy_id": "task_family_probe_overlap_then_recency_fill:v2",
+            "task_family_id": "family-a", "treatment": "withheld",
+            "available_records": [], "selected_records": [], "omitted_records": [],
+            "omitted_records_digest": "sha256:c", "omission_reason": None,
+            "selection_digest": "sha256:d",
+        },
+    }
+    def encode(value: Mapping[str, Any]) -> str:
+        return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+    assert _history_neutral_prompt_digest(encode(present)) == (
+        _history_neutral_prompt_digest(encode(withheld)))
+    changed_non_history = {**withheld, "current_evidence": {
+        "fact_id": "fact-current", "value": "different target"}}
+    assert _history_neutral_prompt_digest(encode(withheld)) != (
+        _history_neutral_prompt_digest(encode(changed_non_history)))
+
+
 def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         tmp_path: Path) -> None:
     initial_owner, _ = owner(tmp_path / "cognition")

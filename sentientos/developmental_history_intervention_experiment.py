@@ -1266,6 +1266,7 @@ def qualify_history_transfer_decision(
         "prior_epistemic_state_digest", "response_contract",
         "condition_group", "invocation_purpose", "expected_output_format",
         "invocation_budget_digest", "instruction_digest", "response_schema_digest",
+        "history_neutral_prompt_digest",
     }
     def valid_matched_inputs(row: Mapping[str, Any]) -> Mapping[str, Any] | None:
         value = row.get("matched_control_inputs")

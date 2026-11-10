@@ -783,6 +783,35 @@ def _digest(value: Any) -> str:
     return "sha256:" + str(digest_payload(value))
 
 
+def _history_neutral_prompt_digest(prompt: str) -> str:
+    """Fingerprint the full cognition prompt after removing only history treatment data."""
+    try:
+        value = json.loads(prompt)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ResidentDevelopmentalCognitionError(
+            "history_intervention_prompt_binding_invalid") from exc
+    if not isinstance(value, dict):
+        raise ResidentDevelopmentalCognitionError(
+            "history_intervention_prompt_binding_invalid")
+    normalized = dict(value)
+    # These fields intentionally differ between history-present and withheld.
+    for key in ("developmental_history", "historical_embodiment_reports",
+            "history_citation_allowlist"):
+        normalized.pop(key, None)
+    selection = normalized.get("developmental_history_selection")
+    if isinstance(selection, Mapping):
+        selection = dict(selection)
+        for key in ("treatment", "available_records", "selected_records",
+                "omitted_records", "omitted_records_digest", "omission_reason",
+                "selection_digest"):
+            selection.pop(key, None)
+        normalized["developmental_history_selection"] = selection
+    return _digest({
+        "schema_version": "sentientos.history_neutral_prompt:v1",
+        "prompt": normalized,
+    })
+
+
 def _valid_optional_lower_sha256(value: Any) -> bool:
     return (value is None or (type(value) is str and len(value) == 64
         and all(character in "0123456789abcdef" for character in value)))
@@ -5707,6 +5736,9 @@ class ResidentDevelopmentalCognitionOwner:
                 "response_schema_digest": _digest(
                     dict(request.structured_output_schema)
                     if request.structured_output_schema is not None else None),
+                "history_neutral_prompt_digest": (
+                    _history_neutral_prompt_digest(prompt)
+                    if companion_intervention else _digest({"prompt": prompt})),
             }
             interaction_capture.update({
                 "condition_id": condition_id,
