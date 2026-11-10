@@ -81,10 +81,39 @@ RUN_ID = "rootless-cognition-cycle-" + uuid.uuid4().hex[:20]
 RUN_ROOT = EXPERIMENT_ROOT / "developmental-cognition-cycles" / RUN_ID
 RUN_STAGE = "startup"
 RESOURCE_PREFLIGHT_EVIDENCE: list[dict[str, Any]] = []
+_SOURCE_FINGERPRINT_MAX_BYTES = 32 * 1024 * 1024
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _worktree_content_fingerprint(root: Path) -> dict[str, Any]:
+    """Fingerprint tracked edits; withhold it when untracked content is present."""
+    unavailable = {"worktree_content_status": "unavailable",
+        "worktree_content_digest": None}
+    try:
+        diff = subprocess.run(["git", "diff", "--binary", "--no-ext-diff",
+            "--no-textconv", "HEAD"], cwd=root, capture_output=True, timeout=10,
+            check=True)
+        untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard",
+            "-z"], cwd=root, capture_output=True, timeout=10, check=True)
+        diff_raw = diff.stdout
+        untracked_raw = untracked.stdout
+        diff_bytes = diff_raw if isinstance(diff_raw, bytes) else str(
+            diff_raw).encode("utf-8")
+        untracked_bytes = untracked_raw if isinstance(untracked_raw, bytes) else str(
+            untracked_raw).encode("utf-8")
+        if any(item for item in untracked_bytes.split(b"\0") if item):
+            return {"worktree_content_status": "untracked_paths_present",
+                "worktree_content_digest": None}
+        if len(diff_bytes) > _SOURCE_FINGERPRINT_MAX_BYTES:
+            return {"worktree_content_status": "size_limit_exceeded",
+                "worktree_content_digest": None}
+        return {"worktree_content_status": "complete",
+            "worktree_content_digest": hashlib.sha256(diff_bytes).hexdigest()}
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return unavailable
 
 
 def _source_provenance(repo_root: Path | None = None) -> dict[str, Any]:
@@ -98,6 +127,8 @@ def _source_provenance(repo_root: Path | None = None) -> dict[str, Any]:
         "worktree_clean": None,
         "worktree_status_entry_count": None,
         "worktree_status_digest": None,
+        "worktree_content_status": "unavailable",
+        "worktree_content_digest": None,
         "worktree_paths_retained": False,
     }
     try:
@@ -115,6 +146,7 @@ def _source_provenance(repo_root: Path | None = None) -> dict[str, Any]:
         status_bytes = (status_raw if isinstance(status_raw, bytes)
             else str(status_raw).encode("utf-8"))
         entries = [item for item in status_bytes.split(b"\0") if item]
+        content_provenance = _worktree_content_fingerprint(root)
         return {
             **unavailable,
             "observation_status": "observed",
@@ -122,6 +154,7 @@ def _source_provenance(repo_root: Path | None = None) -> dict[str, Any]:
             "worktree_clean": not entries,
             "worktree_status_entry_count": len(entries),
             "worktree_status_digest": hashlib.sha256(status_bytes).hexdigest(),
+            **content_provenance,
         }
     except (OSError, UnicodeError, subprocess.CalledProcessError,
             subprocess.TimeoutExpired):

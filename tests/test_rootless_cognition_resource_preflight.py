@@ -37,6 +37,10 @@ def test_source_provenance_records_revision_and_hashes_worktree_paths_only(
             return SimpleNamespace(stdout=b"a" * 40 + b"\n")
         if args[1] == "status":
             return SimpleNamespace(stdout=dirty_status)
+        if args[1] == "diff":
+            return SimpleNamespace(stdout=b"tracked source diff")
+        if args[1] == "ls-files":
+            return SimpleNamespace(stdout=b"screenshots/frame.png\0")
         raise AssertionError(args)
 
     monkeypatch.setattr(runner.subprocess, "run", fake_run)
@@ -48,11 +52,43 @@ def test_source_provenance_records_revision_and_hashes_worktree_paths_only(
     assert provenance["worktree_status_entry_count"] == 2
     assert provenance["worktree_status_digest"] == hashlib.sha256(
         dirty_status).hexdigest()
+    assert provenance["worktree_content_status"] == "untracked_paths_present"
+    assert provenance["worktree_content_digest"] is None
     assert provenance["worktree_paths_retained"] is False
     assert "private-session.json" not in repr(provenance)
     assert "screenshots/frame.png" not in repr(provenance)
     assert calls[0][1]["cwd"] == tmp_path
     assert calls[1][1]["cwd"] == tmp_path
+
+
+def test_source_provenance_fingerprints_tracked_diff_without_storing_it(
+        runner, monkeypatch, tmp_path):
+    diff = {"value": b"first tracked edit"}
+
+    def fake_run(args, **kwargs):
+        if args[1] == "rev-parse":
+            return SimpleNamespace(stdout=b"b" * 40 + b"\n")
+        if args[1] == "status":
+            return SimpleNamespace(stdout=b" M private-source.py\0")
+        if args[1] == "diff":
+            return SimpleNamespace(stdout=diff["value"])
+        if args[1] == "ls-files":
+            return SimpleNamespace(stdout=b"")
+        raise AssertionError(args)
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    first = runner._source_provenance(tmp_path)
+    diff["value"] = b"second tracked edit"
+    second = runner._source_provenance(tmp_path)
+
+    assert first["worktree_content_status"] == "complete"
+    assert first["worktree_content_digest"] == hashlib.sha256(
+        b"first tracked edit").hexdigest()
+    assert second["worktree_content_digest"] == hashlib.sha256(
+        b"second tracked edit").hexdigest()
+    assert first["worktree_content_digest"] != second["worktree_content_digest"]
+    assert "first tracked edit" not in repr(first)
+    assert "private-source.py" not in repr(first)
 
 
 def test_model_weight_size_is_read_from_pinned_ollama_manifest(runner, tmp_path):
