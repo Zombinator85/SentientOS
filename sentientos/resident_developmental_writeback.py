@@ -2547,10 +2547,22 @@ class ResidentDevelopmentalWritebackController:
 
     @staticmethod
     def infer_candidate(selection: SelectedEvidence, *, invoker: LocalModelInvoker,
-                        correlation_id: str, budget: LocalModelInvocationBudget | None = None) -> DevelopmentalCandidate:
+                        correlation_id: str, budget: LocalModelInvocationBudget | None = None,
+                        timeout_seconds: int = 30,
+                        max_timeout_seconds: int = 30) -> DevelopmentalCandidate:
         input_limit = _writeback_input_limit(selection.facts)
-        bounded = budget or LocalModelInvocationBudget(max_input_chars=input_limit, max_output_chars=4000, max_new_tokens=512, timeout_seconds=30, max_calls_per_correlation=1)
-        if bounded.max_calls_per_correlation != 1 or bounded.max_input_chars > input_limit or bounded.max_output_chars > 4000 or bounded.max_new_tokens > 512 or bounded.timeout_seconds > 30:
+        if (type(timeout_seconds) is not int or type(max_timeout_seconds) is not int
+                or not 1 <= timeout_seconds <= max_timeout_seconds <= 120):
+            raise DevelopmentalWritebackError(
+                "developmental_inference_budget_unbounded")
+        bounded = budget or LocalModelInvocationBudget(max_input_chars=input_limit,
+            max_output_chars=4000, max_new_tokens=512,
+            timeout_seconds=timeout_seconds, max_calls_per_correlation=1)
+        if (bounded.max_calls_per_correlation != 1
+                or bounded.max_input_chars > input_limit
+                or bounded.max_output_chars > 4000
+                or bounded.max_new_tokens > 512
+                or bounded.timeout_seconds > max_timeout_seconds):
             raise DevelopmentalWritebackError("developmental_inference_budget_unbounded")
         schema = {"type":"object", "required":["interpretation","uncertainty"], "additionalProperties":False,
                   "properties":{"interpretation":{"type":"string","maxLength":MAX_INTERPRETATION_CHARS},

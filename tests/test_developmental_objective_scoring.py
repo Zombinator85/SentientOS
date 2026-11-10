@@ -188,7 +188,7 @@ def test_family_acquisition_discloses_only_explicit_synthetic_training_evidence(
     transfer_descriptor = transfer.public_descriptor()
     assert "synthetic_training_observations" not in transfer_descriptor
     assert "training_evidence_provenance" not in transfer_descriptor
-    assert "historical examples" in transfer_descriptor["question"]
+    assert "same-family evaluator-scored history examples" in transfer_descriptor["question"]
 
 
 def test_public_task_commitments_do_not_hash_low_entropy_oracle_inputs(tmp_path):
