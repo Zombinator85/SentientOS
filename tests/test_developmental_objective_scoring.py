@@ -531,6 +531,21 @@ def test_probe_suite_output_substitution_is_incomplete_and_never_replayed(tmp_pa
     assert a2.calls == b2.calls == []
 
 
+def test_whitespace_suite_score_verification_preserves_raw_output_digest(tmp_path):
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="whitespace-score-family")
+    owner, _, _ = experiment(tmp_path, "whitespace-suite-score", task=task)
+    output = ' { "answers" : [ 20, 21, 22 ] } '
+    output_digest = digest({"output": output})
+
+    score = _objective_score(owner.objective_plan, output, output_digest)
+
+    assert score["status"] == "incorrect"
+    assert score["correct_count"] == 0
+    assert len(score["probe_results"]) == 3
+    assert _verify_objective_score(owner.objective_plan, score, output_digest) == score
+
+
 def test_truncated_output_is_unscorable_and_remains_receipt_bound(tmp_path):
     task = ObjectivePredictionTask(3, 2, 7)
     owner, _, _ = experiment(tmp_path, 'truncated', task=task)

@@ -1939,9 +1939,17 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
         canonical_output = json.dumps({answer_key: value.get("answer")},
             sort_keys=True, separators=(",", ":"))
         try:
-            expected = _objective_score(plan, canonical_output, expected_output_digest)
+            # Recompute semantic correctness from normalized JSON, while keeping
+            # the digest bound to the exact bytes returned by the model. The
+            # canonical serialization has a different digest whenever the live
+            # response contains harmless whitespace.
+            canonical_digest = _digest({"output": canonical_output})
+            expected = _objective_score(plan, canonical_output, canonical_digest)
         except (TypeError, ValueError) as exc:
             raise DevelopmentalModelReplacementError("objective_score_answer_invalid") from exc
+        expected["output_digest"] = expected_output_digest
+        expected["score_digest"] = _digest({key: item for key, item in expected.items()
+            if key != "score_digest"})
         if value != expected:
             raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
     elif status == "invalid_answer":
