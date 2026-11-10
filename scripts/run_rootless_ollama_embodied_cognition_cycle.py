@@ -340,6 +340,7 @@ TRANSFER_DECISION_QUESTION = (
 MANIFEST_PATH = EXPERIMENT_ROOT / "ollama-model-manifests" / (
     "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce.json")
 RUN_STAGE = "startup"
+PRE_ACTION_DECISION_EVIDENCE: dict[str, Any] | None = None
 RESOURCE_PREFLIGHT_EVIDENCE: list[dict[str, Any]] = []
 _SOURCE_FINGERPRINT_MAX_BYTES = 32 * 1024 * 1024
 
@@ -978,7 +979,7 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                     "raw_question_and_response_excluded": True,
                 })
     artifact = {
-        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v3",
+        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v4",
         "run_id": RUN_ID,
         "status": "incomplete",
         "execution_posture": "rootless_experimental_nonproduction",
@@ -996,6 +997,9 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
         "inference_receipts": receipts,
         "governed_developmental_records": records,
         "hosted_companion_deliveries": hosted_deliveries,
+        "pre_action_decision_evidence": (
+            dict(PRE_ACTION_DECISION_EVIDENCE)
+            if PRE_ACTION_DECISION_EVIDENCE is not None else None),
         "governed_unload": _verify_model_released(MODEL_NAME),
         "gpu_after": _gpu_snapshot(),
         "raw_frames_or_user_conversation_copied": False,
@@ -1184,13 +1188,18 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
     handoff = renderer_handoff(body, renderer_interface_id="renderer:synthetic:v1",
         requested_pose=requested_pose, requested_expression="neutral",
         correlation_id=RUN_ID + ":action", commanded_at=commanded_at)
+    task_goal = "reach_marked_target"
     expectation = make_expectation(
         installation_body_id="synthetic-installation", body_id="synthetic-avatar-body",
         body_generation=1, body_manifest_digest=body["manifest_digest"],
         handoff_id=handoff["handoff_id"], handoff_digest=handoff["handoff_digest"],
-        renderer_interface_id="renderer:synthetic:v1", requested={"pose": requested_pose},
-        predicted_observables={"pose": predicted_pose}, observable_fields=("pose",),
-        comparison_policy={"pose": {"kind": "exact"}},
+        renderer_interface_id="renderer:synthetic:v1",
+        requested={"pose": requested_pose, "task_goal": task_goal},
+        predicted_observables={"pose": predicted_pose,
+            "task_goal_met": predicted_pose == "reach"},
+        observable_fields=("pose", "task_goal_met"),
+        comparison_policy={"pose": {"kind": "exact"},
+            "task_goal_met": {"kind": "exact"}},
         expected_observation_source_class="synthetic_independent_fixture",
         correlation_id=RUN_ID + ":action", causal_principal_binding_digest=None,
         created_at=commanded_at,
@@ -1199,9 +1208,12 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
         started_at=commanded_at, completed_at=renderer_completed_at).render_test(handoff)
     # A separately named simulated observer reports the environment result;
     # it does not trust the renderer's assertion.
+    observed_pose = "idle"
     observation = SyntheticIndependentObserver(
         observer_id="synthetic-separate-environment-observer",
-        observed={"pose": "idle"}, observed_at=observed_at).observe(
+        observed={"pose": observed_pose,
+            "task_goal_met": observed_pose == "reach"},
+        observed_at=observed_at).observe(
             expectation=expectation, handoff=handoff, report=renderer_report)
     attribution, comparison = evaluate_consequence(
         expectation=expectation, handoff=handoff, current_body=body,
@@ -1242,6 +1254,10 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
         "effect_proven": attribution["effect_proven"],
         "requested_pose": requested_pose,
         "predicted_pose": predicted_pose,
+        "task_goal": task_goal,
+        "task_goal_met": observation.observed.get("task_goal_met") is True,
+        "task_goal_evaluation_posture": (
+            "synthetic_fixture_relation_of_observed_pose_to_task_goal"),
         "renderer_report_pose": dict(renderer_report.applied),
         "independent_observation_pose": dict(observation.observed),
         "renderer_and_observer_referenced_separately": True,
@@ -1309,7 +1325,8 @@ def _objective_family_acquisition_readiness(run_payload: Mapping[str, Any]) -> d
 
 
 def run() -> dict[str, Any]:
-    global RUN_STAGE
+    global RUN_STAGE, PRE_ACTION_DECISION_EVIDENCE
+    PRE_ACTION_DECISION_EVIDENCE = None
     RUN_STAGE = "model_and_runtime_preflight"
     if not MANIFEST_PATH.is_file() or MANIFEST_PATH.is_symlink():
         raise RootlessExperimentalError("pinned_hermes_manifest_missing")
@@ -1439,19 +1456,55 @@ def run() -> dict[str, Any]:
                     "history_record_ids": cognitive_decision.get("history_record_ids"),
                     "response": cognitive_decision.get("validated_response"),
                 }, sort_keys=True))
-        proposal = _pose_decision_from_response(
-            cognitive_decision.get("validated_response"))
+        decision_response = cognitive_decision.get("validated_response")
+        proposal = _pose_decision_from_response(decision_response)
+        prediction_consistent = None
+        if proposal is not None:
+            expected_prediction = {"reach": "reach", "idle": "idle"}[
+                proposal["requested_pose"]]
+            prediction_consistent = (
+                proposal["predicted_pose"] == expected_prediction)
+        if proposal is None:
+            decision_classification = "invalid_or_noncanonical_token"
+        elif prediction_consistent is not True:
+            decision_classification = "prediction_inconsistent_with_fixture"
+        elif proposal["requested_pose"] != "reach":
+            decision_classification = "goal_not_met"
+        else:
+            decision_classification = "goal_met_ready_for_synthetic_action"
+        PRE_ACTION_DECISION_EVIDENCE = {
+            "schema_version": "sentientos.pre_action_decision_evidence:v1",
+            "classification": decision_classification,
+            "response_digest": cognitive_decision.get("response_digest"),
+            "response_size_bytes": (
+                len(decision_response.encode("utf-8"))
+                if isinstance(decision_response, str) else None),
+            "requested_pose": (proposal["requested_pose"]
+                if proposal is not None else None),
+            "predicted_pose": (proposal["predicted_pose"]
+                if proposal is not None else None),
+            "prediction_consistent": prediction_consistent,
+            "response_lineage_verified": True,
+            "evidence_ids": list(cognitive_decision["evidence_ids"]),
+            "history_record_ids": list(cognitive_decision.get(
+                "history_record_ids", [])),
+            "authority": False,
+            "action_executed": False,
+            "synthetic_action_simulated": False,
+        }
         if proposal is None:
             raise RootlessExperimentalError("pre_action_cognition_proposal_invalid")
-        expected_prediction = {"reach": "reach", "idle": "idle"}[proposal["requested_pose"]]
-        if proposal["predicted_pose"] != expected_prediction:
+        if prediction_consistent is not True:
             raise RootlessExperimentalError(
                 "pre_action_prediction_inconsistent_with_deterministic_fixture")
-        if proposal["requested_pose"] != "reach":
-            raise RootlessExperimentalError("pre_action_goal_not_met")
         snapshot, evidence, proprioception = _embodied_source(
             requested_pose=proposal["requested_pose"],
             predicted_pose=proposal["predicted_pose"])
+        PRE_ACTION_DECISION_EVIDENCE["synthetic_action_simulated"] = True
+        PRE_ACTION_DECISION_EVIDENCE["task_goal"] = evidence["task_goal"]
+        PRE_ACTION_DECISION_EVIDENCE["task_goal_met"] = evidence["task_goal_met"]
+        PRE_ACTION_DECISION_EVIDENCE["task_goal_evaluation_posture"] = (
+            evidence["task_goal_evaluation_posture"])
         RUN_STAGE = "governed_developmental_writeback"
         first = owner.run_tick(snapshot=snapshot, tick_id=RUN_ID + ":consequence")
         if not first.written_record_id:
@@ -1949,7 +2002,7 @@ def run() -> dict[str, Any]:
             "history_changed_new_decision"]
         transfer_classification = transfer_qualification["classification"]
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v8",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v10",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "source_provenance": dict(RUN_SOURCE_PROVENANCE),
@@ -1974,6 +2027,8 @@ def run() -> dict[str, Any]:
                 "samples": [initial_resource_evidence, *inference_resource_evidence],
                 "telemetry_scope": "host_sample_not_per_invocation"},
             "model_proposal_before_synthetic_action": {
+                **(dict(PRE_ACTION_DECISION_EVIDENCE)
+                    if PRE_ACTION_DECISION_EVIDENCE is not None else {}),
                 "status": "verified_governed_companion_proposal",
                 "requested_pose": proposal["requested_pose"],
                 "predicted_pose": proposal["predicted_pose"],

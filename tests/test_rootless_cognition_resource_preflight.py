@@ -791,7 +791,7 @@ def test_incomplete_run_artifact_preserves_blocked_resource_sample(
     assert artifact_path is not None
     artifact = json.loads(artifact_path.read_text())
     assert artifact["schema_version"] == (
-        "sentientos.rootless_ollama_embodied_cognition_failure:v3")
+        "sentientos.rootless_ollama_embodied_cognition_failure:v4")
     assert artifact["resource_preflight_samples"] == [sample]
     assert artifact["source_provenance"] == runner.RUN_SOURCE_PROVENANCE
     assert "process attribution" in artifact["resource_preflight_sample_scope"]
@@ -809,6 +809,16 @@ def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
     monkeypatch.setattr(runner, "_verify_model_released",
         lambda _: {"status": "target_model_not_resident"})
     monkeypatch.setattr(runner, "_gpu_snapshot", lambda: None)
+    decision_evidence = {
+        "schema_version": "sentientos.pre_action_decision_evidence:v1",
+        "classification": "goal_not_met", "response_digest": "f" * 64,
+        "response_size_bytes": len("idle->idle"),
+        "requested_pose": "idle", "predicted_pose": "idle",
+        "prediction_consistent": True, "response_lineage_verified": True,
+        "evidence_ids": ["fact-current"], "history_record_ids": [],
+        "authority": False, "action_executed": False,
+    }
+    monkeypatch.setattr(runner, "PRE_ACTION_DECISION_EVIDENCE", decision_evidence)
     request_id = run_id + ":pre-action-decision"
     tick_id = "companion-interaction-" + hashlib.sha256(
         request_id.encode("utf-8")).hexdigest()[:32]
@@ -833,6 +843,7 @@ def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
     assert proposal["pre_action_predicted_pose"] == "idle"
     assert proposal["pre_action_prediction_consistent"] is True
     assert proposal["model_output_text_excluded"] is True
+    assert artifact["pre_action_decision_evidence"] == decision_evidence
     assert output_text not in artifact_text
 
     timeout_root = tmp_path / "timeout-run"
@@ -865,6 +876,32 @@ def test_pose_decision_classifier_requires_exact_action_prediction_token(runner)
             "reach->reach because the target is clear",
             '{"requested_pose":"reach","predicted_pose":"reach"}', None):
         assert runner._pose_decision_from_response(invalid) is None
+
+
+@pytest.mark.parametrize(("requested", "predicted", "goal_met"), [
+    ("idle", "idle", False),
+    ("reach", "reach", False),
+])
+def test_synthetic_action_consequence_retains_task_goal_outcome(
+        runner, requested, predicted, goal_met):
+    snapshot, evidence, proprioception = runner._embodied_source(
+        requested_pose=requested, predicted_pose=predicted)
+    assert snapshot.facts
+    assert evidence["consequence_classification"] == (
+        "expectation_satisfied" if predicted == "idle"
+        else "expectation_contradicted")
+    assert evidence["effect_proven"] is False
+    assert evidence["task_goal"] == "reach_marked_target"
+    assert evidence["task_goal_met"] is goal_met
+    assert evidence["task_goal_evaluation_posture"] == (
+        "synthetic_fixture_relation_of_observed_pose_to_task_goal")
+    assert evidence["independent_observation_pose"]["task_goal_met"] is False
+    assert any(fact.payload.get("commanded_value", {}).get("task_goal")
+        == "reach_marked_target" for fact in snapshot.facts)
+    assert any(fact.payload.get("independently_observed_value", {}).get(
+        "task_goal_met") is False for fact in snapshot.facts)
+    assert evidence["action_execution_posture"] == "synthetic_fixture_only"
+    assert proprioception.freshness == "current"
 
 
 def test_transfer_decision_prompt_requires_grounded_current_evidence(runner):
