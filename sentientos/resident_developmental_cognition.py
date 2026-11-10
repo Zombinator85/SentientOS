@@ -231,6 +231,7 @@ CONFIG_ENV = "SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG"
 SCHEMA = "sentientos.resident_developmental_cognition:v1"
 CONFIG_SCHEMA = "sentientos.resident_developmental_cognition_config:v1"
 CONFIG_SCHEMA_V2 = "sentientos.resident_developmental_cognition_config:v2"
+CONFIG_SCHEMA_V3 = "sentientos.resident_developmental_cognition_config:v3"
 COGNITION_OBSERVATION_SCHEMA_V2 = "sentientos.resident_cognition_observation:v2"
 COGNITION_OBSERVATION_SCHEMA_V3 = "sentientos.resident_cognition_observation:v3"
 COGNITION_OBSERVATION_SCHEMA_V4 = "sentientos.resident_cognition_observation:v4"
@@ -241,6 +242,7 @@ COGNITION_OBSERVATION_SCHEMA_V8 = "sentientos.resident_cognition_observation:v8"
 STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v2"
 LEGACY_STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
+MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS = 120
 
 
 def _valid_rootless_epistemic_session_binding(value: Any) -> bool:
@@ -2539,6 +2541,7 @@ class ResidentDevelopmentalCognitionConfig:
     comparison_enabled: bool = False
     enabled: bool = True
     model_replacement_artifact_root: Path | None = None
+    max_inference_timeout_seconds: int = 30
 
 
 @dataclass(frozen=True)
@@ -2953,8 +2956,14 @@ def load_config(path: str | Path) -> ResidentDevelopmentalCognitionConfig:
     common = {"schema", "enabled", "history_root", "state_root", "allowed_source_kinds",
               "max_selected_facts", "max_retrieved_records", "comparison_enabled"}
     schema = payload.get("schema") if isinstance(payload, dict) else None
-    expected = common if schema == CONFIG_SCHEMA else common | {"model_replacement_artifact_root"}
-    if not isinstance(payload, dict) or set(payload) != expected or schema not in {CONFIG_SCHEMA, CONFIG_SCHEMA_V2}:
+    expected_shapes = {
+        CONFIG_SCHEMA: common,
+        CONFIG_SCHEMA_V2: common | {"model_replacement_artifact_root"},
+        CONFIG_SCHEMA_V3: common | {"model_replacement_artifact_root",
+            "max_inference_timeout_seconds"},
+    }
+    expected = expected_shapes.get(schema) if isinstance(schema, str) else None
+    if not isinstance(payload, dict) or expected is None or set(payload) != expected:
         raise ResidentDevelopmentalCognitionError("configuration_shape_invalid")
     kinds = payload.get("allowed_source_kinds")
     maximum = payload.get("max_selected_facts")
@@ -2964,17 +2973,25 @@ def load_config(path: str | Path) -> ResidentDevelopmentalCognitionConfig:
             or len(kinds) != len(set(kinds)) or not isinstance(maximum, int) or not 1 <= maximum <= MAX_FACTS
             or not isinstance(history_maximum, int) or not 1 <= history_maximum <= MAX_HISTORY
             or not isinstance(payload.get("history_root"), str) or not payload["history_root"]
-            or not isinstance(payload.get("state_root"), str) or not payload["state_root"]):
+            or not isinstance(payload.get("state_root"), str) or not payload["state_root"]
+            or (schema == CONFIG_SCHEMA_V3 and (
+                type(payload.get("max_inference_timeout_seconds")) is not int
+                or not 1 <= payload["max_inference_timeout_seconds"]
+                    <= MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS))):
         raise ResidentDevelopmentalCognitionError("configuration_values_invalid")
     provenance_root = payload.get("model_replacement_artifact_root")
-    if schema == CONFIG_SCHEMA_V2 and (not isinstance(provenance_root, str) or not provenance_root):
+    if schema in {CONFIG_SCHEMA_V2, CONFIG_SCHEMA_V3} and (
+            not isinstance(provenance_root, str) or not provenance_root):
         raise ResidentDevelopmentalCognitionError("configuration_values_invalid")
     history_root, state_root = Path(payload["history_root"]), Path(payload["state_root"])
     artifact_root = Path(provenance_root) if provenance_root is not None else None
     _validate_root_separation(history_root, state_root, artifact_root)
-    return ResidentDevelopmentalCognitionConfig(history_root, state_root, tuple(sorted(kinds)), maximum,
-        history_maximum, payload["comparison_enabled"], payload["enabled"],
-        artifact_root)
+    inference_timeout = (payload["max_inference_timeout_seconds"]
+        if schema == CONFIG_SCHEMA_V3 else 30)
+    return ResidentDevelopmentalCognitionConfig(history_root, state_root,
+        tuple(sorted(kinds)), maximum, history_maximum,
+        payload["comparison_enabled"], payload["enabled"], artifact_root,
+        inference_timeout)
 
 
 def _unsafe_legacy_objective_cognition_fact(fact: Any) -> bool:
@@ -3010,6 +3027,11 @@ class ResidentDevelopmentalCognitionOwner:
                  resource_context_owner: Any | None = None) -> None:
         _validate_root_separation(config.history_root, config.state_root,
             config.model_replacement_artifact_root)
+        if (type(config.max_inference_timeout_seconds) is not int
+                or not 1 <= config.max_inference_timeout_seconds
+                    <= MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS):
+            raise ResidentDevelopmentalCognitionError(
+                "developmental_inference_timeout_invalid")
         self.config = config
         self.writeback = writeback
         self.admission_authority = admission_authority
@@ -5411,7 +5433,8 @@ class ResidentDevelopmentalCognitionOwner:
                 == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
             else LocalModelInvocationBudget(max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS,
                 max_output_chars=4000, max_new_tokens=512,
-                timeout_seconds=30, max_calls_per_correlation=1))
+                timeout_seconds=self.config.max_inference_timeout_seconds,
+                max_calls_per_correlation=1))
         request_linkage: dict[str, Any] = {
             "condition_group": f"{tick_id}:retrieval-comparison",
             "condition_id": condition_id, "history_present": with_history}
@@ -6243,8 +6266,11 @@ class ResidentDevelopmentalCognitionOwner:
                     raise ResidentDevelopmentalCognitionError("history_preflight_digest_mismatch")
                 record_set_digest = _digest({"record_ids":list(protocol_record_ids),
                     "record_digests":list(record_digests)})
-                budget = LocalModelInvocationBudget(max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS, max_output_chars=4000,
-                    max_new_tokens=512, timeout_seconds=30, max_calls_per_correlation=1)
+                budget = LocalModelInvocationBudget(
+                    max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS,
+                    max_output_chars=4000, max_new_tokens=512,
+                    timeout_seconds=self.config.max_inference_timeout_seconds,
+                    max_calls_per_correlation=1)
                 probe = self.invoker.build_request(purpose=EXPERIMENT_PURPOSE, prompt="protocol-control-probe",
                     caller=PRINCIPAL, correlation_id=f"{tick_id}:developmental-experiment:protocol",
                     budget=budget, upstream_evidence={"control_probe":True}, linkage={"protocol_only":True})
@@ -6439,7 +6465,9 @@ class ResidentDevelopmentalCognitionOwner:
             if selection.selection_id not in set(state["processed_selection_ids"]):
                 candidate = self.writeback.infer_candidate(
                     selection, invoker=self.invoker,
-                    correlation_id=f"{tick_id}:resident_developmental_interpretation")
+                    correlation_id=f"{tick_id}:resident_developmental_interpretation",
+                    timeout_seconds=self.config.max_inference_timeout_seconds,
+                    max_timeout_seconds=MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS)
         if candidate is not None:
             operation_id = f"resident-developmental-writeback:{tick_id}:{candidate.candidate_id}"
             config_digest = self.writeback.admission_configuration_digest(candidate, operation_id=operation_id)

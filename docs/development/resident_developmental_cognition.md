@@ -18,12 +18,18 @@ goal-curation, self-narrative, value-drift, or inner-world loops.
 ## Configuration and cadence
 
 `SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG` names a JSON file using
-`sentientos.resident_developmental_cognition_config:v1`. The file has exact
-fields for enabled posture, separate history and composition-state roots,
-allowed World-State source kinds, fact/retrieval bounds, and the opt-in paired
-comparison. An absent or disabled configuration performs no developmental
-model call, admission issuance, or write. Unknown, malformed, contradictory,
-or unusable configuration degrades only this surface and records the reason.
+the exact v1, v2, or v3 configuration shape. V1 retains the original enabled
+posture, separate history and composition-state roots, allowed World-State
+source kinds, fact/retrieval bounds, and opt-in paired comparison. V2 adds the
+separate model-replacement artifact root. V3 adds
+`max_inference_timeout_seconds`, bounded from 1 to 120 seconds; older
+configurations preserve the 30-second default. This setting bounds each
+governed cognition invocation, including controlled-history conditions and
+objective protocol probes. It does not authorize additional calls or change the
+separate per-session call count and workload gates. An absent or disabled
+configuration performs no developmental model call, admission issuance, or
+write. Unknown, malformed, contradictory, or unusable configuration degrades
+only this surface and records the reason.
 
 `sentientosd` retains the exact validated in-memory `WorldStateSnapshot` that
 it writes for the tick. Immediately after building that board, it calls the
