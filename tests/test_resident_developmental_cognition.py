@@ -9582,6 +9582,24 @@ def test_companion_cycle_persists_epistemic_state_for_later_cognition(
     assert state.stance == "provisionally_supported"
     assert all(value is False for value in state.authority.values())
 
+    # Reconstruct the persistent epistemic owner to model a service restart.
+    # Later cognition must retrieve committed state from custody, not from the
+    # in-memory owner instance that performed the write.
+    epistemic_owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("operator",))
+    restarted_ledger = AdmissionLedger(tmp_path / "epistemic-admissions.json")
+    restarted_mutation_controller = ResidentEpistemicStateMutationController(
+        owner=epistemic_owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=definitions, ledger=restarted_ledger),
+        current_sequence=restarted_ledger.current_sequence,
+        receipt_root=tmp_path / "epistemic-mutation-receipts")
+    assert restarted_mutation_controller.recovery_status["status"] == "verified"
+    restarted_state = epistemic_owner.current_state(proposition.proposition_id)
+    assert restarted_state is not None
+    assert restarted_state.state_id == state.state_id
+    assert restarted_state.state_digest == state.state_digest
+
     # Matched A/B/A turns hold current evidence, question, and time fixed.
     # The fixture invoker returns the same answer in every condition, so this
     # proves delivery/retrieval but records a null behavioral effect.
