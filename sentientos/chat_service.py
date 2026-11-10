@@ -1148,6 +1148,11 @@ class PersistentConversationService:
                 "condition_id": str(item.get("condition_id", "unknown")),
                 "response_text": str(item.get("response", ""))[:4000],
                 "disposition": str(item.get("disposition", "unknown")),
+                "retrieved_record_ids": ([record_id[:256]
+                    for record_id in item.get("retrieved_record_ids", ())
+                    if isinstance(record_id, str)][:32]
+                    if isinstance(item.get("retrieved_record_ids", ()), (tuple, list))
+                    else []),
             } for item in result.conditions],
             "authority": result.authority,
             "action_authority": result.action_authority,
@@ -5323,8 +5328,13 @@ async def root_page() -> HTMLResponse:
                                 label.textContent = String(condition.condition_id || 'condition');
                                 const responseText = document.createElement('p');
                                 responseText.textContent = String(condition.response_text || '');
-                                item.appendChild(label);
-                                item.appendChild(responseText);
+                                const retrieved = Array.isArray(condition.retrieved_record_ids)
+                                    ? condition.retrieved_record_ids.filter((recordId) =>
+                                        typeof recordId === 'string') : [];
+                                const retrieval = document.createElement('p');
+                                retrieval.textContent = 'Retrieved history records: '
+                                    + (retrieved.length ? retrieved.join(', ') : 'none reported');
+                                item.append(label, responseText, retrieval);
                                 list.appendChild(item);
                             });
                             details.appendChild(list);
