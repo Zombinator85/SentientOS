@@ -26,6 +26,35 @@ def runner(monkeypatch, tmp_path):
     return module
 
 
+def test_source_provenance_records_revision_and_hashes_worktree_paths_only(
+        runner, monkeypatch, tmp_path):
+    dirty_status = b" M private-session.json\0?? screenshots/frame.png\0"
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        if args[1] == "rev-parse":
+            return SimpleNamespace(stdout=b"a" * 40 + b"\n")
+        if args[1] == "status":
+            return SimpleNamespace(stdout=dirty_status)
+        raise AssertionError(args)
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    provenance = runner._source_provenance(tmp_path)
+
+    assert provenance["observation_status"] == "observed"
+    assert provenance["repository_revision"] == "a" * 40
+    assert provenance["worktree_clean"] is False
+    assert provenance["worktree_status_entry_count"] == 2
+    assert provenance["worktree_status_digest"] == hashlib.sha256(
+        dirty_status).hexdigest()
+    assert provenance["worktree_paths_retained"] is False
+    assert "private-session.json" not in repr(provenance)
+    assert "screenshots/frame.png" not in repr(provenance)
+    assert calls[0][1]["cwd"] == tmp_path
+    assert calls[1][1]["cwd"] == tmp_path
+
+
 def test_model_weight_size_is_read_from_pinned_ollama_manifest(runner, tmp_path):
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps({"layers": [
@@ -382,8 +411,9 @@ def test_incomplete_run_artifact_preserves_blocked_resource_sample(
     assert artifact_path is not None
     artifact = json.loads(artifact_path.read_text())
     assert artifact["schema_version"] == (
-        "sentientos.rootless_ollama_embodied_cognition_failure:v2")
+        "sentientos.rootless_ollama_embodied_cognition_failure:v3")
     assert artifact["resource_preflight_samples"] == [sample]
+    assert artifact["source_provenance"] == runner.RUN_SOURCE_PROVENANCE
     assert "process attribution" in artifact["resource_preflight_sample_scope"]
 
 

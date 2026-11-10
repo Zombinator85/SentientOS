@@ -87,6 +87,50 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _source_provenance(repo_root: Path | None = None) -> dict[str, Any]:
+    """Bind experiment evidence to a revision without retaining local paths."""
+    root = (Path(__file__).resolve().parents[1] if repo_root is None
+        else Path(repo_root).resolve())
+    unavailable = {
+        "schema_version": "sentientos.source_revision_provenance:v1",
+        "observation_status": "unavailable",
+        "repository_revision": None,
+        "worktree_clean": None,
+        "worktree_status_entry_count": None,
+        "worktree_status_digest": None,
+        "worktree_paths_retained": False,
+    }
+    try:
+        revision_result = subprocess.run(["git", "rev-parse", "--verify", "HEAD"],
+            cwd=root, capture_output=True, timeout=5, check=True)
+        revision_raw = revision_result.stdout
+        revision = (revision_raw.decode("ascii", errors="strict").strip()
+            if isinstance(revision_raw, bytes) else str(revision_raw).strip())
+        if re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", revision) is None:
+            return unavailable
+        status_result = subprocess.run(["git", "status", "--porcelain=v1", "-z",
+            "--untracked-files=all"], cwd=root, capture_output=True, timeout=10,
+            check=True)
+        status_raw = status_result.stdout
+        status_bytes = (status_raw if isinstance(status_raw, bytes)
+            else str(status_raw).encode("utf-8"))
+        entries = [item for item in status_bytes.split(b"\0") if item]
+        return {
+            **unavailable,
+            "observation_status": "observed",
+            "repository_revision": revision,
+            "worktree_clean": not entries,
+            "worktree_status_entry_count": len(entries),
+            "worktree_status_digest": hashlib.sha256(status_bytes).hexdigest(),
+        }
+    except (OSError, UnicodeError, subprocess.CalledProcessError,
+            subprocess.TimeoutExpired):
+        return unavailable
+
+
+RUN_SOURCE_PROVENANCE = _source_provenance()
+
+
 def _runtime_observation(model_digest: str) -> tuple[dict[str, Any], str]:
     request = urllib.request.Request("http://127.0.0.1:11434/api/version", method="GET")
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -537,10 +581,11 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                     "raw_question_and_response_excluded": True,
                 })
     artifact = {
-        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v2",
+        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v3",
         "run_id": RUN_ID,
         "status": "incomplete",
         "execution_posture": "rootless_experimental_nonproduction",
+        "source_provenance": dict(RUN_SOURCE_PROVENANCE),
         "model_id": MODEL_NAME,
         "model_manifest_digest": MANIFEST_PATH.stem,
         "stage": RUN_STAGE,
@@ -1394,9 +1439,10 @@ def run() -> dict[str, Any]:
             "history_changed_new_decision"]
         transfer_classification = transfer_qualification["classification"]
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v6",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v7",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
+            "source_provenance": dict(RUN_SOURCE_PROVENANCE),
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
             "requested_backend_seed": 42,
             "model_artifact_size_bytes": manifest_size,
