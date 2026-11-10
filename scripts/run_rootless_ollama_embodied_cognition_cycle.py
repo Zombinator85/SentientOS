@@ -1396,7 +1396,8 @@ def run() -> dict[str, Any]:
             current_sequence=current_sequence)
         owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
-                history_root, state_root, ("embodiment",), 16, 4, True),
+                history_root, state_root, ("embodiment",), 16, 4, True,
+                max_inference_input_chars=16_384),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
@@ -1421,7 +1422,8 @@ def run() -> dict[str, Any]:
         }
         decision_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
-                history_root, state_root, ("embodiment",), 16, 4, False),
+                history_root, state_root, ("embodiment",), 16, 4, False,
+                max_inference_input_chars=16_384),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
@@ -1697,7 +1699,8 @@ def run() -> dict[str, Any]:
             })
         intervention_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
-                history_root, state_root, ("embodiment",), 16, 4, True),
+                history_root, state_root, ("embodiment",), 16, 4, True,
+                max_inference_input_chars=16_384),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
@@ -1719,7 +1722,8 @@ def run() -> dict[str, Any]:
             "response exactly one token from the three uppercase choices above.")
         replay_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
-                history_root, state_root, ("embodiment",), 16, 4, False),
+                history_root, state_root, ("embodiment",), 16, 4, False,
+                max_inference_input_chars=16_384),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),

@@ -994,6 +994,9 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
         if item.purpose == "resident_developmental_history_intervention_experiment"
         and "objective_task_plan_digest" in item.upstream_evidence]
     assert len(objective_requests) == 3
+    assert all(item.budget.max_input_chars == cognition.max_inference_input_chars
+        and len(item.prompt) <= cognition.max_inference_input_chars
+        for item in objective_requests)
     assert all(item.structured_output_schema == RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA
         for item in objective_requests)
     run = cognition.experiments.load_run(run_result.changed_cognition_measurement_id)
