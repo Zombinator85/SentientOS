@@ -5719,6 +5719,9 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     initial_owner, _ = owner(tmp_path / "cognition")
     initial = initial_owner.run_tick(snapshot=snapshot(), tick_id="tick-1")
     assert initial.written_record_id is not None
+    decoy = initial_owner.run_tick(snapshot=snapshot(3), tick_id="tick-2")
+    assert decoy.written_record_id is not None
+    assert decoy.written_record_id != initial.written_record_id
 
     fake = FakeInvoker()
     proposals = {
@@ -5738,11 +5741,19 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     fake.companion_output_by_condition = proposals
     source = snapshot(2)
     compared_owner, _ = owner(tmp_path / "cognition", comparison=True, invoker=fake)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="history_record_allowlist_not_admitted"):
+        compared_owner.run_companion_history_intervention(
+            snapshot=source, tick_id="companion-decision-rejects-unadmitted-history",
+            question="Use only the selected prior experience.",
+            history_record_allowlist=("devrec-" + "f" * 24,))
+    assert fake.requests == []
 
     result = compared_owner.run_companion_history_intervention(
         snapshot=source, tick_id="companion-decision-1",
         question=("For the synthetic avatar, choose the next pose and predict "
-            "its encoder pose. Return JSON with requested_pose and predicted_pose."))
+            "its encoder pose. Return JSON with requested_pose and predicted_pose."),
+        history_record_allowlist=(initial.written_record_id,))
 
     assert result.status == "completed_controlled_intervention"
     assert result.response_text_classification == "history_presence_associated_stable_response_text_difference"
@@ -5789,8 +5800,9 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert current_fact_ids
     assert all(item["current_fact_ids"] == current_fact_ids
         for item in result.conditions)
-    assert [bool(item["retrieved_record_ids"]) for item in result.conditions] == [
-        True, False, True]
+    assert [item["retrieved_record_ids"] for item in result.conditions] == [
+        [initial.written_record_id], [], [initial.written_record_id]]
+    assert decoy.written_record_id not in result.conditions[0]["retrieved_record_ids"]
     assert result.authority is False
     assert [list(item["history_record_ids"]) for item in result.conditions] == [
         item["retrieved_record_ids"] for item in result.conditions]

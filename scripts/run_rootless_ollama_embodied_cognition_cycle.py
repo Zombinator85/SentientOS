@@ -1645,7 +1645,8 @@ def run() -> dict[str, Any]:
             intervention_owner.run_companion_history_intervention(
                 snapshot=later_pre_action_snapshot,
                 tick_id=RUN_ID + ":later-transfer-decision",
-                question=transfer_question))
+                question=transfer_question,
+                history_record_allowlist=(first.written_record_id,)))
         if (transfer_intervention.status != "completed_controlled_intervention"
                 or not transfer_intervention.changed_cognition_measurement_id):
             raise RootlessExperimentalError(
