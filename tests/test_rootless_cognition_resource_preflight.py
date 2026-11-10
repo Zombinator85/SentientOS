@@ -76,6 +76,39 @@ def runner(monkeypatch, tmp_path):
     return module
 
 
+@pytest.mark.parametrize(("counts", "qualified", "classification"), [
+    ((0, 0, 0), False, "baseline_competence_not_demonstrated"),
+    ((0, 3, 0), True, "history_associated_acquisition_cost_restored"),
+    ((3, 3, 3), True, "no_correct_count_difference"),
+    ((2, 3, 1), True, "history_effect_not_restored"),
+])
+def test_objective_acquisition_summary_reports_withheld_baseline_and_restoration(
+        runner, counts, qualified, classification):
+    condition_ids = ("history_present", "history_withheld", "history_restored")
+    scores = []
+    for index, (condition_id, correct_count) in enumerate(zip(condition_ids, counts)):
+        score = {
+            "status": "correct" if correct_count == 3 else "incorrect",
+            "probe_count": 3,
+            "correct_count": correct_count,
+        }
+        if index == 0:
+            score["probe_results"] = [
+                {"correct": position < correct_count} for position in range(3)]
+        scores.append({"condition_id": condition_id, "score": score})
+
+    summary = runner._objective_acquisition_summary({"objective_scores": scores})
+    assert summary["condition_correct_counts"] == list(counts)
+    assert summary["history_withheld_baseline_correct_count"] == counts[1]
+    assert summary["history_restored_correct_count"] == counts[2]
+    assert summary["baseline_competence_qualified"] is qualified
+    assert summary["baseline_effect_classification"] == classification
+    assert summary["history_present_minus_withheld_correct_count"] == (
+        counts[0] - counts[1])
+    assert summary["restored_minus_present_correct_count"] == (
+        counts[2] - counts[0])
+
+
 @pytest.mark.parametrize(("accurate_count", "expected"), [
     (0, False),
     (1, False),

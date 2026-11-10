@@ -124,6 +124,9 @@ def _objective_condition_score(condition: Mapping[str, Any]) -> Any:
     return condition.get("score")
 
 
+_MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER = 2
+
+
 def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
     scores = run.get("objective_scores")
     if (not isinstance(scores, list)
@@ -132,35 +135,62 @@ def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
                 != ["history_present", "history_withheld", "history_restored"]):
         raise RootlessExperimentalError(
             "objective_family_acquisition_scores_incomplete")
-    present = scores[0].get("score")
-    if not isinstance(present, Mapping):
+    score_rows = [_objective_condition_score(item) for item in scores]
+    if any(not isinstance(score, Mapping) for score in score_rows):
         raise RootlessExperimentalError(
             "objective_family_acquisition_score_invalid")
+    present, withheld, restored = score_rows
     probe_results = present.get("probe_results")
     correct_count = present.get("correct_count")
     probe_count = present.get("probe_count")
     if (not isinstance(probe_results, list)
             or type(correct_count) is not int or type(probe_count) is not int
+            or probe_count < 1
             or len(probe_results) != probe_count
             or any(not isinstance(row, Mapping)
                 or type(row.get("correct")) is not bool for row in probe_results)
             or sum(row["correct"] for row in probe_results) != correct_count):
         raise RootlessExperimentalError(
             "objective_family_acquisition_score_invalid")
+    condition_correct_counts: list[int] = []
+    for score in score_rows:
+        count = score.get("correct_count")
+        if (type(count) is not int or not 0 <= count <= probe_count
+                or score.get("probe_count") != probe_count):
+            raise RootlessExperimentalError(
+                "objective_family_acquisition_score_invalid")
+        condition_correct_counts.append(count)
+    withheld_correct_count = condition_correct_counts[1]
+    restored_correct_count = condition_correct_counts[2]
+    baseline_qualified = (
+        withheld_correct_count >= _MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER)
+    if not baseline_qualified:
+        baseline_classification = "baseline_competence_not_demonstrated"
+    elif restored_correct_count != correct_count:
+        baseline_classification = "history_effect_not_restored"
+    elif correct_count > withheld_correct_count:
+        baseline_classification = "history_associated_acquisition_gain_restored"
+    elif correct_count < withheld_correct_count:
+        baseline_classification = "history_associated_acquisition_cost_restored"
+    else:
+        baseline_classification = "no_correct_count_difference"
     return {
-        "condition_correct_counts": [
-            _objective_condition_score(item).get("correct_count")
-            if isinstance(_objective_condition_score(item), Mapping) else None
-            for item in scores],
+        "condition_correct_counts": condition_correct_counts,
         "history_present_correct_count": correct_count,
+        "history_withheld_baseline_correct_count": withheld_correct_count,
+        "history_restored_correct_count": restored_correct_count,
         "probe_count": probe_count,
         "retained_accurate_example_count": correct_count,
         "retained_inaccurate_example_count": probe_count - correct_count,
         "acquisition_outcome_status": present.get("status"),
+        "baseline_competence_qualified": baseline_qualified,
+        "baseline_competence_threshold": _MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER,
+        "history_present_minus_withheld_correct_count": (
+            correct_count - withheld_correct_count),
+        "restored_minus_present_correct_count": (
+            restored_correct_count - correct_count),
+        "baseline_effect_classification": baseline_classification,
     }
-
-
-_MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER = 2
 
 
 def _objective_transfer_eligibility(acquisition_summary: Mapping[str, Any]) -> dict[str, Any]:
@@ -1919,7 +1949,7 @@ def run() -> dict[str, Any]:
             "history_changed_new_decision"]
         transfer_classification = transfer_qualification["classification"]
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v7",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v8",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "source_provenance": dict(RUN_SOURCE_PROVENANCE),
