@@ -103,6 +103,10 @@ def _experiment_seed_from_environment() -> int:
 EXPERIMENT_SEED = _experiment_seed_from_environment()
 
 
+def _objective_condition_score(condition: Mapping[str, Any]) -> Any:
+    return condition.get("score")
+
+
 def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
     scores = run.get("objective_scores")
     if (not isinstance(scores, list)
@@ -128,8 +132,8 @@ def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
             "objective_family_acquisition_score_invalid")
     return {
         "condition_correct_counts": [
-            item["score"].get("correct_count")
-            if isinstance(item.get("score"), Mapping) else None
+            _objective_condition_score(item).get("correct_count")
+            if isinstance(_objective_condition_score(item), Mapping) else None
             for item in scores],
         "history_present_correct_count": correct_count,
         "probe_count": probe_count,
@@ -1295,13 +1299,13 @@ def run() -> dict[str, Any]:
             "conditions": [{
                 "condition_id": item.get("condition_id"),
                 "correct_count": (item.get("score", {}).get("correct_count")
-                    if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
+                    if isinstance(_objective_condition_score(item), Mapping) else None),  # invariant-allow: score
                 "probe_count": (item.get("score", {}).get("probe_count")
-                    if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
+                    if isinstance(_objective_condition_score(item), Mapping) else None),  # invariant-allow: score
                 "score_status": (item.get("score", {}).get("status")
-                    if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
+                    if isinstance(_objective_condition_score(item), Mapping) else None),  # invariant-allow: score
                 "output_digest": (item.get("score", {}).get("output_digest")
-                    if isinstance(item.get("score"), Mapping) else
+                    if isinstance(_objective_condition_score(item), Mapping) else
                     item.get("invocation_output_digest")),  # invariant-allow: score
                 "retrieved_record_ids": objective_transfer_observations.get(
                     item.get("condition_id"), {}).get("retrieved_record_ids", []),
