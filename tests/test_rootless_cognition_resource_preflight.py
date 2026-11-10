@@ -676,3 +676,83 @@ def test_transfer_decision_prompt_requires_grounded_current_evidence(runner):
     assert "evidence_ids containing the exact current fact ID" in question
     assert "evidence_ids []" not in question
     assert "history_record_ids containing the exact cited record ID" in question
+
+
+
+def test_seeded_objective_task_pairs_are_reproducible_and_distinct(runner):
+    first = runner._objective_task_pair(20261110)
+    repeated = runner._objective_task_pair(20261110)
+    second = runner._objective_task_pair(20261111)
+
+    assert [task.specification() for task in first] == [
+        task.specification() for task in repeated]
+    assert [task.specification() for task in first] != [
+        task.specification() for task in second]
+    acquisition, transfer = first
+    assert acquisition.specification()["task_family_id"] == (
+        transfer.specification()["task_family_id"])
+    assert transfer.specification()["requires_task_family_history"] is True
+    assert set(acquisition.specification()["probe_inputs"]).isdisjoint(
+        transfer.specification()["probe_inputs"])
+
+
+def test_experiment_seed_environment_is_bounded_and_validated(runner, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_HERMES_EXPERIMENT_SEED", "42")
+    assert runner._experiment_seed_from_environment() == 42
+    for invalid in ("0", "-1", "4294967296", "４２", "nope"):
+        monkeypatch.setenv("SENTIENTOS_HERMES_EXPERIMENT_SEED", invalid)
+        with pytest.raises(SystemExit, match="hermes_experiment_seed_invalid"):
+            runner._experiment_seed_from_environment()
+
+
+
+def test_objective_transfer_requires_matching_present_restored_and_withheld_history(
+        runner):
+    acquisition_id = "devrec-acquisition"
+    conditions = [
+        {"condition_id": "history_present",
+            "retrieved_record_ids": [acquisition_id]},
+        {"condition_id": "history_withheld", "retrieved_record_ids": []},
+        {"condition_id": "history_restored",
+            "retrieved_record_ids": [acquisition_id]},
+    ]
+    observed = runner._objective_transfer_observations(conditions, acquisition_id)
+    assert set(observed) == {
+        "history_present", "history_withheld", "history_restored"}
+
+    leaked = [dict(item) for item in conditions]
+    leaked[1] = {"condition_id": "history_withheld",
+        "retrieved_record_ids": [acquisition_id]}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_withheld_history_leaked"):
+        runner._objective_transfer_observations(leaked, acquisition_id)
+
+    missing = [dict(item) for item in conditions]
+    missing[2] = {"condition_id": "history_restored", "retrieved_record_ids": []}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_history_not_retrieved"):
+        runner._objective_transfer_observations(missing, acquisition_id)
+
+
+
+def test_objective_acquisition_summary_counts_only_verified_scored_examples(runner):
+    run = {"objective_scores": [
+        {"condition_id": "history_present", "score": {
+            "correct_count": 1, "probe_count": 2, "status": "partially_correct",
+            "probe_results": [{"correct": True}, {"correct": False}]}},
+        {"condition_id": "history_withheld", "score": {
+            "correct_count": 0, "probe_count": 2, "status": "incorrect",
+            "probe_results": [{"correct": False}, {"correct": False}]}},
+        {"condition_id": "history_restored", "score": {
+            "correct_count": 1, "probe_count": 2, "status": "partially_correct",
+            "probe_results": [{"correct": True}, {"correct": False}]}},
+    ]}
+    result = runner._objective_acquisition_summary(run)
+    assert result["condition_correct_counts"] == [1, 0, 1]
+    assert result["retained_accurate_example_count"] == 1
+    assert result["retained_inaccurate_example_count"] == 1
+
+    run["objective_scores"][0]["score"]["correct_count"] = 2
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_acquisition_score_invalid"):
+        runner._objective_acquisition_summary(run)

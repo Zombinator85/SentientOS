@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -86,6 +87,107 @@ from sentientos.world_state_board import WorldStateBoardBuilder
 
 
 MODEL_NAME = os.environ.get("SENTIENTOS_HERMES_MODEL", "sentientos-hermes4:14b-q4km")
+_MAX_EXPERIMENT_SEED = 2**32 - 1
+
+
+def _experiment_seed_from_environment() -> int:
+    raw = os.environ.get("SENTIENTOS_HERMES_EXPERIMENT_SEED")
+    if raw is None:
+        return (uuid.uuid4().int & _MAX_EXPERIMENT_SEED) or 1
+    if (len(raw) > 10 or not raw.isascii() or not raw.isdecimal()
+            or not 0 < int(raw) <= _MAX_EXPERIMENT_SEED):
+        raise SystemExit("hermes_experiment_seed_invalid")
+    return int(raw)
+
+
+EXPERIMENT_SEED = _experiment_seed_from_environment()
+
+
+def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
+    scores = run.get("objective_scores")
+    if (not isinstance(scores, list)
+            or [item.get("condition_id") for item in scores
+                if isinstance(item, Mapping)]
+                != ["history_present", "history_withheld", "history_restored"]):
+        raise RootlessExperimentalError(
+            "objective_family_acquisition_scores_incomplete")
+    present = scores[0].get("score")
+    if not isinstance(present, Mapping):
+        raise RootlessExperimentalError(
+            "objective_family_acquisition_score_invalid")
+    probe_results = present.get("probe_results")
+    correct_count = present.get("correct_count")
+    probe_count = present.get("probe_count")
+    if (not isinstance(probe_results, list)
+            or type(correct_count) is not int or type(probe_count) is not int
+            or len(probe_results) != probe_count
+            or any(not isinstance(row, Mapping)
+                or type(row.get("correct")) is not bool for row in probe_results)
+            or sum(row["correct"] for row in probe_results) != correct_count):
+        raise RootlessExperimentalError(
+            "objective_family_acquisition_score_invalid")
+    return {
+        "condition_correct_counts": [
+            item["score"].get("correct_count")
+            if isinstance(item.get("score"), Mapping) else None
+            for item in scores],
+        "history_present_correct_count": correct_count,
+        "probe_count": probe_count,
+        "retained_accurate_example_count": correct_count,
+        "retained_inaccurate_example_count": probe_count - correct_count,
+        "acquisition_outcome_status": present.get("status"),
+    }
+
+
+def _objective_transfer_observations(
+        conditions: Any, acquisition_record_id: str) -> dict[str, Mapping[str, Any]]:
+    if not isinstance(conditions, list):
+        raise RootlessExperimentalError(
+            "objective_family_transfer_observation_lineage_incomplete")
+    observations: dict[str, Mapping[str, Any]] = {}
+    for item in conditions:
+        if not isinstance(item, Mapping):
+            continue
+        condition_id = item.get("condition_id")
+        if isinstance(condition_id, str):
+            observations[condition_id] = item
+    if set(observations) != {
+            "history_present", "history_withheld", "history_restored"}:
+        raise RootlessExperimentalError(
+            "objective_family_transfer_observation_lineage_incomplete")
+    for condition_id in ("history_present", "history_restored"):
+        retrieved_ids = observations[condition_id].get("retrieved_record_ids", [])
+        if (not isinstance(retrieved_ids, (list, tuple))
+                or acquisition_record_id not in retrieved_ids):
+            raise RootlessExperimentalError(
+                "objective_family_transfer_history_not_retrieved")
+    withheld_ids = observations["history_withheld"].get("retrieved_record_ids", [])
+    if (not isinstance(withheld_ids, (list, tuple))
+            or acquisition_record_id in withheld_ids):
+        raise RootlessExperimentalError(
+            "objective_family_transfer_withheld_history_leaked")
+    return observations
+
+
+def _objective_task_pair(seed: int) -> tuple[ObjectivePredictionTask, ObjectivePredictionTask]:
+    if type(seed) is not int or not 0 < seed <= _MAX_EXPERIMENT_SEED:
+        raise RootlessExperimentalError("hermes_experiment_seed_invalid")
+    generator = random.Random(seed)
+    multiplier = generator.randrange(2, 6)
+    offset = generator.randrange(1, 10)
+    acquisition_inputs = tuple(sorted(generator.sample(range(4, 10), 3)))
+    transfer_inputs = tuple(sorted(generator.sample(range(12, 20), 3)))
+    family = "rootless_integer_affine_transfer"
+    acquisition = ObjectivePredictionTask(
+        multiplier=multiplier, offset=offset, probe_input=acquisition_inputs[0],
+        additional_probe_inputs=acquisition_inputs[1:], task_family_id=family)
+    transfer = ObjectivePredictionTask(
+        multiplier=multiplier, offset=offset, probe_input=transfer_inputs[0],
+        additional_probe_inputs=transfer_inputs[1:], task_family_id=family,
+        requires_task_family_history=True)
+    return acquisition, transfer
+
+
 TRANSFER_DECISION_QUESTION = (
     "Controlled new-decision transfer probe. This is a new synthetic task, "
     "not a request to recall or quote the past. Choose one next action for "
@@ -1090,9 +1192,7 @@ def run() -> dict[str, Any]:
         RUN_STAGE = "objective_task_family_acquisition"
         later_pre_action_snapshot = snapshot
         objective_family = "rootless_integer_affine_transfer"
-        acquisition_task = ObjectivePredictionTask(
-            multiplier=3, offset=2, probe_input=7,
-            additional_probe_inputs=(8, 9), task_family_id=objective_family)
+        acquisition_task, transfer_task = _objective_task_pair(EXPERIMENT_SEED)
         acquisition_request_id = RUN_ID + ":objective-family-acquisition"
         stage_objective_request(
             state_root, request_id=acquisition_request_id, task=acquisition_task)
@@ -1110,6 +1210,7 @@ def run() -> dict[str, Any]:
             raise RootlessExperimentalError("objective_family_acquisition_incomplete")
         acquisition_run = owner.experiments.load_run(
             acquisition_result.changed_cognition_measurement_id)
+        acquisition_summary = _objective_acquisition_summary(acquisition_run)
         acquisition_records = owner.experiments.world_state_records(run_refs=((
             acquisition_run["run_id"], acquisition_run["run_digest"]),))
         if len(acquisition_records) != 1:
@@ -1128,10 +1229,6 @@ def run() -> dict[str, Any]:
             raise RootlessExperimentalError("objective_family_history_not_retained")
 
         RUN_STAGE = "objective_task_family_transfer"
-        transfer_task = ObjectivePredictionTask(
-            multiplier=3, offset=2, probe_input=11,
-            additional_probe_inputs=(12, 13), task_family_id=objective_family,
-            requires_task_family_history=True)
         transfer_request_id = RUN_ID + ":objective-family-transfer"
         stage_objective_request(
             state_root, request_id=transfer_request_id, task=transfer_task)
@@ -1154,6 +1251,8 @@ def run() -> dict[str, Any]:
         objective_transfer_scores = objective_transfer_run.get("objective_scores", [])
         if len(objective_transfer_conditions) != 3 or len(objective_transfer_scores) != 3:
             raise RootlessExperimentalError("objective_family_transfer_conditions_incomplete")
+        objective_transfer_observations = _objective_transfer_observations(
+            objective_transfer_conditions, acquisition_history_record.record_id)
         objective_transfer_evaluation = objective_transfer_run.get(
             "objective_evaluation", {})
         transfer_records = owner.experiments.world_state_records(run_refs=((
@@ -1174,6 +1273,8 @@ def run() -> dict[str, Any]:
             raise RootlessExperimentalError("objective_family_progression_unverified")
         objective_transfer_history = {
             "status": "completed_scored_intervention",
+            "experiment_seed": EXPERIMENT_SEED,
+            "acquisition_task_outcome": acquisition_summary,
             "measurement_id": objective_transfer_result.changed_cognition_measurement_id,
             "run_id": objective_transfer_run.get("run_id"),
             "run_digest": objective_transfer_run.get("run_digest"),
@@ -1190,17 +1291,26 @@ def run() -> dict[str, Any]:
                 "restoration_correct_probe_delta"),
             "condition_correct_counts": objective_transfer_evaluation.get(
                 "condition_correct_counts"),
+            "task_family_history_lineage_verified": True,
             "conditions": [{
                 "condition_id": item.get("condition_id"),
                 "correct_count": (item.get("score", {}).get("correct_count")
                     if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
                 "probe_count": (item.get("score", {}).get("probe_count")
                     if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
-                "output_digest": item.get("output_digest"),
-                "retrieved_record_ids": item.get("retrieved_record_ids", []),
+                "score_status": (item.get("score", {}).get("status")
+                    if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
+                "output_digest": (item.get("score", {}).get("output_digest")
+                    if isinstance(item.get("score"), Mapping) else
+                    item.get("invocation_output_digest")),  # invariant-allow: score
+                "retrieved_record_ids": objective_transfer_observations.get(
+                    item.get("condition_id"), {}).get("retrieved_record_ids", []),
+                "task_family_history_record_id_retrieved": (
+                    acquisition_history_record.record_id in
+                    objective_transfer_observations.get(
+                        item.get("condition_id"), {}).get("retrieved_record_ids", [])),
                 "inference_receipt_id": item.get("inference_receipt_id"),
                 "inference_receipt_digest": item.get("inference_receipt_digest"),
-                "inference_status": item.get("inference_status"),
             } for item in objective_transfer_scores],
             "authority": False,
             "action_executed": False,
