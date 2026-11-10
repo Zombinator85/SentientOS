@@ -2056,6 +2056,108 @@ print(json.dumps({"stance": state.stance if state else None,
         "epistemic_projection_digest"] == updated_projection.projection_digest
 
 
+class RootlessHistoryFakeInvoker(FakeInvoker):
+    """Fixture for development-only, receipt-bound calls without a serving session."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.active_model_identity = {
+            "engine": "ollama", "posture": "development_only",
+            "fallback": False, "candidate_index": 0,
+            "model_content_sha256": "a" * 64,
+        }
+        from sentientos.local_model_authority import ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE
+        identity_digest = digest_payload({"identity": self.active_model_identity})
+        self.rootless_binding = {
+            "schema_version": "sentientos.rootless_experimental_cognition_session:v1",
+            "session_id": "rootless-cognition-session-history-projection",
+            "run_id": "rootless-cognition-cycle-history-projection",
+            "preregistration_digest": "b" * 64,
+            "model_manifest_digest": "c" * 64,
+            "runtime_bundle_digest": "d" * 64,
+            "active_model_identity_digest": identity_digest,
+            "purpose": ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE,
+            "production_authority": False,
+            "eligible_as_production_serving_evidence": False,
+        }
+        self.receipts = {}
+
+    def build_request(self, **kwargs):
+        linkage = dict(kwargs.get("linkage") or {})
+        linkage["rootless_experimental_session"] = self.rootless_binding
+        kwargs["linkage"] = linkage
+        return super().build_request(**kwargs)
+
+    def invoke(self, request, **kwargs):
+        receipt = super().invoke(request, **kwargs)
+        self.receipts[receipt.receipt_id] = receipt
+        return receipt
+
+    def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
+        receipt = self.receipts[receipt_id]
+        assert receipt.receipt_digest == receipt_digest
+        assert receipt.request["request_id"] == expected["expected_request_id"]
+        assert receipt.request["request_digest"] == expected["expected_request_digest"]
+        assert receipt.request["active_model_identity"] == expected[
+            "expected_active_model_identity"]
+        assert receipt.request["linkage"]["rootless_experimental_session"] == self.rootless_binding
+        return receipt.to_dict()
+
+
+def test_rootless_receipts_admit_same_family_examples_to_later_prompt(tmp_path: Path) -> None:
+    """Rootless verified receipts must not be discarded for lacking serving IDs."""
+    from scripts.stage_resident_objective_intervention import stage_request
+
+    fake = RootlessHistoryFakeInvoker()
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    config_path = tmp_path / "objective-config.json"
+    config_path.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(tmp_path / "history"), "state_root": str(tmp_path / "state"),
+        "allowed_source_kinds": ["capability_registry", "embodiment"],
+        "max_selected_facts": 16, "max_retrieved_records": 4,
+        "comparison_enabled": True}), encoding="utf-8")
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    assert cognition.run_tick(snapshot=snapshot(), tick_id="rootless-history-seed").written_record_id
+
+    acquisition_task = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="rootless_integer_affine")
+    _, acquisition_request, _ = stage_request(config_path=config_path,
+        request_id="rootless-family-acquisition", task=acquisition_task)
+    acquisition = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="rootless-family-acquisition", objective_task=acquisition_task,
+        request_id="rootless-family-acquisition",
+        request_digest=str(acquisition_request["request_digest"]))
+    run = cognition.experiments.load_run(str(acquisition.changed_cognition_measurement_id))
+    source = cognition.experiments.world_state_records(
+        run_refs=((run["run_id"], run["run_digest"]),))
+    evidence = source[0]["payload"]
+    assert evidence["execution_evidence_posture"] == "all_owner_receipts_report_backend_entry"
+    assert all(row["receipt_identity_verified"] is True
+        for row in evidence["execution_evidence_conditions"])
+    assert evidence["event_time_posture"] == "all_condition_invocation_receipt_times_verified"
+    world = WorldStateBoardBuilder().build(source)
+    assert cognition.run_tick(snapshot=world, tick_id="rootless-history-feedback").written_record_id
+
+    transfer_task = ObjectivePredictionTask(3, 2, 11, (12, 13),
+        task_family_id="rootless_integer_affine")
+    _, transfer_request, _ = stage_request(config_path=config_path,
+        request_id="rootless-family-transfer", task=transfer_task)
+    cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="rootless-family-transfer", objective_task=transfer_task,
+        request_id="rootless-family-transfer",
+        request_digest=str(transfer_request["request_digest"]))
+    projections = [request.upstream_evidence.get("task_family_history_prompt_projection")
+        for request in fake.requests
+        if request.purpose == "resident_developmental_history_intervention_experiment"]
+    transfer_projections = projections[-3:]
+    assert [item["condition_id"] for item in transfer_projections] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert transfer_projections[0]["task_relevant_example_count"] == 3
+    assert transfer_projections[1]["task_relevant_example_count"] == 0
+    assert transfer_projections[2]["task_relevant_example_count"] == 3
+
+
 def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         tmp_path: Path) -> None:
     """Fixture-only episode chain: acquired examples are reused after owner reconstruction."""
