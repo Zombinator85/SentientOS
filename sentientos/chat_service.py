@@ -1339,6 +1339,20 @@ class PersistentConversationService:
             "self_model_claim_count": getattr(result, "self_model_claim_count", None),
             "self_model_reconciliation_error_type": getattr(
                 result, "self_model_reconciliation_error_type", None),
+            "epistemic_development_status": getattr(
+                result, "epistemic_development_status", "not_configured"),
+            "epistemic_development_evidence_receipt_ids": list(getattr(
+                result, "epistemic_development_evidence_receipt_ids", ())),
+            "epistemic_development_state_receipt_ids": list(getattr(
+                result, "epistemic_development_state_receipt_ids", ())),
+            "epistemic_development_successor_state_ids": list(getattr(
+                result, "epistemic_development_successor_state_ids", ())),
+            "epistemic_development_generations": list(getattr(
+                result, "epistemic_development_generations", ())),
+            "epistemic_development_next_tick_only": getattr(
+                result, "epistemic_development_next_tick_only", True),
+            "epistemic_development_error_type": getattr(
+                result, "epistemic_development_error_type", None),
             "raw_frame_retained": False,
             "consequence_measurement": ({
                 "status": consequence_measurement.get("status"),
@@ -3790,7 +3804,8 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                self_model_owner: Any | None = None,
                                self_model_config: Any | None = None,
                                epistemic_state_owner: Any | None = None,
-                               epistemic_state_config: Mapping[str, Any] | None = None) -> DevelopmentLocalChatInference:
+                               epistemic_state_config: Mapping[str, Any] | None = None,
+                               epistemic_development_runtime: Any | None = None) -> DevelopmentLocalChatInference:
     """Explicitly install governed local development chat inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     root = data_root or sentientos_data_dir()
@@ -3824,6 +3839,7 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
             self_model_owner=self_model_owner, self_model_config=self_model_config,
             epistemic_state_owner=epistemic_state_owner,
             epistemic_state_config=epistemic_state_config,
+            epistemic_development_runtime=epistemic_development_runtime,
             cognition_inference_gate=inference.cognition_inference_context,
             cognition_available=inference.cognition_available)
     if initial_workload_mode != "normal":
