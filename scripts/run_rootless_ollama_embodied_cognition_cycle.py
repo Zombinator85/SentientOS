@@ -233,7 +233,7 @@ def _objective_transfer_condition_summaries(
             raise RootlessExperimentalError(
                 "objective_family_transfer_report_lineage_invalid")
         score = item.get("score")
-        score_mapping = score if isinstance(score, Mapping) else {}
+        score_mapping = score if isinstance(score, Mapping) else {}  # invariant-allow: score is reporting metadata, not decision utility
         summaries.append({
             "condition_id": condition_id,
             "correct_count": score_mapping.get("correct_count"),
