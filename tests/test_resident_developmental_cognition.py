@@ -32,7 +32,9 @@ from sentientos.local_model_authority import (
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE, digest_payload,
 )
 from sentientos.resident_developmental_cognition import (
-    CONFIG_SCHEMA, ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionError,
+    CONFIG_SCHEMA, CONFIG_SCHEMA_V2, CONFIG_SCHEMA_V3,
+    ResidentDevelopmentalCognitionConfig,
+    ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
     _bind_history_and_epistemic_context,
     load_objective_request, objective_task_for_request, stage_objective_request,
@@ -4358,7 +4360,7 @@ def test_companion_bridge_consumes_existing_self_model_and_epistemic_projections
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None,
           allowed_source_kinds: tuple[str, ...] = ("capability_registry",),
           max_selected_facts: int = 1, objective_task=None,
-          resource_context_owner=None):
+          resource_context_owner=None, max_inference_timeout_seconds: int = 30):
     ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
     def current():
@@ -4370,11 +4372,37 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
         admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger), current_sequence=current)
     fake = invoker or FakeInvoker()
     result = ResidentDevelopmentalCognitionOwner(config=ResidentDevelopmentalCognitionConfig(
-        root / "history", root / "state", allowed_source_kinds, max_selected_facts, 4, comparison), writeback=ctrl,
+        root / "history", root / "state", allowed_source_kinds, max_selected_facts, 4,
+        comparison, max_inference_timeout_seconds=max_inference_timeout_seconds), writeback=ctrl,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
         invoker=fake, current_sequence=next_sequence, objective_task=objective_task,
         resource_context_owner=resource_context_owner)
     return result, fake
+
+
+def test_resident_inference_timeout_is_bounded_and_applied_to_owned_request(
+        tmp_path: Path) -> None:
+    cognition, fake = owner(tmp_path, max_inference_timeout_seconds=90)
+    seed = cognition.run_tick(snapshot=snapshot(), tick_id="timeout-configured-seed")
+    assert seed.written_record_id
+    assert fake.requests[-1].budget.timeout_seconds == 90
+    fake.companion_output_override = {
+        "disposition": "answer", "response": "A bounded companion answer.",
+        "evidence_ids": ["__CURRENT_FACT__"],
+        "history_record_ids": ["__CURRENT_HISTORY__"],
+    }
+    result = cognition.run_companion_interaction(snapshot=snapshot(2),
+        request_id="timeout-configured-companion",
+        question="Describe one current fact.")
+    assert result.status == "admitted_completed"
+    assert fake.requests[-1].budget.timeout_seconds == 90
+
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="developmental_inference_timeout_invalid"):
+        owner(tmp_path / "invalid", max_inference_timeout_seconds=121)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="developmental_inference_timeout_invalid"):
+        owner(tmp_path / "bool", max_inference_timeout_seconds=True)
 
 
 def test_developmental_resource_context_owner_is_consumed_per_condition(
@@ -5727,7 +5755,8 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     # The fake invoker binds each proposal to the per-request current facts.
     fake.companion_output_by_condition = proposals
     source = snapshot(2)
-    compared_owner, _ = owner(tmp_path / "cognition", comparison=True, invoker=fake)
+    compared_owner, _ = owner(tmp_path / "cognition", comparison=True, invoker=fake,
+        max_inference_timeout_seconds=90)
 
     result = compared_owner.run_companion_history_intervention(
         snapshot=source, tick_id="companion-decision-1",
@@ -5763,6 +5792,7 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         "history_unavailable_sentinel_means_abstention")
     assert "HISTORY_UNAVAILABLE" not in json.dumps(decision_audit)
     assert all(item["snapshot_digest"] == source.digest for item in result.conditions)
+    assert all(request.budget.timeout_seconds == 90 for request in fake.requests)
     intervention_requests = [request for request in fake.requests
         if request.purpose == "resident_developmental_history_intervention_experiment"
         and request.linkage.get("condition_id") in
@@ -7186,7 +7216,31 @@ def test_configuration_is_exact_and_malformed_configuration_fails_closed(tmp_pat
     valid = {"schema":CONFIG_SCHEMA, "enabled":False, "history_root":str(tmp_path / "history"),
              "state_root":str(tmp_path / "state"), "allowed_source_kinds":["capability_registry"],
              "max_selected_facts":1, "max_retrieved_records":2, "comparison_enabled":False}
-    path.write_text(json.dumps(valid)); assert load_config(path).enabled is False
+    path.write_text(json.dumps(valid))
+    assert load_config(path).enabled is False
+    assert load_config(path).max_inference_timeout_seconds == 30
+
+    version_three = {
+        **valid,
+        "schema": CONFIG_SCHEMA_V3,
+        "model_replacement_artifact_root": str(tmp_path / "models"),
+        "max_inference_timeout_seconds": 90,
+    }
+    version_two = {
+        **valid,
+        "schema": CONFIG_SCHEMA_V2,
+        "model_replacement_artifact_root": str(tmp_path / "models-v2"),
+    }
+    path.write_text(json.dumps(version_two))
+    assert load_config(path).max_inference_timeout_seconds == 30
+
+    path.write_text(json.dumps(version_three))
+    assert load_config(path).max_inference_timeout_seconds == 90
+    path.write_text(json.dumps({
+        **version_three, "max_inference_timeout_seconds": 121}))
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="values_invalid"):
+        load_config(path)
+
     path.write_text(json.dumps({**valid, "personality":"helpful"}))
     with pytest.raises(ResidentDevelopmentalCognitionError, match="shape_invalid"): load_config(path)
 
