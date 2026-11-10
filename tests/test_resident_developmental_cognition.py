@@ -9491,6 +9491,12 @@ def test_chat_service_composes_resident_reply_into_controlled_history_interventi
     assert conditions[0]["disposition"] == "answer"
     assert conditions[1]["disposition"] == "abstain"
     assert conditions[2]["response_text"] == conditions[0]["response_text"]
+    assert conditions[0]["retrieved_record_ids"] == [written_record_id]
+    assert conditions[1]["retrieved_record_ids"] == []
+    assert conditions[2]["retrieved_record_ids"] == [written_record_id]
+    assert conditions[0]["history_record_ids"] == [written_record_id]
+    assert conditions[1]["history_record_ids"] == []
+    assert conditions[2]["history_record_ids"] == [written_record_id]
     assert interaction.history_record_ids == ()
     comparison_requests = [request for request in fake.requests
         if request.purpose == "resident_developmental_history_intervention_experiment"
