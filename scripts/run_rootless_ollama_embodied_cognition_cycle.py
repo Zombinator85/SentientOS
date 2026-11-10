@@ -6,6 +6,7 @@ the existing governed SentientOS owners. This is not production serving evidence
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
@@ -22,6 +23,12 @@ from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Mapping, NoReturn, cast
+
+if __name__ == "__main__" and len(sys.argv) > 1:
+    # Parse before creating the private workspace or importing runtime owners.
+    # In particular, `--help` must never fall through into a paid/resource-heavy
+    # experimental run.
+    argparse.ArgumentParser(description=__doc__).parse_args()
 
 # Bind imports to this checkout even when WSL's login shell starts elsewhere.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -1095,7 +1102,8 @@ def _synthetic_current_target_record() -> dict[str, Any]:
         evidence_class="sensor_observation",
         subject_id="synthetic-target-1", subject_kind="target_object",
         payload={**payload, "sampled_at": observed_at})
-    return EmbodimentEvidenceOwner([observation]).world_state_records()[0]
+    return cast(dict[str, Any],
+        EmbodimentEvidenceOwner([observation]).world_state_records()[0])
 
 
 def run() -> dict[str, Any]:

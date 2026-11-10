@@ -42,6 +42,26 @@ assert controller._federation_root == expected / "federation"
     assert completed.returncode == 0, completed.stderr
 
 
+@pytest.mark.parametrize(("arguments", "expected_returncode"), [
+    (("--help",), 0),
+    (("--unexpected",), 2),
+])
+def test_runner_cli_arguments_exit_before_experiment_workspace_creation(
+        tmp_path, arguments, expected_returncode):
+    repo_root = Path(__file__).resolve().parents[1]
+    script_path = repo_root / "scripts" / (
+        "run_rootless_ollama_embodied_cognition_cycle.py")
+    workspace = tmp_path / "private-workspace"
+    env = os.environ.copy()
+    env["SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE"] = str(workspace)
+    completed = subprocess.run([sys.executable, str(script_path), *arguments],
+        cwd=repo_root, env=env, capture_output=True, text=True, timeout=10)
+    assert completed.returncode == expected_returncode
+    assert "usage:" in (completed.stdout + completed.stderr).casefold()
+    assert not workspace.exists()
+    assert '"run_id"' not in (completed.stdout + completed.stderr)
+
+
 @pytest.fixture
 def runner(monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE",
