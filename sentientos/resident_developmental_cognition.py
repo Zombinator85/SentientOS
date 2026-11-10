@@ -4611,7 +4611,8 @@ class ResidentDevelopmentalCognitionOwner:
 
     def _prior_projection(self, state: Mapping[str, Any], tick_id: str, *,
             task_family_id: str | None = None,
-            task_probe_inputs: tuple[int, ...] = ()) -> DevelopmentalHistoryProjection:
+            task_probe_inputs: tuple[int, ...] = (),
+            require_task_family_history: bool = False) -> DevelopmentalHistoryProjection:
         # Tick identifiers are opaque at this owner boundary. The durable,
         # digest-verified completed-checkpoint sequence establishes which
         # developmental records were committed before this cycle; wall-clock
@@ -4672,16 +4673,21 @@ class ResidentDevelopmentalCognitionOwner:
                     relevance[record_id] = len(overlap)
             # Exact public probe overlap ranks records; checkpoint order breaks ties.
             # Evaluator correctness is not a filter, so adverse examples survive.
+            # A task that explicitly requires family history must never receive
+            # unrelated records as a substitute. Initial acquisition tasks that
+            # do not require family history retain the general-history control
+            # used by the existing three-condition experiment.
             relevant_newest_first.sort(key=lambda record_id: (
                 relevance[record_id], ids.index(record_id)), reverse=True)
             selected = list(relevant_newest_first[:self.config.max_retrieved_records])
             selected_set = set(selected)
-            for record_id in reversed(ids):
-                if len(selected) >= self.config.max_retrieved_records:
-                    break
-                if record_id not in selected_set:
-                    selected.append(record_id)
-                    selected_set.add(record_id)
+            if not require_task_family_history:
+                for record_id in reversed(ids):
+                    if len(selected) >= self.config.max_retrieved_records:
+                        break
+                    if record_id not in selected_set:
+                        selected.append(record_id)
+                        selected_set.add(record_id)
             if probe_set:
                 # The prompt binder admits a complete suffix as capacity shrinks.
                 # Order the selected set from least to most relevant so that
@@ -6114,8 +6120,11 @@ class ResidentDevelopmentalCognitionOwner:
             and isinstance(task_descriptor.get("probe_inputs", ()), (list, tuple))
             and all(type(value) is int for value in task_descriptor.get("probe_inputs", ()))
             else ())
+        require_family = (objective_task.specification().get("requires_task_family_history") is True
+            if objective_task is not None else False)
         prior = self._prior_projection(state, tick_id, task_family_id=family_id,
-            task_probe_inputs=task_probe_inputs)
+            task_probe_inputs=task_probe_inputs,
+            require_task_family_history=require_family)
         if objective_only and not prior.requested_record_ids:
             assert objective_request_id is not None and objective_request_digest is not None
             state["completed_ticks"].append({"tick_id": tick_id,
@@ -6127,8 +6136,6 @@ class ResidentDevelopmentalCognitionOwner:
             self._save_state(state)
             return ResidentDevelopmentalCycleResult("objective_blocked_no_eligible_history",
                 tick_id, snapshot.snapshot_id)
-        require_family = (objective_task.specification().get("requires_task_family_history") is True
-            if objective_task is not None else False)
         if objective_only and isinstance(family_id, str) and require_family:
             family_records = [record for record in prior.records
                 if any(isinstance(fact, Mapping)

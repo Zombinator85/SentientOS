@@ -967,6 +967,16 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     seeded = cognition.run_tick(snapshot=snapshot(), tick_id="family-acquisition-seed")
     assert seeded.written_record_id
 
+    # A later task that explicitly requires family evidence cannot substitute
+    # an unrelated embodiment/capability record for that evidence.
+    transfer = ObjectivePredictionTask(3, 2, 10, (11, 12),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    prior = cognition._prior_projection(cognition._state(), "family-transfer-probe",
+        task_family_id="integer_affine_prediction", task_probe_inputs=(10, 11, 12),
+        require_task_family_history=True)
+    assert prior.requested_record_ids == ()
+    assert prior.records == ()
+
     acquisition = ObjectivePredictionTask(3, 2, 7, (8, 9),
         task_family_id="integer_affine_prediction")
     stage_objective_request(tmp_path / "state", request_id="family-acquisition", task=acquisition)
