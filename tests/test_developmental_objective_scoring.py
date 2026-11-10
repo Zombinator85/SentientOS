@@ -169,6 +169,35 @@ def test_public_task_commitments_do_not_hash_low_entropy_oracle_inputs(tmp_path)
             assert digest(candidate.specification()) != descriptor['task_digest']
 
 
+
+def test_family_acquisition_discloses_only_explicit_synthetic_training_evidence():
+    acquisition = ObjectivePredictionTask(
+        3, 2, 7, (8, 9), task_family_id="affine-family")
+    descriptor = acquisition.public_descriptor()
+    assert descriptor["synthetic_training_observations"] == [
+        {"input": 0, "output": 2},
+        {"input": 1, "output": 5},
+    ]
+    assert descriptor["training_evidence_provenance"] == (
+        "deterministic_fixture_oracle_not_physical_measurement")
+    assert "multiplier" not in descriptor and "offset" not in descriptor
+
+    transfer = ObjectivePredictionTask(
+        3, 2, 13, (14, 15), task_family_id="affine-family",
+        requires_task_family_history=True)
+    transfer_descriptor = transfer.public_descriptor()
+    assert "synthetic_training_observations" not in transfer_descriptor
+    assert "training_evidence_provenance" not in transfer_descriptor
+    assert "same-family evaluator-scored history examples" in transfer_descriptor["question"]
+
+
+def test_public_task_commitments_do_not_hash_low_entropy_oracle_inputs(tmp_path):
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+    descriptor = task.public_descriptor()
+    assert "synthetic_training_observations" not in descriptor
+    assert "training_evidence_provenance" not in descriptor
+
+
 def test_historical_oracle_bearing_plan_remains_verifiable(tmp_path):
     from sentientos.developmental_history_intervention_experiment import (
         DevelopmentalExperimentStore, LEGACY_OBJECTIVE_SCHEMA, _digest as experiment_digest,
@@ -529,6 +558,21 @@ def test_probe_suite_output_substitution_is_incomplete_and_never_replayed(tmp_pa
     recovered, a2, b2 = experiment(tmp_path, 'derive', task=task)
     assert recovered.run() == run
     assert a2.calls == b2.calls == []
+
+
+def test_whitespace_suite_score_verification_preserves_raw_output_digest(tmp_path):
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="whitespace-score-family")
+    owner, _, _ = experiment(tmp_path, "whitespace-suite-score", task=task)
+    output = ' { "answers" : [ 20, 21, 22 ] } '
+    output_digest = digest({"output": output})
+
+    score = _objective_score(owner.objective_plan, output, output_digest)
+
+    assert score["status"] == "incorrect"
+    assert score["correct_count"] == 0
+    assert len(score["probe_results"]) == 3
+    assert _verify_objective_score(owner.objective_plan, score, output_digest) == score
 
 
 def test_truncated_output_is_unscorable_and_remains_receipt_bound(tmp_path):

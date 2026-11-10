@@ -42,6 +42,12 @@ def _digest(value: Any) -> str:
     return "sha256:" + str(digest_payload(value))
 
 
+def _valid_sha256_digest(value: Any) -> bool:
+    return (type(value) is str and len(value) == 71
+        and value.startswith("sha256:")
+        and all(character in "0123456789abcdef" for character in value[7:]))
+
+
 @dataclass(frozen=True)
 class DevelopmentalHistoryInterventionProtocol:
     protocol_id: str
@@ -1214,39 +1220,93 @@ def qualify_restoration_stable_history_association(*, validity: Any,
 
 def qualify_history_transfer_decision(
         *, conditions: Sequence[Mapping[str, Any]],
-        expected_history_record_id: str,
+        expected_history_record_id: str, expected_current_fact_id: str,
         present_response: str, withheld_response: str,
         restored_response: str, restored_prompt_matches: Any) -> dict[str, Any]:
-    """Qualify a new decision only when the exact developmental record supports it.
+    """Qualify a new decision only with exact current and historical citations.
 
     This checks A/B/A controls and citations; it does not establish action
-    execution, causal learning, or improved performance.
+    execution, causal learning, or improved performance. An output difference
+    without both citation classes is retained as an unqualified observation.
     """
     result = {
-        "schema_version": "sentientos.history_transfer_decision_qualification:v1",
+        "schema_version": "sentientos.history_transfer_decision_qualification:v4",
         "measurement_scope": "history_conditioned_new_decision_proposal",
         "classification": "not_qualified",
         "controlled_inputs_match": False,
+        "matched_non_history_inputs_bound": False,
+        "restored_prompt_exact_match": False,
+        "target_evidence_cited": False,
         "expected_history_cited": False,
+        "history_treatment_bound": False,
         "restoration_stable": False,
+        "response_difference_observed": False,
+        "restored_response_matches_present": False,
+        "history_conditioned_response_difference_observed_under_matched_controls": False,
         "history_changed_new_decision": False,
+        "qualification_failure_codes": [],
         "action_executed": False,
         "performance_improvement_established": False,
     }
     if (len(conditions) != 3 or not isinstance(expected_history_record_id, str)
             or not expected_history_record_id
-            or restored_prompt_matches is not True):
+            or not isinstance(expected_current_fact_id, str)
+            or not expected_current_fact_id):
         result["classification"] = "controls_or_restoration_not_qualified"
+        result["qualification_failure_codes"] = [
+            "conditions_identity_or_restoration_invalid"]
         return result
     present, withheld, restored = conditions
+    present_prompt_digest = present.get("prompt_digest")
+    restored_prompt_digest = restored.get("prompt_digest")
+    prompt_digest_match = (
+        _valid_sha256_digest(present_prompt_digest)
+        and _valid_sha256_digest(restored_prompt_digest)
+        and present_prompt_digest == restored_prompt_digest)
+    restored_prompt_exact_match = (
+        restored_prompt_matches is True and prompt_digest_match)
+    result["restored_prompt_exact_match"] = restored_prompt_exact_match
     if tuple(row.get("condition_id") for row in conditions) != CONDITION_ORDER:
         result["classification"] = "condition_order_invalid"
+        result["qualification_failure_codes"] = ["condition_order_invalid"]
         return result
     control_fields = ("current_fact_ids", "snapshot_digest",
         "generation_config", "active_model_identity")
-    controls_match = all(present.get(key) == withheld.get(key) == restored.get(key)
+    base_controls_match = all(
+        present.get(key) == withheld.get(key) == restored.get(key)
         for key in control_fields)
+    matched_input_fields = {
+        "schema_version", "question_digest", "snapshot_digest",
+        "current_projection_digest", "prior_self_model_digest",
+        "prior_epistemic_state_digest", "response_contract",
+        "condition_group", "invocation_purpose", "expected_output_format",
+        "invocation_budget_digest", "instruction_digest", "response_schema_digest",
+        "history_neutral_prompt_digest",
+    }
+    def valid_matched_inputs(row: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        value = row.get("matched_control_inputs")
+        if (not isinstance(value, Mapping) or set(value) != matched_input_fields
+                or value.get("schema_version")
+                    != "sentientos.history_intervention_matched_inputs:v1"
+                or row.get("matched_control_inputs_digest") != _digest(dict(value))):
+            return None
+        return value
+    matched_inputs = tuple(valid_matched_inputs(row) for row in conditions)
+    matched_inputs_bound = (
+        all(value is not None for value in matched_inputs)
+        and matched_inputs[0] == matched_inputs[1] == matched_inputs[2])
+    controls_match = base_controls_match and matched_inputs_bound
+    result["matched_non_history_inputs_bound"] = matched_inputs_bound
     result["controlled_inputs_match"] = controls_match
+    def cited_target(row: Mapping[str, Any]) -> bool:
+        citations = row.get("evidence_ids")
+        current_facts = row.get("current_fact_ids")
+        return (isinstance(citations, (list, tuple))
+            and isinstance(current_facts, (list, tuple))
+            and expected_current_fact_id in citations
+            and expected_current_fact_id in current_facts)
+    target_cited = all(cited_target(row) for row in conditions)
+    result["target_evidence_cited"] = target_cited
     def cited_expected(row: Mapping[str, Any]) -> bool:
         citations = row.get("history_record_ids")
         retrieved = row.get("retrieved_record_ids")
@@ -1257,9 +1317,24 @@ def qualify_history_transfer_decision(
     expected_cited = (cited_expected(present) and cited_expected(restored)
         and not withheld.get("history_record_ids"))
     result["expected_history_cited"] = expected_cited
+    def exact_history_treatment(row: Mapping[str, Any], *, present: bool) -> bool:
+        retrieved = row.get("retrieved_record_ids")
+        if not isinstance(retrieved, (list, tuple)):
+            return False
+        expected = (expected_history_record_id,) if present else ()
+        return tuple(retrieved) == expected
+    treatment_bound = (
+        exact_history_treatment(present, present=True)
+        and exact_history_treatment(withheld, present=False)
+        and exact_history_treatment(restored, present=True))
+    result["history_treatment_bound"] = treatment_bound
     stable = (present.get("response_digest") == restored.get("response_digest")
         and present.get("output_digest") == restored.get("output_digest"))
     result["restoration_stable"] = stable
+    response_difference = present.get("response") != withheld.get("response")
+    restored_response_matches = present.get("response") == restored.get("response")
+    result["response_difference_observed"] = response_difference
+    result["restored_response_matches_present"] = restored_response_matches
     outcomes_match_contract = (
         all(row.get("inference_status") == "admitted_completed"
             and row.get("cognition_receipt_output_binding_verified") is True
@@ -1269,14 +1344,42 @@ def qualify_history_transfer_decision(
         and present.get("response") == present_response
         and withheld.get("response") == withheld_response
         and restored.get("response") == restored_response)
-    qualified = (controls_match and expected_cited and stable
-        and outcomes_match_contract
+    response_effect_observed = (
+        controls_match and treatment_bound and stable
+        and outcomes_match_contract and response_difference
+        and restored_response_matches and restored_prompt_exact_match
         and present_response != withheld_response
         and restored_response == present_response)
+    result["history_conditioned_response_difference_observed_under_matched_controls"] = (
+        response_effect_observed)
+    qualified = (response_effect_observed and target_cited and expected_cited)
     result["history_changed_new_decision"] = qualified
+    failures = []
+    if not controls_match:
+        failures.append("controlled_inputs_mismatch")
+    if not restored_prompt_exact_match:
+        failures.append("restored_prompt_digest_mismatch")
+    if not target_cited:
+        failures.append("current_target_evidence_not_cited_in_all_conditions")
+    if not expected_cited:
+        failures.append("expected_history_record_not_cited_in_present_and_restored")
+    if not treatment_bound:
+        failures.append("history_retrieval_not_exactly_bound_to_present_restored_arms")
+    if not stable or not restored_response_matches:
+        failures.append("history_restoration_not_stable")
+    if not outcomes_match_contract:
+        failures.append("inference_or_response_contract_not_satisfied")
+    if not response_difference:
+        failures.append("no_response_difference_observed")
+    result["qualification_failure_codes"] = failures
     result["classification"] = (
         "history_associated_new_decision_difference_exact_record_restored"
-        if qualified else "no_validated_new_decision_transfer_difference")
+        if qualified else (
+            "controlled_history_conditioned_response_difference_observed_but_proposal_support_unqualified"
+            if response_effect_observed else (
+                "response_difference_observed_but_history_treatment_or_controls_unqualified"
+                if response_difference else
+                "no_validated_new_decision_transfer_difference")))
     return result
 
 

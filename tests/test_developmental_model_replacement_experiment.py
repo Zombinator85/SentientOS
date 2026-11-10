@@ -11,7 +11,8 @@ from sentientos.developmental_model_replacement_experiment import (
     CONDITION_ORDER, PURPOSE, CognitiveModelIdentity, DevelopmentalModelReplacementError,
     DevelopmentalModelReplacementExperiment, FrozenCausalContext,
     ModelDevelopmentClaim, ModelDevelopmentProvenance,
-    _inference_event_time, _prior_cognition_bindings,
+    ObjectivePredictionTask, _digest, _inference_event_time,
+    _objective_score, _prior_cognition_bindings,
 )
 from sentientos.local_model_authority import digest_payload
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
@@ -22,6 +23,49 @@ pytestmark = pytest.mark.no_legacy_skip
 
 def digest(value: Any) -> str:
     return "sha256:" + digest_payload(value)
+
+
+def _objective_suite_plan() -> dict[str, Any]:
+    task = ObjectivePredictionTask(3, 2, 7, additional_probe_inputs=(8, 9),
+        task_family_id="test-affine-family")
+    task_spec = task.specification()
+    return {"task": task_spec, "plan_digest": digest({"plan": 1}),
+        "task_descriptor": {"task_digest": digest({"task": task_spec})}}
+
+
+def test_objective_suite_scorer_accepts_valid_json_whitespace_and_scores_values():
+    plan = _objective_suite_plan()
+    output = ' { "answers" : [ 20, 21, 22 ] } '
+
+    score = _objective_score(plan, output, _digest({"output": output}))
+
+    assert score["status"] == "incorrect"
+    assert score["answer"] == [20, 21, 22]
+    assert score["correct_count"] == 0
+    assert [row["probe_input"] for row in score["probe_results"]] == [7, 8, 9]
+
+
+@pytest.mark.parametrize("output", [
+    '{"answers":[23,26,29]}',
+    ' { "answers" : [ 23, 26, 29 ] } ',
+])
+def test_objective_suite_scorer_accepts_canonical_and_whitespace_json(output):
+    score = _objective_score(_objective_suite_plan(), output,
+        _digest({"output": output}))
+
+    assert score["status"] == "correct"
+    assert score["answer"] == [23, 26, 29]
+    assert score["correct_count"] == 3
+
+
+def test_objective_suite_scorer_still_rejects_duplicate_json_keys():
+    output = '{"answers":[23,26,29],"answers":[23,26,29]}'
+
+    score = _objective_score(_objective_suite_plan(), output,
+        _digest({"output": output}))
+
+    assert score["status"] == "invalid_answer"
+    assert score["answer"] is None
 
 
 def identity(name: str) -> CognitiveModelIdentity:
@@ -412,3 +456,31 @@ def test_generation_posture_and_purpose_are_fixed(tmp_path: Path) -> None:
         assert call["purpose"] == PURPOSE
         assert call["generation_posture"] == {"temperature": 0, "hardware_determinism_claimed": False}
         assert call["budget"]["max_new_tokens"] == 512
+
+
+
+def test_family_task_descriptor_states_rule_without_leaking_transfer_parameters() -> None:
+    acquisition = ObjectivePredictionTask(3, 9, 5,
+        additional_probe_inputs=(7, 9),
+        task_family_id="rootless_integer_affine_transfer")
+    acquisition_descriptor = acquisition.public_descriptor()
+    acquisition_question = acquisition_descriptor["question"]
+    assert "fixed integer affine mapping" in acquisition_question
+    assert "output = m * input + b" in acquisition_question
+    assert "Verified examples from this mapping" in acquisition_question
+    assert len(acquisition_question) < 250
+
+    transfer = ObjectivePredictionTask(3, 9, 15,
+        additional_probe_inputs=(17, 19),
+        task_family_id="rootless_integer_affine_transfer",
+        requires_task_family_history=True)
+    transfer_descriptor = transfer.public_descriptor()
+    transfer_question = transfer_descriptor["question"]
+    assert "fixed integer affine mapping" in transfer_question
+    assert "Parameters are hidden" in transfer_question
+    assert "retrieved same-family evaluator-scored history" in transfer_question
+    assert "synthetic_training_observations" not in transfer_descriptor
+    assert "Verified examples from this mapping" not in transfer_question
+    assert len(transfer_question) < 250
+    assert transfer_descriptor["task_digest_posture"] == (
+        "salted_private_oracle_commitment:v1")

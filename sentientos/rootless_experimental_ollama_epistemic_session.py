@@ -41,6 +41,7 @@ from .rootless_experimental_local_model import (
 )
 
 
+ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED = 42
 ROOTLESS_RECEIPT_ID_RE = re.compile(r"^lmrec-[0-9a-f]{24}$")
 ROOTLESS_DEVELOPMENTAL_MAX_CALLS = 32
 ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS = 48_000
@@ -86,7 +87,8 @@ class RootlessExperimentalOllamaEpistemicSession(
             raise RootlessExperimentalError("ollama_experimental_model_binding_invalid")
         options = {"api_base": "http://127.0.0.1:11434", "model": model_name,
             "manifest_sha256": manifest_digest, "num_gpu": 99, "keep_alive": "15m",
-            "think": False, "timeout_seconds": 120, "seed": 42}
+            "think": False, "timeout_seconds": 120,
+            "seed": ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED}
         self.config = ModelConfig(
             [ModelCandidate(path, "ollama", model_name, options)],
             default_engine="ollama", max_context_tokens=max_context_tokens,

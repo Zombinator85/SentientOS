@@ -1707,15 +1707,42 @@ class ObjectivePredictionTask:
             "task": self.specification(), "nonce": self.commitment_nonce})
         if self.additional_probe_inputs:
             inputs = [self.probe_input, *self.additional_probe_inputs]
+            question = f"Predict the outputs for inputs {inputs} from the historical examples."
+            synthetic_training: dict[str, Any] = {}
+            if self.task_family_id is not None:
+                family_rule = (
+                    "This family shares one fixed integer affine mapping: "
+                    "output = m * input + b. ")
+                if self.requires_task_family_history:
+                    question = (
+                        family_rule
+                        + "Parameters are hidden. Use only retrieved same-family "
+                        "evaluator-scored history examples to predict outputs for "
+                        f"inputs {inputs}.")
+                else:
+                    examples = [
+                        {"input": 0, "output": self.offset},
+                        {"input": 1, "output": self.multiplier + self.offset},
+                    ]
+                    question = (
+                        family_rule
+                        + f"Verified examples from this mapping: {examples}. Predict "
+                        f"outputs for inputs {inputs}.")
+                    synthetic_training = {
+                        "synthetic_training_observations": examples,
+                        "training_evidence_provenance":
+                            "deterministic_fixture_oracle_not_physical_measurement",
+                    }
             return {"task_digest": task_digest,
                 "task_digest_posture": "salted_private_oracle_commitment:v1",
-                "question": f"Predict the outputs for inputs {inputs} from the historical examples.",
+                "question": question,
                 "answer_format": 'Exactly one JSON object: {"answers": [<integer>, ...]}',
                 "probe_inputs": inputs, "probe_count": len(inputs),
                 **({"task_family_id": self.task_family_id,
                     "family_posture": "operator_declared_protocol_bound",
                     "requires_task_family_history": self.requires_task_family_history}
-                    if self.task_family_id is not None else {})}
+                    if self.task_family_id is not None else {}),
+                **synthetic_training}
         return {"task_digest": task_digest,
             "task_digest_posture": "salted_private_oracle_commitment:v1",
             "question": f"Predict the output for input {self.probe_input} from the historical examples.",
@@ -1819,8 +1846,6 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
                     raise ValueError("answer_shape_invalid")
             elif type(answer) is not int:
                 raise ValueError("answer_shape_invalid")
-            if output != json.dumps({expected_key: answer}, sort_keys=True, separators=(",", ":")):
-                raise ValueError("answer_encoding_not_canonical")
             correct = answer == expected
             status = "correct" if correct else "incorrect"
             if is_suite:
@@ -1941,9 +1966,17 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
         canonical_output = json.dumps({answer_key: value.get("answer")},
             sort_keys=True, separators=(",", ":"))
         try:
-            expected = _objective_score(plan, canonical_output, expected_output_digest)
+            # Recompute semantic correctness from normalized JSON, while keeping
+            # the digest bound to the exact bytes returned by the model. The
+            # canonical serialization has a different digest whenever the live
+            # response contains harmless whitespace.
+            canonical_digest = _digest({"output": canonical_output})
+            expected = _objective_score(plan, canonical_output, canonical_digest)
         except (TypeError, ValueError) as exc:
             raise DevelopmentalModelReplacementError("objective_score_answer_invalid") from exc
+        expected["output_digest"] = expected_output_digest
+        expected["score_digest"] = _digest({key: item for key, item in expected.items()
+            if key != "score_digest"})
         if value != expected:
             raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
     elif status == "invalid_answer":

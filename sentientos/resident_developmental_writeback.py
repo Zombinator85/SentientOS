@@ -52,6 +52,10 @@ MAX_MODEL_REPLACEMENT_SELECTED_EVIDENCE_BYTES = 8192
 # of invocation and score identities. Keep its writeback allowance narrow to
 # one explicitly projected experiment fact.
 MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES = 10_240
+# A scored objective-family trial carries three matched outputs, evaluator
+# scores, and retained per-probe results. Its prompt can exceed the general
+# 8 KB writeback input budget while the selected evidence byte cap stays at 6 KB.
+MAX_OBJECTIVE_TASK_FAMILY_INPUT_CHARS = 16_384
 # A single preregistered strategy-quality vector is larger than a general
 # evidence fact but remains bounded to 12 KB and carries no execution claim.
 MAX_STRATEGY_QUALITY_SELECTED_EVIDENCE_BYTES = 12_288
@@ -448,6 +452,68 @@ def _valid_model_replacement_continuity_assessment(
     return (isinstance(record_set_digest, str) and len(record_set_digest) == 71
         and record_set_digest.startswith("sha256:")
         and all(character in "0123456789abcdef" for character in record_set_digest[7:]))
+
+
+def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
+    source, subject, payload = fact.get("source"), fact.get("subject"), fact.get("payload")
+    descriptor = payload.get("objective_task_descriptor") if isinstance(payload, Mapping) else None
+    scores = payload.get("objective_scores") if isinstance(payload, Mapping) else None
+    conditions = payload.get("conditions") if isinstance(payload, Mapping) else None
+    examples = payload.get("acquisition_examples") if isinstance(payload, Mapping) else None
+    projection = payload.get("interpretation_projection") if isinstance(payload, Mapping) else None
+    if not (isinstance(source, Mapping) and source.get("kind") == "embodiment"
+            and isinstance(subject, Mapping)
+            and subject.get("subject_kind") == "developmental_history_intervention_experiment"
+            and isinstance(payload, Mapping)
+            and payload.get("current_truth") is False
+            and payload.get("authority") is False
+            and payload.get("learning_established") is False
+            and payload.get("task_family_posture") == "operator_declared_protocol_bound"
+            and payload.get("objective_task_commitment_posture")
+                == "salted_private_oracle_commitment:v1"
+            and isinstance(projection, Mapping)
+            and projection.get("schema_version")
+                == "sentientos.developmental_history_interpretation_projection:v1"
+            and isinstance(descriptor, Mapping)
+            and isinstance(descriptor.get("task_family_id"), str)
+            and descriptor.get("task_family_id") == payload.get("objective_task_family")
+            and descriptor.get("task_digest_posture")
+                == "salted_private_oracle_commitment:v1"
+            and isinstance(descriptor.get("task_digest"), str)
+            and len(descriptor["task_digest"]) == 71
+            and descriptor["task_digest"].startswith("sha256:")
+            and isinstance(scores, list) and len(scores) == 3
+            and isinstance(conditions, list) and len(conditions) == 3
+            and isinstance(examples, list) and 1 <= len(examples) <= 16
+            and {row.get("condition_id") for row in scores if isinstance(row, Mapping)}
+                == {"history_present", "history_withheld", "history_restored"}
+            and {row.get("condition_id") for row in conditions if isinstance(row, Mapping)}
+                == {"history_present", "history_withheld", "history_restored"}
+            and all(isinstance(row, Mapping)
+                and isinstance(row.get("score_digest"), str)
+                and len(row["score_digest"]) == 71
+                and row["score_digest"].startswith("sha256:")
+                and row.get("status") in {"correct", "incorrect", "invalid_answer"}
+                for row in scores)):
+        return False
+    history_score = next((row for row in scores if isinstance(row, Mapping)
+        and row.get("condition_id") == "history_present"), None)
+    return (isinstance(history_score, Mapping)
+        and history_score.get("schema_version") == "sentientos.objective_task_score:v3"
+        and history_score.get("evaluator") == "deterministic_exact_integer_suite_oracle_v2"
+        and history_score.get("task_digest") == descriptor.get("task_digest")
+        and isinstance(history_score.get("plan_digest"), str)
+        and len(history_score["plan_digest"]) == 71
+        and history_score["plan_digest"].startswith("sha256:"))
+
+
+def _writeback_input_limit(facts: Sequence[Mapping[str, Any]]) -> int:
+    if (len(facts) == 1
+            and _selected_fact_byte_limit(facts)
+                == MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES
+            and _is_bounded_objective_task_family_trial(facts[0])):
+        return MAX_OBJECTIVE_TASK_FAMILY_INPUT_CHARS
+    return (52_000 if _selected_fact_byte_limit(facts) == 48_000 else 8000)
 
 
 def _selected_fact_byte_limit(facts: Sequence[Mapping[str, Any]]) -> int:
@@ -2484,8 +2550,7 @@ class ResidentDevelopmentalWritebackController:
                         correlation_id: str, budget: LocalModelInvocationBudget | None = None,
                         timeout_seconds: int = 30,
                         max_timeout_seconds: int = 30) -> DevelopmentalCandidate:
-        input_limit = (52_000 if _selected_fact_byte_limit(selection.facts) == 48_000
-            else 8000)
+        input_limit = _writeback_input_limit(selection.facts)
         if (type(timeout_seconds) is not int or type(max_timeout_seconds) is not int
                 or not 1 <= timeout_seconds <= max_timeout_seconds <= 120):
             raise DevelopmentalWritebackError(

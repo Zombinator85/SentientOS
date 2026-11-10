@@ -42,6 +42,26 @@ assert controller._federation_root == expected / "federation"
     assert completed.returncode == 0, completed.stderr
 
 
+@pytest.mark.parametrize(("arguments", "expected_returncode"), [
+    (("--help",), 0),
+    (("--unexpected",), 2),
+])
+def test_runner_cli_arguments_exit_before_experiment_workspace_creation(
+        tmp_path, arguments, expected_returncode):
+    repo_root = Path(__file__).resolve().parents[1]
+    script_path = repo_root / "scripts" / (
+        "run_rootless_ollama_embodied_cognition_cycle.py")
+    workspace = tmp_path / "private-workspace"
+    env = os.environ.copy()
+    env["SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE"] = str(workspace)
+    completed = subprocess.run([sys.executable, str(script_path), *arguments],
+        cwd=repo_root, env=env, capture_output=True, text=True, timeout=10)
+    assert completed.returncode == expected_returncode
+    assert "usage:" in (completed.stdout + completed.stderr).casefold()
+    assert not workspace.exists()
+    assert '"run_id"' not in (completed.stdout + completed.stderr)
+
+
 @pytest.fixture
 def runner(monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE",
@@ -55,6 +75,39 @@ def runner(monkeypatch, tmp_path):
     spec.loader.exec_module(module)
     return module
 
+
+@pytest.mark.parametrize(("accurate_count", "expected"), [
+    (0, False),
+    (1, False),
+    (2, True),
+    (3, True),
+])
+def test_affine_transfer_requires_two_accurate_acquisition_examples(
+        runner, accurate_count, expected):
+    eligibility = runner._objective_transfer_eligibility({
+        "retained_accurate_example_count": accurate_count})
+    assert eligibility["eligible"] is expected
+    assert eligibility["accurate_example_count"] == accurate_count
+    assert eligibility["required_accurate_example_count"] == 2
+    assert eligibility["reason"] == (
+        None if expected else "insufficient_accurate_acquisition_examples")
+
+
+@pytest.mark.parametrize("value", [True, -1, 1.0, "2", None])
+def test_affine_transfer_eligibility_rejects_invalid_accurate_counts(runner, value):
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_acquisition_accuracy_count_invalid"):
+        runner._objective_transfer_eligibility({
+            "retained_accurate_example_count": value})
+
+
+def test_experiment_seed_provenance_separates_task_and_backend_seeds(
+        runner, monkeypatch):
+    monkeypatch.setattr(runner, "EXPERIMENT_SEED", 20261115)
+    assert runner._experiment_seed_provenance() == {
+        "task_generation_seed": 20261115,
+        "requested_backend_seed": 42,
+    }
 
 def test_task_family_acquisition_requires_complete_typed_probe_results(runner):
     descriptor = {"probe_inputs": [7, 8, 9]}
@@ -779,3 +832,258 @@ def test_pose_decision_classifier_requires_exact_json_schema(runner):
         'requested_pose: reach; predicted_pose: reach') is None
     assert runner._pose_decision_from_response(
         '{"requested_pose":"reach","predicted_pose":"reach","extra":"x"}') is None
+
+
+def test_transfer_decision_prompt_requires_grounded_current_evidence(runner):
+    question = runner.TRANSFER_DECISION_QUESTION
+    assert len(question) <= 1200
+    assert "evidence_ids with the exact current fact ID" in question
+    assert "evidence_ids []" not in question
+    assert "history_record_ids with the exact cited record ID" in question
+    assert "reported_values.predicted_observation.pose" in question
+    assert "reported_values.observer_report_field.pose" in question
+    assert "not proof of physical effect" in question
+
+
+
+def test_seeded_objective_task_pairs_are_reproducible_and_distinct(runner):
+    first = runner._objective_task_pair(20261110)
+    repeated = runner._objective_task_pair(20261110)
+    second = runner._objective_task_pair(20261111)
+
+    assert [task.specification() for task in first] == [
+        task.specification() for task in repeated]
+    assert [task.specification() for task in first] != [
+        task.specification() for task in second]
+    acquisition, transfer = first
+    assert acquisition.specification()["task_family_id"] == (
+        transfer.specification()["task_family_id"])
+    assert transfer.specification()["requires_task_family_history"] is True
+    assert set(acquisition.specification()["probe_inputs"]).isdisjoint(
+        transfer.specification()["probe_inputs"])
+
+
+def test_experiment_seed_environment_is_bounded_and_validated(runner, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_HERMES_EXPERIMENT_SEED", "42")
+    assert runner._experiment_seed_from_environment() == 42
+    for invalid in ("0", "-1", "4294967296", "４２", "nope"):
+        monkeypatch.setenv("SENTIENTOS_HERMES_EXPERIMENT_SEED", invalid)
+        with pytest.raises(SystemExit, match="hermes_experiment_seed_invalid"):
+            runner._experiment_seed_from_environment()
+
+
+
+def test_objective_transfer_requires_matching_present_restored_and_withheld_history(
+        runner):
+    acquisition_id = "devrec-acquisition"
+    conditions = [
+        {"condition_id": "history_present",
+            "retrieved_record_ids": [acquisition_id]},
+        {"condition_id": "history_withheld", "retrieved_record_ids": []},
+        {"condition_id": "history_restored",
+            "retrieved_record_ids": [acquisition_id]},
+    ]
+    observed = runner._objective_transfer_observations(conditions, acquisition_id)
+    assert set(observed) == {
+        "history_present", "history_withheld", "history_restored"}
+
+    duplicate = [dict(item) for item in conditions]
+    duplicate[2] = {**duplicate[2], "condition_id": "history_present"}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_observation_lineage_incomplete"):
+        runner._objective_transfer_observations(duplicate, acquisition_id)
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_observation_lineage_incomplete"):
+        runner._objective_transfer_observations(conditions + [None], acquisition_id)
+
+    leaked = [dict(item) for item in conditions]
+    leaked[1] = {"condition_id": "history_withheld",
+        "retrieved_record_ids": [acquisition_id]}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_withheld_history_leaked"):
+        runner._objective_transfer_observations(leaked, acquisition_id)
+
+    missing = [dict(item) for item in conditions]
+    missing[2] = {"condition_id": "history_restored", "retrieved_record_ids": []}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_history_not_retrieved"):
+        runner._objective_transfer_observations(missing, acquisition_id)
+
+    decoy_present = [dict(item) for item in conditions]
+    decoy_present[0] = {**decoy_present[0],
+        "retrieved_record_ids": [acquisition_id, "unrelated-record"]}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_history_not_retrieved"):
+        runner._objective_transfer_observations(decoy_present, acquisition_id)
+
+    decoy_withheld = [dict(item) for item in conditions]
+    decoy_withheld[1] = {**decoy_withheld[1],
+        "retrieved_record_ids": ["unrelated-record"]}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_withheld_history_leaked"):
+        runner._objective_transfer_observations(decoy_withheld, acquisition_id)
+
+
+
+def test_objective_transfer_report_preserves_score_and_history_lineage(runner):
+    acquisition_id = "devrec-acquisition"
+    conditions = [
+        {"condition_id": "history_present",
+            "retrieved_record_ids": [acquisition_id], "inference_receipt_id": "receipt-0",
+            "inference_receipt_digest": "receipt-digest-0", "output_digest": "output-0"},
+        {"condition_id": "history_withheld", "retrieved_record_ids": [],
+            "inference_receipt_id": "receipt-1", "inference_receipt_digest": "receipt-digest-1",
+            "output_digest": "output-1"},
+        {"condition_id": "history_restored",
+            "retrieved_record_ids": [acquisition_id], "inference_receipt_id": "receipt-2",
+            "inference_receipt_digest": "receipt-digest-2", "output_digest": "output-2"},
+    ]
+    observations = runner._objective_transfer_observations(conditions, acquisition_id)
+    scores = [{
+        "condition_id": condition_id,
+        "score": {"correct_count": 1, "probe_count": 3,
+            "status": "partially_correct", "output_digest": f"output-{index}"},
+        "inference_receipt_id": f"receipt-{index}",
+        "inference_receipt_digest": f"receipt-digest-{index}",
+        "invocation_output_digest": f"output-{index}",
+    } for index, condition_id in enumerate((
+        "history_present", "history_withheld", "history_restored"))]
+
+    summaries = runner._objective_transfer_condition_summaries(
+        scores, observations, acquisition_id)
+
+    assert [item["condition_id"] for item in summaries] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert [item["output_digest"] for item in summaries] == [
+        "output-0", "output-1", "output-2"]
+    assert [item["retrieved_record_ids"] for item in summaries] == [
+        [acquisition_id], [], [acquisition_id]]
+    assert [item["task_family_history_record_id_retrieved"]
+        for item in summaries] == [True, False, True]
+    assert [item["inference_receipt_id"] for item in summaries] == [
+        "receipt-0", "receipt-1", "receipt-2"]
+    assert [item["inference_receipt_digest"] for item in summaries] == [
+        "receipt-digest-0", "receipt-digest-1", "receipt-digest-2"]
+
+    malformed_scores = list(scores)
+    malformed_scores[1] = {**malformed_scores[1], "condition_id": "history_restored"}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_report_conditions_incomplete"):
+        runner._objective_transfer_condition_summaries(
+            malformed_scores, observations, acquisition_id)
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_report_conditions_incomplete"):
+        runner._objective_transfer_condition_summaries(
+            scores + [None], observations, acquisition_id)
+
+    mismatched_receipt = list(scores)
+    mismatched_receipt[1] = {**mismatched_receipt[1],
+        "inference_receipt_digest": "different-receipt"}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_report_lineage_invalid"):
+        runner._objective_transfer_condition_summaries(
+            mismatched_receipt, observations, acquisition_id)
+
+    mismatched_output = list(scores)
+    mismatched_output[1] = {**mismatched_output[1],
+        "invocation_output_digest": "different-output"}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_report_lineage_invalid"):
+        runner._objective_transfer_condition_summaries(
+            mismatched_output, observations, acquisition_id)
+
+
+
+def test_objective_acquisition_summary_counts_only_verified_scored_examples(runner):
+    run = {"objective_scores": [
+        {"condition_id": "history_present", "score": {
+            "correct_count": 1, "probe_count": 2, "status": "partially_correct",
+            "probe_results": [{"correct": True}, {"correct": False}]}},
+        {"condition_id": "history_withheld", "score": {
+            "correct_count": 0, "probe_count": 2, "status": "incorrect",
+            "probe_results": [{"correct": False}, {"correct": False}]}},
+        {"condition_id": "history_restored", "score": {
+            "correct_count": 1, "probe_count": 2, "status": "partially_correct",
+            "probe_results": [{"correct": True}, {"correct": False}]}},
+    ]}
+    result = runner._objective_acquisition_summary(run)
+    assert result["condition_correct_counts"] == [1, 0, 1]
+    assert result["retained_accurate_example_count"] == 1
+    assert result["retained_inaccurate_example_count"] == 1
+
+    run["objective_scores"][0]["score"]["correct_count"] = 2
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_acquisition_score_invalid"):
+        runner._objective_acquisition_summary(run)
+
+
+
+def test_resource_refresh_records_disk_headroom_and_fails_closed(runner, monkeypatch):
+    snapshot = SimpleNamespace(cpu_utilization_percent=4.0,
+        ram_utilization_percent=35.0, disk_free_bytes=8 * 1024**3,
+        disk_utilization_percent=22.0, gpu_utilization_percent=2.0,
+        vram_utilization_percent=20.0)
+    evaluation = SimpleNamespace(evaluation_id="resource-eval",
+        snapshot=snapshot, epoch=SimpleNamespace(observed_at="time"),
+        pressure_report=SimpleNamespace(pressure_labels=()))
+    coordinator = SimpleNamespace(run_cycle=lambda **kwargs: evaluation)
+    monkeypatch.setattr(runner, "validate_evaluation",
+        lambda _: SimpleNamespace(ok=True))
+    evidence = runner._refresh_resource_evidence(
+        coordinator, correlation_id="disk-headroom-test")
+    assert evidence["disk_free_bytes"] == 8 * 1024**3
+    assert evidence["disk_utilization_percent"] == 22.0
+
+    snapshot.disk_free_bytes = None
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="host_disk_evidence_incomplete"):
+        runner._refresh_resource_evidence(coordinator,
+            correlation_id="missing-disk-test")
+    snapshot.disk_free_bytes = runner._MIN_EXPERIMENT_DISK_FREE_BYTES - 1
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="host_disk_headroom_insufficient"):
+        runner._refresh_resource_evidence(coordinator,
+            correlation_id="low-disk-test")
+
+
+def test_later_action_probe_has_current_synthetic_target_evidence(runner):
+    from sentientos.world_state_board import validate_snapshot
+
+    target = runner._synthetic_current_target_record()
+    snapshot = runner.WorldStateBoardBuilder().build([target])
+
+    assert validate_snapshot(snapshot).valid
+    assert len(snapshot.facts) == 1
+    fact = snapshot.facts[0]
+    assert fact.subject.subject_id == "synthetic-target-1"
+    assert fact.subject.subject_kind == "target_object"
+    assert fact.payload["visible"] is True
+    assert fact.payload["distance"] == "within_reach"
+    assert fact.payload["hazard_status"] == "unknown"
+    assert fact.payload["evidence_posture"] == "synthetic_test"
+    assert fact.payload["declared_provenance_class"] == (
+        "deterministic_synthetic_fixture")
+    assert fact.effect_proven is False
+    assert fact.effect_claimed is False
+
+
+def test_failure_code_keeps_only_bounded_non_output_diagnostics(runner):
+    assert runner._failure_code(ValueError("resident_response_schema_invalid")) == (
+        "resident_response_schema_invalid")
+    assert runner._failure_code(ValueError(
+        "raw model text: requested_pose=reach")) == "ValueError"
+
+
+def test_target_evidence_is_added_only_when_requested_for_later_probe(runner):
+    from sentientos.world_state_board import validate_snapshot
+
+    plain, _ = runner._pre_action_source(pose="reach")
+    grounded, _ = runner._pre_action_source(
+        pose="reach", include_current_target=True)
+
+    assert len(plain.facts) == 1
+    assert len(grounded.facts) == 2
+    assert {fact.subject.subject_kind for fact in grounded.facts} == {
+        "robot_body", "target_object"}
+    assert validate_snapshot(plain).valid
+    assert validate_snapshot(grounded).valid

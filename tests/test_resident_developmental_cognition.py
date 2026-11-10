@@ -969,6 +969,16 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     seeded = cognition.run_tick(snapshot=snapshot(), tick_id="family-acquisition-seed")
     assert seeded.written_record_id
 
+    # A later task that explicitly requires family evidence cannot substitute
+    # an unrelated embodiment/capability record for that evidence.
+    transfer = ObjectivePredictionTask(3, 2, 10, (11, 12),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    prior = cognition._prior_projection(cognition._state(), "family-transfer-probe",
+        task_family_id="integer_affine_prediction", task_probe_inputs=(10, 11, 12),
+        require_task_family_history=True)
+    assert prior.requested_record_ids == ()
+    assert prior.records == ()
+
     acquisition = ObjectivePredictionTask(3, 2, 7, (8, 9),
         task_family_id="integer_affine_prediction")
     stage_objective_request(tmp_path / "state", request_id="family-acquisition", task=acquisition)
@@ -5732,11 +5742,69 @@ def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp
     assert result.changed_cognition_measurement_id is not None
 
 
+def test_history_neutral_prompt_digest_removes_only_history_treatment_fields() -> None:
+    from sentientos.resident_developmental_cognition import (
+        _history_neutral_prompt_digest,
+    )
+
+    common = {
+        "companion_question": "What should happen next?",
+        "current_evidence": {"fact_id": "fact-current", "value": "target visible"},
+        "instruction": "Use the evidence; history has no authority.",
+        "developmental_history_posture": "historical_interpretation_not_current_truth",
+        "developmental_history_retrieval_policy_id": "task_family_probe_overlap_then_recency_fill:v2",
+        "developmental_history_target_model_identity": {"model": "model-a"},
+    }
+    present = {
+        **common,
+        "developmental_history": [{"record_id": "devrec-" + "a" * 24}],
+        "historical_embodiment_reports": [{"record_id": "devrec-" + "a" * 24}],
+        "history_citation_allowlist": ["devrec-" + "a" * 24],
+        "developmental_history_selection": {
+            "schema_version": "sentientos.developmental_history_prompt_selection:v2",
+            "policy": "most_recent_complete_record_suffix:v1",
+            "retrieval_policy_id": "task_family_probe_overlap_then_recency_fill:v2",
+            "task_family_id": "family-a", "treatment": "present",
+            "available_records": [{"record_id": "devrec-" + "a" * 24}],
+            "selected_records": [{"record_id": "devrec-" + "a" * 24}],
+            "omitted_records": [], "omitted_records_digest": "sha256:a",
+            "omission_reason": None, "selection_digest": "sha256:b",
+        },
+    }
+    withheld = {
+        **common,
+        "developmental_history": [],
+        "historical_embodiment_reports": [],
+        "history_citation_allowlist": [],
+        "developmental_history_selection": {
+            "schema_version": "sentientos.developmental_history_prompt_selection:v2",
+            "policy": "most_recent_complete_record_suffix:v1",
+            "retrieval_policy_id": "task_family_probe_overlap_then_recency_fill:v2",
+            "task_family_id": "family-a", "treatment": "withheld",
+            "available_records": [], "selected_records": [], "omitted_records": [],
+            "omitted_records_digest": "sha256:c", "omission_reason": None,
+            "selection_digest": "sha256:d",
+        },
+    }
+    def encode(value: Mapping[str, Any]) -> str:
+        return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+    assert _history_neutral_prompt_digest(encode(present)) == (
+        _history_neutral_prompt_digest(encode(withheld)))
+    changed_non_history = {**withheld, "current_evidence": {
+        "fact_id": "fact-current", "value": "different target"}}
+    assert _history_neutral_prompt_digest(encode(withheld)) != (
+        _history_neutral_prompt_digest(encode(changed_non_history)))
+
+
 def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         tmp_path: Path) -> None:
     initial_owner, _ = owner(tmp_path / "cognition")
     initial = initial_owner.run_tick(snapshot=snapshot(), tick_id="tick-1")
     assert initial.written_record_id is not None
+    decoy = initial_owner.run_tick(snapshot=snapshot(3), tick_id="tick-2")
+    assert decoy.written_record_id is not None
+    assert decoy.written_record_id != initial.written_record_id
 
     fake = FakeInvoker()
     proposals = {
@@ -5757,11 +5825,19 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     source = snapshot(2)
     compared_owner, _ = owner(tmp_path / "cognition", comparison=True, invoker=fake,
         max_inference_timeout_seconds=90)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="history_record_allowlist_not_admitted"):
+        compared_owner.run_companion_history_intervention(
+            snapshot=source, tick_id="companion-decision-rejects-unadmitted-history",
+            question="Use only the selected prior experience.",
+            history_record_allowlist=("devrec-" + "f" * 24,))
+    assert fake.requests == []
 
     result = compared_owner.run_companion_history_intervention(
         snapshot=source, tick_id="companion-decision-1",
         question=("For the synthetic avatar, choose the next pose and predict "
-            "its encoder pose. Return JSON with requested_pose and predicted_pose."))
+            "its encoder pose. Return JSON with requested_pose and predicted_pose."),
+        history_record_allowlist=(initial.written_record_id,))
 
     assert result.status == "completed_controlled_intervention"
     assert result.response_text_classification == "history_presence_associated_stable_response_text_difference"
@@ -5796,6 +5872,13 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         "history_unavailable_sentinel_means_abstention")
     assert "HISTORY_UNAVAILABLE" not in json.dumps(decision_audit)
     assert all(item["snapshot_digest"] == source.digest for item in result.conditions)
+    matched_controls = [item["matched_control_inputs"] for item in result.conditions]
+    assert matched_controls[0] == matched_controls[1] == matched_controls[2]
+    assert all(item["matched_control_inputs_digest"] == "sha256:" + digest_payload(
+        item["matched_control_inputs"]) for item in result.conditions)
+    assert matched_controls[0]["question_digest"] == "sha256:" + digest_payload({
+        "question": "For the synthetic avatar, choose the next pose and predict "
+            "its encoder pose. Return JSON with requested_pose and predicted_pose."})
     assert all(request.budget.timeout_seconds == 90 for request in fake.requests)
     intervention_requests = [request for request in fake.requests
         if request.purpose == "resident_developmental_history_intervention_experiment"
@@ -5813,8 +5896,9 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert current_fact_ids
     assert all(item["current_fact_ids"] == current_fact_ids
         for item in result.conditions)
-    assert [bool(item["retrieved_record_ids"]) for item in result.conditions] == [
-        True, False, True]
+    assert [item["retrieved_record_ids"] for item in result.conditions] == [
+        [initial.written_record_id], [], [initial.written_record_id]]
+    assert decoy.written_record_id not in result.conditions[0]["retrieved_record_ids"]
     assert result.authority is False
     assert [list(item["history_record_ids"]) for item in result.conditions] == [
         item["retrieved_record_ids"] for item in result.conditions]

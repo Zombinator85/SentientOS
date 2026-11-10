@@ -6,9 +6,11 @@ the existing governed SentientOS owners. This is not production serving evidence
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -21,6 +23,12 @@ from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Mapping, NoReturn, cast
+
+if __name__ == "__main__" and len(sys.argv) > 1:
+    # Parse before creating the private workspace or importing runtime owners.
+    # In particular, `--help` must never fall through into a paid/resource-heavy
+    # experimental run.
+    argparse.ArgumentParser(description=__doc__).parse_args()
 
 # Bind imports to this checkout even when WSL's login shell starts elsewhere.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -76,6 +84,7 @@ from sentientos.runtime_admission import (
 from sentientos.rootless_experimental_local_model import (
     EXPERIMENT_ROOT, RootlessExperimentalError, _no_symlink_path)
 from sentientos.rootless_experimental_ollama_epistemic_session import (
+    ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED,
     RootlessExperimentalOllamaDevelopmentalSession)
 from sentientos.control_plane_kernel import ControlPlaneKernel
 from sentientos.federated_enforcement_policy import resolve_policy
@@ -86,6 +95,211 @@ from sentientos.world_state_board import WorldStateBoardBuilder
 
 
 MODEL_NAME = os.environ.get("SENTIENTOS_HERMES_MODEL", "sentientos-hermes4:14b-q4km")
+_MAX_EXPERIMENT_SEED = 2**32 - 1
+_MIN_EXPERIMENT_DISK_FREE_BYTES = 2 * 1024**3
+
+
+def _experiment_seed_from_environment() -> int:
+    raw = os.environ.get("SENTIENTOS_HERMES_EXPERIMENT_SEED")
+    if raw is None:
+        return (uuid.uuid4().int & _MAX_EXPERIMENT_SEED) or 1
+    if (len(raw) > 10 or not raw.isascii() or not raw.isdecimal()
+            or not 0 < int(raw) <= _MAX_EXPERIMENT_SEED):
+        raise SystemExit("hermes_experiment_seed_invalid")
+    return int(raw)
+
+
+EXPERIMENT_SEED = _experiment_seed_from_environment()
+
+
+def _experiment_seed_provenance() -> dict[str, int]:
+    """Keep task randomization distinct from the fixed inference seed."""
+    return {
+        "task_generation_seed": EXPERIMENT_SEED,
+        "requested_backend_seed": ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED,
+    }
+
+
+def _objective_condition_score(condition: Mapping[str, Any]) -> Any:
+    return condition.get("score")
+
+
+def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
+    scores = run.get("objective_scores")
+    if (not isinstance(scores, list)
+            or [item.get("condition_id") for item in scores
+                if isinstance(item, Mapping)]
+                != ["history_present", "history_withheld", "history_restored"]):
+        raise RootlessExperimentalError(
+            "objective_family_acquisition_scores_incomplete")
+    present = scores[0].get("score")
+    if not isinstance(present, Mapping):
+        raise RootlessExperimentalError(
+            "objective_family_acquisition_score_invalid")
+    probe_results = present.get("probe_results")
+    correct_count = present.get("correct_count")
+    probe_count = present.get("probe_count")
+    if (not isinstance(probe_results, list)
+            or type(correct_count) is not int or type(probe_count) is not int
+            or len(probe_results) != probe_count
+            or any(not isinstance(row, Mapping)
+                or type(row.get("correct")) is not bool for row in probe_results)
+            or sum(row["correct"] for row in probe_results) != correct_count):
+        raise RootlessExperimentalError(
+            "objective_family_acquisition_score_invalid")
+    return {
+        "condition_correct_counts": [
+            _objective_condition_score(item).get("correct_count")
+            if isinstance(_objective_condition_score(item), Mapping) else None
+            for item in scores],
+        "history_present_correct_count": correct_count,
+        "probe_count": probe_count,
+        "retained_accurate_example_count": correct_count,
+        "retained_inaccurate_example_count": probe_count - correct_count,
+        "acquisition_outcome_status": present.get("status"),
+    }
+
+
+_MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER = 2
+
+
+def _objective_transfer_eligibility(acquisition_summary: Mapping[str, Any]) -> dict[str, Any]:
+    """Require enough evaluator-verified examples to identify an affine rule."""
+    accurate = acquisition_summary.get("retained_accurate_example_count")
+    if type(accurate) is not int or accurate < 0:
+        raise RootlessExperimentalError(
+            "objective_family_acquisition_accuracy_count_invalid")
+    required = _MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER
+    return {
+        "eligible": accurate >= required,
+        "reason": None if accurate >= required else
+            "insufficient_accurate_acquisition_examples",
+        "accurate_example_count": accurate,
+        "required_accurate_example_count": required,
+    }
+
+
+def _objective_transfer_observations(
+        conditions: Any, acquisition_record_id: str) -> dict[str, Mapping[str, Any]]:
+    if (not isinstance(conditions, list) or len(conditions) != 3
+            or any(not isinstance(item, Mapping) for item in conditions)):
+        raise RootlessExperimentalError(
+            "objective_family_transfer_observation_lineage_incomplete")
+    observations: dict[str, Mapping[str, Any]] = {}
+    for item in conditions:
+        condition_id = item.get("condition_id")
+        if not isinstance(condition_id, str) or condition_id in observations:
+            raise RootlessExperimentalError(
+                "objective_family_transfer_observation_lineage_incomplete")
+        observations[condition_id] = item
+    if set(observations) != {
+            "history_present", "history_withheld", "history_restored"}:
+        raise RootlessExperimentalError(
+            "objective_family_transfer_observation_lineage_incomplete")
+    for condition_id in ("history_present", "history_restored"):
+        retrieved_ids = observations[condition_id].get("retrieved_record_ids", [])
+        if (not isinstance(retrieved_ids, (list, tuple))
+                or list(retrieved_ids) != [acquisition_record_id]):
+            raise RootlessExperimentalError(
+                "objective_family_transfer_history_not_retrieved")
+    withheld_ids = observations["history_withheld"].get("retrieved_record_ids", [])
+    if (not isinstance(withheld_ids, (list, tuple)) or withheld_ids):
+        raise RootlessExperimentalError(
+            "objective_family_transfer_withheld_history_leaked")
+    return observations
+
+
+def _objective_transfer_condition_summaries(
+        scores: Any,
+        observations: Mapping[str, Mapping[str, Any]],
+        acquisition_record_id: str) -> list[dict[str, Any]]:
+    """Keep each scored condition bound to its retrieved-history and receipt evidence."""
+    expected_conditions = ("history_present", "history_withheld", "history_restored")
+    if (not isinstance(scores, list)
+            or len(scores) != len(expected_conditions)
+            or any(not isinstance(item, Mapping) for item in scores)
+            or tuple(item.get("condition_id") for item in scores) != expected_conditions
+            or set(observations) != set(expected_conditions)):
+        raise RootlessExperimentalError(
+            "objective_family_transfer_report_conditions_incomplete")
+    summaries: list[dict[str, Any]] = []
+    for item, condition_id in zip(scores, expected_conditions):
+        if not isinstance(item, Mapping) or item.get("condition_id") != condition_id:
+            raise RootlessExperimentalError(
+                "objective_family_transfer_report_conditions_incomplete")
+        observation = observations[condition_id]
+        receipt_id = item.get("inference_receipt_id")
+        receipt_digest = item.get("inference_receipt_digest")
+        output_digest = item.get("invocation_output_digest")
+        score = item.get("score")
+        score_mapping = score if isinstance(score, Mapping) else {}  # invariant-allow: score is report metadata only
+        if (not isinstance(score, Mapping)  # invariant-allow: score is evaluation metadata only
+                or score_mapping.get("output_digest") != output_digest
+                or not isinstance(receipt_id, str) or not receipt_id
+                or not isinstance(receipt_digest, str) or not receipt_digest
+                or observation.get("inference_receipt_id") != receipt_id
+                or observation.get("inference_receipt_digest") != receipt_digest
+                or observation.get("output_digest") != output_digest):
+            raise RootlessExperimentalError(
+                "objective_family_transfer_report_lineage_invalid")
+        retrieved_record_ids = observation.get("retrieved_record_ids", [])
+        if (not isinstance(retrieved_record_ids, (list, tuple))
+                or any(not isinstance(record_id, str) for record_id in retrieved_record_ids)):
+            raise RootlessExperimentalError(
+                "objective_family_transfer_report_lineage_invalid")
+        summaries.append({
+            "condition_id": condition_id,
+            "correct_count": score_mapping.get("correct_count"),
+            "probe_count": score_mapping.get("probe_count"),
+            "score_status": score_mapping.get("status"),
+            "output_digest": (score_mapping.get("output_digest")
+                or item.get("invocation_output_digest")),
+            "retrieved_record_ids": list(retrieved_record_ids),
+            "task_family_history_record_id_retrieved": (
+                acquisition_record_id in retrieved_record_ids),
+            "inference_receipt_id": item.get("inference_receipt_id"),
+            "inference_receipt_digest": item.get("inference_receipt_digest"),
+        })
+    return summaries
+
+
+def _objective_task_pair(seed: int) -> tuple[ObjectivePredictionTask, ObjectivePredictionTask]:
+    if type(seed) is not int or not 0 < seed <= _MAX_EXPERIMENT_SEED:
+        raise RootlessExperimentalError("hermes_experiment_seed_invalid")
+    generator = random.Random(seed)
+    multiplier = generator.randrange(2, 6)
+    offset = generator.randrange(1, 10)
+    acquisition_inputs = tuple(sorted(generator.sample(range(4, 10), 3)))
+    transfer_inputs = tuple(sorted(generator.sample(range(12, 20), 3)))
+    family = "rootless_integer_affine_transfer"
+    acquisition = ObjectivePredictionTask(
+        multiplier=multiplier, offset=offset, probe_input=acquisition_inputs[0],
+        additional_probe_inputs=acquisition_inputs[1:], task_family_id=family)
+    transfer = ObjectivePredictionTask(
+        multiplier=multiplier, offset=offset, probe_input=transfer_inputs[0],
+        additional_probe_inputs=transfer_inputs[1:], task_family_id=family,
+        requires_task_family_history=True)
+    return acquisition, transfer
+
+
+TRANSFER_DECISION_QUESTION = (
+    "Controlled new-decision probe on a new synthetic task, not past recall. "
+    "The current synthetic target is visible and within reach; its hazard status "
+    "is unknown. Choose one action for it: INSPECT or REACH. Read the current "
+    "World-State and eligible history. In each "
+    "historical_embodiment_reports entry, compare "
+    "reported_values.predicted_observation.pose with "
+    "reported_values.observer_report_field.pose. If it records predicted "
+    "reach followed by observer-reported idle, choose INSPECT before another "
+    "reach as cautious information gathering, not proof of physical effect. "
+    "Without that record, choose REACH from the current target. Treat past "
+    "values as uncertain reports, never current truth. Return JSON "
+    "disposition answer, evidence_ids with the exact current fact ID grounding "
+    "the target, history_record_ids with the exact cited record ID supporting "
+    "INSPECT (otherwise []), and response exactly INSPECT or REACH. If no "
+    "current fact grounds the target, abstain with response "
+    "HISTORY_UNAVAILABLE and no citations. This is a proposal only; do not "
+    "claim action authority or execution.")
 MANIFEST_PATH = EXPERIMENT_ROOT / "ollama-model-manifests" / (
     "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce.json")
 RUN_STAGE = "startup"
@@ -300,11 +514,17 @@ def _refresh_resource_evidence(coordinator: HostResourceRuntimeCoordinator,
     snapshot = evaluation.snapshot
     if snapshot.cpu_utilization_percent is None or snapshot.ram_utilization_percent is None:
         raise RootlessExperimentalError("host_resource_evidence_incomplete")
+    if type(snapshot.disk_free_bytes) is not int or snapshot.disk_free_bytes < 0:
+        raise RootlessExperimentalError("host_disk_evidence_incomplete")
+    if snapshot.disk_free_bytes < _MIN_EXPERIMENT_DISK_FREE_BYTES:
+        raise RootlessExperimentalError("host_disk_headroom_insufficient")
     return {"evaluation_id": evaluation.evaluation_id,
         "observed_at": evaluation.epoch.observed_at,
         "pressure_labels": list(evaluation.pressure_report.pressure_labels),
         "cpu_utilization_percent": snapshot.cpu_utilization_percent,
         "ram_utilization_percent": snapshot.ram_utilization_percent,
+        "disk_free_bytes": snapshot.disk_free_bytes,
+        "disk_utilization_percent": snapshot.disk_utilization_percent,
         "gpu_utilization_percent": snapshot.gpu_utilization_percent,
         "vram_utilization_percent": snapshot.vram_utilization_percent}
 
@@ -814,7 +1034,9 @@ def _verified_companion_replay(bridge: Any, owner: Any, *,
             raise RootlessExperimentalError("rejected_replay_receipt_unverified") from exc
         return {
             "status": "owner_rejected_completed_inference",
-            "failure_code": str(exc),
+            # Keep the error contract tokenized; an exception message may
+            # accidentally include model output and must never enter artifacts.
+            "failure_code": _failure_code(exc),
             "prompt_digest": prompt_digest,
             "generation_config": generation_config,
             "active_model_identity": dict(request.get("active_model_identity", {})),
@@ -891,7 +1113,9 @@ def _verified_companion_replay(bridge: Any, owner: Any, *,
             request_id=request_id),
     }
 
-def _pre_action_source(*, pose: str = "idle") -> tuple[Any, EmbodimentObservation]:
+def _pre_action_source(*, pose: str = "idle",
+        include_current_target: bool = False
+        ) -> tuple[WorldStateSnapshot, EmbodimentObservation]:
     """Build the synthetic body's pre-action state for a governed proposal."""
     if pose not in {"idle", "reach"}:
         raise RootlessExperimentalError("synthetic_pose_invalid")
@@ -909,6 +1133,8 @@ def _pre_action_source(*, pose: str = "idle") -> tuple[Any, EmbodimentObservatio
         payload={"encoder_pose": pose, "joint_state": {"arm": arm_value},
             "sampled_at": observed_at})
     records = EmbodimentEvidenceOwner([self_report]).world_state_records()
+    if include_current_target:
+        records.append(_synthetic_current_target_record())
     return WorldStateBoardBuilder().build(records), self_report
 
 
@@ -993,12 +1219,28 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
     return snapshot, evidence_summary, self_report
 
 
-def _objective_family_acquisition_readiness(run_payload: Mapping[str, Any]) -> dict[str, Any]:
-    """Check whether a scored acquisition contains complete typed examples.
+def _synthetic_current_target_record() -> dict[str, Any]:
+    """Describe the current target for the later synthetic action-choice probe."""
+    observed_at = datetime.now(timezone.utc).isoformat()
+    payload = {"visible": True, "distance": "within_reach",
+        "hazard_status": "unknown", "fixture_posture": "synthetic_test"}
+    observation = EmbodimentObservation(
+        source_id=RUN_ID + ":synthetic-current-target",
+        source_schema="sentientos.synthetic_environment_target_observation:v1",
+        source_digest=semantic_digest(payload),
+        observed_at=observed_at,
+        provenance_class="deterministic_synthetic_fixture",
+        freshness="current", posture="synthetic_test",
+        evidence_class="sensor_observation",
+        subject_id="synthetic-target-1", subject_kind="target_object",
+        payload={**payload, "sampled_at": observed_at})
+    records: list[dict[str, Any]] = EmbodimentEvidenceOwner(
+        [observation]).world_state_records()
+    return records[0]
 
-    Invalid or truncated model output remains a scored experimental outcome,
-    but it cannot be promoted into task-family acquisition history.
-    """
+
+def _objective_family_acquisition_readiness(run_payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Reject invalid or incomplete typed outputs as developmental examples."""
     protocol = run_payload.get("protocol")
     descriptor = (protocol.get("objective_task_descriptor")
         if isinstance(protocol, Mapping) else None)
@@ -1155,6 +1397,7 @@ def run() -> dict[str, Any]:
                 or not cognitive_decision.get("evidence_ids")):
             raise RootlessExperimentalError("pre_action_cognition_proposal_unverified: " + json.dumps({
                     "status": cognitive_decision.get("status"),
+                    "owner_rejection_code": cognitive_decision.get("failure_code"),
                     "lineage": cognitive_decision.get("response_lineage_verified"),
                     "disposition": cognitive_decision.get("disposition"),
                     "evidence_ids": cognitive_decision.get("evidence_ids"),
@@ -1192,9 +1435,7 @@ def run() -> dict[str, Any]:
         RUN_STAGE = "objective_task_family_acquisition"
         later_pre_action_snapshot = snapshot
         objective_family = "rootless_integer_affine_transfer"
-        acquisition_task = ObjectivePredictionTask(
-            multiplier=3, offset=2, probe_input=7,
-            additional_probe_inputs=(8, 9), task_family_id=objective_family)
+        acquisition_task, transfer_task = _objective_task_pair(EXPERIMENT_SEED)
         acquisition_request_id = RUN_ID + ":objective-family-acquisition"
         stage_objective_request(
             state_root, request_id=acquisition_request_id, task=acquisition_task)
@@ -1235,12 +1476,16 @@ def run() -> dict[str, Any]:
             "history_correct_probe_delta": None,
             "restoration_correct_probe_delta": None,
             "condition_correct_counts": None,
+            "task_family_history_lineage_verified": False,
+            "conditions": [],
             "authority": False,
             "action_executed": False,
             "performance_improvement_established": False,
             "scope": "single_model_synthetic_exact_scored_task_family_transfer",
         }
+        acquisition_history_record = None
         if acquisition_readiness["eligible"]:
+            acquisition_summary = _objective_acquisition_summary(acquisition_run)
             acquisition_records = owner.experiments.world_state_records(run_refs=((
                 acquisition_run["run_id"], acquisition_run["run_digest"]),))
             if len(acquisition_records) != 1:
@@ -1258,86 +1503,112 @@ def run() -> dict[str, Any]:
                     for fact in acquisition_history_record.candidate.get("selected_facts", [])):
                 raise RootlessExperimentalError("objective_family_history_not_retained")
 
-            RUN_STAGE = "objective_task_family_transfer"
-            transfer_task = ObjectivePredictionTask(
-                multiplier=3, offset=2, probe_input=11,
-                additional_probe_inputs=(12, 13), task_family_id=objective_family,
-                requires_task_family_history=True)
-            transfer_request_id = RUN_ID + ":objective-family-transfer"
-            stage_objective_request(
-                state_root, request_id=transfer_request_id, task=transfer_task)
-            transfer_request = load_objective_request(state_root)
-            if transfer_request is None:
-                raise RootlessExperimentalError("objective_family_transfer_request_missing")
-            transfer_objective_task = objective_task_for_request(transfer_request)
-            objective_transfer_result = owner.run_objective_intervention_once(
-                snapshot=later_pre_action_snapshot,
-                tick_id=RUN_ID + ":objective-family-transfer",
-                objective_task=transfer_objective_task,
-                request_id=transfer_request_id,
-                request_digest=transfer_request["request_digest"])
-            if (objective_transfer_result.status != "objective_intervention_completed"
-                    or not objective_transfer_result.changed_cognition_measurement_id):
-                raise RootlessExperimentalError("objective_family_transfer_incomplete")
-            objective_transfer_run = owner.experiments.load_run(
-                objective_transfer_result.changed_cognition_measurement_id)
-            objective_transfer_conditions = objective_transfer_run.get("conditions", [])
-            objective_transfer_scores = objective_transfer_run.get("objective_scores", [])
-            if len(objective_transfer_conditions) != 3 or len(objective_transfer_scores) != 3:
-                raise RootlessExperimentalError("objective_family_transfer_conditions_incomplete")
-            objective_transfer_evaluation = objective_transfer_run.get(
-                "objective_evaluation", {})
-            transfer_records = owner.experiments.world_state_records(run_refs=((
-                objective_transfer_run["run_id"], objective_transfer_run["run_digest"]),))
-            if len(transfer_records) != 1:
-                raise RootlessExperimentalError("objective_family_transfer_projection_invalid")
-            transfer_world = WorldStateBoardBuilder().build(transfer_records)
-            transfer_writeback = owner.run_tick(snapshot=transfer_world,
-                tick_id=RUN_ID + ":objective-family-transfer-writeback")
-            if not transfer_writeback.written_record_id:
-                raise RootlessExperimentalError("objective_family_transfer_writeback_missing")
-            transfer_progression = owner.verified_objective_task_family_progression(
-                request_refs=((acquisition_request_id,
-                        acquisition_request["request_digest"]),
-                    (transfer_request_id, transfer_request["request_digest"])))
-            if (transfer_progression.get("status") != "comparable_scored_episodes"
-                    or len(transfer_progression.get("episodes", [])) != 2):
-                raise RootlessExperimentalError("objective_family_progression_unverified")
-            objective_transfer_history = {
-                "status": "completed_scored_intervention",
-                "measurement_id": objective_transfer_result.changed_cognition_measurement_id,
-                "run_id": objective_transfer_run.get("run_id"),
-                "run_digest": objective_transfer_run.get("run_digest"),
-                "task_family_id": objective_family,
-                "acquisition_history_record_id": acquisition_history_record.record_id,
-                "transfer_history_record_id": transfer_writeback.written_record_id,
-                "acquisition_request_digest": acquisition_request["request_digest"],
-                "transfer_request_digest": transfer_request["request_digest"],
-                "longitudinal_progression_status": transfer_progression.get("status"),
-                "longitudinal_episode_count": len(transfer_progression.get("episodes", [])),
-                "history_correct_probe_delta": objective_transfer_evaluation.get(
-                    "history_correct_probe_delta"),
-                "restoration_correct_probe_delta": objective_transfer_evaluation.get(
-                    "restoration_correct_probe_delta"),
-                "condition_correct_counts": objective_transfer_evaluation.get(
-                    "condition_correct_counts"),
-                "conditions": [{
-                    "condition_id": item.get("condition_id"),
-                    "correct_count": (item.get("score", {}).get("correct_count")
-                        if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
-                    "probe_count": (item.get("score", {}).get("probe_count")
-                        if isinstance(item.get("score"), Mapping) else None),  # invariant-allow: score
-                    "output_digest": item.get("output_digest"),
-                    "retrieved_record_ids": item.get("retrieved_record_ids", []),
-                    "inference_receipt_id": item.get("inference_receipt_id"),
-                    "inference_receipt_digest": item.get("inference_receipt_digest"),
-                    "inference_status": item.get("inference_status"),
-                } for item in objective_transfer_scores],
-                "authority": False,
-                "action_executed": False,
-                "performance_improvement_established": False,
-                "scope": "single_model_synthetic_exact_scored_task_family_transfer",
-            }
+            transfer_eligibility = _objective_transfer_eligibility(acquisition_summary)
+            if transfer_eligibility["eligible"]:
+                RUN_STAGE = "objective_task_family_transfer"
+                transfer_request_id = RUN_ID + ":objective-family-transfer"
+                stage_objective_request(
+                    state_root, request_id=transfer_request_id, task=transfer_task)
+                transfer_request = load_objective_request(state_root)
+                if transfer_request is None:
+                    raise RootlessExperimentalError("objective_family_transfer_request_missing")
+                transfer_objective_task = objective_task_for_request(transfer_request)
+                objective_transfer_result = owner.run_objective_intervention_once(
+                    snapshot=later_pre_action_snapshot,
+                    tick_id=RUN_ID + ":objective-family-transfer",
+                    objective_task=transfer_objective_task,
+                    request_id=transfer_request_id,
+                    request_digest=transfer_request["request_digest"])
+                if (objective_transfer_result.status != "objective_intervention_completed"
+                        or not objective_transfer_result.changed_cognition_measurement_id):
+                    raise RootlessExperimentalError("objective_family_transfer_incomplete")
+                objective_transfer_run = owner.experiments.load_run(
+                    objective_transfer_result.changed_cognition_measurement_id)
+                objective_transfer_conditions = objective_transfer_run.get("conditions", [])
+                objective_transfer_scores = objective_transfer_run.get("objective_scores", [])
+                if len(objective_transfer_conditions) != 3 or len(objective_transfer_scores) != 3:
+                    raise RootlessExperimentalError("objective_family_transfer_conditions_incomplete")
+                objective_transfer_observations = _objective_transfer_observations(
+                    objective_transfer_conditions, acquisition_history_record.record_id)
+                objective_transfer_evaluation = objective_transfer_run.get(
+                    "objective_evaluation", {})
+                transfer_records = owner.experiments.world_state_records(run_refs=((
+                    objective_transfer_run["run_id"], objective_transfer_run["run_digest"]),))
+                if len(transfer_records) != 1:
+                    raise RootlessExperimentalError("objective_family_transfer_projection_invalid")
+                transfer_world = WorldStateBoardBuilder().build(transfer_records)
+                transfer_writeback = owner.run_tick(snapshot=transfer_world,
+                    tick_id=RUN_ID + ":objective-family-transfer-writeback")
+                if not transfer_writeback.written_record_id:
+                    raise RootlessExperimentalError("objective_family_transfer_writeback_missing")
+                transfer_progression = owner.verified_objective_task_family_progression(
+                    request_refs=((acquisition_request_id,
+                            acquisition_request["request_digest"]),
+                        (transfer_request_id, transfer_request["request_digest"])))
+                if (transfer_progression.get("status") != "comparable_scored_episodes"
+                        or len(transfer_progression.get("episodes", [])) != 2):
+                    raise RootlessExperimentalError("objective_family_progression_unverified")
+                objective_transfer_history = {
+                    "status": "completed_scored_intervention",
+                    "experiment_seed": EXPERIMENT_SEED,
+                    "acquisition_task_outcome": acquisition_summary,
+                    "measurement_id": objective_transfer_result.changed_cognition_measurement_id,
+                    "run_id": objective_transfer_run.get("run_id"),
+                    "run_digest": objective_transfer_run.get("run_digest"),
+                    "task_family_id": objective_family,
+                    "acquisition_history_record_id": acquisition_history_record.record_id,
+                    "transfer_history_record_id": transfer_writeback.written_record_id,
+                    "acquisition_request_digest": acquisition_request["request_digest"],
+                    "transfer_request_digest": transfer_request["request_digest"],
+                    "longitudinal_progression_status": transfer_progression.get("status"),
+                    "longitudinal_episode_count": len(transfer_progression.get("episodes", [])),
+                    "history_correct_probe_delta": objective_transfer_evaluation.get(
+                        "history_correct_probe_delta"),
+                    "restoration_correct_probe_delta": objective_transfer_evaluation.get(
+                        "restoration_correct_probe_delta"),
+                    "condition_correct_counts": objective_transfer_evaluation.get(
+                        "condition_correct_counts"),
+                    "task_family_history_lineage_verified": True,
+                    "conditions": _objective_transfer_condition_summaries(
+                        objective_transfer_scores, objective_transfer_observations,
+                        acquisition_history_record.record_id),
+                    "authority": False,
+                    "action_executed": False,
+                    "performance_improvement_established": False,
+                    "scope": "single_model_synthetic_exact_scored_task_family_transfer",
+                }
+            else:
+                objective_transfer_history = {
+                    "status": "skipped_insufficient_accurate_acquisition_examples",
+                    "experiment_seed": EXPERIMENT_SEED,
+                    "acquisition_task_outcome": acquisition_summary,
+                    "transfer_eligibility": transfer_eligibility,
+                    "measurement_id": None,
+                    "run_id": None,
+                    "run_digest": None,
+                    "task_family_id": objective_family,
+                    "acquisition_history_record_id": acquisition_history_record.record_id,
+                    "transfer_history_record_id": None,
+                    "acquisition_request_digest": acquisition_request["request_digest"],
+                    "transfer_request_digest": None,
+                    "longitudinal_progression_status": "not_run",
+                    "longitudinal_episode_count": 1,
+                    "history_correct_probe_delta": None,
+                    "restoration_correct_probe_delta": None,
+                    "condition_correct_counts": None,
+                    "task_family_history_lineage_verified": False,
+                    "conditions": [],
+                    "authority": False,
+                    "action_executed": False,
+                    "performance_improvement_established": False,
+                    "scope": "single_model_synthetic_exact_scored_task_family_transfer",
+                }
+            objective_transfer_history.update({
+                "acquisition_score_status": acquisition_readiness["score_status"],
+                "acquisition_readiness_classification": acquisition_readiness["classification"],
+                "acquisition_probe_result_count": acquisition_readiness["probe_result_count"],
+                "required_probe_count": acquisition_readiness["required_probe_count"],
+            })
         intervention_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, True),
@@ -1608,25 +1879,24 @@ def run() -> dict[str, Any]:
         # The synthetic record says only that a prior predicted reach was
         # followed by an observer-reported idle pose; it is not independent
         # physical-effect evidence.
-        transfer_question = (
-            "Controlled new-decision transfer probe. This is a new synthetic task, "
-            "not a request to recall or quote the past. Choose one next action for "
-            "the current target: INSPECT or REACH. Read the current World-State and "
-            "eligible developmental history. If a history record for a prior reach "
-            "contains predicted pose reach and observer-reported pose idle, propose "
-            "INSPECT before another reach. If no such history record is available, "
-            "propose REACH based on the current target. Treat the old observer value "
-            "as an uncertain historical report, never as current truth. Return the "
-            "standard JSON response with disposition answer, evidence_ids [], "
-            "history_record_ids containing the exact cited record ID when history "
-            "supports INSPECT (otherwise []), and response exactly INSPECT or REACH. "
-            "This is a proposal only: do not claim that an action was authorized or "
-            "executed.")
+        transfer_question = TRANSFER_DECISION_QUESTION
+        # Ground only the new action-choice comparison in a current synthetic
+        # target observation. Acquisition and historical recall keep their
+        # existing evidence sets and limits.
+        later_action_decision_snapshot, _ = _pre_action_source(
+            pose="reach", include_current_target=True)
+        target_fact_ids = tuple(fact.fact_id
+            for fact in later_action_decision_snapshot.facts
+            if fact.subject.subject_id == "synthetic-target-1")
+        if len(target_fact_ids) != 1:
+            raise RootlessExperimentalError(
+                "later_action_target_fact_identity_invalid")
         transfer_intervention = (
             intervention_owner.run_companion_history_intervention(
-                snapshot=later_pre_action_snapshot,
+                snapshot=later_action_decision_snapshot,
                 tick_id=RUN_ID + ":later-transfer-decision",
-                question=transfer_question))
+                question=transfer_question,
+                history_record_allowlist=(first.written_record_id,)))
         if (transfer_intervention.status != "completed_controlled_intervention"
                 or not transfer_intervention.changed_cognition_measurement_id):
             raise RootlessExperimentalError(
@@ -1638,6 +1908,7 @@ def run() -> dict[str, Any]:
         transfer_qualification = qualify_history_transfer_decision(
             conditions=transfer_conditions,
             expected_history_record_id=first.written_record_id,
+            expected_current_fact_id=target_fact_ids[0],
             present_response="INSPECT", withheld_response="REACH",
             restored_response="INSPECT",
             restored_prompt_matches=transfer_intervention.restored_prompt_matches)
@@ -1653,7 +1924,7 @@ def run() -> dict[str, Any]:
             "execution_posture": "rootless_experimental_nonproduction",
             "source_provenance": dict(RUN_SOURCE_PROVENANCE),
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
-            "requested_backend_seed": 42,
+            **_experiment_seed_provenance(),
             "model_artifact_size_bytes": manifest_size,
             "runtime_observation": runtime, "runtime_observation_digest": runtime_sha,
             "active_model_identity": session.active_model_identity,
@@ -1761,6 +2032,7 @@ def run() -> dict[str, Any]:
                     "active_model_identity": item.get("active_model_identity"),
                     "snapshot_digest": item.get("snapshot_digest"),
                     "current_fact_ids": item.get("current_fact_ids"),
+                    "evidence_ids": list(item.get("evidence_ids", ())),
                     "retrieved_record_ids": item.get("retrieved_record_ids"),
                     "history_record_ids": list(item.get("history_record_ids", ())),
                     "inference_receipt_id": item.get("inference_receipt_id"),
@@ -1792,6 +2064,18 @@ def run() -> dict[str, Any]:
                 "present_restored_output_digest_matches":
                     transfer_restoration_stable,
                 "history_citation_bound": transfer_history_cited,
+                "target_evidence_cited": transfer_qualification[
+                    "target_evidence_cited"],
+                "response_difference_observed": transfer_qualification[
+                    "response_difference_observed"],
+                "history_conditioned_response_difference_observed_under_matched_controls": (
+                    transfer_qualification[
+                        "history_conditioned_response_difference_observed_under_matched_controls"]),
+                "history_treatment_bound": transfer_qualification[
+                    "history_treatment_bound"],
+                "grounded_new_decision_qualified": transfer_history_changed_new_decision,
+                "qualification_failure_codes": transfer_qualification[
+                    "qualification_failure_codes"],
                 "conditions": [{
                     "condition_id": item.get("condition_id"),
                     "response": item.get("response"),
@@ -1800,6 +2084,7 @@ def run() -> dict[str, Any]:
                     "output_digest": item.get("output_digest"),
                     "snapshot_digest": item.get("snapshot_digest"),
                     "current_fact_ids": item.get("current_fact_ids"),
+                    "evidence_ids": list(item.get("evidence_ids", ())),
                     "retrieved_record_ids": item.get("retrieved_record_ids"),
                     "history_record_ids": list(item.get("history_record_ids", ())),
                     "active_model_identity": item.get("active_model_identity"),
@@ -1817,10 +2102,14 @@ def run() -> dict[str, Any]:
                 **objective_transfer_history,
                 "history_condition_difference_observed": (
                     objective_transfer_evaluation.get(
-                        "history_correct_probe_delta") not in (None, 0)),
+                        "history_correct_probe_delta") not in (None, 0)
+                    if objective_transfer_history.get("status")
+                        == "completed_scored_intervention" else None),
                 "restoration_matches_present": (
                     objective_transfer_evaluation.get(
-                        "restoration_correct_probe_delta") == 0),
+                        "restoration_correct_probe_delta") == 0
+                    if objective_transfer_history.get("status")
+                        == "completed_scored_intervention" else None),
                 "causal_or_learning_claim_made": False,
                 "interpretation": (
                     "one preregistered same-model exact-scored transfer episode; "

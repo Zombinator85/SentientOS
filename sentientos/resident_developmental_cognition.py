@@ -785,6 +785,35 @@ def _digest(value: Any) -> str:
     return "sha256:" + str(digest_payload(value))
 
 
+def _history_neutral_prompt_digest(prompt: str) -> str:
+    """Fingerprint the full cognition prompt after removing only history treatment data."""
+    try:
+        value = json.loads(prompt)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ResidentDevelopmentalCognitionError(
+            "history_intervention_prompt_binding_invalid") from exc
+    if not isinstance(value, dict):
+        raise ResidentDevelopmentalCognitionError(
+            "history_intervention_prompt_binding_invalid")
+    normalized = dict(value)
+    # These fields intentionally differ between history-present and withheld.
+    for key in ("developmental_history", "historical_embodiment_reports",
+            "history_citation_allowlist"):
+        normalized.pop(key, None)
+    selection = normalized.get("developmental_history_selection")
+    if isinstance(selection, Mapping):
+        selection = dict(selection)
+        for key in ("treatment", "available_records", "selected_records",
+                "omitted_records", "omitted_records_digest", "omission_reason",
+                "selection_digest"):
+            selection.pop(key, None)
+        normalized["developmental_history_selection"] = selection
+    return _digest({
+        "schema_version": "sentientos.history_neutral_prompt:v1",
+        "prompt": normalized,
+    })
+
+
 def _valid_optional_lower_sha256(value: Any) -> bool:
     return (value is None or (type(value) is str and len(value) == 64
         and all(character in "0123456789abcdef" for character in value)))
@@ -4633,7 +4662,10 @@ class ResidentDevelopmentalCognitionOwner:
 
     def _prior_projection(self, state: Mapping[str, Any], tick_id: str, *,
             task_family_id: str | None = None,
-            task_probe_inputs: tuple[int, ...] = ()) -> DevelopmentalHistoryProjection:
+            task_probe_inputs: tuple[int, ...] = (),
+            require_task_family_history: bool = False,
+            record_allowlist: tuple[str, ...] | None = None
+            ) -> DevelopmentalHistoryProjection:
         # Tick identifiers are opaque at this owner boundary. The durable,
         # digest-verified completed-checkpoint sequence establishes which
         # developmental records were committed before this cycle; wall-clock
@@ -4656,6 +4688,18 @@ class ResidentDevelopmentalCognitionOwner:
             if not any(_unsafe_legacy_objective_cognition_fact(fact) for fact in facts):
                 safe_ids.append(record_id)
         ids = safe_ids
+        if record_allowlist is not None:
+            if (not isinstance(record_allowlist, tuple) or not record_allowlist
+                    or len(record_allowlist) > self.config.max_retrieved_records
+                    or any(not isinstance(record_id, str) or not record_id
+                        for record_id in record_allowlist)
+                    or len(set(record_allowlist)) != len(record_allowlist)):
+                raise ResidentDevelopmentalCognitionError(
+                    "history_record_allowlist_invalid")
+            if any(record_id not in ids for record_id in record_allowlist):
+                raise ResidentDevelopmentalCognitionError(
+                    "history_record_allowlist_not_admitted")
+            ids = list(record_allowlist)
         family = task_family_id or (self.objective_task.public_descriptor().get("task_family_id")
             if self.objective_task is not None else None)
         if isinstance(family, str):
@@ -4694,16 +4738,21 @@ class ResidentDevelopmentalCognitionOwner:
                     relevance[record_id] = len(overlap)
             # Exact public probe overlap ranks records; checkpoint order breaks ties.
             # Evaluator correctness is not a filter, so adverse examples survive.
+            # A task that explicitly requires family history must never receive
+            # unrelated records as a substitute. Initial acquisition tasks that
+            # do not require family history retain the general-history control
+            # used by the existing three-condition experiment.
             relevant_newest_first.sort(key=lambda record_id: (
                 relevance[record_id], ids.index(record_id)), reverse=True)
             selected = list(relevant_newest_first[:self.config.max_retrieved_records])
             selected_set = set(selected)
-            for record_id in reversed(ids):
-                if len(selected) >= self.config.max_retrieved_records:
-                    break
-                if record_id not in selected_set:
-                    selected.append(record_id)
-                    selected_set.add(record_id)
+            if not require_task_family_history:
+                for record_id in reversed(ids):
+                    if len(selected) >= self.config.max_retrieved_records:
+                        break
+                    if record_id not in selected_set:
+                        selected.append(record_id)
+                        selected_set.add(record_id)
             if probe_set:
                 # The prompt binder admits a complete suffix as capacity shrinks.
                 # Order the selected set from least to most relevant so that
@@ -5688,6 +5737,32 @@ class ResidentDevelopmentalCognitionOwner:
         if observation.schema_version == COGNITION_OBSERVATION_SCHEMA_V8:
             self._verify_observation_invocation(asdict(observation))
         if interaction_capture is not None:
+            matched_control_inputs = {
+                "schema_version": "sentientos.history_intervention_matched_inputs:v1",
+                "question_digest": _digest({"question": interaction_question}),
+                "snapshot_digest": snapshot.digest,
+                "current_projection_digest": current.projection_digest,
+                "prior_self_model_digest": _digest(
+                    asdict(prior_self_model) if prior_self_model is not None else None),
+                "prior_epistemic_state_digest": _digest(
+                    asdict(prior_epistemic_state)
+                    if prior_epistemic_state is not None else None),
+                "response_contract": (context.get("companion_response_contract")
+                    if interaction_question is not None else None),
+                "condition_group": request.linkage.get("condition_group"),
+                "invocation_purpose": request.purpose,
+                "expected_output_format": request.expected_output_format,
+                "invocation_budget_digest": _digest(request.budget.to_dict()),
+                "instruction_digest": _digest({
+                    "instruction": COMPANION_HISTORY_INTERVENTION_INSTRUCTION
+                    if companion_intervention else "companion_interaction_instruction:v1"}),
+                "response_schema_digest": _digest(
+                    dict(request.structured_output_schema)
+                    if request.structured_output_schema is not None else None),
+                "history_neutral_prompt_digest": (
+                    _history_neutral_prompt_digest(prompt)
+                    if companion_intervention else _digest({"prompt": prompt})),
+            }
             interaction_capture.update({
                 "condition_id": condition_id,
                 "cognition_observation_id": observation.observation_id,
@@ -5704,6 +5779,10 @@ class ResidentDevelopmentalCognitionOwner:
                 "snapshot_digest": snapshot.digest,
                 "current_fact_ids": list(current.fact_ids),
                 "retrieved_record_ids": list(record_ids),
+                # This digest excludes the developmental-history treatment so
+                # A/B/A can verify that all other semantic inputs stayed fixed.
+                "matched_control_inputs": matched_control_inputs,
+                "matched_control_inputs_digest": _digest(matched_control_inputs),
             })
         if epistemic_revision_probe:
             capture: dict[str, Any] = {
@@ -5854,7 +5933,8 @@ class ResidentDevelopmentalCognitionOwner:
     def run_companion_history_intervention(self, *, snapshot: WorldStateSnapshot,
             tick_id: str, question: str,
             prior_self_model: CognitiveSelfModelProjection | None = None,
-            prior_epistemic_state: EpistemicCognitiveProjection | None = None
+            prior_epistemic_state: EpistemicCognitiveProjection | None = None,
+            history_record_allowlist: tuple[str, ...] | None = None
             ) -> ResidentCompanionHistoryInterventionResult:
         """Compare one bounded companion decision with history present, withheld, restored.
 
@@ -5873,7 +5953,16 @@ class ResidentDevelopmentalCognitionOwner:
                 or (prior_self_model is not None
                     and not isinstance(prior_self_model, CognitiveSelfModelProjection))
                 or (prior_epistemic_state is not None
-                    and not isinstance(prior_epistemic_state, EpistemicCognitiveProjection))):
+                    and not isinstance(prior_epistemic_state, EpistemicCognitiveProjection))
+                or (history_record_allowlist is not None
+                    and (not isinstance(history_record_allowlist, tuple)
+                        or not history_record_allowlist
+                        or len(history_record_allowlist)
+                            > self.config.max_retrieved_records
+                        or any(not isinstance(record_id, str) or not record_id
+                            for record_id in history_record_allowlist)
+                        or len(set(history_record_allowlist))
+                            != len(history_record_allowlist)))):
             raise ResidentDevelopmentalCognitionError(
                 "companion_history_intervention_configuration_invalid")
         # Refuse before publishing an incomplete tick if no admitted history is
@@ -5883,8 +5972,11 @@ class ResidentDevelopmentalCognitionOwner:
             if (any(row.get("tick_id") == tick_id for row in state["completed_ticks"])
                     or any(row.get("tick_id") == tick_id for row in state["incomplete_ticks"])):
                 raise ResidentDevelopmentalCognitionError("tick_already_completed")
-            prior = self._prior_projection(state, tick_id)
-            if not prior.requested_record_ids:
+            prior = self._prior_projection(state, tick_id,
+                record_allowlist=history_record_allowlist)
+            if (not prior.requested_record_ids
+                    or (history_record_allowlist is not None
+                        and prior.requested_record_ids != history_record_allowlist)):
                 raise ResidentDevelopmentalCognitionError(
                     "companion_history_intervention_history_unavailable")
         captures: list[dict[str, Any]] = []
@@ -5894,7 +5986,8 @@ class ResidentDevelopmentalCognitionOwner:
             objective_task=None, objective_only=False, objective_request_id=None,
             objective_request_digest=None,
             companion_intervention_question=question,
-            companion_intervention_captures=captures)
+            companion_intervention_captures=captures,
+            companion_intervention_record_allowlist=history_record_allowlist)
         if (cycle.status != "companion_history_intervention_completed"
                 or cycle.changed_cognition_measurement_id is None
                 or len(captures) != 3):
@@ -6046,7 +6139,8 @@ class ResidentDevelopmentalCognitionOwner:
                  epistemic_revision_probe: bool = False,
                  epistemic_revision_probe_expected_prompt_digest: str | None = None,
                  companion_intervention_question: str | None = None,
-                 companion_intervention_captures: list[dict[str, Any]] | None = None
+                 companion_intervention_captures: list[dict[str, Any]] | None = None,
+                 companion_intervention_record_allowlist: tuple[str, ...] | None = None
                  ) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
@@ -6060,7 +6154,9 @@ class ResidentDevelopmentalCognitionOwner:
                 epistemic_revision_probe_expected_prompt_digest=(
                     epistemic_revision_probe_expected_prompt_digest),
                 companion_intervention_question=companion_intervention_question,
-                companion_intervention_captures=companion_intervention_captures)
+                companion_intervention_captures=companion_intervention_captures,
+                companion_intervention_record_allowlist=(
+                    companion_intervention_record_allowlist))
         with self._composition_lock():
             return self._run_tick_locked(snapshot=snapshot, tick_id=tick_id,
                 prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
@@ -6071,7 +6167,9 @@ class ResidentDevelopmentalCognitionOwner:
                 epistemic_revision_probe_expected_prompt_digest=(
                     epistemic_revision_probe_expected_prompt_digest),
                 companion_intervention_question=companion_intervention_question,
-                companion_intervention_captures=companion_intervention_captures)
+                companion_intervention_captures=companion_intervention_captures,
+                companion_intervention_record_allowlist=(
+                    companion_intervention_record_allowlist))
 
     def _run_tick_locked(self, *, snapshot: WorldStateSnapshot, tick_id: str,
                  prior_self_model: CognitiveSelfModelProjection | None = None,
@@ -6082,7 +6180,8 @@ class ResidentDevelopmentalCognitionOwner:
                  epistemic_revision_probe: bool = False,
                  epistemic_revision_probe_expected_prompt_digest: str | None = None,
                  companion_intervention_question: str | None = None,
-                 companion_intervention_captures: list[dict[str, Any]] | None = None
+                 companion_intervention_captures: list[dict[str, Any]] | None = None,
+                 companion_intervention_record_allowlist: tuple[str, ...] | None = None
                  ) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
@@ -6103,7 +6202,8 @@ class ResidentDevelopmentalCognitionOwner:
                     or companion_intervention_captures):
                 raise ResidentDevelopmentalCognitionError(
                     "companion_history_intervention_configuration_invalid")
-        elif companion_intervention_captures is not None:
+        elif (companion_intervention_captures is not None
+                or companion_intervention_record_allowlist is not None):
             raise ResidentDevelopmentalCognitionError(
                 "companion_history_intervention_capture_invalid")
         self._pending_cognition_candidates.clear()
@@ -6137,8 +6237,13 @@ class ResidentDevelopmentalCognitionOwner:
             and isinstance(task_descriptor.get("probe_inputs", ()), (list, tuple))
             and all(type(value) is int for value in task_descriptor.get("probe_inputs", ()))
             else ())
+        require_family = (objective_task.specification().get("requires_task_family_history") is True
+            if objective_task is not None else False)
         prior = self._prior_projection(state, tick_id, task_family_id=family_id,
-            task_probe_inputs=task_probe_inputs)
+            task_probe_inputs=task_probe_inputs,
+            require_task_family_history=require_family,
+            record_allowlist=(companion_intervention_record_allowlist
+                if companion_intervention_question is not None else None))
         if objective_only and not prior.requested_record_ids:
             assert objective_request_id is not None and objective_request_digest is not None
             state["completed_ticks"].append({"tick_id": tick_id,
@@ -6150,8 +6255,6 @@ class ResidentDevelopmentalCognitionOwner:
             self._save_state(state)
             return ResidentDevelopmentalCycleResult("objective_blocked_no_eligible_history",
                 tick_id, snapshot.snapshot_id)
-        require_family = (objective_task.specification().get("requires_task_family_history") is True
-            if objective_task is not None else False)
         if objective_only and isinstance(family_id, str) and require_family:
             family_records = [record for record in prior.records
                 if any(isinstance(fact, Mapping)

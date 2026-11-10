@@ -430,10 +430,30 @@ def test_semantic_history_decision_qualification_separates_effect_from_improveme
 
 
 def test_history_transfer_requires_exact_expected_record_and_restored_decision() -> None:
+    matched_inputs = {
+        "schema_version": "sentientos.history_intervention_matched_inputs:v1",
+        "question_digest": "sha256:question",
+        "snapshot_digest": "sha256:snapshot",
+        "current_projection_digest": "sha256:projection",
+        "prior_self_model_digest": "sha256:self-model",
+        "prior_epistemic_state_digest": "sha256:epistemic",
+        "response_contract": "sentientos.companion_history_intervention_decision:v1",
+        "condition_group": "tick-1:retrieval-comparison",
+        "invocation_purpose": "resident_developmental_history_intervention_experiment",
+        "expected_output_format": "json",
+        "invocation_budget_digest": "sha256:budget",
+        "instruction_digest": "sha256:instruction",
+        "response_schema_digest": "sha256:schema",
+        "history_neutral_prompt_digest": "sha256:neutral-prompt",
+    }
     def row(condition: str, response: str, cited: list[str]) -> dict[str, object]:
         return {
             "condition_id": condition,
+            "prompt_digest": "sha256:" + "a" * 64,
+            "matched_control_inputs": dict(matched_inputs),
+            "matched_control_inputs_digest": "sha256:" + digest_payload(matched_inputs),
             "current_fact_ids": ["fact-current"],
+            "evidence_ids": ["fact-current"],
             "snapshot_digest": "sha256:snapshot",
             "generation_config": {"temperature": 0},
             "active_model_identity": {"model": "model-a"},
@@ -454,9 +474,16 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
     ]
     qualified = qualify_history_transfer_decision(
         conditions=conditions, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
         present_response="INSPECT", withheld_response="REACH",
         restored_response="INSPECT", restored_prompt_matches=True)
     assert qualified["history_changed_new_decision"] is True
+    assert qualified["restored_prompt_exact_match"] is True
+    assert qualified["matched_non_history_inputs_bound"] is True
+    assert qualified["target_evidence_cited"] is True
+    assert qualified["response_difference_observed"] is True
+    assert qualified["history_conditioned_response_difference_observed_under_matched_controls"] is True
+    assert qualified["history_treatment_bound"] is True
     assert qualified["expected_history_cited"] is True
     assert qualified["performance_improvement_established"] is False
 
@@ -465,10 +492,109 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
     irrelevant_citation[0]["retrieved_record_ids"] = ["devrec-other"]
     rejected = qualify_history_transfer_decision(
         conditions=irrelevant_citation, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
         present_response="INSPECT", withheld_response="REACH",
         restored_response="INSPECT", restored_prompt_matches=True)
     assert rejected["history_changed_new_decision"] is False
+    assert rejected["target_evidence_cited"] is True
     assert rejected["expected_history_cited"] is False
+    assert rejected["classification"] == (
+        "response_difference_observed_but_history_treatment_or_controls_unqualified")
+    assert rejected["history_conditioned_response_difference_observed_under_matched_controls"] is False
+    assert "expected_history_record_not_cited_in_present_and_restored" in (
+        rejected["qualification_failure_codes"])
+
+    missing_history_citation = [dict(item) for item in conditions]
+    missing_history_citation[0]["history_record_ids"] = []
+    missing_history_citation[2]["history_record_ids"] = []
+    for item in missing_history_citation:
+        item["evidence_ids"] = []
+    ungrounded = qualify_history_transfer_decision(
+        conditions=missing_history_citation,
+        expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert ungrounded["history_treatment_bound"] is True
+    assert ungrounded["history_conditioned_response_difference_observed_under_matched_controls"] is True
+    assert ungrounded["history_changed_new_decision"] is False
+    assert ungrounded["target_evidence_cited"] is False
+    assert ungrounded["expected_history_cited"] is False
+    assert ungrounded["classification"] == (
+        "controlled_history_conditioned_response_difference_observed_but_proposal_support_unqualified")
+
+    missing_target = [dict(item) for item in conditions]
+    missing_target[1]["evidence_ids"] = []
+    target_rejected = qualify_history_transfer_decision(
+        conditions=missing_target, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert target_rejected["response_difference_observed"] is True
+    assert target_rejected["target_evidence_cited"] is False
+    assert target_rejected["history_changed_new_decision"] is False
+    assert target_rejected["history_conditioned_response_difference_observed_under_matched_controls"] is True
+
+    question_mismatch = [dict(item) for item in conditions]
+    changed_controls = dict(question_mismatch[1]["matched_control_inputs"])
+    changed_controls["question_digest"] = "sha256:different-question"
+    question_mismatch[1]["matched_control_inputs"] = changed_controls
+    question_mismatch[1]["matched_control_inputs_digest"] = (
+        "sha256:" + digest_payload(changed_controls))
+    mismatched = qualify_history_transfer_decision(
+        conditions=question_mismatch, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert mismatched["matched_non_history_inputs_bound"] is False
+    assert mismatched["controlled_inputs_match"] is False
+    assert mismatched["history_conditioned_response_difference_observed_under_matched_controls"] is False
+    assert mismatched["classification"] == (
+        "response_difference_observed_but_history_treatment_or_controls_unqualified")
+
+    tampered_controls = [dict(item) for item in conditions]
+    tampered_controls[0]["matched_control_inputs_digest"] = "sha256:incorrect"
+    tampered = qualify_history_transfer_decision(
+        conditions=tampered_controls, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert tampered["matched_non_history_inputs_bound"] is False
+    assert tampered["controlled_inputs_match"] is False
+
+    prompt_mismatch = [dict(item) for item in conditions]
+    prompt_mismatch[2]["prompt_digest"] = "sha256:" + "b" * 64
+    restored_mismatch = qualify_history_transfer_decision(
+        conditions=prompt_mismatch, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert restored_mismatch["restored_prompt_exact_match"] is False
+    assert restored_mismatch["history_conditioned_response_difference_observed_under_matched_controls"] is False
+    assert "restored_prompt_digest_mismatch" in (
+        restored_mismatch["qualification_failure_codes"])
+
+    malformed_prompt = [dict(item) for item in conditions]
+    malformed_prompt[0]["prompt_digest"] = "sha256:placeholder"
+    malformed = qualify_history_transfer_decision(
+        conditions=malformed_prompt, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert malformed["restored_prompt_exact_match"] is False
+    assert "restored_prompt_digest_mismatch" in (
+        malformed["qualification_failure_codes"])
+
+    retrieval_mismatch = [dict(item) for item in conditions]
+    retrieval_mismatch[0]["retrieved_record_ids"] = ["devrec-other"]
+    unbound = qualify_history_transfer_decision(
+        conditions=retrieval_mismatch, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
+        present_response="INSPECT", withheld_response="REACH",
+        restored_response="INSPECT", restored_prompt_matches=True)
+    assert unbound["response_difference_observed"] is True
+    assert unbound["history_treatment_bound"] is False
+    assert unbound["history_conditioned_response_difference_observed_under_matched_controls"] is False
 
     null_result = [dict(item) for item in conditions]
     null_result[0]["response"] = null_result[1]["response"] = "REACH"
@@ -476,7 +602,9 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
     null_result[0]["output_digest"] = null_result[1]["output_digest"] = "output-REACH"
     unchanged = qualify_history_transfer_decision(
         conditions=null_result, expected_history_record_id="devrec-expected",
+        expected_current_fact_id="fact-current",
         present_response="INSPECT", withheld_response="REACH",
         restored_response="INSPECT", restored_prompt_matches=True)
     assert unchanged["history_changed_new_decision"] is False
+    assert unchanged["response_difference_observed"] is False
     assert unchanged["classification"] == "no_validated_new_decision_transfer_difference"
