@@ -792,6 +792,50 @@ def test_objective_transfer_requires_matching_present_restored_and_withheld_hist
 
 
 
+def test_objective_transfer_report_preserves_score_and_history_lineage(runner):
+    acquisition_id = "devrec-acquisition"
+    conditions = [
+        {"condition_id": "history_present",
+            "retrieved_record_ids": [acquisition_id]},
+        {"condition_id": "history_withheld", "retrieved_record_ids": []},
+        {"condition_id": "history_restored",
+            "retrieved_record_ids": [acquisition_id]},
+    ]
+    observations = runner._objective_transfer_observations(conditions, acquisition_id)
+    scores = [{
+        "condition_id": condition_id,
+        "score": {"correct_count": 1, "probe_count": 3,
+            "status": "partially_correct", "output_digest": f"digest-{index}"},
+        "inference_receipt_id": f"receipt-{index}",
+        "inference_receipt_digest": f"receipt-digest-{index}",
+    } for index, condition_id in enumerate((
+        "history_present", "history_withheld", "history_restored"))]
+
+    summaries = runner._objective_transfer_condition_summaries(
+        scores, observations, acquisition_id)
+
+    assert [item["condition_id"] for item in summaries] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert [item["output_digest"] for item in summaries] == [
+        "digest-0", "digest-1", "digest-2"]
+    assert [item["retrieved_record_ids"] for item in summaries] == [
+        [acquisition_id], [], [acquisition_id]]
+    assert [item["task_family_history_record_id_retrieved"]
+        for item in summaries] == [True, False, True]
+    assert [item["inference_receipt_id"] for item in summaries] == [
+        "receipt-0", "receipt-1", "receipt-2"]
+    assert [item["inference_receipt_digest"] for item in summaries] == [
+        "receipt-digest-0", "receipt-digest-1", "receipt-digest-2"]
+
+    malformed_scores = list(scores)
+    malformed_scores[1] = {**malformed_scores[1], "condition_id": "history_restored"}
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_transfer_report_conditions_incomplete"):
+        runner._objective_transfer_condition_summaries(
+            malformed_scores, observations, acquisition_id)
+
+
+
 def test_objective_acquisition_summary_counts_only_verified_scored_examples(runner):
     run = {"objective_scores": [
         {"condition_id": "history_present", "score": {

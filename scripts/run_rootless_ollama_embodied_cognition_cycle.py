@@ -209,6 +209,47 @@ def _objective_transfer_observations(
     return observations
 
 
+def _objective_transfer_condition_summaries(
+        scores: Any,
+        observations: Mapping[str, Mapping[str, Any]],
+        acquisition_record_id: str) -> list[dict[str, Any]]:
+    """Keep each scored condition bound to its retrieved-history and receipt evidence."""
+    expected_conditions = ("history_present", "history_withheld", "history_restored")
+    if (not isinstance(scores, list)
+            or tuple(item.get("condition_id") for item in scores
+                if isinstance(item, Mapping)) != expected_conditions
+            or set(observations) != set(expected_conditions)):
+        raise RootlessExperimentalError(
+            "objective_family_transfer_report_conditions_incomplete")
+    summaries: list[dict[str, Any]] = []
+    for item, condition_id in zip(scores, expected_conditions):
+        if not isinstance(item, Mapping) or item.get("condition_id") != condition_id:
+            raise RootlessExperimentalError(
+                "objective_family_transfer_report_conditions_incomplete")
+        observation = observations[condition_id]
+        retrieved_record_ids = observation.get("retrieved_record_ids", [])
+        if (not isinstance(retrieved_record_ids, (list, tuple))
+                or any(not isinstance(record_id, str) for record_id in retrieved_record_ids)):
+            raise RootlessExperimentalError(
+                "objective_family_transfer_report_lineage_invalid")
+        score = item.get("score")
+        score_mapping = score if isinstance(score, Mapping) else {}
+        summaries.append({
+            "condition_id": condition_id,
+            "correct_count": score_mapping.get("correct_count"),
+            "probe_count": score_mapping.get("probe_count"),
+            "score_status": score_mapping.get("status"),
+            "output_digest": (score_mapping.get("output_digest")
+                or item.get("invocation_output_digest")),
+            "retrieved_record_ids": list(retrieved_record_ids),
+            "task_family_history_record_id_retrieved": (
+                acquisition_record_id in retrieved_record_ids),
+            "inference_receipt_id": item.get("inference_receipt_id"),
+            "inference_receipt_digest": item.get("inference_receipt_digest"),
+        })
+    return summaries
+
+
 def _objective_task_pair(seed: int) -> tuple[ObjectivePredictionTask, ObjectivePredictionTask]:
     if type(seed) is not int or not 0 < seed <= _MAX_EXPERIMENT_SEED:
         raise RootlessExperimentalError("hermes_experiment_seed_invalid")
@@ -1369,26 +1410,9 @@ def run() -> dict[str, Any]:
                 "condition_correct_counts": objective_transfer_evaluation.get(
                     "condition_correct_counts"),
                 "task_family_history_lineage_verified": True,
-                "conditions": [{
-                    "condition_id": item.get("condition_id"),
-                    "correct_count": (item.get("score", {}).get("correct_count")
-                        if isinstance(_objective_condition_score(item), Mapping) else None),  # invariant-allow: score
-                    "probe_count": (item.get("score", {}).get("probe_count")
-                        if isinstance(_objective_condition_score(item), Mapping) else None),  # invariant-allow: score
-                    "score_status": (item.get("score", {}).get("status")
-                        if isinstance(_objective_condition_score(item), Mapping) else None),  # invariant-allow: score
-                    "output_digest": (item.get("score", {}).get("output_digest")
-                        if isinstance(_objective_condition_score(item), Mapping) else
-                        item.get("invocation_output_digest")),  # invariant-allow: score
-                    "retrieved_record_ids": objective_transfer_observations.get(
-                        item.get("condition_id"), {}).get("retrieved_record_ids", []),
-                    "task_family_history_record_id_retrieved": (
-                        acquisition_history_record.record_id in
-                        objective_transfer_observations.get(
-                            item.get("condition_id"), {}).get("retrieved_record_ids", [])),
-                    "inference_receipt_id": item.get("inference_receipt_id"),
-                    "inference_receipt_digest": item.get("inference_receipt_digest"),
-                } for item in objective_transfer_scores],
+                "conditions": _objective_transfer_condition_summaries(
+                    objective_transfer_scores, objective_transfer_observations,
+                    acquisition_history_record.record_id),
                 "authority": False,
                 "action_executed": False,
                 "performance_improvement_established": False,
