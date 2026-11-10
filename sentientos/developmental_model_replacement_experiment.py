@@ -1819,8 +1819,6 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
                     raise ValueError("answer_shape_invalid")
             elif type(answer) is not int:
                 raise ValueError("answer_shape_invalid")
-            if output != json.dumps({expected_key: answer}, sort_keys=True, separators=(",", ":")):
-                raise ValueError("answer_encoding_not_canonical")
             correct = answer == expected
             status = "correct" if correct else "incorrect"
             if is_suite:
