@@ -5697,6 +5697,10 @@ class ResidentDevelopmentalCognitionOwner:
                     if prior_epistemic_state is not None else None),
                 "response_contract": (context.get("companion_response_contract")
                     if interaction_question is not None else None),
+                "condition_group": request.linkage.get("condition_group"),
+                "invocation_purpose": request.purpose,
+                "expected_output_format": request.expected_output_format,
+                "invocation_budget_digest": _digest(request.budget.to_dict()),
                 "instruction_digest": _digest({
                     "instruction": COMPANION_HISTORY_INTERVENTION_INSTRUCTION
                     if companion_intervention else "companion_interaction_instruction:v1"}),
