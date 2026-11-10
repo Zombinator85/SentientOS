@@ -841,3 +841,18 @@ def test_failure_code_keeps_only_bounded_non_output_diagnostics(runner):
         "resident_response_schema_invalid")
     assert runner._failure_code(ValueError(
         "raw model text: requested_pose=reach")) == "ValueError"
+
+
+def test_target_evidence_is_added_only_when_requested_for_later_probe(runner):
+    from sentientos.world_state_board import validate_snapshot
+
+    plain, _ = runner._pre_action_source(pose="reach")
+    grounded, _ = runner._pre_action_source(
+        pose="reach", include_current_target=True)
+
+    assert len(plain.facts) == 1
+    assert len(grounded.facts) == 2
+    assert {fact.subject.subject_kind for fact in grounded.facts} == {
+        "robot_body", "target_object"}
+    assert validate_snapshot(plain).valid
+    assert validate_snapshot(grounded).valid

@@ -965,7 +965,9 @@ def _verified_companion_replay(bridge: Any, owner: Any, *,
             request_id=request_id),
     }
 
-def _pre_action_source(*, pose: str = "idle") -> tuple[Any, EmbodimentObservation]:
+def _pre_action_source(*, pose: str = "idle",
+        include_current_target: bool = False
+        ) -> tuple[WorldStateSnapshot, EmbodimentObservation]:
     """Build the synthetic body's pre-action state for a governed proposal."""
     if pose not in {"idle", "reach"}:
         raise RootlessExperimentalError("synthetic_pose_invalid")
@@ -983,12 +985,13 @@ def _pre_action_source(*, pose: str = "idle") -> tuple[Any, EmbodimentObservatio
         payload={"encoder_pose": pose, "joint_state": {"arm": arm_value},
             "sampled_at": observed_at})
     records = EmbodimentEvidenceOwner([self_report]).world_state_records()
+    if include_current_target:
+        records.append(_synthetic_current_target_record())
     return WorldStateBoardBuilder().build(records), self_report
 
 
 def _embodied_source(*, requested_pose: str, predicted_pose: str
-        ) -> tuple[WorldStateSnapshot, dict[str, Any], EmbodimentObservation,
-            list[dict[str, Any]]]:
+        ) -> tuple[WorldStateSnapshot, dict[str, Any], EmbodimentObservation]:
     commanded_at = (datetime.now(timezone.utc) - timedelta(seconds=8)).isoformat()
     renderer_completed_at = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
     observed_at = (datetime.now(timezone.utc) - timedelta(seconds=4)).isoformat()
@@ -1065,7 +1068,7 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
             "observation_independence_posture"],
         "action_execution_posture": "synthetic_fixture_only",
     }
-    return snapshot, evidence_summary, self_report, selected_records
+    return snapshot, evidence_summary, self_report
 
 
 def _synthetic_current_target_record() -> dict[str, Any]:
@@ -1230,7 +1233,7 @@ def run() -> dict[str, Any]:
                 "pre_action_prediction_inconsistent_with_deterministic_fixture")
         if proposal["requested_pose"] != "reach":
             raise RootlessExperimentalError("pre_action_goal_not_met")
-        snapshot, evidence, proprioception, consequence_records = _embodied_source(
+        snapshot, evidence, proprioception = _embodied_source(
             requested_pose=proposal["requested_pose"],
             predicted_pose=proposal["predicted_pose"])
         RUN_STAGE = "governed_developmental_writeback"
@@ -1244,12 +1247,7 @@ def run() -> dict[str, Any]:
         # rather than treating a plausible conversational difference as
         # evidence of improved performance.
         RUN_STAGE = "objective_task_family_acquisition"
-        # The later action-choice comparison needs a current target fact to
-        # ground its decision. The prior snapshot held only proprioception and
-        # the previous consequence, so asking for a target-grounded action
-        # otherwise created an under-specified probe.
-        later_pre_action_snapshot = WorldStateBoardBuilder().build(
-            [*consequence_records, _synthetic_current_target_record()])
+        later_pre_action_snapshot = snapshot
         objective_family = "rootless_integer_affine_transfer"
         acquisition_task, transfer_task = _objective_task_pair(EXPERIMENT_SEED)
         acquisition_request_id = RUN_ID + ":objective-family-acquisition"
@@ -1677,9 +1675,14 @@ def run() -> dict[str, Any]:
         # followed by an observer-reported idle pose; it is not independent
         # physical-effect evidence.
         transfer_question = TRANSFER_DECISION_QUESTION
+        # Ground only the new action-choice comparison in a current synthetic
+        # target observation. Acquisition and historical recall keep their
+        # existing evidence sets and limits.
+        later_action_decision_snapshot, _ = _pre_action_source(
+            pose="reach", include_current_target=True)
         transfer_intervention = (
             intervention_owner.run_companion_history_intervention(
-                snapshot=later_pre_action_snapshot,
+                snapshot=later_action_decision_snapshot,
                 tick_id=RUN_ID + ":later-transfer-decision",
                 question=transfer_question,
                 history_record_allowlist=(first.written_record_id,)))
