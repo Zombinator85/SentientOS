@@ -75,6 +75,22 @@ from sentientos.world_state_board import WorldStateBoardBuilder
 
 
 MODEL_NAME = os.environ.get("SENTIENTOS_HERMES_MODEL", "sentientos-hermes4:14b-q4km")
+TRANSFER_DECISION_QUESTION = (
+    "Controlled new-decision transfer probe. This is a new synthetic task, "
+    "not a request to recall or quote the past. Choose one next action for "
+    "the current target: INSPECT or REACH. Read the current World-State and "
+    "eligible developmental history. If a history record for a prior reach "
+    "contains predicted pose reach and observer-reported pose idle, propose "
+    "INSPECT before another reach. If no such history record is available, "
+    "propose REACH based on the current target. Treat the old observer value "
+    "as an uncertain historical report, never as current truth. Return the "
+    "standard JSON response with disposition answer, evidence_ids containing "
+    "the exact current fact ID that grounds the target, history_record_ids "
+    "containing the exact cited record ID when history supports INSPECT "
+    "(otherwise []), and response exactly INSPECT or REACH. If no current "
+    "fact grounds the target, abstain with response HISTORY_UNAVAILABLE and "
+    "no citations. This is a proposal only: do not claim that an action was "
+    "authorized or executed.")
 MANIFEST_PATH = EXPERIMENT_ROOT / "ollama-model-manifests" / (
     "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce.json")
 RUN_ID = "rootless-cognition-cycle-" + uuid.uuid4().hex[:20]
@@ -1354,20 +1370,7 @@ def run() -> dict[str, Any]:
         # The synthetic record says only that a prior predicted reach was
         # followed by an observer-reported idle pose; it is not independent
         # physical-effect evidence.
-        transfer_question = (
-            "Controlled new-decision transfer probe. This is a new synthetic task, "
-            "not a request to recall or quote the past. Choose one next action for "
-            "the current target: INSPECT or REACH. Read the current World-State and "
-            "eligible developmental history. If a history record for a prior reach "
-            "contains predicted pose reach and observer-reported pose idle, propose "
-            "INSPECT before another reach. If no such history record is available, "
-            "propose REACH based on the current target. Treat the old observer value "
-            "as an uncertain historical report, never as current truth. Return the "
-            "standard JSON response with disposition answer, evidence_ids [], "
-            "history_record_ids containing the exact cited record ID when history "
-            "supports INSPECT (otherwise []), and response exactly INSPECT or REACH. "
-            "This is a proposal only: do not claim that an action was authorized or "
-            "executed.")
+        transfer_question = TRANSFER_DECISION_QUESTION
         transfer_intervention = (
             intervention_owner.run_companion_history_intervention(
                 snapshot=later_pre_action_snapshot,

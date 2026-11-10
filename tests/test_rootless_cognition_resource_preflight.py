@@ -455,3 +455,11 @@ def test_pose_decision_classifier_requires_exact_json_schema(runner):
         'requested_pose: reach; predicted_pose: reach') is None
     assert runner._pose_decision_from_response(
         '{"requested_pose":"reach","predicted_pose":"reach","extra":"x"}') is None
+
+
+def test_transfer_decision_prompt_requires_grounded_current_evidence(runner):
+    question = runner.TRANSFER_DECISION_QUESTION
+    assert len(question) <= 1200
+    assert "evidence_ids containing the exact current fact ID" in question
+    assert "evidence_ids []" not in question
+    assert "history_record_ids containing the exact cited record ID" in question
