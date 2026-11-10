@@ -2437,6 +2437,31 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         and row["score"]["status"] in {"correct", "incorrect", "invalid_answer",
             "output_unavailable", "output_truncated"}
         for row in prior_task_run["objective_scores"])
+    heldout_task_digest = heldout_task.public_descriptor()["task_digest"]
+    heldout_requests = [request for request in model.requests
+        if request.upstream_evidence.get("objective_task_digest") == heldout_task_digest]
+    assert len(heldout_requests) == 3
+    heldout_request_by_condition = {request.linkage["condition_id"]: request
+        for request in heldout_requests}
+    assert set(heldout_request_by_condition) == {
+        "history_present", "history_withheld", "history_restored"}
+    present_projection = heldout_request_by_condition["history_present"].upstream_evidence[
+        "task_family_history_prompt_projection"]
+    withheld_projection = heldout_request_by_condition["history_withheld"].upstream_evidence[
+        "task_family_history_prompt_projection"]
+    restored_projection = heldout_request_by_condition["history_restored"].upstream_evidence[
+        "task_family_history_prompt_projection"]
+    assert present_projection["task_relevant_example_count"] >= 2
+    assert present_projection["records"]
+    assert withheld_projection["task_relevant_example_count"] == 0
+    assert withheld_projection["records"] == []
+    assert restored_projection["records"] == present_projection["records"]
+    for projection in (present_projection, withheld_projection, restored_projection):
+        semantic = {key: value for key, value in projection.items()
+            if key != "projection_digest"}
+        assert projection["projection_digest"] == cognition_digest(semantic)
+        assert projection["authority"] is False
+        assert "examples" not in projection
     epistemic_requests = [request for request in model.requests
         if request.upstream_evidence.get("epistemic_projection_id")
             == prior_epistemic.projection_id]

@@ -2254,6 +2254,66 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
     raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
 
 
+def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
+        condition_id: str, task_family_id: str) -> dict[str, Any]:
+    """Record digest-only evidence of task-family examples in the bound prompt."""
+    if (not isinstance(condition_id, str) or not condition_id
+            or not isinstance(task_family_id, str) or not task_family_id):
+        raise ResidentDevelopmentalCognitionError(
+            "task_family_prompt_projection_identity_invalid")
+    history = context.get("developmental_history", ())
+    if not isinstance(history, (list, tuple)):
+        raise ResidentDevelopmentalCognitionError(
+            "task_family_prompt_projection_history_invalid")
+    entries: list[dict[str, Any]] = []
+    for packet in history:
+        if not isinstance(packet, Mapping):
+            raise ResidentDevelopmentalCognitionError(
+                "task_family_prompt_projection_history_invalid")
+        experiences = packet.get("task_relevant_experience", ())
+        if not experiences:
+            continue
+        if (not isinstance(experiences, (list, tuple))
+                or any(not isinstance(experience, Mapping) for experience in experiences)
+                or not isinstance(packet.get("record_id"), str)
+                or not isinstance(packet.get("record_digest"), str)):
+            raise ResidentDevelopmentalCognitionError(
+                "task_family_prompt_projection_examples_invalid")
+        example_rows: list[Mapping[str, Any]] = []
+        for experience in experiences:
+            rows = experience.get("examples", ())
+            if (not isinstance(rows, (list, tuple))
+                    or any(not isinstance(row, Mapping) for row in rows)):
+                raise ResidentDevelopmentalCognitionError(
+                    "task_family_prompt_projection_examples_invalid")
+            example_rows.extend(rows)
+        entries.append({
+            "record_id": packet["record_id"],
+            "record_digest": packet["record_digest"],
+            "experience_count": len(experiences),
+            "example_count": len(example_rows),
+            "examples_digest": _digest(example_rows),
+            "evaluator_correct_count": sum(
+                example.get("evaluator_correct") is True for example in example_rows),
+            "evaluator_incorrect_count": sum(
+                example.get("evaluator_correct") is False for example in example_rows),
+        })
+    semantic = {
+        "schema_version": "sentientos.task_family_history_prompt_projection:v1",
+        "condition_id": condition_id,
+        "task_family_id": task_family_id,
+        "treatment": "withheld" if condition_id == "history_withheld" else "present",
+        "selected_record_count": len(history),
+        "task_relevant_record_count": len(entries),
+        "task_relevant_example_count": sum(item["example_count"] for item in entries),
+        "records": entries,
+        "historical_only": True,
+        "current_truth": False,
+        "authority": False,
+    }
+    return {**semantic, "projection_digest": _digest(semantic)}
+
+
 def _bind_epistemic_context(*, context: Mapping[str, Any],
                             projection: EpistemicCognitiveProjection | None
                             ) -> tuple[dict[str, Any], dict[str, Any], str]:
@@ -5453,6 +5513,9 @@ class ResidentDevelopmentalCognitionOwner:
                 "objective_task_digest": objective_plan["task_descriptor"]["task_digest"]})
             task_family_id = objective_plan["task_descriptor"].get("task_family_id")
             if isinstance(task_family_id, str) and protocol is not None:
+                upstream_evidence["task_family_history_prompt_projection"] = (
+                    _task_family_history_prompt_projection(context,
+                        condition_id=condition_id, task_family_id=task_family_id))
                 family_fact_ids: set[str] = set()
                 for record_id in protocol.record_ids:
                     record = self.writeback.store.get(record_id)
