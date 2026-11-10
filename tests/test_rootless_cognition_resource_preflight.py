@@ -834,3 +834,10 @@ def test_later_action_probe_has_current_synthetic_target_evidence(runner):
         "deterministic_synthetic_fixture")
     assert fact.effect_proven is False
     assert fact.effect_claimed is False
+
+
+def test_failure_code_keeps_only_bounded_non_output_diagnostics(runner):
+    assert runner._failure_code(ValueError("resident_response_schema_invalid")) == (
+        "resident_response_schema_invalid")
+    assert runner._failure_code(ValueError(
+        "raw model text: requested_pose=reach")) == "ValueError"

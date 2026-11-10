@@ -886,7 +886,9 @@ def _verified_companion_replay(bridge: Any, owner: Any, *,
             raise RootlessExperimentalError("rejected_replay_receipt_unverified") from exc
         return {
             "status": "owner_rejected_completed_inference",
-            "failure_code": str(exc),
+            # Keep the error contract tokenized; an exception message may
+            # accidentally include model output and must never enter artifacts.
+            "failure_code": _failure_code(exc),
             "prompt_digest": prompt_digest,
             "generation_config": generation_config,
             "active_model_identity": dict(request.get("active_model_identity", {})),
@@ -1206,6 +1208,7 @@ def run() -> dict[str, Any]:
                 or not cognitive_decision.get("evidence_ids")):
             raise RootlessExperimentalError("pre_action_cognition_proposal_unverified: " + json.dumps({
                     "status": cognitive_decision.get("status"),
+                    "owner_rejection_code": cognitive_decision.get("failure_code"),
                     "lineage": cognitive_decision.get("response_lineage_verified"),
                     "disposition": cognitive_decision.get("disposition"),
                     "evidence_ids": cognitive_decision.get("evidence_ids"),
