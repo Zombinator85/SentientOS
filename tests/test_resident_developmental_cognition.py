@@ -10370,3 +10370,173 @@ def test_companion_cycle_persists_epistemic_state_for_later_cognition(
         assert observation["epistemic_projection_present"] == (
             result.epistemic_projection_id is not None)
         assert observation["authority"] is False
+
+
+def test_daemon_tick_routes_recovery_evidence_through_next_tick_cognition_and_planning(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exercise the scheduled daemon path across its temporal cognition boundary.
+
+    Recovery events and model inference are deterministic fixtures. This checks
+    actual owner composition, tick ordering, and durable epistemic carry-forward;
+    it does not claim a live recovery or improved model behavior.
+    """
+    import sentientosd as daemon
+    from sentientos.codex_task_authority_admission import (
+        RESIDENT_EPISTEMIC_STATE_MUTATION,
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    )
+    from sentientos.goal_graph import Goal, GoalGraph, persist_goal_graph
+    from sentientos.resident_epistemic_development import (
+        EpistemicDevelopmentConfig, EpistemicDevelopmentRule,
+        ResidentEpistemicDevelopmentRuntime,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        ResidentEpistemicStateMutationController,
+    )
+
+    monkeypatch.setenv("SENTIENTOS_CANONICAL_GOAL_PLANNING_ENABLE", "1")
+    monkeypatch.setenv("SENTIENTOS_SENTINEL_ENABLED", "0")
+    monkeypatch.setenv("SENTIENTOS_CONTROL_KERNEL_ROOT", str(tmp_path / "kernel"))
+    cognition, fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("runtime_supervisor",), max_selected_facts=4)
+    epistemics = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("operator",))
+    proposition = make_proposition(namespace="operator",
+        subject="recovery:daemon-unresponsive", predicate="recovery_effect",
+        object_value="a bounded daemon restart resolved the recorded interruption",
+        polarity="positive", qualifiers={"scope": "fixture-only"},
+        temporal_scope={"kind": "one_recovery_event"},
+        context_scope={"source": "daemon_tick_integration_regression"},
+        proposition_class="descriptive")
+    epistemics.register_proposition(proposition)
+    rule = EpistemicDevelopmentRule(
+        "retain-bounded-recovery-observation", proposition.proposition_id,
+        proposition.proposition_digest,
+        {"source_kind": "runtime_supervisor",
+            "subject_kind": "codex_healer_recovery_event"},
+        "supports", "unknown_dependency", "bounded_recovery_fixture")
+    ledger = AdmissionLedger(tmp_path / "epistemic-admissions.json")
+    definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION:
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+    mutation_controller = ResidentEpistemicStateMutationController(
+        owner=epistemics,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=definitions, ledger=ledger),
+        current_sequence=ledger.current_sequence,
+        receipt_root=tmp_path / "epistemic-mutation-receipts")
+    development_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 1, 1, (rule,), ("operator",)),
+        owner=epistemics, mutation_controller=mutation_controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=definitions, ledger=ledger), admission_ledger=ledger)
+
+    repo_root = tmp_path / "repo"
+    graph = GoalGraph(schema_version=1, goals=(Goal(
+        "recovery-followup", "review the retained recovery evidence", 1.0, 1,
+        (), "check_forge_last_run_ok", 2, 1,
+        (f"epistemic_proposition:{proposition.proposition_id}",), True),))
+    persist_goal_graph(repo_root, graph)
+    surfaces = RuntimeMaintenanceSurfaces(
+        repo_root, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=cognition,
+        epistemic_state_owner=epistemics,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True},
+        epistemic_development_runtime=development_runtime)
+
+    ticks = (
+        datetime(2026, 11, 11, 18, 0, tzinfo=timezone.utc),
+        datetime(2026, 11, 11, 18, 1, tzinfo=timezone.utc),
+    )
+    active_tick = [ticks[0]]
+    class ControlledDaemonDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[no-untyped-def]
+            del tz
+            return active_tick[0]
+
+    # Keep tick timestamps deterministic and stable within each tick; only the
+    # scheduler advances time between maintenance cycles.
+    monkeypatch.setattr(daemon, "datetime", ControlledDaemonDateTime)
+    event_values = [{
+        "timestamp": ticks[0].isoformat(), "status": "auto-repair verified",
+        "anomaly": {"kind": "daemon_unresponsive", "subject": "fixture-daemon"},
+        "action": {"kind": "restart_daemon"},
+        "details": {"attempts": 1, "attempt_ceiling": 1,
+            "repair_verification": {"status": "verified"}},
+        "quarantined": False, "correlation_id": "a" * 64,
+        "canonical_admission": {"typed_action_id": "repair:restart_daemon",
+            "admission_decision_ref": "admission:0", "path_status": "executed"}}
+    ]
+    monkeypatch.setattr(daemon, "runtime_healer_monitor",
+        lambda _root: [event_values.pop(0)] if event_values else [])
+
+    class AllowedDecision:
+        allowed = True
+        reason = "fixture_allowed"
+
+        def __init__(self, correlation_id: str) -> None:
+            self.correlation_id = correlation_id
+
+        def to_dict(self) -> dict[str, object]:
+            return {"allowed": True, "reason": self.reason,
+                "correlation_id": self.correlation_id}
+
+    class AllowGovernor:
+        def admit_action(self, _action_class, _actor, correlation_id, *, metadata):
+            del _action_class, _actor, metadata
+            return AllowedDecision(correlation_id)
+
+    class Noop:
+        def run_tick(self) -> None:
+            return None
+
+        def tick(self) -> None:
+            return None
+
+    # Keep unrelated maintenance surfaces inert; the cognition, epistemic,
+    # World-State, and canonical-planning owners remain the real implementations.
+    for method_name in (
+            "identify_improvement_signals", "expand", "cycle", "guard",
+            "run_host_resource_observation_runtime",
+            "run_host_privilege_review_rehearsal_runtime",
+            "run_host_execution_readiness_authorization_review_runtime",
+            "run_host_controlled_authorization_safety_runtime",
+            "run_host_live_grant_readiness_runtime",
+            "process_resident_cognitive_transition_request",
+            "reconcile_longitudinal_self_model", "capture_causal_introspection"):
+        monkeypatch.setattr(surfaces, method_name, lambda **_kwargs: {})
+    monkeypatch.setattr(surfaces, "next_repository_mutation_handoff", lambda: None)
+    kernel = ControlPlaneKernel(runtime_governor=AllowGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")  # type: ignore[arg-type]
+    for tick in ticks:
+        active_tick[0] = tick
+        daemon._run_maintenance_tick(
+            kernel=kernel, runtime_surfaces=surfaces,
+            contract_sentinel=object(), forge_daemon=Noop(),
+            merge_train=Noop())  # type: ignore[arg-type]
+
+    first_tick, second_tick = (item.isoformat() for item in (
+        datetime(2026, 11, 11, 18, 0, tzinfo=timezone.utc),
+        datetime(2026, 11, 11, 18, 1, tzinfo=timezone.utc)))
+    first_plan = surfaces._feedback["surfaces"]["canonical_goal_planning"]
+    assert first_plan["tick_id"] == second_tick
+    assert first_plan["authority"] is False
+    assert first_plan["execution_performed"] is False
+    assert first_plan["prior_epistemic_projection_digest"] is not None
+    assert first_plan["deferred_goals"] == [{
+        "goal_id": "recovery-followup",
+        "reason": "epistemic_review_required",
+    }]
+    state = epistemics.current_state(proposition.proposition_id)
+    assert state is not None
+    assert state.stance == "provisionally_supported"
+    assert not any(state.authority.values())
+    cognition_requests = [request for request in fake.requests
+        if request.purpose in {"resident_developmental_interpretation",
+            "resident_developmental_retrieval_cognition"}]
+    assert len(cognition_requests) == 2
+    assert cognition_requests[0].upstream_evidence.get("epistemic_state_ids", []) == []
+    assert cognition_requests[1].upstream_evidence["epistemic_state_ids"] == [state.state_id]
+    assert first_tick < second_tick
