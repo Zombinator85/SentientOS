@@ -2108,8 +2108,8 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
             fields = ()
         else:
             continue
+        values: dict[str, Any] = {}
         if fields:
-            values = {}
             for key in fields:
                 value = payload.get(key)
                 if value is None or isinstance(value, (str, bool, int, float)):

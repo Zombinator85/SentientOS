@@ -805,6 +805,12 @@ def test_history_projection_accepts_direct_renderer_report_fact_payload():
             "acquisition_examples": [], "execution_evidence_posture": "receipts_checked",
             "independent_backend_observation": False, "learning_established": False}}
     run_fact["payload"]["source_audit_detail"] = "x" * 12_000
+    detailed_run_summary = _historical_embodiment_evidence_context({
+        "selected_fact_ids": [run_fact["fact_id"]], "selected_facts": [run_fact]})
+    assert detailed_run_summary[0]["semantic_report_roles"][
+        "history_intervention_result"]["classification"] == (
+            "no_observable_history_difference")
+    assert detailed_run_summary[0]["typed_report_fields"] == {}
     extra_facts = []
     extra_sources = []
     for index, (schema, fields, payload) in enumerate((
