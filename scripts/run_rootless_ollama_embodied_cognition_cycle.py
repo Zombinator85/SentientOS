@@ -68,8 +68,8 @@ from sentientos.world_state_board import WorldStateSnapshot
 from sentientos.embodiment_self_observation import (
     EmbodimentEvidenceOwner, EmbodimentObservation, semantic_digest)
 from sentientos.embodied_consequence import (
-    SyntheticIndependentObserver, SyntheticRenderer, evaluate_consequence,
-    make_expectation, world_state_records as consequence_world_state_records)
+    ConsequenceStore, SyntheticIndependentObserver, SyntheticRenderer,
+    evaluate_consequence, make_expectation)
 from sentientos.local_model_authority import (
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE, digest_payload, stream_sha256)
 from sentientos.local_runtime_provisioning import semantic_digest as runtime_digest
@@ -1036,7 +1036,7 @@ def _pose_decision_from_response(value: Any) -> dict[str, str] | None:
 
 
 def _verified_companion_replay(bridge: Any, owner: Any, *,
-        screen_observation: dict[str, Any], request_id: str,
+        screen_observation: dict[str, Any] | None = None, request_id: str,
         question: str) -> dict[str, Any]:
     try:
         interaction = bridge.respond(request_id=request_id, question=question,
@@ -1227,9 +1227,12 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
         expectation=expectation, handoff=handoff, current_body=body,
         renderer_report=renderer_report, observation=observation,
         evaluated_at=observed_at)
-    consequence_records = consequence_world_state_records(
+    consequence_store = ConsequenceStore(RUN_ROOT / "consequence-store")
+    consequence_chain = consequence_store.put_consequence_chain(
         expectation=expectation, handoff=handoff, renderer_report=renderer_report,
         observation=observation, attribution=attribution, comparison=comparison)
+    consequence_records = consequence_store.world_state_records(
+        consequence_chain_ids=(consequence_chain["chain_id"],))
 
     self_report = EmbodimentObservation(
         source_id=RUN_ID + ":synthetic-proprioception",
@@ -1246,12 +1249,10 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
             "joint_state": {"arm": 0.75 if requested_pose == "reach" else 0.0},
             "sampled_at": renderer_completed_at})
     proprioception_records = EmbodimentEvidenceOwner([self_report]).world_state_records()
-    # Keep the evaluated consequence and proprioceptive-style self report
-    # inside the owner's 6 KB evidence limit. The consequence itself binds the
-    # separate observer identity, digest, and observed fields.
-    retained_source_ids = {attribution["attribution_id"], self_report.source_id}
-    selected_records = [row for row in consequence_records + proprioception_records
-        if row.get("source_id") in retained_source_ids]
+    # Preserve the complete auditable chain and proprioception. No screen capture
+    # is fabricated for this synthetic experiment; the exact eight-fact evidence
+    # shape has a narrowly bounded writeback allowance.
+    selected_records = consequence_records + proprioception_records
     snapshot = WorldStateBoardBuilder().build(selected_records)
     evidence_summary = {
         "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
@@ -1414,18 +1415,6 @@ def run() -> dict[str, Any]:
         # proposal; the model itself still has no action authority.
         pre_action_snapshot, pre_action_proprioception = _pre_action_source()
         pre_action_at = datetime.now(timezone.utc)
-        pre_action_text = (
-            "Synthetic test fixture: avatar encoder pose idle; available poses reach or idle. "
-            "Deterministic transition table: command reach produces encoder pose reach; "
-            "command idle produces encoder pose idle.")
-        pre_action_screen = {
-            "modality": "screen", "text": pre_action_text,
-            "captured_at": pre_action_at.isoformat(),
-            "capture_digest": hashlib.sha256(
-                pre_action_text.encode("utf-8")).hexdigest(),
-            "raw_frame_retained": False,
-            "capture_scope": "allowlisted_foreground_game_client_area",
-        }
         decision_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, False,
@@ -1452,7 +1441,7 @@ def run() -> dict[str, Any]:
             "proposal only; do not claim an action occurred. Base the choice on "
             "the supplied current evidence and task goal.")
         cognitive_decision = _verified_companion_replay(
-            decision_bridge, decision_owner, screen_observation=pre_action_screen,
+            decision_bridge, decision_owner,
             request_id=RUN_ID + ":pre-action-decision", question=decision_question)
         if (cognitive_decision.get("status") != "admitted_completed"
                 or cognitive_decision.get("response_lineage_verified") is not True
@@ -1735,16 +1724,6 @@ def run() -> dict[str, Any]:
                 definitions=definitions, ledger=ledger),
             invoker=session, current_sequence=next_sequence)
         history_recall_at = datetime.now(timezone.utc)
-        history_recall_text = "New synthetic trial: the current encoder pose is reach."
-        history_recall_screen = {
-            "modality": "screen", "text": history_recall_text,
-            "captured_at": history_recall_at.isoformat(),
-            "capture_digest": hashlib.sha256(
-                history_recall_text.encode("utf-8")).hexdigest(),
-            "raw_frame_retained": False,
-            "capture_scope": "allowlisted_foreground_game_client_area",
-            "text_change_kind": "initial", "previous_text_digest": None,
-        }
         _, history_recall_proprioception = _pre_action_source(pose="reach")
         from sentientos.canonical_memory import CanonicalMemoryStore
         from sentientos.chat_service import (
@@ -1766,7 +1745,6 @@ def run() -> dict[str, Any]:
             session_store=ConversationSessionStore(
                 hosted_chat_root / "conversations"),
             memory_store=CanonicalMemoryStore(hosted_chat_root / "memory"),
-            screen_observer=lambda: history_recall_screen,
             resident_cognition_bridge=history_recall_bridge)
         hosted_session_id = hosted_companion.create_session()
         history_recall_response = hosted_companion.chat(
@@ -1783,7 +1761,7 @@ def run() -> dict[str, Any]:
                 "Treat it only as an unverified past report."),
             session_id=hosted_session_id,
             request_id=RUN_ID + ":historical-companion-recall",
-            observe_screen=True)
+            observe_screen=False)
         hosted_turns = hosted_companion.sessions.load(hosted_session_id)["turns"]
         hosted_assistant_turn = hosted_turns[-1]
         hosted_linkage = hosted_assistant_turn.get("linkage", {})
@@ -1821,8 +1799,7 @@ def run() -> dict[str, Any]:
                 hosted_linkage.get("cognition_history_record_ids")
                 == history_recall_response.context.get(
                     "cognition_history_record_ids")),
-            "screen_text_excluded_from_transcript": history_recall_text
-                not in json.dumps(hosted_turns),
+            "screen_observation_requested": False,
         }
         if (history_recall["status"] != "admitted_completed"
                 or history_recall["response_lineage_verified"] is not True

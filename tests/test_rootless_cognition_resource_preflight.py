@@ -949,7 +949,12 @@ def test_synthetic_action_consequence_retains_task_goal_outcome(
         runner, requested, predicted, goal_met):
     snapshot, evidence, proprioception = runner._embodied_source(
         requested_pose=requested, predicted_pose=predicted)
-    assert snapshot.facts
+    assert len(snapshot.facts) == 8
+    assert {fact.subject.subject_kind for fact in snapshot.facts} >= {
+        "embodied_action_expectation", "avatar_renderer_handoff",
+        "avatar_renderer_report", "avatar_independently_observed_state",
+        "embodied_consequence_attribution", "embodied_prediction_comparison",
+        "embodied_consequence_chain"}
     assert evidence["consequence_classification"] == (
         "expectation_satisfied" if predicted == "idle"
         else "expectation_contradicted")
