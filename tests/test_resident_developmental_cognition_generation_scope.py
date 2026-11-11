@@ -148,3 +148,31 @@ def test_activation_identity_remains_distinct_from_running_model() -> None:
         effect_claimed=False, effect_proven=False)
     assert ResidentDevelopmentalCognitionOwner._fact_selection_key(
         fact, "runtime_supervisor")[0] == 1
+
+
+def test_codex_healer_observation_priority_requires_fresh_read_only_evidence() -> None:
+    payload = {
+        "observation_schema": "sentientos.codex_healer_world_state:v1",
+        "source_owner": "sentientos.codex_healer.RecoveryLedger",
+        "event_digest": "a" * 64,
+        "read_only": True,
+        "current_truth": False,
+        "authority": False,
+        "effect_claimed": False,
+        "effect_proven": False,
+    }
+    fact = SimpleNamespace(
+        subject=SimpleNamespace(subject_kind="codex_healer_recovery_event"),
+        disposition="recorded", payload=payload,
+        source=SimpleNamespace(source_id="healer-event", staleness="fresh"),
+        fact_id="fact-healer", stage="observation",
+        observed_at="2026-11-11T15:30:00Z",
+        evidence_strength="recovery_ledger_digest_bound_summary",
+        effect_claimed=False, effect_proven=False)
+    owner = ResidentDevelopmentalCognitionOwner
+    assert owner._fact_selection_key(fact, "runtime_supervisor")[0] == 4
+    fact.source.staleness = "stale"
+    assert owner._fact_selection_key(fact, "runtime_supervisor")[0] == 6
+    fact.source.staleness = "fresh"
+    fact.payload = {**payload, "authority": True}
+    assert owner._fact_selection_key(fact, "runtime_supervisor")[0] == 6

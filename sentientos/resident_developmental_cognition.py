@@ -5371,6 +5371,26 @@ class ResidentDevelopmentalCognitionOwner:
             and fact.evidence_strength == "phase_chain_with_terminal_receipt"
             and fact.effect_claimed is False and fact.effect_proven is False
         )
+        codex_healer_recovery_observation = (
+            source_kind == "runtime_supervisor"
+            and subject_kind == "codex_healer_recovery_event"
+            and fact.stage == "observation" and fact.disposition == "recorded"
+            and fact.source.staleness == "fresh"
+            and isinstance(payload.get("event_digest"), str)
+            and len(payload["event_digest"]) == 64
+            and all(character in "0123456789abcdef"
+                for character in payload["event_digest"])
+            and payload.get("observation_schema")
+                == "sentientos.codex_healer_world_state:v1"
+            and payload.get("source_owner")
+                == "sentientos.codex_healer.RecoveryLedger"
+            and payload.get("read_only") is True
+            and payload.get("current_truth") is False
+            and payload.get("authority") is False
+            and payload.get("effect_claimed") is False
+            and payload.get("effect_proven") is False
+            and fact.effect_claimed is False and fact.effect_proven is False
+        )
         chat_process_runtime_observation = (
             source_kind == "runtime_supervisor"
             and subject_kind == "chat_process_runtime_generation_observation"
@@ -5438,7 +5458,8 @@ class ResidentDevelopmentalCognitionOwner:
                 and subject_kind in {"resident_model_transition", "software_generation_transition"}
                 and payload.get("stage_semantically_verified") is True):
             priority = 4
-        elif chat_process_recovery_lineage or chat_process_runtime_observation:
+        elif (chat_process_recovery_lineage or chat_process_runtime_observation
+                or codex_healer_recovery_observation):
             priority = 4
         elif subject_kind in {"resident_model_transition", "software_generation_transition",
                               "resident_model_transition_recovery", "software_generation_transition_recovery"}:
