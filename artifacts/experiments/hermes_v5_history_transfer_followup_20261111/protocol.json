@@ -1,0 +1,41 @@
+{
+  "schema_version": "sentientos.hermes_history_transfer_followup:v1",
+  "protocol_id": "hermes_v5_history_transfer_followup_20261111",
+  "preregistered_at_utc": "2026-11-11T13:34:32Z",
+  "status": "preregistered_before_followup_inference",
+  "source_revision": "10f1ee62f74d498ccffeebf724b9437cfacbd795",
+  "task_family_id": "rootless_integer_affine_transfer_low_range_v5",
+  "model": {
+    "id": "sentientos-hermes4:14b-q4km",
+    "artifact_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce"
+  },
+  "fixed_trials": [
+    {"seed": 20261128, "history_order_trial_index": 17},
+    {"seed": 20261129, "history_order_trial_index": 18},
+    {"seed": 20261130, "history_order_trial_index": 19}
+  ],
+  "no_replacement_trials": true,
+  "execution": {
+    "sequential_only": true,
+    "max_calls_per_cycle": 32,
+    "max_seconds_per_invocation": 120,
+    "existing_resource_preflight_and_unload_required": true,
+    "abort_on_missing_critical_telemetry_or_repeated_inference_failure": true,
+    "stop_after_three_fixed_attempts": true
+  },
+  "eligibility": {
+    "use_existing_runner_gate": true,
+    "history_withheld_acquisition_baseline_minimum_correct": 2,
+    "minimum_retained_evaluator_correct_examples": 2,
+    "ineligible_transfer_is_recorded_as_skipped": true
+  },
+  "primary_measure": "Per eligible fixed seed, compare exact-scored held-out transfer correct counts in history-present, history-withheld, and history-restored conditions under the same task, model artifact, current evidence, and resource policy.",
+  "interpretation_rules": {
+    "history_associated_output_difference_is_not_performance_improvement": true,
+    "performance_improvement_signal_requires": "At least two eligible seeds with present score greater than withheld, restored score exactly equal to present, and positive aggregate present-minus-withheld score across eligible seeds.",
+    "negative_null_and_ineligible_trials_are_reported": true,
+    "synthetic_only_no_physical_experience_claim": true,
+    "exploratory_followup_not_general_model_qualification": true
+  },
+  "rationale_and_limits": "Prior v5 cycles showed reliable acquisition but null held-out transfer; an exploratory cycle also produced 2*x answers for a 2*x+2 task, indicating a missed intercept. This fixed follow-up tests whether that pattern replicates. The cohort was chosen after prior results and is not represented as a pristine confirmatory study. Each trial remains synthetic and cannot establish physical experience or general learning."
+}
