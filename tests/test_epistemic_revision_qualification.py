@@ -213,8 +213,14 @@ def test_owner_epistemic_revision_probe_requests_scored_json_without_key(
     assert request.expected_output_format == "json"
     assert request.structured_output_schema == RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA
     context = json.loads(request.prompt)
+    assert context["epistemic_revision_probe"]["schema_version"] == (
+        "sentientos.epistemic_revision_probe:v3")
     assert context["epistemic_revision_probe"]["response_contract"] == (
         "sentientos.epistemic_revision_answer:v2")
+    assert "current epistemic stance" in context["epistemic_revision_probe"]["question"]
+    assert "Insufficient independent corroboration is not itself contradictory evidence." in (
+        context["instruction"])
+    assert "cite every relevant binding from both sides" in context["instruction"]
     packet = context["prior_epistemic_state"]["semantic_packets"][0]
     expected_binding_ids = sorted({
         row["binding_id"] for collection in (

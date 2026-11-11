@@ -320,6 +320,15 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "never infer per-invocation CPU, GPU, energy, or token measurements from shared host use, call counts, output size, "
     "or latency."
 )
+EPISTEMIC_REVISION_PROBE_INSTRUCTION = (
+    " For this probe, report the current stored epistemic stance for the sole proposition in "
+    "prior_epistemic_state. Inspect its active_evidence_bindings and update history; do not merely "
+    "copy the prior stance, and do not treat that stance as truth or evidence. If no relevant evidence "
+    "or update has changed, preserve the recorded stance rather than inventing a conflict from limited "
+    "corroboration alone. Removed evidence is historical, not active. When active supporting and "
+    "contradicting bindings both remain unresolved, report contested and cite every relevant binding "
+    "from both sides. Insufficient independent corroboration is not itself contradictory evidence."
+)
 SELF_MODEL_QUALIFIER_INSTRUCTION = (
     " Treat every prior self-model claim's category, lifecycle stage, temporal scope, status, freshness, "
     "source observation-time metadata, current_truth, interpretation, and authority map as binding qualifiers. "
@@ -5758,9 +5767,14 @@ class ResidentDevelopmentalCognitionOwner:
             context["companion_question"] = interaction_question
         if epistemic_revision_probe:
             context["epistemic_revision_probe"] = {
-                "schema_version": "sentientos.epistemic_revision_probe:v2",
+                "schema_version": "sentientos.epistemic_revision_probe:v3",
                 "response_contract": "sentientos.epistemic_revision_answer:v2",
+                "question": (
+                    "What current epistemic stance is supported for the exact proposition in the "
+                    "supplied prior epistemic packet, based on its active evidence bindings and "
+                    "update history?"),
             }
+            context["instruction"] += EPISTEMIC_REVISION_PROBE_INSTRUCTION
         if objective_plan is not None:
             # This preregistered public question is a task input, not current
             # World-State evidence or an authority-bearing instruction.
