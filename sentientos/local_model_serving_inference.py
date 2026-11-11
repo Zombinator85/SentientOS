@@ -294,19 +294,19 @@ class ProductionServingInferenceController:
                     or not any(reason.endswith(
                         "deferred_local_model_inference_under_host_pressure_during_game")
                         for reason in receipt.reason_codes)):
-                return
+                return None
             request_linkage = receipt.request.get("linkage")
             if not isinstance(request_linkage, Mapping):
-                return
+                return None
             resource_observation = request_linkage.get("host_resource_observation")
             workload_evidence = request_linkage.get("workload_evidence")
             trigger_correlation_id = receipt.request.get("correlation_id")
             trigger_kind = "deferred_inference"
         if not isinstance(resource_observation, Mapping) or not isinstance(workload_evidence, Mapping):
-            return
+            return None
         provenance = workload_evidence.get("transport_provenance")
         if not isinstance(provenance, Mapping):
-            return
+            return None
         game_message_id = provenance.get("message_id")
         labels = resource_observation.get("pressure_labels")
         if (resource_observation.get("status") != "current"
@@ -316,16 +316,16 @@ class ProductionServingInferenceController:
                 or (workload_evidence.get("game_foreground") is not True
                     and workload_evidence.get("game_process_running") is not True)
                 or not isinstance(game_message_id, str)):
-            return
+            return None
         if not isinstance(trigger_correlation_id, str) or not trigger_correlation_id:
-            return
+            return None
         source_correlation = trigger_correlation_id
         release_correlation = "production-chat-resource-release-" + hashlib.sha256(
             (source_correlation if trigger_kind == "deferred_inference" else
              trigger_kind + ":" + source_correlation).encode("utf-8")).hexdigest()[:24]
         loaded_identity = getattr(model, "active_identity", None)
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
-            return
+            return None
         host_release_evidence = {
             "schema_version": "sentientos.production_game_gpu_resource_release_evidence:v2",
             "trigger_kind": trigger_kind,
