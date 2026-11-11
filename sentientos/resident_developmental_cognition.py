@@ -2151,8 +2151,11 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
         records: tuple[Mapping[str, Any], ...],
         projection: EpistemicCognitiveProjection | None,
         history_present: bool = True, compact_history_for_input: bool = False,
+        max_input_chars: int | None = None,
         ) -> tuple[dict[str, Any], dict[str, Any], str, tuple[str, ...], tuple[str, ...]]:
     """Fit whole recent history packets and epistemic packets to one input bound."""
+    if max_input_chars is None:
+        max_input_chars = MAX_RESIDENT_COGNITION_INPUT_CHARS
     packet_modes = (((False, True),) if compact_history_for_input else
         ((True, False), (False, False), (False, True)))
     task_family_id = context.get("developmental_history_task_family_id")
@@ -2233,7 +2236,8 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                     str(item["record_id"]) for item in selected_refs]
             try:
                 bound, metadata, prompt = _bind_epistemic_context(
-                    context=candidate, projection=projection)
+                    context=candidate, projection=projection,
+                    max_input_chars=max_input_chars)
             except ResidentDevelopmentalCognitionError as exc:
                 if str(exc) != "cognition_input_budget_exceeded":
                     raise
@@ -2254,10 +2258,73 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
     raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
 
 
+def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
+        condition_id: str, task_family_id: str) -> dict[str, Any]:
+    """Record digest-only evidence of task-family examples in the bound prompt."""
+    if (not isinstance(condition_id, str) or not condition_id
+            or not isinstance(task_family_id, str) or not task_family_id):
+        raise ResidentDevelopmentalCognitionError(
+            "task_family_prompt_projection_identity_invalid")
+    history = context.get("developmental_history", ())
+    if not isinstance(history, (list, tuple)):
+        raise ResidentDevelopmentalCognitionError(
+            "task_family_prompt_projection_history_invalid")
+    entries: list[dict[str, Any]] = []
+    for packet in history:
+        if not isinstance(packet, Mapping):
+            raise ResidentDevelopmentalCognitionError(
+                "task_family_prompt_projection_history_invalid")
+        experiences = packet.get("task_relevant_experience", ())
+        if not experiences:
+            continue
+        if (not isinstance(experiences, (list, tuple))
+                or any(not isinstance(experience, Mapping) for experience in experiences)
+                or not isinstance(packet.get("record_id"), str)
+                or not isinstance(packet.get("record_digest"), str)):
+            raise ResidentDevelopmentalCognitionError(
+                "task_family_prompt_projection_examples_invalid")
+        example_rows: list[Mapping[str, Any]] = []
+        for experience in experiences:
+            rows = experience.get("examples", ())
+            if (not isinstance(rows, (list, tuple))
+                    or any(not isinstance(row, Mapping) for row in rows)):
+                raise ResidentDevelopmentalCognitionError(
+                    "task_family_prompt_projection_examples_invalid")
+            example_rows.extend(rows)
+        entries.append({
+            "record_id": packet["record_id"],
+            "record_digest": packet["record_digest"],
+            "experience_count": len(experiences),
+            "example_count": len(example_rows),
+            "examples_digest": _digest(example_rows),
+            "evaluator_correct_count": sum(
+                example.get("evaluator_correct") is True for example in example_rows),
+            "evaluator_incorrect_count": sum(
+                example.get("evaluator_correct") is False for example in example_rows),
+        })
+    semantic = {
+        "schema_version": "sentientos.task_family_history_prompt_projection:v1",
+        "condition_id": condition_id,
+        "task_family_id": task_family_id,
+        "treatment": "withheld" if condition_id == "history_withheld" else "present",
+        "selected_record_count": len(history),
+        "task_relevant_record_count": len(entries),
+        "task_relevant_example_count": sum(item["example_count"] for item in entries),
+        "records": entries,
+        "historical_only": True,
+        "current_truth": False,
+        "authority": False,
+    }
+    return {**semantic, "projection_digest": _digest(semantic)}
+
+
 def _bind_epistemic_context(*, context: Mapping[str, Any],
-                            projection: EpistemicCognitiveProjection | None
+                            projection: EpistemicCognitiveProjection | None,
+                            max_input_chars: int | None = None,
                             ) -> tuple[dict[str, Any], dict[str, Any], str]:
     """Select complete meaning packets that fit the actual inference input."""
+    if max_input_chars is None:
+        max_input_chars = MAX_RESIDENT_COGNITION_INPUT_CHARS
     if projection is None:
         value = {**dict(context), "prior_epistemic_state": None}
         probe = value.get("epistemic_revision_probe")
@@ -2267,7 +2334,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
             value["epistemic_revision_probe"] = {
                 **dict(probe), "allowed_evidence_binding_ids": []}
         prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
-        if len(prompt) > MAX_RESIDENT_COGNITION_INPUT_CHARS:
+        if len(prompt) > max_input_chars:
             raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
         metadata: dict[str, Any] = {"epistemic_projection_schema": None,
             "epistemic_semantic_status": "not_present", "epistemic_owner_packet_count": 0,
@@ -2303,7 +2370,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
             value["epistemic_revision_probe"] = {
                 **dict(probe), "allowed_evidence_binding_ids": []}
         prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
-        if len(prompt) > MAX_RESIDENT_COGNITION_INPUT_CHARS:
+        if len(prompt) > max_input_chars:
             raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
         metadata = {"epistemic_projection_schema": "identifier_only_v1",
             "epistemic_semantic_status": "canonical_definition_unavailable",
@@ -2387,7 +2454,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                 **dict(probe),
                 "allowed_evidence_binding_ids": sorted(visible_binding_ids)}
         candidate_prompt = json.dumps(candidate, sort_keys=True, separators=(",", ":"))
-        if len(candidate_prompt) <= MAX_RESIDENT_COGNITION_INPUT_CHARS:
+        if len(candidate_prompt) <= max_input_chars:
             selected_count, selected_value, selected_omissions = count, candidate, omitted
             break
     if selected_value is None or selected_count < 0:
@@ -2571,6 +2638,7 @@ class ResidentDevelopmentalCognitionConfig:
     enabled: bool = True
     model_replacement_artifact_root: Path | None = None
     max_inference_timeout_seconds: int = 30
+    max_inference_input_chars: int | None = None
 
 
 @dataclass(frozen=True)
@@ -3061,7 +3129,16 @@ class ResidentDevelopmentalCognitionOwner:
                     <= MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS):
             raise ResidentDevelopmentalCognitionError(
                 "developmental_inference_timeout_invalid")
+        if (config.max_inference_input_chars is not None
+                and (type(config.max_inference_input_chars) is not int
+                    or not 1024 <= config.max_inference_input_chars <= 48_000)):
+            raise ResidentDevelopmentalCognitionError(
+                "developmental_inference_input_bound_invalid")
         self.config = config
+        self.max_inference_input_chars = (
+            config.max_inference_input_chars
+            if config.max_inference_input_chars is not None
+            else MAX_RESIDENT_COGNITION_INPUT_CHARS)
         self.writeback = writeback
         self.admission_authority = admission_authority
         self.invoker = invoker
@@ -5420,7 +5497,13 @@ class ResidentDevelopmentalCognitionOwner:
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
                 projection=prior_epistemic_state, history_present=with_history,
-                compact_history_for_input=interaction_question is not None))
+                # Interactive chat and objective-transfer cognition both run
+                # under bounded serving context windows. Keep admitted task-family
+                # examples and their source identities without repeating bulky
+                # custody and resource detail in the inference prompt.
+                compact_history_for_input=(interaction_question is not None
+                    or objective_plan is not None),
+                max_input_chars=self.max_inference_input_chars))
         if with_history and not record_ids:
             raise ResidentDevelopmentalCognitionError("history_context_budget_exhausted")
         if epistemic_revision_probe_prompt_preview:
@@ -5453,6 +5536,9 @@ class ResidentDevelopmentalCognitionOwner:
                 "objective_task_digest": objective_plan["task_descriptor"]["task_digest"]})
             task_family_id = objective_plan["task_descriptor"].get("task_family_id")
             if isinstance(task_family_id, str) and protocol is not None:
+                upstream_evidence["task_family_history_prompt_projection"] = (
+                    _task_family_history_prompt_projection(context,
+                        condition_id=condition_id, task_family_id=task_family_id))
                 family_fact_ids: set[str] = set()
                 for record_id in protocol.record_ids:
                     record = self.writeback.store.get(record_id)
@@ -5480,7 +5566,8 @@ class ResidentDevelopmentalCognitionOwner:
             max_calls_per_correlation=1)
             if (epistemic_revision_probe and request_purpose
                 == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
-            else LocalModelInvocationBudget(max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS,
+            else LocalModelInvocationBudget(max_input_chars=
+                self.max_inference_input_chars,
                 max_output_chars=4000, max_new_tokens=512,
                 timeout_seconds=self.config.max_inference_timeout_seconds,
                 max_calls_per_correlation=1))
@@ -6356,7 +6443,8 @@ class ResidentDevelopmentalCognitionOwner:
                     _bind_history_and_epistemic_context(context=preflight_context,
                         records=prior.records, projection=prior_epistemic_state,
                         history_present=True, compact_history_for_input=(
-                            companion_intervention_question is not None)))
+                            companion_intervention_question is not None),
+                        max_input_chars=self.max_inference_input_chars))
                 preflight_selection = preflight_metadata.get(
                     "developmental_history_selection")
                 if not isinstance(preflight_selection, Mapping):
@@ -6370,7 +6458,7 @@ class ResidentDevelopmentalCognitionOwner:
                 record_set_digest = _digest({"record_ids":list(protocol_record_ids),
                     "record_digests":list(record_digests)})
                 budget = LocalModelInvocationBudget(
-                    max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS,
+                    max_input_chars=self.max_inference_input_chars,
                     max_output_chars=4000, max_new_tokens=512,
                     timeout_seconds=self.config.max_inference_timeout_seconds,
                     max_calls_per_correlation=1)

@@ -834,11 +834,8 @@ class DevelopmentalExperimentStore:
             for condition in conditions:
                 if not isinstance(condition, Mapping):
                     raise DevelopmentalHistoryInterventionError("run_projection_condition_invalid")
-                observed_at = condition.get("observed_at")
-                event_times.append(observed_at if isinstance(observed_at, str) else None)
                 verified_receipt = None
-                if condition.get("serving_session_id") is not None and callable(
-                        self._invocation_verifier):
+                if callable(self._invocation_verifier):
                     try:
                         verified_receipt = self._invocation_verifier(condition)
                     except Exception as exc:
@@ -849,6 +846,12 @@ class DevelopmentalExperimentStore:
                         == condition.get("inference_receipt_id")
                     and verified_receipt.get("receipt_digest")
                         == condition.get("inference_receipt_digest"))
+                # Rootless development has no serving-session ID. Its exact
+                # persisted receipt is still the authoritative event clock;
+                # a row timestamp alone is not.
+                observed_at = (verified_receipt.get("observed_at")
+                    if receipt_matches and isinstance(verified_receipt, Mapping) else None)
+                event_times.append(observed_at if isinstance(observed_at, str) else None)
                 effects = (verified_receipt.get("effects")
                     if isinstance(verified_receipt, Mapping) else None)
                 receipt_status = (verified_receipt.get("status")
@@ -877,8 +880,7 @@ class DevelopmentalExperimentStore:
                     "posture": execution_posture,
                     "independent_backend_observation": False,
                 })
-                if (condition.get("serving_session_id") is None
-                        or not isinstance(observed_at, str)):
+                if not receipt_matches or not isinstance(observed_at, str):
                     all_receipt_times_verified = False
                     continue
                 if observed_at.endswith("-00:00"):

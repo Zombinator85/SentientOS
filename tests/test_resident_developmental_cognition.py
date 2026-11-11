@@ -994,6 +994,9 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
         if item.purpose == "resident_developmental_history_intervention_experiment"
         and "objective_task_plan_digest" in item.upstream_evidence]
     assert len(objective_requests) == 3
+    assert all(item.budget.max_input_chars == cognition.max_inference_input_chars
+        and len(item.prompt) <= cognition.max_inference_input_chars
+        for item in objective_requests)
     assert all(item.structured_output_schema == RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA
         for item in objective_requests)
     run = cognition.experiments.load_run(run_result.changed_cognition_measurement_id)
@@ -2056,13 +2059,132 @@ print(json.dumps({"stance": state.stance if state else None,
         "epistemic_projection_digest"] == updated_projection.projection_digest
 
 
+class RootlessHistoryFakeInvoker(FakeInvoker):
+    """Fixture for development-only, receipt-bound calls without a serving session."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.active_model_identity = {
+            "engine": "ollama", "posture": "development_only",
+            "fallback": False, "candidate_index": 0,
+            "model_content_sha256": "a" * 64,
+        }
+        from sentientos.local_model_authority import ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE
+        identity_digest = digest_payload({"identity": self.active_model_identity})
+        self.rootless_binding = {
+            "schema_version": "sentientos.rootless_experimental_cognition_session:v1",
+            "session_id": "rootless-cognition-session-history-projection",
+            "run_id": "rootless-cognition-cycle-history-projection",
+            "preregistration_digest": "b" * 64,
+            "model_manifest_digest": "c" * 64,
+            "runtime_bundle_digest": "d" * 64,
+            "active_model_identity_digest": identity_digest,
+            "purpose": ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE,
+            "production_authority": False,
+            "eligible_as_production_serving_evidence": False,
+        }
+        self.receipts = {}
+
+    def build_request(self, **kwargs):
+        linkage = dict(kwargs.get("linkage") or {})
+        linkage["rootless_experimental_session"] = self.rootless_binding
+        kwargs["linkage"] = linkage
+        return super().build_request(**kwargs)
+
+    def invoke(self, request, **kwargs):
+        receipt = super().invoke(request, **kwargs)
+        self.receipts[receipt.receipt_id] = receipt
+        return receipt
+
+    def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
+        receipt = self.receipts[receipt_id]
+        assert receipt.receipt_digest == receipt_digest
+        assert receipt.request["request_id"] == expected["expected_request_id"]
+        assert receipt.request["request_digest"] == expected["expected_request_digest"]
+        assert receipt.request["active_model_identity"] == expected[
+            "expected_active_model_identity"]
+        assert receipt.request["linkage"]["rootless_experimental_session"] == self.rootless_binding
+        return receipt.to_dict()
+
+
+def test_rootless_receipts_admit_same_family_examples_to_later_prompt(tmp_path: Path) -> None:
+    """Rootless verified receipts must not be discarded for lacking serving IDs."""
+    from scripts.stage_resident_objective_intervention import stage_request
+
+    fake = RootlessHistoryFakeInvoker()
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    config_path = tmp_path / "objective-config.json"
+    config_path.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(tmp_path / "history"), "state_root": str(tmp_path / "state"),
+        "allowed_source_kinds": ["capability_registry", "embodiment"],
+        "max_selected_facts": 16, "max_retrieved_records": 4,
+        "comparison_enabled": True}), encoding="utf-8")
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    assert cognition.run_tick(snapshot=snapshot(), tick_id="rootless-history-seed").written_record_id
+
+    acquisition_task = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="rootless_integer_affine")
+    _, acquisition_request, _ = stage_request(config_path=config_path,
+        request_id="rootless-family-acquisition", task=acquisition_task)
+    acquisition = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="rootless-family-acquisition", objective_task=acquisition_task,
+        request_id="rootless-family-acquisition",
+        request_digest=str(acquisition_request["request_digest"]))
+    run = cognition.experiments.load_run(str(acquisition.changed_cognition_measurement_id))
+    source = cognition.experiments.world_state_records(
+        run_refs=((run["run_id"], run["run_digest"]),))
+    evidence = source[0]["payload"]
+    assert evidence["execution_evidence_posture"] == "all_owner_receipts_report_backend_entry"
+    assert all(row["receipt_identity_verified"] is True
+        for row in evidence["execution_evidence_conditions"])
+    assert evidence["event_time_posture"] == "all_condition_invocation_receipt_times_verified"
+    world = WorldStateBoardBuilder().build(source)
+    assert cognition.run_tick(snapshot=world, tick_id="rootless-history-feedback").written_record_id
+
+    transfer_task = ObjectivePredictionTask(3, 2, 11, (12, 13),
+        task_family_id="rootless_integer_affine")
+    _, transfer_request, _ = stage_request(config_path=config_path,
+        request_id="rootless-family-transfer", task=transfer_task)
+    cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="rootless-family-transfer", objective_task=transfer_task,
+        request_id="rootless-family-transfer",
+        request_digest=str(transfer_request["request_digest"]))
+    projections = [request.upstream_evidence.get("task_family_history_prompt_projection")
+        for request in fake.requests
+        if request.purpose == "resident_developmental_history_intervention_experiment"]
+    transfer_projections = projections[-3:]
+    assert [item["condition_id"] for item in transfer_projections] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert transfer_projections[0]["task_relevant_example_count"] == 3
+    assert transfer_projections[1]["task_relevant_example_count"] == 0
+    assert transfer_projections[2]["task_relevant_example_count"] == 3
+
+
 def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         tmp_path: Path) -> None:
     """Fixture-only episode chain: acquired examples are reused after owner reconstruction."""
     from scripts.stage_resident_objective_intervention import stage_request
+    from sentientos.resident_developmental_writeback import (
+        MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES)
 
     fake = InstallationCustodyFakeInvoker()
-    fake.active_model_identity = {"provider": "fixture", "model": "episode-model"}
+    # Model identity in the live Hermes path carries the serving artifact and
+    # backend identity alongside the short display name. Keep this fixture
+    # receipt-bound and realistic enough to exercise the bounded-envelope
+    # headroom needed by an authenticated developmental-history trial.
+    fake.active_model_identity = {
+        "provider": "fixture", "model": "episode-model",
+        "artifact_digest": "sha256:" + "1" * 64,
+        "runtime": "ollama", "runtime_version": "0.13.0",
+        "backend": "cuda", "quantization": "Q4_K_M",
+        "model_manifest": {
+            "schema": "sentientos.local_model_manifest:v1",
+            "architecture": "llama", "format": "gguf",
+            "weight_digest": "sha256:" + "2" * 64,
+            "configuration_digest": "sha256:" + "3" * 64,
+        },
+    }
     _bind_fixture_installation_custody(tmp_path, fake)
     fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
@@ -2101,6 +2223,11 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         for item in execution_evidence["execution_evidence_conditions"])
     feedback = cognition.run_tick(snapshot=source_world, tick_id="episode-acquisition-feedback")
     assert feedback.written_record_id
+    selected = cognition.writeback.select_evidence(source_world,
+        fact_ids=feedback.selected_fact_ids)
+    selected_size = len(json.dumps(selected.semantic_payload(), sort_keys=True,
+        separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+    assert 10_240 < selected_size <= MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES
     admitted = cognition.writeback.store.get(feedback.written_record_id)
     family_fact = next(fact for fact in admitted.candidate["selected_facts"]
         if fact["payload"].get("objective_task_family") == "integer_affine_prediction")
@@ -2437,6 +2564,42 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         and row["score"]["status"] in {"correct", "incorrect", "invalid_answer",
             "output_unavailable", "output_truncated"}
         for row in prior_task_run["objective_scores"])
+    heldout_task_digest = heldout_task.public_descriptor()["task_digest"]
+    heldout_requests = [request for request in model.requests
+        if request.upstream_evidence.get("objective_task_digest") == heldout_task_digest]
+    assert len(heldout_requests) == 3
+    heldout_request_by_condition = {request.linkage["condition_id"]: request
+        for request in heldout_requests}
+    assert set(heldout_request_by_condition) == {
+        "history_present", "history_withheld", "history_restored"}
+    present_prompt = json.loads(heldout_request_by_condition["history_present"].prompt)
+    [present_history_packet] = present_prompt["developmental_history"]
+    [present_experience] = present_history_packet["task_relevant_experience"]
+    # Objective transfer uses the compact admitted-history projection so
+    # repeated custody/resource metadata doesn't consume the model context.
+    # The task examples and exact provenance identities remain available.
+    assert "source_bindings_digest" in present_history_packet
+    assert "source_bindings" not in present_history_packet
+    assert present_experience["source_fact_id"]
+    assert present_experience["source_run_digest"]
+    assert present_experience["examples"]
+    present_projection = heldout_request_by_condition["history_present"].upstream_evidence[
+        "task_family_history_prompt_projection"]
+    withheld_projection = heldout_request_by_condition["history_withheld"].upstream_evidence[
+        "task_family_history_prompt_projection"]
+    restored_projection = heldout_request_by_condition["history_restored"].upstream_evidence[
+        "task_family_history_prompt_projection"]
+    assert present_projection["task_relevant_example_count"] >= 2
+    assert present_projection["records"]
+    assert withheld_projection["task_relevant_example_count"] == 0
+    assert withheld_projection["records"] == []
+    assert restored_projection["records"] == present_projection["records"]
+    for projection in (present_projection, withheld_projection, restored_projection):
+        semantic = {key: value for key, value in projection.items()
+            if key != "projection_digest"}
+        assert projection["projection_digest"] == cognition_digest(semantic)
+        assert projection["authority"] is False
+        assert "examples" not in projection
     epistemic_requests = [request for request in model.requests
         if request.upstream_evidence.get("epistemic_projection_id")
             == prior_epistemic.projection_id]
@@ -6286,9 +6449,16 @@ def test_developmental_cycle_admits_full_consequence_chain_with_screen_and_propr
     partial_snapshot = build_companion_snapshot(screen_observation=screen,
         proprioception=(proprioception,), current_consequence_records=consequence_records[:-1],
         clock=lambda: now)
-    with pytest.raises(DevelopmentalWritebackError, match="selected_evidence_unbounded"):
+    with pytest.raises(DevelopmentalWritebackError, match="selected_evidence_unbounded") as failure:
         cognition.writeback.select_evidence(partial_snapshot,
             fact_ids=tuple(fact.fact_id for fact in partial_snapshot.facts))
+    diagnostic = failure.value.diagnostic
+    assert diagnostic is not None
+    assert diagnostic["schema_version"] == (
+        "sentientos.developmental_evidence_selection_failure:v1")
+    assert diagnostic["encoded_size_bytes"] > diagnostic["byte_limit"]
+    assert diagnostic["fact_count"] == len(partial_snapshot.facts)
+    assert "payload_text" not in diagnostic
 
 
 def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(

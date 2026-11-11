@@ -76,6 +76,94 @@ def runner(monkeypatch, tmp_path):
     return module
 
 
+def test_rootless_cycle_input_bound_keeps_history_with_large_current_evidence(runner):
+    from sentientos.resident_developmental_cognition import (
+        EXPERIMENT_CONTEXT_INSTRUCTION,
+        _bind_history_and_epistemic_context,
+    )
+
+    history_record = {
+        "record_id": "record-budget-fixture",
+        "record_digest": "sha256:" + "a" * 64,
+        "created_at": "2026-11-10T00:00:00+00:00",
+        "epistemic_posture": "historical_interpretation_not_current_truth",
+        "candidate": {
+            "candidate_id": "candidate-budget-fixture",
+            "candidate_digest": "sha256:" + "b" * 64,
+            "interpretation": "Previously observed task evidence remains uncertain.",
+            "uncertainty": "high",
+            "epistemic_status": "untrusted_historical_interpretation_candidate",
+            "selected_fact_ids": ["fact-budget-fixture"],
+        },
+    }
+    context = {
+        "instruction": EXPERIMENT_CONTEXT_INSTRUCTION,
+        "current_evidence": {"evidence": "x" * 13_000},
+        "prior_self_model": None,
+        "prior_epistemic_state": None,
+        "developmental_history": [],
+        "developmental_history_posture": "historical_interpretation_not_current_truth",
+        "developmental_history_task_family_id":
+            "rootless_integer_affine_transfer_low_range_v1",
+        "developmental_history_target_model_identity": {
+            "engine": "ollama",
+            "model_content_sha256": "c" * 64,
+            "resolved_artifact_path": "x" * 600,
+        },
+        "developmental_history_retrieval_policy_id":
+            "task_family_probe_overlap_then_recency_fill:v2",
+    }
+
+    _, _, bounded_prompt, bounded_ids, _ = _bind_history_and_epistemic_context(
+        context=context, records=(history_record,), projection=None,
+        history_present=True,
+        max_input_chars=runner.ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT)
+    _, _, legacy_prompt, legacy_ids, _ = _bind_history_and_epistemic_context(
+        context=context, records=(history_record,), projection=None,
+        history_present=True, max_input_chars=16_384)
+
+    assert len(bounded_prompt) > 16_384
+    assert len(bounded_prompt) <= runner.ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT
+    assert (runner.ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT
+        - len(bounded_prompt)) >= 1_024
+    assert bounded_ids == ("record-budget-fixture",)
+    assert len(legacy_prompt) <= 16_384
+    assert legacy_ids == ()
+
+
+@pytest.mark.parametrize(("counts", "qualified", "classification"), [
+    ((0, 0, 0), False, "baseline_competence_not_demonstrated"),
+    ((0, 3, 0), True, "history_associated_acquisition_cost_restored"),
+    ((3, 3, 3), True, "no_correct_count_difference"),
+    ((2, 3, 1), True, "history_effect_not_restored"),
+])
+def test_objective_acquisition_summary_reports_withheld_baseline_and_restoration(
+        runner, counts, qualified, classification):
+    condition_ids = ("history_present", "history_withheld", "history_restored")
+    scores = []
+    for index, (condition_id, correct_count) in enumerate(zip(condition_ids, counts)):
+        score = {
+            "status": "correct" if correct_count == 3 else "incorrect",
+            "probe_count": 3,
+            "correct_count": correct_count,
+        }
+        if index == 0:
+            score["probe_results"] = [
+                {"correct": position < correct_count} for position in range(3)]
+        scores.append({"condition_id": condition_id, "score": score})
+
+    summary = runner._objective_acquisition_summary({"objective_scores": scores})
+    assert summary["condition_correct_counts"] == list(counts)
+    assert summary["history_withheld_baseline_correct_count"] == counts[1]
+    assert summary["history_restored_correct_count"] == counts[2]
+    assert summary["baseline_competence_qualified"] is qualified
+    assert summary["baseline_effect_classification"] == classification
+    assert summary["history_present_minus_withheld_correct_count"] == (
+        counts[0] - counts[1])
+    assert summary["restored_minus_present_correct_count"] == (
+        counts[2] - counts[0])
+
+
 @pytest.mark.parametrize(("accurate_count", "expected"), [
     (0, False),
     (1, False),
@@ -753,13 +841,21 @@ def test_incomplete_run_artifact_preserves_blocked_resource_sample(
     monkeypatch.setattr(runner, "_verify_model_released",
         lambda _: {"status": "target_model_not_resident"})
     monkeypatch.setattr(runner, "_gpu_snapshot", lambda: None)
-    artifact_path = runner._persist_incomplete_run(
-        runner.RootlessExperimentalError("gpu_utilization_preflight_busy"))
+    failure = runner.RootlessExperimentalError("gpu_utilization_preflight_busy")
+    failure.diagnostic = {
+        "schema_version": "sentientos.developmental_evidence_selection_failure:v1",
+        "encoded_size_bytes": 12000, "byte_limit": 10240,
+        "fact_count": 1, "source_count": 1, "conflict_count": 0,
+        "fact_subject_kinds": ["synthetic_fixture"],
+        "source_kinds": ["embodiment"], "bounded_objective_trial": False}
+    artifact_path = runner._persist_incomplete_run(failure)
     assert artifact_path is not None
     artifact = json.loads(artifact_path.read_text())
     assert artifact["schema_version"] == (
-        "sentientos.rootless_ollama_embodied_cognition_failure:v3")
+        "sentientos.rootless_ollama_embodied_cognition_failure:v4")
     assert artifact["resource_preflight_samples"] == [sample]
+    assert artifact["failure_diagnostic"]["encoded_size_bytes"] == 12000
+    assert artifact["failure_diagnostic"]["byte_limit"] == 10240
     assert artifact["source_provenance"] == runner.RUN_SOURCE_PROVENANCE
     assert "process attribution" in artifact["resource_preflight_sample_scope"]
 
@@ -776,12 +872,21 @@ def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
     monkeypatch.setattr(runner, "_verify_model_released",
         lambda _: {"status": "target_model_not_resident"})
     monkeypatch.setattr(runner, "_gpu_snapshot", lambda: None)
+    decision_evidence = {
+        "schema_version": "sentientos.pre_action_decision_evidence:v1",
+        "classification": "goal_not_met", "response_digest": "f" * 64,
+        "response_size_bytes": len("idle->idle"),
+        "requested_pose": "idle", "predicted_pose": "idle",
+        "prediction_consistent": True, "response_lineage_verified": True,
+        "evidence_ids": ["fact-current"], "history_record_ids": [],
+        "authority": False, "action_executed": False,
+    }
+    monkeypatch.setattr(runner, "PRE_ACTION_DECISION_EVIDENCE", decision_evidence)
     request_id = run_id + ":pre-action-decision"
     tick_id = "companion-interaction-" + hashlib.sha256(
         request_id.encode("utf-8")).hexdigest()[:32]
     correlation_id = tick_id + ":resident_developmental_cognition:companion-interaction"
-    output_text = json.dumps({"disposition": "answer", "response": json.dumps({
-        "requested_pose": "idle", "predicted_pose": "idle"})})
+    output_text = json.dumps({"disposition": "answer", "response": "idle->idle"})
     receipt = {"receipt_id": "fixture-receipt", "receipt_digest": "d" * 64,
         "purpose": "resident_developmental_companion_interaction",
         "output_digest": "e" * 64, "reason_codes": [], "output_text": output_text,
@@ -796,11 +901,12 @@ def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
     artifact_text = artifact_path.read_text()
     artifact = json.loads(artifact_text)
     proposal = artifact["inference_receipts"][0]
-    assert proposal["pre_action_decision_classification"] == "exact_schema_goal_not_met"
+    assert proposal["pre_action_decision_classification"] == "exact_pair_goal_not_met"
     assert proposal["pre_action_requested_pose"] == "idle"
     assert proposal["pre_action_predicted_pose"] == "idle"
     assert proposal["pre_action_prediction_consistent"] is True
     assert proposal["model_output_text_excluded"] is True
+    assert artifact["pre_action_decision_evidence"] == decision_evidence
     assert output_text not in artifact_text
 
     timeout_root = tmp_path / "timeout-run"
@@ -824,14 +930,41 @@ def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
     assert timeout_proposal["pre_action_prediction_consistent"] is None
 
 
-def test_pose_decision_classifier_requires_exact_json_schema(runner):
-    assert runner._pose_decision_from_response(
-        '{"requested_pose":"reach","predicted_pose":"reach"}') == {
-            "requested_pose": "reach", "predicted_pose": "reach"}
-    assert runner._pose_decision_from_response(
-        'requested_pose: reach; predicted_pose: reach') is None
-    assert runner._pose_decision_from_response(
-        '{"requested_pose":"reach","predicted_pose":"reach","extra":"x"}') is None
+def test_pose_decision_classifier_requires_exact_action_prediction_token(runner):
+    assert runner._pose_decision_from_response("reach->reach") == {
+        "requested_pose": "reach", "predicted_pose": "reach"}
+    assert runner._pose_decision_from_response("idle->reach") == {
+        "requested_pose": "idle", "predicted_pose": "reach"}
+    for invalid in ("reach", "reach -> reach", "REACH->REACH",
+            "reach->reach because the target is clear",
+            '{"requested_pose":"reach","predicted_pose":"reach"}', None):
+        assert runner._pose_decision_from_response(invalid) is None
+
+
+@pytest.mark.parametrize(("requested", "predicted", "goal_met"), [
+    ("idle", "idle", False),
+    ("reach", "reach", False),
+])
+def test_synthetic_action_consequence_retains_task_goal_outcome(
+        runner, requested, predicted, goal_met):
+    snapshot, evidence, proprioception = runner._embodied_source(
+        requested_pose=requested, predicted_pose=predicted)
+    assert snapshot.facts
+    assert evidence["consequence_classification"] == (
+        "expectation_satisfied" if predicted == "idle"
+        else "expectation_contradicted")
+    assert evidence["effect_proven"] is False
+    assert evidence["task_goal"] == "reach_marked_target"
+    assert evidence["task_goal_met"] is goal_met
+    assert evidence["task_goal_evaluation_posture"] == (
+        "synthetic_fixture_relation_of_observed_pose_to_task_goal")
+    assert evidence["independent_observation_pose"]["task_goal_met"] is False
+    assert any(fact.payload.get("commanded_value", {}).get("task_goal")
+        == "reach_marked_target" for fact in snapshot.facts)
+    assert any(fact.payload.get("independently_observed_value", {}).get(
+        "task_goal_met") is False for fact in snapshot.facts)
+    assert evidence["action_execution_posture"] == "synthetic_fixture_only"
+    assert proprioception.freshness == "current"
 
 
 def test_transfer_decision_prompt_requires_grounded_current_evidence(runner):
@@ -859,8 +992,24 @@ def test_seeded_objective_task_pairs_are_reproducible_and_distinct(runner):
     assert acquisition.specification()["task_family_id"] == (
         transfer.specification()["task_family_id"])
     assert transfer.specification()["requires_task_family_history"] is True
+    assert acquisition.specification()["task_family_id"] == (
+        "rootless_integer_affine_transfer_low_range_v1")
     assert set(acquisition.specification()["probe_inputs"]).isdisjoint(
         transfer.specification()["probe_inputs"])
+    for task in first:
+        specification = task.specification()
+        assert specification["multiplier"] in {2, 3}
+        assert specification["offset"] in {0, 1, 2}
+        inputs = specification["probe_inputs"]
+        assert len(inputs) == 3
+        if specification["requires_task_family_history"]:
+            assert all(6 <= item <= 9 for item in inputs)
+            assert max(specification["multiplier"] * item
+                + specification["offset"] for item in inputs) <= 29
+        else:
+            assert all(2 <= item <= 5 for item in inputs)
+            assert max(specification["multiplier"] * item
+                + specification["offset"] for item in inputs) <= 17
 
 
 def test_experiment_seed_environment_is_bounded_and_validated(runner, monkeypatch):

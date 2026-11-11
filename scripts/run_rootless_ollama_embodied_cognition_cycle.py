@@ -97,6 +97,13 @@ from sentientos.world_state_board import WorldStateBoardBuilder
 MODEL_NAME = os.environ.get("SENTIENTOS_HERMES_MODEL", "sentientos-hermes4:14b-q4km")
 _MAX_EXPERIMENT_SEED = 2**32 - 1
 _MIN_EXPERIMENT_DISK_FREE_BYTES = 2 * 1024**3
+_OBJECTIVE_TRANSFER_TASK_FAMILY = (
+    "rootless_integer_affine_transfer_low_range_v1")
+
+# Leave bounded space for receipt-backed evidence plus its prior-history packet.
+# The model remains configured with an 8,192-token context; this separate
+# character guard addresses the 16 KiB history-selection edge seen in replay.
+ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT = 20_480
 
 
 def _experiment_seed_from_environment() -> int:
@@ -124,6 +131,9 @@ def _objective_condition_score(condition: Mapping[str, Any]) -> Any:
     return condition.get("score")
 
 
+_MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER = 2
+
+
 def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
     scores = run.get("objective_scores")
     if (not isinstance(scores, list)
@@ -132,35 +142,62 @@ def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
                 != ["history_present", "history_withheld", "history_restored"]):
         raise RootlessExperimentalError(
             "objective_family_acquisition_scores_incomplete")
-    present = scores[0].get("score")
-    if not isinstance(present, Mapping):
+    evaluation_rows = [_objective_condition_score(item) for item in scores]
+    if any(not isinstance(evaluation, Mapping) for evaluation in evaluation_rows):
         raise RootlessExperimentalError(
             "objective_family_acquisition_score_invalid")
+    present, withheld, restored = evaluation_rows
     probe_results = present.get("probe_results")
     correct_count = present.get("correct_count")
     probe_count = present.get("probe_count")
     if (not isinstance(probe_results, list)
             or type(correct_count) is not int or type(probe_count) is not int
+            or probe_count < 1
             or len(probe_results) != probe_count
             or any(not isinstance(row, Mapping)
                 or type(row.get("correct")) is not bool for row in probe_results)
             or sum(row["correct"] for row in probe_results) != correct_count):
         raise RootlessExperimentalError(
             "objective_family_acquisition_score_invalid")
+    condition_correct_counts: list[int] = []
+    for evaluation in evaluation_rows:
+        count = evaluation.get("correct_count")
+        if (type(count) is not int or not 0 <= count <= probe_count
+                or evaluation.get("probe_count") != probe_count):
+            raise RootlessExperimentalError(
+                "objective_family_acquisition_score_invalid")
+        condition_correct_counts.append(count)
+    withheld_correct_count = condition_correct_counts[1]
+    restored_correct_count = condition_correct_counts[2]
+    baseline_qualified = (
+        withheld_correct_count >= _MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER)
+    if not baseline_qualified:
+        baseline_classification = "baseline_competence_not_demonstrated"
+    elif restored_correct_count != correct_count:
+        baseline_classification = "history_effect_not_restored"
+    elif correct_count > withheld_correct_count:
+        baseline_classification = "history_associated_acquisition_gain_restored"
+    elif correct_count < withheld_correct_count:
+        baseline_classification = "history_associated_acquisition_cost_restored"
+    else:
+        baseline_classification = "no_correct_count_difference"
     return {
-        "condition_correct_counts": [
-            _objective_condition_score(item).get("correct_count")
-            if isinstance(_objective_condition_score(item), Mapping) else None
-            for item in scores],
+        "condition_correct_counts": condition_correct_counts,
         "history_present_correct_count": correct_count,
+        "history_withheld_baseline_correct_count": withheld_correct_count,
+        "history_restored_correct_count": restored_correct_count,
         "probe_count": probe_count,
         "retained_accurate_example_count": correct_count,
         "retained_inaccurate_example_count": probe_count - correct_count,
         "acquisition_outcome_status": present.get("status"),
+        "baseline_competence_qualified": baseline_qualified,
+        "baseline_competence_threshold": _MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER,
+        "history_present_minus_withheld_correct_count": (
+            correct_count - withheld_correct_count),
+        "restored_minus_present_correct_count": (
+            restored_correct_count - correct_count),
+        "baseline_effect_classification": baseline_classification,
     }
-
-
-_MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER = 2
 
 
 def _objective_transfer_eligibility(acquisition_summary: Mapping[str, Any]) -> dict[str, Any]:
@@ -267,11 +304,16 @@ def _objective_task_pair(seed: int) -> tuple[ObjectivePredictionTask, ObjectiveP
     if type(seed) is not int or not 0 < seed <= _MAX_EXPERIMENT_SEED:
         raise RootlessExperimentalError("hermes_experiment_seed_invalid")
     generator = random.Random(seed)
-    multiplier = generator.randrange(2, 6)
-    offset = generator.randrange(1, 10)
-    acquisition_inputs = tuple(sorted(generator.sample(range(4, 10), 3)))
-    transfer_inputs = tuple(sorted(generator.sample(range(12, 20), 3)))
-    family = "rootless_integer_affine_transfer"
+    # Keep the exact-scored calibration within small arithmetic bounds. The
+    # earlier 2..5 multiplier, 1..9 offset, and 12..19 transfer inputs made
+    # baseline accuracy conflate history use with multi-digit mental math.
+    # Distinct input ranges still require transfer to unseen examples, while
+    # the seed continues to vary the mapping and concrete probes.
+    multiplier = generator.randrange(2, 4)
+    offset = generator.randrange(0, 3)
+    acquisition_inputs = tuple(sorted(generator.sample(range(2, 6), 3)))
+    transfer_inputs = tuple(sorted(generator.sample(range(6, 10), 3)))
+    family = _OBJECTIVE_TRANSFER_TASK_FAMILY
     acquisition = ObjectivePredictionTask(
         multiplier=multiplier, offset=offset, probe_input=acquisition_inputs[0],
         additional_probe_inputs=acquisition_inputs[1:], task_family_id=family)
@@ -303,6 +345,7 @@ TRANSFER_DECISION_QUESTION = (
 MANIFEST_PATH = EXPERIMENT_ROOT / "ollama-model-manifests" / (
     "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce.json")
 RUN_STAGE = "startup"
+PRE_ACTION_DECISION_EVIDENCE: dict[str, Any] | None = None
 RESOURCE_PREFLIGHT_EVIDENCE: list[dict[str, Any]] = []
 _SOURCE_FINGERPRINT_MAX_BYTES = 32 * 1024 * 1024
 
@@ -841,9 +884,9 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
             elif pose_decision["predicted_pose"] != pose_decision["requested_pose"]:
                 pre_action_decision_classification = "prediction_inconsistent_with_fixture"
             elif pose_decision["requested_pose"] != "reach":
-                pre_action_decision_classification = "exact_schema_goal_not_met"
+                pre_action_decision_classification = "exact_pair_goal_not_met"
             else:
-                pre_action_decision_classification = "exact_schema_goal_met"
+                pre_action_decision_classification = "exact_pair_goal_met"
             receipts.append({
                 "receipt_id": payload.get("receipt_id"),
                 "receipt_digest": payload.get("receipt_digest"),
@@ -940,8 +983,9 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                     "target_value_classification": target_value,
                     "raw_question_and_response_excluded": True,
                 })
+    failure_diagnostic = getattr(exc, "diagnostic", None)
     artifact = {
-        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v3",
+        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v4",
         "run_id": RUN_ID,
         "status": "incomplete",
         "execution_posture": "rootless_experimental_nonproduction",
@@ -956,9 +1000,14 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
             "process attribution"),
         "failure_type": type(exc).__name__,
         "failure_code": _failure_code(exc),
+        "failure_diagnostic": (dict(failure_diagnostic)
+            if isinstance(failure_diagnostic, Mapping) else None),
         "inference_receipts": receipts,
         "governed_developmental_records": records,
         "hosted_companion_deliveries": hosted_deliveries,
+        "pre_action_decision_evidence": (
+            dict(PRE_ACTION_DECISION_EVIDENCE)
+            if PRE_ACTION_DECISION_EVIDENCE is not None else None),
         "governed_unload": _verify_model_released(MODEL_NAME),
         "gpu_after": _gpu_snapshot(),
         "raw_frames_or_user_conversation_copied": False,
@@ -975,19 +1024,15 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
     return target
 
 
-def _pose_decision_from_response(value: str) -> dict[str, str] | None:
-    """Accept only the exact bounded proposal schema; prose is not scored."""
-    try:
-        payload = json.loads(value)
-    except (TypeError, json.JSONDecodeError):
+def _pose_decision_from_response(value: Any) -> dict[str, str] | None:
+    """Accept only an exact bounded action/prediction token; prose is unscored."""
+    if not isinstance(value, str):
         return None
-    if (not isinstance(payload, dict)
-            or set(payload) != {"requested_pose", "predicted_pose"}
-            or payload.get("requested_pose") not in {"reach", "idle"}
-            or payload.get("predicted_pose") not in {"reach", "idle"}):
+    poses = {"reach", "idle"}
+    parts = value.split("->")
+    if (len(parts) != 2 or any(part not in poses for part in parts)):
         return None
-    return {"requested_pose": payload["requested_pose"],
-        "predicted_pose": payload["predicted_pose"]}
+    return {"requested_pose": parts[0], "predicted_pose": parts[1]}
 
 
 def _verified_companion_replay(bridge: Any, owner: Any, *,
@@ -1151,13 +1196,18 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
     handoff = renderer_handoff(body, renderer_interface_id="renderer:synthetic:v1",
         requested_pose=requested_pose, requested_expression="neutral",
         correlation_id=RUN_ID + ":action", commanded_at=commanded_at)
+    task_goal = "reach_marked_target"
     expectation = make_expectation(
         installation_body_id="synthetic-installation", body_id="synthetic-avatar-body",
         body_generation=1, body_manifest_digest=body["manifest_digest"],
         handoff_id=handoff["handoff_id"], handoff_digest=handoff["handoff_digest"],
-        renderer_interface_id="renderer:synthetic:v1", requested={"pose": requested_pose},
-        predicted_observables={"pose": predicted_pose}, observable_fields=("pose",),
-        comparison_policy={"pose": {"kind": "exact"}},
+        renderer_interface_id="renderer:synthetic:v1",
+        requested={"pose": requested_pose, "task_goal": task_goal},
+        predicted_observables={"pose": predicted_pose,
+            "task_goal_met": predicted_pose == "reach"},
+        observable_fields=("pose", "task_goal_met"),
+        comparison_policy={"pose": {"kind": "exact"},
+            "task_goal_met": {"kind": "exact"}},
         expected_observation_source_class="synthetic_independent_fixture",
         correlation_id=RUN_ID + ":action", causal_principal_binding_digest=None,
         created_at=commanded_at,
@@ -1166,9 +1216,12 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
         started_at=commanded_at, completed_at=renderer_completed_at).render_test(handoff)
     # A separately named simulated observer reports the environment result;
     # it does not trust the renderer's assertion.
+    observed_pose = "idle"
     observation = SyntheticIndependentObserver(
         observer_id="synthetic-separate-environment-observer",
-        observed={"pose": "idle"}, observed_at=observed_at).observe(
+        observed={"pose": observed_pose,
+            "task_goal_met": observed_pose == "reach"},
+        observed_at=observed_at).observe(
             expectation=expectation, handoff=handoff, report=renderer_report)
     attribution, comparison = evaluate_consequence(
         expectation=expectation, handoff=handoff, current_body=body,
@@ -1209,6 +1262,10 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
         "effect_proven": attribution["effect_proven"],
         "requested_pose": requested_pose,
         "predicted_pose": predicted_pose,
+        "task_goal": task_goal,
+        "task_goal_met": observation.observed.get("task_goal_met") is True,
+        "task_goal_evaluation_posture": (
+            "synthetic_fixture_relation_of_observed_pose_to_task_goal"),
         "renderer_report_pose": dict(renderer_report.applied),
         "independent_observation_pose": dict(observation.observed),
         "renderer_and_observer_referenced_separately": True,
@@ -1276,7 +1333,8 @@ def _objective_family_acquisition_readiness(run_payload: Mapping[str, Any]) -> d
 
 
 def run() -> dict[str, Any]:
-    global RUN_STAGE
+    global RUN_STAGE, PRE_ACTION_DECISION_EVIDENCE
+    PRE_ACTION_DECISION_EVIDENCE = None
     RUN_STAGE = "model_and_runtime_preflight"
     if not MANIFEST_PATH.is_file() or MANIFEST_PATH.is_symlink():
         raise RootlessExperimentalError("pinned_hermes_manifest_missing")
@@ -1343,7 +1401,9 @@ def run() -> dict[str, Any]:
             current_sequence=current_sequence)
         owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
-                history_root, state_root, ("embodiment",), 16, 4, True),
+                history_root, state_root, ("embodiment",), 16, 4, True,
+                max_inference_input_chars=(
+                    ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT)),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
@@ -1368,7 +1428,8 @@ def run() -> dict[str, Any]:
         }
         decision_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
-                history_root, state_root, ("embodiment",), 16, 4, False),
+                history_root, state_root, ("embodiment",), 16, 4, False,
+                max_inference_input_chars=16_384),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
@@ -1384,10 +1445,12 @@ def run() -> dict[str, Any]:
             "resulting encoder pose using the supplied deterministic transition "
             "table. The current encoder pose is idle and both poses are available. "
             "The table means choosing reach predicts encoder pose reach; choosing "
-            "idle predicts encoder pose idle. Return exactly one JSON object with "
-            "requested_pose and predicted_pose, each either reach or idle. This "
-            "is a proposal only; do not claim an action occurred. Base the "
-            "choice on the supplied current evidence and task goal.")
+            "idle predicts encoder pose idle. In your response field, return "
+            "exactly one of these tokens with no prose: reach->reach, "
+            "reach->idle, idle->reach, or idle->idle. The first pose is the "
+            "requested action and the second is your prediction. This is a "
+            "proposal only; do not claim an action occurred. Base the choice on "
+            "the supplied current evidence and task goal.")
         cognitive_decision = _verified_companion_replay(
             decision_bridge, decision_owner, screen_observation=pre_action_screen,
             request_id=RUN_ID + ":pre-action-decision", question=decision_question)
@@ -1404,24 +1467,55 @@ def run() -> dict[str, Any]:
                     "history_record_ids": cognitive_decision.get("history_record_ids"),
                     "response": cognitive_decision.get("validated_response"),
                 }, sort_keys=True))
-        try:
-            proposal = json.loads(cognitive_decision["validated_response"])
-        except (KeyError, TypeError, json.JSONDecodeError) as exc:
-            raise RootlessExperimentalError("pre_action_cognition_proposal_invalid") from exc
-        if (not isinstance(proposal, dict)
-                or set(proposal) != {"requested_pose", "predicted_pose"}
-                or proposal.get("requested_pose") not in {"reach", "idle"}
-                or proposal.get("predicted_pose") not in {"reach", "idle"}):
+        decision_response = cognitive_decision.get("validated_response")
+        proposal = _pose_decision_from_response(decision_response)
+        prediction_consistent = None
+        if proposal is not None:
+            expected_prediction = {"reach": "reach", "idle": "idle"}[
+                proposal["requested_pose"]]
+            prediction_consistent = (
+                proposal["predicted_pose"] == expected_prediction)
+        if proposal is None:
+            decision_classification = "invalid_or_noncanonical_token"
+        elif prediction_consistent is not True:
+            decision_classification = "prediction_inconsistent_with_fixture"
+        elif proposal["requested_pose"] != "reach":
+            decision_classification = "goal_not_met"
+        else:
+            decision_classification = "goal_met_ready_for_synthetic_action"
+        PRE_ACTION_DECISION_EVIDENCE = {
+            "schema_version": "sentientos.pre_action_decision_evidence:v1",
+            "classification": decision_classification,
+            "response_digest": cognitive_decision.get("response_digest"),
+            "response_size_bytes": (
+                len(decision_response.encode("utf-8"))
+                if isinstance(decision_response, str) else None),
+            "requested_pose": (proposal["requested_pose"]
+                if proposal is not None else None),
+            "predicted_pose": (proposal["predicted_pose"]
+                if proposal is not None else None),
+            "prediction_consistent": prediction_consistent,
+            "response_lineage_verified": True,
+            "evidence_ids": list(cognitive_decision["evidence_ids"]),
+            "history_record_ids": list(cognitive_decision.get(
+                "history_record_ids", [])),
+            "authority": False,
+            "action_executed": False,
+            "synthetic_action_simulated": False,
+        }
+        if proposal is None:
             raise RootlessExperimentalError("pre_action_cognition_proposal_invalid")
-        expected_prediction = {"reach": "reach", "idle": "idle"}[proposal["requested_pose"]]
-        if proposal["predicted_pose"] != expected_prediction:
+        if prediction_consistent is not True:
             raise RootlessExperimentalError(
                 "pre_action_prediction_inconsistent_with_deterministic_fixture")
-        if proposal["requested_pose"] != "reach":
-            raise RootlessExperimentalError("pre_action_goal_not_met")
         snapshot, evidence, proprioception = _embodied_source(
             requested_pose=proposal["requested_pose"],
             predicted_pose=proposal["predicted_pose"])
+        PRE_ACTION_DECISION_EVIDENCE["synthetic_action_simulated"] = True
+        PRE_ACTION_DECISION_EVIDENCE["task_goal"] = evidence["task_goal"]
+        PRE_ACTION_DECISION_EVIDENCE["task_goal_met"] = evidence["task_goal_met"]
+        PRE_ACTION_DECISION_EVIDENCE["task_goal_evaluation_posture"] = (
+            evidence["task_goal_evaluation_posture"])
         RUN_STAGE = "governed_developmental_writeback"
         first = owner.run_tick(snapshot=snapshot, tick_id=RUN_ID + ":consequence")
         if not first.written_record_id:
@@ -1434,7 +1528,7 @@ def run() -> dict[str, Any]:
         # evidence of improved performance.
         RUN_STAGE = "objective_task_family_acquisition"
         later_pre_action_snapshot = snapshot
-        objective_family = "rootless_integer_affine_transfer"
+        objective_family = _OBJECTIVE_TRANSFER_TASK_FAMILY
         acquisition_task, transfer_task = _objective_task_pair(EXPERIMENT_SEED)
         acquisition_request_id = RUN_ID + ":objective-family-acquisition"
         stage_objective_request(
@@ -1611,7 +1705,8 @@ def run() -> dict[str, Any]:
             })
         intervention_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
-                history_root, state_root, ("embodiment",), 16, 4, True),
+                history_root, state_root, ("embodiment",), 16, 4, True,
+                max_inference_input_chars=16_384),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
@@ -1633,7 +1728,8 @@ def run() -> dict[str, Any]:
             "response exactly one token from the three uppercase choices above.")
         replay_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
-                history_root, state_root, ("embodiment",), 16, 4, False),
+                history_root, state_root, ("embodiment",), 16, 4, False,
+                max_inference_input_chars=16_384),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
@@ -1919,7 +2015,7 @@ def run() -> dict[str, Any]:
             "history_changed_new_decision"]
         transfer_classification = transfer_qualification["classification"]
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v7",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v10",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "source_provenance": dict(RUN_SOURCE_PROVENANCE),
@@ -1944,6 +2040,8 @@ def run() -> dict[str, Any]:
                 "samples": [initial_resource_evidence, *inference_resource_evidence],
                 "telemetry_scope": "host_sample_not_per_invocation"},
             "model_proposal_before_synthetic_action": {
+                **(dict(PRE_ACTION_DECISION_EVIDENCE)
+                    if PRE_ACTION_DECISION_EVIDENCE is not None else {}),
                 "status": "verified_governed_companion_proposal",
                 "requested_pose": proposal["requested_pose"],
                 "predicted_pose": proposal["predicted_pose"],

@@ -18,6 +18,7 @@ from sentientos.resident_developmental_writeback import (
     SelectedEvidence, _has_bounded_integrity_controller_observation, _identity,
     MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES,
     MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES, MAX_SELECTED_EVIDENCE_BYTES,
+    MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES,
     _selected_fact_byte_limit, _writeback_input_limit, measure_changed_cognition,
 )
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
@@ -193,7 +194,7 @@ def test_receipt_consequence_cycle_requires_valid_lineage_for_expanded_budget() 
     assert _selected_fact_byte_limit(malformed) == MAX_SELECTED_EVIDENCE_BYTES
 
 
-def test_objective_task_family_trial_gets_narrow_prompt_budget_without_expanding_evidence_cap():
+def test_objective_task_family_trial_gets_narrow_selected_evidence_and_prompt_budgets():
     fact = {
         "source": {"kind": "embodiment", "source_id": "developmental-history-run:trial",
             "digest": "sha256:" + "a" * 64},
@@ -218,21 +219,68 @@ def test_objective_task_family_trial_gets_narrow_prompt_budget_without_expanding
                 *[{"condition_id": condition, "score_digest": "sha256:" + "c" * 64,
                    "status": "incorrect"} for condition in (
                     "history_withheld", "history_restored")]],
-            "conditions": [{"condition_id": condition} for condition in (
-                "history_present", "history_withheld", "history_restored")],
+            "conditions": [{
+                "condition_id": condition,
+                "observation_id": f"observation-{index}",
+                "observation_digest": "sha256:" + format(index, "064x"),
+                "output_digest": "sha256:" + format(index + 1, "064x"),
+                "request_id": f"request-{index}",
+                "request_digest": "sha256:" + format(index + 2, "064x"),
+                "inference_receipt_id": f"lmrec-{index}",
+                "inference_receipt_digest": "sha256:" + format(index + 3, "064x"),
+                "serving_session_id": "serving-session-test",
+                "observed_at": f"2026-01-0{index + 1}T00:00:00+00:00",
+            } for index, condition in enumerate((
+                "history_present", "history_withheld", "history_restored"))],
+            "condition_event_times": [
+                "2026-01-01T00:00:01+00:00", "2026-01-02T00:00:01+00:00",
+                "2026-01-03T00:00:01+00:00"],
+            "event_time_posture": "all_condition_invocation_receipt_times_verified",
+            "execution_evidence_conditions": [{
+                "condition_id": condition,
+                "invocation_receipt_id": f"lmrec-{index}",
+                "invocation_receipt_digest": "sha256:" + format(index + 3, "064x"),
+                "receipt_identity_verified": True,
+                "receipt_status": "admitted_simulation",
+                "local_model_inference_effect": False,
+                "fallback_occurred": False,
+                "posture": "receipt_reports_simulation_or_no_backend_entry",
+                "independent_backend_observation": False,
+            } for index, condition in enumerate((
+                "history_present", "history_withheld", "history_restored"))],
+            "execution_evidence_posture": (
+                "one_or_more_conditions_simulated_or_no_backend_entry"),
+            "execution_evidence_scope": (
+                "authenticated_owner_receipt_not_independent_backend_observation"),
+            "independent_backend_observation": False,
             "acquisition_examples": [{"probe_input": 7, "observed_answer": 20,
-                "evaluator_correct": False}],
+                "evaluator_correct": False, "source_score_digest": "sha256:" + "c" * 64,
+                "source_condition": "history_present"}],
         },
         "effect_proven": False,
     }
 
     assert _selected_fact_byte_limit([fact]) == (
-        MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES)
+        MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES)
+    assert MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES == 12_288
     assert _writeback_input_limit([fact]) == 16_384
 
     malformed = json.loads(json.dumps(fact))
     malformed["payload"]["task_family_posture"] = "unbound"
+    assert _selected_fact_byte_limit([malformed]) == (
+        MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES)
     assert _writeback_input_limit([malformed]) == 8000
+
+    mismatched_receipt = json.loads(json.dumps(fact))
+    mismatched_receipt["payload"]["execution_evidence_conditions"][0][
+        "invocation_receipt_id"] = "different-receipt"
+    assert _selected_fact_byte_limit([mismatched_receipt]) == (
+        MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES)
+    unverified_receipt = json.loads(json.dumps(fact))
+    unverified_receipt["payload"]["execution_evidence_conditions"][0][
+        "receipt_identity_verified"] = False
+    assert _selected_fact_byte_limit([unverified_receipt]) == (
+        MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES)
 
 
 def test_successful_selected_evidence_candidate_admitted_append_receipt_retrieval_and_restart(tmp_path: Path) -> None:
