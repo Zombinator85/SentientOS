@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import random
@@ -48,6 +49,7 @@ os.environ["SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE"] = str(workspace)
 RUN_ID = "rootless-cognition-cycle-" + uuid.uuid4().hex[:20]
 RUN_ROOT = (workspace / "sentientos-data" / "rootless-experimental"
     / "developmental-cognition-cycles" / RUN_ID)
+RUN_PREREGISTRATION_DIGEST: str | None = None
 governance_root = RUN_ROOT / "resource-governance"
 os.environ["SENTIENTOS_GOVERNOR_ROOT"] = str(governance_root / "governor")
 os.environ["SENTIENTOS_FEDERATION_ROOT"] = str(governance_root / "federation")
@@ -98,12 +100,22 @@ MODEL_NAME = os.environ.get("SENTIENTOS_HERMES_MODEL", "sentientos-hermes4:14b-q
 _MAX_EXPERIMENT_SEED = 2**32 - 1
 _MIN_EXPERIMENT_DISK_FREE_BYTES = 2 * 1024**3
 _OBJECTIVE_TRANSFER_TASK_FAMILY = (
-    "rootless_integer_affine_transfer_low_range_v1")
+    "rootless_integer_affine_transfer_low_range_v5")
 
 # Leave bounded space for receipt-backed evidence plus its prior-history packet.
 # The model remains configured with an 8,192-token context; this separate
 # character guard addresses the 16 KiB history-selection edge seen in replay.
 ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT = 20_480
+
+
+def _history_intervention_trial_index_from_environment() -> int | None:
+    raw = os.environ.get("SENTIENTOS_HERMES_HISTORY_ORDER_TRIAL_INDEX")
+    if raw is None:
+        return None
+    if (len(raw) > 10 or not raw.isascii() or not raw.isdecimal()
+            or int(raw) > _MAX_EXPERIMENT_SEED):
+        raise SystemExit("hermes_history_order_trial_index_invalid")
+    return int(raw)
 
 
 def _experiment_seed_from_environment() -> int:
@@ -116,7 +128,40 @@ def _experiment_seed_from_environment() -> int:
     return int(raw)
 
 
+def _preregistration_digest_from_environment() -> str:
+    # Bind a pre-run protocol digest into every governed cycle receipt.
+    raw = os.environ.get("SENTIENTOS_HERMES_PREREGISTRATION_DIGEST")
+    if raw is None:
+        return "0" * 64
+    if (len(raw) != 64 or not raw.isascii()
+            or any(character not in "0123456789abcdef" for character in raw)):
+        raise SystemExit("hermes_preregistration_digest_invalid")
+    return raw
+
+
 EXPERIMENT_SEED = _experiment_seed_from_environment()
+PREREGISTRATION_DIGEST = _preregistration_digest_from_environment()
+HISTORY_INTERVENTION_TRIAL_INDEX = (
+    _history_intervention_trial_index_from_environment())
+
+
+def _optional_preregistration_digest(value: Any) -> str | None:
+    if (isinstance(value, str) and value != "0" * 64
+            and re.fullmatch(r"[0-9a-f]{64}", value)):
+        return value
+    return None
+
+
+def _request_preregistration_digest(request: Any) -> str | None:
+    if not isinstance(request, Mapping):
+        return None
+    linkage = request.get("linkage")
+    session = (linkage.get("rootless_experimental_session")
+        if isinstance(linkage, Mapping) else None)
+    if not isinstance(session, Mapping):
+        return None
+    return _optional_preregistration_digest(
+        session.get("preregistration_digest"))
 
 
 def _experiment_seed_provenance() -> dict[str, int]:
@@ -201,18 +246,30 @@ def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _objective_transfer_eligibility(acquisition_summary: Mapping[str, Any]) -> dict[str, Any]:
-    """Require enough evaluator-verified examples to identify an affine rule."""
+    """Require baseline competence and enough verified examples for transfer."""
     accurate = acquisition_summary.get("retained_accurate_example_count")
     if type(accurate) is not int or accurate < 0:
         raise RootlessExperimentalError(
             "objective_family_acquisition_accuracy_count_invalid")
     required = _MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER
+    baseline_qualified = acquisition_summary.get("baseline_competence_qualified")
+    if type(baseline_qualified) is not bool:
+        raise RootlessExperimentalError(
+            "objective_family_acquisition_baseline_qualification_invalid")
+    eligible = accurate >= required and baseline_qualified
+    if not baseline_qualified:
+        reason = "history_withheld_baseline_competence_not_demonstrated"
+    elif accurate < required:
+        reason = "insufficient_accurate_acquisition_examples"
+    else:
+        reason = None
     return {
-        "eligible": accurate >= required,
-        "reason": None if accurate >= required else
-            "insufficient_accurate_acquisition_examples",
+        "eligible": eligible,
+        "status": "eligible" if eligible else f"skipped_{reason}",
+        "reason": reason,
         "accurate_example_count": accurate,
         "required_accurate_example_count": required,
+        "history_withheld_baseline_competence_qualified": baseline_qualified,
     }
 
 
@@ -342,6 +399,57 @@ TRANSFER_DECISION_QUESTION = (
     "current fact grounds the target, abstain with response "
     "HISTORY_UNAVAILABLE and no citations. This is a proposal only; do not "
     "claim action authority or execution.")
+
+
+def _history_transfer_probe_readiness(record: Mapping[str, Any]) -> dict[str, Any]:
+    """Require the retained event to match the action pattern in the probe."""
+    candidate = record.get("candidate")
+    if not isinstance(candidate, Mapping):
+        return {"eligible": False,
+            "reason_code": "retained_history_facts_unavailable",
+            "record_id": record.get("record_id"), "evidence_fact_ids": []}
+    facts = candidate.get("selected_facts")
+    if not isinstance(facts, list):
+        return {"eligible": False,
+            "reason_code": "retained_history_facts_unavailable",
+            "record_id": record.get("record_id"), "evidence_fact_ids": []}
+    matching_fact_ids: list[str] = []
+    for fact in facts:
+        if not isinstance(fact, Mapping):
+            continue
+        payload = fact.get("payload")
+        source = fact.get("source")
+        if not isinstance(payload, Mapping) or not isinstance(source, Mapping):
+            continue
+        schema = (payload.get("schema_version")
+            or source.get("schema_version"))
+        if schema != "sentientos.embodied_consequence_attribution:v1":
+            continue
+        commanded = payload.get("commanded_value")
+        predicted = payload.get("predicted_value")
+        observed = payload.get("independently_observed_value")
+        if (not isinstance(commanded, Mapping)
+                or not isinstance(predicted, Mapping)
+                or not isinstance(observed, Mapping)):
+            continue
+        if (commanded.get("pose") == "reach"
+                and commanded.get("task_goal") == "reach_marked_target"
+                and predicted.get("pose") == "reach"
+                and observed.get("pose") == "idle"
+                and observed.get("task_goal_met") is False):
+            fact_id = fact.get("fact_id")
+            if isinstance(fact_id, str) and fact_id:
+                matching_fact_ids.append(fact_id)
+    if matching_fact_ids:
+        return {"eligible": True,
+            "reason_code": "retained_history_matches_probe_pattern",
+            "record_id": record.get("record_id"),
+            "evidence_fact_ids": sorted(set(matching_fact_ids))}
+    return {"eligible": False,
+        "reason_code": "retained_history_does_not_match_probe_pattern",
+        "record_id": record.get("record_id"), "evidence_fact_ids": []}
+
+
 MANIFEST_PATH = EXPERIMENT_ROOT / "ollama-model-manifests" / (
     "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce.json")
 RUN_STAGE = "startup"
@@ -830,6 +938,23 @@ def _failure_code(exc: Exception) -> str:
     return type(exc).__name__
 
 
+def _failure_cause_code(exc: Exception) -> str | None:
+    """Return only a bounded machine code from a short nested cause chain."""
+    cause = exc.__cause__ or exc.__context__
+    for _ in range(8):
+        if cause is None:
+            return None
+        for attribute in ("code", "reason_code", "reason"):
+            value = getattr(cause, attribute, None)
+            if isinstance(value, str) and re.fullmatch(r"[a-z0-9_]{1,120}", value):
+                return value
+        message = str(cause).strip()
+        if re.fullmatch(r"[a-z0-9_]{1,120}", message):
+            return message
+        cause = cause.__cause__ or cause.__context__
+    return None
+
+
 def _persist_incomplete_run(exc: Exception) -> Path | None:
     """Record a bounded failure summary without copying prompts or model text."""
     if not RUN_ROOT.is_dir() or RUN_ROOT.is_symlink():
@@ -853,6 +978,7 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                 except json.JSONDecodeError:
                     decoded = None
             upstream = request.get("upstream_evidence") if isinstance(request, dict) else None
+            preregistration_digest = _request_preregistration_digest(request)
             retrieved_record_ids = (upstream.get("record_ids", [])
                 if isinstance(upstream, dict) else [])
             cited_record_ids = (decoded.get("history_record_ids", [])
@@ -893,6 +1019,7 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                 "purpose": payload.get("purpose"),
                 "correlation_id": request.get("correlation_id")
                     if isinstance(request, dict) else None,
+                "run_preregistration_digest": preregistration_digest,
                 "output_digest": payload.get("output_digest"),
                 "reason_codes": payload.get("reason_codes", []),
                 "disposition": decoded.get("disposition")
@@ -985,13 +1112,16 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                 })
     failure_diagnostic = getattr(exc, "diagnostic", None)
     artifact = {
-        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v4",
+        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v5",
         "run_id": RUN_ID,
         "status": "incomplete",
         "execution_posture": "rootless_experimental_nonproduction",
         "source_provenance": dict(RUN_SOURCE_PROVENANCE),
         "model_id": MODEL_NAME,
         "model_manifest_digest": MANIFEST_PATH.stem,
+        "external_preregistration_digest": _optional_preregistration_digest(
+            PREREGISTRATION_DIGEST),
+        "run_preregistration_digest": RUN_PREREGISTRATION_DIGEST,
         "stage": RUN_STAGE,
         "resource_preflight_samples": [dict(item)
             for item in RESOURCE_PREFLIGHT_EVIDENCE],
@@ -1000,6 +1130,7 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
             "process attribution"),
         "failure_type": type(exc).__name__,
         "failure_code": _failure_code(exc),
+        "failure_cause_code": _failure_cause_code(exc),
         "failure_diagnostic": (dict(failure_diagnostic)
             if isinstance(failure_diagnostic, Mapping) else None),
         "inference_receipts": receipts,
@@ -1183,6 +1314,19 @@ def _pre_action_source(*, pose: str = "idle",
     return WorldStateBoardBuilder().build(records), self_report
 
 
+def _objective_task_source() -> WorldStateSnapshot:
+    """Use a matched current body-state observation for abstract task probes.
+
+    The task-family acquisition and transfer comparisons already bind their
+    task descriptor and retained history separately. Reusing the preceding
+    consequence snapshot injects a large, unrelated evidence chain into every
+    condition and can exceed the configured model context window. Keep one fresh,
+    deterministic proprioception observation as matched current context.
+    """
+    snapshot, _ = _pre_action_source(pose="idle")
+    return snapshot
+
+
 def _embodied_source(*, requested_pose: str, predicted_pose: str
         ) -> tuple[WorldStateSnapshot, dict[str, Any], EmbodimentObservation]:
     commanded_at = (datetime.now(timezone.utc) - timedelta(seconds=8)).isoformat()
@@ -1333,10 +1477,24 @@ def _objective_family_acquisition_readiness(run_payload: Mapping[str, Any]) -> d
     }
 
 
+def _require_experiment_runtime_dependencies() -> None:
+    """Fail before model loading when telemetry or later scoring deps are absent."""
+    for module_name in ("psutil", "pydantic"):
+        try:
+            available = importlib.util.find_spec(module_name) is not None
+        except (ImportError, ValueError):
+            available = False
+        if not available:
+            raise RootlessExperimentalError(
+                f"experimental_runtime_dependency_missing:{module_name}")
+
+
 def run() -> dict[str, Any]:
-    global RUN_STAGE, PRE_ACTION_DECISION_EVIDENCE
+    global RUN_STAGE, PRE_ACTION_DECISION_EVIDENCE, RUN_PREREGISTRATION_DIGEST
     PRE_ACTION_DECISION_EVIDENCE = None
+    RUN_PREREGISTRATION_DIGEST = None
     RUN_STAGE = "model_and_runtime_preflight"
+    _require_experiment_runtime_dependencies()
     if not MANIFEST_PATH.is_file() or MANIFEST_PATH.is_symlink():
         raise RootlessExperimentalError("pinned_hermes_manifest_missing")
     preexisting_residency = _model_residency_observed(MODEL_NAME)
@@ -1375,9 +1533,38 @@ def run() -> dict[str, Any]:
     session.invoker = cast(Any, _ResourceGuardedInvoker(
         session.invoker, resource_coordinator, model_weight_bytes,
         inference_resource_evidence, model_name=MODEL_NAME))
-    # Bind the session to the identity actually loaded by the governed worker.
-    session.session_binding["active_model_identity_digest"] = digest_payload(
-        {"identity": session.active_model_identity})
+    # Bind the actual execution to the fixed external protocol before its first
+    # inference. The session owner computes and verifies its run-specific digest.
+    if PREREGISTRATION_DIGEST != "0" * 64:
+        preregistration = {
+            "schema_version": "sentientos.rootless_hermes_cycle_preregistration:v1",
+            "external_protocol_digest": PREREGISTRATION_DIGEST,
+            "experiment_seed": EXPERIMENT_SEED,
+            "history_order_trial_index": HISTORY_INTERVENTION_TRIAL_INDEX,
+            "run_id": RUN_ID,
+            "session_id": binding["session_id"],
+            "model_manifest_digest": manifest_digest,
+            "runtime_bundle_digest": runtime_sha,
+            "model_identity": session.active_model_identity,
+            "source_provenance": RUN_SOURCE_PROVENANCE,
+        }
+        preregistration["preregistration_digest"] = runtime_digest(preregistration)
+        preregistration_path = RUN_ROOT / "preregistration.json"
+        _no_symlink_path(preregistration_path)
+        preregistration_flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            | getattr(os, "O_NOFOLLOW", 0))
+        preregistration_descriptor = os.open(preregistration_path,
+            preregistration_flags, 0o600)
+        with os.fdopen(preregistration_descriptor, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(preregistration, sort_keys=True, indent=2) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        session.bind_preregistration_digest(preregistration["preregistration_digest"])
+        RUN_PREREGISTRATION_DIGEST = preregistration["preregistration_digest"]
+    else:
+        # Bind the session to the identity actually loaded by the governed worker.
+        session.session_binding["active_model_identity_digest"] = digest_payload(
+            {"identity": session.active_model_identity})
     try:
         RUN_STAGE = "synthetic_pre_action_cognition"
         cognition_root = RUN_ROOT / "resident-cognition"
@@ -1516,7 +1703,7 @@ def run() -> dict[str, Any]:
         # rather than treating a plausible conversational difference as
         # evidence of improved performance.
         RUN_STAGE = "objective_task_family_acquisition"
-        later_pre_action_snapshot = snapshot
+        later_pre_action_snapshot = _objective_task_source()
         objective_family = _OBJECTIVE_TRANSFER_TASK_FAMILY
         acquisition_task, transfer_task = _objective_task_pair(EXPERIMENT_SEED)
         acquisition_request_id = RUN_ID + ":objective-family-acquisition"
@@ -1662,7 +1849,7 @@ def run() -> dict[str, Any]:
                 }
             else:
                 objective_transfer_history = {
-                    "status": "skipped_insufficient_accurate_acquisition_examples",
+                    "status": transfer_eligibility["status"],
                     "experiment_seed": EXPERIMENT_SEED,
                     "acquisition_task_outcome": acquisition_summary,
                     "transfer_eligibility": transfer_eligibility,
@@ -1810,7 +1997,8 @@ def run() -> dict[str, Any]:
             intervention_owner.run_companion_history_intervention(
                 snapshot=later_pre_action_snapshot,
                 tick_id=RUN_ID + ":later-companion-decision",
-                question=history_decision_question))
+                question=history_decision_question,
+                trial_index=HISTORY_INTERVENTION_TRIAL_INDEX))
         if (companion_intervention.status != "completed_controlled_intervention"
                 or not companion_intervention.changed_cognition_measurement_id):
             raise RootlessExperimentalError("history_intervention_measurement_missing")
@@ -1949,42 +2137,84 @@ def run() -> dict[str, Any]:
         # Keep a direct new-action decision probe distinct from historical
         # recall. It uses the same existing resident history-intervention owner,
         # the same current World-State snapshot, and a fresh experiment tick.
-        # The synthetic record says only that a prior predicted reach was
-        # followed by an observer-reported idle pose; it is not independent
-        # physical-effect evidence.
+        # This synthetic record can only support a decision probe when its
+        # retained action and outcome match the probe's explicit antecedent.
+        # Even then, it is not evidence of a physical effect.
         transfer_question = TRANSFER_DECISION_QUESTION
-        # Ground only the new action-choice comparison in a current synthetic
-        # target observation. Acquisition and historical recall keep their
-        # existing evidence sets and limits.
-        later_action_decision_snapshot, _ = _pre_action_source(
-            pose="reach", include_current_target=True)
-        target_fact_ids = tuple(fact.fact_id
-            for fact in later_action_decision_snapshot.facts
-            if fact.subject.subject_id == "synthetic-target-1")
-        if len(target_fact_ids) != 1:
-            raise RootlessExperimentalError(
-                "later_action_target_fact_identity_invalid")
-        transfer_intervention = (
-            intervention_owner.run_companion_history_intervention(
-                snapshot=later_action_decision_snapshot,
-                tick_id=RUN_ID + ":later-transfer-decision",
-                question=transfer_question,
-                history_record_allowlist=(first.written_record_id,)))
-        if (transfer_intervention.status != "completed_controlled_intervention"
-                or not transfer_intervention.changed_cognition_measurement_id):
-            raise RootlessExperimentalError(
-                "history_transfer_intervention_measurement_missing")
-        transfer_conditions = list(transfer_intervention.conditions)
-        transfer_present, transfer_withheld, transfer_restored = (
-            transfer_conditions if len(transfer_conditions) == 3
-            else ({}, {}, {}))
-        transfer_qualification = qualify_history_transfer_decision(
-            conditions=transfer_conditions,
-            expected_history_record_id=first.written_record_id,
-            expected_current_fact_id=target_fact_ids[0],
-            present_response="INSPECT", withheld_response="REACH",
-            restored_response="INSPECT",
-            restored_prompt_matches=transfer_intervention.restored_prompt_matches)
+        transfer_readiness = _history_transfer_probe_readiness(asdict(durable))
+        transfer_conditions: list[Mapping[str, Any]] = []
+        if transfer_readiness["eligible"]:
+            # Ground only the new action-choice comparison in a current synthetic
+            # target observation. Acquisition and historical recall keep their
+            # existing evidence sets and limits.
+            later_action_decision_snapshot, _ = _pre_action_source(
+                pose="reach", include_current_target=True)
+            target_fact_ids = tuple(fact.fact_id
+                for fact in later_action_decision_snapshot.facts
+                if fact.subject.subject_id == "synthetic-target-1")
+            if len(target_fact_ids) != 1:
+                raise RootlessExperimentalError(
+                    "later_action_target_fact_identity_invalid")
+            transfer_intervention = (
+                intervention_owner.run_companion_history_intervention(
+                    snapshot=later_action_decision_snapshot,
+                    tick_id=RUN_ID + ":later-transfer-decision",
+                    question=transfer_question,
+                    history_record_allowlist=(first.written_record_id,),
+                    trial_index=HISTORY_INTERVENTION_TRIAL_INDEX))
+            if (transfer_intervention.status != "completed_controlled_intervention"
+                    or not transfer_intervention.changed_cognition_measurement_id):
+                raise RootlessExperimentalError(
+                    "history_transfer_intervention_measurement_missing")
+            transfer_conditions = list(transfer_intervention.conditions)
+            transfer_qualification = qualify_history_transfer_decision(
+                conditions=transfer_conditions,
+                expected_history_record_id=first.written_record_id,
+                expected_current_fact_id=target_fact_ids[0],
+                present_response="INSPECT", withheld_response="REACH",
+                restored_response="INSPECT",
+                restored_prompt_matches=transfer_intervention.restored_prompt_matches)
+            transfer_status = transfer_intervention.status
+            transfer_question_digest = transfer_intervention.question_digest
+            transfer_measurement_id = (
+                transfer_intervention.changed_cognition_measurement_id)
+            transfer_response_text_classification = (
+                transfer_intervention.response_text_classification)
+            transfer_restored_prompt_matches = (
+                transfer_intervention.restored_prompt_matches)
+            transfer_authority = transfer_intervention.authority
+            transfer_action_authority = transfer_intervention.action_authority
+        else:
+            # Do not spend three inferences on a question whose stated historical
+            # antecedent is absent from the retained experience.
+            transfer_qualification = {
+                "schema_version": "sentientos.history_transfer_decision_qualification:v4",
+                "measurement_scope": "new_action_proposal_not_executed",
+                "classification": "history_evidence_precondition_not_met",
+                "controlled_inputs_match": False,
+                "matched_non_history_inputs_bound": False,
+                "restored_prompt_exact_match": False,
+                "target_evidence_cited": False,
+                "expected_history_cited": False,
+                "history_treatment_bound": False,
+                "restoration_stable": False,
+                "response_difference_observed": False,
+                "restored_response_matches_present": False,
+                "history_conditioned_response_difference_observed_under_matched_controls": False,
+                "history_changed_new_decision": False,
+                "qualification_failure_codes": [
+                    "retained_history_does_not_match_probe_pattern"],
+                "action_executed": False,
+                "performance_improvement_established": False,
+            }
+            transfer_status = "skipped_history_evidence_precondition_not_met"
+            transfer_question_digest = digest_payload(
+                {"question": transfer_question})
+            transfer_measurement_id = None
+            transfer_response_text_classification = "not_run"
+            transfer_restored_prompt_matches = False
+            transfer_authority = False
+            transfer_action_authority = False
         transfer_controls_match = transfer_qualification["controlled_inputs_match"]
         transfer_history_cited = transfer_qualification["expected_history_cited"]
         transfer_restoration_stable = transfer_qualification["restoration_stable"]
@@ -1992,12 +2222,16 @@ def run() -> dict[str, Any]:
             "history_changed_new_decision"]
         transfer_classification = transfer_qualification["classification"]
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v10",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v11",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "source_provenance": dict(RUN_SOURCE_PROVENANCE),
+            "external_preregistration_digest": _optional_preregistration_digest(
+                PREREGISTRATION_DIGEST),
+            "run_preregistration_digest": RUN_PREREGISTRATION_DIGEST,
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
             **_experiment_seed_provenance(),
+            "history_order_trial_index": HISTORY_INTERVENTION_TRIAL_INDEX,
             "model_artifact_size_bytes": manifest_size,
             "runtime_observation": runtime, "runtime_observation_digest": runtime_sha,
             "active_model_identity": session.active_model_identity,
@@ -2124,18 +2358,17 @@ def run() -> dict[str, Any]:
             "history_transfer_intervention": {
                 **transfer_qualification,
                 "measurement_scope": "new_action_proposal_not_execution",
-                "status": transfer_intervention.status,
-                "question_digest": transfer_intervention.question_digest,
-                "changed_cognition_measurement_id":
-                    transfer_intervention.changed_cognition_measurement_id,
+                "status": transfer_status,
+                "history_evidence_precondition": transfer_readiness,
+                "question_digest": transfer_question_digest,
+                "changed_cognition_measurement_id": transfer_measurement_id,
                 "response_text_classification":
-                    transfer_intervention.response_text_classification,
+                    transfer_response_text_classification,
                 "history_changed_new_action_decision":
                     transfer_history_changed_new_decision,
                 "classification": transfer_classification,
                 "controlled_inputs_match": transfer_controls_match,
-                "restored_prompt_matches":
-                    transfer_intervention.restored_prompt_matches,
+                "restored_prompt_matches": transfer_restored_prompt_matches,
                 "present_restored_output_digest_matches":
                     transfer_restoration_stable,
                 "history_citation_bound": transfer_history_cited,
@@ -2168,8 +2401,8 @@ def run() -> dict[str, Any]:
                     "cognition_receipt_output_binding_verified":
                         item.get("cognition_receipt_output_binding_verified"),
                 } for item in transfer_conditions],
-                "authority": transfer_intervention.authority,
-                "action_authority": transfer_intervention.action_authority,
+                "authority": transfer_authority,
+                "action_authority": transfer_action_authority,
                 "action_executed": False,
                 "performance_improvement_established": False,
                 "causal_or_learning_claim_made": False},

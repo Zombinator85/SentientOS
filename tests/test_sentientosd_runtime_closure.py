@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import asyncio
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import sys
@@ -177,6 +178,102 @@ def test_integrity_controller_observation_is_bounded_context_only_and_opt_in(
         next(gate["status"] for gate in fact.payload["gate_results"]
              if gate["name"] == "attestation_snapshot_signatures"))
     reset_runtime_governor()
+
+
+def test_codex_healer_projection_marks_old_or_untrusted_evidence_conservatively() -> None:
+    event = {
+        "timestamp": "2020-01-01T00:00:00+00:00",
+        "status": "auto-repair verified",
+        "anomaly": {"kind": "daemon_unresponsive", "subject": "/private/path"},
+        "action": {"kind": "restart_daemon"},
+        "canonical_admission": {
+            "typed_action_id": "sentientos.codexhealer.repair",
+            "canonical_router": "private admission narrative",
+        },
+    }
+
+    records = sentientosd._codex_healer_world_state_records(
+        [event], tick_id="2026-11-11T15:31:00+00:00")
+
+    assert len(records) == 1
+    assert records[0]["staleness"] == "stale"
+    assert records[0]["payload"]["canonical_admission"] == {
+        "typed_action_id": "sentientos.codexhealer.repair",
+    }
+    assert records[0]["payload"]["effect_proven"] is False
+
+
+def test_codex_healer_recovery_reaches_world_state_without_diagnostic_prose(
+        monkeypatch, tmp_path: Path,
+) -> None:  # type: ignore[no-untyped-def]
+    observed_at = datetime.now(timezone.utc) - timedelta(seconds=2)
+    event = {
+        "timestamp": observed_at.isoformat(),
+        "status": "auto-repair verified",
+        "narrative": "private diagnostic narrative should not enter cognition",
+        "anomaly": {"kind": "daemon_unresponsive",
+            "subject": "/private/password-marker/daemon",
+            "details": {"heartbeat_age_seconds": 121}},
+        "action": {"kind": "restart_daemon",
+            "description": "sensitive repair prose should not enter cognition"},
+        "details": {"attempts": 1, "attempt_ceiling": 3,
+            "repair_verification": {"status": "verified",
+                "reason": "private verification prose"}},
+        "quarantined": False,
+        "correlation_id": "a" * 64,
+        "canonical_admission": {"typed_action_id": "repair:restart_daemon",
+            "admission_decision_ref": "admission:123",
+            "canonical_handler": "sentientos.codexhealer.repair",
+            "canonical_router": "constitutional-mutation-router", "path_status": "executed"},
+    }
+    @dataclass
+    class CognitionResult:
+        status: str = "completed"
+        write_performed: bool = False
+        model_invoked: bool = False
+        admission_issued: bool = False
+
+    class CognitionOwner:
+        config = None
+        received_snapshot = None
+
+        def run_tick(self, *, snapshot, **_kwargs):
+            self.received_snapshot = snapshot
+            return CognitionResult()
+
+    monkeypatch.setattr(sentientosd, "runtime_healer_monitor", lambda _root: [event])
+    owner = CognitionOwner()
+    tick = (observed_at + timedelta(seconds=1)).isoformat()
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=owner,  # type: ignore[arg-type]
+    )
+
+    surfaces.monitor()
+    surfaces.build_world_state_board(tick_id=tick)
+    cognition_feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+
+    snapshot = surfaces.current_world_state_snapshot
+    assert cognition_feedback["status"] == "completed"
+    assert owner.received_snapshot is snapshot
+    assert snapshot is not None
+    fact = next(item for item in snapshot.facts
+        if item.subject.subject_kind == "codex_healer_recovery_event")
+    assert fact.source.kind == "runtime_supervisor"
+    assert fact.payload["anomaly_kind"] == "daemon_unresponsive"
+    assert fact.payload["recovery_disposition"] == "verified"
+    assert fact.payload["action_kind"] == "restart_daemon"
+    assert fact.payload["repair_verification_status"] == "verified"
+    assert fact.payload["canonical_admission"]["path_status"] == "executed"
+    assert fact.payload["anomaly_subject_digest"]
+    assert fact.source.staleness == "fresh"
+    assert fact.payload["authority"] is False
+    assert fact.payload["effect_proven"] is False
+    assert fact.source.source_id.endswith(fact.payload["event_digest"])
+    serialized = json.dumps(fact.payload)
+    assert "private" not in serialized
+    assert "password-marker" not in serialized
+    assert "sensitive repair prose" not in serialized
 
 
 def test_quarantine_incident_reconciliation_preserves_second_read_failure(

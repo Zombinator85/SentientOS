@@ -1717,8 +1717,10 @@ class ObjectivePredictionTask:
                     question = (
                         family_rule
                         + "Parameters are hidden. Use only retrieved same-family "
-                        "evaluator-scored history examples to predict outputs for "
-                        f"inputs {inputs}.")
+                        "evaluator-scored history examples. Use rows marked "
+                        "evaluator_correct=true; with at least two distinct inputs, "
+                        "infer output=m*input+b and check it against every such row. "
+                        f"Then calculate outputs for inputs {inputs}.")
                 else:
                     examples = [
                         {"input": 0, "output": self.offset},
