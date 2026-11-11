@@ -6,6 +6,7 @@ import json
 import math
 import re
 import threading
+import time
 from pathlib import Path
 from typing import Any, Mapping, Protocol
 
@@ -101,9 +102,10 @@ class ProductionServingInferenceController:
         self._foreground_game_detector = foreground_game_detector or ForegroundGameDetector()
         self._host_resource_observation_owner = host_resource_observation_owner
 
-    def _observe_host_resources(self, correlation_id: str) -> dict[str, Any]:
+    def _observe_host_resources(self, correlation_id: str, *,
+                                observation_namespace: str = "local-chat-inference") -> dict[str, Any]:
         owner = self._host_resource_observation_owner
-        observation_id = "local-chat-inference-" + hashlib.sha256(
+        observation_id = observation_namespace + "-" + hashlib.sha256(
             correlation_id.encode("utf-8")).hexdigest()[:32]
         if owner is None:
             return {"schema_version": "sentientos.production_chat_host_resource_observation:v1",
@@ -281,18 +283,25 @@ class ProductionServingInferenceController:
 
     def _release_after_verified_game_gpu_pressure(
             self, session: ServingSession, model: Any,
-            receipt: LocalModelInvocationReceipt) -> None:
-        """Release only after this request was deferred for a verified game's GPU pressure."""
-        if (receipt.status != "deferred"
-                or not any(reason.endswith(
-                    "deferred_local_model_inference_under_host_pressure_during_game")
-                    for reason in receipt.reason_codes)):
-            return
-        request_linkage = receipt.request.get("linkage")
-        if not isinstance(request_linkage, Mapping):
-            return
-        resource_observation = request_linkage.get("host_resource_observation")
-        workload_evidence = request_linkage.get("workload_evidence")
+            receipt: LocalModelInvocationReceipt | None,
+            *, resource_observation: Mapping[str, Any] | None = None,
+            workload_evidence: Mapping[str, Any] | None = None,
+            trigger_correlation_id: str | None = None,
+            trigger_kind: str = "deferred_inference") -> dict[str, Any] | None:
+        """Use the existing release owner for exact, current game and host evidence."""
+        if receipt is not None:
+            if (receipt.status != "deferred"
+                    or not any(reason.endswith(
+                        "deferred_local_model_inference_under_host_pressure_during_game")
+                        for reason in receipt.reason_codes)):
+                return
+            request_linkage = receipt.request.get("linkage")
+            if not isinstance(request_linkage, Mapping):
+                return
+            resource_observation = request_linkage.get("host_resource_observation")
+            workload_evidence = request_linkage.get("workload_evidence")
+            trigger_correlation_id = receipt.request.get("correlation_id")
+            trigger_kind = "deferred_inference"
         if not isinstance(resource_observation, Mapping) or not isinstance(workload_evidence, Mapping):
             return
         provenance = workload_evidence.get("transport_provenance")
@@ -308,17 +317,19 @@ class ProductionServingInferenceController:
                     and workload_evidence.get("game_process_running") is not True)
                 or not isinstance(game_message_id, str)):
             return
-        source_correlation = receipt.request.get("correlation_id")
-        if not isinstance(source_correlation, str):
+        if not isinstance(trigger_correlation_id, str) or not trigger_correlation_id:
             return
+        source_correlation = trigger_correlation_id
         release_correlation = "production-chat-resource-release-" + hashlib.sha256(
-            source_correlation.encode("utf-8")).hexdigest()[:24]
+            (source_correlation if trigger_kind == "deferred_inference" else
+             trigger_kind + ":" + source_correlation).encode("utf-8")).hexdigest()[:24]
         loaded_identity = getattr(model, "active_identity", None)
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
             return
         host_release_evidence = {
-            "schema_version": "sentientos.production_game_gpu_resource_release_evidence:v1",
-            "source_inference_correlation_id": source_correlation,
+            "schema_version": "sentientos.production_game_gpu_resource_release_evidence:v2",
+            "trigger_kind": trigger_kind,
+            "trigger_correlation_id": source_correlation,
             "observation_correlation_id": resource_observation.get(
                 "observation_correlation_id"),
             "host_report_id": resource_observation.get("report_id"),
@@ -418,7 +429,10 @@ class ProductionServingInferenceController:
             "schema_version": "sentientos.production_chat_resource_release_receipt:v2",
             "status": ("worker_closed" if close_completed else
                 "release_effect_unconfirmed" if decision_valid else "denied"),
-            "source_inference_correlation_id": source_correlation,
+            "trigger_kind": trigger_kind,
+            "trigger_correlation_id": source_correlation,
+            "source_inference_correlation_id": (source_correlation
+                if trigger_kind == "deferred_inference" else None),
             "release_correlation_id": release_correlation,
             "serving_session_id": session.session_id,
             "serving_operation_id": session.binding.get("serving_operation_id"),
@@ -459,6 +473,60 @@ class ProductionServingInferenceController:
                     or handle.read_regular_bounded(target, max_bytes=262_144) != encoded):
                 raise ProductionServingInferenceError(
                     "resource_release_receipt_publication_failed") from exc
+        return outcome
+
+    def reconcile_idle_game_resource_state(self) -> dict[str, Any]:
+        """Release an exact resident session on verified game/GPU pressure, without inference."""
+        if not self._receipt_capacity_lock.acquire(blocking=False):
+            return {"status": "skipped", "reason": "inference_or_release_in_progress"}
+        try:
+            workload = self.current_workload_state()
+            if workload.get("configured_mode") != "automatic":
+                return {"status": "skipped", "reason": "automatic_game_observation_required"}
+            provenance = workload.get("transport_provenance")
+            if (workload.get("observation_status") != "available"
+                    or (workload.get("game_foreground") is not True
+                        and workload.get("game_process_running") is not True)
+                    or not isinstance(provenance, Mapping)
+                    or not isinstance(provenance.get("message_id"), str)):
+                return {"status": "skipped", "reason": "fresh_verified_game_evidence_required"}
+            session = self._serving.current_session()
+            if session is None:
+                return {"status": "skipped", "reason": "no_resident_serving_session"}
+            try:
+                model = self._serving._current_inference_model(session)
+            except ProductionServingError:
+                return {"status": "skipped", "reason": "current_serving_session_required"}
+            correlation_id = "idle-game-resource-reconcile-" + str(time.time_ns())
+            observation = self._observe_host_resources(
+                correlation_id, observation_namespace="local-chat-reconciliation")
+            labels = observation.get("pressure_labels")
+            if (observation.get("status") != "current"
+                    or observation.get("no_effect_authority") is not True
+                    or not isinstance(labels, (tuple, list))
+                    or "gpu_pressure" not in labels):
+                return {"status": "skipped", "reason": "current_gpu_pressure_evidence_required",
+                    "observation_correlation_id": observation.get("observation_correlation_id")}
+            evidence = {key: workload.get(key) for key in (
+                "configured_mode", "mode_source", "observation_status", "game_foreground",
+                "process_name_digest", "game_process_running", "running_process_name_digests",
+                "observed_at", "transport_provenance")}
+            release_outcome = self._release_after_verified_game_gpu_pressure(
+                session, model, None, resource_observation=observation,
+                workload_evidence=evidence, trigger_correlation_id=correlation_id,
+                trigger_kind="idle_game_reconciliation")
+            if release_outcome is None:
+                return {"status": "skipped", "reason": "release_evidence_invalid"}
+            return {"status": release_outcome["status"],
+                "release_receipt_id": release_outcome["receipt_id"],
+                "trigger_kind": "idle_game_reconciliation",
+                "observation_correlation_id": observation.get("observation_correlation_id"),
+                "serving_session_id": session.session_id}
+        finally:
+            self._receipt_capacity_lock.release()
+
+    def reconcile_workload_state(self) -> dict[str, Any]:
+        return self.reconcile_idle_game_resource_state()
 
     def generate(self, *, prompt: str, caller: str, correlation_id: str,
                  budget: LocalModelInvocationBudget | None = None,

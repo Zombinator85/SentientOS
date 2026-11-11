@@ -131,6 +131,33 @@ def test_readiness_unavailable_exposes_no_internal_identity(monkeypatch) -> None
     assert caught.value.detail == "unavailable"
 
 
+def test_production_startup_runs_and_shutdown_joins_idle_resource_reconciler(monkeypatch) -> None:
+    events: list[str] = []
+    service = SimpleNamespace(
+        reconcile_workload_state=lambda: events.append("reconcile") or {"status": "skipped"},
+        close_outputs=lambda: events.append("service_close"),
+    )
+    serving = SimpleNamespace(close=lambda: events.append("serving_close"))
+    old_composition = chat_service._PRODUCTION_COMPOSITION
+    old_task = chat_service._RESOURCE_RECONCILIATION_TASK
+    chat_service._PRODUCTION_COMPOSITION = chat_service.ProductionChatComposition(service, serving)
+    chat_service._RESOURCE_RECONCILIATION_TASK = None
+
+    async def exercise() -> None:
+        await chat_service._startup_event()
+        await asyncio.sleep(0.02)
+        await chat_service._shutdown_event()
+
+    try:
+        asyncio.run(exercise())
+        assert "reconcile" in events
+        assert events[-2:] == ["service_close", "serving_close"]
+        assert chat_service._RESOURCE_RECONCILIATION_TASK is None
+    finally:
+        chat_service._PRODUCTION_COMPOSITION = old_composition
+        chat_service._RESOURCE_RECONCILIATION_TASK = old_task
+
+
 def test_local_chat_never_restarts_while_other_on_failure_service_does(tmp_path: Path) -> None:
     starts = {"chat": 0, "other": 0}
     registry = ServiceRegistry()

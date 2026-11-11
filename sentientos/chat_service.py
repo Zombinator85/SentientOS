@@ -345,6 +345,7 @@ def _is_social_checkin_continuation(message: str) -> bool:
 APP = FastAPI(title="SentientOS Chat", version="1.0")
 _CONVERSATION_SERVICE: "PersistentConversationService | None" = None
 _PRODUCTION_COMPOSITION: "ProductionChatComposition | None" = None
+_RESOURCE_RECONCILIATION_TASK: asyncio.Task[None] | None = None
 try:
     _CHANGE_NARRATOR: ChangeNarrator | None = build_default_change_narrator()
 except Exception:  # pragma: no cover - defensive initialization
@@ -811,6 +812,8 @@ class ProductionChatComposition:
                                 self._avatar_output_owner.close()
     def ready(self) -> bool:
         return self._serving.serving_is_current()
+    def reconcile_workload_state(self) -> dict[str, Any]:
+        return self.service.reconcile_workload_state()
 
 class HistoryInterventionRequest(BaseModel):
     session_id: str
@@ -3957,11 +3960,37 @@ class BootEvent(BaseModel):
 
 @APP.on_event("startup")
 async def _startup_event() -> None:
+    global _RESOURCE_RECONCILIATION_TASK
     LOGGER.info("Chat interface ready")
+    composition = _PRODUCTION_COMPOSITION
+    if composition is not None and _RESOURCE_RECONCILIATION_TASK is None:
+        async def reconcile_resources() -> None:
+            while True:
+                operation = asyncio.create_task(asyncio.to_thread(
+                    composition.reconcile_workload_state))
+                try:
+                    await operation
+                except asyncio.CancelledError:
+                    await operation
+                    raise
+                except Exception as exc:
+                    LOGGER.warning("Idle workload resource reconciliation failed: %s",
+                        type(exc).__name__)
+                await asyncio.sleep(5)
+        _RESOURCE_RECONCILIATION_TASK = asyncio.create_task(reconcile_resources())
 
 
 @APP.on_event("shutdown")
 async def _shutdown_event() -> None:
+    global _RESOURCE_RECONCILIATION_TASK
+    task = _RESOURCE_RECONCILIATION_TASK
+    _RESOURCE_RECONCILIATION_TASK = None
+    if task is not None:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
     close_production_chat()
 
 

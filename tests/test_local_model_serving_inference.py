@@ -137,6 +137,17 @@ def test_exact_serving_backed_generation_has_independent_admission_and_linkage(m
     assert serving.current_session() == session
 
 
+def test_idle_reconciliation_keeps_serving_session_without_verified_game(monkeypatch, tmp_path):
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path)
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+    outcome = bridge.reconcile_idle_game_resource_state()
+    assert outcome["status"] == "skipped"
+    assert outcome["reason"] == "fresh_verified_game_evidence_required"
+    assert model.calls == 0 and model.closed is False
+    assert serving.current_session() == session
+    serving.close()
+
+
 @pytest.mark.parametrize("mode,style_expected", [("normal", False), ("gaming", True)])
 def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_path, mode, style_expected):
     bridge, _, _, model, _, _ = setup(monkeypatch, tmp_path)
@@ -277,8 +288,10 @@ def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt
         serving.close()
 
 
+@pytest.mark.parametrize("trigger", ["deferred_inference", "idle_game_reconciliation",
+    "idle_nominal_pressure"])
 def test_verified_game_and_host_pressure_defer_production_inference_before_effect(
-        monkeypatch, tmp_path):
+        monkeypatch, tmp_path, trigger):
     now = datetime.now(timezone.utc)
     source_id, generation_id = "windows-edge", "windows-edge-generation-1"
     source_key = b"windows-game-pressure-source-key-32"
@@ -337,7 +350,8 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
         return lambda *, observed_at=None: HostCollectorResult(
             collector_id, "available", observed_at or now.isoformat(),
             "synthetic_test_fixture", values=values)
-    gpu_metrics = {"gpu": 94.0, "vram": 91.0}
+    gpu_metrics = ({"gpu": 22.0, "vram": 47.0}
+        if trigger == "idle_nominal_pressure" else {"gpu": 94.0, "vram": 91.0})
 
     def collect_gpu(*, observed_at=None):
         return HostCollectorResult("nvidia_gpu", "available",
@@ -370,32 +384,47 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
     model.close = simulated_release
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
 
-    gaming_prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
-        "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
-    receipt = bridge.generate(prompt=gaming_prompt, caller="chat_service",
-        correlation_id="verified-game-resource-pressure")
+    if trigger == "deferred_inference":
+        gaming_prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+            "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
+        receipt = bridge.generate(prompt=gaming_prompt, caller="chat_service",
+            correlation_id="verified-game-resource-pressure")
+        assert receipt.status == "deferred"
+        host_reference = receipt.request["linkage"]["host_resource_observation"]
+        assert host_reference["observation_correlation_id"] == (
+            "local-chat-inference-" + hashlib.sha256(
+                b"verified-game-resource-pressure").hexdigest()[:32])
+        assert host_reference["status"] == "current"
+        assert host_reference["no_effect_authority"] is True
+        assert host_reference["pressure_labels"] == ["gpu_pressure"]
+    else:
+        reconciliation = bridge.reconcile_idle_game_resource_state()
+        if trigger == "idle_nominal_pressure":
+            assert reconciliation["status"] == "skipped"
+            assert reconciliation["reason"] == "current_gpu_pressure_evidence_required"
+            assert model.closed is False
+            assert serving.current_session() is not None
+            serving.close()
+            return
+        assert reconciliation["status"] == "worker_closed"
+        assert isinstance(reconciliation["release_receipt_id"], str)
+        assert reconciliation["trigger_kind"] == "idle_game_reconciliation"
+        assert reconciliation["observation_correlation_id"].startswith(
+            "local-chat-reconciliation-")
 
-    assert receipt.status == "deferred"
     assert model.calls == 0
-    assert receipt.effects["local_model_inference"] is False
-    decisions = [json.loads(line) for line in (tmp_path / "kernel-decisions.jsonl").read_text(
-        encoding="utf-8").splitlines()]
-    decision = next(item for item in decisions
-        if item.get("action_kind") == "local_model_inference")
-    delegated = decision["delegated_outcomes"]["runtime_governor"]
-    assert delegated["reason"] == (
-        "deferred_local_model_inference_under_host_pressure_during_game")
-    assert delegated["evidence_refs"]["game_performance_evidence"]["message_id"] == (
-        accepted[0].message_id)
-    assert delegated["evidence_refs"]["host_resource_evidence"]["report_id"] == (
-        receipt.request["linkage"]["host_resource_observation"]["report_id"])
-    host_reference = receipt.request["linkage"]["host_resource_observation"]
-    assert host_reference["observation_correlation_id"] == (
-        "local-chat-inference-" + hashlib.sha256(
-            b"verified-game-resource-pressure").hexdigest()[:32])
-    assert host_reference["status"] == "current"
-    assert host_reference["no_effect_authority"] is True
-    assert host_reference["pressure_labels"] == ["gpu_pressure"]
+    if trigger == "deferred_inference":
+        decisions = [json.loads(line) for line in (tmp_path / "kernel-decisions.jsonl").read_text(
+            encoding="utf-8").splitlines()]
+        decision = next(item for item in decisions
+            if item.get("action_kind") == "local_model_inference")
+        delegated = decision["delegated_outcomes"]["runtime_governor"]
+        assert delegated["reason"] == (
+            "deferred_local_model_inference_under_host_pressure_during_game")
+        assert delegated["evidence_refs"]["game_performance_evidence"]["message_id"] == (
+            accepted[0].message_id)
+        assert delegated["evidence_refs"]["host_resource_evidence"]["report_id"] == (
+            receipt.request["linkage"]["host_resource_observation"]["report_id"])
     assert host_resource_owner.collector_call_count == 6
     assert model.closed is True
     assert serving.current_session() is None
@@ -405,6 +434,7 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
     assert len(release_receipts) == 1
     release = json.loads(release_receipts[0].read_text(encoding="utf-8"))
     assert release["status"] == "worker_closed"
+    assert release["trigger_kind"] == trigger
     assert release["resource_observation"]["game_workload_message_id"] == "e" * 64
     comparison = release["resource_measurement_comparison"]
     assert comparison["status"] == "comparable"

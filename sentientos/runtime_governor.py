@@ -1337,7 +1337,7 @@ class RuntimeGovernor:
         elif reason_code == "verified_game_gpu_pressure":
             observation_value = payload.get("resource_observation")
             expected_fields = {
-                "schema_version", "source_inference_correlation_id",
+                "schema_version", "trigger_kind", "trigger_correlation_id",
                 "observation_correlation_id", "host_report_id", "host_report_digest",
                 "observed_at", "pressure_labels", "gpu_utilization_percent",
                 "vram_utilization_percent", "game_workload_message_id",
@@ -1351,7 +1351,8 @@ class RuntimeGovernor:
             vram_value: float | None = None
             release_age_seconds: float | None = None
             if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
-                raw_source = observation_value.get("source_inference_correlation_id")
+                raw_trigger_kind = observation_value.get("trigger_kind")
+                raw_source = observation_value.get("trigger_correlation_id")
                 raw_observation_id = observation_value.get("observation_correlation_id")
                 raw_report_id = observation_value.get("host_report_id")
                 raw_report_digest = observation_value.get("host_report_digest")
@@ -1372,11 +1373,15 @@ class RuntimeGovernor:
                 observation_id = raw_observation_id if isinstance(raw_observation_id, str) else None
                 report_id = raw_report_id if isinstance(raw_report_id, str) else None
                 game_message_id = raw_game_id if isinstance(raw_game_id, str) else None
-                expected_id = ("local-chat-inference-" + hashlib.sha256(
+                namespace = ("local-chat-inference" if raw_trigger_kind == "deferred_inference"
+                    else "local-chat-reconciliation" if raw_trigger_kind == "idle_game_reconciliation"
+                    else None)
+                expected_id = (namespace + "-" + hashlib.sha256(
                     source_correlation.encode("utf-8")).hexdigest()[:32]
-                    if source_correlation is not None else None)
+                    if source_correlation is not None and namespace is not None else None)
                 expected_release_correlation = ("production-chat-resource-release-" +
-                    hashlib.sha256(source_correlation.encode("utf-8")).hexdigest()[:24]
+                    hashlib.sha256((source_correlation if raw_trigger_kind == "deferred_inference"
+                        else str(raw_trigger_kind) + ":" + source_correlation).encode("utf-8")).hexdigest()[:24]
                     if source_correlation is not None else None)
                 try:
                     parsed_observed_at = datetime.fromisoformat(
@@ -1413,7 +1418,8 @@ class RuntimeGovernor:
                     and all(isinstance(label, str) for label in raw_host_labels) else set())
                 evidence_valid = bool(
                     observation_value.get("schema_version") ==
-                        "sentientos.production_game_gpu_resource_release_evidence:v1"
+                        "sentientos.production_game_gpu_resource_release_evidence:v2"
+                    and raw_trigger_kind in {"deferred_inference", "idle_game_reconciliation"}
                     and isinstance(source_correlation, str) and 0 < len(source_correlation) <= 256
                     and observation_id == expected_id
                     and correlation_id == expected_release_correlation

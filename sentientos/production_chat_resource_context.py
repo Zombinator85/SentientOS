@@ -137,6 +137,9 @@ class ResourceBackedProductionChatInference:
     def current_workload_state(self) -> Mapping[str, Any]:
         return self._delegate.current_workload_state()
 
+    def reconcile_workload_state(self) -> Mapping[str, Any]:
+        return self._delegate.reconcile_idle_game_resource_state()
+
     def verify_stored_chat_invocation(self, *, receipt_id: str, receipt_digest: str,
                                      session_id: str, user_turn_id: str,
                                      assistant_text: str | None = None,
