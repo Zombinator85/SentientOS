@@ -1340,6 +1340,8 @@ print(json.dumps({"context_id": context["context_id"],
     staged_path, _, matching_count = stage_request(config_path=config_path,
         request_id="family-transfer", task=transfer)
     assert staged_path.exists() and matching_count >= 1
+    # The scoped packet omits unscoped narrative; derive only from exact score-bound examples.
+    fake.objective_mode = "derive_from_admitted_family"
     staged = load_objective_request(tmp_path / "state")
     assert staged is not None
     result = cognition.run_objective_intervention_once(snapshot=world,
@@ -2144,7 +2146,8 @@ def test_rootless_receipts_admit_same_family_examples_to_later_prompt(tmp_path: 
     assert cognition.run_tick(snapshot=world, tick_id="rootless-history-feedback").written_record_id
 
     transfer_task = ObjectivePredictionTask(3, 2, 11, (12, 13),
-        task_family_id="rootless_integer_affine")
+        task_family_id="rootless_integer_affine",
+        requires_task_family_history=True)
     _, transfer_request, _ = stage_request(config_path=config_path,
         request_id="rootless-family-transfer", task=transfer_task)
     cognition.run_objective_intervention_once(snapshot=snapshot(),
@@ -2342,6 +2345,13 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         task_family_id="integer_affine_prediction",
         target_model_identity=identity, compact_for_input_budget=True)
     task_experience = packet["task_relevant_experience"][0]
+    assert "interpretation" not in packet
+    assert packet["task_family_scope"] == "integer_affine_prediction"
+    assert packet["task_family_scope_posture"] == (
+        "matching_score_bound_examples_only")
+    assert packet["unscoped_interpretation_omitted"] is True
+    assert packet["unscoped_interpretation_digest"]
+    assert packet["selected_fact_ids"] == [bound_projection["source_fact_id"]]
     assert task_experience["model_identity_relation"] == "same_active_model_identity"
     assert task_experience["applicability_posture"] == \
         "same_family_same_model_task_scope_unverified"
@@ -2576,11 +2586,14 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     present_prompt = json.loads(heldout_request_by_condition["history_present"].prompt)
     [present_history_packet] = present_prompt["developmental_history"]
     [present_experience] = present_history_packet["task_relevant_experience"]
-    # Objective transfer uses the compact admitted-history projection so
-    # repeated custody/resource metadata doesn't consume the model context.
-    # The task examples and exact provenance identities remain available.
-    assert "source_bindings_digest" in present_history_packet
+    # Objective transfer uses the compact, task-scoped admitted-history
+    # projection. Only the matching examples and their source identities enter
+    # the prompt; unscoped interpretation and unrelated source bindings do not.
+    assert "source_bindings_digest" not in present_history_packet
     assert "source_bindings" not in present_history_packet
+    assert "interpretation" not in present_history_packet
+    assert present_history_packet["task_family_scope_posture"] == (
+        "matching_score_bound_examples_only")
     assert present_experience["source_fact_id"]
     assert present_experience["source_run_digest"]
     assert present_experience["examples"]

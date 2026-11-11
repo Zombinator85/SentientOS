@@ -2217,19 +2217,39 @@ def _history_context_packet(record: Mapping[str, Any], *,
     if not all(isinstance(value, str) and value for value in
             (record_id, record_digest, candidate_id, candidate_digest)):
         raise ResidentDevelopmentalCognitionError("developmental_history_identity_invalid")
+    task_family_scoped = isinstance(task_family_id, str) and bool(task_family_id)
     packet: dict[str, Any] = {
         "record_id": record_id, "record_digest": record_digest,
         "candidate_id": candidate_id, "candidate_digest": candidate_digest,
-        "interpretation": candidate.get("interpretation"),
-        "uncertainty": candidate.get("uncertainty"),
-        "epistemic_status": candidate.get("epistemic_status"),
-        "selected_fact_ids": list(candidate.get("selected_fact_ids", ()))[:MAX_FACTS],
         "created_at": record.get("created_at"),
         "epistemic_posture": record.get("epistemic_posture"),
         "current_truth": False, "authority": False, "policy": False,
     }
-    embodiment_context = _historical_embodiment_evidence_context(candidate,
-        compact_for_input_budget=compact_for_input_budget)
+    if task_family_scoped:
+        # A developmental record can combine a general interpretation with
+        # typed evidence from several tasks. Replaying that unscoped narrative
+        # beside task-family examples can contaminate transfer (for example,
+        # a prior interpretation may describe a different numeric rule). Keep
+        # only the exact score-bound examples projected below.
+        interpretation = candidate.get("interpretation")
+        packet.update({
+            "task_family_scope": task_family_id,
+            "task_family_scope_posture": "matching_score_bound_examples_only",
+            "unscoped_interpretation_omitted": True,
+            "unscoped_interpretation_digest": (
+                _digest(interpretation) if isinstance(interpretation, str) else None),
+            "selected_fact_ids": [],
+        })
+    else:
+        packet.update({
+            "interpretation": candidate.get("interpretation"),
+            "uncertainty": candidate.get("uncertainty"),
+            "epistemic_status": candidate.get("epistemic_status"),
+            "selected_fact_ids": list(candidate.get("selected_fact_ids", ()))[:MAX_FACTS],
+        })
+    embodiment_context = ([] if task_family_scoped else
+        _historical_embodiment_evidence_context(candidate,
+            compact_for_input_budget=compact_for_input_budget))
     if embodiment_context:
         if omit_historical_embodiment_details:
             packet["historical_embodiment_reports_digest"] = _digest(embodiment_context)
@@ -2249,6 +2269,10 @@ def _history_context_packet(record: Mapping[str, Any], *,
         omitted = [item for item in task_examples
             if item.get("model_identity_relation") != "same_active_model_identity"]
         if eligible:
+            if task_family_scoped:
+                packet["selected_fact_ids"] = sorted({
+                    str(item["source_fact_id"]) for item in eligible
+                    if isinstance(item.get("source_fact_id"), str)})
             packet["task_relevant_experience"] = (
                 [_compact_task_family_history_example(item) for item in eligible]
                 if compact_for_input_budget else eligible)
@@ -2284,7 +2308,8 @@ def _history_context_packet(record: Mapping[str, Any], *,
             packet["interpretation"] = interpretation[:1200]
             packet["interpretation_full_digest"] = _digest(interpretation)
             packet["interpretation_omitted_characters"] = len(interpretation) - 1200
-    security_contexts = _historical_security_evidence_context(candidate)
+    security_contexts = ([] if task_family_scoped else
+        _historical_security_evidence_context(candidate))
     if security_contexts:
         if include_source_evidence_context:
             selected_contexts = security_contexts[:MAX_HISTORY_SECURITY_EVIDENCE_FACTS]
@@ -2301,7 +2326,7 @@ def _history_context_packet(record: Mapping[str, Any], *,
             packet["source_evidence_context_omitted_digest"] = _digest(security_contexts)
             packet["source_evidence_context_posture"] = "omitted_for_cognition_input_budget"
     sources = candidate.get("selected_sources", ())
-    if isinstance(sources, (list, tuple)):
+    if not task_family_scoped and isinstance(sources, (list, tuple)):
         if compact_for_input_budget:
             packet["source_bindings_digest"] = _digest(list(sources))
             packet["source_binding_count"] = len(sources)
@@ -2310,7 +2335,8 @@ def _history_context_packet(record: Mapping[str, Any], *,
                 {key: source.get(key) for key in ("source_id", "kind", "digest")}
                 for source in sources[:MAX_FACTS] if isinstance(source, Mapping)
             ]
-    provenance = candidate.get("transformation_provenance")
+    provenance = (None if task_family_scoped else
+        candidate.get("transformation_provenance"))
     if isinstance(provenance, Mapping):
         packet["provenance_kind"] = provenance.get("kind")
         lesson = provenance.get("lesson_candidate")
@@ -2341,13 +2367,17 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
         ((True, False, False), (False, False, False),
             (False, True, False), (False, True, True)))
     task_family_id = context.get("developmental_history_task_family_id")
+    task_family_history_required = (
+        context.get("developmental_history_task_family_history_required", True) is True)
+    scoped_task_family_id = (task_family_id if task_family_history_required
+        and isinstance(task_family_id, str) else None)
     target_model_identity = context.get("developmental_history_target_model_identity")
     if not isinstance(target_model_identity, Mapping):
         target_model_identity = None
     packets_by_mode = {mode: tuple(_history_context_packet(record,
         include_source_evidence_context=mode[0], compact_for_input_budget=mode[1],
         omit_historical_embodiment_details=mode[2],
-        task_family_id=task_family_id if isinstance(task_family_id, str) else None,
+        task_family_id=scoped_task_family_id,
         target_model_identity=target_model_identity)
         for record in records) for mode in packet_modes}
     budget_attempts: list[dict[str, Any]] = []
@@ -5747,6 +5777,9 @@ class ResidentDevelopmentalCognitionOwner:
             if isinstance(task_descriptor, Mapping) else None)
         context["developmental_history_task_family_id"] = (
             task_family_id if isinstance(task_family_id, str) else None)
+        context["developmental_history_task_family_history_required"] = (
+            isinstance(task_descriptor, Mapping)
+            and task_descriptor.get("requires_task_family_history") is True)
         context["developmental_history_target_model_identity"] = (
             _observed_current_cognition_model_identity(self.invoker))
         context["developmental_history_retrieval_policy_id"] = (
@@ -6717,6 +6750,10 @@ class ResidentDevelopmentalCognitionOwner:
                     "developmental_history": [],
                     "developmental_history_posture": "historical_interpretation_not_current_truth",
                     "developmental_history_task_family_id": family_for_preflight,
+                    "developmental_history_task_family_history_required": (
+                        isinstance(task_descriptor_for_preflight, Mapping)
+                        and task_descriptor_for_preflight.get(
+                            "requires_task_family_history") is True),
                     "developmental_history_target_model_identity": preflight_target_model_identity,
                     "developmental_history_retrieval_policy_id": (
                         "task_family_probe_overlap_then_recency_fill:v2"
