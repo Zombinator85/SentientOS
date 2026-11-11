@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import concurrent.futures as cf
 import hashlib, json, math, os, re, tempfile, time
+import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +29,7 @@ RESOURCE_CONSUMPTION_WORLD_STATE_SCHEMA = "sentientos.resource_consumption_world
 CollectorCallable = Callable[..., HostCollectorResult]
 STATUSES = {"available", "partial", "unavailable", "error", "timeout", "invalid", "unsupported", "skipped"}
 FORBIDDEN_TEXT = re.compile(r"([A-Za-z]:\\\\|/home/|/tmp/|/workspace/|SENTIENTOS_|TOKEN|PASSWORD|SECRET|Traceback|cmdline|environ|[0-9a-f]{2}(:[0-9a-f]{2}){5})", re.I)
+MAX_RETAINED_OBSERVATION_EPOCHS = 128
 
 @dataclass(frozen=True)
 class HostObservationBudget:
@@ -200,13 +202,18 @@ def validate_evaluation(e: HostResourceRuntimeEvaluation) -> HostResourceRuntime
 
 class HostResourceRuntimeCoordinator:
     def __init__(self, *, kernel: ControlPlaneKernel | None = None, runtime_state_root: Path | str | None = None, plan: HostObservationPlan | None = None, clock: Callable[[], str] | None = None) -> None:
-        self.kernel=kernel or get_control_plane_kernel(); self.runtime_state_root=Path(runtime_state_root or os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", tempfile.gettempdir()+"/sentientos_runtime")); self.plan=plan or build_observation_plan(); self.clock=clock or _now; self._epochs_by_correlation: dict[str, HostResourceRuntimeEvaluation] = {}; self.collector_call_count=0
+        self.kernel=kernel or get_control_plane_kernel(); self.runtime_state_root=Path(runtime_state_root or os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", tempfile.gettempdir()+"/sentientos_runtime")); self.plan=plan or build_observation_plan(); self.clock=clock or _now; self._epochs_by_correlation: dict[str, HostResourceRuntimeEvaluation] = {}; self._cycle_lock = threading.Lock(); self.collector_call_count=0
     def request_admission(self, correlation_id: str) -> ControlActionDecision:
         # Resource observation is also used by live runtime scheduling. Bind the
         # request to the kernel current phase instead of hard-coding maintenance;
         # this remains observation-only and never grants actuation authority.
         return self.kernel.admit(ControlActionRequest("host_resource_observation_epoch", AuthorityClass.OBSERVATION, "sentientosd", "host_resource_observation_runtime", self.kernel.phase, {"correlation_id": correlation_id, "no_effect_authority": True}))
     def run_cycle(self, *, correlation_id: str, decision: ControlActionDecision | None = None) -> HostResourceRuntimeEvaluation | None:
+        """Run one bounded read-only epoch, serialized within this owner."""
+        with self._cycle_lock:
+            return self._run_cycle(correlation_id=correlation_id, decision=decision)
+
+    def _run_cycle(self, *, correlation_id: str, decision: ControlActionDecision | None = None) -> HostResourceRuntimeEvaluation | None:
         if correlation_id in self._epochs_by_correlation: return self._epochs_by_correlation[correlation_id]
         decision = decision or self.request_admission(correlation_id)
         if not decision.allowed: return None
@@ -264,6 +271,8 @@ class HostResourceRuntimeCoordinator:
         ev_sem={"epoch": epoch.semantic_digest, "snapshot": snapshot.snapshot_id, "pressure": pressure.report_id, "policy": decision2.decision_id, "receipts": [r.receipt_id for r in receipts]}
         evaluation=HostResourceRuntimeEvaluation(_id("hre_", ev_sem), self.plan, epoch, snapshot, pressure, decision2, receipts, validate_epoch(epoch).findings, _id("hres_", ev_sem), True)
         self._epochs_by_correlation[correlation_id]=evaluation
+        while len(self._epochs_by_correlation) > MAX_RETAINED_OBSERVATION_EPOCHS:
+            self._epochs_by_correlation.pop(next(iter(self._epochs_by_correlation)))
         if validate_evaluation(evaluation).ok:
             self.kernel.observe_host_resource_evaluation(evaluation)
         return evaluation

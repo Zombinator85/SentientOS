@@ -245,3 +245,24 @@ def test_measured_game_hitches_defer_all_optional_local_inference(
     missing_core = governor.admit_action("local_model_inference", "sentientosd",
         "background-2", {"purpose": "maintenance_summary"})
     assert missing_core.reason == "deferred_resource_telemetry_incomplete"
+
+
+def test_active_game_defers_optional_chat_when_host_resource_sample_is_missing(
+        tmp_path, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    governor = RuntimeGovernor()
+    observation = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 1, "a" * 64, "b" * 64,
+        datetime.now(timezone.utc).isoformat(), "c" * 64,
+        16.7, 0, 18.0, 4096, "available")
+
+    assert governor.observe_verified_game_performance(observation)
+    decision = governor.admit_action("local_model_inference", "chat_service",
+        "game-without-host-sample", {"purpose": "local_user_chat"})
+
+    assert decision.allowed is False
+    assert decision.reason == "deferred_resource_telemetry_incomplete_during_game"
+    assert decision.evidence_refs["game_performance_evidence"]["status"] == "current"
+    assert decision.evidence_refs["host_resource_evidence"]["status"] == "unavailable"

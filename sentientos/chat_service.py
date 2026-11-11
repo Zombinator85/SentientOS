@@ -41,6 +41,10 @@ from .installation_state import InstallationIdentity, InstallationStateRegistry
 from .control_plane_kernel import ControlPlaneKernel
 from .local_model_production_serving import ProductionServingController
 from .local_model_serving_inference import ProductionServingInferenceController
+from .host_resource_runtime import (
+    HostObservationBudget, HostResourceRuntimeCoordinator,
+    build_observation_plan, default_collector_specs,
+)
 from .chat_process_generation import open_chat_process_handoff
 from .production_chat_resource_context import (
     ProductionChatResourceContextOwner,
@@ -3750,9 +3754,19 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         if expected_activation_state_digest is not None:
             establish_arguments["expected_activation_state_digest"] = expected_activation_state_digest
         serving.establish(**establish_arguments)
+        resource_collectors = tuple(spec for spec in default_collector_specs()
+            if spec.collector_id in {"cpu", "memory", "nvidia_gpu"})
+        resource_observation_plan = build_observation_plan(
+            budget=HostObservationBudget(max_collectors=3,
+                per_collector_timeout_seconds=0.5, total_deadline_seconds=1.5,
+                max_workers=3),
+            specs=resource_collectors)
+        host_resource_observation_owner = HostResourceRuntimeCoordinator(
+            kernel=serving_kernel, plan=resource_observation_plan)
         inference_bridge = ProductionServingInferenceController(
             serving, runtime_handoff_id=runtime_handoff_id,
-            foreground_game_detector=foreground_game_detector)
+            foreground_game_detector=foreground_game_detector,
+            host_resource_observation_owner=host_resource_observation_owner)
         inference: ChatInference = (
             inference_bridge if resource_context_owner is None
             else ResourceBackedProductionChatInference(inference_bridge, resource_context_owner)

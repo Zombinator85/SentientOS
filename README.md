@@ -42,15 +42,29 @@ Governance keeps epistemic, motivational, and consequential authority distinct: 
 
 Governance, provenance, experiments, and custody serve the developmental objective; they are not substitutes for it. The intended system does not prescribe a preferred personality or guarantee beneficial development.
 
+## SentientOS is a system, not cognition alone
+
+The hosted operating environment exists today; native kernel and lower-layer
+hardware ownership remain longer-term development. Cognition is one organ among
+the control plane, World-State and observation, Forge and maintenance, software
+succession, model lifecycle, persistent memory, federation, embodiment, resource
+governance, and exploratory native work. Configuration, composition, authority,
+execution, and demonstrated effects have different maturity levels.
+
+For a source-oriented map of those owners, their boundaries, and the current
+resource-governance frontier, see the [current system orientation](docs/architecture/current_system_orientation.md).
+It is a compact cold-start companion to this README; it identifies its source
+point and distinguishes fixture evidence from production or hardware outcomes.
+
 ## Current cognition evidence (2026-11-11)
 
 ### Latest owner-composition checkpoint
 
 At branch checkpoint `4d6c1c2687357ddc70c3681c79573064764c9501`, a deterministic regression exercises the actual `RuntimeMaintenanceSurfaces` goal-planning path under matched history-present, history-withheld, and history-restored conditions. With the same goal graph and proposition, planning selects the goal with no admitted history, defers it when the contested epistemic update is present, and reproduces that deferral after reconstructing the persistent epistemic owner and verifying its mutation receipts. The test asserts plan-only behavior and no authority or execution. The full `tests/test_resident_developmental_cognition.py` module passed locally at this checkpoint; hosted Required / Quality Gate, build, self-check, source validation, invariants, docs, and lint checks also passed. One earlier Required / Quality Gate attempt on the same SHA failed before a later successful run.
 
-This is deterministic fixture evidence for a causal software path through existing epistemic and planning owners. It does not establish a live daemon-tick experiment, physical experience, live-model behavior change, or improved performance. No Hermes inference was used for this checkpoint. PR #3628 remains open, draft, and unmerged.
+This is deterministic fixture evidence for a causal software path through existing epistemic and planning owners. It does not establish a live daemon-tick experiment, physical experience, live-model behavior change, or improved performance. No Hermes inference was used for this checkpoint. PR #3628 was subsequently merged into `main` as `b1eeac34c04a2fcb9cdfdccb8891456e90831e28`; the checkpoint and test result remain mechanism evidence, not a live-model benefit claim.
 
-Remote main is f0379b0f12a20d9b351570948c7896725b28e632. PR #3628 is based on that revision. At the earlier checkpoint head `19ed51866e53cf8dab22b37bd914d15b1e3f856c`, the Required Quality Gate passed along with build, lint, validation, invariant, gradient-null, and docs checks; source validation, self-check, and helm-k8s were still running at the time of that status query. The CPU container smoke build also failed there because the runner could not resolve `archive.ubuntu.com` and `security.ubuntu.com` during `apt-get update`. Those are historical results; the newer checkpoint status is recorded above.
+The earlier checkpoint's base was `f0379b0f12a20d9b351570948c7896725b28e632`; at head `19ed51866e53cf8dab22b37bd914d15b1e3f856c`, several checks had passed while source validation, self-check, and helm-k8s were still running. The CPU container smoke build failed there because the runner could not resolve `archive.ubuntu.com` and `security.ubuntu.com` during `apt-get update`. These are historical workflow results and are retained for audit context.
 
 - **Implemented on the PR branch:** Resident companion cognition can consume developmental history and use the existing governed writeback and history-intervention owners. The branch adds counterbalanced history conditions, exact evidence/prompt lineage, task-family-scoped history, and a prerequisite check that skips a transfer probe when the retained event does not match the probe's stated antecedent.
 - **CodexHealer-to-developmental-history software path:** Fresh, digest-bound recovery summaries from the existing RecoveryLedger now enter same-tick World-State and receive bounded selection priority only when provenance, freshness, and read-only/no-authority/no-effect-proof constraints hold. A deterministic integration regression passes synthetic recovery events through the existing resident cognition owner, governed writeback, and later-tick history retrieval. The complete `tests/test_resident_developmental_cognition.py` module passed locally. This is fixture evidence: it does not establish a real recovery event, history-caused live model behavior, or improved performance.

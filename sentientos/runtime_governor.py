@@ -1319,6 +1319,12 @@ class RuntimeGovernor:
         if evidence_ref.get("status") == "current" and evidence is not None:
             incomplete = (evidence.get("cpu_utilization_percent") is None
                           or evidence.get("ram_utilization_percent") is None)
+        game_resource_telemetry_incomplete = (
+            game_evidence_ref.get("status") == "current"
+            and (evidence_ref.get("status") != "current" or evidence is None
+                 or evidence.get("cpu_utilization_percent") is None
+                 or evidence.get("ram_utilization_percent") is None)
+        )
 
         reason = "allowed"
         blocks = False
@@ -1333,6 +1339,8 @@ class RuntimeGovernor:
             reason, blocks = "deferred_local_model_inference_for_game_frame_pressure", True
         elif game_host_pressure:
             reason, blocks = "deferred_local_model_inference_under_host_pressure_during_game", True
+        elif game_resource_telemetry_incomplete:
+            reason, blocks = "deferred_resource_telemetry_incomplete_during_game", True
         elif not foreground and gpu_telemetry_incomplete:
             reason, blocks = "deferred_gpu_offload_telemetry_incomplete", True
         elif not foreground and pressure_reasons:
@@ -1361,6 +1369,8 @@ class RuntimeGovernor:
                 "game_performance_evidence": game_evidence_ref,
                 "game_frame_pressure": game_pressure,
                 "host_pressure_during_verified_game": game_host_pressure,
+                "host_resource_telemetry_incomplete_during_game": (
+                    game_resource_telemetry_incomplete),
             },
         )
         posture = self._compose_runtime_posture(
@@ -1376,6 +1386,8 @@ class RuntimeGovernor:
         payload["game_performance_evidence"] = game_evidence_ref
         payload["game_frame_pressure"] = game_pressure
         payload["host_pressure_during_verified_game"] = game_host_pressure
+        payload["host_resource_telemetry_incomplete_during_game"] = (
+            game_resource_telemetry_incomplete)
         decision = self._decision(
             action_class="local_model_inference",
             allowed=allowed,

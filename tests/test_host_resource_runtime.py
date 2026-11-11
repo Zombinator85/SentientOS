@@ -8,7 +8,10 @@ from pathlib import Path
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
 from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass, ControlActionRequest
 from sentientos.host_collectors import HostCollectorResult
-from sentientos.host_resource_runtime import HostObservationBudget, HostObservationCollectorSpec, HostResourceRuntimeCoordinator, build_observation_plan, default_collector_specs, persist_evidence_bundle, redact_value, validate_evaluation, world_state_records
+from sentientos.host_resource_runtime import (MAX_RETAINED_OBSERVATION_EPOCHS,
+    HostObservationBudget, HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
+    build_observation_plan, default_collector_specs, persist_evidence_bundle,
+    redact_value, validate_evaluation, world_state_records)
 from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
 from sentientos.runtime_governor import RuntimeGovernor
 
@@ -44,6 +47,22 @@ def test_duplicate_correlation_and_one_epoch_per_tick(tmp_path):
     a = c.run_cycle(correlation_id="tick:1"); b = c.run_cycle(correlation_id="tick:1")
     assert a is b
     assert calls["n"] == 1
+
+
+def test_observation_owner_bounds_process_local_epoch_cache(tmp_path):
+    plan = build_observation_plan(specs=[HostObservationCollectorSpec(
+        "memory", True, ("linux", "unknown"), 1,
+        lambda observed_at=None: _result("memory", used_percent=20.0))])
+    kernel = ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+        decisions_path=tmp_path / "kernel.jsonl")
+    coordinator = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "resources", plan=plan)
+
+    for index in range(MAX_RETAINED_OBSERVATION_EPOCHS + 2):
+        assert coordinator.run_cycle(correlation_id=f"tick-{index}") is not None
+
+    assert len(coordinator._epochs_by_correlation) == MAX_RETAINED_OBSERVATION_EPOCHS
+    assert "tick-0" not in coordinator._epochs_by_correlation
 
 
 def test_timeout_exception_partial_failure_and_late_discard(tmp_path):
