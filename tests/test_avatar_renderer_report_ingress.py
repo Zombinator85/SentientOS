@@ -5,7 +5,7 @@ import hashlib
 import json
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -302,6 +302,67 @@ def test_authenticated_renderer_report_returns_to_durable_unverified_world_state
         assert retained.candidate["selected_facts"][0]["source"]["source_id"] == (
             fact.source.source_id)
         assert retained.candidate["selected_facts"][0]["effect_proven"] is False
+        from sentientos.resident_developmental_cognition import (
+            _historical_embodiment_evidence_context,
+        )
+        compact_history = _historical_embodiment_evidence_context(
+            retained.candidate, compact_for_input_budget=True)
+        assert compact_history[0]["historical_only"] is True
+        assert compact_history[0]["current_truth"] is False
+        assert compact_history[0]["authority"] is False
+        assert compact_history[0]["effect_proven"] is False
+        assert compact_history[0]["reported_values"]["renderer_self_report"][
+            "reported_state"]["motion"]["active_motion"] == "wave"
+        version_two_candidate = copy.deepcopy(retained.candidate)
+        version_two_report = version_two_candidate["selected_facts"][0]["payload"][
+            "renderer_report"]
+        version_two_report["schema_version"] = "sentientos.avatar_renderer_report:v2"
+        version_two_report["renderer_state"]["speech"] = {
+            "status": "idle", "mouth_shape": "closed", "mouth_weight": 0.0,
+            "timing_event": "speech_finished", "timing_source": "governed_local_tts",
+            "phoneme_claimed": False,
+        }
+        version_two_history = _historical_embodiment_evidence_context(
+            version_two_candidate)
+        version_two_fields = version_two_history[0]["typed_report_fields"]
+        assert version_two_fields["renderer_state"]["speech"]["status"] == "idle"
+        assert version_two_fields["renderer_state"]["speech"]["phoneme_claimed"] is False
+        assert set(version_two_fields["renderer_state"]["motion"]) == {
+            "active_motion", "animation_player_active"}
+        assert "transport_provenance" not in version_two_fields
+
+        later_tick = (datetime.fromisoformat(now) + timedelta(seconds=1)).isoformat()
+        later_cognition, later_fake = developmental_owner(
+            tmp_path / "cognition", allowed_source_kinds=("embodiment",),
+            max_selected_facts=1)
+        later_surfaces = RuntimeMaintenanceSurfaces(
+            tmp_path, runtime_state_root=tmp_path / "runtime-state-later",
+            resident_developmental_owner=later_cognition)  # type: ignore[arg-type]
+        later_surfaces.build_world_state_board(tick_id=later_tick)
+        later_result = later_surfaces.run_resident_developmental_cognition(
+            tick_id=later_tick)
+        assert later_result["written_record_id"]
+        retrieval = next(request for request in later_fake.requests
+            if request.purpose == "resident_developmental_retrieval_cognition")
+        retrieval_input = json.loads(retrieval.prompt)
+        prior_packet = next(packet for packet in retrieval_input["developmental_history"]
+            if packet["record_id"] == cognition_result["written_record_id"])
+        renderer_history = [item for item in retrieval_input[
+            "historical_embodiment_reports"]
+            if item["record_id"] == prior_packet["record_id"]]
+        assert len(renderer_history) == 1
+        historical_report = renderer_history[0]
+        assert historical_report["subject_kind"] == "avatar_renderer_reported_state"
+        assert historical_report["historical_only"] is True
+        assert historical_report["current_truth"] is False
+        assert historical_report["authority"] is False
+        assert historical_report["effect_proven"] is False
+        typed_report = historical_report["typed_report_fields"]
+        assert typed_report["renderer_state"]["motion"]["active_motion"] == "wave"
+        assert typed_report["renderer_effect_proven"] is False
+        assert typed_report["renderer_independent_observation"] is False
+        assert typed_report["transport_authenticated_at_capture"] is True
+        assert typed_report["renderer_state_independently_observed"] is False
 
         archived = json.loads(captures[0].read_text(encoding="utf-8"))
         archived["transport_provenance"]["source_id"] = "forged-relay"
