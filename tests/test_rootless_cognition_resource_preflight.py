@@ -1343,6 +1343,18 @@ def test_failure_cause_code_keeps_only_bounded_machine_reason(runner):
     outer.__cause__ = ValueError("history_binding_invalid")
     assert runner._failure_cause_code(outer) == "history_binding_invalid"
 
+    from sentientos.resident_developmental_cognition import (
+        _parse_companion_interaction_output,
+    )
+    try:
+        _parse_companion_interaction_output(
+            "PRIVATE_MODEL_OUTPUT_SENTINEL", set(), set())
+    except ValueError as cause:
+        outer = RuntimeError("companion_interaction_decision_invalid")
+        outer.__cause__ = cause
+    assert runner._failure_cause_code(outer) == (
+        "companion_interaction_output_json_invalid")
+
     unsafe = RuntimeError("raw model answer")
     unsafe.__cause__ = ValueError("raw model answer with private details")
     assert runner._failure_cause_code(unsafe) is None
