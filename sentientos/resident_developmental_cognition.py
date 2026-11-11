@@ -131,7 +131,12 @@ def _parse_companion_interaction_output(text: str,
         ) -> Mapping[str, Any]:
     if not isinstance(text, str) or not text or len(text.encode("utf-8")) > 4096:
         raise ValueError("companion_interaction_output_unbounded")
-    value = json.loads(text, object_pairs_hook=_unique_json_object)
+    try:
+        value = json.loads(text, object_pairs_hook=_unique_json_object)
+    except json.JSONDecodeError:
+        # Keep failure artifacts diagnostically useful without retaining the
+        # malformed model response in the exception chain.
+        raise ValueError("companion_interaction_output_json_invalid") from None
     if (not isinstance(value, dict)
             or set(value) != {"disposition", "response", "evidence_ids",
                 "history_record_ids"}

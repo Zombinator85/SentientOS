@@ -4274,6 +4274,16 @@ def test_controlled_history_intervention_rejects_citations_on_unavailable_sentin
             set(), controlled_history_intervention=True)
 
 
+def test_companion_interaction_sanitizes_malformed_json_diagnostic() -> None:
+    with pytest.raises(ValueError, match=(
+            "companion_interaction_output_json_invalid")) as captured:
+        _parse_companion_interaction_output(
+            "PRIVATE_MODEL_OUTPUT_SENTINEL", set(), set())
+
+    assert str(captured.value) == "companion_interaction_output_json_invalid"
+    assert "PRIVATE_MODEL_OUTPUT_SENTINEL" not in str(captured.value)
+
+
 def test_companion_interaction_rejects_duplicate_json_keys() -> None:
     with pytest.raises(ValueError, match="duplicate_json_key"):
         _parse_companion_interaction_output(
