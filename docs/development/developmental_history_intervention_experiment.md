@@ -36,8 +36,10 @@ projection/template/budget/model/artifact/authority map and temperature zero;
 temperature zero is not a hardware-determinism guarantee. Outputs remain
 digest-only in durable receipts. The summary compares present-vs-withheld and
 restored-vs-withheld and may report no observable difference, a stable
-history-presence-associated difference, instability/order sensitivity, or a
-mixed observation. Those are bounded associations only.
+history-presence-associated difference, history-restoration instability, or a
+mixed observation. Because condition order is fixed, restoration instability
+does not identify an order effect; counterbalanced condition-order trials remain
+necessary to test order sensitivity. These are bounded associations only.
 
 The broader capability remains `partial`. The separate controlled
 [model-replacement experiment](developmental_model_replacement_experiment.md)

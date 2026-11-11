@@ -1161,7 +1161,7 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
     stable = present.output_digest == restored.output_digest
     if not first.observable_difference and not second.observable_difference and stable: classification = "no_observable_history_difference"
     elif first.observable_difference and second.observable_difference and stable: classification = "history_presence_associated_stable_difference"
-    elif not stable: classification = "unstable_or_order_sensitive_observation"
+    elif not stable: classification = "history_restoration_unstable_observation"
     else: classification = "mixed_observation"
     return {"protocol_id":protocol.protocol_id, "protocol_digest":protocol.protocol_digest,
         "record_set_digest":protocol.record_set_digest, "present_vs_withheld_difference_observed":first.observable_difference,
