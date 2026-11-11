@@ -6,6 +6,7 @@ import hashlib
 import json
 import time
 from dataclasses import FrozenInstanceError, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,10 +18,12 @@ from sentientos.causal_resource_principal_currentness import PrincipalCurrentnes
 from sentientos.causal_resource_principal_trust_catalog import CATALOG_SCHEMA, ReadOnlyTrustedIssuerCatalog, catalog_digest_for
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import AdmissionOutcome, ControlPlaneKernel, LifecyclePhase
+from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, GovernedLocalModelResourceInvocationContext, LocalModelInvocationBudget
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceAllocator, GovernedLocalModelResourceBounds, GovernedLocalModelResourceLedger, GovernedLocalModelResourcePolicy
 from sentientos.host_collectors import HostCollectorResult
-from sentientos.host_resource_runtime import HostObservationCollectorSpec, HostResourceRuntimeCoordinator, build_observation_plan
+from sentientos.host_resource_runtime import (HostObservationCollectorSpec,
+    HostResourceRuntimeCoordinator, build_observation_plan, validate_evaluation)
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionError, _resource_linkage_fields,
@@ -194,4 +197,73 @@ def test_background_inference_defers_then_recovers_with_measured_effect_receipts
     assert completed.latency_ms >= 0 and model.calls == 1
     assert [item["state"] for item in ledger._state["receipts"]] == [
         "attempt_begun", "measured_completed", "reconciled"]
+    assert ledger._state["receipts"][-1]["effect_receipt_digest"] == completed.receipt_digest
+
+
+def test_game_host_pressure_defers_without_resource_debit_then_recovers(
+        tmp_path, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        phase=LifecyclePhase.RUNTIME, decisions_path=tmp_path / "decisions.jsonl")
+    model, invoker, request, context, ledger = setup(
+        tmp_path / "allocation", kernel=kernel)
+
+    def game_sample(sequence: int) -> VerifiedGamePerformanceObservation:
+        return VerifiedGamePerformanceObservation(
+            "windows-edge", "edge-generation-1", sequence,
+            f"{sequence:064x}", f"{sequence + 1:064x}",
+            datetime.now(timezone.utc).isoformat(), "f" * 64,
+            16.7, 0, 20.0, 4096, "available")
+
+    def resource_plan(gpu: float):
+        def collect(name: str, **values: object) -> HostCollectorResult:
+            return HostCollectorResult(name, "available",
+                datetime.now(timezone.utc).isoformat(), "fixture", values=values)
+        specs = (
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                lambda observed_at=None: collect("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                lambda observed_at=None: collect("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3,
+                lambda observed_at=None: collect("disk", used_percent=30.0,
+                    free_bytes=1000)),
+            HostObservationCollectorSpec("nvidia_gpu", False,
+                ("linux", "unknown"), 4, lambda observed_at=None: collect(
+                    "nvidia_gpu", device_count=1, devices=[{
+                        "index": 0, "gpu_utilization_percent": gpu,
+                        "vram_utilization_percent": gpu}])),
+        )
+        return build_observation_plan(specs=specs)
+
+    assert governor.observe_verified_game_performance(game_sample(1))
+    pressured = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "pressure",
+        plan=resource_plan(95.0)).run_cycle(correlation_id="gaming-pressure")
+    assert pressured is not None and validate_evaluation(pressured).ok
+    assert "gpu_pressure" in pressured.pressure_report.pressure_labels
+    deferred = invoker.invoke(request, resource_context=context)
+    assert deferred.status == "deferred"
+    assert deferred.effects["local_model_inference"] is False
+    assert model.calls == 0
+    assert ledger._state["attempts"] == {}
+    assert ledger._state["receipts"] == []
+    assert ledger.remaining_calls(context.allocation.allocation_id) == 2
+
+    assert governor.observe_verified_game_performance(game_sample(2))
+    recovered_evaluation = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "recovery",
+        plan=resource_plan(20.0)).run_cycle(correlation_id="gaming-recovered")
+    assert recovered_evaluation is not None
+    assert validate_evaluation(recovered_evaluation).ok
+    completed = invoker.invoke(request, resource_context=context)
+    assert completed.status == "admitted_completed"
+    assert completed.effects["local_model_inference"] is True
+    assert model.calls == 1
+    assert states(ledger) == ["attempt_begun", "measured_completed", "reconciled"]
+    assert ledger.remaining_calls(context.allocation.allocation_id) == 1
     assert ledger._state["receipts"][-1]["effect_receipt_digest"] == completed.receipt_digest
