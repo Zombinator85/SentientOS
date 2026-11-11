@@ -431,11 +431,65 @@ def _windows_foreground_process_identity() -> tuple[int, str] | None:
     return int(process_id.value), name
 
 
-def allowlisted_foreground_game_process_id(
+def _windows_running_process_identities() -> tuple[tuple[int, str], ...]:
+    """Read process IDs and executable basenames without retaining paths."""
+    if platform.system().casefold() != "windows":
+        return ()
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class ProcessEntry32W(ctypes.Structure):
+            _fields_ = [
+                ("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                ("th32ProcessID", wintypes.DWORD),
+                ("th32DefaultHeapID", ctypes.c_size_t),
+                ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
+                ("th32ParentProcessID", wintypes.DWORD),
+                ("pcPriClassBase", wintypes.LONG), ("dwFlags", wintypes.DWORD),
+                ("szExeFile", wintypes.WCHAR * 260),
+            ]
+
+        kernel32 = getattr(ctypes, "windll").kernel32
+        kernel32.CreateToolhelp32Snapshot.argtypes = (wintypes.DWORD, wintypes.DWORD)
+        kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+        kernel32.Process32FirstW.argtypes = (
+            wintypes.HANDLE, ctypes.POINTER(ProcessEntry32W))
+        kernel32.Process32FirstW.restype = wintypes.BOOL
+        kernel32.Process32NextW.argtypes = (
+            wintypes.HANDLE, ctypes.POINTER(ProcessEntry32W))
+        kernel32.Process32NextW.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        snapshot = kernel32.CreateToolhelp32Snapshot(0x00000002, 0)
+        if not snapshot or snapshot == ctypes.c_void_p(-1).value:
+            return ()
+        try:
+            entry = ProcessEntry32W()
+            entry.dwSize = ctypes.sizeof(entry)
+            if not kernel32.Process32FirstW(snapshot, ctypes.byref(entry)):
+                return ()
+            identities: list[tuple[int, str]] = []
+            while True:
+                if entry.th32ProcessID > 0 and entry.szExeFile:
+                    identities.append((int(entry.th32ProcessID), entry.szExeFile))
+                entry.dwSize = ctypes.sizeof(entry)
+                if not kernel32.Process32NextW(snapshot, ctypes.byref(entry)):
+                    break
+            return tuple(identities)
+        finally:
+            kernel32.CloseHandle(snapshot)
+    except (AttributeError, OSError, RuntimeError, ValueError, ImportError):
+        return ()
+
+
+def allowlisted_game_process_id(
         process_names: Sequence[str], *,
         identity_provider: Callable[[], tuple[int, str] | None] | None = None,
+        running_identities_provider: Callable[[], Sequence[tuple[int, str]]]
+            | None = None,
         ) -> int | None:
-    """Return a PID only when the current foreground basename is allowlisted."""
+    """Select an allowlisted game PID, preferring the foreground game."""
     from .foreground_game_detection import normalize_game_process_names
 
     try:
@@ -447,15 +501,31 @@ def allowlisted_foreground_game_process_id(
     try:
         identity = (identity_provider or _windows_foreground_process_identity)()
     except Exception:
+        identity = None
+    if (isinstance(identity, tuple) and len(identity) == 2
+            and type(identity[0]) is int and identity[0] > 0
+            and isinstance(identity[1], str)):
+        foreground_name = identity[1].strip().casefold()
+        if ("/" not in foreground_name and "\\" not in foreground_name
+                and foreground_name in allowed):
+            return identity[0]
+    try:
+        running = (running_identities_provider or
+            _windows_running_process_identities)()
+    except Exception:
         return None
-    if (not isinstance(identity, tuple) or len(identity) != 2
-            or type(identity[0]) is not int or identity[0] < 1
-            or not isinstance(identity[1], str)):
+    if not isinstance(running, (tuple, list)):
         return None
-    name = identity[1].strip().casefold()
-    if "/" in name or "\\" in name or name not in allowed:
-        return None
-    return identity[0]
+    matches: list[int] = []
+    for item in running:
+        if (not isinstance(item, tuple) or len(item) != 2
+                or type(item[0]) is not int or item[0] < 1
+                or not isinstance(item[1], str)):
+            continue
+        name = item[1].strip().casefold()
+        if "/" not in name and "\\" not in name and name in allowed:
+            matches.append(item[0])
+    return min(matches) if matches else None
 
 
 def _presentmon_file_sample(path: Path, process_id: int) -> tuple[tuple[float, ...], str]:
@@ -550,5 +620,5 @@ __all__ = ["GamePerformanceObservation", "GamePerformanceObservationError",
            "PresentMonFrameTiming", "PresentMonTimelineSummary",
            "WindowsGamePerformanceObserver", "parse_presentmon_csv",
            "parse_presentmon_timeline", "summarize_frame_times_ms",
-           "allowlisted_foreground_game_process_id",
+           "allowlisted_game_process_id",
            "summarize_presentmon_timeline"]

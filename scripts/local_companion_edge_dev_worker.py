@@ -29,7 +29,7 @@ def _start_game_performance_pump(config):
     from sentientos.game_performance_bridge import WindowsGamePerformanceBridgePublisher
     from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackClient
     from sentientos.windows_game_performance import (
-        WindowsGamePerformanceObserver, allowlisted_foreground_game_process_id,
+        WindowsGamePerformanceObserver, allowlisted_game_process_id,
     )
 
     required = {"port", "source_key", "source_id", "source_generation_id",
@@ -57,7 +57,7 @@ def _start_game_performance_pump(config):
 
     def run():
         while not stop.is_set():
-            process_id = allowlisted_foreground_game_process_id(process_names)
+            process_id = allowlisted_game_process_id(process_names)
             if process_id is not None:
                 try:
                     publisher.publish_once(process_id=process_id)
