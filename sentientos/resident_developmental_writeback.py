@@ -749,8 +749,8 @@ def _selected_fact_byte_limit(facts: Sequence[Mapping[str, Any]]) -> int:
 
 def _is_complete_companion_consequence_cycle_selection(
         facts: Sequence[Mapping[str, Any]]) -> bool:
-    """Recognize only a closed chain with its screen and proprioception."""
-    if len(facts) != 9:
+    """Recognize a closed consequence chain with proprioception, optionally screen."""
+    if len(facts) not in {8, 9}:
         return False
     required_chain_kinds = {
         "embodied_action_expectation", "avatar_renderer_handoff",
@@ -810,7 +810,7 @@ def _is_complete_companion_consequence_cycle_selection(
         return False
     extra_facts = [fact for kind, values in by_kind.items()
         if kind not in required_chain_kinds for fact in values]
-    if len(extra_facts) != 2:
+    if len(extra_facts) != len(facts) - 7:
         return False
     screen_facts = [fact for fact in extra_facts
         if fact.get("subject", {}).get("subject_kind") == "allowlisted_foreground_game_screen"
@@ -825,7 +825,8 @@ def _is_complete_companion_consequence_cycle_selection(
             "avatar_renderer_reported_state", "avatar_independently_observed_state"}
         and fact["payload"].get("observer_issuer_posture")
             == "unverified_caller_assertion"]
-    return len(screen_facts) == 1 and len(proprioception_facts) == 1
+    expected_screen_count = 1 if len(facts) == 9 else 0
+    return len(screen_facts) == expected_screen_count and len(proprioception_facts) == 1
 
 
 def _is_complete_companion_receipt_consequence_cycle_selection(

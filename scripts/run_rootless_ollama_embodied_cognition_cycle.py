@@ -68,8 +68,8 @@ from sentientos.world_state_board import WorldStateSnapshot
 from sentientos.embodiment_self_observation import (
     EmbodimentEvidenceOwner, EmbodimentObservation, semantic_digest)
 from sentientos.embodied_consequence import (
-    SyntheticIndependentObserver, SyntheticRenderer, evaluate_consequence,
-    make_expectation, world_state_records as consequence_world_state_records)
+    ConsequenceStore, SyntheticIndependentObserver, SyntheticRenderer,
+    evaluate_consequence, make_expectation)
 from sentientos.local_model_authority import (
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE, digest_payload, stream_sha256)
 from sentientos.local_runtime_provisioning import semantic_digest as runtime_digest
@@ -1227,9 +1227,12 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
         expectation=expectation, handoff=handoff, current_body=body,
         renderer_report=renderer_report, observation=observation,
         evaluated_at=observed_at)
-    consequence_records = consequence_world_state_records(
+    consequence_store = ConsequenceStore(RUN_ROOT / "consequence-store")
+    consequence_chain = consequence_store.put_consequence_chain(
         expectation=expectation, handoff=handoff, renderer_report=renderer_report,
         observation=observation, attribution=attribution, comparison=comparison)
+    consequence_records = consequence_store.world_state_records(
+        consequence_chain_ids=(consequence_chain["chain_id"],))
 
     self_report = EmbodimentObservation(
         source_id=RUN_ID + ":synthetic-proprioception",
@@ -1246,12 +1249,10 @@ def _embodied_source(*, requested_pose: str, predicted_pose: str
             "joint_state": {"arm": 0.75 if requested_pose == "reach" else 0.0},
             "sampled_at": renderer_completed_at})
     proprioception_records = EmbodimentEvidenceOwner([self_report]).world_state_records()
-    # Keep the evaluated consequence and proprioceptive-style self report
-    # inside the owner's 6 KB evidence limit. The consequence itself binds the
-    # separate observer identity, digest, and observed fields.
-    retained_source_ids = {attribution["attribution_id"], self_report.source_id}
-    selected_records = [row for row in consequence_records + proprioception_records
-        if row.get("source_id") in retained_source_ids]
+    # Preserve the complete auditable chain and proprioception. No screen capture
+    # is fabricated for this synthetic experiment; the exact eight-fact evidence
+    # shape has a narrowly bounded writeback allowance.
+    selected_records = consequence_records + proprioception_records
     snapshot = WorldStateBoardBuilder().build(selected_records)
     evidence_summary = {
         "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,

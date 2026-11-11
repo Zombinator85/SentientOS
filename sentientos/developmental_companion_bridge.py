@@ -619,7 +619,7 @@ class ResidentDevelopmentalCompanionBridge:
             and "operator_input" in self._owner.config.allowed_source_kinds)
 
     def run_developmental_cycle(self, *, tick_id: str,
-            screen_observation: Mapping[str, Any],
+            screen_observation: Mapping[str, Any] | None = None,
             operator_feedback: Mapping[str, Any] | None = None,
             current_consequence_records: Sequence[Mapping[str, Any]] = ()
             ) -> CompanionDevelopmentalCycleResult:
@@ -629,7 +629,8 @@ class ResidentDevelopmentalCompanionBridge:
         method never invents a second memory store or bypasses owner admission.
         """
         if (not isinstance(tick_id, str) or not tick_id.strip() or len(tick_id) > 256
-                or not isinstance(screen_observation, Mapping)
+                or (screen_observation is not None
+                    and not isinstance(screen_observation, Mapping))
                 or not isinstance(current_consequence_records, (tuple, list))):
             raise DevelopmentalCompanionBridgeError(
                 "developmental_cycle_request_invalid")
@@ -643,30 +644,31 @@ class ResidentDevelopmentalCompanionBridge:
                 raise DevelopmentalCompanionBridgeError(
                     "proprioception_provider_output_invalid")
             proprioception = tuple(value)
-        _screen_record(screen_observation)
-        now = self._clock() if callable(self._clock) else datetime.now(timezone.utc)
-        if isinstance(now, str):
-            try:
-                now = datetime.fromisoformat(now.replace("Z", "+00:00"))
-            except ValueError as exc:
-                raise DevelopmentalCompanionBridgeError(
-                    "developmental_cycle_clock_invalid") from exc
-        request_freshness = _request_bound_capture_freshness(screen_observation)
         capture_age_seconds = None
-        if request_freshness is None:
-            captured_at = datetime.fromisoformat(
-                str(screen_observation["captured_at"]).replace("Z", "+00:00"))
-            if (not isinstance(now, datetime) or now.tzinfo is None
-                    or now.utcoffset() is None or captured_at.tzinfo is None
-                    or captured_at.utcoffset() is None):
-                raise DevelopmentalCompanionBridgeError(
-                    "developmental_cycle_capture_time_invalid")
-            capture_age = now.astimezone(timezone.utc) - captured_at.astimezone(timezone.utc)
-            if (capture_age < -MAX_HISTORY_INTERVENTION_FUTURE_SKEW
-                    or capture_age > MAX_HISTORY_INTERVENTION_CAPTURE_AGE):
-                raise DevelopmentalCompanionBridgeError(
-                    "developmental_cycle_capture_not_fresh")
-            capture_age_seconds = int(max(0.0, capture_age.total_seconds()))
+        if screen_observation is not None:
+            _screen_record(screen_observation)
+            now = self._clock() if callable(self._clock) else datetime.now(timezone.utc)
+            if isinstance(now, str):
+                try:
+                    now = datetime.fromisoformat(now.replace("Z", "+00:00"))
+                except ValueError as exc:
+                    raise DevelopmentalCompanionBridgeError(
+                        "developmental_cycle_clock_invalid") from exc
+            request_freshness = _request_bound_capture_freshness(screen_observation)
+            if request_freshness is None:
+                captured_at = datetime.fromisoformat(
+                    str(screen_observation["captured_at"]).replace("Z", "+00:00"))
+                if (not isinstance(now, datetime) or now.tzinfo is None
+                        or now.utcoffset() is None or captured_at.tzinfo is None
+                        or captured_at.utcoffset() is None):
+                    raise DevelopmentalCompanionBridgeError(
+                        "developmental_cycle_capture_time_invalid")
+                capture_age = now.astimezone(timezone.utc) - captured_at.astimezone(timezone.utc)
+                if (capture_age < -MAX_HISTORY_INTERVENTION_FUTURE_SKEW
+                        or capture_age > MAX_HISTORY_INTERVENTION_CAPTURE_AGE):
+                    raise DevelopmentalCompanionBridgeError(
+                        "developmental_cycle_capture_not_fresh")
+                capture_age_seconds = int(max(0.0, capture_age.total_seconds()))
         tick_time, projection_tick = self._projection_boundary()
         prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
             tick_id=tick_time, projection_tick=projection_tick)

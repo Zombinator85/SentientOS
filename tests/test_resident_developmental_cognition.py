@@ -6357,9 +6357,11 @@ def test_developmental_cycle_composes_selected_verified_consequence_history(
     assert fake.requests
 
 
+@pytest.mark.parametrize("include_screen", [True, False])
 def test_developmental_cycle_admits_full_consequence_chain_with_screen_and_proprioception(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A complete projected chain plus current modalities fits one explicit budget."""
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        include_screen: bool) -> None:
+    """A complete projected chain plus available current modalities fits its exact budget."""
     from sentientos.avatar_authoring import renderer_handoff
     from sentientos.embodied_consequence import (
         ConsequenceStore, SyntheticIndependentObserver, SyntheticRenderer,
@@ -6418,8 +6420,9 @@ def test_developmental_cycle_admits_full_consequence_chain_with_screen_and_propr
         evidence_class="sensor_observation", subject_id="avatar-body",
         subject_kind="synthetic_avatar_body",
         payload={"joint_state": {"arm": 0.75}, "sampled_at": stamp})
+    selected_fact_limit = 9 if include_screen else 8
     cognition, fake = owner(tmp_path / "cognition-full-chain",
-        allowed_source_kinds=("embodiment",), max_selected_facts=9)
+        allowed_source_kinds=("embodiment",), max_selected_facts=selected_fact_limit)
     captured: dict[str, Any] = {}
     original_run_tick = cognition.run_tick
 
@@ -6435,30 +6438,33 @@ def test_developmental_cycle_admits_full_consequence_chain_with_screen_and_propr
         proprioception_provider=lambda: (proprioception,), clock=lambda: now)
 
     cycle = bridge.run_developmental_cycle(tick_id="full-chain-current-cycle",
-        screen_observation=screen, current_consequence_records=consequence_records)
+        screen_observation=screen if include_screen else None,
+        current_consequence_records=consequence_records)
 
     snapshot_value = captured["snapshot"]
     assert snapshot_value.validation_posture == "valid"
-    assert len(snapshot_value.facts) == 9
+    assert len(snapshot_value.facts) == selected_fact_limit
     assert set(cycle.selected_fact_ids) == {fact.fact_id for fact in snapshot_value.facts}
     assert cycle.status == "completed"
     assert cycle.written_record_id is not None
     assert cycle.writeback_receipt_id is not None
     assert fake.requests
 
-    partial_snapshot = build_companion_snapshot(screen_observation=screen,
-        proprioception=(proprioception,), current_consequence_records=consequence_records[:-1],
-        clock=lambda: now)
-    with pytest.raises(DevelopmentalWritebackError, match="selected_evidence_unbounded") as failure:
-        cognition.writeback.select_evidence(partial_snapshot,
-            fact_ids=tuple(fact.fact_id for fact in partial_snapshot.facts))
-    diagnostic = failure.value.diagnostic
-    assert diagnostic is not None
-    assert diagnostic["schema_version"] == (
-        "sentientos.developmental_evidence_selection_failure:v1")
-    assert diagnostic["encoded_size_bytes"] > diagnostic["byte_limit"]
-    assert diagnostic["fact_count"] == len(partial_snapshot.facts)
-    assert "payload_text" not in diagnostic
+    if include_screen:
+        partial_snapshot = build_companion_snapshot(screen_observation=screen,
+            proprioception=(proprioception,),
+            current_consequence_records=consequence_records[:-1], clock=lambda: now)
+        with pytest.raises(DevelopmentalWritebackError,
+                match="selected_evidence_unbounded") as failure:
+            cognition.writeback.select_evidence(partial_snapshot,
+                fact_ids=tuple(fact.fact_id for fact in partial_snapshot.facts))
+        diagnostic = failure.value.diagnostic
+        assert diagnostic is not None
+        assert diagnostic["schema_version"] == (
+            "sentientos.developmental_evidence_selection_failure:v1")
+        assert diagnostic["encoded_size_bytes"] > diagnostic["byte_limit"]
+        assert diagnostic["fact_count"] == len(partial_snapshot.facts)
+        assert "payload_text" not in diagnostic
 
 
 def test_runner_receipt_shape_consequence_cycle_reaches_real_writeback_owner(
