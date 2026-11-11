@@ -209,6 +209,8 @@ def test_local_dev_renderer_generation_uses_ingress_namespace(monkeypatch):
 @pytest.mark.skipif(os.name != "posix", reason="durable renderer store uses POSIX dir-fd custody")
 def test_authenticated_renderer_report_returns_to_durable_unverified_world_state(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from tests.test_resident_developmental_cognition import owner as developmental_owner
+
     now = datetime.now(timezone.utc).isoformat()
     report = _report()
     report["reported_at"] = now
@@ -258,8 +260,12 @@ def test_authenticated_renderer_report_returns_to_durable_unverified_world_state
         # becomes independent effect evidence.
         monkeypatch.setenv("SENTIENTOS_RENDERER_REPORT_EVIDENCE_ROOT",
             str(tmp_path / "renderer-captures"))
+        cognition, fake = developmental_owner(
+            tmp_path / "cognition", allowed_source_kinds=("embodiment",),
+            max_selected_facts=1)
         surfaces = RuntimeMaintenanceSurfaces(
-            tmp_path, runtime_state_root=tmp_path / "runtime-state")
+            tmp_path, runtime_state_root=tmp_path / "runtime-state",
+            resident_developmental_owner=cognition)  # type: ignore[arg-type]
         surfaces.build_world_state_board(tick_id=now)
         snapshot = surfaces.current_world_state_snapshot
         assert snapshot is not None
@@ -277,6 +283,25 @@ def test_authenticated_renderer_report_returns_to_durable_unverified_world_state
         assert projection_status["status"] == "available"
         assert projection_status["record_count"] == 1
         assert projection_status["renderer_state_independently_observed"] is False
+
+        # Verify that the daemon's configured resident cognition owner can
+        # actually select this admitted World-State fact. Transport
+        # authentication and cognition admission do not upgrade the renderer
+        # self-report into independent observation or effect proof.
+        cognition_result = surfaces.run_resident_developmental_cognition(tick_id=now)
+        assert cognition_result["status"] == "completed"
+        assert cognition_result["written_record_id"]
+        interpretation = next(request for request in fake.requests
+            if request.purpose == "resident_developmental_interpretation")
+        selection = json.loads(interpretation.prompt)["selection"]["facts"]
+        assert len(selection) == 1
+        assert selection[0]["fact_id"] == fact.fact_id
+        assert selection[0]["source"]["source_id"] == fact.source.source_id
+        assert selection[0]["effect_proven"] is False
+        retained = cognition.writeback.store.get(cognition_result["written_record_id"])
+        assert retained.candidate["selected_facts"][0]["source"]["source_id"] == (
+            fact.source.source_id)
+        assert retained.candidate["selected_facts"][0]["effect_proven"] is False
 
         archived = json.loads(captures[0].read_text(encoding="utf-8"))
         archived["transport_provenance"]["source_id"] = "forged-relay"
