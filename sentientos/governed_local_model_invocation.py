@@ -617,22 +617,26 @@ class GovernedLocalModelInvoker:
 
     def release_model_residency(self, *, reason_code: str = "gaming_mode_entered",
                                  correlation_id: str | None = None,
-                                 cancel_active: bool = True
+                                 cancel_active: bool = True,
+                                 resource_observation: Mapping[str, Any] | None = None
                                  ) -> LocalModelResidencyReleaseReceipt:
         """Admit and audit a local model release before asking Ollama to unload."""
         identity = getattr(self.model, "active_identity", None)
         identity_digest = digest_payload(identity.to_dict()) if identity is not None else "0" * 64
         correlation = correlation_id or f"gaming-release:{uuid.uuid4().hex}"
+        metadata: dict[str, Any] = {"correlation_id": correlation,
+            "purpose": "local_model_resource_release",
+            "model_identity_digest": identity_digest,
+            "reason_code": reason_code}
+        if resource_observation is not None:
+            metadata["resource_observation"] = dict(resource_observation)
         request = ControlActionRequest(
             action_kind="local_model_resource_release",
             authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
             actor="local_development_workload_controller",
             target_subsystem="local_model_residency",
             requested_phase=LifecyclePhase.RUNTIME,
-            metadata={"correlation_id": correlation,
-                "purpose": "local_model_resource_release",
-                "model_identity_digest": identity_digest,
-                "reason_code": reason_code})
+            metadata=metadata)
         decision = self.kernel.admit(request)
         status = "denied"
         reasons: list[str] = list(decision.reason_codes)

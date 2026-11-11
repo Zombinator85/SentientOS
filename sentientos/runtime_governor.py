@@ -1174,9 +1174,10 @@ class RuntimeGovernor:
         """Admit a narrowly scoped, fail-safe local model residency release."""
         payload = dict(metadata or {})
         identity_digest = payload.get("model_identity_digest")
+        reason_code = payload.get("reason_code")
         valid = (
             payload.get("purpose") == "local_model_resource_release"
-            and payload.get("reason_code") in {
+            and reason_code in {
                 "gaming_mode_entered",
                 "development_chat_shutdown",
                 "vram_pressure_observed",
@@ -1186,10 +1187,69 @@ class RuntimeGovernor:
             and isinstance(identity_digest, str)
             and re.fullmatch(r"[0-9a-f]{64}", identity_digest) is not None
         )
+        evidence_ref: dict[str, object] = {"status": "not_required"}
+        if reason_code == "vram_pressure_observed":
+            observation = payload.get("resource_observation")
+            try:
+                observed_at = datetime.fromisoformat(str(observation["observed_at"]))
+                if observed_at.tzinfo is None:
+                    raise ValueError("observation_timestamp_timezone_required")
+                age_seconds = (datetime.now(timezone.utc) - observed_at.astimezone(timezone.utc)).total_seconds()
+                utilization = observation.get("vram_utilization_percent")
+                threshold = observation.get("release_threshold_percent")
+                preload_threshold = observation.get("preload_threshold_percent")
+                recovery_threshold = observation.get("recovery_threshold_percent")
+                stale_after = observation.get("stale_after_seconds")
+                expected_observation_fields = {
+                    "schema_version", "admission_status", "reason_code",
+                    "preload_admission_status", "preload_reason_code",
+                    "preload_threshold_percent", "vram_utilization_percent",
+                    "observed_at", "release_threshold_percent",
+                    "recovery_threshold_percent", "stale_after_seconds",
+                }
+                evidence_valid = (
+                    isinstance(observation, Mapping)
+                    and set(observation) == expected_observation_fields
+                    and observation.get("schema_version") == "sentientos.gaming_vram_admission_evidence:v1"
+                    and observation.get("admission_status") == "deferred"
+                    and observation.get("reason_code") == "vram_pressure"
+                    and observation.get("preload_admission_status") == "deferred"
+                    and observation.get("preload_reason_code") == "preload_vram_headroom_insufficient"
+                    and isinstance(utilization, (int, float)) and not isinstance(utilization, bool)
+                    and 0 <= float(utilization) <= 100
+                    and isinstance(threshold, (int, float)) and not isinstance(threshold, bool)
+                    and 0 <= float(threshold) <= 100
+                    and float(utilization) >= float(threshold)
+                    and isinstance(preload_threshold, (int, float))
+                    and not isinstance(preload_threshold, bool)
+                    and 0 <= float(preload_threshold) <= 100
+                    and isinstance(recovery_threshold, (int, float))
+                    and not isinstance(recovery_threshold, bool)
+                    and 0 <= float(recovery_threshold) < float(threshold)
+                    and isinstance(stale_after, (int, float)) and not isinstance(stale_after, bool)
+                    and 0 < float(stale_after) <= 120
+                    and 0 <= age_seconds <= min(float(stale_after), 30.0)
+                )
+            except (KeyError, TypeError, ValueError, OverflowError):
+                evidence_valid = False
+                age_seconds = None
+                utilization = threshold = None
+                observation = None
+            valid = valid and evidence_valid
+            evidence_ref = ({
+                "status": "current",
+                "observed_at": observation["observed_at"],
+                "age_seconds": round(float(age_seconds), 3),
+                "vram_utilization_percent": float(utilization),
+                "release_threshold_percent": float(threshold),
+            } if evidence_valid else {"status": "missing_stale_or_below_threshold"})
+        payload["resource_observation_evidence"] = evidence_ref
         return self._decision(
             action_class="local_model_resource_release", allowed=valid,
-            reason=("model_resource_release_fail_safe" if valid
-                    else "model_resource_release_request_invalid"),
+            reason=("model_resource_release_fail_safe" if valid else
+                    "model_resource_release_pressure_evidence_required"
+                    if reason_code == "vram_pressure_observed" else
+                    "model_resource_release_request_invalid"),
             subject=subject, scope="local", origin=actor,
             pressure=self.sample_pressure(), metadata=payload,
             correlation_id=correlation_id)

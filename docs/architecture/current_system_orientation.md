@@ -95,16 +95,21 @@ and ends that lifetime. The current production chat capability defers automatic
 serving recovery or re-establishment, while an existing recovery controller
 consumes a separately approved request. The Ollama development invoker has a
 governed residency-release path, but that is not the production llama.cpp
-serving owner. Do not conflate deferred future inference with reclaimed GPU
-memory, or add automatic unload/restart without preserving model-serving,
-quiescence, receipt, custody, and recovery contracts.
+serving owner. Its gaming VRAM release admission now carries the fresh sample
+that crossed its configured threshold; the governor rejects missing, stale,
+malformed, or below-threshold samples and records a bounded evidence summary.
+This binds the existing Ollama unload to its cause, but does not establish
+production llama.cpp release or recovery. Do not conflate deferred future
+inference with reclaimed GPU memory, or add automatic unload/restart without
+preserving model-serving, quiescence, receipt, custody, and recovery contracts.
 
-The intended priority is gaming workloads before optional inference. Existing
-game and host telemetry support inference admission only; they grant no authority over
-the host scheduler, GPU allocation, fans, power profiles, or game processes.
-The next implementation increment should continue the causal chain through
-existing resource and serving owners, with deterministic fixture behavior
-clearly separated from hardware observation.
+The intended priority is gaming workloads before optional inference. Production
+game and host telemetry currently support inference admission; the separate
+Ollama development path also uses gaming VRAM telemetry for a governed model
+release. These mechanisms grant no authority over the host scheduler, GPU
+allocation, fans, power profiles, or game processes. Further work should
+continue the causal chain through existing resource and serving owners, with
+deterministic fixture behavior clearly separated from hardware observation.
 
 ## Reading and claim discipline
 

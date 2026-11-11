@@ -102,19 +102,66 @@ def test_local_model_resource_release_admits_only_explicit_safe_reasons(
     reset_runtime_governor()
     governor = get_runtime_governor()
 
+    metadata = {
+        "purpose": "local_model_resource_release",
+        "reason_code": reason_code,
+        "model_identity_digest": "a" * 64,
+    }
+    if reason_code == "vram_pressure_observed":
+        metadata["resource_observation"] = {
+            "schema_version": "sentientos.gaming_vram_admission_evidence:v1",
+            "admission_status": "deferred", "reason_code": "vram_pressure",
+            "preload_admission_status": "deferred",
+            "preload_reason_code": "preload_vram_headroom_insufficient",
+            "preload_threshold_percent": 75.0,
+            "vram_utilization_percent": 91.0, "release_threshold_percent": 90.0,
+            "recovery_threshold_percent": 80.0, "stale_after_seconds": 30.0,
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+        }
     decision = governor.admit_action(
         "local_model_resource_release",
         "development_chat",
         "test-release",
-        metadata={
-            "purpose": "local_model_resource_release",
-            "reason_code": reason_code,
-            "model_identity_digest": "a" * 64,
-        },
+        metadata=metadata,
     )
 
     assert decision.allowed is True
     assert decision.reason == "model_resource_release_fail_safe"
+
+
+@pytest.mark.parametrize("observation", [
+    None,
+    {"schema_version": "sentientos.gaming_vram_admission_evidence:v1",
+     "admission_status": "deferred", "reason_code": "vram_pressure",
+     "preload_admission_status": "deferred",
+     "preload_reason_code": "preload_vram_headroom_insufficient",
+     "preload_threshold_percent": 75.0,
+     "vram_utilization_percent": 84.9, "release_threshold_percent": 85.0,
+     "recovery_threshold_percent": 80.0, "stale_after_seconds": 30.0,
+     "observed_at": datetime.now(timezone.utc).isoformat()},
+    {"schema_version": "sentientos.gaming_vram_admission_evidence:v1",
+     "admission_status": "deferred", "reason_code": "vram_pressure",
+     "preload_admission_status": "deferred",
+     "preload_reason_code": "preload_vram_headroom_insufficient",
+     "preload_threshold_percent": 75.0,
+     "vram_utilization_percent": 90.0, "release_threshold_percent": 85.0,
+     "recovery_threshold_percent": 80.0, "stale_after_seconds": 1.0,
+     "observed_at": "2020-01-01T00:00:00+00:00"},
+])
+def test_vram_pressure_release_requires_fresh_threshold_crossing(
+        monkeypatch, tmp_path, observation) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    decision = governor.admit_action("local_model_resource_release", "development_chat",
+        "test-release", metadata={"purpose": "local_model_resource_release",
+            "reason_code": "vram_pressure_observed", "model_identity_digest": "a" * 64,
+            "resource_observation": observation})
+
+    assert decision.allowed is False
+    assert decision.reason == "model_resource_release_pressure_evidence_required"
 
 
 def test_local_model_resource_release_rejects_unknown_reason(

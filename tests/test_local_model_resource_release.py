@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -77,13 +78,47 @@ def test_gaming_transition_resource_release_is_admitted_and_receipted(
     assert payload["receipt_digest"] == receipt.receipt_digest
 
 
+def test_vram_release_binds_current_gaming_observation_to_admission(
+        tmp_path: Path) -> None:
+    model, governor, invoker = _configured(tmp_path, resident=True)
+    observation = {
+        "schema_version": "sentientos.gaming_vram_admission_evidence:v1",
+        "admission_status": "deferred", "reason_code": "vram_pressure",
+        "preload_admission_status": "deferred",
+        "preload_reason_code": "preload_vram_headroom_insufficient",
+        "preload_threshold_percent": 75.0,
+        "vram_utilization_percent": 91.0, "release_threshold_percent": 90.0,
+        "recovery_threshold_percent": 80.0, "stale_after_seconds": 30.0,
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    receipt = invoker.release_model_residency(
+        reason_code="vram_pressure_observed", resource_observation=observation)
+
+    assert receipt.status == "released"
+    assert model.resident is False and model.release_calls == 1
+    request = governor.requests[0]
+    assert request["metadata"]["resource_observation"] == observation
+    assert request["metadata"]["reason_code"] == "vram_pressure_observed"
+
+
 def test_pressure_release_defers_without_interrupting_active_inference(
         tmp_path: Path) -> None:
     model, _, invoker = _configured(tmp_path, resident=True)
     assert invoker._active_invocation_lock.acquire(blocking=False)
     try:
         receipt = invoker.release_model_residency(
-            reason_code="vram_pressure_observed", cancel_active=False)
+            reason_code="vram_pressure_observed", cancel_active=False,
+            resource_observation={
+                "schema_version": "sentientos.gaming_vram_admission_evidence:v1",
+                "admission_status": "deferred", "reason_code": "vram_pressure",
+                "preload_admission_status": "deferred",
+                "preload_reason_code": "preload_vram_headroom_insufficient",
+                "preload_threshold_percent": 75.0,
+                "vram_utilization_percent": 91.0, "release_threshold_percent": 90.0,
+                "recovery_threshold_percent": 80.0, "stale_after_seconds": 30.0,
+                "observed_at": datetime.now(timezone.utc).isoformat(),
+            })
     finally:
         invoker._active_invocation_lock.release()
 

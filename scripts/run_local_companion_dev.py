@@ -463,6 +463,7 @@ class _GamingResourcePressureGuard:
                 reason = ("vram_pressure" if self._blocked
                           else "headroom_available")
             self._last_observation = {
+                "schema_version": "sentientos.gaming_vram_admission_evidence:v1",
                 "admission_status": "deferred" if self._blocked else "available",
                 "reason_code": reason,
                 "preload_admission_status": (
@@ -1852,8 +1853,11 @@ def main() -> int:
                 reason_code: str) -> Mapping[str, Any] | None:
             if not invoker.model.is_resident():
                 return None
+            observation = gaming_vram_guard.status()
             return cast(Mapping[str, Any], invoker.release_model_residency(
-                reason_code=reason_code, cancel_active=False).to_dict())
+                reason_code=reason_code, cancel_active=False,
+                resource_observation=(observation if reason_code == "vram_pressure_observed"
+                    else None)).to_dict())
 
         def observe_gaming_vram(
                 utilization_percent: float | None,

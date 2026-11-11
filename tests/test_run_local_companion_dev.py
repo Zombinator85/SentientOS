@@ -333,7 +333,8 @@ def test_dev_sampler_stays_fresh_and_closes_during_blocked_inference(monkeypatch
             assert unblock.wait(3)
             return SimpleNamespace(status="ok")
 
-        def release_model_residency(self, *, reason_code, cancel_active):
+        def release_model_residency(self, *, reason_code, cancel_active,
+                                    resource_observation=None):
             release_attempts.append((reason_code, cancel_active))
             return {"status": "deferred",
                     "reason_codes": ["active_inference_in_progress"]}
