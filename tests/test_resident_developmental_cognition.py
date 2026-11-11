@@ -2002,6 +2002,46 @@ print(json.dumps({"stance": state.stance if state else None,
     assert later_outputs[0][0] != later_outputs[1][0]
     assert later_outputs[1][2] == recovered_state.state_digest
 
+    # Exercise the evolved projection through the same daemon composition
+    # surface used by a later resident cognition tick. The prior loop above
+    # proves the fixture consumer responds to the evidence packet; this checks
+    # the actual runtime composer delivers that packet after owner recovery.
+    daemon_invoker = EpistemicAwareFixtureInvoker()
+    daemon_consumer, _ = owner(tmp_path / "daemon-recovered-cognition",
+        invoker=daemon_invoker)
+    daemon_surfaces = RuntimeMaintenanceSurfaces(tmp_path,
+        runtime_state_root=tmp_path / "daemon-recovered-runtime",
+        resident_developmental_owner=daemon_consumer,
+        epistemic_state_owner=recovered_epistemics,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True})
+    daemon_tick = datetime.fromtimestamp(
+        updated_projection.current_tick, tz=timezone.utc).isoformat()
+    daemon_surfaces.build_world_state_board(tick_id=daemon_tick)
+    daemon_feedback = daemon_surfaces.run_resident_developmental_cognition(
+        tick_id=daemon_tick)
+    assert daemon_feedback["status"] == "completed"
+    daemon_composition = daemon_feedback["epistemic_composition"]
+    assert daemon_composition["status"] == "composed"
+    assert daemon_composition["authority"] is False
+    assert daemon_composition["projection_digest"] == (
+        updated_projection.projection_digest)
+    daemon_request = next(item for item in reversed(daemon_invoker.requests)
+        if item.purpose == "resident_developmental_retrieval_cognition")
+    assert daemon_request.upstream_evidence["epistemic_projection_id"] == (
+        daemon_composition["projection_id"])
+    assert daemon_request.upstream_evidence["epistemic_projection_digest"] == (
+        daemon_composition["projection_digest"])
+    daemon_body = json.loads(daemon_request.prompt)
+    daemon_packet = next(item for item in daemon_body["prior_epistemic_state"][
+        "semantic_packets"] if item["proposition"]["proposition_id"] ==
+        proposition.proposition_id)
+    assert daemon_packet["state"]["state_digest"] == recovered_state.state_digest
+    assert daemon_packet["supporting_evidence"]
+    assert daemon_packet["contradicting_evidence"]
+    assert daemon_invoker.lesson_uncertainty == "high"
+
     from sentientos.goal_executor import ExecutorState
     from sentientos.goal_planner import GoalPlanner
     from sentientos.goal_graph import Goal, GoalGraph
