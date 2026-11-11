@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import hashlib
+import json
 from types import MappingProxyType, SimpleNamespace
 
 import pytest
 
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
-from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass
+from sentientos.control_plane_kernel import (
+    AdmissionOutcome, AuthorityClass, ControlPlaneKernel,
+)
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_model_authority import build_local_model_authority_map
@@ -26,11 +29,17 @@ from sentientos.gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackClient,
     CompanionBridgeLoopbackRuntime,
 )
+from sentientos.game_performance_bridge import (
+    GamePerformanceBridgeDetector,
+    WindowsGamePerformanceBridgePublisher,
+)
 from sentientos.local_model_resource_profile import (
     LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,
     llama_cpp_resource_profile_digest,
 )
 from sentientos.local_runtime_provisioning import semantic_digest
+from sentientos.runtime_governor import RuntimeGovernor
+from sentientos.windows_game_performance import WindowsGamePerformanceObserver
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -68,7 +77,8 @@ class Model:
 
 def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generate=None,
           installation_identity="install-1", runtime_handoff_id=None, state_root=None,
-          serving_operation_id="serve-1", foreground_game_detector=None):
+          serving_operation_id="serve-1", foreground_game_detector=None,
+          kernel_override=None):
     tmp_path.mkdir(parents=True, exist_ok=True)
     artifact = tmp_path / "exact.gguf"; artifact.write_bytes(b"tiny-model")
     load = {"n_ctx": 512, "n_gpu_layers": 0}
@@ -98,7 +108,7 @@ def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generat
     monkeypatch.setattr("sentientos.local_model_production_serving.verify_current_activation", lambda *a, **k: current[0])
     handle = InstallationStateRegistry(state_root or (tmp_path / "state"), _test_only=True).open(
         InstallationIdentity.parse(installation_identity), create=True)
-    kernel, model = Kernel(inference), Model(identity, on_generate)
+    kernel, model = kernel_override or Kernel(inference), Model(identity, on_generate)
     serving = ProductionServingController(handle, kernel, model_factory=lambda c, l: model)
     monkeypatch.setattr(serving, "_commissioning_identity", lambda s: identity.to_dict())
     session = serving.establish(operation_id=serving_operation_id)
@@ -259,6 +269,81 @@ def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt
     finally:
         detector.close()
         serving.close()
+
+
+def test_verified_game_and_host_pressure_defer_production_inference_before_effect(
+        monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    source_id, generation_id = "windows-edge", "windows-edge-generation-1"
+    source_key = b"windows-game-pressure-source-key-32"
+    verifier = CompanionBridgeReceiver(source_keys={source_id: source_key},
+        expected_generations={source_id: generation_id})
+    accepted = []
+    observer = WindowsGamePerformanceObserver(
+        system_provider=lambda: "Windows",
+        process_provider=lambda _pid: {"cpu_percent": 12.0, "rss_bytes": 4096},
+        frame_provider=lambda _pid: ((), None),
+        clock=lambda: now.isoformat())
+    client = CompanionBridgeLoopbackClient(port=1,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-core": b"core-game-ack-key-material-32-bytes"},
+            expected_generations={"wsl-core": "wsl-core-generation-1"}))
+
+    def accept_sample(encoded):
+        message = verifier.accept(encoded)
+        accepted.append(message)
+        return message
+
+    client.send = accept_sample
+    publisher = WindowsGamePerformanceBridgePublisher(observer=observer,
+        client=client, source_id=source_id, session_id="game-pressure-test",
+        generation_id=generation_id, source_key=source_key, process_id=733)
+    publisher.publish_once()
+
+    class OneMessageReceiver:
+        def receive(self, timeout=None):
+            del timeout
+            return accepted[0]
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    game_evidence = GamePerformanceBridgeDetector(receiver=OneMessageReceiver(),
+        source_id=source_id, generation_provider=lambda: generation_id,
+        clock=lambda: now).receive_once()
+    assert kernel.observe_verified_game_performance(game_evidence)
+    governor._host_resource_evidence = {
+        "evaluation_id": "fixture-evaluation", "epoch_id": "fixture-epoch",
+        "snapshot_id": "fixture-snapshot", "report_id": "fixture-report",
+        "report_digest": "a" * 64, "observed_at": now.isoformat(),
+        "pressure_labels": ("gpu_pressure",),
+        "gpu_utilization_percent": 94.0, "vram_utilization_percent": 91.0,
+        "cpu_utilization_percent": 12.0, "ram_utilization_percent": 40.0,
+        "gpu_telemetry_available": True,
+    }
+    bridge, serving, _, model, _, _ = setup(
+        monkeypatch, tmp_path, kernel_override=kernel)
+
+    receipt = bridge.generate(prompt="hello", caller="chat_service",
+        correlation_id="verified-game-resource-pressure")
+
+    assert receipt.status == "deferred"
+    assert model.calls == 0
+    assert receipt.effects["local_model_inference"] is False
+    decision = json.loads((tmp_path / "kernel-decisions.jsonl").read_text(
+        encoding="utf-8").splitlines()[-1])
+    delegated = decision["delegated_outcomes"]["runtime_governor"]
+    assert delegated["reason"] == (
+        "deferred_local_model_inference_under_host_pressure_during_game")
+    assert delegated["evidence_refs"]["game_performance_evidence"]["message_id"] == (
+        accepted[0].message_id)
+    assert delegated["evidence_refs"]["host_resource_evidence"]["report_id"] == (
+        "fixture-report")
+    assert serving.current_session() is not None
+    serving.close()
 
 
 def test_serving_authority_reconstructs_commissioned_resource_profile(tmp_path):
