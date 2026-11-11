@@ -37,7 +37,7 @@ from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionConfig,
     ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
-    _bind_history_and_epistemic_context,
+    _bind_history_and_epistemic_context, _history_context_packet,
     load_objective_request, objective_task_for_request, stage_objective_request,
     stored_objective_request_disposition, stored_objective_request_record,
     _valid_rootless_epistemic_session_binding, _parse_companion_interaction_output,
@@ -7221,6 +7221,47 @@ def test_companion_history_intervention_rejects_stale_capture_before_inference(
     assert fake.requests == []
 
 
+def test_compact_history_packet_can_omit_typed_details_with_exact_custody_refs():
+    source = {"source_id": "renderer-report:history", "kind": "embodiment",
+        "schema_version": "sentientos.avatar_renderer_report:v1",
+        "digest": "sha256:" + "a" * 64}
+    fact = {"fact_id": "fact-renderer-history", "source": source,
+        "subject": {"subject_kind": "avatar_renderer_report"},
+        "stage": "observation", "disposition": "recorded",
+        "evidence_strength": "renderer_self_report", "effect_proven": False,
+        "observed_at": "2026-11-11T00:00:00Z",
+        "payload": {"schema_version": source["schema_version"],
+            "reported_state": {"motion": {"active_motion": "nod"}}}}
+    candidate = {"candidate_id": "candidate-history",
+        "candidate_digest": "sha256:" + "b" * 64,
+        "interpretation": "A bounded historical interpretation.",
+        "uncertainty": "medium",
+        "epistemic_status": "untrusted_historical_interpretation_candidate",
+        "selected_fact_ids": [fact["fact_id"]], "selected_facts": [fact],
+        "selected_sources": [source]}
+    record = {"record_id": "devrec-history", "record_digest": "sha256:" + "c" * 64,
+        "created_at": "2026-11-11T00:00:00Z", "epistemic_posture": "historical_only",
+        "candidate": candidate}
+
+    complete = _history_context_packet(record, compact_for_input_budget=True)
+    compact = _history_context_packet(record, compact_for_input_budget=True,
+        omit_historical_embodiment_details=True)
+
+    assert compact["record_id"] == record["record_id"]
+    assert compact["record_digest"] == record["record_digest"]
+    assert compact["interpretation"] == candidate["interpretation"]
+    assert compact["selected_fact_ids"] == candidate["selected_fact_ids"]
+    assert compact["source_binding_count"] == 1
+    assert compact["source_bindings_digest"]
+    assert "historical_embodiment_reports" not in compact
+    assert compact["historical_embodiment_report_count"] == 1
+    assert compact["historical_embodiment_reports_digest"]
+    assert compact["historical_embodiment_reports_posture"] == (
+        "details_omitted_for_cognition_input_budget")
+    assert len(json.dumps(compact, sort_keys=True, separators=(",", ":"))) < len(
+        json.dumps(complete, sort_keys=True, separators=(",", ":")))
+
+
 def test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_identity(
         monkeypatch: pytest.MonkeyPatch) -> None:
     """Variable packet sizes cannot make a newer weak record displace stronger history."""
@@ -7241,9 +7282,11 @@ def test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_ide
     )
 
     def packet(record, *, include_source_evidence_context=True,
-                compact_for_input_budget=False, task_family_id=None,
+                compact_for_input_budget=False,
+                omit_historical_embodiment_details=False, task_family_id=None,
                 target_model_identity=None):
-        del include_source_evidence_context, task_family_id, target_model_identity
+        del include_source_evidence_context, omit_historical_embodiment_details
+        del task_family_id, target_model_identity
         padding = record["padding"]
         if compact_for_input_budget:
             padding = min(padding, 1200)

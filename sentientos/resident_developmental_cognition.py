@@ -2150,6 +2150,12 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
                     key: values.get(key) for key in ("observed", "confidence",
                         "observation_source_class", "posture", "quality",
                         "observer_id", "expectation_id", "handoff_id")}}
+            elif schema == "sentientos.embodied_action_expectation:v1":
+                roles = {"action_expectation": values}
+            elif schema == "sentientos.avatar_renderer_handoff:v1":
+                roles = {"renderer_handoff": values}
+            elif schema == "sentientos.embodied_consequence_chain:v1":
+                roles = {"consequence_chain": values}
         if compact_for_input_budget:
             summaries.append({
                 "fact_id": fact.get("fact_id"),
@@ -2192,6 +2198,7 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
 def _history_context_packet(record: Mapping[str, Any], *,
         include_source_evidence_context: bool = True,
         compact_for_input_budget: bool = False,
+        omit_historical_embodiment_details: bool = False,
         task_family_id: str | None = None,
         target_model_identity: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Project a verified durable record to the bounded semantics cognition needs.
@@ -2224,7 +2231,13 @@ def _history_context_packet(record: Mapping[str, Any], *,
     embodiment_context = _historical_embodiment_evidence_context(candidate,
         compact_for_input_budget=compact_for_input_budget)
     if embodiment_context:
-        packet["historical_embodiment_reports"] = embodiment_context
+        if omit_historical_embodiment_details:
+            packet["historical_embodiment_reports_digest"] = _digest(embodiment_context)
+            packet["historical_embodiment_report_count"] = len(embodiment_context)
+            packet["historical_embodiment_reports_posture"] = (
+                "details_omitted_for_cognition_input_budget")
+        else:
+            packet["historical_embodiment_reports"] = embodiment_context
     task_examples = _task_family_history_examples(candidate,
         task_family_id=task_family_id)
     if task_examples:
@@ -2323,14 +2336,17 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
     """Fit whole recent history packets and epistemic packets to one input bound."""
     if max_input_chars is None:
         max_input_chars = MAX_RESIDENT_COGNITION_INPUT_CHARS
-    packet_modes = (((False, True),) if compact_history_for_input else
-        ((True, False), (False, False), (False, True)))
+    packet_modes = (((False, True, False), (False, True, True))
+        if compact_history_for_input else
+        ((True, False, False), (False, False, False),
+            (False, True, False), (False, True, True)))
     task_family_id = context.get("developmental_history_task_family_id")
     target_model_identity = context.get("developmental_history_target_model_identity")
     if not isinstance(target_model_identity, Mapping):
         target_model_identity = None
     packets_by_mode = {mode: tuple(_history_context_packet(record,
         include_source_evidence_context=mode[0], compact_for_input_budget=mode[1],
+        omit_historical_embodiment_details=mode[2],
         task_family_id=task_family_id if isinstance(task_family_id, str) else None,
         target_model_identity=target_model_identity)
         for record in records) for mode in packet_modes}
@@ -2412,9 +2428,11 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                 if len(budget_attempts) < 32:
                     attempt = dict(getattr(exc, "diagnostic", {}) or {})
                     attempt.update({"history_record_count": count,
-                        "history_packet_mode": ("source_and_compact" if mode == (True, True)
-                            else "source_and_full" if mode == (True, False)
-                            else "compact" if mode == (False, True) else "full")})
+                        "history_packet_mode": (
+                            "compact_refs_only" if mode[2] else
+                            "source_and_full" if mode == (True, False, False) else
+                            "full" if mode == (False, False, False) else
+                            "compact" if mode == (False, True, False) else "unknown")})
                     budget_attempts.append(attempt)
                 continue
             # Do not let newly enriched task/resource history silently consume
@@ -2941,14 +2959,19 @@ def _current_evidence_prompt_payload(
         compact_for_input_budget=True)
     if len(summaries) != len(current.facts):
         return full
-    current_summaries: list[dict[str, Any]] = []
+    fact_row_fields = ("fact_id", "source_id", "source_schema_version", "stage",
+        "disposition", "evidence_strength", "effect_proven", "observed_at",
+        "reported_values")
+    current_summaries: list[list[Any]] = []
     for summary in summaries:
-        item = dict(summary)
-        item["historical_only"] = False
-        item["current_observation"] = True
-        current_summaries.append(item)
+        # The exact projection digest commits every original fact and source,
+        # including per-source digests. A declared row schema avoids repeating
+        # field names while retaining every fact's typed evidence and linkage.
+        current_summaries.append([summary.get(key) for key in fact_row_fields])
     return {
-        "schema_version": "sentientos.current_world_state_cognitive_projection_summary:v1",
+        "schema_version": "sentientos.current_world_state_cognitive_projection_summary:v3",
+        "fact_row_schema": "sentientos.current_world_state_fact_row:v1",
+        "fact_row_fields": list(fact_row_fields),
         "projection_id": current.projection_id,
         "projection_digest": current.projection_digest,
         "snapshot_id": current.snapshot_id,
@@ -2961,12 +2984,12 @@ def _current_evidence_prompt_payload(
         "conflict_count": 0,
         "conflicts_digest": _digest([]),
         "read_only": True, "evidence_only": True,
-        "current_truth": False, "authority": False,
-        "policy": False, "goal": False,
-        "canonical_explicit_user_retention": False,
+        "evidence_posture": {"current_observation": True,
+            "historical_only": False, "current_truth": False, "authority": False,
+            "policy": False, "goal": False,
+            "canonical_explicit_user_retention": False},
         "projection_posture": "typed_bounded_view_bound_to_exact_projection_digest",
     }
-
 
 @dataclass(frozen=True)
 class ResidentDevelopmentalCycleResult:

@@ -805,21 +805,69 @@ def test_history_projection_accepts_direct_renderer_report_fact_payload():
             "acquisition_examples": [], "execution_evidence_posture": "receipts_checked",
             "independent_backend_observation": False, "learning_established": False}}
     run_fact["payload"]["source_audit_detail"] = "x" * 12_000
+    extra_facts = []
+    extra_sources = []
+    for index, (schema, fields, payload) in enumerate((
+            ("sentientos.embodied_action_expectation:v1",
+                ("expectation_id", "handoff_id", "requested", "predicted_observables",
+                    "observable_fields", "expected_observation_source_class"),
+                {"expectation_id": "expectation-a", "handoff_id": "handoff-a",
+                    "requested": {"pose": "nod"}, "predicted_observables": {"pose": "nod"},
+                    "observable_fields": ["pose"],
+                    "expected_observation_source_class": "independent_observer"}),
+            ("sentientos.avatar_renderer_handoff:v1",
+                ("handoff_id", "requested_test_pose", "requested_test_expression",
+                    "renderer_reported", "independently_observed"),
+                {"handoff_id": "handoff-a", "requested_test_pose": "nod",
+                    "requested_test_expression": "neutral", "renderer_reported": True,
+                    "independently_observed": False}),
+            ("sentientos.embodied_consequence_chain:v1",
+                ("chain_id", "component_source_ids", "component_record_digests",
+                    "event_times", "independent_observation_posture", "effect_proven"),
+                {"chain_id": "chain-a", "component_source_ids": ["expectation-a", "handoff-a"],
+                    "component_record_digests": ["sha256:" + "1" * 64],
+                    "event_times": {"expected": "t1"},
+                    "independent_observation_posture": "insufficient", "effect_proven": False}),
+            )):
+        source_item = {"kind": "embodiment", "source_id": f"embodiment:{index}",
+            "schema_version": schema, "digest": "sha256:" + str(index) * 64}
+        fact_item = {"fact_id": f"fact-embodiment-{index}", "source": source_item,
+            "subject": {"subject_kind": schema.rsplit(":", 1)[0]},
+            "stage": "observation", "disposition": "recorded",
+            "evidence_strength": "typed_source_evidence", "effect_proven": False,
+            "observed_at": "2026-11-11T00:00:01Z",
+            "payload": {"schema_version": schema, **payload}}
+        extra_facts.append(fact_item)
+        extra_sources.append(source_item)
+    current_facts = (fact, run_fact, *extra_facts)
+    current_sources = (source, run_source, *extra_sources)
     current = CurrentWorldStateCognitiveProjection(
         snapshot_id="snapshot-current", snapshot_digest="sha256:" + "b" * 64,
-        facts=(fact, run_fact), sources=(source, run_source), conflicts=(),
-        fact_ids=(fact_id, run_fact["fact_id"]),
+        facts=current_facts, sources=current_sources, conflicts=(),
+        fact_ids=tuple(item["fact_id"] for item in current_facts),
         projection_id="current-projection", projection_digest="sha256:" + "c" * 64)
     compact = _current_evidence_prompt_payload(current)
-    assert compact["fact_ids"] == [fact_id, run_fact["fact_id"]]
+    assert compact["fact_ids"] == [item["fact_id"] for item in current_facts]
     assert compact["projection_digest"] == current.projection_digest
-    assert compact["facts"][0]["source_id"] == source["source_id"]
-    assert compact["facts"][0]["current_observation"] is True
-    assert compact["facts"][0]["historical_only"] is False
-    assert compact["facts"][0]["reported_values"]["renderer_self_report"][
+    assert compact["fact_row_schema"] == "sentientos.current_world_state_fact_row:v1"
+    assert all(len(row) == len(compact["fact_row_fields"]) for row in compact["facts"])
+    rows = [dict(zip(compact["fact_row_fields"], row)) for row in compact["facts"]]
+    assert rows[0]["source_id"] == source["source_id"]
+    assert compact["evidence_posture"]["current_observation"] is True
+    assert compact["evidence_posture"]["historical_only"] is False
+    assert compact["sources_digest"]
+    assert rows[0]["reported_values"]["renderer_self_report"][
         "reported_state"]["motion"]["active_motion"] == "wave"
-    run_summary = compact["facts"][1]["reported_values"][
-        "history_intervention_result"]
+    expectation = next(item for item in rows if item["source_schema_version"]
+        == "sentientos.embodied_action_expectation:v1")
+    assert expectation["reported_values"]["action_expectation"]["requested"] == {"pose": "nod"}
+    handoff = next(item for item in rows if item["source_schema_version"]
+        == "sentientos.avatar_renderer_handoff:v1")
+    assert handoff["reported_values"]["renderer_handoff"]["independently_observed"] is False
+    chain = next(item for item in rows if item["source_schema_version"]
+        == "sentientos.embodied_consequence_chain:v1")
+    assert chain["reported_values"]["consequence_chain"]["effect_proven"] is False
+    run_summary = rows[1]["reported_values"]["history_intervention_result"]
     assert run_summary["classification"] == "no_observable_history_difference"
     assert run_summary["objective_evaluation"]["condition_correct_counts"] == [3, 3, 3]
     assert run_summary["conditions"][0]["retrieved_record_ids"] == ["devrec-example"]
