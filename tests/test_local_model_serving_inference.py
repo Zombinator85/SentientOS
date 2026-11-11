@@ -83,11 +83,11 @@ class Model:
 def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generate=None,
           installation_identity="install-1", runtime_handoff_id=None, state_root=None,
           serving_operation_id="serve-1", foreground_game_detector=None,
-          kernel_override=None, host_resource_observation_owner=None):
+          kernel_override=None, host_resource_observation_owner=None, gpu_layers=0):
     tmp_path.mkdir(parents=True, exist_ok=True)
     artifact = tmp_path / "exact.gguf"; artifact.write_bytes(b"tiny-model")
-    load = {"n_ctx": 512, "n_gpu_layers": 0}
-    config = ModelConfig([ModelCandidate(artifact, "llama_cpp", "catalog-model", {"gpu_layers": 0})],
+    load = {"n_ctx": 512, "n_gpu_layers": gpu_layers}
+    config = ModelConfig([ModelCandidate(artifact, "llama_cpp", "catalog-model", {"gpu_layers": gpu_layers})],
         default_engine="llama_cpp", max_context_tokens=512,
         generation=GenerationConfig(max_new_tokens=8, temperature=0, top_p=1))
     authority = build_local_model_authority_map(config, allowed_roots=[tmp_path], observed_at="1970-01-01T00:00:00+00:00")
@@ -364,6 +364,99 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
     assert host_resource_owner.collector_call_count == 3
     assert serving.current_session() is not None
     serving.close()
+
+
+def test_verified_game_presence_without_frame_metrics_prioritizes_game_when_resources_incomplete(
+        monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    source_id, generation_id = "windows-foreground", "windows-foreground-generation-1"
+    source_key = b"windows-foreground-priority-key-32-bytes"
+    core_key = b"sentientos-core-priority-key-32-bytes"
+    runtime = CompanionBridgeLoopbackRuntime(
+        receiver=CompanionBridgeReceiver(source_keys={source_id: source_key},
+            expected_generations={source_id: generation_id}),
+        acknowledgment_source_id="sentientos-core",
+        acknowledgment_generation_id="core-generation-1",
+        acknowledgment_key=core_key, queue_capacity=2)
+    port = runtime.start()
+    detector = BridgeForegroundGameDetector(runtime=runtime, source_id=source_id,
+        generation_id=generation_id, max_observation_age_seconds=5,
+        clock=lambda: now)
+    client = CompanionBridgeLoopbackClient(port=port,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"sentientos-core": core_key},
+            expected_generations={"sentientos-core": "core-generation-1"}),
+        timeout_seconds=1.0)
+
+    class GameIsForeground:
+        def observe(self, _names):
+            return ForegroundGameObservation(
+                "available", True, hashlib.sha256(b"examplegame.exe").hexdigest(),
+                now.isoformat())
+
+    publisher = WindowsForegroundBridgePublisher(detector=GameIsForeground(),
+        client=client, source_id=source_id, session_id="active-game-session",
+        generation_id=generation_id, source_key=source_key)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_plan = build_observation_plan(specs=[
+        HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+            collector("cpu", utilization_percent=20.0)),
+        HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+            lambda *, observed_at=None: HostCollectorResult(
+                "memory", "unavailable", observed_at or now.isoformat(),
+                "synthetic_test_fixture", values={})),
+        HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+            lambda *, observed_at=None: HostCollectorResult(
+                "nvidia_gpu", "unavailable", observed_at or now.isoformat(),
+                "synthetic_test_fixture", values={}))
+    ])
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource", plan=host_plan,
+        clock=lambda: now.isoformat())
+    bridge, serving, _, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, foreground_game_detector=detector,
+        host_resource_observation_owner=host_owner)
+    detector.set_game_workload_admission_owner(kernel)
+    bridge.set_workload_mode("automatic", ("ExampleGame.exe",))
+    try:
+        publisher.publish_once(("ExampleGame.exe",))
+        prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+            "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
+        receipt = bridge.generate(prompt=prompt, caller="chat_service",
+            correlation_id="foreground-game-host-pressure")
+
+        assert receipt.status == "deferred"
+        assert model.calls == 0
+        assert receipt.effects["local_model_inference"] is False
+        decision = json.loads((tmp_path / "kernel-decisions.jsonl").read_text(
+            encoding="utf-8").splitlines()[-1])
+        delegated = decision["delegated_outcomes"]["runtime_governor"]
+        assert delegated["reason"] == (
+            "deferred_resource_telemetry_incomplete_during_game")
+        game_ref = delegated["evidence_refs"]["game_workload_evidence"]
+        assert game_ref["game_active"] is True
+        assert game_ref["message_id"]
+        assert delegated["evidence_refs"]["game_performance_evidence"][
+            "status"] == "unavailable"
+        host_ref = receipt.request["linkage"]["host_resource_observation"]
+        assert host_ref["no_effect_authority"] is True
+        assert host_ref["gpu_telemetry_available"] is False
+        assert host_ref["status"] == "current"
+        assert serving.current_session() is not None
+    finally:
+        detector.close()
+        serving.close()
 
 
 def test_serving_authority_reconstructs_commissioned_resource_profile(tmp_path):

@@ -147,6 +147,7 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
 
     class AdmissionOwner:
         def observe_verified_game_performance(self, _observation): return True
+        def observe_verified_game_workload(self, _observation): return True
 
     admission_owner = AdmissionOwner()
     bridge_runtime = CompanionBridgeLoopbackRuntime(
@@ -184,6 +185,7 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     assert isinstance(composition.service._avatar_output, ChatAvatarOutputController)
     assert composition._avatar_output_owner is session
     assert detector._game_performance_observer.__self__ is admission_owner
+    assert detector._game_workload_observer.__self__ is admission_owner
     resource_owner = composition.service._inference.host_resource_observation_owner
     assert type(resource_owner) is HostResourceRuntimeCoordinator
     assert resource_owner.kernel is admission_owner

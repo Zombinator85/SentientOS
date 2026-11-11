@@ -217,6 +217,10 @@ class RuntimeGovernor:
         # Fresh bridge-authenticated game pacing is supplemental scheduling
         # evidence, never a substitute for the host-resource observation epoch.
         self._game_performance_evidence: dict[str, object] | None = None
+        # Bridge-authenticated allowlisted game presence remains separate from
+        # optional frame pacing evidence; it can prioritize the game when host
+        # telemetry is pressured or incomplete without implying process control.
+        self._game_workload_evidence: dict[str, object] | None = None
         self._resource_evidence_lock = threading.Lock()
 
     @staticmethod
@@ -1167,6 +1171,60 @@ class RuntimeGovernor:
         except (ImportError, AttributeError, TypeError, ValueError, OverflowError):
             return False
 
+    def observe_verified_game_workload(self, observation: object) -> bool:
+        """Retain fresh bridge-verified allowlisted game-presence evidence."""
+        try:
+            from sentientos.foreground_game_detection import ForegroundGameObservation
+
+            if type(observation) is not ForegroundGameObservation:
+                return False
+            observed_at = datetime.fromisoformat(
+                observation.observed_at.replace("Z", "+00:00"))
+            provenance = observation.transport_provenance
+            if not isinstance(provenance, Mapping):
+                return False
+            message_id = provenance.get("message_id")
+            source_id = provenance.get("source_id")
+            generation_id = provenance.get("generation_id")
+            session_id = provenance.get("session_id")
+            sequence = provenance.get("sequence")
+            envelope_time = provenance.get("envelope_created_at")
+            if (observed_at.tzinfo is None or observed_at.utcoffset() is None
+                    or observation.status != "available"
+                    or type(observation.game_foreground) is not bool
+                    or (observation.game_process_running is not None
+                        and type(observation.game_process_running) is not bool)
+                    or not isinstance(observation.process_name_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", observation.process_name_digest) is None
+                    or not isinstance(message_id, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", message_id) is None
+                    or not isinstance(source_id, str) or not source_id
+                    or not isinstance(generation_id, str) or not generation_id
+                    or not isinstance(session_id, str) or not session_id
+                    or type(sequence) is not int or sequence < 1
+                    or not isinstance(envelope_time, str)):
+                return False
+            age = (datetime.now(timezone.utc)
+                - observed_at.astimezone(timezone.utc)).total_seconds()
+            if age < 0 or age > 10:
+                return False
+            evidence: dict[str, object] = {
+                "observed_at": observed_at.astimezone(timezone.utc).isoformat(),
+                "source_id": source_id, "generation_id": generation_id,
+                "session_id": session_id, "sequence": sequence,
+                "message_id": message_id,
+                "process_name_digest": observation.process_name_digest,
+                "game_foreground": observation.game_foreground,
+                "game_process_running": observation.game_process_running,
+                "running_process_name_digests": tuple(
+                    observation.running_process_name_digests or ()),
+            }
+            with self._resource_evidence_lock:
+                self._game_workload_evidence = evidence
+            return True
+        except (ImportError, AttributeError, TypeError, ValueError, OverflowError):
+            return False
+
     def _admit_local_model_resource_release(
         self, *, actor: str, subject: str, metadata: dict[str, object] | None,
         correlation_id: str | None,
@@ -1285,6 +1343,8 @@ class RuntimeGovernor:
         with self._resource_evidence_lock:
             evidence = dict(self._host_resource_evidence) if self._host_resource_evidence is not None else None
             game_evidence = dict(self._game_performance_evidence) if self._game_performance_evidence is not None else None
+            game_workload = (dict(self._game_workload_evidence)
+                if self._game_workload_evidence is not None else None)
         evidence_age_seconds: float | None = None
         evidence_ref: dict[str, object] = {"status": "unavailable"}
         labels: set[str] = set()
@@ -1344,13 +1404,6 @@ class RuntimeGovernor:
                 gpu_profile_digest = raw_profile_digest
         gpu_offload_requested = accelerator_route == "gpu"
         gpu_telemetry_required = accelerator_route in {"gpu", "unknown"}
-        gpu_telemetry_incomplete = (
-            not foreground
-            and gpu_telemetry_required
-            and evidence_ref.get("status") == "current"
-            and evidence is not None
-            and evidence.get("gpu_telemetry_available") is not True
-        )
         game_pressure = False
         game_evidence_ref: dict[str, object] = {"status": "unavailable"}
         if game_evidence is not None:
@@ -1379,12 +1432,49 @@ class RuntimeGovernor:
                 }
             else:
                 game_evidence_ref = {"status": "stale_or_invalid", "age_seconds": game_age}
+        game_workload_ref: dict[str, object] = {"status": "unavailable", "game_active": False}
+        if game_workload is not None:
+            try:
+                workload_age = (now - datetime.fromisoformat(
+                    str(game_workload["observed_at"])).astimezone(timezone.utc)).total_seconds()
+            except (KeyError, TypeError, ValueError):
+                workload_age = None
+            if workload_age is not None and 0 <= workload_age <= 10:
+                game_active = (game_workload.get("game_foreground") is True
+                    or game_workload.get("game_process_running") is True)
+                game_workload_ref = {
+                    "status": "current", "game_active": game_active,
+                    "source_id": game_workload["source_id"],
+                    "generation_id": game_workload["generation_id"],
+                    "session_id": game_workload["session_id"],
+                    "sequence": game_workload["sequence"],
+                    "message_id": game_workload["message_id"],
+                    "process_name_digest": game_workload["process_name_digest"],
+                    "game_foreground": game_workload["game_foreground"],
+                    "game_process_running": game_workload["game_process_running"],
+                    "age_seconds": round(workload_age, 3),
+                }
+            else:
+                game_workload_ref = {"status": "stale_or_invalid",
+                    "game_active": False, "age_seconds": workload_age}
         # Host pressure is shared telemetry. It receives game-priority meaning
-        # only while a fresh authenticated game-performance observation is
-        # current; an unverified workload label cannot change admission.
+        # only while fresh authenticated game-presence or game-performance
+        # evidence is current; an unverified workload label cannot change admission.
         game_host_pressure = (
-            game_evidence_ref.get("status") == "current"
+            (game_evidence_ref.get("status") == "current"
+             or game_workload_ref.get("game_active") is True)
             and bool(pressure_reasons)
+        )
+        verified_game_active = (
+            game_evidence_ref.get("status") == "current"
+            or game_workload_ref.get("game_active") is True
+        )
+        gpu_telemetry_incomplete = (
+            (not foreground or verified_game_active)
+            and gpu_telemetry_required
+            and evidence_ref.get("status") == "current"
+            and evidence is not None
+            and evidence.get("gpu_telemetry_available") is not True
         )
         # Background work waits for a completed, fresh observation epoch. An
         # absent or stale epoch is missing evidence, not a measurement of low
@@ -1395,10 +1485,11 @@ class RuntimeGovernor:
             incomplete = (evidence.get("cpu_utilization_percent") is None
                           or evidence.get("ram_utilization_percent") is None)
         game_resource_telemetry_incomplete = (
-            game_evidence_ref.get("status") == "current"
+            verified_game_active
             and (evidence_ref.get("status") != "current" or evidence is None
                  or evidence.get("cpu_utilization_percent") is None
-                 or evidence.get("ram_utilization_percent") is None)
+                 or evidence.get("ram_utilization_percent") is None
+                 or gpu_telemetry_incomplete)
         )
 
         reason = "allowed"
@@ -1442,6 +1533,7 @@ class RuntimeGovernor:
                 "model_configuration_digest": gpu_profile_digest,
                 "gpu_telemetry_incomplete_for_model": gpu_telemetry_incomplete,
                 "game_performance_evidence": game_evidence_ref,
+                "game_workload_evidence": game_workload_ref,
                 "game_frame_pressure": game_pressure,
                 "host_pressure_during_verified_game": game_host_pressure,
                 "host_resource_telemetry_incomplete_during_game": (
@@ -1459,6 +1551,7 @@ class RuntimeGovernor:
         payload["host_resource_evidence"] = evidence_ref
         payload["observed_pressure_labels"] = sorted(labels)
         payload["game_performance_evidence"] = game_evidence_ref
+        payload["game_workload_evidence"] = game_workload_ref
         payload["game_frame_pressure"] = game_pressure
         payload["host_pressure_during_verified_game"] = game_host_pressure
         payload["host_resource_telemetry_incomplete_during_game"] = (
@@ -2128,7 +2221,8 @@ class RuntimeGovernor:
             evidence_refs={
                 key: metadata[key]
                 for key in ("host_resource_evidence", "observed_pressure_labels",
-                            "game_performance_evidence", "game_frame_pressure",
+                            "game_performance_evidence", "game_workload_evidence",
+                            "game_frame_pressure",
                             "host_pressure_during_verified_game")
                 if metadata is not None and key in metadata
             },

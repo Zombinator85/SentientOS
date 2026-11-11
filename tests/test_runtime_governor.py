@@ -7,7 +7,9 @@ import tempfile
 
 import pytest
 
+from sentientos.foreground_game_detection import ForegroundGameObservation
 from sentientos.runtime_governor import get_runtime_governor, reset_runtime_governor
+from sentientos.runtime_governor import RuntimeGovernor
 
 
 def test_governor_enforce_blocks_restart_budget(monkeypatch, tmp_path) -> None:
@@ -185,6 +187,43 @@ def test_local_model_resource_release_rejects_unknown_reason(
 
     assert decision.allowed is False
     assert decision.reason == "model_resource_release_request_invalid"
+
+
+def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    governor = RuntimeGovernor()
+    stamp = datetime.now(timezone.utc).isoformat()
+    observation = ForegroundGameObservation(
+        "available", True, "a" * 64, stamp,
+        transport_provenance={"message_id": "b" * 64, "source_id": "windows-edge",
+            "session_id": "game-session", "generation_id": "edge-generation",
+            "sequence": 1, "envelope_created_at": stamp})
+    assert governor.observe_verified_game_workload(observation)
+    governor._host_resource_evidence = {
+        "observed_at": stamp, "evaluation_id": "evaluation-1", "epoch_id": "epoch-1",
+        "snapshot_id": "snapshot-1", "report_id": "report-1",
+        "report_digest": "c" * 64, "pressure_labels": (),
+        "cpu_utilization_percent": 20.0, "ram_utilization_percent": 40.0,
+        "gpu_utilization_percent": None, "vram_utilization_percent": None,
+        "gpu_telemetry_available": False,
+    }
+
+    decision = governor._admit_local_model_inference(
+        actor="chat_service", subject="chat", correlation_id="game-no-gpu-sensor",
+        metadata={"purpose": "local_user_chat", "model_execution_profile": {
+            "schema_version": "sentientos.model_execution_profile:v1",
+            "engine": "llama_cpp", "accelerator_route": "gpu", "gpu_layers": 1,
+            "configuration_digest": "d" * 64,
+        }})
+
+    assert decision.allowed is False
+    assert decision.reason == "deferred_resource_telemetry_incomplete_during_game"
+    assert decision.evidence_refs["game_workload_evidence"]["game_active"] is True
 
 
 def test_federated_control_blocked_by_critical_storm(monkeypatch, tmp_path) -> None:

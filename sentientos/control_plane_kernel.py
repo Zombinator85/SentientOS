@@ -251,6 +251,17 @@ class ControlPlaneKernel:
         except Exception:
             return False
 
+    def observe_verified_game_workload(self, observation: object) -> bool:
+        """Pass bridge-verified allowlisted game presence to runtime scheduling."""
+        observer = getattr(self._runtime_governor,
+            "observe_verified_game_workload", None)
+        if not callable(observer):
+            return False
+        try:
+            return bool(observer(observation))
+        except Exception:
+            return False
+
     def admit(self, request: ControlActionRequest) -> ControlActionDecision:
         reasons: list[str] = []
         delegated: dict[str, Any] = {}

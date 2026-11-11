@@ -3749,6 +3749,7 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         serving_kernel = control_plane_kernel or ControlPlaneKernel()
         if foreground_game_detector is not None:
             foreground_game_detector.set_game_performance_admission_owner(serving_kernel)
+            foreground_game_detector.set_game_workload_admission_owner(serving_kernel)
         serving = ProductionServingController(handle, serving_kernel)
         establish_arguments = {"operation_id": serving_operation_id}
         if expected_activation_state_digest is not None:

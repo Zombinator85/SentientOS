@@ -251,6 +251,7 @@ class BridgeForegroundGameDetector:
         self._last: ForegroundGameObservation | None = None
         self._game_performance_observer: Callable[
             [VerifiedGamePerformanceObservation], bool] | None = None
+        self._game_workload_observer: Callable[[ForegroundGameObservation], bool] | None = None
 
     def set_game_performance_admission_owner(self, owner: object) -> None:
         """Bind verified performance samples to the existing scheduling owner."""
@@ -258,6 +259,13 @@ class BridgeForegroundGameDetector:
         if not callable(observer):
             raise CompanionBridgeError("game_performance_admission_owner_required")
         self._game_performance_observer = observer
+
+    def set_game_workload_admission_owner(self, owner: object) -> None:
+        """Bind verified allowlisted game-presence observations to scheduling."""
+        observer = getattr(owner, "observe_verified_game_workload", None)
+        if not callable(observer):
+            raise CompanionBridgeError("game_workload_admission_owner_required")
+        self._game_workload_observer = observer
 
     def close(self) -> None:
         """Stop the dedicated foreground-observation listener owned by this adapter."""
@@ -290,6 +298,10 @@ class BridgeForegroundGameDetector:
             if not self._is_fresh(self._last.observed_at):
                 self._last = None
                 return self._unavailable("bridge_observation_expired")
+            if self._last.status == "available":
+                observer = self._game_workload_observer
+                if observer is not None:
+                    observer(self._last)
             return self._last
 
     def _forward_game_performance(self, message: VerifiedBridgeMessage) -> bool:
