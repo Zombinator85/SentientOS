@@ -65,6 +65,7 @@ from sentientos.embodied_consequence import (
 )
 from sentientosd import (
     RuntimeMaintenanceSurfaces,
+    _codex_healer_world_state_records,
     _attestation_snapshot_verification_world_state_record,
     _load_embodied_consequence_projection,
     _load_epistemic_state_owner,
@@ -2854,6 +2855,56 @@ def test_legacy_oracle_hashes_are_excluded_from_current_cognition(tmp_path: Path
     assert projected_ids == {"safe-objective"}
     selected = cognition._select_fact_ids(world, set())
     assert len(selected) == 1
+
+
+def test_fresh_codex_healer_evidence_flows_through_writeback_to_later_cognition(
+        tmp_path: Path) -> None:
+    """Exercise the existing owner path with explicitly synthetic recovery events."""
+    cognition, fake = owner(tmp_path, allowed_source_kinds=("runtime_supervisor",),
+        max_selected_facts=1)
+
+    def recovery_snapshot(suffix: str):
+        observed_at = datetime.now(timezone.utc).isoformat()
+        event = {
+            "timestamp": observed_at,
+            "status": "auto-repair verified",
+            "correlation_id": ("a" if suffix == "first" else "b") * 64,
+            "anomaly": {"kind": "test_recovery", "subject": f"private-{suffix}"},
+            "action": {"kind": "restart_service"},
+            "details": {"attempts": 1, "attempt_ceiling": 2,
+                "repair_verification": {"status": "verified"}},
+            "quarantined": False,
+        }
+        records = _codex_healer_world_state_records([event], tick_id=observed_at)
+        assert len(records) == 1
+        assert records[0]["staleness"] == "fresh"
+        return WorldStateBoardBuilder().build(records)
+
+    first_snapshot = recovery_snapshot("first")
+    selected = cognition._select_fact_ids(first_snapshot, set())
+    assert len(selected) == 1
+
+    first = cognition.run_tick(snapshot=first_snapshot, tick_id="healer-writeback-first")
+    assert first.status == "completed"
+    assert first.written_record_id and first.writeback_receipt_id
+    admitted = cognition.writeback.store.get(first.written_record_id)
+    admitted_fact = next(fact for fact in admitted.candidate["selected_facts"]
+        if fact["fact_id"] == selected[0])
+    assert admitted_fact["subject"]["subject_kind"] == "codex_healer_recovery_event"
+    assert admitted_fact["payload"]["source_owner"] == (
+        "sentientos.codex_healer.RecoveryLedger")
+    assert admitted_fact["payload"]["read_only"] is True
+    assert admitted_fact["payload"]["authority"] is False
+    assert admitted_fact["payload"]["effect_proven"] is False
+    assert "private-first" not in json.dumps(admitted.candidate)
+
+    later_snapshot = recovery_snapshot("later")
+    later = cognition.run_tick(snapshot=later_snapshot, tick_id="healer-writeback-later")
+    assert later.status == "completed"
+    assert first.written_record_id in later.prior_record_ids
+    later_prompt = json.loads(fake.requests[-1].prompt)
+    assert first.written_record_id in {
+        row["record_id"] for row in later_prompt["developmental_history"]}
 
 
 def test_admitted_resident_history_is_shared_with_predecessor_and_successor_models(
