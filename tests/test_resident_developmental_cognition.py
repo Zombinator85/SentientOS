@@ -7313,6 +7313,17 @@ def test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_ide
         observed_counts.append(count)
     assert observed_counts == [1, 2, 3, 4]
 
+    # When no complete history packet fits, retain size-only diagnostics so
+    # callers can distinguish the actual budget shortfall without logging text.
+    _, budget_metadata, _, budget_ids, _ = _bind_history_and_epistemic_context(
+        context=context, records=records, projection=None, history_present=True,
+        max_input_chars=2000)
+    assert budget_ids == ()
+    attempts = budget_metadata["developmental_history_context_budget_attempts"]
+    assert attempts
+    assert all(item["prompt_chars"] > item["max_input_chars"] for item in attempts)
+    assert any(item["history_packet_mode"] == "compact" for item in attempts)
+
     withheld_bound, withheld_metadata, withheld_prompt, withheld_ids, _ = bind(
         minimum_capacity_for(1), present=False)
     assert withheld_ids == ()

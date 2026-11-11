@@ -344,6 +344,10 @@ MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES = 1024
 class ResidentDevelopmentalCognitionError(ValueError):
     """Fail-closed composition/configuration violation."""
 
+    def __init__(self, message: str, *, diagnostic: Mapping[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.diagnostic = dict(diagnostic) if isinstance(diagnostic, Mapping) else None
+
 
 class _EpistemicRevisionProbePromptPreview(Exception):
     """Internal control flow that returns a composed prompt before any call."""
@@ -2330,6 +2334,7 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
         task_family_id=task_family_id if isinstance(task_family_id, str) else None,
         target_model_identity=target_model_identity)
         for record in records) for mode in packet_modes}
+    budget_attempts: list[dict[str, Any]] = []
     full_packets = packets_by_mode[packet_modes[0]]
     available = tuple({"record_id": packet["record_id"],
         "record_digest": packet["record_digest"]} for packet in full_packets)
@@ -2404,6 +2409,13 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
             except ResidentDevelopmentalCognitionError as exc:
                 if str(exc) != "cognition_input_budget_exceeded":
                     raise
+                if len(budget_attempts) < 32:
+                    attempt = dict(getattr(exc, "diagnostic", {}) or {})
+                    attempt.update({"history_record_count": count,
+                        "history_packet_mode": ("source_and_compact" if mode == (True, True)
+                            else "source_and_full" if mode == (True, False)
+                            else "compact" if mode == (False, True) else "full")})
+                    budget_attempts.append(attempt)
                 continue
             # Do not let newly enriched task/resource history silently consume
             # the entire semantic epistemic allowance. Try a shorter or more
@@ -2417,8 +2429,12 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
             digests = tuple(str(item["record_digest"]) for item in selected_refs)
             metadata = {**metadata,
                 "developmental_history_selection": custody_selection}
+            if not ids and budget_attempts:
+                metadata["developmental_history_context_budget_attempts"] = budget_attempts
             return bound, metadata, prompt, ids, digests
-    raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
+    raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded",
+        diagnostic={"max_input_chars": max_input_chars,
+            "history_context_budget_attempts": budget_attempts})
 
 
 def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
@@ -2498,7 +2514,8 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                 **dict(probe), "allowed_evidence_binding_ids": []}
         prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
         if len(prompt) > max_input_chars:
-            raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
+            raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded",
+                diagnostic={"prompt_chars": len(prompt), "max_input_chars": max_input_chars})
         metadata: dict[str, Any] = {"epistemic_projection_schema": None,
             "epistemic_semantic_status": "not_present", "epistemic_owner_packet_count": 0,
             "epistemic_consumed_packet_ids": [], "epistemic_consumed_packet_digests": [],
@@ -2534,7 +2551,8 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                 **dict(probe), "allowed_evidence_binding_ids": []}
         prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
         if len(prompt) > max_input_chars:
-            raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
+            raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded",
+                diagnostic={"prompt_chars": len(prompt), "max_input_chars": max_input_chars})
         metadata = {"epistemic_projection_schema": "identifier_only_v1",
             "epistemic_semantic_status": "canonical_definition_unavailable",
             "epistemic_owner_packet_count": 0,
@@ -2570,6 +2588,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         "state_id": packet["state"]["state_id"],
         "reason": "inference_input_budget"} for packet in packets)
     selected_count = -1
+    largest_candidate_chars = 0
     selected_value: dict[str, Any] | None = None
     selected_omissions: tuple[Mapping[str, Any], ...] = ()
     for count in range(len(packets), -1, -1):
@@ -2617,11 +2636,14 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                 **dict(probe),
                 "allowed_evidence_binding_ids": sorted(visible_binding_ids)}
         candidate_prompt = json.dumps(candidate, sort_keys=True, separators=(",", ":"))
+        largest_candidate_chars = max(largest_candidate_chars, len(candidate_prompt))
         if len(candidate_prompt) <= max_input_chars:
             selected_count, selected_value, selected_omissions = count, candidate, omitted
             break
     if selected_value is None or selected_count < 0:
-        raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
+        raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded",
+            diagnostic={"largest_candidate_chars": largest_candidate_chars,
+                "max_input_chars": max_input_chars})
     prior_context = selected_value["prior_epistemic_state"]
     consumed_packets = packets[:selected_count]
     consumed_ids = [str(packet["packet_id"]) for packet in consumed_packets]
@@ -6707,7 +6729,12 @@ class ResidentDevelopmentalCognitionOwner:
                     raise ResidentDevelopmentalCognitionError(
                         "history_preflight_selection_missing")
                 if not protocol_record_ids:
-                    raise ResidentDevelopmentalCognitionError("history_context_budget_exhausted")
+                    raise ResidentDevelopmentalCognitionError(
+                        "history_context_budget_exhausted", diagnostic={
+                            "max_input_chars": self.max_inference_input_chars,
+                            "history_selection": dict(preflight_selection),
+                            "context_budget_attempts": preflight_metadata.get(
+                                "developmental_history_context_budget_attempts", [])})
                 records = tuple(self.writeback.store.get(rid) for rid in protocol_record_ids)
                 if tuple(record.record_digest for record in records) != tuple(record_digests):
                     raise ResidentDevelopmentalCognitionError("history_preflight_digest_mismatch")
