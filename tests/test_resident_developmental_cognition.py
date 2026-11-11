@@ -7857,33 +7857,43 @@ def test_sentientosd_consumes_staged_objective_once_without_recurring_owner_conf
         and "objective_task_plan_digest" in item.upstream_evidence]) == 3
 
 
-def test_sentientosd_composes_explicit_prior_epistemic_projection(tmp_path: Path, monkeypatch) -> None:
+def test_sentientosd_composes_explicit_prior_epistemic_projection(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SENTIENTOS_EPISTEMIC_STATE_CONFIG", raising=False)
-    epistemic=PersistentEpistemicStateOwner(tmp_path/"epistemic",allowed_namespaces=["embodiment"])
-    p=make_proposition(namespace="embodiment",subject="body:g1",predicate="healthy",
-        object_value=True,polarity="positive",qualifiers={},temporal_scope={"kind":"prior"},
-        context_scope={},proposition_class="descriptive")
-    epistemic.register_proposition(p)
-    epistemic.commit_update(proposition_id=p.proposition_id,expected_predecessor_digest=None,
-        stance="unknown",reason="initialization",active_binding_ids=[],correlation_id="prior",tick=1,
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=["embodiment"])
+    proposition = make_proposition(namespace="embodiment", subject="body:g1",
+        predicate="healthy", object_value=True, polarity="positive", qualifiers={},
+        temporal_scope={"kind": "prior"}, context_scope={},
+        proposition_class="descriptive")
+    epistemic.register_proposition(proposition)
+    epistemic.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="unknown", reason="initialization",
+        active_binding_ids=[], correlation_id="prior", tick=1,
         recorded_at="2026-01-01T00:00:00Z")
-    class Spy:
-        seen = None
-        def run_tick(self, **kwargs):
-            self.seen = kwargs
-            return type("Result", (), {"__dataclass_fields__": {}, "status":"completed"})()
-    spy=Spy()
-    surfaces=RuntimeMaintenanceSurfaces(tmp_path,runtime_state_root=tmp_path/"runtime-epistemic",
-        resident_developmental_owner=spy,epistemic_state_owner=epistemic,
-        epistemic_state_config={"status":"configured","max_cognitive_projection_count":1,
-                                "cognitive_consumption_enabled":True})  # type: ignore[arg-type]
-    tick="2026-01-03T00:00:00+00:00"
+    cognition, fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("runtime_supervisor",), max_selected_facts=4)
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path,
+        runtime_state_root=tmp_path / "runtime-epistemic",
+        resident_developmental_owner=cognition, epistemic_state_owner=epistemic,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True})
+    tick = "2026-01-03T00:00:00+00:00"
     surfaces.build_world_state_board(tick_id=tick)
-    feedback=surfaces.run_resident_developmental_cognition(tick_id=tick)
-    projection=spy.seen["prior_epistemic_state"]
-    assert projection.proposition_ids == (p.proposition_id,)
+    feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+
+    assert feedback["status"] == "completed"
     assert feedback["epistemic_composition"]["status"] == "composed"
     assert feedback["epistemic_composition"]["authority"] is False
+    assert fake.requests
+    request = fake.requests[-1]
+    assert request.upstream_evidence["epistemic_proposition_ids"] == [
+        proposition.proposition_id]
+    assert request.upstream_evidence["epistemic_projection_id"] == (
+        feedback["epistemic_composition"]["projection_id"])
+    assert request.upstream_evidence["epistemic_projection_digest"] == (
+        feedback["epistemic_composition"]["projection_digest"])
 
 
 def _seed_world_state_snapshot_for_tick(
