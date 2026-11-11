@@ -1195,6 +1195,19 @@ def _pre_action_source(*, pose: str = "idle",
     return WorldStateBoardBuilder().build(records), self_report
 
 
+def _objective_task_source() -> WorldStateSnapshot:
+    """Use a matched current body-state observation for abstract task probes.
+
+    The task-family acquisition and transfer comparisons already bind their
+    task descriptor and retained history separately. Reusing the preceding
+    consequence snapshot injects a large, unrelated evidence chain into every
+    condition and can exceed the configured model context window. Keep one fresh,
+    deterministic proprioception observation as matched current context.
+    """
+    snapshot, _ = _pre_action_source(pose="idle")
+    return snapshot
+
+
 def _embodied_source(*, requested_pose: str, predicted_pose: str
         ) -> tuple[WorldStateSnapshot, dict[str, Any], EmbodimentObservation]:
     commanded_at = (datetime.now(timezone.utc) - timedelta(seconds=8)).isoformat()
@@ -1528,7 +1541,7 @@ def run() -> dict[str, Any]:
         # rather than treating a plausible conversational difference as
         # evidence of improved performance.
         RUN_STAGE = "objective_task_family_acquisition"
-        later_pre_action_snapshot = snapshot
+        later_pre_action_snapshot = _objective_task_source()
         objective_family = _OBJECTIVE_TRANSFER_TASK_FAMILY
         acquisition_task, transfer_task = _objective_task_pair(EXPERIMENT_SEED)
         acquisition_request_id = RUN_ID + ":objective-family-acquisition"

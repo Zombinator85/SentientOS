@@ -42,6 +42,17 @@ assert controller._federation_root == expected / "federation"
     assert completed.returncode == 0, completed.stderr
 
 
+def test_objective_transfer_uses_one_matched_current_proprioception_fact(runner):
+    snapshot = runner._objective_task_source()
+
+    assert len(snapshot.facts) == 1
+    fact = snapshot.facts[0]
+    assert fact.source.schema_version == "sentientos.synthetic_proprioception_observation:v1"
+    assert fact.payload["encoder_pose"] == "idle"
+    assert fact.effect_claimed is False
+    assert fact.effect_proven is False
+
+
 @pytest.mark.parametrize(("arguments", "expected_returncode"), [
     (("--help",), 0),
     (("--unexpected",), 2),
