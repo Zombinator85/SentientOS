@@ -1967,6 +1967,7 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
             # World-State renderer-report facts store the report body directly
             # as their payload; consequence-attribution facts may nest it.
             renderer_report = payload
+        values: dict[str, Any] = {}
         fields: tuple[str, ...]
         roles: dict[str, Any] = {}
         if schema == "sentientos.embodied_consequence_attribution:v1":
@@ -2108,7 +2109,6 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
             fields = ()
         else:
             continue
-        values: dict[str, Any] = {}
         if fields:
             for key in fields:
                 value = payload.get(key)
