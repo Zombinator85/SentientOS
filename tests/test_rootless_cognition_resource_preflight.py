@@ -914,6 +914,8 @@ def test_incomplete_run_artifact_preserves_blocked_resource_sample(
     sample = {"inference_sequence": 1, "gpu_utilization_percent": 80, "temperature_celsius": 45,
         "gate_status": "blocked", "gate_reason": "gpu_utilization_preflight_busy"}
     monkeypatch.setattr(runner, "RUN_ROOT", run_root)
+    monkeypatch.setattr(runner, "PREREGISTRATION_DIGEST", "a" * 64)
+    monkeypatch.setattr(runner, "RUN_PREREGISTRATION_DIGEST", "b" * 64)
     monkeypatch.setattr(runner, "RESOURCE_PREFLIGHT_EVIDENCE", [sample])
     monkeypatch.setattr(runner, "_verify_model_released",
         lambda _: {"status": "target_model_not_resident"})
@@ -925,15 +927,19 @@ def test_incomplete_run_artifact_preserves_blocked_resource_sample(
         "fact_count": 1, "source_count": 1, "conflict_count": 0,
         "fact_subject_kinds": ["synthetic_fixture"],
         "source_kinds": ["embodiment"], "bounded_objective_trial": False}
+    failure.__cause__ = ValueError("history_binding_invalid")
     artifact_path = runner._persist_incomplete_run(failure)
     assert artifact_path is not None
     artifact = json.loads(artifact_path.read_text())
     assert artifact["schema_version"] == (
-        "sentientos.rootless_ollama_embodied_cognition_failure:v4")
+        "sentientos.rootless_ollama_embodied_cognition_failure:v5")
     assert artifact["resource_preflight_samples"] == [sample]
     assert artifact["failure_diagnostic"]["encoded_size_bytes"] == 12000
     assert artifact["failure_diagnostic"]["byte_limit"] == 10240
     assert artifact["source_provenance"] == runner.RUN_SOURCE_PROVENANCE
+    assert artifact["external_preregistration_digest"] == "a" * 64
+    assert artifact["run_preregistration_digest"] == "b" * 64
+    assert artifact["failure_cause_code"] == "history_binding_invalid"
     assert "process attribution" in artifact["resource_preflight_sample_scope"]
 
 
@@ -968,6 +974,8 @@ def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
         "purpose": "resident_developmental_companion_interaction",
         "output_digest": "e" * 64, "reason_codes": [], "output_text": output_text,
         "request": {"correlation_id": correlation_id,
+            "linkage": {"rootless_experimental_session": {
+                "preregistration_digest": "c" * 64}},
             "upstream_evidence": {"record_ids": []}}}
     (receipt_root / "lmrec-fixture.json").write_text(json.dumps(receipt))
 
@@ -982,6 +990,7 @@ def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
     assert proposal["pre_action_requested_pose"] == "idle"
     assert proposal["pre_action_predicted_pose"] == "idle"
     assert proposal["pre_action_prediction_consistent"] is True
+    assert proposal["run_preregistration_digest"] == "c" * 64
     assert proposal["model_output_text_excluded"] is True
     assert artifact["pre_action_decision_evidence"] == decision_evidence
     assert output_text not in artifact_text
@@ -1327,6 +1336,16 @@ def test_failure_code_keeps_only_bounded_non_output_diagnostics(runner):
         "resident_response_schema_invalid")
     assert runner._failure_code(ValueError(
         "raw model text: requested_pose=reach")) == "ValueError"
+
+
+def test_failure_cause_code_keeps_only_bounded_machine_reason(runner):
+    outer = RuntimeError("raw model answer must not be persisted")
+    outer.__cause__ = ValueError("history_binding_invalid")
+    assert runner._failure_cause_code(outer) == "history_binding_invalid"
+
+    unsafe = RuntimeError("raw model answer")
+    unsafe.__cause__ = ValueError("raw model answer with private details")
+    assert runner._failure_cause_code(unsafe) is None
 
 
 def test_target_evidence_is_added_only_when_requested_for_later_probe(runner):

@@ -49,6 +49,7 @@ os.environ["SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE"] = str(workspace)
 RUN_ID = "rootless-cognition-cycle-" + uuid.uuid4().hex[:20]
 RUN_ROOT = (workspace / "sentientos-data" / "rootless-experimental"
     / "developmental-cognition-cycles" / RUN_ID)
+RUN_PREREGISTRATION_DIGEST: str | None = None
 governance_root = RUN_ROOT / "resource-governance"
 os.environ["SENTIENTOS_GOVERNOR_ROOT"] = str(governance_root / "governor")
 os.environ["SENTIENTOS_FEDERATION_ROOT"] = str(governance_root / "federation")
@@ -142,6 +143,25 @@ EXPERIMENT_SEED = _experiment_seed_from_environment()
 PREREGISTRATION_DIGEST = _preregistration_digest_from_environment()
 HISTORY_INTERVENTION_TRIAL_INDEX = (
     _history_intervention_trial_index_from_environment())
+
+
+def _optional_preregistration_digest(value: Any) -> str | None:
+    if (isinstance(value, str) and value != "0" * 64
+            and re.fullmatch(r"[0-9a-f]{64}", value)):
+        return value
+    return None
+
+
+def _request_preregistration_digest(request: Any) -> str | None:
+    if not isinstance(request, Mapping):
+        return None
+    linkage = request.get("linkage")
+    session = (linkage.get("rootless_experimental_session")
+        if isinstance(linkage, Mapping) else None)
+    if not isinstance(session, Mapping):
+        return None
+    return _optional_preregistration_digest(
+        session.get("preregistration_digest"))
 
 
 def _experiment_seed_provenance() -> dict[str, int]:
@@ -918,6 +938,23 @@ def _failure_code(exc: Exception) -> str:
     return type(exc).__name__
 
 
+def _failure_cause_code(exc: Exception) -> str | None:
+    """Return only a bounded machine code from a short nested cause chain."""
+    cause = exc.__cause__ or exc.__context__
+    for _ in range(8):
+        if cause is None:
+            return None
+        for attribute in ("code", "reason_code", "reason"):
+            value = getattr(cause, attribute, None)
+            if isinstance(value, str) and re.fullmatch(r"[a-z0-9_]{1,120}", value):
+                return value
+        message = str(cause).strip()
+        if re.fullmatch(r"[a-z0-9_]{1,120}", message):
+            return message
+        cause = cause.__cause__ or cause.__context__
+    return None
+
+
 def _persist_incomplete_run(exc: Exception) -> Path | None:
     """Record a bounded failure summary without copying prompts or model text."""
     if not RUN_ROOT.is_dir() or RUN_ROOT.is_symlink():
@@ -941,6 +978,7 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                 except json.JSONDecodeError:
                     decoded = None
             upstream = request.get("upstream_evidence") if isinstance(request, dict) else None
+            preregistration_digest = _request_preregistration_digest(request)
             retrieved_record_ids = (upstream.get("record_ids", [])
                 if isinstance(upstream, dict) else [])
             cited_record_ids = (decoded.get("history_record_ids", [])
@@ -981,6 +1019,7 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                 "purpose": payload.get("purpose"),
                 "correlation_id": request.get("correlation_id")
                     if isinstance(request, dict) else None,
+                "run_preregistration_digest": preregistration_digest,
                 "output_digest": payload.get("output_digest"),
                 "reason_codes": payload.get("reason_codes", []),
                 "disposition": decoded.get("disposition")
@@ -1073,13 +1112,16 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
                 })
     failure_diagnostic = getattr(exc, "diagnostic", None)
     artifact = {
-        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v4",
+        "schema_version": "sentientos.rootless_ollama_embodied_cognition_failure:v5",
         "run_id": RUN_ID,
         "status": "incomplete",
         "execution_posture": "rootless_experimental_nonproduction",
         "source_provenance": dict(RUN_SOURCE_PROVENANCE),
         "model_id": MODEL_NAME,
         "model_manifest_digest": MANIFEST_PATH.stem,
+        "external_preregistration_digest": _optional_preregistration_digest(
+            PREREGISTRATION_DIGEST),
+        "run_preregistration_digest": RUN_PREREGISTRATION_DIGEST,
         "stage": RUN_STAGE,
         "resource_preflight_samples": [dict(item)
             for item in RESOURCE_PREFLIGHT_EVIDENCE],
@@ -1088,6 +1130,7 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
             "process attribution"),
         "failure_type": type(exc).__name__,
         "failure_code": _failure_code(exc),
+        "failure_cause_code": _failure_cause_code(exc),
         "failure_diagnostic": (dict(failure_diagnostic)
             if isinstance(failure_diagnostic, Mapping) else None),
         "inference_receipts": receipts,
@@ -1447,8 +1490,9 @@ def _require_experiment_runtime_dependencies() -> None:
 
 
 def run() -> dict[str, Any]:
-    global RUN_STAGE, PRE_ACTION_DECISION_EVIDENCE
+    global RUN_STAGE, PRE_ACTION_DECISION_EVIDENCE, RUN_PREREGISTRATION_DIGEST
     PRE_ACTION_DECISION_EVIDENCE = None
+    RUN_PREREGISTRATION_DIGEST = None
     RUN_STAGE = "model_and_runtime_preflight"
     _require_experiment_runtime_dependencies()
     if not MANIFEST_PATH.is_file() or MANIFEST_PATH.is_symlink():
@@ -1516,6 +1560,7 @@ def run() -> dict[str, Any]:
             handle.flush()
             os.fsync(handle.fileno())
         session.bind_preregistration_digest(preregistration["preregistration_digest"])
+        RUN_PREREGISTRATION_DIGEST = preregistration["preregistration_digest"]
     else:
         # Bind the session to the identity actually loaded by the governed worker.
         session.session_binding["active_model_identity_digest"] = digest_payload(
@@ -2177,10 +2222,13 @@ def run() -> dict[str, Any]:
             "history_changed_new_decision"]
         transfer_classification = transfer_qualification["classification"]
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v10",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v11",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "source_provenance": dict(RUN_SOURCE_PROVENANCE),
+            "external_preregistration_digest": _optional_preregistration_digest(
+                PREREGISTRATION_DIGEST),
+            "run_preregistration_digest": RUN_PREREGISTRATION_DIGEST,
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
             **_experiment_seed_provenance(),
             "history_order_trial_index": HISTORY_INTERVENTION_TRIAL_INDEX,
