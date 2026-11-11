@@ -42,7 +42,20 @@ Governance keeps epistemic, motivational, and consequential authority distinct: 
 
 Governance, provenance, experiments, and custody serve the developmental objective; they are not substitutes for it. The intended system does not prescribe a preferred personality or guarantee beneficial development.
 
-## Where the current evidence stands
+## Current cognition evidence (2026-11-11)
+
+The current remote main is f0379b0f12a20d9b351570948c7896725b28e632. Draft PR [#3628](https://github.com/Zombinator85/SentientOS/pull/3628) is based on that commit at head d2b390b1a746b49e4755a5aaf7d19e5142441b9f; its Required / Quality Gate and the reported CI, invariant, release, lint, Docker, and regression checks passed. The PR remains open and unmerged.
+
+- **Implemented:** The epistemic research probe now asks an explicit proposition-level question and explains how to distinguish limited support from contradiction. Its response contract is unchanged. The two focused local test modules report 28 passed.
+- **Observed in synthetic Hermes trials:** Two probe-v3 four-call series passed their correction and pressure-resistance checks. Three retained probe-v2 series yielded one full pass and two failures. All five used the same model artifact, but the runs were unpaired and used different execution identities and generated task instances. This is not a controlled estimate that v3 caused the difference.
+- **Evidence limits:** Every series records oracle_independence_verified=false and preregistration_timing_verified=false. These trials do not demonstrate independently observed physical experience, a real action/consequence cycle, developmental writeback, improved performance, or production qualification. They test a narrow response to synthetic epistemic state.
+- **Next experiment:** Compare prompt versions under a preregistered, counterbalanced matched task set with identical evidence, model artifact, and generation settings; independently verify the scoring oracle and preregistration timing before interpreting a prompt effect. Continue the larger developmental integration separately.
+
+## Earlier repository and federation evidence
+
+The detailed maintenance, workflow, and federation entries below are historical snapshots. They are retained as audit context and do not describe the current main SHA or the current cognition checkpoint.
+
+
 
 Sequence 440 records PR #2405 regular-merging sequence 438 and its sequence 439 contract-test correction as main `45a512233b1eeb2144cd19fda16ed46dfc03b234`, tree `1b4a3d4d2d628f0cdda052582fbb3fe7db9a1c29`.
 
@@ -73,7 +86,7 @@ A separate synthetic history-recall probe previously showed a restoration-stable
 
 The rootless runner's history-selection input bound is now 20,480 characters; the model's configured context remains 8,192 tokens. The last published draft head passed focused CPU tests and the hosted quality gate. A fresh Hermes run at the revised bound remains pending, so the change's effect on real inference is unverified. Neither these synthetic results nor software validation demonstrate longitudinal learning or improved performance.
 
-## Current construction checkpoint (2026-10-19 11:35 UTC)
+## Historical construction checkpoint (2026-10-19 11:35 UTC)
 
 Sequence 459 verifies the nightly workflow repairs already present on main. Historical runs showed Administrator was missing from both audit paths; current definitions require it, keep the initial audit job read-only, and isolate safe repair write permissions to the conditional repair job. Latest scheduled runs passed on older heads, but Audit repair was skipped.
 
