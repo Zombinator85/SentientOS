@@ -197,6 +197,11 @@ def test_receipt_consequence_cycle_requires_valid_lineage_for_expanded_budget() 
         selection, invoker=fake, correlation_id="consequence-cycle-budget")
     assert fake.request.budget.max_input_chars == (
         MAX_COMPLETE_CONSEQUENCE_CYCLE_INPUT_CHARS)
+    assert fake.request.budget.max_output_chars == 1200
+    assert fake.request.structured_output_schema["properties"]["interpretation"][
+        "maxLength"] == 900
+    assert "exact provenance is retained separately" in json.loads(
+        fake.request.prompt)["instruction"]
     assert json.loads(fake.request.prompt)["selection"] == selection.semantic_payload()
     assert MAX_SELECTED_EVIDENCE_BYTES < sum(
         len(json.dumps(fact, sort_keys=True).encode("utf-8")) for fact in facts)
@@ -372,6 +377,19 @@ def test_inference_is_bounded_structured_and_candidate_digest_is_deterministic(t
     assert not hasattr(first, "authority") and not hasattr(first, "current_truth") and not hasattr(first, "storage_outcome")
     with pytest.raises(DevelopmentalWritebackError, match="budget_unbounded"):
         ctrl.infer_candidate(selection, invoker=fake, correlation_id="other", budget=LocalModelInvocationBudget(max_calls_per_correlation=2))
+
+
+def test_truncated_developmental_response_reports_token_limit(tmp_path: Path) -> None:
+    ctrl, _ = controller(tmp_path)
+    selection, _, fake = candidate_for(ctrl)
+    receipt = fake.invoke(fake.request, persist=True, include_output_in_receipt=True)
+    truncated = replace(receipt, output_text='{"interpretation":"unfinished',
+        output_truncated=True, backend_completion={
+            "token_limit_reached": True})
+
+    with pytest.raises(DevelopmentalWritebackError,
+            match="developmental_output_token_limit_reached"):
+        ctrl.candidate_from_receipt(selection, truncated)
 
 
 @pytest.mark.parametrize("output", ["not-json", {}, {"interpretation":"x","uncertainty":"certain"}, {"interpretation":"x","uncertainty":"low","authority":True}])
