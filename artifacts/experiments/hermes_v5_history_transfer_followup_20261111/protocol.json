@@ -3,7 +3,7 @@
   "protocol_id": "hermes_v5_history_transfer_followup_20261111",
   "preregistered_at_utc": "2026-11-11T13:34:32Z",
   "status": "preregistered_before_followup_inference",
-  "source_revision": "10f1ee62f74d498ccffeebf724b9437cfacbd795",
+  "runner_code_revision": "64f3807f79e2ae4ad605c2ad2d4acc069f9339ae",
   "task_family_id": "rootless_integer_affine_transfer_low_range_v5",
   "model": {
     "id": "sentientos-hermes4:14b-q4km",
