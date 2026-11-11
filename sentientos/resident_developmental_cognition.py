@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import stat
@@ -1949,7 +1950,14 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
         if source.get("kind") != "embodiment":
             continue
         schema = payload.get("schema_version") or payload.get("observation_schema") or source.get("schema_version")
+        renderer_report = payload.get("renderer_report")
+        if (isinstance(renderer_report, Mapping)
+                and renderer_report.get("schema_version") in (
+                    "sentientos.avatar_renderer_report:v1",
+                    "sentientos.avatar_renderer_report:v2")):
+            schema = renderer_report.get("schema_version")
         fields: tuple[str, ...]
+        roles: dict[str, Any] = {}
         if schema == "sentientos.embodied_consequence_attribution:v1":
             fields = ("classification", "commanded_value", "predicted_value",
                 "renderer_reported_value", "independently_observed_value",
@@ -1959,33 +1967,101 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
             fields = ("requested_pose", "encoder_pose", "joint_state",
                 "evidence_posture", "observer_issuer_posture",
                 "declared_provenance_class", "declared_source_freshness", "sampled_at")
+        elif schema in ("sentientos.avatar_renderer_report:v1",
+                "sentientos.avatar_renderer_report:v2"):
+            # Renderer reports are useful historical embodiment context, but
+            # remain renderer assertions. Project only a small typed subset;
+            # never pass through the full transport envelope or promote its
+            # authentication to independent observation.
+            assert isinstance(renderer_report, Mapping)
+
+            def scalar_fields(value: object, allowed: tuple[str, ...]) -> dict[str, Any]:
+                if not isinstance(value, Mapping):
+                    return {}
+                result: dict[str, Any] = {}
+                for name in allowed:
+                    item = value.get(name)
+                    if isinstance(item, str) and len(item) <= 256:
+                        result[name] = item
+                    elif type(item) in (bool, int):
+                        result[name] = item
+                    elif type(item) is float and math.isfinite(item):
+                        result[name] = item
+                return result
+
+            commanded = scalar_fields(renderer_report.get("commanded_state"),
+                ("expression", "mood", "intensity", "motion", "workload_mode"))
+            raw_renderer_state = renderer_report.get("renderer_state")
+            renderer_state: dict[str, Any] = {}
+            if isinstance(raw_renderer_state, Mapping):
+                expression = scalar_fields(raw_renderer_state.get("expression"),
+                    ("status",))
+                motion = scalar_fields(raw_renderer_state.get("motion"),
+                    ("active_motion", "animation_player_active"))
+                speech = scalar_fields(raw_renderer_state.get("speech"),
+                    ("status", "mouth_shape", "mouth_weight", "timing_event",
+                     "timing_source", "phoneme_claimed"))
+                applied_cap = raw_renderer_state.get("applied_render_cap_fps")
+                if expression:
+                    renderer_state["expression"] = expression
+                if motion:
+                    renderer_state["motion"] = motion
+                if speech:
+                    renderer_state["speech"] = speech
+                if type(applied_cap) is int:
+                    renderer_state["applied_render_cap_fps"] = applied_cap
+            values = {
+                "renderer_generation_id": renderer_report.get("renderer_generation_id"),
+                "sequence": renderer_report.get("sequence"),
+                "reported_at": renderer_report.get("reported_at"),
+                "output_mode": renderer_report.get("output_mode"),
+                "commanded_state": commanded,
+                "renderer_state": renderer_state,
+                "renderer_effect_proven": renderer_report.get("effect_proven"),
+                "renderer_independent_observation": renderer_report.get(
+                    "independent_observation"),
+                "capture_status": payload.get("capture_status"),
+                "transport_authenticated_at_capture": payload.get(
+                    "transport_authenticated_at_capture"),
+                "renderer_source_independently_authenticated": payload.get(
+                    "renderer_source_independently_authenticated"),
+                "renderer_state_independently_observed": payload.get(
+                    "renderer_state_independently_observed"),
+            }
+            roles = {"renderer_self_report": {
+                "commanded_state": commanded,
+                "reported_state": renderer_state,
+                "effect_proven": False,
+                "independent_observation": False,
+            }}
+            fields = ()
         else:
             continue
-        values: dict[str, Any] = {}
-        for key in fields:
-            value = payload.get(key)
-            if value is None or isinstance(value, (str, bool, int, float)):
-                values[key] = value
-            elif (isinstance(value, Mapping) and len(value) <= 8
-                    and all(isinstance(child, (str, bool, int, float)) or child is None
-                        for child in value.values())):
-                values[key] = dict(value)
-        roles: dict[str, Any] = {}
-        if schema == "sentientos.embodied_consequence_attribution:v1":
-            roles = {
-                "commanded_request": values.get("commanded_value"),
-                "predicted_observation": values.get("predicted_value"),
-                "renderer_report": values.get("renderer_reported_value"),
-                "observer_report_field": values.get("independently_observed_value"),
-                "observer_independence_posture": values.get(
-                    "observation_independence_posture"),
-            }
-        elif isinstance(schema, str) and "proprioception" in schema:
-            roles = {"body_proprioception_report": {
-                "encoder_pose": values.get("encoder_pose"),
-                "joint_state": values.get("joint_state"),
-                "evidence_posture": values.get("evidence_posture"),
-                "issuer_posture": values.get("observer_issuer_posture")}}
+        if fields:
+            values = {}
+            for key in fields:
+                value = payload.get(key)
+                if value is None or isinstance(value, (str, bool, int, float)):
+                    values[key] = value
+                elif (isinstance(value, Mapping) and len(value) <= 8
+                        and all(isinstance(child, (str, bool, int, float)) or child is None
+                            for child in value.values())):
+                    values[key] = dict(value)
+            if schema == "sentientos.embodied_consequence_attribution:v1":
+                roles = {
+                    "commanded_request": values.get("commanded_value"),
+                    "predicted_observation": values.get("predicted_value"),
+                    "renderer_report": values.get("renderer_reported_value"),
+                    "observer_report_field": values.get("independently_observed_value"),
+                    "observer_independence_posture": values.get(
+                        "observation_independence_posture"),
+                }
+            elif isinstance(schema, str) and "proprioception" in schema:
+                roles = {"body_proprioception_report": {
+                    "encoder_pose": values.get("encoder_pose"),
+                    "joint_state": values.get("joint_state"),
+                    "evidence_posture": values.get("evidence_posture"),
+                    "issuer_posture": values.get("observer_issuer_posture")}}
         if compact_for_input_budget:
             summaries.append({
                 "fact_id": fact.get("fact_id"),
