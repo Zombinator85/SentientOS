@@ -76,6 +76,59 @@ def runner(monkeypatch, tmp_path):
     return module
 
 
+def test_rootless_cycle_input_bound_keeps_history_with_large_current_evidence(runner):
+    from sentientos.resident_developmental_cognition import (
+        EXPERIMENT_CONTEXT_INSTRUCTION,
+        _bind_history_and_epistemic_context,
+    )
+
+    history_record = {
+        "record_id": "record-budget-fixture",
+        "record_digest": "sha256:" + "a" * 64,
+        "created_at": "2026-11-10T00:00:00+00:00",
+        "epistemic_posture": "historical_interpretation_not_current_truth",
+        "candidate": {
+            "candidate_id": "candidate-budget-fixture",
+            "candidate_digest": "sha256:" + "b" * 64,
+            "interpretation": "Previously observed task evidence remains uncertain.",
+            "uncertainty": "high",
+            "epistemic_status": "untrusted_historical_interpretation_candidate",
+            "selected_fact_ids": ["fact-budget-fixture"],
+        },
+    }
+    context = {
+        "instruction": EXPERIMENT_CONTEXT_INSTRUCTION,
+        "current_evidence": {"evidence": "x" * 13_000},
+        "prior_self_model": None,
+        "prior_epistemic_state": None,
+        "developmental_history": [],
+        "developmental_history_posture": "historical_interpretation_not_current_truth",
+        "developmental_history_task_family_id":
+            "rootless_integer_affine_transfer_low_range_v1",
+        "developmental_history_target_model_identity": {
+            "engine": "ollama",
+            "model_content_sha256": "c" * 64,
+            "resolved_artifact_path": "x" * 600,
+        },
+        "developmental_history_retrieval_policy_id":
+            "task_family_probe_overlap_then_recency_fill:v2",
+    }
+
+    _, _, bounded_prompt, bounded_ids, _ = _bind_history_and_epistemic_context(
+        context=context, records=(history_record,), projection=None,
+        history_present=True,
+        max_input_chars=runner.ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT)
+    _, _, legacy_prompt, legacy_ids, _ = _bind_history_and_epistemic_context(
+        context=context, records=(history_record,), projection=None,
+        history_present=True, max_input_chars=16_384)
+
+    assert len(bounded_prompt) > 16_384
+    assert len(bounded_prompt) <= runner.ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT
+    assert bounded_ids == ("record-budget-fixture",)
+    assert len(legacy_prompt) <= 16_384
+    assert legacy_ids == ()
+
+
 @pytest.mark.parametrize(("counts", "qualified", "classification"), [
     ((0, 0, 0), False, "baseline_competence_not_demonstrated"),
     ((0, 3, 0), True, "history_associated_acquisition_cost_restored"),

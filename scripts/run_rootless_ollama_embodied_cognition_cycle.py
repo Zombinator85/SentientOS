@@ -100,6 +100,11 @@ _MIN_EXPERIMENT_DISK_FREE_BYTES = 2 * 1024**3
 _OBJECTIVE_TRANSFER_TASK_FAMILY = (
     "rootless_integer_affine_transfer_low_range_v1")
 
+# Leave bounded space for receipt-backed evidence plus its prior-history packet.
+# The model remains configured with an 8,192-token context; this separate
+# character guard addresses the 16 KiB history-selection edge seen in replay.
+ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT = 18_432
+
 
 def _experiment_seed_from_environment() -> int:
     raw = os.environ.get("SENTIENTOS_HERMES_EXPERIMENT_SEED")
@@ -1397,7 +1402,8 @@ def run() -> dict[str, Any]:
         owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, True,
-                max_inference_input_chars=16_384),
+                max_inference_input_chars=(
+                    ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT)),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
