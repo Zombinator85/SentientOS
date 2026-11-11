@@ -1387,6 +1387,8 @@ class RuntimeGovernor:
                         "snapshot_id": evidence["snapshot_id"],
                         "report_id": evidence["report_id"],
                         "report_digest": evidence["report_digest"],
+                        "observation_correlation_id": evidence[
+                            "observation_correlation_id"],
                         "gpu_utilization_percent": evidence.get("gpu_utilization_percent"),
                         "vram_utilization_percent": evidence.get("vram_utilization_percent"),
                         "gpu_telemetry_available": evidence.get("gpu_telemetry_available"),

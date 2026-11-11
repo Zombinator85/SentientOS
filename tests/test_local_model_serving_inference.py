@@ -422,6 +422,8 @@ def test_inference_admission_uses_its_own_observation_when_another_is_newer(
     assert decision.reason == "deferred_local_model_inference_under_host_pressure_during_game"
     assert decision.evidence_refs["host_resource_evidence"]["report_id"] == (
         pressured.pressure_report.report_id)
+    assert decision.evidence_refs["host_resource_evidence"][
+        "observation_correlation_id"] == observation_id
 
 
 def test_verified_game_presence_without_frame_metrics_prioritizes_game_when_resources_incomplete(
