@@ -905,7 +905,7 @@ class _TemporaryCompanionEdge:
                  adopted_body_pointer: Mapping[str, Any] | None = None) -> None:
         from scripts.gaming_companion_cross_host_smoke import (
             _addresses, _contexts, _test_identities, _win_path, _win_temp,
-            _secret_free_environment,
+            _secret_free_environment, _windows_clock_offset_seconds,
         )
         from sentientos.gaming_companion_avatar_output import (
             BridgeChatAvatarOutputEmitter, MutualTLSAvatarCommandSender,
@@ -914,6 +914,9 @@ class _TemporaryCompanionEdge:
         from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackRuntime
         from sentientos.foreground_game_bridge import BridgeForegroundGameDetector
         from sentientos.foreground_game_detection import normalize_game_process_names
+        from sentientos.game_performance_bridge import (
+            GamePerformanceAdmissionRuntime, GamePerformanceBridgeDetector,
+        )
         from sentientos.screen_observation_bridge import (
             BridgeScreenObservationProvider, RequestDrivenScreenObservation,
             ScreenCaptureRequestSender,
@@ -933,6 +936,8 @@ class _TemporaryCompanionEdge:
         self._godot_pid: int | None = None
         self._sender: Any | None = None
         self._foreground_runtime: Any | None = None
+        self._game_performance_runtime: Any | None = None
+        self._game_performance_admission_runtime: Any | None = None
         self.foreground_game_detector: Any | None = None
         self._screen_runtime: Any | None = None
         self.screen_observer: Any | None = None
@@ -1013,6 +1018,48 @@ class _TemporaryCompanionEdge:
                     "source_generation_id": observer_source_generation,
                     "ack_source_id": observer_ack_id,
                     "ack_generation_id": observer_ack_generation,
+                    "process_names": list(game_process_names),
+                }
+                performance_source_key = secrets.token_bytes(32)
+                performance_ack_key = secrets.token_bytes(32)
+                performance_source_id = "windows-game-performance"
+                performance_source_generation = (
+                    "windows-game-performance-dev-" + uuid.uuid4().hex[:12])
+                performance_ack_id = "wsl-game-performance-ack"
+                performance_ack_generation = (
+                    "wsl-game-performance-ack-dev-" + uuid.uuid4().hex[:12])
+                performance_clock_offset = _windows_clock_offset_seconds()
+                self._game_performance_runtime = CompanionBridgeLoopbackRuntime(
+                    receiver=CompanionBridgeReceiver(
+                        source_keys={performance_source_id: performance_source_key},
+                        expected_generations={
+                            performance_source_id: performance_source_generation}),
+                    acknowledgment_source_id=performance_ack_id,
+                    acknowledgment_generation_id=performance_ack_generation,
+                    acknowledgment_key=performance_ack_key, queue_capacity=8,
+                    socket_timeout_seconds=1.5)
+                performance_port = self._game_performance_runtime.start()
+                performance_detector = GamePerformanceBridgeDetector(
+                    receiver=self._game_performance_runtime,
+                    source_id=performance_source_id,
+                    generation_provider=lambda: performance_source_generation,
+                    source_clock_offset_seconds=performance_clock_offset)
+                from sentientos.control_plane_kernel import get_control_plane_kernel
+                self._game_performance_admission_runtime = (
+                    GamePerformanceAdmissionRuntime(
+                        detector=performance_detector,
+                        admission_owner=get_control_plane_kernel()))
+                self._game_performance_admission_runtime.start()
+                config["game_performance"] = {
+                    "port": performance_port,
+                    "source_key": base64.b64encode(
+                        performance_source_key).decode("ascii"),
+                    "source_id": performance_source_id,
+                    "source_generation_id": performance_source_generation,
+                    "ack_key": base64.b64encode(
+                        performance_ack_key).decode("ascii"),
+                    "ack_source_id": performance_ack_id,
+                    "ack_generation_id": performance_ack_generation,
                     "process_names": list(game_process_names),
                 }
             if screen_observation_process_names:
@@ -1328,27 +1375,35 @@ class _TemporaryCompanionEdge:
         if godot_pid is not None:
             _kill_windows_process_tree(godot_pid)
         try:
-            if self.foreground_game_detector is not None:
-                self.foreground_game_detector.close()
-                self.foreground_game_detector = None
-            elif self._foreground_runtime is not None:
-                self._foreground_runtime.close()
-                self._foreground_runtime = None
+            if self._game_performance_admission_runtime is not None:
+                self._game_performance_admission_runtime.close()
+                self._game_performance_admission_runtime = None
         finally:
             try:
-                if self.screen_observer is not None:
-                    self.screen_observer.close()
-                    self.screen_observer = None
+                if self._game_performance_runtime is not None:
+                    self._game_performance_runtime.close()
+                    self._game_performance_runtime = None
+                if self.foreground_game_detector is not None:
+                    self.foreground_game_detector.close()
+                    self.foreground_game_detector = None
+                elif self._foreground_runtime is not None:
+                    self._foreground_runtime.close()
+                    self._foreground_runtime = None
             finally:
                 try:
-                    if self._screen_runtime is not None:
-                        self._screen_runtime.close()
-                        self._screen_runtime = None
-                    if self._avatar_consequence_runtime is not None:
-                        self._avatar_consequence_runtime.close()
-                        self._avatar_consequence_runtime = None
+                    if self.screen_observer is not None:
+                        self.screen_observer.close()
+                        self.screen_observer = None
                 finally:
-                    self._temporary.cleanup()
+                    try:
+                        if self._screen_runtime is not None:
+                            self._screen_runtime.close()
+                            self._screen_runtime = None
+                        if self._avatar_consequence_runtime is not None:
+                            self._avatar_consequence_runtime.close()
+                            self._avatar_consequence_runtime = None
+                    finally:
+                        self._temporary.cleanup()
 
 
 def main() -> int:

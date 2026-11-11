@@ -9,6 +9,7 @@ from sentientos.windows_game_performance import (
     MAX_PRESENTMON_ROWS,
     GamePerformanceObservationError,
     WindowsGamePerformanceObserver,
+    allowlisted_foreground_game_process_id,
     parse_presentmon_csv,
     parse_presentmon_timeline,
     summarize_frame_times_ms,
@@ -16,6 +17,19 @@ from sentientos.windows_game_performance import (
 )
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_foreground_game_process_selection_requires_explicit_allowlist():
+    identity = [1234, "Cronos.exe"]
+    provider = lambda: (identity[0], identity[1])
+    assert allowlisted_foreground_game_process_id(
+        ["Cronos.exe"], identity_provider=provider) == 1234
+    assert allowlisted_foreground_game_process_id(
+        ["OtherGame.exe"], identity_provider=provider) is None
+    assert allowlisted_foreground_game_process_id(
+        [], identity_provider=provider) is None
+    assert allowlisted_foreground_game_process_id(
+        ["Cronos.exe"], identity_provider=lambda: (0, "Cronos.exe")) is None
 
 
 def test_presentmon_csv_filters_pid_and_reports_hitches_without_retaining_names() -> None:

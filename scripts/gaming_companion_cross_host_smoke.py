@@ -507,8 +507,7 @@ def run(*, windows_checkout: Path, windows_python: Path,
             performance = GamePerformanceBridgeDetector(
                 receiver=core, source_id="windows-edge",
                 generation_provider=lambda: "windows-observation-test-1",
-                clock=lambda: datetime.now(timezone.utc) +
-                    timedelta(seconds=windows_clock_offset),
+                source_clock_offset_seconds=windows_clock_offset,
             ).receive_once(timeout=10.0)
             if performance.process_cpu_percent is None or performance.process_rss_bytes is None:
                 raise RuntimeError("windows_process_observation_unavailable")

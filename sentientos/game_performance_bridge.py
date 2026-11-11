@@ -12,7 +12,7 @@ import math
 import re
 import threading
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Protocol, cast
 
 from .gaming_companion_bridge import CompanionBridgeError, VerifiedBridgeMessage, encode_message
@@ -47,6 +47,7 @@ class VerifiedGamePerformanceObservation:
     process_cpu_percent: float | None
     process_rss_bytes: int | None
     status: str
+    source_observed_at: str | None = None
 
 
 class WindowsGamePerformanceBridgePublisher:
@@ -71,9 +72,12 @@ class WindowsGamePerformanceBridgePublisher:
         self._clock = clock or (lambda: datetime.now(timezone.utc).isoformat())
         self._lock = threading.Lock()
 
-    def publish_once(self) -> VerifiedBridgeMessage:
+    def publish_once(self, *, process_id: int | None = None) -> VerifiedBridgeMessage:
         with self._lock:
-            observation = self._observer.observe(self._process_id)
+            selected_process_id = self._process_id if process_id is None else process_id
+            if type(selected_process_id) is not int or selected_process_id < 1:
+                raise CompanionBridgeError("game_process_id_invalid")
+            observation = self._observer.observe(selected_process_id)
             if type(observation) is not GamePerformanceObservation:
                 raise CompanionBridgeError("game_performance_observation_invalid")
             self._sequence += 1
@@ -90,7 +94,8 @@ class GamePerformanceBridgeDetector:
     def __init__(self, *, receiver: _PerformanceReceiver, source_id: str,
                  generation_provider: Callable[[], str | None],
                  clock: Callable[[], datetime] | None = None,
-                 max_age_seconds: float = _MAX_AGE_SECONDS) -> None:
+                 max_age_seconds: float = _MAX_AGE_SECONDS,
+                 source_clock_offset_seconds: float = 0.0) -> None:
         if not callable(getattr(receiver, "receive", None)):
             raise CompanionBridgeError("game_performance_receiver_required")
         if not callable(generation_provider):
@@ -98,9 +103,15 @@ class GamePerformanceBridgeDetector:
         if (isinstance(max_age_seconds, bool) or not isinstance(max_age_seconds, (int, float))
                 or not math.isfinite(float(max_age_seconds)) or not 0 < max_age_seconds <= 30):
             raise CompanionBridgeError("game_performance_ttl_invalid")
+        if (isinstance(source_clock_offset_seconds, bool)
+                or not isinstance(source_clock_offset_seconds, (int, float))
+                or not math.isfinite(float(source_clock_offset_seconds))
+                or abs(float(source_clock_offset_seconds)) > 30.0):
+            raise CompanionBridgeError("game_performance_clock_offset_invalid")
         self._receiver, self._source_id, self._generation = receiver, source_id, generation_provider
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._max_age = float(max_age_seconds)
+        self._source_clock_offset = float(source_clock_offset_seconds)
 
     def receive_once(self, *, timeout: float | None = 0) -> VerifiedGamePerformanceObservation:
         message = self._receiver.receive(timeout=timeout)
@@ -130,7 +141,15 @@ class GamePerformanceBridgeDetector:
             raise CompanionBridgeError("game_performance_timestamp_invalid") from exc
         if stamp.tzinfo is None or stamp.utcoffset() is None:
             raise CompanionBridgeError("game_performance_timestamp_timezone_required")
-        age = (self._clock() - stamp.astimezone(timezone.utc)).total_seconds()
+        received_at = self._clock()
+        if (not isinstance(received_at, datetime) or received_at.tzinfo is None
+                or received_at.utcoffset() is None):
+            raise CompanionBridgeError("game_performance_core_clock_invalid")
+        received_at = received_at.astimezone(timezone.utc)
+        source_observed_at = stamp.astimezone(timezone.utc)
+        normalized_observed_at = (source_observed_at - timedelta(
+            seconds=self._source_clock_offset))
+        age = (received_at - normalized_observed_at).total_seconds()
         if age < 0 or age > self._max_age:
             raise CompanionBridgeError("game_performance_observation_stale")
         p95 = payload.get("frame_time_p95_ms")
@@ -182,10 +201,103 @@ class GamePerformanceBridgeDetector:
         payload_digest = hashlib.sha256(json.dumps(dict(payload), sort_keys=True,
             separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
         return VerifiedGamePerformanceObservation(message.source_id, message.generation_id,
-            message.sequence, message.message_id, payload_digest, stamp.isoformat(),
+            message.sequence, message.message_id, payload_digest,
+            normalized_observed_at.isoformat(),
             process_digest, float(p95) if p95 is not None else None, hitches,
-            float(cpu) if cpu is not None else None, rss, status)
+            float(cpu) if cpu is not None else None, rss, status,
+            source_observed_at.isoformat())
+
+
+class GamePerformanceAdmissionRuntime:
+    """Continuously forward verified observations to the control-plane owner."""
+
+    def __init__(self, *, detector: GamePerformanceBridgeDetector,
+                 admission_owner: object, receive_timeout_seconds: float = 0.5) -> None:
+        if type(detector) is not GamePerformanceBridgeDetector:
+            raise CompanionBridgeError("game_performance_detector_required")
+        observer = getattr(admission_owner, "observe_verified_game_performance", None)
+        if not callable(observer):
+            raise CompanionBridgeError("game_performance_admission_owner_required")
+        if (isinstance(receive_timeout_seconds, bool)
+                or not isinstance(receive_timeout_seconds, (int, float))
+                or not math.isfinite(float(receive_timeout_seconds))
+                or not 0.05 <= receive_timeout_seconds <= 5.0):
+            raise CompanionBridgeError("game_performance_receive_timeout_invalid")
+        self._detector = detector
+        self._observe = cast(Callable[[VerifiedGamePerformanceObservation], bool], observer)
+        self._receive_timeout = float(receive_timeout_seconds)
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._accepted = 0
+        self._rejected = 0
+        self._failures = 0
+        self._last_observed_at: str | None = None
+        self._last_failure_code: str | None = None
+
+    def receive_once(self, *, timeout: float | None = 0.0) -> bool:
+        """Verify and forward one observation; return the owner's acceptance."""
+        observation = self._detector.receive_once(timeout=timeout)
+        accepted = bool(self._observe(observation))
+        with self._lock:
+            if accepted:
+                self._accepted += 1
+                self._last_observed_at = observation.observed_at
+                self._last_failure_code = None
+            else:
+                self._rejected += 1
+        return accepted
+
+    def start(self) -> None:
+        with self._lock:
+            if self._thread is not None:
+                raise CompanionBridgeError("game_performance_runtime_already_started")
+            self._stop.clear()
+            self._thread = threading.Thread(target=self._run,
+                name="sentientos-game-performance-admission", daemon=True)
+            self._thread.start()
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            try:
+                self.receive_once(timeout=self._receive_timeout)
+            except CompanionBridgeError as exc:
+                reason = str(exc.args[0]) if exc.args else "game_performance_bridge_error"
+                with self._lock:
+                    if reason != "bridge_receive_timeout":
+                        self._failures += 1
+                        self._last_failure_code = reason[:128]
+            except Exception as exc:
+                with self._lock:
+                    self._failures += 1
+                    self._last_failure_code = type(exc).__name__
+
+    def status(self) -> dict[str, object]:
+        with self._lock:
+            return {
+                "running": bool(self._thread is not None
+                    and self._thread.is_alive() and not self._stop.is_set()),
+                "accepted_observations": self._accepted,
+                "rejected_observations": self._rejected,
+                "transport_failures": self._failures,
+                "last_observed_at": self._last_observed_at,
+                "last_failure_code": self._last_failure_code,
+                "effect_authority": False,
+            }
+
+    def close(self) -> None:
+        with self._lock:
+            thread = self._thread
+            self._stop.set()
+        if thread is None:
+            return
+        if thread is not threading.current_thread():
+            thread.join(timeout=5.0 + self._receive_timeout)
+        if thread.is_alive():
+            raise CompanionBridgeError("game_performance_runtime_shutdown_timeout")
+        with self._lock:
+            self._thread = None
 
 
 __all__ = ["GamePerformanceBridgeDetector", "VerifiedGamePerformanceObservation",
-           "WindowsGamePerformanceBridgePublisher"]
+           "WindowsGamePerformanceBridgePublisher", "GamePerformanceAdmissionRuntime"]

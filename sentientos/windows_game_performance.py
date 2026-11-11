@@ -382,6 +382,82 @@ def _windows_process_sample(process_id: int) -> Mapping[str, object] | None:
     return {"cpu_percent": cpu_percent, "rss_bytes": memory.rss}
 
 
+def _windows_foreground_process_identity() -> tuple[int, str] | None:
+    """Read the foreground PID and basename without changing process state."""
+    if platform.system().casefold() != "windows":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+        windll = getattr(ctypes, "windll")
+        user32 = windll.user32
+        kernel32 = windll.kernel32
+        window = user32.GetForegroundWindow()
+        if not window:
+            return None
+        process_id = wintypes.DWORD()
+        user32.GetWindowThreadProcessId.argtypes = (
+            wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
+        user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+        if not user32.GetWindowThreadProcessId(window, ctypes.byref(process_id)):
+            return None
+        if process_id.value < 1:
+            return None
+        kernel32.OpenProcess.argtypes = (
+            wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.QueryFullProcessImageNameW.argtypes = (
+            wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+            ctypes.POINTER(wintypes.DWORD))
+        kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        handle = kernel32.OpenProcess(0x1000, False, process_id.value)
+        if not handle:
+            return None
+        try:
+            buffer = ctypes.create_unicode_buffer(32768)
+            size = wintypes.DWORD(len(buffer))
+            if not kernel32.QueryFullProcessImageNameW(
+                    handle, 0, buffer, ctypes.byref(size)):
+                return None
+            name = buffer.value.replace("\\", "/").rsplit("/", 1)[-1]
+        finally:
+            kernel32.CloseHandle(handle)
+    except (AttributeError, OSError, RuntimeError, ValueError):
+        return None
+    except ImportError:
+        return None
+    return int(process_id.value), name
+
+
+def allowlisted_foreground_game_process_id(
+        process_names: Sequence[str], *,
+        identity_provider: Callable[[], tuple[int, str] | None] | None = None,
+        ) -> int | None:
+    """Return a PID only when the current foreground basename is allowlisted."""
+    from .foreground_game_detection import normalize_game_process_names
+
+    try:
+        allowed = set(normalize_game_process_names(tuple(process_names)))
+    except (TypeError, ValueError):
+        return None
+    if not allowed:
+        return None
+    try:
+        identity = (identity_provider or _windows_foreground_process_identity)()
+    except Exception:
+        return None
+    if (not isinstance(identity, tuple) or len(identity) != 2
+            or type(identity[0]) is not int or identity[0] < 1
+            or not isinstance(identity[1], str)):
+        return None
+    name = identity[1].strip().casefold()
+    if "/" in name or "\\" in name or name not in allowed:
+        return None
+    return identity[0]
+
+
 def _presentmon_file_sample(path: Path, process_id: int) -> tuple[tuple[float, ...], str]:
     with path.open("rb") as stream:
         raw = stream.read(MAX_PRESENTMON_BYTES + 1)
@@ -456,6 +532,8 @@ class WindowsGamePerformanceObserver:
                     raise GamePerformanceObservationError("presentmon_digest_invalid")
                 p50, p95, p99, hitch_count = summarize_frame_times_ms(values)
                 frame_count = len(values)
+            else:
+                frame_digest = None
         except (OSError, GamePerformanceObservationError):
             values = ()
             frame_source = "unavailable"
@@ -472,4 +550,5 @@ __all__ = ["GamePerformanceObservation", "GamePerformanceObservationError",
            "PresentMonFrameTiming", "PresentMonTimelineSummary",
            "WindowsGamePerformanceObserver", "parse_presentmon_csv",
            "parse_presentmon_timeline", "summarize_frame_times_ms",
+           "allowlisted_foreground_game_process_id",
            "summarize_presentmon_timeline"]

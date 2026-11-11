@@ -1106,6 +1106,14 @@ class RuntimeGovernor:
             observed_at = datetime.fromisoformat(observation.observed_at.replace("Z", "+00:00"))
             if observed_at.tzinfo is None or observed_at.utcoffset() is None:
                 return False
+            source_observed_at = (getattr(observation, "source_observed_at", None)
+                or observation.observed_at)
+            if not isinstance(source_observed_at, str):
+                return False
+            source_timestamp = datetime.fromisoformat(
+                source_observed_at.replace("Z", "+00:00"))
+            if source_timestamp.tzinfo is None or source_timestamp.utcoffset() is None:
+                return False
             age = (datetime.now(timezone.utc) - observed_at.astimezone(timezone.utc)).total_seconds()
             if (age < 0 or age > 10 or observation.status not in {"available", "partial"}
                     or not isinstance(observation.source_id, str) or not observation.source_id
@@ -1124,10 +1132,24 @@ class RuntimeGovernor:
                 return False
             if hitches is not None and (type(hitches) is not int or not 0 <= hitches <= 100_000):
                 return False
-            if p95 is None and hitches is None:
+            process_cpu = observation.process_cpu_percent
+            process_rss = observation.process_rss_bytes
+            if (process_cpu is not None
+                    and (isinstance(process_cpu, bool)
+                        or not isinstance(process_cpu, (int, float))
+                        or not math.isfinite(float(process_cpu))
+                        or not 0 <= float(process_cpu) <= 10_000)):
+                return False
+            if (process_rss is not None
+                    and (type(process_rss) is not int or not 0 <= process_rss <= 2**63 - 1)):
+                return False
+            if (p95 is None and hitches is None
+                    and process_cpu is None and process_rss is None):
                 return False
             evidence: dict[str, object] = {
                 "observed_at": observed_at.astimezone(timezone.utc).isoformat(),
+                "source_observed_at": source_timestamp.astimezone(
+                    timezone.utc).isoformat(),
                 "source_id": observation.source_id,
                 "generation_id": observation.generation_id,
                 "sequence": observation.sequence,
@@ -1135,6 +1157,9 @@ class RuntimeGovernor:
                 "payload_digest": observation.payload_digest,
                 "frame_time_p95_ms": float(p95) if p95 is not None else None,
                 "hitch_count_over_50ms": hitches,
+                "process_cpu_percent": (float(process_cpu)
+                    if process_cpu is not None else None),
+                "process_rss_bytes": process_rss,
             }
             with self._resource_evidence_lock:
                 self._game_performance_evidence = evidence
@@ -1270,8 +1295,11 @@ class RuntimeGovernor:
                     "sequence": game_evidence["sequence"],
                     "message_id": game_evidence["message_id"],
                     "payload_digest": game_evidence["payload_digest"],
+                    "source_observed_at": game_evidence.get("source_observed_at"),
                     "frame_time_p95_ms": p95,
                     "hitch_count_over_50ms": hitches,
+                    "process_cpu_percent": game_evidence.get("process_cpu_percent"),
+                    "process_rss_bytes": game_evidence.get("process_rss_bytes"),
                     "age_seconds": round(game_age, 3),
                 }
             else:

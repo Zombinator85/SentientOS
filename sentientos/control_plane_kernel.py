@@ -240,6 +240,17 @@ class ControlPlaneKernel:
         except Exception:
             return False
 
+    def observe_verified_game_performance(self, observation: object) -> bool:
+        """Pass authenticated, bounded game-performance evidence to scheduling."""
+        observer = getattr(self._runtime_governor,
+            "observe_verified_game_performance", None)
+        if not callable(observer):
+            return False
+        try:
+            return bool(observer(observation))
+        except Exception:
+            return False
+
     def admit(self, request: ControlActionRequest) -> ControlActionDecision:
         reasons: list[str] = []
         delegated: dict[str, Any] = {}
