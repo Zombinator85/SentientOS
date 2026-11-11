@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from datetime import datetime, timezone
 from dataclasses import dataclass, replace
 from types import MappingProxyType
@@ -463,6 +464,7 @@ class ProductionServingController:
         self._allow_synthetic = allow_synthetic_evidence_for_tests
         self._session: ServingSession | None = None
         self._model: Any | None = None
+        self._lifecycle_lock = threading.RLock()
         for relative in ("local-model", "local-model/serving", "local-model/serving/receipts",
                 SERVING_ATTEMPT_ROOT):
             installation_handle.ensure_directory(installation_handle.fixed_object(relative))
@@ -497,6 +499,10 @@ class ProductionServingController:
         return result is None
 
     def current_session(self) -> ServingSession | None:
+        with self._lifecycle_lock:
+            return self._current_session_locked()
+
+    def _current_session_locked(self) -> ServingSession | None:
         if self._session is None:
             return None
         try:
@@ -531,6 +537,10 @@ class ProductionServingController:
 
     def _current_inference_model(self, expected: ServingSession) -> Any:
         """Package-private handoff for the separately governed inference bridge."""
+        with self._lifecycle_lock:
+            return self._current_inference_model_locked(expected)
+
+    def _current_inference_model_locked(self, expected: ServingSession) -> Any:
         current = self.current_session()
         if current is None or current != expected or self._model is None:
             raise ProductionServingError("serving_session_not_current")
@@ -540,10 +550,17 @@ class ProductionServingController:
         return self._model
 
     def _invalidate_inference_session(self, expected: ServingSession, reason: str) -> None:
-        if self._session == expected:
-            self._invalidate(reason)
+        with self._lifecycle_lock:
+            if self._session == expected:
+                self._invalidate_locked(reason)
 
     def establish(self, *, operation_id: str,
+                  expected_activation_state_digest: str | None = None) -> ServingSession:
+        with self._lifecycle_lock:
+            return self._establish_locked(operation_id=operation_id,
+                expected_activation_state_digest=expected_activation_state_digest)
+
+    def _establish_locked(self, *, operation_id: str,
                   expected_activation_state_digest: str | None = None) -> ServingSession:
         operation_id = _operation_id(operation_id)
         if expected_activation_state_digest is not None:
@@ -660,6 +677,10 @@ class ProductionServingController:
         return _identity(receipt.get("observed_active_model_identity"))
 
     def _invalidate(self, reason: str) -> None:
+        with self._lifecycle_lock:
+            self._invalidate_locked(reason)
+
+    def _invalidate_locked(self, reason: str) -> None:
         session, model = self._session, self._model
         self._session = self._model = None
         if model is not None:
@@ -674,6 +695,15 @@ class ProductionServingController:
         _create(self._handle, f"local-model/serving/invalidations/{invalidation['invalidation_id']}.json", invalidation)
         self._session = replace(session, status="non_current_unloaded")
         self._session = None
+
+    def release_current_session_after_resource_admission(
+            self, expected: ServingSession, *, reason: str) -> bool:
+        """Close this exact serving worker only after its owner was admitted."""
+        with self._lifecycle_lock:
+            if self._session != expected or self._model is None:
+                return False
+            self._invalidate_locked(reason)
+            return self._session is None and self._model is None
 
     def close(self) -> None:
         self._invalidate("controller_closed")

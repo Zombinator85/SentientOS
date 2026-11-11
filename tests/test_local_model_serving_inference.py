@@ -321,6 +321,18 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
         source_id=source_id, generation_provider=lambda: generation_id,
         clock=lambda: now).receive_once()
     assert kernel.observe_verified_game_performance(game_evidence)
+    game_workload = ForegroundGameObservation("available", True, "d" * 64,
+        now.isoformat(), transport_provenance={"message_id": "e" * 64,
+            "source_id": "windows-foreground", "session_id": "foreground-session",
+            "generation_id": "foreground-generation-1", "sequence": 1,
+            "envelope_created_at": now.isoformat()})
+    assert kernel.observe_verified_game_workload(game_workload)
+
+    class VerifiedGameDetector:
+        def observe(self, process_names):
+            del process_names
+            return game_workload
+
     def collector(collector_id, **values):
         return lambda *, observed_at=None: HostCollectorResult(
             collector_id, "available", observed_at or now.isoformat(),
@@ -340,16 +352,22 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
         plan=host_plan, clock=lambda: now.isoformat())
     bridge, serving, _, model, _, _ = setup(
         monkeypatch, tmp_path, kernel_override=kernel,
-        host_resource_observation_owner=host_resource_owner)
+        host_resource_observation_owner=host_resource_owner,
+        foreground_game_detector=VerifiedGameDetector())
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
 
-    receipt = bridge.generate(prompt="hello", caller="chat_service",
+    gaming_prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+        "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
+    receipt = bridge.generate(prompt=gaming_prompt, caller="chat_service",
         correlation_id="verified-game-resource-pressure")
 
     assert receipt.status == "deferred"
     assert model.calls == 0
     assert receipt.effects["local_model_inference"] is False
-    decision = json.loads((tmp_path / "kernel-decisions.jsonl").read_text(
-        encoding="utf-8").splitlines()[-1])
+    decisions = [json.loads(line) for line in (tmp_path / "kernel-decisions.jsonl").read_text(
+        encoding="utf-8").splitlines()]
+    decision = next(item for item in decisions
+        if item.get("action_kind") == "local_model_inference")
     delegated = decision["delegated_outcomes"]["runtime_governor"]
     assert delegated["reason"] == (
         "deferred_local_model_inference_under_host_pressure_during_game")
@@ -364,8 +382,19 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
     assert host_reference["status"] == "current"
     assert host_reference["no_effect_authority"] is True
     assert host_reference["pressure_labels"] == ["gpu_pressure"]
-    assert host_resource_owner.collector_call_count == 3
-    assert serving.current_session() is not None
+    assert host_resource_owner.collector_call_count == 6
+    assert model.closed is True
+    assert serving.current_session() is None
+    release_receipts = list((tmp_path / "state" / "installations" / "install-1" /
+        "state" / "local-model" / "serving" /
+        "resource-release-receipts").glob("*.json"))
+    assert len(release_receipts) == 1
+    release = json.loads(release_receipts[0].read_text(encoding="utf-8"))
+    assert release["status"] == "worker_closed"
+    assert release["resource_observation"]["game_workload_message_id"] == "e" * 64
+    assert release["worker_exit_observed"] is None
+    assert release["inference_performed"] is False
+    assert release["host_mutation_performed"] is False
     serving.close()
 
 

@@ -10,6 +10,12 @@ from typing import Any, Mapping, Protocol
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .chat_response_grounding import corrected_gaming_output
+from .control_plane_kernel import (
+    AdmissionOutcome,
+    AuthorityClass,
+    ControlActionRequest,
+    LifecyclePhase,
+)
 from .governed_local_model_invocation import (
     GovernedLocalModelInvoker,
     GovernedLocalModelResourceInvocationContext,
@@ -266,6 +272,142 @@ class ProductionServingInferenceController:
             raise ProductionServingInferenceError("serving_authority_map_digest_mismatch")
         return authority
 
+    def _release_after_verified_game_gpu_pressure(
+            self, session: ServingSession, model: Any,
+            receipt: LocalModelInvocationReceipt) -> None:
+        """Release only after this request was deferred for a verified game's GPU pressure."""
+        if (receipt.status != "deferred"
+                or not any(reason.endswith(
+                    "deferred_local_model_inference_under_host_pressure_during_game")
+                    for reason in receipt.reason_codes)):
+            return
+        request_linkage = receipt.request.get("linkage")
+        if not isinstance(request_linkage, Mapping):
+            return
+        resource_observation = request_linkage.get("host_resource_observation")
+        workload_evidence = request_linkage.get("workload_evidence")
+        if not isinstance(resource_observation, Mapping) or not isinstance(workload_evidence, Mapping):
+            return
+        provenance = workload_evidence.get("transport_provenance")
+        if not isinstance(provenance, Mapping):
+            return
+        game_message_id = provenance.get("message_id")
+        labels = resource_observation.get("pressure_labels")
+        if (resource_observation.get("status") != "current"
+                or resource_observation.get("no_effect_authority") is not True
+                or not isinstance(labels, (tuple, list)) or "gpu_pressure" not in labels
+                or workload_evidence.get("observation_status") != "available"
+                or (workload_evidence.get("game_foreground") is not True
+                    and workload_evidence.get("game_process_running") is not True)
+                or not isinstance(game_message_id, str)):
+            return
+        source_correlation = receipt.request.get("correlation_id")
+        if not isinstance(source_correlation, str):
+            return
+        release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+            source_correlation.encode("utf-8")).hexdigest()[:24]
+        loaded_identity = getattr(model, "active_identity", None)
+        if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
+            return
+        host_release_evidence = {
+            "schema_version": "sentientos.production_game_gpu_resource_release_evidence:v1",
+            "source_inference_correlation_id": source_correlation,
+            "observation_correlation_id": resource_observation.get(
+                "observation_correlation_id"),
+            "host_report_id": resource_observation.get("report_id"),
+            "host_report_digest": resource_observation.get("report_digest"),
+            "observed_at": resource_observation.get("observed_at"),
+            "pressure_labels": list(labels),
+            "gpu_utilization_percent": resource_observation.get("gpu_utilization_percent"),
+            "vram_utilization_percent": resource_observation.get("vram_utilization_percent"),
+            "game_workload_message_id": game_message_id,
+        }
+        metadata = {
+            "correlation_id": release_correlation,
+            "purpose": "local_model_resource_release",
+            "reason_code": "verified_game_gpu_pressure",
+            "target_subsystem": "production_chat",
+            "model_identity_digest": digest_payload(loaded_identity.to_dict()),
+            "resource_observation": host_release_evidence,
+        }
+        decision = self._serving._kernel.admit(ControlActionRequest(
+            action_kind="local_model_resource_release",
+            authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
+            actor="production_chat_game_resource_governor",
+            target_subsystem="production_chat",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata=metadata,
+        ))
+        decision_valid = (
+            decision.allowed
+            and decision.outcome == AdmissionOutcome.ALLOW
+            and decision.authority_class == AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
+            and decision.action_kind == "local_model_resource_release"
+            and decision.actor == "production_chat_game_resource_governor"
+            and decision.target_subsystem == "production_chat"
+            and decision.correlation_id == release_correlation
+        )
+        close_completed = False
+        close_failure: str | None = None
+        post_release_observation: dict[str, Any] | None = None
+        worker_exit_observed: bool | None = None
+        if decision_valid:
+            try:
+                close_completed = self._serving.release_current_session_after_resource_admission(
+                    session, reason="verified_game_gpu_pressure")
+                worker = getattr(model, "_process", None)
+                poll = getattr(worker, "poll", None)
+                worker_exit_observed = (poll() is not None if callable(poll) else None)
+                if close_completed:
+                    post_release_observation = self._observe_host_resources(
+                        source_correlation + ":resource-release-postflight")
+            except Exception as exc:
+                close_failure = type(exc).__name__
+        outcome = {
+            "schema_version": "sentientos.production_chat_resource_release_receipt:v1",
+            "status": ("worker_closed" if close_completed else
+                "release_effect_unconfirmed" if decision_valid else "denied"),
+            "source_inference_correlation_id": source_correlation,
+            "release_correlation_id": release_correlation,
+            "serving_session_id": session.session_id,
+            "serving_operation_id": session.binding.get("serving_operation_id"),
+            "model_identity_digest": metadata["model_identity_digest"],
+            "release_admission_decision_ref": decision.admission_decision_ref,
+            "release_admission_outcome": decision.outcome.value,
+            "release_reason_codes": list(decision.reason_codes),
+            "resource_observation": {
+                "observation_correlation_id": host_release_evidence[
+                    "observation_correlation_id"],
+                "host_report_id": host_release_evidence["host_report_id"],
+                "game_workload_message_id": game_message_id,
+            },
+            "worker_exit_observed": worker_exit_observed,
+            "close_failure": close_failure,
+            "post_release_observation": post_release_observation,
+            "inference_performed": False,
+            "host_mutation_performed": False,
+        }
+        encoded_body = json.dumps(outcome, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False).encode("utf-8")
+        receipt_id = "serving-resource-release-" + hashlib.sha256(encoded_body).hexdigest()[:24]
+        outcome["receipt_id"] = receipt_id
+        outcome["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+            outcome, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+            allow_nan=False).encode("utf-8")).hexdigest()
+        handle = self._serving._handle
+        directory = handle.fixed_object("local-model/serving/resource-release-receipts")
+        handle.ensure_directory(directory)
+        target = directory.child(receipt_id + ".json")
+        encoded = (json.dumps(outcome, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+        try:
+            handle.durable_create(target, encoded)
+        except InstallationStateError as exc:
+            if (exc.args != ("state_object_already_exists",)
+                    or handle.read_regular_bounded(target, max_bytes=262_144) != encoded):
+                raise ProductionServingInferenceError(
+                    "resource_release_receipt_publication_failed") from exc
+
     def generate(self, *, prompt: str, caller: str, correlation_id: str,
                  budget: LocalModelInvocationBudget | None = None,
                  caller_linkage: Mapping[str, Any] | None = None,
@@ -406,6 +548,8 @@ class ProductionServingInferenceController:
                 post_effect_guard=current_after,
                 resource_context=resource_context,
             )
+            if receipt.admission_decision_ref != binding["model_serving_admission_ref"]:
+                self._release_after_verified_game_gpu_pressure(session, model, receipt)
         if receipt.admission_decision_ref == binding["model_serving_admission_ref"]:
             raise ProductionServingInferenceError("inference_admission_not_independent")
         return receipt

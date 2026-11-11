@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 import os
 from pathlib import Path
 import tempfile
@@ -211,6 +212,8 @@ def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing
         "cpu_utilization_percent": 20.0, "ram_utilization_percent": 40.0,
         "gpu_utilization_percent": None, "vram_utilization_percent": None,
         "gpu_telemetry_available": False,
+        "observation_correlation_id": "local-chat-inference-"
+            + hashlib.sha256(b"game-no-gpu-sensor").hexdigest()[:32],
     }
 
     decision = governor._admit_local_model_inference(
