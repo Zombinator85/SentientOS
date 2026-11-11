@@ -683,6 +683,24 @@ class DevelopmentLocalChatInference:
                 response_style=str(response_style or "default"))
             linkage = {**dict(caller_linkage), "workload_mode": mode,
                 "workload_evidence": workload_state["workload_evidence"]}
+            if (mode == "gaming"
+                    and self._gaming_resource_status_provider is not None):
+                resource_state = workload_state.get("gaming_resource_status")
+                if not isinstance(resource_state, Mapping):
+                    resource_state = {
+                        "admission_status": "deferred",
+                        "reason_code": "gaming_resource_observation_unavailable",
+                    }
+                resource_fields = (
+                    "admission_status", "reason_code", "vram_utilization_percent",
+                    "observed_at", "release_threshold_percent",
+                    "recovery_threshold_percent", "stale_after_seconds",
+                )
+                linkage["gaming_resource_admission_evidence"] = {
+                    "schema_version": "sentientos.gaming_resource_admission_evidence:v1",
+                    **{key: resource_state[key] for key in resource_fields
+                        if key in resource_state},
+                }
             identity = getattr(self._delegate.model, "active_identity", None)
             if mode == "gaming" and getattr(identity, "engine", None) == "ollama":
                 linkage["ollama_keep_alive"] = self._gaming_keep_alive

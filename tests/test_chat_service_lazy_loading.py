@@ -434,12 +434,14 @@ def test_gaming_pressure_is_rechecked_at_the_invocation_effect_boundary():
         model = Model()
         authority_map = None
         backend_calls = 0
+        requests = []
 
         def release_model_residency(self, **_kwargs):
             return SimpleNamespace(status="already_unloaded",
                 to_dict=lambda: {"status": "already_unloaded"})
 
         def build_request(self, **kwargs):
+            self.requests.append(kwargs)
             return kwargs
 
         def invoke(self, request, *, pre_effect_guard=None, **_kwargs):
@@ -469,6 +471,11 @@ def test_gaming_pressure_is_rechecked_at_the_invocation_effect_boundary():
             budget=chat.LocalModelInvocationBudget(), caller_linkage={})
 
     assert invoker.backend_calls == 0
+    assert invoker.requests[0]["linkage"][
+        "gaming_resource_admission_evidence"] == {
+            "schema_version": "sentientos.gaming_resource_admission_evidence:v1",
+            "admission_status": "deferred", "reason_code": "vram_pressure",
+        }
     resource_state.update(admission_status="available", reason_code="headroom_available")
     admitted = inference.generate(prompt=("[SYSTEM_INSTRUCTION]\nRespond briefly. "
         "[VERIFIED_RUNTIME_CONTEXT] Context. [SESSION_HISTORY_DATA] History."),
