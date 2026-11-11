@@ -996,6 +996,13 @@ class GovernedLocalModelInvoker:
                 "purpose": request.purpose,
                 "request_digest": request.request_digest,
             }
+            host_observation = request.linkage.get("host_resource_observation")
+            if isinstance(host_observation, Mapping):
+                observation_correlation_id = host_observation.get(
+                    "observation_correlation_id")
+                if isinstance(observation_correlation_id, str):
+                    admission_metadata["host_resource_observation_id"] = (
+                        observation_correlation_id)
             if execution_profile is not None:
                 admission_metadata["model_execution_profile"] = execution_profile
             cp_req = ControlActionRequest(action_kind="local_model_inference", authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE, actor=request.caller, target_subsystem="governed_local_model_invocation", requested_phase=phase, metadata=admission_metadata)

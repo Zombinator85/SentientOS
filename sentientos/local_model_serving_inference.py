@@ -96,29 +96,34 @@ class ProductionServingInferenceController:
 
     def _observe_host_resources(self, correlation_id: str) -> dict[str, Any]:
         owner = self._host_resource_observation_owner
-        if owner is None:
-            return {"schema_version": "sentientos.production_chat_host_resource_observation:v1",
-                    "status": "not_configured", "no_effect_authority": True}
         observation_id = "local-chat-inference-" + hashlib.sha256(
             correlation_id.encode("utf-8")).hexdigest()[:32]
+        if owner is None:
+            return {"schema_version": "sentientos.production_chat_host_resource_observation:v1",
+                    "status": "not_configured", "observation_correlation_id": observation_id,
+                    "no_effect_authority": True}
         try:
             evaluation = owner.run_cycle(correlation_id=observation_id)
         except Exception as exc:
             return {"schema_version": "sentientos.production_chat_host_resource_observation:v1",
-                    "status": "unavailable", "reason_code": "collector_owner_error_" + type(exc).__name__,
+                    "status": "unavailable", "observation_correlation_id": observation_id,
+                    "reason_code": "collector_owner_error_" + type(exc).__name__,
                     "no_effect_authority": True}
         if evaluation is None:
             return {"schema_version": "sentientos.production_chat_host_resource_observation:v1",
-                    "status": "unavailable", "reason_code": "observation_not_admitted",
+                    "status": "unavailable", "observation_correlation_id": observation_id,
+                    "reason_code": "observation_not_admitted",
                     "no_effect_authority": True}
         validation = validate_host_resource_evaluation(evaluation)
         if not validation.ok or not evaluation.no_effect_authority:
             return {"schema_version": "sentientos.production_chat_host_resource_observation:v1",
-                    "status": "invalid", "reason_code": "observation_validation_failed",
+                    "status": "invalid", "observation_correlation_id": observation_id,
+                    "reason_code": "observation_validation_failed",
                     "no_effect_authority": True}
         return {
             "schema_version": "sentientos.production_chat_host_resource_observation:v1",
             "status": "current", "evaluation_id": evaluation.evaluation_id,
+            "observation_correlation_id": evaluation.epoch.correlation_id,
             "epoch_id": evaluation.epoch.epoch_id, "snapshot_id": evaluation.snapshot.snapshot_id,
             "report_id": evaluation.pressure_report.report_id,
             "report_digest": evaluation.policy_decision.report_digest,

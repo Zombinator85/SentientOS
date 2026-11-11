@@ -358,12 +358,70 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
     assert delegated["evidence_refs"]["host_resource_evidence"]["report_id"] == (
         receipt.request["linkage"]["host_resource_observation"]["report_id"])
     host_reference = receipt.request["linkage"]["host_resource_observation"]
+    assert host_reference["observation_correlation_id"] == (
+        "local-chat-inference-" + hashlib.sha256(
+            b"verified-game-resource-pressure").hexdigest()[:32])
     assert host_reference["status"] == "current"
     assert host_reference["no_effect_authority"] is True
     assert host_reference["pressure_labels"] == ["gpu_pressure"]
     assert host_resource_owner.collector_call_count == 3
     assert serving.current_session() is not None
     serving.close()
+
+
+def test_inference_admission_uses_its_own_observation_when_another_is_newer(
+        monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    gpu_percent = {"value": 94.0}
+
+    def collect(collector_id, values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values())
+
+    plan = build_observation_plan(specs=[
+        HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+            collect("cpu", lambda: {"utilization_percent": 20.0})),
+        HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+            collect("memory", lambda: {"used_percent": 40.0})),
+        HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+            collect("nvidia_gpu", lambda: {"device_count": 1, "devices": [{
+                "index": 0, "gpu_utilization_percent": gpu_percent["value"],
+                "vram_utilization_percent": gpu_percent["value"]}]})),
+    ])
+    owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource", plan=plan,
+        clock=lambda: now.isoformat())
+    inference_correlation = "inference-owned-sample"
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        inference_correlation.encode("utf-8")).hexdigest()[:32]
+    pressured = owner.run_cycle(correlation_id=observation_id)
+    assert pressured is not None
+    gpu_percent["value"] = 20.0
+    newer_nominal = owner.run_cycle(correlation_id="local-chat-inference-newer-nominal")
+    assert newer_nominal is not None
+    assert governor._host_resource_evidence["report_id"] == newer_nominal.pressure_report.report_id
+
+    game_observation = ForegroundGameObservation("available", True, "a" * 64,
+        now.isoformat(), transport_provenance={"message_id": "b" * 64,
+            "source_id": "windows-edge", "session_id": "game-session",
+            "generation_id": "edge-generation", "sequence": 1,
+            "envelope_created_at": now.isoformat()})
+    assert kernel.observe_verified_game_workload(game_observation)
+    decision = governor.admit_action("local_model_inference", "chat_service",
+        inference_correlation, metadata={"purpose": "local_user_chat",
+            "host_resource_observation_id": observation_id})
+
+    assert decision.allowed is False
+    assert decision.reason == "deferred_local_model_inference_under_host_pressure_during_game"
+    assert decision.evidence_refs["host_resource_evidence"]["report_id"] == (
+        pressured.pressure_report.report_id)
 
 
 def test_verified_game_presence_without_frame_metrics_prioritizes_game_when_resources_incomplete(

@@ -18,6 +18,8 @@ from sentientos.federated_governance import get_controller as get_federated_gove
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 from sentientos.trust_ledger import get_trust_ledger
 
+MAX_RETAINED_HOST_RESOURCE_EVIDENCE = 64
+
 
 @dataclass(frozen=True)
 class PressureSnapshot:
@@ -214,6 +216,7 @@ class RuntimeGovernor:
         # CPU/RAM/GPU/VRAM values, and sensor coverage are retained as
         # scheduling input, never as host mutation authority.
         self._host_resource_evidence: dict[str, object] | None = None
+        self._host_resource_evidence_by_correlation: dict[str, dict[str, object]] = {}
         # Fresh bridge-authenticated game pacing is supplemental scheduling
         # evidence, never a substitute for the host-resource observation epoch.
         self._game_performance_evidence: dict[str, object] | None = None
@@ -1093,9 +1096,16 @@ class RuntimeGovernor:
                     evaluation.snapshot.gpu_utilization_percent is not None
                     or evaluation.snapshot.vram_utilization_percent is not None
                 ),
+                "observation_correlation_id": evaluation.epoch.correlation_id,
             }
             with self._resource_evidence_lock:
                 self._host_resource_evidence = evidence
+                self._host_resource_evidence_by_correlation[
+                    evaluation.epoch.correlation_id] = evidence
+                while (len(self._host_resource_evidence_by_correlation)
+                       > MAX_RETAINED_HOST_RESOURCE_EVIDENCE):
+                    oldest = next(iter(self._host_resource_evidence_by_correlation))
+                    del self._host_resource_evidence_by_correlation[oldest]
             return True
         except (ImportError, AttributeError, TypeError, ValueError):
             return False
@@ -1340,8 +1350,19 @@ class RuntimeGovernor:
         payload = dict(metadata or {})
         purpose = str(payload.get("purpose") or "")
         foreground = purpose == "local_user_chat"
+        requested_observation_id = payload.get("host_resource_observation_id")
+        expected_observation_id = ("local-chat-inference-" + hashlib.sha256(
+            correlation_id.encode("utf-8")).hexdigest()[:32]
+            if isinstance(correlation_id, str) else None)
         with self._resource_evidence_lock:
-            evidence = dict(self._host_resource_evidence) if self._host_resource_evidence is not None else None
+            if isinstance(requested_observation_id, str):
+                exact_evidence = (self._host_resource_evidence_by_correlation.get(
+                    requested_observation_id)
+                    if requested_observation_id == expected_observation_id else None)
+                evidence = dict(exact_evidence) if exact_evidence is not None else None
+            else:
+                evidence = (dict(self._host_resource_evidence)
+                    if self._host_resource_evidence is not None else None)
             game_evidence = dict(self._game_performance_evidence) if self._game_performance_evidence is not None else None
             game_workload = (dict(self._game_workload_evidence)
                 if self._game_workload_evidence is not None else None)
