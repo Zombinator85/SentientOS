@@ -1116,6 +1116,17 @@ def test_experiment_seed_environment_is_bounded_and_validated(runner, monkeypatc
             runner._experiment_seed_from_environment()
 
 
+def test_preregistration_digest_is_validated_and_bound(runner, monkeypatch):
+    monkeypatch.delenv("SENTIENTOS_HERMES_PREREGISTRATION_DIGEST", raising=False)
+    assert runner._preregistration_digest_from_environment() == "0" * 64
+    digest = "a1" * 32
+    monkeypatch.setenv("SENTIENTOS_HERMES_PREREGISTRATION_DIGEST", digest)
+    assert runner._preregistration_digest_from_environment() == digest
+    for invalid in ("sha256:" + digest, digest.upper(), "0" * 63, "z" * 64):
+        monkeypatch.setenv("SENTIENTOS_HERMES_PREREGISTRATION_DIGEST", invalid)
+        with pytest.raises(SystemExit, match="hermes_preregistration_digest_invalid"):
+            runner._preregistration_digest_from_environment()
+
 
 def test_objective_transfer_requires_matching_present_restored_and_withheld_history(
         runner):

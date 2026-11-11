@@ -127,7 +127,19 @@ def _experiment_seed_from_environment() -> int:
     return int(raw)
 
 
+def _preregistration_digest_from_environment() -> str:
+    # Bind a pre-run protocol digest into every governed cycle receipt.
+    raw = os.environ.get("SENTIENTOS_HERMES_PREREGISTRATION_DIGEST")
+    if raw is None:
+        return "0" * 64
+    if (len(raw) != 64 or not raw.isascii()
+            or any(character not in "0123456789abcdef" for character in raw)):
+        raise SystemExit("hermes_preregistration_digest_invalid")
+    return raw
+
+
 EXPERIMENT_SEED = _experiment_seed_from_environment()
+PREREGISTRATION_DIGEST = _preregistration_digest_from_environment()
 HISTORY_INTERVENTION_TRIAL_INDEX = (
     _history_intervention_trial_index_from_environment())
 
@@ -1455,7 +1467,7 @@ def run() -> dict[str, Any]:
     runtime, runtime_sha = _runtime_observation(manifest_digest)
     binding = {"schema_version": "sentientos.rootless_experimental_cognition_session:v1",
         "session_id": "rootless-cognition-session-" + uuid.uuid4().hex[:20],
-        "run_id": RUN_ID, "preregistration_digest": "0" * 64,
+        "run_id": RUN_ID, "preregistration_digest": PREREGISTRATION_DIGEST,
         "model_manifest_digest": manifest_digest,
         "runtime_bundle_digest": runtime_sha,
         "active_model_identity_digest": "0" * 64,
