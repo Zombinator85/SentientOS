@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import asyncio
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import sys
@@ -205,8 +206,9 @@ def test_codex_healer_projection_marks_old_or_untrusted_evidence_conservatively(
 def test_codex_healer_recovery_reaches_world_state_without_diagnostic_prose(
         monkeypatch, tmp_path: Path,
 ) -> None:  # type: ignore[no-untyped-def]
+    observed_at = datetime.now(timezone.utc) - timedelta(seconds=2)
     event = {
-        "timestamp": "2026-11-11T15:30:00+00:00",
+        "timestamp": observed_at.isoformat(),
         "status": "auto-repair verified",
         "narrative": "private diagnostic narrative should not enter cognition",
         "anomaly": {"kind": "daemon_unresponsive",
@@ -241,7 +243,7 @@ def test_codex_healer_recovery_reaches_world_state_without_diagnostic_prose(
 
     monkeypatch.setattr(sentientosd, "runtime_healer_monitor", lambda _root: [event])
     owner = CognitionOwner()
-    tick = "2026-11-11T15:31:00+00:00"
+    tick = (observed_at + timedelta(seconds=1)).isoformat()
     surfaces = RuntimeMaintenanceSurfaces(
         tmp_path, runtime_state_root=tmp_path / "runtime",
         resident_developmental_owner=owner,  # type: ignore[arg-type]
