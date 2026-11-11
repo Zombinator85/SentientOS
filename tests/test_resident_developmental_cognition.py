@@ -2081,6 +2081,41 @@ print(json.dumps({"stance": state.stance if state else None,
     assert f"epistemic_projection_digest={updated_projection.projection_digest}" \
         in evidence_conditioned_plan.context
     assert evidence_conditioned_plan.plan_id != unconditioned_plan.plan_id
+
+    # Compose the same recovered evidence through sentientosd's canonical
+    # planning surface. The contested position must defer the tagged goal while
+    # keeping the surface plan-only and exposing the projection digest.
+    from sentientos.goal_graph import persist_goal_graph
+    planning_root = tmp_path / "daemon-canonical-planning"
+    persist_goal_graph(planning_root, planning_graph)
+    planning_surfaces = RuntimeMaintenanceSurfaces(planning_root,
+        runtime_state_root=planning_root / "runtime",
+        epistemic_state_owner=recovered_epistemics,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True})
+    planning_tick = datetime.fromtimestamp(
+        updated_projection.current_tick, tz=timezone.utc).isoformat()
+    planning_feedback = planning_surfaces.run_canonical_goal_planning(
+        tick_id=planning_tick)
+    assert planning_feedback["status"] == "empty"
+    assert planning_feedback["authority"] is False
+    assert planning_feedback["execution_performed"] is False
+    assert planning_feedback["model_invoked"] is False
+    assert planning_feedback["work_plan_id"] is None
+    assert planning_feedback["work_plan_path"] is None
+    assert planning_feedback["deferred_goal_count"] == 1
+    assert planning_feedback["deferred_goals"] == [{
+        "goal_id": "integer-affine-followup",
+        "reason": "epistemic_applicability_unresolved",
+    }]
+    expected_planner_projection = recovered_epistemics.cognitive_projection(
+        max_states=1, current_tick=updated_projection.current_tick,
+        prioritized_proposition_ids=(proposition.proposition_id,))
+    assert expected_planner_projection is not None
+    assert planning_feedback["prior_epistemic_projection_digest"] == (
+        expected_planner_projection.projection_digest)
+
     allocation_graph = GoalGraph(schema_version=1, goals=(
         Goal("history-sensitive", "mapped goal", 1.0, 10, (), "rule", 2, 1,
             (f"epistemic_proposition:{proposition.proposition_id}",), True),
