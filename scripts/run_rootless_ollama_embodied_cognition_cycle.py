@@ -1467,7 +1467,7 @@ def run() -> dict[str, Any]:
     runtime, runtime_sha = _runtime_observation(manifest_digest)
     binding = {"schema_version": "sentientos.rootless_experimental_cognition_session:v1",
         "session_id": "rootless-cognition-session-" + uuid.uuid4().hex[:20],
-        "run_id": RUN_ID, "preregistration_digest": PREREGISTRATION_DIGEST,
+        "run_id": RUN_ID, "preregistration_digest": "0" * 64,
         "model_manifest_digest": manifest_digest,
         "runtime_bundle_digest": runtime_sha,
         "active_model_identity_digest": "0" * 64,
@@ -1489,9 +1489,37 @@ def run() -> dict[str, Any]:
     session.invoker = cast(Any, _ResourceGuardedInvoker(
         session.invoker, resource_coordinator, model_weight_bytes,
         inference_resource_evidence, model_name=MODEL_NAME))
-    # Bind the session to the identity actually loaded by the governed worker.
-    session.session_binding["active_model_identity_digest"] = digest_payload(
-        {"identity": session.active_model_identity})
+    # Bind the actual execution to the fixed external protocol before its first
+    # inference. The session owner computes and verifies its run-specific digest.
+    if PREREGISTRATION_DIGEST != "0" * 64:
+        preregistration = {
+            "schema_version": "sentientos.rootless_hermes_cycle_preregistration:v1",
+            "external_protocol_digest": PREREGISTRATION_DIGEST,
+            "experiment_seed": EXPERIMENT_SEED,
+            "history_order_trial_index": HISTORY_INTERVENTION_TRIAL_INDEX,
+            "run_id": RUN_ID,
+            "session_id": binding["session_id"],
+            "model_manifest_digest": manifest_digest,
+            "runtime_bundle_digest": runtime_sha,
+            "model_identity": session.active_model_identity,
+            "source_provenance": RUN_SOURCE_PROVENANCE,
+        }
+        preregistration["preregistration_digest"] = runtime_digest(preregistration)
+        preregistration_path = RUN_ROOT / "preregistration.json"
+        _no_symlink_path(preregistration_path)
+        preregistration_flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            | getattr(os, "O_NOFOLLOW", 0))
+        preregistration_descriptor = os.open(preregistration_path,
+            preregistration_flags, 0o600)
+        with os.fdopen(preregistration_descriptor, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(preregistration, sort_keys=True, indent=2) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        session.bind_preregistration_digest(preregistration["preregistration_digest"])
+    else:
+        # Bind the session to the identity actually loaded by the governed worker.
+        session.session_binding["active_model_identity_digest"] = digest_payload(
+            {"identity": session.active_model_identity})
     try:
         RUN_STAGE = "synthetic_pre_action_cognition"
         cognition_root = RUN_ROOT / "resident-cognition"
