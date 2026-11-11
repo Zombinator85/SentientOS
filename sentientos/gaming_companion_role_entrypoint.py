@@ -67,7 +67,9 @@ def runtime_is_healthy(role: str, runtime: object) -> bool:
     if role == "windows_edge":
         return (type(runtime) is WindowsEdgeAvatarRuntime
             and status.state == "running" and status.listener_port is not None
-            and status.dispatch.state == "running")
+            and status.dispatch.state == "running"
+            and (not status.game_performance_publisher_configured
+                  or status.game_performance_publisher_running))
     if role == "wsl_core":
         return (type(runtime) is WSLCoreGamingCompanionRuntime
             and status.get("state") == "running"

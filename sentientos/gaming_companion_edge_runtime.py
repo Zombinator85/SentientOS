@@ -8,7 +8,7 @@ listener before its bounded dispatcher and closes them in reverse order.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 from .gaming_companion_avatar_output import (
     AvatarCommandDispatchStatus,
@@ -18,8 +18,14 @@ from .gaming_companion_avatar_output import (
 from .gaming_companion_bridge import CompanionBridgeError, CompanionBridgeReceiver
 from .gaming_companion_receipt_replay import AdmissionReceiptReplayGuard
 from .gaming_companion_deployment import SCHEMA_MUTUAL_TLS_REVERSE, validate_manifest
+from .game_performance_bridge import (
+    WindowsGamePerformanceBridgePublisher,
+    WindowsGamePerformanceObservationPump,
+)
+from .windows_game_performance import WindowsGamePerformanceObserver
 from .gaming_companion_tls_transport import (
     BridgeGenerationPair,
+    CompanionBridgeMutualTLSClient,
     CompanionBridgeMutualTLSRuntime,
     verify_generation_pair_rotation,
 )
@@ -39,15 +45,20 @@ class EdgeAvatarRuntimeStatus:
     dispatch: AvatarCommandDispatchStatus
     authority_effects_performed: bool = False
     renderer_effect_proven: bool = False
+    game_performance_publisher_configured: bool = False
+    game_performance_publisher_running: bool = False
 
 
 class WindowsEdgeAvatarRuntime:
     """Own the Windows reverse listener and its receipt-gated state queue."""
 
     def __init__(self, *, runtime: CompanionBridgeMutualTLSRuntime,
-                 dispatcher: WindowsEdgeAvatarCommandDispatchOwner) -> None:
+                 dispatcher: WindowsEdgeAvatarCommandDispatchOwner,
+                 game_performance_pump: WindowsGamePerformanceObservationPump | None = None
+                 ) -> None:
         self._runtime = runtime
         self._dispatcher = dispatcher
+        self._game_performance_pump = game_performance_pump
         self._state = "stopped"
         self._port: int | None = None
 
@@ -58,30 +69,55 @@ class WindowsEdgeAvatarRuntime:
         try:
             self._port = self._runtime.start()
             self._dispatcher.start()
+            if self._game_performance_pump is not None:
+                self._game_performance_pump.start()
         except Exception:
-            self._dispatcher.close()
-            self._runtime.close()
-            self._port = None
-            self._state = "failed"
+            try:
+                if self._game_performance_pump is not None:
+                    self._game_performance_pump.close()
+            finally:
+                try:
+                    self._dispatcher.close()
+                finally:
+                    self._runtime.close()
+                    self._port = None
+                    self._state = "failed"
             raise
         self._state = "running"
         return self.status()
 
     def status(self) -> EdgeAvatarRuntimeStatus:
         return EdgeAvatarRuntimeStatus(self._state, self._port,
-            self._dispatcher.status())
+            self._dispatcher.status(),
+            game_performance_publisher_configured=self._game_performance_pump is not None,
+            game_performance_publisher_running=(self._game_performance_pump is not None
+                and self._game_performance_pump.status().get("running") is True))
 
     def close(self) -> EdgeAvatarRuntimeStatus:
         if self._state == "stopped":
             return self.status()
         self._state = "stopping"
+        failure: Exception | None = None
+        try:
+            if self._game_performance_pump is not None:
+                self._game_performance_pump.close()
+        except Exception as exc:
+            failure = exc
         try:
             self._dispatcher.close()
-        finally:
+        except Exception as exc:
+            if failure is None:
+                failure = exc
+        try:
             self._runtime.close()
+        except Exception as exc:
+            if failure is None:
+                failure = exc
         dispatch_status = self._dispatcher.status()
         self._port = None
-        self._state = "failed" if dispatch_status.state == "failed" else "stopped"
+        self._state = "failed" if failure is not None or dispatch_status.state == "failed" else "stopped"
+        if failure is not None:
+            raise failure
         return self.status()
 
 
@@ -95,6 +131,9 @@ def build_windows_edge_avatar_runtime(
     command_receipt_verifier: CommandReceiptVerifier,
     renderer_sink: RendererCommandSink,
     previous_generation_pair: BridgeGenerationPair | None = None,
+    previous_forward_generation_pair: BridgeGenerationPair | None = None,
+    client_tls_context_factory: Callable[[str, str, str], Any] | None = None,
+    game_process_names: Sequence[str] = (),
     poll_interval_seconds: float = 0.05,
     receipt_replay_guard: AdmissionReceiptReplayGuard | None = None,
 ) -> WindowsEdgeAvatarRuntime:
@@ -142,6 +181,49 @@ def build_windows_edge_avatar_runtime(
         acknowledgment_generation_id=pair.acknowledgment.generation_id,
         acknowledgment_key=acknowledgment_key,
     )
+    game_performance_pump = None
+    if game_process_names:
+        from .foreground_game_detection import normalize_game_process_names
+
+        if client_tls_context_factory is None:
+            raise CompanionBridgeError("edge_game_performance_client_tls_factory_required")
+        process_names = normalize_game_process_names(tuple(game_process_names))
+        forward = cfg["bridge_tls"]
+        forward_pair = generation_pair_loader(
+            forward["source_generation_custody_reference"],
+            forward["acknowledgment_generation_custody_reference"],
+        )
+        if type(forward_pair) is not BridgeGenerationPair:
+            raise CompanionBridgeError("edge_game_performance_generation_pair_required")
+        if forward_pair.source.key_reference != forward["source_key_custody_reference"]:
+            raise CompanionBridgeError("edge_game_performance_source_key_reference_mismatch")
+        verify_generation_pair_rotation(previous=previous_forward_generation_pair,
+            successor=forward_pair, authority_receipt_verifier=generation_receipt_verifier)
+        forward_source_key = bridge_key_reader(forward_pair.source.key_reference)
+        forward_ack_key = bridge_key_reader(forward_pair.acknowledgment.key_reference)
+        if (not isinstance(forward_source_key, bytes) or len(forward_source_key) < 32
+                or not isinstance(forward_ack_key, bytes) or len(forward_ack_key) < 32):
+            raise CompanionBridgeError("edge_game_performance_bridge_key_unavailable")
+        forward_client = CompanionBridgeMutualTLSClient(
+            address=forward["core_bind_address"], port=forward["port"],
+            server_hostname=forward["server_hostname"],
+            tls_context=client_tls_context_factory(
+                forward["ca_bundle_reference"],
+                forward["windows_edge_client_certificate_reference"],
+                forward["windows_edge_client_private_key_reference"]),
+            acknowledgment_receiver=CompanionBridgeReceiver(
+                source_keys={forward_pair.acknowledgment.source_id: forward_ack_key},
+                expected_generations={forward_pair.acknowledgment.source_id:
+                    forward_pair.acknowledgment.generation_id}),
+            timeout_seconds=2.0)
+        performance_publisher = WindowsGamePerformanceBridgePublisher(
+            observer=WindowsGamePerformanceObserver(), client=forward_client,
+            source_id=forward_pair.source.source_id,
+            session_id="windows-edge-game-performance",
+            generation_id=forward_pair.source.generation_id,
+            source_key=forward_source_key, process_id=1)
+        game_performance_pump = WindowsGamePerformanceObservationPump(
+            publisher=performance_publisher, process_names=process_names)
     dispatcher = WindowsEdgeAvatarCommandDispatchOwner(
         runtime=runtime,
         receipt_verifier=command_receipt_verifier,
@@ -149,7 +231,8 @@ def build_windows_edge_avatar_runtime(
         poll_interval_seconds=poll_interval_seconds,
         receipt_replay_guard=receipt_replay_guard,
     )
-    return WindowsEdgeAvatarRuntime(runtime=runtime, dispatcher=dispatcher)
+    return WindowsEdgeAvatarRuntime(runtime=runtime, dispatcher=dispatcher,
+        game_performance_pump=game_performance_pump)
 
 
 __all__ = [

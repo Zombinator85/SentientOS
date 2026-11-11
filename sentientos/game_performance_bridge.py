@@ -13,7 +13,7 @@ import re
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Protocol, cast
+from typing import Callable, Protocol, Sequence, cast
 
 from .gaming_companion_bridge import CompanionBridgeError, VerifiedBridgeMessage, encode_message
 from .windows_game_performance import GamePerformanceObservation, WindowsGamePerformanceObserver
@@ -299,5 +299,103 @@ class GamePerformanceAdmissionRuntime:
             self._thread = None
 
 
+class WindowsGamePerformanceObservationPump:
+    """Sample an explicitly allowlisted running game without controlling it."""
+
+    def __init__(self, *, publisher: WindowsGamePerformanceBridgePublisher,
+                 process_names: Sequence[str], interval_seconds: float = 1.0,
+                 process_selector: Callable[[Sequence[str]], int | None] | None = None
+                 ) -> None:
+        if not callable(getattr(publisher, "publish_once", None)):
+            raise CompanionBridgeError("game_performance_publisher_required")
+        from .foreground_game_detection import normalize_game_process_names
+        try:
+            self._process_names = normalize_game_process_names(tuple(process_names))
+        except (TypeError, ValueError) as exc:
+            raise CompanionBridgeError("game_performance_process_allowlist_invalid") from exc
+        if (isinstance(interval_seconds, bool)
+                or not isinstance(interval_seconds, (int, float))
+                or not math.isfinite(float(interval_seconds))
+                or not 0.1 <= interval_seconds <= 60.0):
+            raise CompanionBridgeError("game_performance_pump_interval_invalid")
+        self._publisher = publisher
+        self._interval = float(interval_seconds)
+        self._selector = process_selector
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._attempts = 0
+        self._published = 0
+        self._no_game = 0
+        self._failures = 0
+        self._last_observed_at: str | None = None
+        self._last_failure_code: str | None = None
+
+    def start(self) -> None:
+        with self._lock:
+            if self._thread is not None:
+                raise CompanionBridgeError("game_performance_pump_already_started")
+            self._stop.clear()
+            self._thread = threading.Thread(target=self._run,
+                name="sentientos-game-performance-observer", daemon=True)
+            self._thread.start()
+
+    def _run(self) -> None:
+        from .windows_game_performance import allowlisted_game_process_id
+
+        while not self._stop.is_set():
+            with self._lock:
+                self._attempts += 1
+            try:
+                process_id = (self._selector(self._process_names)
+                    if self._selector is not None else
+                    allowlisted_game_process_id(self._process_names))
+                if process_id is None:
+                    with self._lock:
+                        self._no_game += 1
+                else:
+                    message = self._publisher.publish_once(process_id=process_id)
+                    with self._lock:
+                        self._published += 1
+                        self._last_observed_at = message.created_at
+                        self._last_failure_code = None
+            except Exception as exc:
+                reason = (str(exc.args[0]) if exc.args
+                    and isinstance(exc.args[0], str) else type(exc).__name__)
+                if not reason.replace("_", "").isalnum():
+                    reason = type(exc).__name__
+                with self._lock:
+                    self._failures += 1
+                    self._last_failure_code = reason[:128]
+            self._stop.wait(self._interval)
+
+    def status(self) -> dict[str, object]:
+        with self._lock:
+            return {
+                "running": bool(self._thread is not None
+                    and self._thread.is_alive() and not self._stop.is_set()),
+                "attempts": self._attempts,
+                "published": self._published,
+                "no_allowlisted_game": self._no_game,
+                "failures": self._failures,
+                "last_observed_at": self._last_observed_at,
+                "last_failure_code": self._last_failure_code,
+            }
+
+    def close(self) -> None:
+        with self._lock:
+            thread = self._thread
+            self._stop.set()
+        if thread is None:
+            return
+        if thread is not threading.current_thread():
+            thread.join(timeout=5.0 + self._interval)
+        if thread.is_alive():
+            raise CompanionBridgeError("game_performance_pump_shutdown_timeout")
+        with self._lock:
+            self._thread = None
+
+
 __all__ = ["GamePerformanceBridgeDetector", "VerifiedGamePerformanceObservation",
-           "WindowsGamePerformanceBridgePublisher", "GamePerformanceAdmissionRuntime"]
+           "WindowsGamePerformanceBridgePublisher", "GamePerformanceAdmissionRuntime",
+           "WindowsGamePerformanceObservationPump"]

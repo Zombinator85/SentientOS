@@ -18,6 +18,7 @@ from sentientos.gaming_companion_core_runtime import WSLCoreAvatarOutputSession
 from sentientos.gaming_companion_role_entrypoint import (
     load_role_manifest,
     resolve_provider,
+    runtime_is_healthy,
     run_role,
 )
 
@@ -185,6 +186,29 @@ def test_role_runner_owns_windows_edge_lifetime() -> None:
     assert result == 0
     assert listener.closed == 1
     assert not dispatcher.running
+
+
+def test_configured_game_performance_publisher_participates_in_edge_health() -> None:
+    listener = _EdgeListener()
+    dispatcher = _EdgeDispatcher()
+    runtime = WindowsEdgeAvatarRuntime(runtime=listener, dispatcher=dispatcher)  # type: ignore[arg-type]
+    runtime.start()
+
+    class Pump:
+        running = False
+
+        def status(self) -> dict[str, object]:
+            return {"running": self.running}
+
+        def close(self) -> None:
+            self.running = False
+
+    pump = Pump()
+    runtime._game_performance_pump = cast(Any, pump)
+    assert not runtime_is_healthy("windows_edge", runtime)
+    pump.running = True
+    assert runtime_is_healthy("windows_edge", runtime)
+    runtime.close()
 
 
 def test_unsupported_host_does_not_invoke_or_import_provider() -> None:

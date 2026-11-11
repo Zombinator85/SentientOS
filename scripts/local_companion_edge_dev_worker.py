@@ -25,12 +25,13 @@ from sentientos.gaming_companion_tls_transport import (
 
 
 def _start_game_performance_pump(config):
-    """Publish read-only samples for an explicitly allowlisted foreground game."""
-    from sentientos.game_performance_bridge import WindowsGamePerformanceBridgePublisher
-    from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackClient
-    from sentientos.windows_game_performance import (
-        WindowsGamePerformanceObserver, allowlisted_game_process_id,
+    """Publish read-only samples for an explicitly allowlisted running game."""
+    from sentientos.game_performance_bridge import (
+        WindowsGamePerformanceBridgePublisher,
+        WindowsGamePerformanceObservationPump,
     )
+    from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackClient
+    from sentientos.windows_game_performance import WindowsGamePerformanceObserver
 
     required = {"port", "source_key", "source_id", "source_generation_id",
         "ack_key", "ack_source_id", "ack_generation_id", "process_names"}
@@ -53,27 +54,10 @@ def _start_game_performance_pump(config):
         generation_id=config["source_generation_id"], source_key=source_key,
         process_id=1)
     process_names = tuple(config["process_names"])
-    stop = threading.Event()
-
-    def run():
-        while not stop.is_set():
-            process_id = allowlisted_game_process_id(process_names)
-            if process_id is not None:
-                try:
-                    publisher.publish_once(process_id=process_id)
-                except Exception as exc:
-                    code = (str(exc.args[0]) if exc.args
-                        and isinstance(exc.args[0], str) else type(exc).__name__)
-                    if not code.replace("_", "").isalnum():
-                        code = type(exc).__name__
-                    print("GAME_PERFORMANCE_PUBLISH status=error code="
-                        + code[:96], flush=True)
-            stop.wait(1.0)
-
-    thread = threading.Thread(target=run, name="game-performance-publisher",
-        daemon=True)
-    thread.start()
-    return stop, thread
+    pump = WindowsGamePerformanceObservationPump(
+        publisher=publisher, process_names=process_names, interval_seconds=1.0)
+    pump.start()
+    return pump
 
 def _readline(stream, target):
     for line in stream:
@@ -253,7 +237,7 @@ def main():
             if isinstance(screen_cfg,dict) else None),
         dispatch_outcome_observer=report_dispatch_outcome)
     godot=None;forwarder=None;foreground_pump=None
-    game_performance_stop=None;game_performance_thread=None
+    game_performance_pump=None
     try:
         print("EDGE_STARTUP phase=bridge_runtime",flush=True)
         port=runtime.start()
@@ -279,8 +263,7 @@ def main():
             foreground_pump.start()
         performance_cfg=cfg.get("game_performance")
         if isinstance(performance_cfg,dict):
-            game_performance_stop,game_performance_thread=(
-                _start_game_performance_pump(performance_cfg))
+            game_performance_pump=_start_game_performance_pump(performance_cfg)
         if isinstance(screen_cfg,dict):
             from sentientos.screen_observation_bridge import (
                 WindowsScreenObservationBridgePublisher,
@@ -439,6 +422,8 @@ def main():
                     "dispatch":dispatcher.status().__dict__ if hasattr(dispatcher.status(),"__dict__") else {
                         "accepted":dispatcher.status().accepted,
                         "rejected":dispatcher.status().rejected},
+                    "game_performance_pump": (game_performance_pump.status()
+                        if game_performance_pump is not None else None),
                     "state_file":str(state_path),"state_file_exists":state_path.is_file(),
                     "godot_running":godot.poll() is None}),flush=True)
     finally:
@@ -451,24 +436,24 @@ def main():
             report_stop.set()
             report_socket.close()
             report_thread.join(timeout=1.0)
-        if game_performance_stop is not None:
-            game_performance_stop.set()
-            if game_performance_thread is not None:
-                game_performance_thread.join(timeout=3.0)
         try:
-            if foreground_pump is not None:
-                foreground_pump.close()
+            if game_performance_pump is not None:
+                game_performance_pump.close()
         finally:
             try:
-                dispatcher.close()
+                if foreground_pump is not None:
+                    foreground_pump.close()
             finally:
                 try:
-                    runtime.close()
+                    dispatcher.close()
                 finally:
-                    if godot is not None:
-                        system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
-                        terminate_owned_process_tree(
-                            godot, taskkill_executable=system_root / "System32" / "taskkill.exe")
+                    try:
+                        runtime.close()
+                    finally:
+                        if godot is not None:
+                            system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+                            terminate_owned_process_tree(
+                                godot, taskkill_executable=system_root / "System32" / "taskkill.exe")
     return 0
 
 if __name__=="__main__": raise SystemExit(main())

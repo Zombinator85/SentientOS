@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from threading import Thread
+from threading import Event, Thread
+from types import SimpleNamespace
 
 import pytest
 
@@ -12,6 +13,7 @@ from sentientos.game_performance_bridge import (
     GamePerformanceBridgeDetector,
     VerifiedGamePerformanceObservation,
     WindowsGamePerformanceBridgePublisher,
+    WindowsGamePerformanceObservationPump,
 )
 from sentientos.runtime_governor import RuntimeGovernor
 from sentientos.windows_game_performance import WindowsGamePerformanceObserver
@@ -110,6 +112,31 @@ def test_windows_performance_sample_is_signed_transported_and_shape_checked(
         worker.join(timeout=2)
         assert not worker.is_alive()
     assert sorted(message.sequence for message in captured) == [1, 2, 3, 4, 5, 6]
+
+
+def test_game_performance_pump_only_publishes_selected_allowlisted_process():
+    published = Event()
+    selected_names = []
+
+    class Publisher:
+        def publish_once(self, *, process_id):
+            assert process_id == 733
+            published.set()
+            return SimpleNamespace(created_at=datetime.now(timezone.utc).isoformat())
+
+    pump = WindowsGamePerformanceObservationPump(
+        publisher=Publisher(), process_names=("Cronos.exe",),
+        interval_seconds=0.1,
+        process_selector=lambda names: (selected_names.extend(names) or 733))
+    pump.start()
+    try:
+        assert published.wait(2.0)
+    finally:
+        pump.close()
+    status = pump.status()
+    assert selected_names == ["cronos.exe"]
+    assert status["published"] == 1
+    assert status["running"] is False
 
 
 def test_game_performance_detector_rejects_wrong_generation_and_stale_sample():
