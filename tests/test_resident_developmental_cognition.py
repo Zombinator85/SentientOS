@@ -8050,6 +8050,33 @@ def test_sentientosd_rejects_uncertain_self_model_tick_before_owner_reads(
     assert cognition_owner.calls == 0
 
 
+def test_sentientosd_redacts_invalid_epistemic_tick_text(tmp_path: Path) -> None:
+    class EpistemicDevelopmentSpy:
+        calls = 0
+
+        def process_snapshot(self, *_args, **_kwargs):
+            self.calls += 1
+            raise AssertionError("invalid tick must not reach epistemic updates")
+
+    sensitive_tick = "operator-private-tick-marker"
+    runtime = EpistemicDevelopmentSpy()
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-epistemic-invalid-tick",
+        epistemic_development_runtime=runtime,  # type: ignore[arg-type]
+    )
+    _seed_world_state_snapshot_for_tick(surfaces, sensitive_tick)
+
+    feedback = surfaces.run_epistemic_development(tick_id=sensitive_tick)
+
+    assert feedback["status"] == "degraded"
+    assert feedback["reason"] == "resident_epistemic_development_tick_invalid"
+    assert feedback["error_class"] == "ValueError"
+    assert sensitive_tick not in repr(feedback)
+    assert feedback["authority"] is False
+    assert feedback["next_tick_only"] is True
+    assert runtime.calls == 0
+
+
 def test_sentientosd_rejects_unknown_epistemic_write_tick_before_runtime(
     tmp_path: Path,
 ) -> None:

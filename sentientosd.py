@@ -2809,7 +2809,17 @@ class RuntimeMaintenanceSurfaces:
                     raise ValueError(
                         "resident_epistemic_development_tick_unrepresentable") from exc
             except (AttributeError, TypeError, ValueError) as exc:
-                feedback = {"status": "degraded", "reason": f"{type(exc).__name__}:{exc}",
+                safe_reasons = {
+                    "resident_epistemic_development_tick_offset_unknown",
+                    "resident_epistemic_development_tick_timezone_required",
+                    "resident_epistemic_development_tick_unrepresentable",
+                }
+                reason_text = str(exc)
+                reason = (f"ValueError:{reason_text}" if isinstance(exc, ValueError)
+                    and reason_text in safe_reasons
+                    else "resident_epistemic_development_tick_invalid")
+                feedback = {"status": "degraded", "reason": reason,
+                            "error_class": type(exc).__name__,
                             "authority": False, "next_tick_only": True}
             else:
                 runtime = self._epistemic_development_runtime
