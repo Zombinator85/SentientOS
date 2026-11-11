@@ -190,6 +190,79 @@ def test_local_model_resource_release_rejects_unknown_reason(
     assert decision.reason == "model_resource_release_request_invalid"
 
 
+@pytest.mark.parametrize("mutation", [
+    "report_digest", "game_message_id", "pressure_labels", "below_pressure_threshold",
+    "stale_observation", "wrong_target",
+])
+def test_production_game_gpu_release_requires_exact_current_evidence(
+        monkeypatch, tmp_path, mutation):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    actor = "production_chat_game_resource_governor"
+    source_correlation = "production-release-evidence-source"
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        source_correlation.encode("utf-8")).hexdigest()[:32]
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        source_correlation.encode("utf-8")).hexdigest()[:24]
+    observed_at = datetime.now(timezone.utc).isoformat()
+    game_message_id = "b" * 64
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "observation_correlation_id": observation_id,
+        "observed_at": observed_at,
+        "report_id": "host-report-1",
+        "report_digest": "c" * 64,
+        "pressure_labels": ("gpu_pressure",),
+        "gpu_utilization_percent": 95.0,
+        "vram_utilization_percent": 93.0,
+    }
+    workload = ForegroundGameObservation("available", True, "a" * 64,
+        observed_at, transport_provenance={"message_id": game_message_id,
+            "source_id": "windows-foreground", "session_id": "session-1",
+            "generation_id": "generation-1", "sequence": 1,
+            "envelope_created_at": observed_at})
+    assert governor.observe_verified_game_workload(workload)
+    evidence = {
+        "schema_version": "sentientos.production_game_gpu_resource_release_evidence:v1",
+        "source_inference_correlation_id": source_correlation,
+        "observation_correlation_id": observation_id,
+        "host_report_id": "host-report-1",
+        "host_report_digest": "c" * 64,
+        "observed_at": observed_at,
+        "pressure_labels": ["gpu_pressure"],
+        "gpu_utilization_percent": 95.0,
+        "vram_utilization_percent": 93.0,
+        "game_workload_message_id": game_message_id,
+    }
+    metadata = {
+        "purpose": "local_model_resource_release",
+        "reason_code": "verified_game_gpu_pressure",
+        "target_subsystem": "production_chat",
+        "model_identity_digest": "d" * 64,
+        "resource_observation": evidence,
+    }
+    if mutation == "report_digest":
+        evidence["host_report_digest"] = "e" * 64
+    elif mutation == "game_message_id":
+        evidence["game_workload_message_id"] = "f" * 64
+    elif mutation == "pressure_labels":
+        evidence["pressure_labels"] = ["cpu_pressure"]
+    elif mutation == "below_pressure_threshold":
+        evidence["gpu_utilization_percent"] = 89.0
+        evidence["vram_utilization_percent"] = 89.0
+    elif mutation == "stale_observation":
+        evidence["observed_at"] = "2020-01-01T00:00:00+00:00"
+    elif mutation == "wrong_target":
+        metadata["target_subsystem"] = "host"
+
+    decision = governor._admit_local_model_resource_release(
+        actor=actor, subject=actor, correlation_id=release_correlation,
+        metadata=metadata)
+
+    assert decision.allowed is False
+    assert decision.reason == "model_resource_release_pressure_evidence_required"
+
+
 def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing(
         monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
