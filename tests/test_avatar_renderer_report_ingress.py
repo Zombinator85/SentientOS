@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from sentientosd import RuntimeMaintenanceSurfaces
 
 from sentientos.avatar_renderer_report_ingress import (
     RendererReportIngressError,
@@ -188,7 +189,8 @@ def test_renderer_report_digest_changes_when_report_changes():
 
 
 @pytest.mark.skipif(os.name != "posix", reason="durable renderer store uses POSIX dir-fd custody")
-def test_authenticated_renderer_report_returns_to_durable_unverified_world_state(tmp_path: Path):
+def test_authenticated_renderer_report_returns_to_durable_unverified_world_state(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     now = datetime.now(timezone.utc).isoformat()
     report = _report()
     report["reported_at"] = now
@@ -231,6 +233,33 @@ def test_authenticated_renderer_report_returns_to_durable_unverified_world_state
         assert record["payload"]["renderer_state_independently_observed"] is False
         captures = list((tmp_path / "renderer-captures").glob("*.json"))
         assert len(captures) == 1 and captures[0].stat().st_mode & 0o077 == 0
+
+        # Exercise the real daemon composition after the authenticated capture
+        # owner has closed. The persisted renderer report is available as
+        # World-State context, but remains an unverified self-report and never
+        # becomes independent effect evidence.
+        monkeypatch.setenv("SENTIENTOS_RENDERER_REPORT_EVIDENCE_ROOT",
+            str(tmp_path / "renderer-captures"))
+        surfaces = RuntimeMaintenanceSurfaces(
+            tmp_path, runtime_state_root=tmp_path / "runtime-state")
+        surfaces.build_world_state_board(tick_id=now)
+        snapshot = surfaces.current_world_state_snapshot
+        assert snapshot is not None
+        projected = [fact for fact in snapshot.facts
+            if fact.subject.subject_kind == "avatar_renderer_reported_state"]
+        assert len(projected) == 1
+        fact = projected[0]
+        assert fact.source.kind == "embodiment"
+        assert fact.evidence_strength == "unverified_caller_assertion"
+        assert fact.payload["transport_authenticated_at_capture"] is True
+        assert fact.payload["renderer_source_independently_authenticated"] is False
+        assert fact.payload["renderer_state_independently_observed"] is False
+        assert fact.effect_proven is False
+        projection_status = surfaces._feedback["surfaces"]["renderer_report_evidence"]
+        assert projection_status["status"] == "available"
+        assert projection_status["record_count"] == 1
+        assert projection_status["renderer_state_independently_observed"] is False
+
         archived = json.loads(captures[0].read_text(encoding="utf-8"))
         archived["transport_provenance"]["source_id"] = "forged-relay"
         tampered = json.dumps(archived, sort_keys=True, separators=(",", ":"),
