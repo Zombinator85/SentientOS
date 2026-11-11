@@ -3742,7 +3742,10 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         if (_storage_roots_overlap(memory_root, handle.root)
                 or _storage_roots_overlap(memory_root, conversation_root.path)):
             raise ValueError("user_memory_root_overlaps_installation_transcript_custody")
-        serving = ProductionServingController(handle, control_plane_kernel or ControlPlaneKernel())
+        serving_kernel = control_plane_kernel or ControlPlaneKernel()
+        if foreground_game_detector is not None:
+            foreground_game_detector.set_game_performance_admission_owner(serving_kernel)
+        serving = ProductionServingController(handle, serving_kernel)
         establish_arguments = {"operation_id": serving_operation_id}
         if expected_activation_state_digest is not None:
             establish_arguments["expected_activation_state_digest"] = expected_activation_state_digest

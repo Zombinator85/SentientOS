@@ -19,6 +19,9 @@ from .gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackRuntime,
     CompanionBridgeTransportError,
 )
+from .game_performance_bridge import (
+    GamePerformanceBridgeDetector, VerifiedGamePerformanceObservation,
+)
 from .gaming_companion_supervisor import CompanionBridgeSupervisor
 
 _SCHEMA = "sentientos.foreground_game_observation:v1"
@@ -33,6 +36,20 @@ _MAX_OBSERVATION_TTL_SECONDS = 30.0
 
 class ForegroundObservationSender(Protocol):
     def observe(self, process_names: tuple[str, ...] | list[str]) -> ForegroundGameObservation: ...
+
+
+class _SingleVerifiedMessageReceiver:
+    """Present one already-authenticated bridge envelope to its schema parser."""
+
+    def __init__(self, message: VerifiedBridgeMessage) -> None:
+        self._message: VerifiedBridgeMessage | None = message
+
+    def receive(self, timeout: float | None = None) -> VerifiedBridgeMessage:
+        del timeout
+        message, self._message = self._message, None
+        if message is None:
+            raise CompanionBridgeError("bridge_receive_timeout")
+        return message
 
 
 class WindowsForegroundBridgePublisher:
@@ -232,6 +249,15 @@ class BridgeForegroundGameDetector:
         self._max_age = float(max_observation_age_seconds)
         self._lock = threading.Lock()
         self._last: ForegroundGameObservation | None = None
+        self._game_performance_observer: Callable[
+            [VerifiedGamePerformanceObservation], bool] | None = None
+
+    def set_game_performance_admission_owner(self, owner: object) -> None:
+        """Bind verified performance samples to the existing scheduling owner."""
+        observer = getattr(owner, "observe_verified_game_performance", None)
+        if not callable(observer):
+            raise CompanionBridgeError("game_performance_admission_owner_required")
+        self._game_performance_observer = observer
 
     def close(self) -> None:
         """Stop the dedicated foreground-observation listener owned by this adapter."""
@@ -249,6 +275,11 @@ class BridgeForegroundGameDetector:
                         break
                     self._last = None
                     return self._unavailable("bridge_observation_unavailable")
+                if (message.kind == "observation"
+                        and message.payload.get("schema_version") ==
+                            "sentientos.game_performance_observation:v1"):
+                    self._forward_game_performance(message)
+                    continue
                 parsed = self._parse(message, allowed_digests)
                 if parsed is None:
                     self._last = None
@@ -260,6 +291,23 @@ class BridgeForegroundGameDetector:
                 self._last = None
                 return self._unavailable("bridge_observation_expired")
             return self._last
+
+    def _forward_game_performance(self, message: VerifiedBridgeMessage) -> bool:
+        observer = self._game_performance_observer
+        if observer is None:
+            return False
+        generation_id = self._generation_provider()
+        try:
+            observation = GamePerformanceBridgeDetector(
+                receiver=_SingleVerifiedMessageReceiver(message),
+                source_id=self._source_id,
+                generation_provider=lambda: generation_id,
+                clock=self._clock,
+                max_age_seconds=min(10.0, self._max_age),
+            ).receive_once(timeout=0.0)
+            return bool(observer(observation))
+        except (CompanionBridgeError, TypeError, ValueError, OverflowError):
+            return False
 
     def _parse(self, message: VerifiedBridgeMessage,
                allowed_digests: set[str]) -> ForegroundGameObservation | None:

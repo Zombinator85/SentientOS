@@ -17,6 +17,9 @@ from control_plane.task_admission import AdmissionResponse
 from sentientos.canonical_memory import CanonicalMemoryStore
 from sentientos.chat_avatar_output import ChatAvatarOutputController
 from sentientos.gaming_companion_core_runtime import WSLCoreAvatarOutputSession
+from sentientos.foreground_game_bridge import BridgeForegroundGameDetector
+from sentientos.gaming_companion_bridge import CompanionBridgeReceiver
+from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackRuntime
 from sentientos.conversation_session import ConversationSessionStore
 from sentientos.governed_local_model_invocation import LocalModelInvocationReceipt
 from sentientos.installation_state import InstallationIdentity
@@ -139,6 +142,18 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     class InferenceBridge:
         def __init__(self, *_args, **_kwargs): pass
 
+    class AdmissionOwner:
+        def observe_verified_game_performance(self, _observation): return True
+
+    admission_owner = AdmissionOwner()
+    bridge_runtime = CompanionBridgeLoopbackRuntime(
+        receiver=CompanionBridgeReceiver(source_keys={"windows-edge": b"x" * 32},
+            expected_generations={"windows-edge": "generation-1"}),
+        acknowledgment_source_id="core", acknowledgment_generation_id="core-1",
+        acknowledgment_key=b"y" * 32)
+    detector = BridgeForegroundGameDetector(runtime=bridge_runtime,
+        source_id="windows-edge", generation_id="generation-1")
+
     monkeypatch.setattr(chat_service, "ProductionServingController", Serving)
     monkeypatch.setattr(chat_service, "ProductionServingInferenceController", InferenceBridge)
     monkeypatch.setattr(chat_service, "sentientos_data_dir", lambda: tmp_path / "data")
@@ -158,12 +173,14 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     chat_service.close_production_chat()
     chat_service.configure_production_chat(
         installation_identity="Install-1", serving_operation_id="serve-1",
-        runtime_handoff_id="handoff-1", avatar_output_session=session)
+        runtime_handoff_id="handoff-1", avatar_output_session=session,
+        foreground_game_detector=detector, control_plane_kernel=admission_owner)
     composition = chat_service._PRODUCTION_COMPOSITION
     assert composition is not None
     assert composition.service._avatar_output is not None
     assert isinstance(composition.service._avatar_output, ChatAvatarOutputController)
     assert composition._avatar_output_owner is session
+    assert detector._game_performance_observer.__self__ is admission_owner
     chat_service.close_production_chat()
     assert events[-1] == "avatar_session_closed"
 

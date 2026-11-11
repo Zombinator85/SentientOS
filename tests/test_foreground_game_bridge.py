@@ -20,7 +20,11 @@ from sentientos.gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackRuntime,
     CompanionBridgeTransportError,
 )
+from sentientos.game_performance_bridge import WindowsGamePerformanceBridgePublisher
 from sentientos.local_model_serving_inference import ProductionServingInferenceController
+from sentientos.runtime_governor import RuntimeGovernor
+from sentientos.control_plane_kernel import ControlPlaneKernel
+from sentientos.windows_game_performance import WindowsGamePerformanceObserver
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -98,6 +102,67 @@ def test_authenticated_windows_sample_drives_existing_automatic_workload_decisio
         assert state["transport_provenance"]["generation_id"] == SOURCE_GENERATION
         assert state["transport_provenance"]["sequence"] == 1
         assert state["transport_provenance"]["message_id"]
+    finally:
+        detector.close()
+
+
+def test_authenticated_game_performance_on_core_bridge_reaches_runtime_admission(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    now = lambda: datetime.now(timezone.utc)
+    source_key = b"windows-performance-core-bridge-key-32-bytes"
+    source_id, generation = "windows-foreground", "windows-observer-generation-1"
+    runtime = CompanionBridgeLoopbackRuntime(
+        receiver=CompanionBridgeReceiver(source_keys={source_id: source_key},
+            expected_generations={source_id: generation}),
+        acknowledgment_source_id="sentientos-core",
+        acknowledgment_generation_id="core-generation-1",
+        acknowledgment_key=CORE_KEY, queue_capacity=4)
+    port = runtime.start()
+    client = CompanionBridgeLoopbackClient(port=port,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"sentientos-core": CORE_KEY},
+            expected_generations={"sentientos-core": "core-generation-1"}))
+    publisher = WindowsGamePerformanceBridgePublisher(
+        observer=WindowsGamePerformanceObserver(
+            system_provider=lambda: "Windows",
+            process_provider=lambda _pid: {"cpu_percent": 20.0, "rss_bytes": 8192},
+            frame_provider=lambda _pid: ((), "unused"),
+            clock=lambda: now().isoformat()),
+        client=client, source_id=source_id, session_id="production-chat-game",
+        generation_id=generation, source_key=source_key, process_id=4123)
+    publisher.publish_once()
+
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    detector = BridgeForegroundGameDetector(runtime=runtime, source_id=source_id,
+        generation_id=generation, clock=now)
+    detector.set_game_performance_admission_owner(kernel)
+    controller = _automatic_controller(detector)
+    governor._host_resource_evidence = {
+        "evaluation_id": "fixture-evaluation", "epoch_id": "fixture-epoch",
+        "snapshot_id": "fixture-snapshot", "report_id": "fixture-report",
+        "report_digest": "c" * 64, "observed_at": now().isoformat(),
+        "pressure_labels": ("cpu_pressure",),
+        "cpu_utilization_percent": 96.0, "ram_utilization_percent": 42.0,
+        "gpu_telemetry_available": True,
+    }
+    try:
+        workload = controller.current_workload_state()
+        assert workload["effective_mode"] == "gaming"
+        decision = governor.admit_action("local_model_inference", "sentientosd",
+            "production-bridge-game-pressure", {"purpose": "local_user_chat"})
+        assert decision.reason == (
+            "deferred_local_model_inference_under_host_pressure_during_game")
+        evidence = decision.evidence_refs["game_performance_evidence"]
+        assert evidence["source_id"] == source_id
+        assert evidence["process_cpu_percent"] == 20.0
+        assert evidence["frame_time_p95_ms"] is None
     finally:
         detector.close()
 
