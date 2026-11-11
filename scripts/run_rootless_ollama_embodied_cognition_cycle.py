@@ -106,6 +106,16 @@ _OBJECTIVE_TRANSFER_TASK_FAMILY = (
 ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT = 20_480
 
 
+def _history_intervention_trial_index_from_environment() -> int | None:
+    raw = os.environ.get("SENTIENTOS_HERMES_HISTORY_ORDER_TRIAL_INDEX")
+    if raw is None:
+        return None
+    if (len(raw) > 10 or not raw.isascii() or not raw.isdecimal()
+            or int(raw) > _MAX_EXPERIMENT_SEED):
+        raise SystemExit("hermes_history_order_trial_index_invalid")
+    return int(raw)
+
+
 def _experiment_seed_from_environment() -> int:
     raw = os.environ.get("SENTIENTOS_HERMES_EXPERIMENT_SEED")
     if raw is None:
@@ -117,6 +127,8 @@ def _experiment_seed_from_environment() -> int:
 
 
 EXPERIMENT_SEED = _experiment_seed_from_environment()
+HISTORY_INTERVENTION_TRIAL_INDEX = (
+    _history_intervention_trial_index_from_environment())
 
 
 def _experiment_seed_provenance() -> dict[str, int]:
@@ -1810,7 +1822,8 @@ def run() -> dict[str, Any]:
             intervention_owner.run_companion_history_intervention(
                 snapshot=later_pre_action_snapshot,
                 tick_id=RUN_ID + ":later-companion-decision",
-                question=history_decision_question))
+                question=history_decision_question,
+                trial_index=HISTORY_INTERVENTION_TRIAL_INDEX))
         if (companion_intervention.status != "completed_controlled_intervention"
                 or not companion_intervention.changed_cognition_measurement_id):
             raise RootlessExperimentalError("history_intervention_measurement_missing")
@@ -1969,7 +1982,8 @@ def run() -> dict[str, Any]:
                 snapshot=later_action_decision_snapshot,
                 tick_id=RUN_ID + ":later-transfer-decision",
                 question=transfer_question,
-                history_record_allowlist=(first.written_record_id,)))
+                history_record_allowlist=(first.written_record_id,),
+                trial_index=HISTORY_INTERVENTION_TRIAL_INDEX))
         if (transfer_intervention.status != "completed_controlled_intervention"
                 or not transfer_intervention.changed_cognition_measurement_id):
             raise RootlessExperimentalError(
@@ -1998,6 +2012,7 @@ def run() -> dict[str, Any]:
             "source_provenance": dict(RUN_SOURCE_PROVENANCE),
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
             **_experiment_seed_provenance(),
+            "history_order_trial_index": HISTORY_INTERVENTION_TRIAL_INDEX,
             "model_artifact_size_bytes": manifest_size,
             "runtime_observation": runtime, "runtime_observation_digest": runtime_sha,
             "active_model_identity": session.active_model_identity,

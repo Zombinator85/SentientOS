@@ -1017,6 +1017,19 @@ def test_seeded_objective_task_pairs_are_reproducible_and_distinct(runner):
                 + specification["offset"] for item in inputs) <= 17
 
 
+def test_history_order_trial_index_environment_is_bounded_and_validated(
+        runner, monkeypatch):
+    monkeypatch.delenv("SENTIENTOS_HERMES_HISTORY_ORDER_TRIAL_INDEX", raising=False)
+    assert runner._history_intervention_trial_index_from_environment() is None
+    for valid, expected in (("0", 0), ("1", 1), ("4294967295", 4294967295)):
+        monkeypatch.setenv("SENTIENTOS_HERMES_HISTORY_ORDER_TRIAL_INDEX", valid)
+        assert runner._history_intervention_trial_index_from_environment() == expected
+    for invalid in ("-1", "4294967296", "４２", "nope", "00000000000"):
+        monkeypatch.setenv("SENTIENTOS_HERMES_HISTORY_ORDER_TRIAL_INDEX", invalid)
+        with pytest.raises(SystemExit, match="hermes_history_order_trial_index_invalid"):
+            runner._history_intervention_trial_index_from_environment()
+
+
 def test_experiment_seed_environment_is_bounded_and_validated(runner, monkeypatch):
     monkeypatch.setenv("SENTIENTOS_HERMES_EXPERIMENT_SEED", "42")
     assert runner._experiment_seed_from_environment() == 42

@@ -31,6 +31,14 @@ temperature-zero posture, template digest, comparisons, non-claims, and exact
 invocation order. Persisted condition, score, and decision arrays remain in
 canonical present/withheld/restored order for compatibility.
 
+The maintained rootless Hermes cycle accepts the optional
+`SENTIENTOS_HERMES_HISTORY_ORDER_TRIAL_INDEX` environment variable and passes
+that validated index to both later companion-history comparisons. It records the
+selected index in its cycle result and the experiment protocols. To counterbalance
+independent invocations, the experiment supervisor must assign successive trial
+indices; the one-shot runner does not allocate or persist a shared schedule.
+When the variable is unset, the runner preserves the historical fixed order.
+
 Withholding changes only the ephemeral prompt projection. It never deletes,
 tombs, rewrites, or reclassifies history. Restoration re-reads every exact
 record from the immutable developmental store and verifies its preregistered
