@@ -60,6 +60,10 @@ across matched
 trials, but does not randomize nuisance variables or by itself support a causal
 order-effect estimate. These are bounded associations only.
 
+For a structured objective task whose descriptor explicitly requires task-family history, the resident owner projects only exact, score-bound examples from the requested family that also match the active cognitive-model identity. The record-level natural-language interpretation is omitted from that task-specific prompt; its digest remains as an audit marker. Unrelated selected facts and embodiment/security projections are not carried into that scoped packet. Included examples retain their evaluator correctness flags, so an incorrect example remains evidence of an incorrect outcome rather than being silently promoted to a lesson. The stored record and ordinary history remain unchanged.
+
+This is a prompt-projection constraint, not a new memory owner, general truth filter, or cross-model transfer rule. The v3 Hermes transfer family exercises the scoped path; its synthetic results are mixed and do not establish reliable transfer or improved performance.
+
 The broader capability remains `partial`. The separate controlled
 [model-replacement experiment](developmental_model_replacement_experiment.md)
 now holds this current/history condition fixed across two pre-governed cognitive
