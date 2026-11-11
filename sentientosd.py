@@ -3161,7 +3161,8 @@ class RuntimeMaintenanceSurfaces:
                                 # presentation cannot change its service outcome.
                                 objective_measurement_summary = {
                                     "status": "outcome_verification_unavailable",
-                                    "reason_code": f"{type(exc).__name__}:{exc}"[:192],
+                                    "reason_code": "objective_measurement_verification_unavailable",
+                                    "error_class": type(exc).__name__,
                                     "authority": False,
                                 }
                     else:
@@ -3189,7 +3190,8 @@ class RuntimeMaintenanceSurfaces:
                         # the tick or trigger a retry of the staged experiment.
                         objective_measurement_summary = {
                             "status": "outcome_verification_unavailable",
-                            "reason_code": f"{type(exc).__name__}:{exc}"[:192],
+                            "reason_code": "objective_measurement_verification_unavailable",
+                            "error_class": type(exc).__name__,
                             "authority": False,
                         }
                 feedback = {**asdict(result), "snapshot_object_preserved": True,
@@ -3216,7 +3218,16 @@ class RuntimeMaintenanceSurfaces:
                     self._feedback.setdefault("surfaces", {})["resident_developmental_cognition"] = feedback
                     self._refresh_feedback()
                     return feedback
-                feedback = {"status": "degraded", "reason": f"{type(exc).__name__}:{exc}",
+                safe_reasons = {
+                    "resident_cognition_tick_offset_unknown",
+                    "resident_cognition_tick_timezone_required",
+                    "resident_cognition_tick_unrepresentable",
+                }
+                reason = (f"ValueError:{exc}" if isinstance(exc, ValueError)
+                    and str(exc) in safe_reasons
+                    else "resident_developmental_cognition_failed")
+                feedback = {"status": "degraded", "reason": reason,
+                            "error_class": type(exc).__name__,
                             "write_performed": False}
         self._feedback.setdefault("surfaces", {})["resident_developmental_cognition"] = feedback
         self._refresh_feedback()

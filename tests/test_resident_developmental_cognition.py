@@ -7671,6 +7671,27 @@ def test_sentientosd_preserves_exact_snapshot_and_absent_config_is_inert(tmp_pat
     assert spy.seen is injected.current_world_state_snapshot
 
 
+
+def test_sentientosd_feedback_redacts_resident_cognition_exception_text(tmp_path: Path) -> None:
+    class BrokenOwner:
+        def run_tick(self, *, snapshot, tick_id, **_kwargs):
+            raise RuntimeError("private-model-output-must-not-escape")
+
+    tick = "2026-01-03T00:00:00+00:00"
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-safe-feedback",
+        resident_developmental_owner=BrokenOwner())  # type: ignore[arg-type]
+    surfaces.build_world_state_board(tick_id=tick)
+    feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+
+    assert feedback["status"] == "degraded"
+    assert feedback["reason"] == "resident_developmental_cognition_failed"
+    assert feedback["error_class"] == "RuntimeError"
+    assert "private-model-output-must-not-escape" not in repr(feedback)
+    assert "private-model-output-must-not-escape" not in repr(
+        surfaces.governance_feedback())
+
+
 def test_sentientosd_consumes_staged_objective_once_without_recurring_owner_config(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
         isolated_governed_runtime_roots: None) -> None:
