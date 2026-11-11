@@ -110,6 +110,14 @@ def test_stable_difference_and_no_difference_are_bounded_descriptions() -> None:
     same = summarize(protocol(), [observation("history_present", "a", ("record",)),
         observation("history_withheld", "a", ()), observation("history_restored", "a", ("record",))])
     assert same["classification"] == "no_observable_history_difference"
+    unstable_restoration = summarize(protocol(), [
+        observation("history_present", "present-output", ("record",)),
+        observation("history_withheld", "withheld-output", ()),
+        observation("history_restored", "restored-output", ("record",)),
+    ])
+    assert unstable_restoration["classification"] == (
+        "history_restoration_unstable_observation")
+    assert unstable_restoration["restored_matches_present"] is False
 
 
 def test_v2_comparison_rejects_unbound_observations_and_digest_rebinding() -> None:
