@@ -6162,7 +6162,12 @@ class ResidentDevelopmentalCognitionOwner:
                 "inference_status": receipt.status,
                 "cognition_receipt_output_binding_verified": True,
                 "output_digest": receipt.output_digest,
-                "prompt_digest": req.get("prompt_digest"),
+                # The governed request stores this as bare hex, while
+                # intervention qualification uses the canonical sha256: form.
+                # Bind the capture to the already receipt-verified observation
+                # digest rather than persisting a second, differently shaped
+                # representation of the same prompt identity.
+                "prompt_digest": observation.epistemic_prompt_digest,
                 "generation_config": dict(receipt.generation_config),
                 "active_model_identity": dict(req.get("active_model_identity", {})),
                 "snapshot_id": snapshot.snapshot_id,

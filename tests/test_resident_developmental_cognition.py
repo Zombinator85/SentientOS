@@ -6064,6 +6064,8 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
             {"history_present", "history_withheld", "history_restored"}]
     assert [request.linkage["condition_id"] for request in intervention_requests] == [
         "history_present", "history_withheld", "history_restored"]
+    assert all(item["prompt_digest"] == "sha256:" + request.prompt_digest
+        for item, request in zip(result.conditions, intervention_requests))
     intervention_contexts = [json.loads(request.prompt)
         for request in intervention_requests]
     assert intervention_contexts[0]["history_citation_allowlist"]
