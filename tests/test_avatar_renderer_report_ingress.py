@@ -742,3 +742,86 @@ def test_adopted_renderer_receipt_preserves_exact_action_lineage_without_effect_
     from dataclasses import replace
     with pytest.raises(RendererReportIngressError, match="receipt_identity_invalid"):
         verify_renderer_report_receipt_identity(replace(receipt, report_id="forged-renderer-id"))
+
+def test_history_projection_accepts_direct_renderer_report_fact_payload():
+    from sentientos.resident_developmental_cognition import (
+        CurrentWorldStateCognitiveProjection,
+        _current_evidence_prompt_payload,
+        _historical_embodiment_evidence_context,
+    )
+
+    report = _report()
+    fact_id = "fact-renderer-report"
+    fact = {
+        "fact_id": fact_id,
+        "source": {"kind": "embodiment",
+            "source_id": "renderer-report:direct-payload",
+            "schema_version": report["schema_version"]},
+        "subject": {"subject_kind": "avatar_renderer_report"},
+        "stage": "observation", "disposition": "recorded",
+        "evidence_strength": "renderer_self_report",
+        "effect_proven": False, "observed_at": report["reported_at"],
+        "payload": report,
+    }
+    candidate = {"selected_fact_ids": [fact_id], "selected_facts": [fact]}
+
+    projected = _historical_embodiment_evidence_context(candidate)
+
+    assert len(projected) == 1
+    assert projected[0]["semantic_report_roles"]["renderer_self_report"][
+        "reported_state"]["motion"]["active_motion"] == "wave"
+    assert projected[0]["effect_proven"] is False
+    assert projected[0]["authority"] is False
+
+    source = {"kind": "embodiment",
+        "source_id": "renderer-report:direct-payload",
+        "schema_version": report["schema_version"],
+        "digest": "sha256:" + "a" * 64}
+    run_id = "developmental-history-run:sample"
+    run_source = {"kind": "embodiment", "source_id": run_id,
+        "schema_version": "sentientos.developmental_history_intervention_run:v2",
+        "digest": "sha256:" + "d" * 64}
+    run_fact = {"fact_id": "fact-history-run", "source": run_source,
+        "subject": {"subject_kind": "developmental_history_intervention_experiment"},
+        "stage": "observation", "disposition": "no_observable_history_difference",
+        "evidence_strength": "digest_bound_history_intervention_artifact",
+        "effect_proven": False, "observed_at": "2026-11-11T00:00:00Z",
+        "payload": {"run_id": run_id, "run_digest": "sha256:" + "e" * 64,
+            "history_intervention_summary": {"classification": "no_observable_history_difference",
+                "present_vs_withheld_difference_observed": False,
+                "restored_vs_withheld_difference_observed": False,
+                "restored_matches_present": True, "present_restoration_stable": True,
+                "claims_posture": "bounded_observed_association_only", "measurements": []},
+            "conditions": [{"condition_id": "history_present", "output_digest": "a" * 64,
+                "inference_receipt_id": "receipt-present", "inference_receipt_digest": "b" * 64,
+                "retrieved_record_ids": ["devrec-example"], "retrieved_record_digests": ["c" * 64]}],
+            "objective_evaluation": {"assessment": "preregistered_probe_suite_scored",
+                "condition_correct_counts": [3, 3, 3], "history_correct_probe_delta": 0,
+                "restoration_correct_probe_delta": 0, "restoration_correctness_stable": True,
+                "probe_count": 3, "scope": "bounded_synthetic_task",
+                "model_behavior_posture": "receipt_bound"},
+            "objective_task_family": "sample-family",
+            "objective_task_commitment_posture": "salted_private_oracle_commitment:v1",
+            "acquisition_examples": [], "execution_evidence_posture": "receipts_checked",
+            "independent_backend_observation": False, "learning_established": False}}
+    run_fact["payload"]["source_audit_detail"] = "x" * 12_000
+    current = CurrentWorldStateCognitiveProjection(
+        snapshot_id="snapshot-current", snapshot_digest="sha256:" + "b" * 64,
+        facts=(fact, run_fact), sources=(source, run_source), conflicts=(),
+        fact_ids=(fact_id, run_fact["fact_id"]),
+        projection_id="current-projection", projection_digest="sha256:" + "c" * 64)
+    compact = _current_evidence_prompt_payload(current)
+    assert compact["fact_ids"] == [fact_id, run_fact["fact_id"]]
+    assert compact["projection_digest"] == current.projection_digest
+    assert compact["facts"][0]["source_id"] == source["source_id"]
+    assert compact["facts"][0]["current_observation"] is True
+    assert compact["facts"][0]["historical_only"] is False
+    assert compact["facts"][0]["reported_values"]["renderer_self_report"][
+        "reported_state"]["motion"]["active_motion"] == "wave"
+    run_summary = compact["facts"][1]["reported_values"][
+        "history_intervention_result"]
+    assert run_summary["classification"] == "no_observable_history_difference"
+    assert run_summary["objective_evaluation"]["condition_correct_counts"] == [3, 3, 3]
+    assert run_summary["conditions"][0]["retrieved_record_ids"] == ["devrec-example"]
+    assert len(json.dumps(compact, sort_keys=True, separators=(",", ":"))) < len(
+        json.dumps(current.semantic_payload(), sort_keys=True, separators=(",", ":")))

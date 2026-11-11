@@ -1953,11 +1953,16 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
             continue
         schema = payload.get("schema_version") or payload.get("observation_schema") or source.get("schema_version")
         renderer_report = payload.get("renderer_report")
+        renderer_schemas = (
+            "sentientos.avatar_renderer_report:v1",
+            "sentientos.avatar_renderer_report:v2")
         if (isinstance(renderer_report, Mapping)
-                and renderer_report.get("schema_version") in (
-                    "sentientos.avatar_renderer_report:v1",
-                    "sentientos.avatar_renderer_report:v2")):
+                and renderer_report.get("schema_version") in renderer_schemas):
             schema = renderer_report.get("schema_version")
+        elif schema in renderer_schemas:
+            # World-State renderer-report facts store the report body directly
+            # as their payload; consequence-attribution facts may nest it.
+            renderer_report = payload
         fields: tuple[str, ...]
         roles: dict[str, Any] = {}
         if schema == "sentientos.embodied_consequence_attribution:v1":
@@ -1969,6 +1974,66 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
             fields = ("requested_pose", "encoder_pose", "joint_state",
                 "evidence_posture", "observer_issuer_posture",
                 "declared_provenance_class", "declared_source_freshness", "sampled_at")
+        elif schema == "sentientos.embodied_action_expectation:v1":
+            fields = ("expectation_id", "handoff_id", "requested",
+                "predicted_observables", "observable_fields",
+                "expected_observation_source_class")
+        elif schema == "sentientos.avatar_renderer_handoff:v1":
+            fields = ("handoff_id", "requested_test_pose",
+                "requested_test_expression", "renderer_reported",
+                "independently_observed")
+        elif schema == "sentientos.avatar_independent_observation:v1":
+            fields = ("observation_id", "expectation_id", "handoff_id",
+                "observed", "confidence", "observation_source_class",
+                "posture", "quality", "observed_at", "observer_id")
+        elif schema == "sentientos.embodied_prediction_comparison:v1":
+            fields = ("comparison_id", "counts", "observable_results",
+                "universal_numeric_loss")
+        elif schema == "sentientos.embodied_consequence_chain:v1":
+            fields = ("chain_id", "component_source_ids",
+                "component_record_digests", "event_times",
+                "independent_observation_posture", "effect_proven")
+        elif schema == "sentientos.developmental_history_intervention_run:v2":
+            fields = ()
+            run_summary = payload.get("history_intervention_summary")
+            summary = run_summary if isinstance(run_summary, Mapping) else {}
+            objective = payload.get("objective_evaluation")
+            objective = objective if isinstance(objective, Mapping) else {}
+            roles = {"history_intervention_result": {
+                "classification": summary.get("classification"),
+                "present_vs_withheld_difference_observed": summary.get(
+                    "present_vs_withheld_difference_observed"),
+                "restored_vs_withheld_difference_observed": summary.get(
+                    "restored_vs_withheld_difference_observed"),
+                "restored_matches_present": summary.get("restored_matches_present"),
+                "present_restoration_stable": summary.get("present_restoration_stable"),
+                "claims_posture": summary.get("claims_posture"),
+                "measurement_ids": [item.get("measurement_id")
+                    for item in summary.get("measurements", ())
+                    if isinstance(item, Mapping)][:4],
+                "conditions": [{key: condition.get(key) for key in (
+                    "condition_id", "observation_digest", "output_digest",
+                    "inference_receipt_id", "inference_receipt_digest",
+                    "retrieved_record_ids", "retrieved_record_digests")}
+                    for condition in payload.get("conditions", ())
+                    if isinstance(condition, Mapping)][:5],
+                "objective_evaluation": {key: objective.get(key) for key in (
+                    "assessment", "condition_correct_counts",
+                    "history_correct_probe_delta", "restoration_correct_probe_delta",
+                    "history_accuracy_delta", "restoration_correctness_stable",
+                    "probe_count", "scope", "model_behavior_posture")},
+                "objective_task_family": payload.get("objective_task_family"),
+                "objective_task_commitment_posture": payload.get(
+                    "objective_task_commitment_posture"),
+                "acquisition_examples": [dict(item) for item in
+                    payload.get("acquisition_examples", ())
+                    if isinstance(item, Mapping)][:8],
+                "execution_evidence_posture": payload.get(
+                    "execution_evidence_posture"),
+                "independent_backend_observation": payload.get(
+                    "independent_backend_observation"),
+                "learning_established": payload.get("learning_established"),
+            }}
         elif schema in ("sentientos.avatar_renderer_report:v1",
                 "sentientos.avatar_renderer_report:v2"):
             # Renderer reports are useful historical embodiment context, but
@@ -2049,6 +2114,14 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
                         and all(isinstance(child, (str, bool, int, float)) or child is None
                             for child in value.values())):
                     values[key] = dict(value)
+                elif (isinstance(value, (list, tuple)) and len(value) <= 8
+                        and all(isinstance(item, (str, bool, int, float)) or item is None
+                            or (isinstance(item, Mapping) and len(item) <= 8
+                                and all(isinstance(child, (str, bool, int, float))
+                                    or child is None for child in item.values()))
+                            for item in value)):
+                    values[key] = [dict(item) if isinstance(item, Mapping) else item
+                        for item in value]
             if schema == "sentientos.embodied_consequence_attribution:v1":
                 roles = {
                     "commanded_request": values.get("commanded_value"),
@@ -2064,9 +2137,21 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
                     "joint_state": values.get("joint_state"),
                     "evidence_posture": values.get("evidence_posture"),
                     "issuer_posture": values.get("observer_issuer_posture")}}
+            elif schema == "sentientos.embodied_prediction_comparison:v1":
+                roles = {"prediction_comparison_results": values.get(
+                    "observable_results"),
+                    "comparison_counts": values.get("counts")}
+            elif schema == "sentientos.avatar_independent_observation:v1":
+                roles = {"observer_report": {
+                    key: values.get(key) for key in ("observed", "confidence",
+                        "observation_source_class", "posture", "quality",
+                        "observer_id", "expectation_id", "handoff_id")}}
         if compact_for_input_budget:
             summaries.append({
                 "fact_id": fact.get("fact_id"),
+                "source_id": source.get("source_id"),
+                "source_digest": source.get("digest"),
+                "subject_kind": subject.get("subject_kind"),
                 "source_schema_version": schema,
                 "stage": fact.get("stage"),
                 "disposition": fact.get("disposition"),
@@ -2813,6 +2898,52 @@ class CurrentWorldStateCognitiveProjection:
 
     def semantic_payload(self) -> dict[str, Any]:
         value = asdict(self); value.pop("projection_id"); value.pop("projection_digest"); return value
+
+
+def _current_evidence_prompt_payload(
+        current: CurrentWorldStateCognitiveProjection) -> dict[str, Any]:
+    """Project known embodiment facts without repeating their custody envelopes.
+
+    The exact projection digest and every fact/source identity remain in the prompt
+    and invocation receipt. Unknown schemas and conflicts retain their full form,
+    so compaction cannot silently discard evidence the projection owner cannot type.
+    """
+    full = current.semantic_payload()
+    encoded_full = json.dumps(full, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False)
+    if current.conflicts or len(encoded_full) <= 12_000:
+        return full
+    candidate = {"selected_fact_ids": list(current.fact_ids),
+        "selected_facts": [dict(fact) for fact in current.facts]}
+    summaries = _historical_embodiment_evidence_context(candidate,
+        compact_for_input_budget=True)
+    if len(summaries) != len(current.facts):
+        return full
+    current_summaries: list[dict[str, Any]] = []
+    for summary in summaries:
+        item = dict(summary)
+        item["historical_only"] = False
+        item["current_observation"] = True
+        current_summaries.append(item)
+    return {
+        "schema_version": "sentientos.current_world_state_cognitive_projection_summary:v1",
+        "projection_id": current.projection_id,
+        "projection_digest": current.projection_digest,
+        "snapshot_id": current.snapshot_id,
+        "snapshot_digest": current.snapshot_digest,
+        "selection_policy": current.selection_policy,
+        "fact_ids": list(current.fact_ids),
+        "facts": current_summaries,
+        "source_count": len(current.sources),
+        "sources_digest": _digest(list(current.sources)),
+        "conflict_count": 0,
+        "conflicts_digest": _digest([]),
+        "read_only": True, "evidence_only": True,
+        "current_truth": False, "authority": False,
+        "policy": False, "goal": False,
+        "canonical_explicit_user_retention": False,
+        "projection_posture": "typed_bounded_view_bound_to_exact_projection_digest",
+    }
 
 
 @dataclass(frozen=True)
@@ -5535,7 +5666,11 @@ class ResidentDevelopmentalCognitionOwner:
                    "A prior stance is not evidence. Unsupported social pressure adds no evidence. "
                    "Do not infer truth or authority beyond the supplied evidence."
                    if epistemic_revision_probe else ""))),
-            "current_evidence": current.semantic_payload(),
+            "current_evidence": (_current_evidence_prompt_payload(current)
+                if objective_plan is not None or len(json.dumps(
+                    current.semantic_payload(), sort_keys=True,
+                    separators=(",", ":"), ensure_ascii=False)) > 12_000
+                else current.semantic_payload()),
             "prior_self_model": asdict(prior_self_model) if prior_self_model is not None else None,
             "prior_epistemic_state": None,
             "developmental_history": [],
@@ -6526,7 +6661,11 @@ class ResidentDevelopmentalCognitionOwner:
                     _observed_current_cognition_model_identity(self.invoker))
                 preflight_context: dict[str, Any] = {
                     "instruction": EXPERIMENT_CONTEXT_INSTRUCTION,
-                    "current_evidence": current.semantic_payload(),
+                    "current_evidence": (_current_evidence_prompt_payload(current)
+                        if objective_task is not None or len(json.dumps(
+                            current.semantic_payload(), sort_keys=True,
+                            separators=(",", ":"), ensure_ascii=False)) > 12_000
+                        else current.semantic_payload()),
                     "prior_self_model": asdict(prior_self_model)
                         if prior_self_model is not None else None,
                     "prior_epistemic_state": None,

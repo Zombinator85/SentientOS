@@ -17,6 +17,7 @@ from sentientos.resident_developmental_writeback import (
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
     SelectedEvidence, _has_bounded_integrity_controller_observation, _identity,
     MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES,
+    MAX_COMPLETE_CONSEQUENCE_CYCLE_INPUT_CHARS,
     MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES, MAX_SELECTED_EVIDENCE_BYTES,
     MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES,
     _selected_fact_byte_limit, _writeback_input_limit, measure_changed_cognition,
@@ -182,9 +183,21 @@ def test_receipt_consequence_cycle_requires_valid_lineage_for_expanded_budget() 
          "effect_proven": False, "effect_claimed": False},
     ))
 
+    facts = [{**fact, "fact_id": f"fact-{index}"}
+        for index, fact in enumerate(facts)]
     assert len(facts) == 8
     assert _selected_fact_byte_limit(facts) == (
         MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES)
+    selection = SelectedEvidence("snapshot", "sha256:snapshot", tuple(facts), (), ())
+    assert _writeback_input_limit(selection.facts) == (
+        MAX_COMPLETE_CONSEQUENCE_CYCLE_INPUT_CHARS)
+    fake = FakeInvoker({"interpretation": "A bounded historical pattern.",
+        "uncertainty": "medium"})
+    ResidentDevelopmentalWritebackController.infer_candidate(
+        selection, invoker=fake, correlation_id="consequence-cycle-budget")
+    assert fake.request.budget.max_input_chars == (
+        MAX_COMPLETE_CONSEQUENCE_CYCLE_INPUT_CHARS)
+    assert json.loads(fake.request.prompt)["selection"] == selection.semantic_payload()
     assert MAX_SELECTED_EVIDENCE_BYTES < sum(
         len(json.dumps(fact, sort_keys=True).encode("utf-8")) for fact in facts)
 
@@ -192,6 +205,7 @@ def test_receipt_consequence_cycle_requires_valid_lineage_for_expanded_budget() 
     malformed[3]["payload"]["observation_authentication_receipt"][
         "renderer_report_receipt_identity"]["handoff_id"] = "different-handoff"
     assert _selected_fact_byte_limit(malformed) == MAX_SELECTED_EVIDENCE_BYTES
+    assert _writeback_input_limit(malformed) == 8000
 
 
 def test_objective_task_family_trial_gets_narrow_selected_evidence_and_prompt_budgets():

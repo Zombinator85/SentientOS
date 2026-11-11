@@ -60,6 +60,10 @@ MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES = 12_288
 # scores, and retained per-probe results. Its prompt can exceed the general
 # 8 KB writeback input budget while remaining under its narrowly selected cap.
 MAX_OBJECTIVE_TASK_FAMILY_INPUT_CHARS = 16_384
+# A complete, independently reconciled consequence chain plus proprioception
+# can exceed the ordinary writeback prompt limit. Keep the larger allowance
+# tied to the exact bounded chain shape and below the resident model context.
+MAX_COMPLETE_CONSEQUENCE_CYCLE_INPUT_CHARS = 24_576
 # A single preregistered strategy-quality vector is larger than a general
 # evidence fact but remains bounded to 12 KB and carries no execution claim.
 MAX_STRATEGY_QUALITY_SELECTED_EVIDENCE_BYTES = 12_288
@@ -636,6 +640,9 @@ def _writeback_input_limit(facts: Sequence[Mapping[str, Any]]) -> int:
                 == MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES
             and _is_bounded_objective_task_family_trial(facts[0])):
         return MAX_OBJECTIVE_TASK_FAMILY_INPUT_CHARS
+    if (_selected_fact_byte_limit(facts)
+            == MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES):
+        return MAX_COMPLETE_CONSEQUENCE_CYCLE_INPUT_CHARS
     return (52_000 if _selected_fact_byte_limit(facts) == 48_000 else 8000)
 
 
@@ -2718,8 +2725,20 @@ class ResidentDevelopmentalWritebackController:
             + "Keep provenance and uncertainty attached to each interpretation. For resource evidence, distinguish measured, "
             + "estimated, predicted, and unknown values by their source posture; shared host usage is not invocation attribution. "
             + "Resource expenditure is not inherently good or bad and must not become a reward, penalty, or objective.")
-        request = invoker.build_request(purpose=PURPOSE, prompt=json.dumps({"instruction":instruction,
-            "selection":selection.semantic_payload()}, sort_keys=True), caller=PRINCIPAL, correlation_id=correlation_id, expected_output_format="json", budget=bounded, upstream_evidence={"selection_id":selection.selection_id,"selection_digest":selection.selection_digest,"snapshot_id":selection.snapshot_id,"snapshot_digest":selection.snapshot_digest}, linkage={"transformation":"selected_world_state_to_historical_interpretation"}, structured_output_schema=schema)
+        # Compact JSON preserves every selected fact and provenance field while
+        # reducing token overhead for the larger, authenticated consequence chain.
+        prompt = json.dumps({"instruction":instruction,
+            "selection":selection.semantic_payload()}, sort_keys=True,
+            separators=(",", ":"))
+        request = invoker.build_request(purpose=PURPOSE, prompt=prompt,
+            caller=PRINCIPAL, correlation_id=correlation_id,
+            expected_output_format="json", budget=bounded,
+            upstream_evidence={"selection_id":selection.selection_id,
+                "selection_digest":selection.selection_digest,
+                "snapshot_id":selection.snapshot_id,
+                "snapshot_digest":selection.snapshot_digest},
+            linkage={"transformation":"selected_world_state_to_historical_interpretation"},
+            structured_output_schema=schema)
         # The candidate parser consumes this governed response immediately, and the
         # durable candidate already retains its exact source text and digest.
         # Redacting it here makes every real first-tick writeback unparsable.
