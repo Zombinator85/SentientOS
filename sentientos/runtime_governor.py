@@ -1289,12 +1289,17 @@ class RuntimeGovernor:
         blocks = False
         if not foreground and incomplete:
             reason, blocks = "deferred_resource_telemetry_incomplete", True
+        elif game_pressure:
+            # A verified game-pacing regression is direct evidence that the
+            # interactive workload is already affected.  Local chat is still
+            # optional model inference, so do not let its foreground purpose
+            # bypass this narrower game-priority gate.  This does not grant
+            # authority to inspect or control game processes.
+            reason, blocks = "deferred_local_model_inference_for_game_frame_pressure", True
         elif not foreground and gpu_telemetry_incomplete:
             reason, blocks = "deferred_gpu_offload_telemetry_incomplete", True
         elif not foreground and pressure_reasons:
             reason, blocks = "deferred_background_inference_under_host_pressure", True
-        elif not foreground and game_pressure:
-            reason, blocks = "deferred_background_inference_for_game_frame_pressure", True
         elif not foreground and pressure.composite >= self._pressure_warn:
             reason, blocks = "deferred_background_inference_under_runtime_pressure", True
 

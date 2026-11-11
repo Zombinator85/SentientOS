@@ -107,7 +107,7 @@ def test_game_performance_detector_rejects_wrong_generation_and_stale_sample():
             generation_provider=lambda: generation).receive_once()
 
 
-def test_measured_game_hitches_defer_background_inference_but_not_foreground_chat(
+def test_measured_game_hitches_defer_all_optional_local_inference(
         tmp_path, monkeypatch):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
@@ -126,11 +126,12 @@ def test_measured_game_hitches_defer_background_inference_but_not_foreground_cha
     assert governor.observe_verified_game_performance(observation)
     background = governor.admit_action("local_model_inference", "sentientosd",
         "background-1", {"purpose": "maintenance_summary"})
-    assert background.reason == "deferred_background_inference_for_game_frame_pressure"
+    assert background.reason == "deferred_local_model_inference_for_game_frame_pressure"
     assert background.evidence_refs["game_performance_evidence"]["message_id"] == "d" * 64
     foreground = governor.admit_action("local_model_inference", "sentientosd",
         "foreground-1", {"purpose": "local_user_chat"})
-    assert foreground.reason == "allowed"
+    assert foreground.reason == "deferred_local_model_inference_for_game_frame_pressure"
+    assert foreground.evidence_refs["game_performance_evidence"]["message_id"] == "d" * 64
     recovered_observation = VerifiedGamePerformanceObservation(
         "windows-edge", "edge-generation-1", 5, "1" * 64, "2" * 64,
         datetime.now(timezone.utc).isoformat(), "f" * 64, 16.7, 0, 20.0,
@@ -140,6 +141,9 @@ def test_measured_game_hitches_defer_background_inference_but_not_foreground_cha
         "background-1", {"purpose": "maintenance_summary"})
     assert recovered.reason == "allowed"
     assert recovered.evidence_refs["game_frame_pressure"] is False
+    recovered_chat = governor.admit_action("local_model_inference", "sentientosd",
+        "foreground-1", {"purpose": "local_user_chat"})
+    assert recovered_chat.reason == "allowed"
 
     governor._host_resource_evidence = None
     missing_core = governor.admit_action("local_model_inference", "sentientosd",
