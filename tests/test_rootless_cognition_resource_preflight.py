@@ -44,6 +44,40 @@ assert controller._federation_root == expected / "federation"
     assert completed.returncode == 0, completed.stderr
 
 
+def test_history_decision_probe_requires_matching_retained_event(runner):
+    base = {
+        "record_id": "devrec-" + "a" * 24,
+        "candidate": {"selected_facts": [{
+            "fact_id": "fact-transfer-history",
+            "source": {"kind": "embodiment",
+                "schema_version": "sentientos.embodied_consequence_attribution:v1"},
+            "payload": {"schema_version": "sentientos.embodied_consequence_attribution:v1",
+                "commanded_value": {"pose": "reach",
+                    "task_goal": "reach_marked_target"},
+                "predicted_value": {"pose": "reach"},
+                "independently_observed_value": {"pose": "idle",
+                    "task_goal_met": False},
+            },
+        }]},
+    }
+    ready = runner._history_transfer_probe_readiness(base)
+    assert ready == {
+        "eligible": True,
+        "reason_code": "retained_history_matches_probe_pattern",
+        "record_id": "devrec-" + "a" * 24,
+        "evidence_fact_ids": ["fact-transfer-history"],
+    }
+
+    mismatched = json.loads(json.dumps(base))
+    mismatched["candidate"]["selected_facts"][0]["payload"][
+        "predicted_value"]["pose"] = "idle"
+    rejected = runner._history_transfer_probe_readiness(mismatched)
+    assert rejected["eligible"] is False
+    assert rejected["reason_code"] == (
+        "retained_history_does_not_match_probe_pattern")
+    assert rejected["evidence_fact_ids"] == []
+
+
 def test_objective_transfer_uses_one_matched_current_proprioception_fact(runner):
     snapshot = runner._objective_task_source()
 
