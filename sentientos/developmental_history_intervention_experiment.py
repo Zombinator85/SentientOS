@@ -137,6 +137,7 @@ def verify_protocol(protocol: DevelopmentalHistoryInterventionProtocol) -> None:
     digest = _digest(protocol.semantic_payload())
     if protocol.protocol_digest != digest or protocol.protocol_id != "devexp-protocol-" + digest[7:31]:
         raise DevelopmentalHistoryInterventionError("protocol_digest_mismatch")
+    allowed_orders: tuple[tuple[str, ...], ...]
     if protocol.schema_version == SCHEDULED_HISTORY_SELECTION_SCHEMA:
         allowed_orders = ((history_condition_order_for_trial(
             protocol.condition_order_trial_index),)
