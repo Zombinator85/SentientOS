@@ -233,6 +233,7 @@ def _objective_transfer_eligibility(acquisition_summary: Mapping[str, Any]) -> d
         reason = None
     return {
         "eligible": eligible,
+        "status": "eligible" if eligible else f"skipped_{reason}",
         "reason": reason,
         "accurate_example_count": accurate,
         "required_accurate_example_count": required,
@@ -1712,7 +1713,7 @@ def run() -> dict[str, Any]:
                 }
             else:
                 objective_transfer_history = {
-                    "status": "skipped_insufficient_accurate_acquisition_examples",
+                    "status": transfer_eligibility["status"],
                     "experiment_seed": EXPERIMENT_SEED,
                     "acquisition_task_outcome": acquisition_summary,
                     "transfer_eligibility": transfer_eligibility,

@@ -207,6 +207,8 @@ def test_affine_transfer_requires_two_accurate_acquisition_examples(
         "retained_accurate_example_count": accurate_count,
         "baseline_competence_qualified": baseline_qualified})
     assert eligibility["eligible"] is expected
+    assert eligibility["status"] == (
+        "eligible" if expected else f"skipped_{reason}")
     assert eligibility["accurate_example_count"] == accurate_count
     assert eligibility["required_accurate_example_count"] == 2
     assert eligibility["history_withheld_baseline_competence_qualified"] is baseline_qualified
