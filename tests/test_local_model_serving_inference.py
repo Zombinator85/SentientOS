@@ -337,15 +337,22 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
         return lambda *, observed_at=None: HostCollectorResult(
             collector_id, "available", observed_at or now.isoformat(),
             "synthetic_test_fixture", values=values)
+    gpu_metrics = {"gpu": 94.0, "vram": 91.0}
+
+    def collect_gpu(*, observed_at=None):
+        return HostCollectorResult("nvidia_gpu", "available",
+            observed_at or now.isoformat(), "synthetic_test_fixture",
+            values={"device_count": 1, "devices": [{"index": 0,
+                "gpu_utilization_percent": gpu_metrics["gpu"],
+                "vram_utilization_percent": gpu_metrics["vram"]}]})
+
     host_plan = build_observation_plan(specs=[
         HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
             collector("cpu", utilization_percent=20.0)),
         HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
             collector("memory", used_percent=40.0)),
         HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
-            collector("nvidia_gpu", device_count=1, devices=[{
-                "index": 0, "gpu_utilization_percent": 94.0,
-                "vram_utilization_percent": 91.0}]))
+            collect_gpu)
     ])
     host_resource_owner = HostResourceRuntimeCoordinator(
         kernel=kernel, runtime_state_root=tmp_path / "host-resource",
@@ -354,6 +361,13 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
         monkeypatch, tmp_path, kernel_override=kernel,
         host_resource_observation_owner=host_resource_owner,
         foreground_game_detector=VerifiedGameDetector())
+    original_close = model.close
+
+    def simulated_release() -> None:
+        original_close()
+        gpu_metrics.update(gpu=22.0, vram=47.0)
+
+    model.close = simulated_release
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
 
     gaming_prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
@@ -392,6 +406,15 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
     release = json.loads(release_receipts[0].read_text(encoding="utf-8"))
     assert release["status"] == "worker_closed"
     assert release["resource_observation"]["game_workload_message_id"] == "e" * 64
+    comparison = release["resource_measurement_comparison"]
+    assert comparison["status"] == "comparable"
+    assert comparison["before"]["gpu_telemetry_sources"] == [{
+        "collector_id": "nvidia_gpu", "status": "available",
+        "source": "synthetic_test_fixture"}]
+    assert comparison["gpu_utilization_delta_percentage_points"] == -72.0
+    assert comparison["vram_utilization_delta_percentage_points"] == -44.0
+    assert comparison["interpretation"] == (
+        "sample_delta_only; telemetry_does_not_establish_causation")
     assert release["worker_exit_observed"] is None
     assert release["inference_performed"] is False
     assert release["host_mutation_performed"] is False

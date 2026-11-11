@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import threading
 from pathlib import Path
@@ -140,6 +141,12 @@ class ProductionServingInferenceController:
             "ram_utilization_percent": evaluation.snapshot.ram_utilization_percent,
             "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
             "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
+            "gpu_telemetry_sources": [
+                {"collector_id": result.collector_id, "status": result.status,
+                 "source": result.source[:128]}
+                for result in evaluation.epoch.results
+                if result.collector_id == "nvidia_gpu"
+            ],
             "gpu_telemetry_available": (
                 evaluation.snapshot.gpu_utilization_percent is not None
                 or evaluation.snapshot.vram_utilization_percent is not None),
@@ -350,6 +357,7 @@ class ProductionServingInferenceController:
         close_completed = False
         close_failure: str | None = None
         post_release_observation: dict[str, Any] | None = None
+        resource_measurement_comparison: dict[str, Any] | None = None
         worker_exit_observed: bool | None = None
         if decision_valid:
             try:
@@ -361,10 +369,53 @@ class ProductionServingInferenceController:
                 if close_completed:
                     post_release_observation = self._observe_host_resources(
                         source_correlation + ":resource-release-postflight")
+                    before_gpu = host_release_evidence["gpu_utilization_percent"]
+                    before_vram = host_release_evidence["vram_utilization_percent"]
+                    after_gpu = post_release_observation.get("gpu_utilization_percent")
+                    after_vram = post_release_observation.get("vram_utilization_percent")
+
+                    def finite_percent(value: object) -> float | None:
+                        if (isinstance(value, (int, float)) and not isinstance(value, bool)
+                                and math.isfinite(float(value)) and 0 <= float(value) <= 100):
+                            return float(value)
+                        return None
+
+                    before_gpu_value = finite_percent(before_gpu)
+                    before_vram_value = finite_percent(before_vram)
+                    after_gpu_value = finite_percent(after_gpu)
+                    after_vram_value = finite_percent(after_vram)
+                    gpu_delta = (after_gpu_value - before_gpu_value
+                        if before_gpu_value is not None and after_gpu_value is not None else None)
+                    vram_delta = (after_vram_value - before_vram_value
+                        if before_vram_value is not None and after_vram_value is not None else None)
+                    resource_measurement_comparison = {
+                        "schema_version": "sentientos.resource_measurement_comparison:v1",
+                        "status": ("comparable" if gpu_delta is not None or vram_delta is not None
+                            else "insufficient_gpu_measurements"),
+                        "before": {
+                            "host_report_id": host_release_evidence["host_report_id"],
+                            "observed_at": host_release_evidence["observed_at"],
+                            "gpu_utilization_percent": before_gpu_value,
+                            "vram_utilization_percent": before_vram_value,
+                            "gpu_telemetry_sources": resource_observation.get(
+                                "gpu_telemetry_sources", []),
+                        },
+                        "after": {
+                            "host_report_id": post_release_observation.get("report_id"),
+                            "observed_at": post_release_observation.get("observed_at"),
+                            "gpu_utilization_percent": after_gpu_value,
+                            "vram_utilization_percent": after_vram_value,
+                            "gpu_telemetry_sources": post_release_observation.get(
+                                "gpu_telemetry_sources", []),
+                        },
+                        "gpu_utilization_delta_percentage_points": gpu_delta,
+                        "vram_utilization_delta_percentage_points": vram_delta,
+                        "interpretation": "sample_delta_only; telemetry_does_not_establish_causation",
+                    }
             except Exception as exc:
                 close_failure = type(exc).__name__
         outcome = {
-            "schema_version": "sentientos.production_chat_resource_release_receipt:v1",
+            "schema_version": "sentientos.production_chat_resource_release_receipt:v2",
             "status": ("worker_closed" if close_completed else
                 "release_effect_unconfirmed" if decision_valid else "denied"),
             "source_inference_correlation_id": source_correlation,
@@ -384,6 +435,7 @@ class ProductionServingInferenceController:
             "worker_exit_observed": worker_exit_observed,
             "close_failure": close_failure,
             "post_release_observation": post_release_observation,
+            "resource_measurement_comparison": resource_measurement_comparison,
             "inference_performed": False,
             "host_mutation_performed": False,
         }
