@@ -7692,6 +7692,45 @@ def test_sentientosd_feedback_redacts_resident_cognition_exception_text(tmp_path
         surfaces.governance_feedback())
 
 
+
+def test_sentientosd_recovery_diagnostic_redacts_objective_exception_text(
+        tmp_path: Path) -> None:
+    from types import SimpleNamespace
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCycleResult,
+    )
+
+    state_root = tmp_path / "recovery-state"
+    stage_objective_request(state_root, request_id="safe-recovery-diagnostic",
+        task=ObjectivePredictionTask(3, 2, 7))
+
+    class RecoveryOwner:
+        config = SimpleNamespace(state_root=state_root)
+
+        def objective_request_disposition(self, **_kwargs):
+            return "completed"
+
+        def run_tick(self, *, snapshot, tick_id, **_kwargs):
+            return ResidentDevelopmentalCycleResult(
+                status="completed", tick_id=tick_id, snapshot_id=snapshot.snapshot_id)
+
+        def verified_objective_measurement_for_request(self, **_kwargs):
+            raise RuntimeError("private-objective-diagnostic-must-not-escape")
+
+    tick = "2026-01-04T00:00:00+00:00"
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-safe-recovery",
+        resident_developmental_owner=RecoveryOwner())  # type: ignore[arg-type]
+    surfaces.build_world_state_board(tick_id=tick)
+    feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+
+    summary = feedback["objective_measurement_summary"]
+    assert summary["status"] == "outcome_verification_unavailable"
+    assert summary["reason_code"] == "objective_measurement_verification_unavailable"
+    assert summary["error_class"] == "RuntimeError"
+    assert "private-objective-diagnostic-must-not-escape" not in repr(feedback)
+
+
 def test_sentientosd_consumes_staged_objective_once_without_recurring_owner_config(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
         isolated_governed_runtime_roots: None) -> None:
