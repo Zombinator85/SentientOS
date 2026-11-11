@@ -25,18 +25,20 @@ if str(_repository_root) not in sys.path:
 _workspace = Path(os.environ.get(
     "SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE",
     str(Path.home() / ".local/state/sentientos-hermes-epistemic")))
-_workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
-if _workspace.is_symlink():
-    raise SystemExit("experimental workspace cannot be a symlink")
-os.chmod(_workspace, 0o700)
-for _private_path in (_workspace / "sentientos-data",
-        _workspace / "sentientos-data" / "rootless-experimental"):
-    _private_path.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if _private_path.is_symlink():
-        raise SystemExit("experimental data path cannot be a symlink")
-    os.chmod(_private_path, 0o700)
-if _workspace.stat().st_mode & 0o077:
-    raise SystemExit("experimental workspace must be private (mode 0700)")
+_help_requested = any(argument in {"-h", "--help"} for argument in sys.argv[1:])
+if not _help_requested:
+    _workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if _workspace.is_symlink():
+        raise SystemExit("experimental workspace cannot be a symlink")
+    os.chmod(_workspace, 0o700)
+    for _private_path in (_workspace / "sentientos-data",
+            _workspace / "sentientos-data" / "rootless-experimental"):
+        _private_path.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if _private_path.is_symlink():
+            raise SystemExit("experimental data path cannot be a symlink")
+        os.chmod(_private_path, 0o700)
+    if _workspace.stat().st_mode & 0o077:
+        raise SystemExit("experimental workspace must be private (mode 0700)")
 os.environ["SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE"] = str(_workspace)
 
 from sentientos.codex_task_authority_admission import (
