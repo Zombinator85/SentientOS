@@ -34,7 +34,9 @@ from .governed_local_model_invocation import (
 )
 from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
-    CONDITION_ORDER,
+    CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER,
+    COUNTERBALANCED_HISTORY_SELECTION_SCHEMA, SCHEDULED_HISTORY_SELECTION_SCHEMA,
+    history_condition_order_for_trial,
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
     HISTORY_SELECTION_SCHEMA, OBJECTIVE_HISTORY_SELECTION_SCHEMA,
     OBJECTIVE_SCHEMA, OBJECTIVE_SCHEMAS, make_protocol, objective_task_contamination_assessment, summarize,
@@ -129,7 +131,12 @@ def _parse_companion_interaction_output(text: str,
         ) -> Mapping[str, Any]:
     if not isinstance(text, str) or not text or len(text.encode("utf-8")) > 4096:
         raise ValueError("companion_interaction_output_unbounded")
-    value = json.loads(text, object_pairs_hook=_unique_json_object)
+    try:
+        value = json.loads(text, object_pairs_hook=_unique_json_object)
+    except json.JSONDecodeError:
+        # Keep failure artifacts diagnostically useful without retaining the
+        # malformed model response in the exception chain.
+        raise ValueError("companion_interaction_output_json_invalid") from None
     if (not isinstance(value, dict)
             or set(value) != {"disposition", "response", "evidence_ids",
                 "history_record_ids"}
@@ -318,6 +325,15 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "never infer per-invocation CPU, GPU, energy, or token measurements from shared host use, call counts, output size, "
     "or latency."
 )
+EPISTEMIC_REVISION_PROBE_INSTRUCTION = (
+    " For this probe, report the current stored epistemic stance for the sole proposition in "
+    "prior_epistemic_state. Inspect its active_evidence_bindings and update history; do not merely "
+    "copy the prior stance, and do not treat that stance as truth or evidence. If no relevant evidence "
+    "or update has changed, preserve the recorded stance rather than inventing a conflict from limited "
+    "corroboration alone. Removed evidence is historical, not active. When active supporting and "
+    "contradicting bindings both remain unresolved, report contested and cite every relevant binding "
+    "from both sides. Insufficient independent corroboration is not itself contradictory evidence."
+)
 SELF_MODEL_QUALIFIER_INSTRUCTION = (
     " Treat every prior self-model claim's category, lifecycle stage, temporal scope, status, freshness, "
     "source observation-time metadata, current_truth, interpretation, and authority map as binding qualifiers. "
@@ -341,6 +357,10 @@ MAX_OBJECTIVE_REQUEST_BYTES = 16_384
 MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES = 1024
 class ResidentDevelopmentalCognitionError(ValueError):
     """Fail-closed composition/configuration violation."""
+
+    def __init__(self, message: str, *, diagnostic: Mapping[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.diagnostic = dict(diagnostic) if isinstance(diagnostic, Mapping) else None
 
 
 class _EpistemicRevisionProbePromptPreview(Exception):
@@ -1951,11 +1971,17 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
             continue
         schema = payload.get("schema_version") or payload.get("observation_schema") or source.get("schema_version")
         renderer_report = payload.get("renderer_report")
+        renderer_schemas = (
+            "sentientos.avatar_renderer_report:v1",
+            "sentientos.avatar_renderer_report:v2")
         if (isinstance(renderer_report, Mapping)
-                and renderer_report.get("schema_version") in (
-                    "sentientos.avatar_renderer_report:v1",
-                    "sentientos.avatar_renderer_report:v2")):
+                and renderer_report.get("schema_version") in renderer_schemas):
             schema = renderer_report.get("schema_version")
+        elif schema in renderer_schemas:
+            # World-State renderer-report facts store the report body directly
+            # as their payload; consequence-attribution facts may nest it.
+            renderer_report = payload
+        values: dict[str, Any] = {}
         fields: tuple[str, ...]
         roles: dict[str, Any] = {}
         if schema == "sentientos.embodied_consequence_attribution:v1":
@@ -1967,6 +1993,66 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
             fields = ("requested_pose", "encoder_pose", "joint_state",
                 "evidence_posture", "observer_issuer_posture",
                 "declared_provenance_class", "declared_source_freshness", "sampled_at")
+        elif schema == "sentientos.embodied_action_expectation:v1":
+            fields = ("expectation_id", "handoff_id", "requested",
+                "predicted_observables", "observable_fields",
+                "expected_observation_source_class")
+        elif schema == "sentientos.avatar_renderer_handoff:v1":
+            fields = ("handoff_id", "requested_test_pose",
+                "requested_test_expression", "renderer_reported",
+                "independently_observed")
+        elif schema == "sentientos.avatar_independent_observation:v1":
+            fields = ("observation_id", "expectation_id", "handoff_id",
+                "observed", "confidence", "observation_source_class",
+                "posture", "quality", "observed_at", "observer_id")
+        elif schema == "sentientos.embodied_prediction_comparison:v1":
+            fields = ("comparison_id", "counts", "observable_results",
+                "universal_numeric_loss")
+        elif schema == "sentientos.embodied_consequence_chain:v1":
+            fields = ("chain_id", "component_source_ids",
+                "component_record_digests", "event_times",
+                "independent_observation_posture", "effect_proven")
+        elif schema == "sentientos.developmental_history_intervention_run:v2":
+            fields = ()
+            run_summary = payload.get("history_intervention_summary")
+            summary = run_summary if isinstance(run_summary, Mapping) else {}
+            objective = payload.get("objective_evaluation")
+            objective = objective if isinstance(objective, Mapping) else {}
+            roles = {"history_intervention_result": {
+                "classification": summary.get("classification"),
+                "present_vs_withheld_difference_observed": summary.get(
+                    "present_vs_withheld_difference_observed"),
+                "restored_vs_withheld_difference_observed": summary.get(
+                    "restored_vs_withheld_difference_observed"),
+                "restored_matches_present": summary.get("restored_matches_present"),
+                "present_restoration_stable": summary.get("present_restoration_stable"),
+                "claims_posture": summary.get("claims_posture"),
+                "measurement_ids": [item.get("measurement_id")
+                    for item in summary.get("measurements", ())
+                    if isinstance(item, Mapping)][:4],
+                "conditions": [{key: condition.get(key) for key in (
+                    "condition_id", "observation_digest", "output_digest",
+                    "inference_receipt_id", "inference_receipt_digest",
+                    "retrieved_record_ids", "retrieved_record_digests")}
+                    for condition in payload.get("conditions", ())
+                    if isinstance(condition, Mapping)][:5],
+                "objective_evaluation": {key: objective.get(key) for key in (
+                    "assessment", "condition_correct_counts",
+                    "history_correct_probe_delta", "restoration_correct_probe_delta",
+                    "history_accuracy_delta", "restoration_correctness_stable",
+                    "probe_count", "scope", "model_behavior_posture")},
+                "objective_task_family": payload.get("objective_task_family"),
+                "objective_task_commitment_posture": payload.get(
+                    "objective_task_commitment_posture"),
+                "acquisition_examples": [dict(item) for item in
+                    payload.get("acquisition_examples", ())
+                    if isinstance(item, Mapping)][:8],
+                "execution_evidence_posture": payload.get(
+                    "execution_evidence_posture"),
+                "independent_backend_observation": payload.get(
+                    "independent_backend_observation"),
+                "learning_established": payload.get("learning_established"),
+            }}
         elif schema in ("sentientos.avatar_renderer_report:v1",
                 "sentientos.avatar_renderer_report:v2"):
             # Renderer reports are useful historical embodiment context, but
@@ -2038,7 +2124,6 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
         else:
             continue
         if fields:
-            values = {}
             for key in fields:
                 value = payload.get(key)
                 if value is None or isinstance(value, (str, bool, int, float)):
@@ -2047,6 +2132,14 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
                         and all(isinstance(child, (str, bool, int, float)) or child is None
                             for child in value.values())):
                     values[key] = dict(value)
+                elif (isinstance(value, (list, tuple)) and len(value) <= 8
+                        and all(isinstance(item, (str, bool, int, float)) or item is None
+                            or (isinstance(item, Mapping) and len(item) <= 8
+                                and all(isinstance(child, (str, bool, int, float))
+                                    or child is None for child in item.values()))
+                            for item in value)):
+                    values[key] = [dict(item) if isinstance(item, Mapping) else item
+                        for item in value]
             if schema == "sentientos.embodied_consequence_attribution:v1":
                 roles = {
                     "commanded_request": values.get("commanded_value"),
@@ -2062,9 +2155,27 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
                     "joint_state": values.get("joint_state"),
                     "evidence_posture": values.get("evidence_posture"),
                     "issuer_posture": values.get("observer_issuer_posture")}}
+            elif schema == "sentientos.embodied_prediction_comparison:v1":
+                roles = {"prediction_comparison_results": values.get(
+                    "observable_results"),
+                    "comparison_counts": values.get("counts")}
+            elif schema == "sentientos.avatar_independent_observation:v1":
+                roles = {"observer_report": {
+                    key: values.get(key) for key in ("observed", "confidence",
+                        "observation_source_class", "posture", "quality",
+                        "observer_id", "expectation_id", "handoff_id")}}
+            elif schema == "sentientos.embodied_action_expectation:v1":
+                roles = {"action_expectation": values}
+            elif schema == "sentientos.avatar_renderer_handoff:v1":
+                roles = {"renderer_handoff": values}
+            elif schema == "sentientos.embodied_consequence_chain:v1":
+                roles = {"consequence_chain": values}
         if compact_for_input_budget:
             summaries.append({
                 "fact_id": fact.get("fact_id"),
+                "source_id": source.get("source_id"),
+                "source_digest": source.get("digest"),
+                "subject_kind": subject.get("subject_kind"),
                 "source_schema_version": schema,
                 "stage": fact.get("stage"),
                 "disposition": fact.get("disposition"),
@@ -2101,6 +2212,7 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
 def _history_context_packet(record: Mapping[str, Any], *,
         include_source_evidence_context: bool = True,
         compact_for_input_budget: bool = False,
+        omit_historical_embodiment_details: bool = False,
         task_family_id: str | None = None,
         target_model_identity: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Project a verified durable record to the bounded semantics cognition needs.
@@ -2119,21 +2231,45 @@ def _history_context_packet(record: Mapping[str, Any], *,
     if not all(isinstance(value, str) and value for value in
             (record_id, record_digest, candidate_id, candidate_digest)):
         raise ResidentDevelopmentalCognitionError("developmental_history_identity_invalid")
+    task_family_scoped = isinstance(task_family_id, str) and bool(task_family_id)
     packet: dict[str, Any] = {
         "record_id": record_id, "record_digest": record_digest,
         "candidate_id": candidate_id, "candidate_digest": candidate_digest,
-        "interpretation": candidate.get("interpretation"),
-        "uncertainty": candidate.get("uncertainty"),
-        "epistemic_status": candidate.get("epistemic_status"),
-        "selected_fact_ids": list(candidate.get("selected_fact_ids", ()))[:MAX_FACTS],
         "created_at": record.get("created_at"),
         "epistemic_posture": record.get("epistemic_posture"),
         "current_truth": False, "authority": False, "policy": False,
     }
-    embodiment_context = _historical_embodiment_evidence_context(candidate,
-        compact_for_input_budget=compact_for_input_budget)
+    if task_family_scoped:
+        # A developmental record can combine a general interpretation with
+        # typed evidence from several tasks. Replaying that unscoped narrative
+        # beside task-family examples can contaminate transfer (for example,
+        # a prior interpretation may describe a different numeric rule). Keep
+        # only the exact score-bound examples projected below.
+        interpretation = candidate.get("interpretation")
+        packet.update({
+            "task_family_scope": task_family_id,
+            "task_family_scope_posture": "matching_score_bound_examples_only",
+            "unscoped_interpretation_omitted": True,
+            "selected_fact_ids": [],
+        })
+    else:
+        packet.update({
+            "interpretation": candidate.get("interpretation"),
+            "uncertainty": candidate.get("uncertainty"),
+            "epistemic_status": candidate.get("epistemic_status"),
+            "selected_fact_ids": list(candidate.get("selected_fact_ids", ()))[:MAX_FACTS],
+        })
+    embodiment_context = ([] if task_family_scoped else
+        _historical_embodiment_evidence_context(candidate,
+            compact_for_input_budget=compact_for_input_budget))
     if embodiment_context:
-        packet["historical_embodiment_reports"] = embodiment_context
+        if omit_historical_embodiment_details:
+            packet["historical_embodiment_reports_digest"] = _digest(embodiment_context)
+            packet["historical_embodiment_report_count"] = len(embodiment_context)
+            packet["historical_embodiment_reports_posture"] = (
+                "details_omitted_for_cognition_input_budget")
+        else:
+            packet["historical_embodiment_reports"] = embodiment_context
     task_examples = _task_family_history_examples(candidate,
         task_family_id=task_family_id)
     if task_examples:
@@ -2145,6 +2281,10 @@ def _history_context_packet(record: Mapping[str, Any], *,
         omitted = [item for item in task_examples
             if item.get("model_identity_relation") != "same_active_model_identity"]
         if eligible:
+            if task_family_scoped:
+                packet["selected_fact_ids"] = sorted({
+                    str(item["source_fact_id"]) for item in eligible
+                    if isinstance(item.get("source_fact_id"), str)})
             packet["task_relevant_experience"] = (
                 [_compact_task_family_history_example(item) for item in eligible]
                 if compact_for_input_budget else eligible)
@@ -2180,7 +2320,8 @@ def _history_context_packet(record: Mapping[str, Any], *,
             packet["interpretation"] = interpretation[:1200]
             packet["interpretation_full_digest"] = _digest(interpretation)
             packet["interpretation_omitted_characters"] = len(interpretation) - 1200
-    security_contexts = _historical_security_evidence_context(candidate)
+    security_contexts = ([] if task_family_scoped else
+        _historical_security_evidence_context(candidate))
     if security_contexts:
         if include_source_evidence_context:
             selected_contexts = security_contexts[:MAX_HISTORY_SECURITY_EVIDENCE_FACTS]
@@ -2197,7 +2338,7 @@ def _history_context_packet(record: Mapping[str, Any], *,
             packet["source_evidence_context_omitted_digest"] = _digest(security_contexts)
             packet["source_evidence_context_posture"] = "omitted_for_cognition_input_budget"
     sources = candidate.get("selected_sources", ())
-    if isinstance(sources, (list, tuple)):
+    if not task_family_scoped and isinstance(sources, (list, tuple)):
         if compact_for_input_budget:
             packet["source_bindings_digest"] = _digest(list(sources))
             packet["source_binding_count"] = len(sources)
@@ -2206,7 +2347,8 @@ def _history_context_packet(record: Mapping[str, Any], *,
                 {key: source.get(key) for key in ("source_id", "kind", "digest")}
                 for source in sources[:MAX_FACTS] if isinstance(source, Mapping)
             ]
-    provenance = candidate.get("transformation_provenance")
+    provenance = (None if task_family_scoped else
+        candidate.get("transformation_provenance"))
     if isinstance(provenance, Mapping):
         packet["provenance_kind"] = provenance.get("kind")
         lesson = provenance.get("lesson_candidate")
@@ -2232,17 +2374,25 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
     """Fit whole recent history packets and epistemic packets to one input bound."""
     if max_input_chars is None:
         max_input_chars = MAX_RESIDENT_COGNITION_INPUT_CHARS
-    packet_modes = (((False, True),) if compact_history_for_input else
-        ((True, False), (False, False), (False, True)))
+    packet_modes = (((False, True, False), (False, True, True))
+        if compact_history_for_input else
+        ((True, False, False), (False, False, False),
+            (False, True, False), (False, True, True)))
     task_family_id = context.get("developmental_history_task_family_id")
+    task_family_history_required = (
+        context.get("developmental_history_task_family_history_required", True) is True)
+    scoped_task_family_id = (task_family_id if task_family_history_required
+        and isinstance(task_family_id, str) else None)
     target_model_identity = context.get("developmental_history_target_model_identity")
     if not isinstance(target_model_identity, Mapping):
         target_model_identity = None
     packets_by_mode = {mode: tuple(_history_context_packet(record,
         include_source_evidence_context=mode[0], compact_for_input_budget=mode[1],
-        task_family_id=task_family_id if isinstance(task_family_id, str) else None,
+        omit_historical_embodiment_details=mode[2],
+        task_family_id=scoped_task_family_id,
         target_model_identity=target_model_identity)
         for record in records) for mode in packet_modes}
+    budget_attempts: list[dict[str, Any]] = []
     full_packets = packets_by_mode[packet_modes[0]]
     available = tuple({"record_id": packet["record_id"],
         "record_digest": packet["record_digest"]} for packet in full_packets)
@@ -2317,6 +2467,15 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
             except ResidentDevelopmentalCognitionError as exc:
                 if str(exc) != "cognition_input_budget_exceeded":
                     raise
+                if len(budget_attempts) < 32:
+                    attempt = dict(getattr(exc, "diagnostic", {}) or {})
+                    attempt.update({"history_record_count": count,
+                        "history_packet_mode": (
+                            "compact_refs_only" if mode[2] else
+                            "source_and_full" if mode == (True, False, False) else
+                            "full" if mode == (False, False, False) else
+                            "compact" if mode == (False, True, False) else "unknown")})
+                    budget_attempts.append(attempt)
                 continue
             # Do not let newly enriched task/resource history silently consume
             # the entire semantic epistemic allowance. Try a shorter or more
@@ -2330,8 +2489,12 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
             digests = tuple(str(item["record_digest"]) for item in selected_refs)
             metadata = {**metadata,
                 "developmental_history_selection": custody_selection}
+            if not ids and budget_attempts:
+                metadata["developmental_history_context_budget_attempts"] = budget_attempts
             return bound, metadata, prompt, ids, digests
-    raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
+    raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded",
+        diagnostic={"max_input_chars": max_input_chars,
+            "history_context_budget_attempts": budget_attempts})
 
 
 def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
@@ -2411,7 +2574,8 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                 **dict(probe), "allowed_evidence_binding_ids": []}
         prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
         if len(prompt) > max_input_chars:
-            raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
+            raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded",
+                diagnostic={"prompt_chars": len(prompt), "max_input_chars": max_input_chars})
         metadata: dict[str, Any] = {"epistemic_projection_schema": None,
             "epistemic_semantic_status": "not_present", "epistemic_owner_packet_count": 0,
             "epistemic_consumed_packet_ids": [], "epistemic_consumed_packet_digests": [],
@@ -2447,7 +2611,8 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                 **dict(probe), "allowed_evidence_binding_ids": []}
         prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
         if len(prompt) > max_input_chars:
-            raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
+            raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded",
+                diagnostic={"prompt_chars": len(prompt), "max_input_chars": max_input_chars})
         metadata = {"epistemic_projection_schema": "identifier_only_v1",
             "epistemic_semantic_status": "canonical_definition_unavailable",
             "epistemic_owner_packet_count": 0,
@@ -2483,6 +2648,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         "state_id": packet["state"]["state_id"],
         "reason": "inference_input_budget"} for packet in packets)
     selected_count = -1
+    largest_candidate_chars = 0
     selected_value: dict[str, Any] | None = None
     selected_omissions: tuple[Mapping[str, Any], ...] = ()
     for count in range(len(packets), -1, -1):
@@ -2530,11 +2696,14 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                 **dict(probe),
                 "allowed_evidence_binding_ids": sorted(visible_binding_ids)}
         candidate_prompt = json.dumps(candidate, sort_keys=True, separators=(",", ":"))
+        largest_candidate_chars = max(largest_candidate_chars, len(candidate_prompt))
         if len(candidate_prompt) <= max_input_chars:
             selected_count, selected_value, selected_omissions = count, candidate, omitted
             break
     if selected_value is None or selected_count < 0:
-        raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
+        raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded",
+            diagnostic={"largest_candidate_chars": largest_candidate_chars,
+                "max_input_chars": max_input_chars})
     prior_context = selected_value["prior_epistemic_state"]
     consumed_packets = packets[:selected_count]
     consumed_ids = [str(packet["packet_id"]) for packet in consumed_packets]
@@ -2812,6 +2981,57 @@ class CurrentWorldStateCognitiveProjection:
     def semantic_payload(self) -> dict[str, Any]:
         value = asdict(self); value.pop("projection_id"); value.pop("projection_digest"); return value
 
+
+def _current_evidence_prompt_payload(
+        current: CurrentWorldStateCognitiveProjection) -> dict[str, Any]:
+    """Project known embodiment facts without repeating their custody envelopes.
+
+    The exact projection digest and every fact/source identity remain in the prompt
+    and invocation receipt. Unknown schemas and conflicts retain their full form,
+    so compaction cannot silently discard evidence the projection owner cannot type.
+    """
+    full = current.semantic_payload()
+    encoded_full = json.dumps(full, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False)
+    if current.conflicts or len(encoded_full) <= 12_000:
+        return full
+    candidate = {"selected_fact_ids": list(current.fact_ids),
+        "selected_facts": [dict(fact) for fact in current.facts]}
+    summaries = _historical_embodiment_evidence_context(candidate,
+        compact_for_input_budget=True)
+    if len(summaries) != len(current.facts):
+        return full
+    fact_row_fields = ("fact_id", "source_id", "source_schema_version", "stage",
+        "disposition", "evidence_strength", "effect_proven", "observed_at",
+        "reported_values")
+    current_summaries: list[list[Any]] = []
+    for summary in summaries:
+        # The exact projection digest commits every original fact and source,
+        # including per-source digests. A declared row schema avoids repeating
+        # field names while retaining every fact's typed evidence and linkage.
+        current_summaries.append([summary.get(key) for key in fact_row_fields])
+    return {
+        "schema_version": "sentientos.current_world_state_cognitive_projection_summary:v3",
+        "fact_row_schema": "sentientos.current_world_state_fact_row:v1",
+        "fact_row_fields": list(fact_row_fields),
+        "projection_id": current.projection_id,
+        "projection_digest": current.projection_digest,
+        "snapshot_id": current.snapshot_id,
+        "snapshot_digest": current.snapshot_digest,
+        "selection_policy": current.selection_policy,
+        "fact_ids": list(current.fact_ids),
+        "facts": current_summaries,
+        "source_count": len(current.sources),
+        "sources_digest": _digest(list(current.sources)),
+        "conflict_count": 0,
+        "conflicts_digest": _digest([]),
+        "read_only": True, "evidence_only": True,
+        "evidence_posture": {"current_observation": True,
+            "historical_only": False, "current_truth": False, "authority": False,
+            "policy": False, "goal": False,
+            "canonical_explicit_user_retention": False},
+        "projection_posture": "typed_bounded_view_bound_to_exact_projection_digest",
+    }
 
 @dataclass(frozen=True)
 class ResidentDevelopmentalCycleResult:
@@ -5151,6 +5371,26 @@ class ResidentDevelopmentalCognitionOwner:
             and fact.evidence_strength == "phase_chain_with_terminal_receipt"
             and fact.effect_claimed is False and fact.effect_proven is False
         )
+        codex_healer_recovery_observation = (
+            source_kind == "runtime_supervisor"
+            and subject_kind == "codex_healer_recovery_event"
+            and fact.stage == "observation" and fact.disposition == "recorded"
+            and fact.source.staleness == "fresh"
+            and isinstance(payload.get("event_digest"), str)
+            and len(payload["event_digest"]) == 64
+            and all(character in "0123456789abcdef"
+                for character in payload["event_digest"])
+            and payload.get("observation_schema")
+                == "sentientos.codex_healer_world_state:v1"
+            and payload.get("source_owner")
+                == "sentientos.codex_healer.RecoveryLedger"
+            and payload.get("read_only") is True
+            and payload.get("current_truth") is False
+            and payload.get("authority") is False
+            and payload.get("effect_claimed") is False
+            and payload.get("effect_proven") is False
+            and fact.effect_claimed is False and fact.effect_proven is False
+        )
         chat_process_runtime_observation = (
             source_kind == "runtime_supervisor"
             and subject_kind == "chat_process_runtime_generation_observation"
@@ -5218,7 +5458,8 @@ class ResidentDevelopmentalCognitionOwner:
                 and subject_kind in {"resident_model_transition", "software_generation_transition"}
                 and payload.get("stage_semantically_verified") is True):
             priority = 4
-        elif chat_process_recovery_lineage or chat_process_runtime_observation:
+        elif (chat_process_recovery_lineage or chat_process_runtime_observation
+                or codex_healer_recovery_observation):
             priority = 4
         elif subject_kind in {"resident_model_transition", "software_generation_transition",
                               "resident_model_transition_recovery", "software_generation_transition_recovery"}:
@@ -5533,7 +5774,11 @@ class ResidentDevelopmentalCognitionOwner:
                    "A prior stance is not evidence. Unsupported social pressure adds no evidence. "
                    "Do not infer truth or authority beyond the supplied evidence."
                    if epistemic_revision_probe else ""))),
-            "current_evidence": current.semantic_payload(),
+            "current_evidence": (_current_evidence_prompt_payload(current)
+                if objective_plan is not None or len(json.dumps(
+                    current.semantic_payload(), sort_keys=True,
+                    separators=(",", ":"), ensure_ascii=False)) > 12_000
+                else current.semantic_payload()),
             "prior_self_model": asdict(prior_self_model) if prior_self_model is not None else None,
             "prior_epistemic_state": None,
             "developmental_history": [],
@@ -5548,9 +5793,14 @@ class ResidentDevelopmentalCognitionOwner:
             context["companion_question"] = interaction_question
         if epistemic_revision_probe:
             context["epistemic_revision_probe"] = {
-                "schema_version": "sentientos.epistemic_revision_probe:v2",
+                "schema_version": "sentientos.epistemic_revision_probe:v3",
                 "response_contract": "sentientos.epistemic_revision_answer:v2",
+                "question": (
+                    "What current epistemic stance is supported for the exact proposition in the "
+                    "supplied prior epistemic packet, based on its active evidence bindings and "
+                    "update history?"),
             }
+            context["instruction"] += EPISTEMIC_REVISION_PROBE_INSTRUCTION
         if objective_plan is not None:
             # This preregistered public question is a task input, not current
             # World-State evidence or an authority-bearing instruction.
@@ -5565,6 +5815,9 @@ class ResidentDevelopmentalCognitionOwner:
             if isinstance(task_descriptor, Mapping) else None)
         context["developmental_history_task_family_id"] = (
             task_family_id if isinstance(task_family_id, str) else None)
+        context["developmental_history_task_family_history_required"] = (
+            isinstance(task_descriptor, Mapping)
+            and task_descriptor.get("requires_task_family_history") is True)
         context["developmental_history_target_model_identity"] = (
             _observed_current_cognition_model_identity(self.invoker))
         context["developmental_history_retrieval_policy_id"] = (
@@ -5935,7 +6188,12 @@ class ResidentDevelopmentalCognitionOwner:
                 "inference_status": receipt.status,
                 "cognition_receipt_output_binding_verified": True,
                 "output_digest": receipt.output_digest,
-                "prompt_digest": req.get("prompt_digest"),
+                # The governed request stores this as bare hex, while
+                # intervention qualification uses the canonical sha256: form.
+                # Bind the capture to the already receipt-verified observation
+                # digest rather than persisting a second, differently shaped
+                # representation of the same prompt identity.
+                "prompt_digest": observation.epistemic_prompt_digest,
                 "generation_config": dict(receipt.generation_config),
                 "active_model_identity": dict(req.get("active_model_identity", {})),
                 "snapshot_id": snapshot.snapshot_id,
@@ -6097,7 +6355,9 @@ class ResidentDevelopmentalCognitionOwner:
             tick_id: str, question: str,
             prior_self_model: CognitiveSelfModelProjection | None = None,
             prior_epistemic_state: EpistemicCognitiveProjection | None = None,
-            history_record_allowlist: tuple[str, ...] | None = None
+            history_record_allowlist: tuple[str, ...] | None = None,
+            condition_order: tuple[str, ...] | None = None,
+            trial_index: int | None = None
             ) -> ResidentCompanionHistoryInterventionResult:
         """Compare one bounded companion decision with history present, withheld, restored.
 
@@ -6106,6 +6366,15 @@ class ResidentDevelopmentalCognitionOwner:
         cognition observations; it grants no action authority and does not
         write developmental history from the companion response.
         """
+        if trial_index is not None:
+            if (type(trial_index) is not int or trial_index < 0
+                    or condition_order is not None):
+                raise ResidentDevelopmentalCognitionError(
+                    "companion_history_intervention_condition_order_invalid")
+            effective_condition_order = history_condition_order_for_trial(trial_index)
+        else:
+            effective_condition_order = (
+                CONDITION_ORDER if condition_order is None else condition_order)
         if (not self.config.enabled or not self.config.comparison_enabled
                 or self.objective_task is not None
                 or not isinstance(tick_id, str) or not tick_id.strip()
@@ -6113,6 +6382,9 @@ class ResidentDevelopmentalCognitionOwner:
                 or not isinstance(question, str) or not question.strip()
                 or len(question) > 1200
                 or not validate_snapshot(snapshot).valid
+                or type(effective_condition_order) is not tuple
+                or effective_condition_order not in (
+                    CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER)
                 or (prior_self_model is not None
                     and not isinstance(prior_self_model, CognitiveSelfModelProjection))
                 or (prior_epistemic_state is not None
@@ -6150,7 +6422,9 @@ class ResidentDevelopmentalCognitionOwner:
             objective_request_digest=None,
             companion_intervention_question=question,
             companion_intervention_captures=captures,
-            companion_intervention_record_allowlist=history_record_allowlist)
+            companion_intervention_record_allowlist=history_record_allowlist,
+            companion_intervention_condition_order=effective_condition_order,
+            companion_intervention_trial_index=trial_index)
         if (cycle.status != "companion_history_intervention_completed"
                 or cycle.changed_cognition_measurement_id is None
                 or len(captures) != 3):
@@ -6173,7 +6447,7 @@ class ResidentDevelopmentalCognitionOwner:
                 else "no_observable_response_text_difference")
         else:
             response_classification = (
-                "unstable_or_order_sensitive_response_text")
+                "history_restoration_unstable_response_text")
         return ResidentCompanionHistoryInterventionResult(
             status="completed_controlled_intervention", tick_id=tick_id,
             snapshot_id=snapshot.snapshot_id,
@@ -6303,7 +6577,9 @@ class ResidentDevelopmentalCognitionOwner:
                  epistemic_revision_probe_expected_prompt_digest: str | None = None,
                  companion_intervention_question: str | None = None,
                  companion_intervention_captures: list[dict[str, Any]] | None = None,
-                 companion_intervention_record_allowlist: tuple[str, ...] | None = None
+                 companion_intervention_record_allowlist: tuple[str, ...] | None = None,
+                 companion_intervention_condition_order: tuple[str, ...] | None = None,
+                 companion_intervention_trial_index: int | None = None
                  ) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
@@ -6319,7 +6595,11 @@ class ResidentDevelopmentalCognitionOwner:
                 companion_intervention_question=companion_intervention_question,
                 companion_intervention_captures=companion_intervention_captures,
                 companion_intervention_record_allowlist=(
-                    companion_intervention_record_allowlist))
+                    companion_intervention_record_allowlist),
+                companion_intervention_condition_order=(
+                    companion_intervention_condition_order),
+                companion_intervention_trial_index=(
+                    companion_intervention_trial_index))
         with self._composition_lock():
             return self._run_tick_locked(snapshot=snapshot, tick_id=tick_id,
                 prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
@@ -6332,7 +6612,11 @@ class ResidentDevelopmentalCognitionOwner:
                 companion_intervention_question=companion_intervention_question,
                 companion_intervention_captures=companion_intervention_captures,
                 companion_intervention_record_allowlist=(
-                    companion_intervention_record_allowlist))
+                    companion_intervention_record_allowlist),
+                companion_intervention_condition_order=(
+                    companion_intervention_condition_order),
+                companion_intervention_trial_index=(
+                    companion_intervention_trial_index))
 
     def _run_tick_locked(self, *, snapshot: WorldStateSnapshot, tick_id: str,
                  prior_self_model: CognitiveSelfModelProjection | None = None,
@@ -6344,7 +6628,9 @@ class ResidentDevelopmentalCognitionOwner:
                  epistemic_revision_probe_expected_prompt_digest: str | None = None,
                  companion_intervention_question: str | None = None,
                  companion_intervention_captures: list[dict[str, Any]] | None = None,
-                 companion_intervention_record_allowlist: tuple[str, ...] | None = None
+                 companion_intervention_record_allowlist: tuple[str, ...] | None = None,
+                 companion_intervention_condition_order: tuple[str, ...] | None = None,
+                 companion_intervention_trial_index: int | None = None
                  ) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
@@ -6358,6 +6644,15 @@ class ResidentDevelopmentalCognitionOwner:
         if companion_intervention_question is not None:
             if (not self.config.comparison_enabled or objective_task is not None
                     or objective_only
+                    or type(companion_intervention_condition_order) is not tuple
+                    or companion_intervention_condition_order not in (
+                        CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER)
+                    or (companion_intervention_trial_index is not None
+                        and (type(companion_intervention_trial_index) is not int
+                            or companion_intervention_trial_index < 0
+                            or companion_intervention_condition_order
+                                != history_condition_order_for_trial(
+                                    companion_intervention_trial_index)))
                     or not isinstance(companion_intervention_question, str)
                     or not companion_intervention_question.strip()
                     or len(companion_intervention_question) > 1200
@@ -6366,7 +6661,9 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError(
                     "companion_history_intervention_configuration_invalid")
         elif (companion_intervention_captures is not None
-                or companion_intervention_record_allowlist is not None):
+                or companion_intervention_record_allowlist is not None
+                or companion_intervention_condition_order is not None
+                or companion_intervention_trial_index is not None):
             raise ResidentDevelopmentalCognitionError(
                 "companion_history_intervention_capture_invalid")
         self._pending_cognition_candidates.clear()
@@ -6485,13 +6782,21 @@ class ResidentDevelopmentalCognitionOwner:
                     _observed_current_cognition_model_identity(self.invoker))
                 preflight_context: dict[str, Any] = {
                     "instruction": EXPERIMENT_CONTEXT_INSTRUCTION,
-                    "current_evidence": current.semantic_payload(),
+                    "current_evidence": (_current_evidence_prompt_payload(current)
+                        if objective_task is not None or len(json.dumps(
+                            current.semantic_payload(), sort_keys=True,
+                            separators=(",", ":"), ensure_ascii=False)) > 12_000
+                        else current.semantic_payload()),
                     "prior_self_model": asdict(prior_self_model)
                         if prior_self_model is not None else None,
                     "prior_epistemic_state": None,
                     "developmental_history": [],
                     "developmental_history_posture": "historical_interpretation_not_current_truth",
                     "developmental_history_task_family_id": family_for_preflight,
+                    "developmental_history_task_family_history_required": (
+                        isinstance(task_descriptor_for_preflight, Mapping)
+                        and task_descriptor_for_preflight.get(
+                            "requires_task_family_history") is True),
                     "developmental_history_target_model_identity": preflight_target_model_identity,
                     "developmental_history_retrieval_policy_id": (
                         "task_family_probe_overlap_then_recency_fill:v2"
@@ -6527,7 +6832,12 @@ class ResidentDevelopmentalCognitionOwner:
                     raise ResidentDevelopmentalCognitionError(
                         "history_preflight_selection_missing")
                 if not protocol_record_ids:
-                    raise ResidentDevelopmentalCognitionError("history_context_budget_exhausted")
+                    raise ResidentDevelopmentalCognitionError(
+                        "history_context_budget_exhausted", diagnostic={
+                            "max_input_chars": self.max_inference_input_chars,
+                            "history_selection": dict(preflight_selection),
+                            "context_budget_attempts": preflight_metadata.get(
+                                "developmental_history_context_budget_attempts", [])})
                 records = tuple(self.writeback.store.get(rid) for rid in protocol_record_ids)
                 if tuple(record.record_digest for record in records) != tuple(record_digests):
                     raise ResidentDevelopmentalCognitionError("history_preflight_digest_mismatch")
@@ -6570,7 +6880,20 @@ class ResidentDevelopmentalCognitionOwner:
                         "objective_task_digest": objective_task.public_descriptor()["task_digest"],
                         "objective_task_descriptor": objective_task.public_descriptor()}
                         if objective_task is not None else {
-                            "schema_version": HISTORY_SELECTION_SCHEMA}))
+                            "schema_version": (
+                                SCHEDULED_HISTORY_SELECTION_SCHEMA
+                                if companion_intervention_trial_index is not None
+                                else COUNTERBALANCED_HISTORY_SELECTION_SCHEMA
+                                    if companion_intervention_condition_order
+                                        == COUNTERBALANCED_CONDITION_ORDER
+                                    else HISTORY_SELECTION_SCHEMA)}),
+                    condition_order=(companion_intervention_condition_order
+                        if companion_intervention_question is not None
+                        and companion_intervention_condition_order is not None
+                        else CONDITION_ORDER),
+                    condition_order_trial_index=(
+                        companion_intervention_trial_index
+                        if companion_intervention_question is not None else None))
                 self.experiments.persist_protocol(protocol)  # preregistration precedes the first inference
                 objective_plan = (self.experiments.persist_objective_task_plan(
                     protocol, objective_task) if objective_task is not None else None)
@@ -6583,43 +6906,37 @@ class ResidentDevelopmentalCognitionOwner:
                     intent["objective_protocol_id"] = protocol.protocol_id
                     intent["objective_task_plan_digest"] = objective_plan["plan_digest"]
                     self._save_state(state)
-                present_capture: dict[str, Any] | None = (
-                    {} if companion_intervention_question is not None else None)
-                present = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
-                    with_history=True, condition_id="history_present", purpose=EXPERIMENT_PURPOSE, protocol=protocol,
-                    prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
-                    objective_plan=objective_plan,
-                    interaction_question=companion_intervention_question,
-                    interaction_capture=present_capture,
-                    companion_intervention=companion_intervention_question is not None)
-                if present_capture is not None:
-                    captures.append(present_capture)
-                withheld_capture: dict[str, Any] | None = (
-                    {} if companion_intervention_question is not None else None)
-                withheld = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
-                    with_history=False, condition_id="history_withheld", purpose=EXPERIMENT_PURPOSE, protocol=protocol,
-                    prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
-                    objective_plan=objective_plan,
-                    interaction_question=companion_intervention_question,
-                    interaction_capture=withheld_capture,
-                    companion_intervention=companion_intervention_question is not None)
-                if withheld_capture is not None:
-                    captures.append(withheld_capture)
-                restored_records = tuple(self.writeback.store.get(rid) for rid in protocol.record_ids)
-                if tuple(r.record_digest for r in restored_records) != protocol.record_digests:
-                    raise ResidentDevelopmentalCognitionError("restored_history_digest_mismatch")
-                restored_capture: dict[str, Any] | None = (
-                    {} if companion_intervention_question is not None else None)
-                restored = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
-                    projection=prior, with_history=True, condition_id="history_restored",
-                    purpose=EXPERIMENT_PURPOSE, protocol=protocol, prior_self_model=prior_self_model,
-                    prior_epistemic_state=prior_epistemic_state, objective_plan=objective_plan,
-                    interaction_question=companion_intervention_question,
-                    interaction_capture=restored_capture,
-                    companion_intervention=companion_intervention_question is not None)
-                if restored_capture is not None:
-                    captures.append(restored_capture)
-                observations.extend((present, withheld, restored))
+                condition_observations: dict[str, ResidentCognitionObservation] = {}
+                condition_captures: dict[str, dict[str, Any]] = {}
+                for condition_id in protocol.condition_order:
+                    if condition_id == "history_restored":
+                        restored_records = tuple(
+                            self.writeback.store.get(rid) for rid in protocol.record_ids)
+                        if tuple(r.record_digest for r in restored_records) != protocol.record_digests:
+                            raise ResidentDevelopmentalCognitionError(
+                                "restored_history_digest_mismatch")
+                    capture: dict[str, Any] | None = (
+                        {} if companion_intervention_question is not None else None)
+                    observation = self._cognize(
+                        snapshot=snapshot, current=current, tick_id=tick_id,
+                        projection=prior, with_history=condition_id != "history_withheld",
+                        condition_id=condition_id, purpose=EXPERIMENT_PURPOSE,
+                        protocol=protocol, prior_self_model=prior_self_model,
+                        prior_epistemic_state=prior_epistemic_state,
+                        objective_plan=objective_plan,
+                        interaction_question=companion_intervention_question,
+                        interaction_capture=capture,
+                        companion_intervention=companion_intervention_question is not None)
+                    condition_observations[condition_id] = observation
+                    if capture is not None:
+                        condition_captures[condition_id] = capture
+                # Persist condition results in canonical order for existing summary,
+                # scoring, and lineage consumers; protocol records invocation order.
+                observations.extend(condition_observations[condition_id]
+                    for condition_id in CONDITION_ORDER)
+                if companion_intervention_question is not None:
+                    captures.extend(condition_captures[condition_id]
+                        for condition_id in CONDITION_ORDER)
                 summary = summarize(protocol, observations)
                 run_payload: dict[str, Any] = {"protocol":asdict(protocol),
                     "conditions":[asdict(x) for x in observations], "summary":summary,

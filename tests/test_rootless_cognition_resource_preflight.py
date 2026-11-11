@@ -12,6 +12,8 @@ from typing import Any
 
 import pytest
 
+from sentientos.rootless_experimental_local_model import RootlessExperimentalError
+
 pytestmark = pytest.mark.no_legacy_skip
 
 
@@ -40,6 +42,68 @@ assert controller._federation_root == expected / "federation"
     completed = subprocess.run([sys.executable, "-c", code], cwd=repo_root,
         env=env, capture_output=True, text=True, timeout=30)
     assert completed.returncode == 0, completed.stderr
+
+
+def test_history_decision_probe_requires_matching_retained_event(runner):
+    base = {
+        "record_id": "devrec-" + "a" * 24,
+        "candidate": {"selected_facts": [{
+            "fact_id": "fact-transfer-history",
+            "source": {"kind": "embodiment",
+                "schema_version": "sentientos.embodied_consequence_attribution:v1"},
+            "payload": {"schema_version": "sentientos.embodied_consequence_attribution:v1",
+                "commanded_value": {"pose": "reach",
+                    "task_goal": "reach_marked_target"},
+                "predicted_value": {"pose": "reach"},
+                "independently_observed_value": {"pose": "idle",
+                    "task_goal_met": False},
+            },
+        }]},
+    }
+    ready = runner._history_transfer_probe_readiness(base)
+    assert ready == {
+        "eligible": True,
+        "reason_code": "retained_history_matches_probe_pattern",
+        "record_id": "devrec-" + "a" * 24,
+        "evidence_fact_ids": ["fact-transfer-history"],
+    }
+
+    mismatched = json.loads(json.dumps(base))
+    mismatched["candidate"]["selected_facts"][0]["payload"][
+        "predicted_value"]["pose"] = "idle"
+    rejected = runner._history_transfer_probe_readiness(mismatched)
+    assert rejected["eligible"] is False
+    assert rejected["reason_code"] == (
+        "retained_history_does_not_match_probe_pattern")
+    assert rejected["evidence_fact_ids"] == []
+
+
+def test_objective_transfer_uses_one_matched_current_proprioception_fact(runner):
+    snapshot = runner._objective_task_source()
+
+    assert len(snapshot.facts) == 1
+    fact = snapshot.facts[0]
+    assert fact.source.schema_version == "sentientos.synthetic_proprioception_observation:v1"
+    assert fact.payload["encoder_pose"] == "idle"
+    assert fact.effect_claimed is False
+    assert fact.effect_proven is False
+
+
+@pytest.mark.parametrize("missing_dependency", ["psutil", "pydantic"])
+def test_runtime_dependencies_are_checked_before_model_or_run_state(
+        runner, monkeypatch, missing_dependency):
+    def fake_find_spec(module_name):
+        return None if module_name == missing_dependency else object()
+
+    monkeypatch.setattr(runner.importlib.util, "find_spec", fake_find_spec)
+    monkeypatch.setattr(runner, "_model_residency_observed",
+        lambda _: pytest.fail("model preflight ran before dependency validation"))
+
+    with pytest.raises(RootlessExperimentalError,
+            match=f"experimental_runtime_dependency_missing:{missing_dependency}"):
+        runner.run()
+
+    assert not runner.RUN_ROOT.exists()
 
 
 @pytest.mark.parametrize(("arguments", "expected_returncode"), [
@@ -164,21 +228,25 @@ def test_objective_acquisition_summary_reports_withheld_baseline_and_restoration
         counts[2] - counts[0])
 
 
-@pytest.mark.parametrize(("accurate_count", "expected"), [
-    (0, False),
-    (1, False),
-    (2, True),
-    (3, True),
+@pytest.mark.parametrize(("accurate_count", "baseline_qualified", "expected", "reason"), [
+    (0, True, False, "insufficient_accurate_acquisition_examples"),
+    (1, True, False, "insufficient_accurate_acquisition_examples"),
+    (2, True, True, None),
+    (3, True, True, None),
+    (3, False, False, "history_withheld_baseline_competence_not_demonstrated"),
 ])
 def test_affine_transfer_requires_two_accurate_acquisition_examples(
-        runner, accurate_count, expected):
+        runner, accurate_count, baseline_qualified, expected, reason):
     eligibility = runner._objective_transfer_eligibility({
-        "retained_accurate_example_count": accurate_count})
+        "retained_accurate_example_count": accurate_count,
+        "baseline_competence_qualified": baseline_qualified})
     assert eligibility["eligible"] is expected
+    assert eligibility["status"] == (
+        "eligible" if expected else f"skipped_{reason}")
     assert eligibility["accurate_example_count"] == accurate_count
     assert eligibility["required_accurate_example_count"] == 2
-    assert eligibility["reason"] == (
-        None if expected else "insufficient_accurate_acquisition_examples")
+    assert eligibility["history_withheld_baseline_competence_qualified"] is baseline_qualified
+    assert eligibility["reason"] == reason
 
 
 @pytest.mark.parametrize("value", [True, -1, 1.0, "2", None])
@@ -186,7 +254,16 @@ def test_affine_transfer_eligibility_rejects_invalid_accurate_counts(runner, val
     with pytest.raises(runner.RootlessExperimentalError,
             match="objective_family_acquisition_accuracy_count_invalid"):
         runner._objective_transfer_eligibility({
-            "retained_accurate_example_count": value})
+            "retained_accurate_example_count": value,
+            "baseline_competence_qualified": True})
+
+
+def test_affine_transfer_eligibility_requires_typed_baseline_qualification(runner):
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_acquisition_baseline_qualification_invalid"):
+        runner._objective_transfer_eligibility({
+            "retained_accurate_example_count": 3,
+            "baseline_competence_qualified": None})
 
 
 def test_experiment_seed_provenance_separates_task_and_backend_seeds(
@@ -837,6 +914,8 @@ def test_incomplete_run_artifact_preserves_blocked_resource_sample(
     sample = {"inference_sequence": 1, "gpu_utilization_percent": 80, "temperature_celsius": 45,
         "gate_status": "blocked", "gate_reason": "gpu_utilization_preflight_busy"}
     monkeypatch.setattr(runner, "RUN_ROOT", run_root)
+    monkeypatch.setattr(runner, "PREREGISTRATION_DIGEST", "a" * 64)
+    monkeypatch.setattr(runner, "RUN_PREREGISTRATION_DIGEST", "b" * 64)
     monkeypatch.setattr(runner, "RESOURCE_PREFLIGHT_EVIDENCE", [sample])
     monkeypatch.setattr(runner, "_verify_model_released",
         lambda _: {"status": "target_model_not_resident"})
@@ -848,15 +927,19 @@ def test_incomplete_run_artifact_preserves_blocked_resource_sample(
         "fact_count": 1, "source_count": 1, "conflict_count": 0,
         "fact_subject_kinds": ["synthetic_fixture"],
         "source_kinds": ["embodiment"], "bounded_objective_trial": False}
+    failure.__cause__ = ValueError("history_binding_invalid")
     artifact_path = runner._persist_incomplete_run(failure)
     assert artifact_path is not None
     artifact = json.loads(artifact_path.read_text())
     assert artifact["schema_version"] == (
-        "sentientos.rootless_ollama_embodied_cognition_failure:v4")
+        "sentientos.rootless_ollama_embodied_cognition_failure:v5")
     assert artifact["resource_preflight_samples"] == [sample]
     assert artifact["failure_diagnostic"]["encoded_size_bytes"] == 12000
     assert artifact["failure_diagnostic"]["byte_limit"] == 10240
     assert artifact["source_provenance"] == runner.RUN_SOURCE_PROVENANCE
+    assert artifact["external_preregistration_digest"] == "a" * 64
+    assert artifact["run_preregistration_digest"] == "b" * 64
+    assert artifact["failure_cause_code"] == "history_binding_invalid"
     assert "process attribution" in artifact["resource_preflight_sample_scope"]
 
 
@@ -891,6 +974,8 @@ def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
         "purpose": "resident_developmental_companion_interaction",
         "output_digest": "e" * 64, "reason_codes": [], "output_text": output_text,
         "request": {"correlation_id": correlation_id,
+            "linkage": {"rootless_experimental_session": {
+                "preregistration_digest": "c" * 64}},
             "upstream_evidence": {"record_ids": []}}}
     (receipt_root / "lmrec-fixture.json").write_text(json.dumps(receipt))
 
@@ -905,6 +990,7 @@ def test_incomplete_run_artifact_classifies_pre_action_without_model_text(
     assert proposal["pre_action_requested_pose"] == "idle"
     assert proposal["pre_action_predicted_pose"] == "idle"
     assert proposal["pre_action_prediction_consistent"] is True
+    assert proposal["run_preregistration_digest"] == "c" * 64
     assert proposal["model_output_text_excluded"] is True
     assert artifact["pre_action_decision_evidence"] == decision_evidence
     assert output_text not in artifact_text
@@ -998,7 +1084,7 @@ def test_seeded_objective_task_pairs_are_reproducible_and_distinct(runner):
         transfer.specification()["task_family_id"])
     assert transfer.specification()["requires_task_family_history"] is True
     assert acquisition.specification()["task_family_id"] == (
-        "rootless_integer_affine_transfer_low_range_v1")
+        "rootless_integer_affine_transfer_low_range_v5")
     assert set(acquisition.specification()["probe_inputs"]).isdisjoint(
         transfer.specification()["probe_inputs"])
     for task in first:
@@ -1017,6 +1103,19 @@ def test_seeded_objective_task_pairs_are_reproducible_and_distinct(runner):
                 + specification["offset"] for item in inputs) <= 17
 
 
+def test_history_order_trial_index_environment_is_bounded_and_validated(
+        runner, monkeypatch):
+    monkeypatch.delenv("SENTIENTOS_HERMES_HISTORY_ORDER_TRIAL_INDEX", raising=False)
+    assert runner._history_intervention_trial_index_from_environment() is None
+    for valid, expected in (("0", 0), ("1", 1), ("4294967295", 4294967295)):
+        monkeypatch.setenv("SENTIENTOS_HERMES_HISTORY_ORDER_TRIAL_INDEX", valid)
+        assert runner._history_intervention_trial_index_from_environment() == expected
+    for invalid in ("-1", "4294967296", "４２", "nope", "00000000000"):
+        monkeypatch.setenv("SENTIENTOS_HERMES_HISTORY_ORDER_TRIAL_INDEX", invalid)
+        with pytest.raises(SystemExit, match="hermes_history_order_trial_index_invalid"):
+            runner._history_intervention_trial_index_from_environment()
+
+
 def test_experiment_seed_environment_is_bounded_and_validated(runner, monkeypatch):
     monkeypatch.setenv("SENTIENTOS_HERMES_EXPERIMENT_SEED", "42")
     assert runner._experiment_seed_from_environment() == 42
@@ -1025,6 +1124,17 @@ def test_experiment_seed_environment_is_bounded_and_validated(runner, monkeypatc
         with pytest.raises(SystemExit, match="hermes_experiment_seed_invalid"):
             runner._experiment_seed_from_environment()
 
+
+def test_preregistration_digest_is_validated_and_bound(runner, monkeypatch):
+    monkeypatch.delenv("SENTIENTOS_HERMES_PREREGISTRATION_DIGEST", raising=False)
+    assert runner._preregistration_digest_from_environment() == "0" * 64
+    digest = "a1" * 32
+    monkeypatch.setenv("SENTIENTOS_HERMES_PREREGISTRATION_DIGEST", digest)
+    assert runner._preregistration_digest_from_environment() == digest
+    for invalid in ("sha256:" + digest, digest.upper(), "0" * 63, "z" * 64):
+        monkeypatch.setenv("SENTIENTOS_HERMES_PREREGISTRATION_DIGEST", invalid)
+        with pytest.raises(SystemExit, match="hermes_preregistration_digest_invalid"):
+            runner._preregistration_digest_from_environment()
 
 
 def test_objective_transfer_requires_matching_present_restored_and_withheld_history(
@@ -1226,6 +1336,28 @@ def test_failure_code_keeps_only_bounded_non_output_diagnostics(runner):
         "resident_response_schema_invalid")
     assert runner._failure_code(ValueError(
         "raw model text: requested_pose=reach")) == "ValueError"
+
+
+def test_failure_cause_code_keeps_only_bounded_machine_reason(runner):
+    outer = RuntimeError("raw model answer must not be persisted")
+    outer.__cause__ = ValueError("history_binding_invalid")
+    assert runner._failure_cause_code(outer) == "history_binding_invalid"
+
+    from sentientos.resident_developmental_cognition import (
+        _parse_companion_interaction_output,
+    )
+    try:
+        _parse_companion_interaction_output(
+            "PRIVATE_MODEL_OUTPUT_SENTINEL", set(), set())
+    except ValueError as cause:
+        outer = RuntimeError("companion_interaction_decision_invalid")
+        outer.__cause__ = cause
+    assert runner._failure_cause_code(outer) == (
+        "companion_interaction_output_json_invalid")
+
+    unsafe = RuntimeError("raw model answer")
+    unsafe.__cause__ = ValueError("raw model answer with private details")
+    assert runner._failure_cause_code(unsafe) is None
 
 
 def test_target_evidence_is_added_only_when_requested_for_later_probe(runner):

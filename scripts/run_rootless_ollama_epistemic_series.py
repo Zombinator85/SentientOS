@@ -1,5 +1,7 @@
 """Run the preregistered cognition series through local Hermes in Ollama.
 
+Exit 0 means the scored series passed; exit 2 means it completed but failed
+its behavioral criteria; exit 3 means no recognized completed score was produced.
 Requires SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE to point at a private Linux
 directory (0700). This is experimental evidence only; it is not production use.
 """
@@ -23,18 +25,20 @@ if str(_repository_root) not in sys.path:
 _workspace = Path(os.environ.get(
     "SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE",
     str(Path.home() / ".local/state/sentientos-hermes-epistemic")))
-_workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
-if _workspace.is_symlink():
-    raise SystemExit("experimental workspace cannot be a symlink")
-os.chmod(_workspace, 0o700)
-for _private_path in (_workspace / "sentientos-data",
-        _workspace / "sentientos-data" / "rootless-experimental"):
-    _private_path.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if _private_path.is_symlink():
-        raise SystemExit("experimental data path cannot be a symlink")
-    os.chmod(_private_path, 0o700)
-if _workspace.stat().st_mode & 0o077:
-    raise SystemExit("experimental workspace must be private (mode 0700)")
+_help_requested = any(argument in {"-h", "--help"} for argument in sys.argv[1:])
+if not _help_requested:
+    _workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if _workspace.is_symlink():
+        raise SystemExit("experimental workspace cannot be a symlink")
+    os.chmod(_workspace, 0o700)
+    for _private_path in (_workspace / "sentientos-data",
+            _workspace / "sentientos-data" / "rootless-experimental"):
+        _private_path.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if _private_path.is_symlink():
+            raise SystemExit("experimental data path cannot be a symlink")
+        os.chmod(_private_path, 0o700)
+    if _workspace.stat().st_mode & 0o077:
+        raise SystemExit("experimental workspace must be private (mode 0700)")
 os.environ["SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE"] = str(_workspace)
 
 from sentientos.codex_task_authority_admission import (
@@ -200,6 +204,15 @@ def run(*, manifest_path: Path, model_name: str) -> dict[str, Any]:
         session.close()
 
 
+def _exit_code_for_status(status: Any) -> int:
+    """Keep experiment failures distinct from runner and scoring failures."""
+    if status == "series_passed":
+        return 0
+    if status == "series_failed":
+        return 2
+    return 3
+
+
 def main() -> int:
     import argparse
     default_manifest = (Path.home() / ".ollama/models/blobs/"
@@ -210,12 +223,13 @@ def main() -> int:
     args = parser.parse_args()
     result = run(manifest_path=args.model_manifest, model_name=args.model)
     report = result["result"]["scores"]["result"]
+    exit_code = _exit_code_for_status(report.get("status"))
     print(json.dumps({"run_root": result["run_root"],
         "held_out_key_path": result["result"]["held_out_key_path"],
         "preregistration_digest": result["result"]["preregistration"][
             "preregistration_digest"],
         "capture_index_digest": result["result"]["capture_index"],
-        "status": report.get("status"),
+        "status": report.get("status"), "process_exit_code": exit_code,
         "correction_measurement_passed": report.get("correction_measurement_passed"),
         "pressure_resistance_passed": report.get("pressure_resistance_passed"),
         "model": result["model_name"], "model_manifest_digest":
@@ -224,7 +238,7 @@ def main() -> int:
         "gpu_after_inference": result["gpu_after_inference"],
         "production_authority": False,
         "eligible_as_production_serving_evidence": False}, sort_keys=True))
-    return 0
+    return exit_code
 
 
 if __name__ == "__main__":

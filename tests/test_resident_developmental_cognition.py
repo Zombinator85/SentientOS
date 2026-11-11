@@ -13,7 +13,8 @@ import scripts.doctor_resident_objective_experiment as readiness
 
 from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
 from sentientos.developmental_history_intervention_experiment import (
-    DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
+    DevelopmentalExperimentStore,
+    DevelopmentalHistoryInterventionError,
 )
 from sentientos.developmental_model_replacement_experiment import ObjectivePredictionTask
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
@@ -36,7 +37,7 @@ from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionConfig,
     ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
-    _bind_history_and_epistemic_context,
+    _bind_history_and_epistemic_context, _history_context_packet,
     load_objective_request, objective_task_for_request, stage_objective_request,
     stored_objective_request_disposition, stored_objective_request_record,
     _valid_rootless_epistemic_session_binding, _parse_companion_interaction_output,
@@ -64,6 +65,7 @@ from sentientos.embodied_consequence import (
 )
 from sentientosd import (
     RuntimeMaintenanceSurfaces,
+    _codex_healer_world_state_records,
     _attestation_snapshot_verification_world_state_record,
     _load_embodied_consequence_projection,
     _load_epistemic_state_owner,
@@ -1339,6 +1341,8 @@ print(json.dumps({"context_id": context["context_id"],
     staged_path, _, matching_count = stage_request(config_path=config_path,
         request_id="family-transfer", task=transfer)
     assert staged_path.exists() and matching_count >= 1
+    # The scoped packet omits unscoped narrative; derive only from exact score-bound examples.
+    fake.objective_mode = "derive_from_admitted_family"
     staged = load_objective_request(tmp_path / "state")
     assert staged is not None
     result = cognition.run_objective_intervention_once(snapshot=world,
@@ -1998,6 +2002,46 @@ print(json.dumps({"stance": state.stance if state else None,
     assert later_outputs[0][0] != later_outputs[1][0]
     assert later_outputs[1][2] == recovered_state.state_digest
 
+    # Exercise the evolved projection through the same daemon composition
+    # surface used by a later resident cognition tick. The prior loop above
+    # proves the fixture consumer responds to the evidence packet; this checks
+    # the actual runtime composer delivers that packet after owner recovery.
+    daemon_invoker = EpistemicAwareFixtureInvoker()
+    daemon_consumer, _ = owner(tmp_path / "daemon-recovered-cognition",
+        invoker=daemon_invoker)
+    daemon_surfaces = RuntimeMaintenanceSurfaces(tmp_path,
+        runtime_state_root=tmp_path / "daemon-recovered-runtime",
+        resident_developmental_owner=daemon_consumer,
+        epistemic_state_owner=recovered_epistemics,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True})
+    daemon_tick = datetime.fromtimestamp(
+        updated_projection.current_tick, tz=timezone.utc).isoformat()
+    daemon_surfaces.build_world_state_board(tick_id=daemon_tick)
+    daemon_feedback = daemon_surfaces.run_resident_developmental_cognition(
+        tick_id=daemon_tick)
+    assert daemon_feedback["status"] == "completed"
+    daemon_composition = daemon_feedback["epistemic_composition"]
+    assert daemon_composition["status"] == "composed"
+    assert daemon_composition["authority"] is False
+    assert daemon_composition["projection_digest"] == (
+        updated_projection.projection_digest)
+    daemon_request = next(item for item in reversed(daemon_invoker.requests)
+        if item.purpose == "resident_developmental_retrieval_cognition")
+    assert daemon_request.upstream_evidence["epistemic_projection_id"] == (
+        daemon_composition["projection_id"])
+    assert daemon_request.upstream_evidence["epistemic_projection_digest"] == (
+        daemon_composition["projection_digest"])
+    daemon_body = json.loads(daemon_request.prompt)
+    daemon_packet = next(item for item in daemon_body["prior_epistemic_state"][
+        "semantic_packets"] if item["proposition"]["proposition_id"] ==
+        proposition.proposition_id)
+    assert daemon_packet["state"]["state_digest"] == recovered_state.state_digest
+    assert daemon_packet["supporting_evidence"]
+    assert daemon_packet["contradicting_evidence"]
+    assert daemon_invoker.lesson_uncertainty == "high"
+
     from sentientos.goal_executor import ExecutorState
     from sentientos.goal_planner import GoalPlanner
     from sentientos.goal_graph import Goal, GoalGraph
@@ -2037,6 +2081,94 @@ print(json.dumps({"stance": state.stance if state else None,
     assert f"epistemic_projection_digest={updated_projection.projection_digest}" \
         in evidence_conditioned_plan.context
     assert evidence_conditioned_plan.plan_id != unconditioned_plan.plan_id
+
+    # Compose the same recovered evidence through sentientosd's canonical
+    # planning surface. The contested position must defer the tagged goal while
+    # keeping the surface plan-only and exposing the projection digest.
+    from sentientos.goal_graph import persist_goal_graph
+    planning_root = tmp_path / "daemon-canonical-planning"
+    persist_goal_graph(planning_root, planning_graph)
+    planning_surfaces = RuntimeMaintenanceSurfaces(planning_root,
+        runtime_state_root=planning_root / "runtime",
+        epistemic_state_owner=recovered_epistemics,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True})
+    planning_tick = datetime.fromtimestamp(
+        updated_projection.current_tick, tz=timezone.utc).isoformat()
+    planning_feedback = planning_surfaces.run_canonical_goal_planning(
+        tick_id=planning_tick)
+    assert planning_feedback["status"] == "empty"
+    assert planning_feedback["authority"] is False
+    assert planning_feedback["execution_performed"] is False
+    assert planning_feedback["model_invoked"] is False
+    assert planning_feedback["work_plan_id"] is None
+    assert planning_feedback["work_plan_path"] is None
+    assert planning_feedback["deferred_goal_count"] == 1
+    assert planning_feedback["deferred_goals"] == [{
+        "goal_id": "integer-affine-followup",
+        "reason": "epistemic_applicability_unresolved",
+    }]
+    expected_planner_projection = recovered_epistemics.cognitive_projection(
+        max_states=1, current_tick=updated_projection.current_tick,
+        prioritized_proposition_ids=(proposition.proposition_id,))
+    assert expected_planner_projection is not None
+    assert planning_feedback["prior_epistemic_projection_digest"] == (
+        expected_planner_projection.projection_digest)
+
+    # Run the real daemon planning surface under matched history-withheld and
+    # history-restored conditions. The proposition exists in both conditions;
+    # only its admitted update chain differs. The restored owner is reconstructed
+    # from the same durable files to prove the effect survives restart.
+    withheld_owner = PersistentEpistemicStateOwner(
+        tmp_path / "withheld-epistemics", allowed_namespaces=("operator",))
+    withheld_owner.register_proposition(proposition)
+    withheld_root = planning_root / "history-withheld"
+    persist_goal_graph(withheld_root, planning_graph)
+    withheld_surfaces = RuntimeMaintenanceSurfaces(withheld_root,
+        runtime_state_root=withheld_root / "runtime",
+        epistemic_state_owner=withheld_owner,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True})
+    withheld_feedback = withheld_surfaces.run_canonical_goal_planning(
+        tick_id=planning_tick)
+    assert withheld_feedback["status"] == "planned"
+    assert withheld_feedback["selected_goals"] == ["integer-affine-followup"]
+    assert withheld_feedback["deferred_goals"] == []
+    assert withheld_feedback["prior_epistemic_projection_digest"] is None
+    assert withheld_feedback["authority"] is False
+    assert withheld_feedback["execution_performed"] is False
+    assert withheld_feedback["model_invoked"] is False
+
+    restored_owner = PersistentEpistemicStateOwner(
+        epistemic_root, allowed_namespaces=("operator",))
+    restored_controller = ResidentEpistemicStateMutationController(
+        owner=restored_owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        current_sequence=current_admission_sequence,
+        receipt_root=tmp_path / "epistemic-mutation-receipts")
+    assert restored_controller.verify_receipts()["status"] == "verified"
+    restored_root = planning_root / "history-restored"
+    persist_goal_graph(restored_root, planning_graph)
+    restored_surfaces = RuntimeMaintenanceSurfaces(restored_root,
+        runtime_state_root=restored_root / "runtime",
+        epistemic_state_owner=restored_owner,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True})
+    restored_feedback = restored_surfaces.run_canonical_goal_planning(
+        tick_id=planning_tick)
+    assert restored_feedback["status"] == planning_feedback["status"], restored_feedback
+    assert restored_feedback["selected_goals"] == planning_feedback["selected_goals"]
+    assert restored_feedback["deferred_goals"] == planning_feedback["deferred_goals"]
+    assert restored_feedback["prior_epistemic_projection_digest"] == (
+        planning_feedback["prior_epistemic_projection_digest"])
+    assert restored_feedback["authority"] is False
+    assert restored_feedback["execution_performed"] is False
+    assert restored_feedback["model_invoked"] is False
+
     allocation_graph = GoalGraph(schema_version=1, goals=(
         Goal("history-sensitive", "mapped goal", 1.0, 10, (), "rule", 2, 1,
             (f"epistemic_proposition:{proposition.proposition_id}",), True),
@@ -2143,7 +2275,8 @@ def test_rootless_receipts_admit_same_family_examples_to_later_prompt(tmp_path: 
     assert cognition.run_tick(snapshot=world, tick_id="rootless-history-feedback").written_record_id
 
     transfer_task = ObjectivePredictionTask(3, 2, 11, (12, 13),
-        task_family_id="rootless_integer_affine")
+        task_family_id="rootless_integer_affine",
+        requires_task_family_history=True)
     _, transfer_request, _ = stage_request(config_path=config_path,
         request_id="rootless-family-transfer", task=transfer_task)
     cognition.run_objective_intervention_once(snapshot=snapshot(),
@@ -2341,6 +2474,14 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         task_family_id="integer_affine_prediction",
         target_model_identity=identity, compact_for_input_budget=True)
     task_experience = packet["task_relevant_experience"][0]
+    assert "interpretation" not in packet
+    assert packet["task_family_scope"] == "integer_affine_prediction"
+    assert packet["task_family_scope_posture"] == (
+        "matching_score_bound_examples_only")
+    assert packet["unscoped_interpretation_omitted"] is True
+    assert "unscoped_interpretation_digest" not in packet
+    assert packet["candidate_digest"] and packet["record_digest"]
+    assert packet["selected_fact_ids"] == [bound_projection["source_fact_id"]]
     assert task_experience["model_identity_relation"] == "same_active_model_identity"
     assert task_experience["applicability_posture"] == \
         "same_family_same_model_task_scope_unverified"
@@ -2575,11 +2716,14 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     present_prompt = json.loads(heldout_request_by_condition["history_present"].prompt)
     [present_history_packet] = present_prompt["developmental_history"]
     [present_experience] = present_history_packet["task_relevant_experience"]
-    # Objective transfer uses the compact admitted-history projection so
-    # repeated custody/resource metadata doesn't consume the model context.
-    # The task examples and exact provenance identities remain available.
-    assert "source_bindings_digest" in present_history_packet
+    # Objective transfer uses the compact, task-scoped admitted-history
+    # projection. Only the matching examples and their source identities enter
+    # the prompt; unscoped interpretation and unrelated source bindings do not.
+    assert "source_bindings_digest" not in present_history_packet
     assert "source_bindings" not in present_history_packet
+    assert "interpretation" not in present_history_packet
+    assert present_history_packet["task_family_scope_posture"] == (
+        "matching_score_bound_examples_only")
     assert present_experience["source_fact_id"]
     assert present_experience["source_run_digest"]
     assert present_experience["examples"]
@@ -2839,6 +2983,56 @@ def test_legacy_oracle_hashes_are_excluded_from_current_cognition(tmp_path: Path
     assert projected_ids == {"safe-objective"}
     selected = cognition._select_fact_ids(world, set())
     assert len(selected) == 1
+
+
+def test_fresh_codex_healer_evidence_flows_through_writeback_to_later_cognition(
+        tmp_path: Path) -> None:
+    """Exercise the existing owner path with explicitly synthetic recovery events."""
+    cognition, fake = owner(tmp_path, allowed_source_kinds=("runtime_supervisor",),
+        max_selected_facts=1)
+
+    def recovery_snapshot(suffix: str):
+        observed_at = datetime.now(timezone.utc).isoformat()
+        event = {
+            "timestamp": observed_at,
+            "status": "auto-repair verified",
+            "correlation_id": ("a" if suffix == "first" else "b") * 64,
+            "anomaly": {"kind": "test_recovery", "subject": f"private-{suffix}"},
+            "action": {"kind": "restart_service"},
+            "details": {"attempts": 1, "attempt_ceiling": 2,
+                "repair_verification": {"status": "verified"}},
+            "quarantined": False,
+        }
+        records = _codex_healer_world_state_records([event], tick_id=observed_at)
+        assert len(records) == 1
+        assert records[0]["staleness"] == "fresh"
+        return WorldStateBoardBuilder().build(records)
+
+    first_snapshot = recovery_snapshot("first")
+    selected = cognition._select_fact_ids(first_snapshot, set())
+    assert len(selected) == 1
+
+    first = cognition.run_tick(snapshot=first_snapshot, tick_id="healer-writeback-first")
+    assert first.status == "completed"
+    assert first.written_record_id and first.writeback_receipt_id
+    admitted = cognition.writeback.store.get(first.written_record_id)
+    admitted_fact = next(fact for fact in admitted.candidate["selected_facts"]
+        if fact["fact_id"] == selected[0])
+    assert admitted_fact["subject"]["subject_kind"] == "codex_healer_recovery_event"
+    assert admitted_fact["payload"]["source_owner"] == (
+        "sentientos.codex_healer.RecoveryLedger")
+    assert admitted_fact["payload"]["read_only"] is True
+    assert admitted_fact["payload"]["authority"] is False
+    assert admitted_fact["payload"]["effect_proven"] is False
+    assert "private-first" not in json.dumps(admitted.candidate)
+
+    later_snapshot = recovery_snapshot("later")
+    later = cognition.run_tick(snapshot=later_snapshot, tick_id="healer-writeback-later")
+    assert later.status == "completed"
+    assert first.written_record_id in later.prior_record_ids
+    later_prompt = json.loads(fake.requests[-1].prompt)
+    assert first.written_record_id in {
+        row["record_id"] for row in later_prompt["developmental_history"]}
 
 
 def test_admitted_resident_history_is_shared_with_predecessor_and_successor_models(
@@ -4257,6 +4451,16 @@ def test_controlled_history_intervention_rejects_citations_on_unavailable_sentin
     with pytest.raises(ValueError, match="history_unavailable_must_not_cite_evidence"):
         _parse_companion_interaction_output(json.dumps(payload), {"fact-current"},
             set(), controlled_history_intervention=True)
+
+
+def test_companion_interaction_sanitizes_malformed_json_diagnostic() -> None:
+    with pytest.raises(ValueError, match=(
+            "companion_interaction_output_json_invalid")) as captured:
+        _parse_companion_interaction_output(
+            "PRIVATE_MODEL_OUTPUT_SENTINEL", set(), set())
+
+    assert str(captured.value) == "companion_interaction_output_json_invalid"
+    assert "PRIVATE_MODEL_OUTPUT_SENTINEL" not in str(captured.value)
 
 
 def test_companion_interaction_rejects_duplicate_json_keys() -> None:
@@ -6049,6 +6253,8 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
             {"history_present", "history_withheld", "history_restored"}]
     assert [request.linkage["condition_id"] for request in intervention_requests] == [
         "history_present", "history_withheld", "history_restored"]
+    assert all(item["prompt_digest"] == "sha256:" + request.prompt_digest
+        for item, request in zip(result.conditions, intervention_requests))
     intervention_contexts = [json.loads(request.prompt)
         for request in intervention_requests]
     assert intervention_contexts[0]["history_citation_allowlist"]
@@ -6079,6 +6285,34 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         for item in intervention_observations)
     assert [bool(item["retrieved_record_ids"]) for item in intervention_observations
         if item["condition_id"] != "history_withheld"] == [True, True]
+
+    # A second trial preregisters and executes the reversed present/withheld
+    # order, while durable condition and decision rows remain canonical.
+    requests_before_counterbalanced = len(fake.requests)
+    counterbalanced = compared_owner.run_companion_history_intervention(
+        snapshot=source, tick_id="companion-decision-counterbalanced",
+        question=("For the synthetic avatar, choose the next pose and predict "
+            "its encoder pose. Return JSON with requested_pose and predicted_pose."),
+        history_record_allowlist=(initial.written_record_id,),
+        trial_index=1)
+    assert [item["condition_id"] for item in counterbalanced.conditions] == [
+        "history_present", "history_withheld", "history_restored"]
+    requests = [request for request in fake.requests[requests_before_counterbalanced:]
+        if request.purpose == "resident_developmental_history_intervention_experiment"
+        and request.linkage.get("condition_id") in
+            {"history_present", "history_withheld", "history_restored"}]
+    assert [request.linkage["condition_id"] for request in requests] == [
+        "history_withheld", "history_present", "history_restored"]
+    counterbalanced_run = compared_owner.experiments.load_run(
+        counterbalanced.changed_cognition_measurement_id)
+    assert tuple(counterbalanced_run["protocol"]["condition_order"]) == (
+        "history_withheld", "history_present", "history_restored")
+    assert counterbalanced_run["protocol"]["schema_version"] == (
+        "sentientos.developmental_history_intervention_protocol:v8")
+    assert counterbalanced_run["protocol"]["condition_order_trial_index"] == 1
+    assert [item["condition_id"] for item in counterbalanced_run[
+        "companion_intervention_decisions"]] == [
+            "history_present", "history_withheld", "history_restored"]
 
     # A later cycle reconstructs all prior observations from disk. Experimental
     # history citations belong to history_record_ids; they must not be mistaken
@@ -7192,6 +7426,47 @@ def test_companion_history_intervention_rejects_stale_capture_before_inference(
     assert fake.requests == []
 
 
+def test_compact_history_packet_can_omit_typed_details_with_exact_custody_refs():
+    source = {"source_id": "renderer-report:history", "kind": "embodiment",
+        "schema_version": "sentientos.avatar_renderer_report:v1",
+        "digest": "sha256:" + "a" * 64}
+    fact = {"fact_id": "fact-renderer-history", "source": source,
+        "subject": {"subject_kind": "avatar_renderer_report"},
+        "stage": "observation", "disposition": "recorded",
+        "evidence_strength": "renderer_self_report", "effect_proven": False,
+        "observed_at": "2026-11-11T00:00:00Z",
+        "payload": {"schema_version": source["schema_version"],
+            "reported_state": {"motion": {"active_motion": "nod"}}}}
+    candidate = {"candidate_id": "candidate-history",
+        "candidate_digest": "sha256:" + "b" * 64,
+        "interpretation": "A bounded historical interpretation.",
+        "uncertainty": "medium",
+        "epistemic_status": "untrusted_historical_interpretation_candidate",
+        "selected_fact_ids": [fact["fact_id"]], "selected_facts": [fact],
+        "selected_sources": [source]}
+    record = {"record_id": "devrec-history", "record_digest": "sha256:" + "c" * 64,
+        "created_at": "2026-11-11T00:00:00Z", "epistemic_posture": "historical_only",
+        "candidate": candidate}
+
+    complete = _history_context_packet(record, compact_for_input_budget=True)
+    compact = _history_context_packet(record, compact_for_input_budget=True,
+        omit_historical_embodiment_details=True)
+
+    assert compact["record_id"] == record["record_id"]
+    assert compact["record_digest"] == record["record_digest"]
+    assert compact["interpretation"] == candidate["interpretation"]
+    assert compact["selected_fact_ids"] == candidate["selected_fact_ids"]
+    assert compact["source_binding_count"] == 1
+    assert compact["source_bindings_digest"]
+    assert "historical_embodiment_reports" not in compact
+    assert compact["historical_embodiment_report_count"] == 1
+    assert compact["historical_embodiment_reports_digest"]
+    assert compact["historical_embodiment_reports_posture"] == (
+        "details_omitted_for_cognition_input_budget")
+    assert len(json.dumps(compact, sort_keys=True, separators=(",", ":"))) < len(
+        json.dumps(complete, sort_keys=True, separators=(",", ":")))
+
+
 def test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_identity(
         monkeypatch: pytest.MonkeyPatch) -> None:
     """Variable packet sizes cannot make a newer weak record displace stronger history."""
@@ -7212,9 +7487,11 @@ def test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_ide
     )
 
     def packet(record, *, include_source_evidence_context=True,
-                compact_for_input_budget=False, task_family_id=None,
+                compact_for_input_budget=False,
+                omit_historical_embodiment_details=False, task_family_id=None,
                 target_model_identity=None):
-        del include_source_evidence_context, task_family_id, target_model_identity
+        del include_source_evidence_context, omit_historical_embodiment_details
+        del task_family_id, target_model_identity
         padding = record["padding"]
         if compact_for_input_budget:
             padding = min(padding, 1200)
@@ -7283,6 +7560,17 @@ def test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_ide
         assert repeated[1]["developmental_history_selection"] == selection
         observed_counts.append(count)
     assert observed_counts == [1, 2, 3, 4]
+
+    # When no complete history packet fits, retain size-only diagnostics so
+    # callers can distinguish the actual budget shortfall without logging text.
+    _, budget_metadata, _, budget_ids, _ = _bind_history_and_epistemic_context(
+        context=context, records=records, projection=None, history_present=True,
+        max_input_chars=2000)
+    assert budget_ids == ()
+    attempts = budget_metadata["developmental_history_context_budget_attempts"]
+    assert attempts
+    assert all(item["prompt_chars"] > item["max_input_chars"] for item in attempts)
+    assert any(item["history_packet_mode"] == "compact" for item in attempts)
 
     withheld_bound, withheld_metadata, withheld_prompt, withheld_ids, _ = bind(
         minimum_capacity_for(1), present=False)
@@ -7562,6 +7850,66 @@ def test_sentientosd_preserves_exact_snapshot_and_absent_config_is_inert(tmp_pat
     assert spy.seen is injected.current_world_state_snapshot
 
 
+
+def test_sentientosd_feedback_redacts_resident_cognition_exception_text(tmp_path: Path) -> None:
+    class BrokenOwner:
+        def run_tick(self, *, snapshot, tick_id, **_kwargs):
+            raise RuntimeError("private-model-output-must-not-escape")
+
+    tick = "2026-01-03T00:00:00+00:00"
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-safe-feedback",
+        resident_developmental_owner=BrokenOwner())  # type: ignore[arg-type]
+    surfaces.build_world_state_board(tick_id=tick)
+    feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+
+    assert feedback["status"] == "degraded"
+    assert feedback["reason"] == "resident_developmental_cognition_failed"
+    assert feedback["error_class"] == "RuntimeError"
+    assert "private-model-output-must-not-escape" not in repr(feedback)
+    assert "private-model-output-must-not-escape" not in repr(
+        surfaces.governance_feedback())
+
+
+
+def test_sentientosd_recovery_diagnostic_redacts_objective_exception_text(
+        tmp_path: Path) -> None:
+    from types import SimpleNamespace
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCycleResult,
+    )
+
+    state_root = tmp_path / "recovery-state"
+    stage_objective_request(state_root, request_id="safe-recovery-diagnostic",
+        task=ObjectivePredictionTask(3, 2, 7))
+
+    class RecoveryOwner:
+        config = SimpleNamespace(state_root=state_root)
+
+        def objective_request_disposition(self, **_kwargs):
+            return "completed"
+
+        def run_tick(self, *, snapshot, tick_id, **_kwargs):
+            return ResidentDevelopmentalCycleResult(
+                status="completed", tick_id=tick_id, snapshot_id=snapshot.snapshot_id)
+
+        def verified_objective_measurement_for_request(self, **_kwargs):
+            raise RuntimeError("private-objective-diagnostic-must-not-escape")
+
+    tick = "2026-01-04T00:00:00+00:00"
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-safe-recovery",
+        resident_developmental_owner=RecoveryOwner())  # type: ignore[arg-type]
+    surfaces.build_world_state_board(tick_id=tick)
+    feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+
+    summary = feedback["objective_measurement_summary"]
+    assert summary["status"] == "outcome_verification_unavailable"
+    assert summary["reason_code"] == "objective_measurement_verification_unavailable"
+    assert summary["error_class"] == "RuntimeError"
+    assert "private-objective-diagnostic-must-not-escape" not in repr(feedback)
+
+
 def test_sentientosd_consumes_staged_objective_once_without_recurring_owner_config(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
         isolated_governed_runtime_roots: None) -> None:
@@ -7637,33 +7985,43 @@ def test_sentientosd_consumes_staged_objective_once_without_recurring_owner_conf
         and "objective_task_plan_digest" in item.upstream_evidence]) == 3
 
 
-def test_sentientosd_composes_explicit_prior_epistemic_projection(tmp_path: Path, monkeypatch) -> None:
+def test_sentientosd_composes_explicit_prior_epistemic_projection(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SENTIENTOS_EPISTEMIC_STATE_CONFIG", raising=False)
-    epistemic=PersistentEpistemicStateOwner(tmp_path/"epistemic",allowed_namespaces=["embodiment"])
-    p=make_proposition(namespace="embodiment",subject="body:g1",predicate="healthy",
-        object_value=True,polarity="positive",qualifiers={},temporal_scope={"kind":"prior"},
-        context_scope={},proposition_class="descriptive")
-    epistemic.register_proposition(p)
-    epistemic.commit_update(proposition_id=p.proposition_id,expected_predecessor_digest=None,
-        stance="unknown",reason="initialization",active_binding_ids=[],correlation_id="prior",tick=1,
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=["embodiment"])
+    proposition = make_proposition(namespace="embodiment", subject="body:g1",
+        predicate="healthy", object_value=True, polarity="positive", qualifiers={},
+        temporal_scope={"kind": "prior"}, context_scope={},
+        proposition_class="descriptive")
+    epistemic.register_proposition(proposition)
+    epistemic.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="unknown", reason="initialization",
+        active_binding_ids=[], correlation_id="prior", tick=1,
         recorded_at="2026-01-01T00:00:00Z")
-    class Spy:
-        seen = None
-        def run_tick(self, **kwargs):
-            self.seen = kwargs
-            return type("Result", (), {"__dataclass_fields__": {}, "status":"completed"})()
-    spy=Spy()
-    surfaces=RuntimeMaintenanceSurfaces(tmp_path,runtime_state_root=tmp_path/"runtime-epistemic",
-        resident_developmental_owner=spy,epistemic_state_owner=epistemic,
-        epistemic_state_config={"status":"configured","max_cognitive_projection_count":1,
-                                "cognitive_consumption_enabled":True})  # type: ignore[arg-type]
-    tick="2026-01-03T00:00:00+00:00"
+    cognition, fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("runtime_supervisor",), max_selected_facts=4)
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path,
+        runtime_state_root=tmp_path / "runtime-epistemic",
+        resident_developmental_owner=cognition, epistemic_state_owner=epistemic,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True})
+    tick = "2026-01-03T00:00:00+00:00"
     surfaces.build_world_state_board(tick_id=tick)
-    feedback=surfaces.run_resident_developmental_cognition(tick_id=tick)
-    projection=spy.seen["prior_epistemic_state"]
-    assert projection.proposition_ids == (p.proposition_id,)
+    feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+
+    assert feedback["status"] == "completed"
     assert feedback["epistemic_composition"]["status"] == "composed"
     assert feedback["epistemic_composition"]["authority"] is False
+    assert fake.requests
+    request = fake.requests[-1]
+    assert request.upstream_evidence["epistemic_proposition_ids"] == [
+        proposition.proposition_id]
+    assert request.upstream_evidence["epistemic_projection_id"] == (
+        feedback["epistemic_composition"]["projection_id"])
+    assert request.upstream_evidence["epistemic_projection_digest"] == (
+        feedback["epistemic_composition"]["projection_digest"])
 
 
 def _seed_world_state_snapshot_for_tick(
@@ -7879,6 +8237,33 @@ def test_sentientosd_rejects_uncertain_self_model_tick_before_owner_reads(
     assert feedback["write_performed"] is False
     assert projection_owner.calls == 0
     assert cognition_owner.calls == 0
+
+
+def test_sentientosd_redacts_invalid_epistemic_tick_text(tmp_path: Path) -> None:
+    class EpistemicDevelopmentSpy:
+        calls = 0
+
+        def process_snapshot(self, *_args, **_kwargs):
+            self.calls += 1
+            raise AssertionError("invalid tick must not reach epistemic updates")
+
+    sensitive_tick = "operator-private-tick-marker"
+    runtime = EpistemicDevelopmentSpy()
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-epistemic-invalid-tick",
+        epistemic_development_runtime=runtime,  # type: ignore[arg-type]
+    )
+    _seed_world_state_snapshot_for_tick(surfaces, sensitive_tick)
+
+    feedback = surfaces.run_epistemic_development(tick_id=sensitive_tick)
+
+    assert feedback["status"] == "degraded"
+    assert feedback["reason"] == "resident_epistemic_development_tick_invalid"
+    assert feedback["error_class"] == "ValueError"
+    assert sensitive_tick not in repr(feedback)
+    assert feedback["authority"] is False
+    assert feedback["next_tick_only"] is True
+    assert runtime.calls == 0
 
 
 def test_sentientosd_rejects_unknown_epistemic_write_tick_before_runtime(
@@ -9985,3 +10370,173 @@ def test_companion_cycle_persists_epistemic_state_for_later_cognition(
         assert observation["epistemic_projection_present"] == (
             result.epistemic_projection_id is not None)
         assert observation["authority"] is False
+
+
+def test_daemon_tick_routes_recovery_evidence_through_next_tick_cognition_and_planning(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exercise the scheduled daemon path across its temporal cognition boundary.
+
+    Recovery events and model inference are deterministic fixtures. This checks
+    actual owner composition, tick ordering, and durable epistemic carry-forward;
+    it does not claim a live recovery or improved model behavior.
+    """
+    import sentientosd as daemon
+    from sentientos.codex_task_authority_admission import (
+        RESIDENT_EPISTEMIC_STATE_MUTATION,
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    )
+    from sentientos.goal_graph import Goal, GoalGraph, persist_goal_graph
+    from sentientos.resident_epistemic_development import (
+        EpistemicDevelopmentConfig, EpistemicDevelopmentRule,
+        ResidentEpistemicDevelopmentRuntime,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        ResidentEpistemicStateMutationController,
+    )
+
+    monkeypatch.setenv("SENTIENTOS_CANONICAL_GOAL_PLANNING_ENABLE", "1")
+    monkeypatch.setenv("SENTIENTOS_SENTINEL_ENABLED", "0")
+    monkeypatch.setenv("SENTIENTOS_CONTROL_KERNEL_ROOT", str(tmp_path / "kernel"))
+    cognition, fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("runtime_supervisor",), max_selected_facts=4)
+    epistemics = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("operator",))
+    proposition = make_proposition(namespace="operator",
+        subject="recovery:daemon-unresponsive", predicate="recovery_effect",
+        object_value="a bounded daemon restart resolved the recorded interruption",
+        polarity="positive", qualifiers={"scope": "fixture-only"},
+        temporal_scope={"kind": "one_recovery_event"},
+        context_scope={"source": "daemon_tick_integration_regression"},
+        proposition_class="descriptive")
+    epistemics.register_proposition(proposition)
+    rule = EpistemicDevelopmentRule(
+        "retain-bounded-recovery-observation", proposition.proposition_id,
+        proposition.proposition_digest,
+        {"source_kind": "runtime_supervisor",
+            "subject_kind": "codex_healer_recovery_event"},
+        "supports", "unknown_dependency", "bounded_recovery_fixture")
+    ledger = AdmissionLedger(tmp_path / "epistemic-admissions.json")
+    definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION:
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+    mutation_controller = ResidentEpistemicStateMutationController(
+        owner=epistemics,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=definitions, ledger=ledger),
+        current_sequence=ledger.current_sequence,
+        receipt_root=tmp_path / "epistemic-mutation-receipts")
+    development_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 1, 1, (rule,), ("operator",)),
+        owner=epistemics, mutation_controller=mutation_controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=definitions, ledger=ledger), admission_ledger=ledger)
+
+    repo_root = tmp_path / "repo"
+    graph = GoalGraph(schema_version=1, goals=(Goal(
+        "recovery-followup", "review the retained recovery evidence", 1.0, 1,
+        (), "check_forge_last_run_ok", 2, 1,
+        (f"epistemic_proposition:{proposition.proposition_id}",), True),))
+    persist_goal_graph(repo_root, graph)
+    surfaces = RuntimeMaintenanceSurfaces(
+        repo_root, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=cognition,
+        epistemic_state_owner=epistemics,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True},
+        epistemic_development_runtime=development_runtime)
+
+    ticks = (
+        datetime(2026, 11, 11, 18, 0, tzinfo=timezone.utc),
+        datetime(2026, 11, 11, 18, 1, tzinfo=timezone.utc),
+    )
+    active_tick = [ticks[0]]
+    class ControlledDaemonDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[no-untyped-def]
+            del tz
+            return active_tick[0]
+
+    # Keep tick timestamps deterministic and stable within each tick; only the
+    # scheduler advances time between maintenance cycles.
+    monkeypatch.setattr(daemon, "datetime", ControlledDaemonDateTime)
+    event_values = [{
+        "timestamp": ticks[0].isoformat(), "status": "auto-repair verified",
+        "anomaly": {"kind": "daemon_unresponsive", "subject": "fixture-daemon"},
+        "action": {"kind": "restart_daemon"},
+        "details": {"attempts": 1, "attempt_ceiling": 1,
+            "repair_verification": {"status": "verified"}},
+        "quarantined": False, "correlation_id": "a" * 64,
+        "canonical_admission": {"typed_action_id": "repair:restart_daemon",
+            "admission_decision_ref": "admission:0", "path_status": "executed"}}
+    ]
+    monkeypatch.setattr(daemon, "runtime_healer_monitor",
+        lambda _root: [event_values.pop(0)] if event_values else [])
+
+    class AllowedDecision:
+        allowed = True
+        reason = "fixture_allowed"
+
+        def __init__(self, correlation_id: str) -> None:
+            self.correlation_id = correlation_id
+
+        def to_dict(self) -> dict[str, object]:
+            return {"allowed": True, "reason": self.reason,
+                "correlation_id": self.correlation_id}
+
+    class AllowGovernor:
+        def admit_action(self, _action_class, _actor, correlation_id, *, metadata):
+            del _action_class, _actor, metadata
+            return AllowedDecision(correlation_id)
+
+    class Noop:
+        def run_tick(self) -> None:
+            return None
+
+        def tick(self) -> None:
+            return None
+
+    # Keep unrelated maintenance surfaces inert; the cognition, epistemic,
+    # World-State, and canonical-planning owners remain the real implementations.
+    for method_name in (
+            "identify_improvement_signals", "expand", "cycle", "guard",
+            "run_host_resource_observation_runtime",
+            "run_host_privilege_review_rehearsal_runtime",
+            "run_host_execution_readiness_authorization_review_runtime",
+            "run_host_controlled_authorization_safety_runtime",
+            "run_host_live_grant_readiness_runtime",
+            "process_resident_cognitive_transition_request",
+            "reconcile_longitudinal_self_model", "capture_causal_introspection"):
+        monkeypatch.setattr(surfaces, method_name, lambda **_kwargs: {})
+    monkeypatch.setattr(surfaces, "next_repository_mutation_handoff", lambda: None)
+    kernel = ControlPlaneKernel(runtime_governor=AllowGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")  # type: ignore[arg-type]
+    for tick in ticks:
+        active_tick[0] = tick
+        daemon._run_maintenance_tick(
+            kernel=kernel, runtime_surfaces=surfaces,
+            contract_sentinel=object(), forge_daemon=Noop(),
+            merge_train=Noop())  # type: ignore[arg-type]
+
+    first_tick, second_tick = (item.isoformat() for item in (
+        datetime(2026, 11, 11, 18, 0, tzinfo=timezone.utc),
+        datetime(2026, 11, 11, 18, 1, tzinfo=timezone.utc)))
+    first_plan = surfaces._feedback["surfaces"]["canonical_goal_planning"]
+    assert first_plan["tick_id"] == second_tick
+    assert first_plan["authority"] is False
+    assert first_plan["execution_performed"] is False
+    assert first_plan["prior_epistemic_projection_digest"] is not None
+    assert first_plan["deferred_goals"] == [{
+        "goal_id": "recovery-followup",
+        "reason": "epistemic_review_required",
+    }]
+    state = epistemics.current_state(proposition.proposition_id)
+    assert state is not None
+    assert state.stance == "provisionally_supported"
+    assert not any(state.authority.values())
+    cognition_requests = [request for request in fake.requests
+        if request.purpose in {"resident_developmental_interpretation",
+            "resident_developmental_retrieval_cognition"}]
+    assert len(cognition_requests) == 2
+    assert cognition_requests[0].upstream_evidence.get("epistemic_state_ids", []) == []
+    assert cognition_requests[1].upstream_evidence["epistemic_state_ids"] == [state.state_id]
+    assert first_tick < second_tick

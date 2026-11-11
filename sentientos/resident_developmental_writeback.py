@@ -60,6 +60,10 @@ MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES = 12_288
 # scores, and retained per-probe results. Its prompt can exceed the general
 # 8 KB writeback input budget while remaining under its narrowly selected cap.
 MAX_OBJECTIVE_TASK_FAMILY_INPUT_CHARS = 16_384
+# A complete, independently reconciled consequence chain plus proprioception
+# can exceed the ordinary writeback prompt limit. Keep the larger allowance
+# tied to the exact bounded chain shape and below the resident model context.
+MAX_COMPLETE_CONSEQUENCE_CYCLE_INPUT_CHARS = 24_576
 # A single preregistered strategy-quality vector is larger than a general
 # evidence fact but remains bounded to 12 KB and carries no execution claim.
 MAX_STRATEGY_QUALITY_SELECTED_EVIDENCE_BYTES = 12_288
@@ -636,6 +640,9 @@ def _writeback_input_limit(facts: Sequence[Mapping[str, Any]]) -> int:
                 == MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES
             and _is_bounded_objective_task_family_trial(facts[0])):
         return MAX_OBJECTIVE_TASK_FAMILY_INPUT_CHARS
+    if (_selected_fact_byte_limit(facts)
+            == MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES):
+        return MAX_COMPLETE_CONSEQUENCE_CYCLE_INPUT_CHARS
     return (52_000 if _selected_fact_byte_limit(facts) == 48_000 else 8000)
 
 
@@ -2697,17 +2704,20 @@ class ResidentDevelopmentalWritebackController:
                 or not 1 <= timeout_seconds <= max_timeout_seconds <= 120):
             raise DevelopmentalWritebackError(
                 "developmental_inference_budget_unbounded")
+        expanded_evidence = input_limit > 8000
+        interpretation_limit = 900 if expanded_evidence else MAX_INTERPRETATION_CHARS
+        output_limit = 1200 if expanded_evidence else 4000
         bounded = budget or LocalModelInvocationBudget(max_input_chars=input_limit,
-            max_output_chars=4000, max_new_tokens=512,
+            max_output_chars=output_limit, max_new_tokens=512,
             timeout_seconds=timeout_seconds, max_calls_per_correlation=1)
         if (bounded.max_calls_per_correlation != 1
                 or bounded.max_input_chars > input_limit
-                or bounded.max_output_chars > 4000
+                or bounded.max_output_chars > output_limit
                 or bounded.max_new_tokens > 512
                 or bounded.timeout_seconds > max_timeout_seconds):
             raise DevelopmentalWritebackError("developmental_inference_budget_unbounded")
         schema = {"type":"object", "required":["interpretation","uncertainty"], "additionalProperties":False,
-                  "properties":{"interpretation":{"type":"string","maxLength":MAX_INTERPRETATION_CHARS},
+                  "properties":{"interpretation":{"type":"string","maxLength":interpretation_limit},
                                 "uncertainty":{"type":"string","enum":["low","medium","high","unknown"]}}}
         instruction = ("Interpret selected World-State evidence only as bounded context, without asserting truth, authority, policy, goals, or storage. "
             "Preserve whether each source time is current, historical, or unknown; the World-State observation clock is not an event time unless the owner says so. "
@@ -2715,11 +2725,26 @@ class ResidentDevelopmentalWritebackController:
             "A configured attestation snapshot signature-verification failure establishes only that verifier's bounded result, not attack, hostile activity, intent, compromise, or cause. "
             + ("An integrity-controller gate is only its bounded verifier result; a warning or failure does not establish attack, cause, hostile intent, compromise, or a successful defense. Skipped gates are gaps in coverage. Do not derive authority, policy, or a defensive procedure. "
                if _has_bounded_integrity_controller_observation(selection) else "")
+            + ("For this expanded but bounded evidence shape, write one or two concise sentences, at most 900 characters; "
+               "summarize only the evidence-supported interpretation and uncertainty. Do not enumerate or restate the "
+               "evidence; exact provenance is retained separately. " if expanded_evidence else "")
             + "Keep provenance and uncertainty attached to each interpretation. For resource evidence, distinguish measured, "
             + "estimated, predicted, and unknown values by their source posture; shared host usage is not invocation attribution. "
             + "Resource expenditure is not inherently good or bad and must not become a reward, penalty, or objective.")
-        request = invoker.build_request(purpose=PURPOSE, prompt=json.dumps({"instruction":instruction,
-            "selection":selection.semantic_payload()}, sort_keys=True), caller=PRINCIPAL, correlation_id=correlation_id, expected_output_format="json", budget=bounded, upstream_evidence={"selection_id":selection.selection_id,"selection_digest":selection.selection_digest,"snapshot_id":selection.snapshot_id,"snapshot_digest":selection.snapshot_digest}, linkage={"transformation":"selected_world_state_to_historical_interpretation"}, structured_output_schema=schema)
+        # Compact JSON preserves every selected fact and provenance field while
+        # reducing token overhead for the larger, authenticated consequence chain.
+        prompt = json.dumps({"instruction":instruction,
+            "selection":selection.semantic_payload()}, sort_keys=True,
+            separators=(",", ":"))
+        request = invoker.build_request(purpose=PURPOSE, prompt=prompt,
+            caller=PRINCIPAL, correlation_id=correlation_id,
+            expected_output_format="json", budget=bounded,
+            upstream_evidence={"selection_id":selection.selection_id,
+                "selection_digest":selection.selection_digest,
+                "snapshot_id":selection.snapshot_id,
+                "snapshot_digest":selection.snapshot_digest},
+            linkage={"transformation":"selected_world_state_to_historical_interpretation"},
+            structured_output_schema=schema)
         # The candidate parser consumes this governed response immediately, and the
         # durable candidate already retains its exact source text and digest.
         # Redacting it here makes every real first-tick writeback unparsable.
@@ -2730,6 +2755,12 @@ class ResidentDevelopmentalWritebackController:
     def candidate_from_receipt(selection: SelectedEvidence, receipt: LocalModelInvocationReceipt) -> DevelopmentalCandidate:
         if receipt.status not in {"admitted_completed", "admitted_simulation"} or receipt.purpose != PURPOSE or receipt.output_text is None or receipt.output_digest is None:
             raise DevelopmentalWritebackError("developmental_inference_not_completed")
+        completion = receipt.backend_completion
+        if (receipt.output_truncated
+                or isinstance(completion, Mapping)
+                    and completion.get("token_limit_reached") is True):
+            raise DevelopmentalWritebackError(
+                "developmental_output_token_limit_reached")
         try: output = json.loads(receipt.output_text)
         except json.JSONDecodeError as exc: raise DevelopmentalWritebackError("malformed_developmental_output") from exc
         if not isinstance(output, dict) or set(output) != {"interpretation", "uncertainty"} or not isinstance(output["interpretation"], str) or not output["interpretation"].strip() or len(output["interpretation"]) > MAX_INTERPRETATION_CHARS or output["uncertainty"] not in {"low","medium","high","unknown"}:
