@@ -2350,7 +2350,8 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert packet["task_family_scope_posture"] == (
         "matching_score_bound_examples_only")
     assert packet["unscoped_interpretation_omitted"] is True
-    assert packet["unscoped_interpretation_digest"]
+    assert "unscoped_interpretation_digest" not in packet
+    assert packet["candidate_digest"] and packet["record_digest"]
     assert packet["selected_fact_ids"] == [bound_projection["source_fact_id"]]
     assert task_experience["model_identity_relation"] == "same_active_model_identity"
     assert task_experience["applicability_posture"] == \

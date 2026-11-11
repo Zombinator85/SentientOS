@@ -1028,7 +1028,7 @@ def test_seeded_objective_task_pairs_are_reproducible_and_distinct(runner):
         transfer.specification()["task_family_id"])
     assert transfer.specification()["requires_task_family_history"] is True
     assert acquisition.specification()["task_family_id"] == (
-        "rootless_integer_affine_transfer_low_range_v3")
+        "rootless_integer_affine_transfer_low_range_v4")
     assert set(acquisition.specification()["probe_inputs"]).isdisjoint(
         transfer.specification()["probe_inputs"])
     for task in first:

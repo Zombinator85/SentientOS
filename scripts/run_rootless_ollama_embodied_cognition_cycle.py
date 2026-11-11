@@ -99,7 +99,7 @@ MODEL_NAME = os.environ.get("SENTIENTOS_HERMES_MODEL", "sentientos-hermes4:14b-q
 _MAX_EXPERIMENT_SEED = 2**32 - 1
 _MIN_EXPERIMENT_DISK_FREE_BYTES = 2 * 1024**3
 _OBJECTIVE_TRANSFER_TASK_FAMILY = (
-    "rootless_integer_affine_transfer_low_range_v3")
+    "rootless_integer_affine_transfer_low_range_v4")
 
 # Leave bounded space for receipt-backed evidence plus its prior-history packet.
 # The model remains configured with an 8,192-token context; this separate

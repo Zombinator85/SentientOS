@@ -2236,8 +2236,6 @@ def _history_context_packet(record: Mapping[str, Any], *,
             "task_family_scope": task_family_id,
             "task_family_scope_posture": "matching_score_bound_examples_only",
             "unscoped_interpretation_omitted": True,
-            "unscoped_interpretation_digest": (
-                _digest(interpretation) if isinstance(interpretation, str) else None),
             "selected_fact_ids": [],
         })
     else:
