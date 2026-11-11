@@ -60,6 +60,13 @@ def _wait_for_udp_listener(port, process, *, timeout_seconds=5.0):
         time.sleep(0.05)
     raise RuntimeError("godot_avatar_listener_startup_timeout")
 
+def _renderer_generation_id(process_id):
+    if type(process_id) is not int or process_id < 1:
+        raise ValueError("godot_renderer_process_id_invalid")
+    # Keep runner-created reports in the namespace admitted by the existing
+    # renderer ingress, while marking this generation as development-owned.
+    return "godot-demo-dev-" + str(process_id)
+
 def main():
     print("EDGE_STARTUP phase=worker_started",flush=True)
     cfg=json.loads(sys.stdin.readline())
@@ -313,7 +320,7 @@ def main():
         for name in ("APPDATA","LOCALAPPDATA","TEMP","TMP"):
             target=profile/name;target.mkdir(parents=True,exist_ok=True);env[name]=str(target)
         env["HOME"]=str(profile)
-        env["SENTIENTOS_RENDERER_GENERATION_ID"]="godot-dev-"+str(os.getpid())
+        env["SENTIENTOS_RENDERER_GENERATION_ID"]=_renderer_generation_id(os.getpid())
         avatar_listen_port=available_loopback_udp_port()
         env["SENTIENTOS_GODOT_LISTEN_PORT"]=str(avatar_listen_port)
         report_socket=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)

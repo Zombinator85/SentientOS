@@ -188,6 +188,24 @@ def test_renderer_report_digest_changes_when_report_changes():
     assert first.source_digest != second.source_digest
 
 
+def test_local_dev_renderer_generation_uses_ingress_namespace(monkeypatch):
+    monkeypatch.syspath_prepend("scripts")
+    from scripts.local_companion_edge_dev_worker import _renderer_generation_id
+    from scripts.run_local_companion_dev import _LatestRendererObservation
+
+    report = _report()
+    report["renderer_generation_id"] = _renderer_generation_id(12345)
+    _refresh_digest(report)
+
+    observation = renderer_report_observation(report)
+    renderer_report = observation.payload["renderer_report"]
+    assert renderer_report["renderer_generation_id"] == "godot-demo-dev-12345"
+    provider = _LatestRendererObservation()
+    provider.update(report)
+    assert provider() == (observation,)
+    assert observation.effect_proven is False
+
+
 @pytest.mark.skipif(os.name != "posix", reason="durable renderer store uses POSIX dir-fd custody")
 def test_authenticated_renderer_report_returns_to_durable_unverified_world_state(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

@@ -103,8 +103,11 @@ def test_godot_report_reaches_durable_capture_through_edge_relay_and_mtls(tmp_pa
     godot = godot_executable()
     if godot is None:
         pytest.skip("Godot is not installed in this validation environment")
+    from scripts.local_companion_edge_dev_worker import _renderer_generation_id
+
     repository_root = Path(__file__).resolve().parents[1]
     project = repository_root / "godot_avatar_demo"
+    renderer_generation_id = _renderer_generation_id(12345)
     server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
     source_key, acknowledgment_key = b"r" * 32, b"a" * 32
     receiver = CompanionBridgeReceiver(source_keys={"windows-renderer-relay": source_key},
@@ -127,13 +130,13 @@ def test_godot_report_reaches_durable_capture_through_edge_relay_and_mtls(tmp_pa
         acknowledgment_receiver=acknowledgment_receiver)
     relay = WindowsRendererReportRelay(client=client, source_id="windows-renderer-relay",
         session_id="godot-renderer-session", generation_id="edge-generation-1",
-        source_key=source_key, renderer_generation_id="godot-demo-e2e-generation-1")
+        source_key=source_key, renderer_generation_id=renderer_generation_id)
     relay_port = relay.start()
     environment = dict(os.environ)
     environment.update({"XDG_CACHE_HOME": str(tmp_path / "e2e-cache"),
         "XDG_CONFIG_HOME": str(tmp_path / "e2e-config"),
         "XDG_DATA_HOME": str(tmp_path / "e2e-data"),
-        "SENTIENTOS_RENDERER_GENERATION_ID": "godot-demo-e2e-generation-1",
+        "SENTIENTOS_RENDERER_GENERATION_ID": renderer_generation_id,
         "SENTIENTOS_RENDERER_REPORT_RELAY_PORT": str(relay_port)})
     try:
         result = subprocess.run([godot, "--headless", "--path", str(project),
@@ -143,6 +146,7 @@ def test_godot_report_reaches_durable_capture_through_edge_relay_and_mtls(tmp_pa
         report_line = next(line for line in result.stdout.splitlines()
             if line.startswith("sentientos_renderer_report_json:"))
         renderer_report = json.loads(report_line.split(":", 1)[1])
+        assert renderer_report["renderer_generation_id"] == renderer_generation_id
         deadline = time.monotonic() + 3.0
         while (owner.status()["captured"] == 0 or relay.status().forwarded == 0) and time.monotonic() < deadline:
             time.sleep(0.01)
