@@ -15,12 +15,19 @@ selection deliberately ignores the processed-evidence ledger; the separate
 writeback selection still excludes exact evidence identities already processed.
 
 When comparison is enabled and prior history exists, an immutable
-`sentientos.developmental_history_intervention_protocol:v1` is atomically
-persisted before the first model invocation. It binds the snapshot and current
+history-intervention protocol is atomically persisted before the first model
+invocation. Existing protocol versions preserve the fixed order:
+history_present, history_withheld, history_restored. The opt-in companion
+intervention also supports protocol v7, which records either that order or the
+counterbalanced order history_withheld, history_present, history_restored. A
+deterministic trial-index helper alternates those two orders; it is
+counterbalancing, not randomization. Restored remains third so it always follows
+exact-history revalidation. The protocol binds the snapshot and current
 projection, exact fact and developmental-record identities, record-set digest,
-model/artifact/active identity, authority-map digest, fixed budget, temperature
-zero posture, template digest, comparisons, non-claims, and fixed order:
-`history_present`, `history_withheld`, `history_restored`.
+model/artifact/active identity, authority-map digest, fixed budget,
+temperature-zero posture, template digest, comparisons, non-claims, and exact
+invocation order. Persisted condition, score, and decision arrays remain in
+canonical present/withheld/restored order for compatibility.
 
 Withholding changes only the ephemeral prompt projection. It never deletes,
 tombs, rewrites, or reclassifies history. Restoration re-reads every exact
@@ -37,9 +44,11 @@ temperature zero is not a hardware-determinism guarantee. Outputs remain
 digest-only in durable receipts. The summary compares present-vs-withheld and
 restored-vs-withheld and may report no observable difference, a stable
 history-presence-associated difference, history-restoration instability, or a
-mixed observation. Because condition order is fixed, restoration instability
-does not identify an order effect; counterbalanced condition-order trials remain
-necessary to test order sensitivity. These are bounded associations only.
+mixed observation. A single trial does not identify an order effect. The
+deterministic counterbalanced schedule helps expose positional confounding
+across matched
+trials, but does not randomize nuisance variables or by itself support a causal
+order-effect estimate. These are bounded associations only.
 
 The broader capability remains `partial`. The separate controlled
 [model-replacement experiment](developmental_model_replacement_experiment.md)

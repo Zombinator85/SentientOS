@@ -8,8 +8,9 @@ from types import SimpleNamespace
 import pytest
 
 from sentientos.developmental_history_intervention_experiment import (
+    CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER,
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
-    make_protocol, qualify_history_transfer_decision,
+    history_condition_order_for_trial, make_protocol, qualify_history_transfer_decision,
     qualify_restoration_stable_history_association, qualify_semantic_history_decision,
     summarize, verify_protocol,
 )
@@ -41,6 +42,19 @@ def test_protocol_is_deterministic_preregistered_and_tamper_detecting(tmp_path: 
     assert first.generation_posture["temperature"] == 0 and not first.grants_authority
     with pytest.raises(DevelopmentalHistoryInterventionError, match="digest_mismatch"):
         verify_protocol(replace(first, snapshot_id="tampered"))
+
+
+def test_history_condition_order_counterbalances_only_present_and_withheld() -> None:
+    assert history_condition_order_for_trial(0) == CONDITION_ORDER
+    assert history_condition_order_for_trial(1) == COUNTERBALANCED_CONDITION_ORDER
+    assert history_condition_order_for_trial(2) == CONDITION_ORDER
+    assert history_condition_order_for_trial(3) == COUNTERBALANCED_CONDITION_ORDER
+    assert all(order[-1] == "history_restored" for order in (
+        history_condition_order_for_trial(0), history_condition_order_for_trial(1)))
+    for invalid in (-1, True, 1.5):
+        with pytest.raises(DevelopmentalHistoryInterventionError,
+                match="trial_index_invalid"):
+            history_condition_order_for_trial(invalid)  # type: ignore[arg-type]
 
 
 def test_task_family_evidence_binding_rejects_unknown_offset_times() -> None:

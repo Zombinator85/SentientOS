@@ -22,14 +22,17 @@ LEGACY_OBJECTIVE_SCHEMA = "sentientos.developmental_history_intervention_protoco
 OBJECTIVE_SCHEMA = "sentientos.developmental_history_intervention_protocol:v4"
 HISTORY_SELECTION_SCHEMA = "sentientos.developmental_history_intervention_protocol:v5"
 OBJECTIVE_HISTORY_SELECTION_SCHEMA = "sentientos.developmental_history_intervention_protocol:v6"
+COUNTERBALANCED_HISTORY_SELECTION_SCHEMA = "sentientos.developmental_history_intervention_protocol:v7"
 OBJECTIVE_SCHEMAS = frozenset({LEGACY_OBJECTIVE_SCHEMA, OBJECTIVE_SCHEMA,
     OBJECTIVE_HISTORY_SELECTION_SCHEMA})
 HISTORY_SELECTION_SCHEMAS = frozenset({HISTORY_SELECTION_SCHEMA,
-    OBJECTIVE_HISTORY_SELECTION_SCHEMA})
+    OBJECTIVE_HISTORY_SELECTION_SCHEMA, COUNTERBALANCED_HISTORY_SELECTION_SCHEMA})
 LEGACY_RUN_SCHEMA = "sentientos.developmental_history_intervention_run:v1"
 RUN_SCHEMA = "sentientos.developmental_history_intervention_run:v2"
 PURPOSE = "resident_developmental_history_intervention_experiment"
 CONDITION_ORDER = ("history_present", "history_withheld", "history_restored")
+COUNTERBALANCED_CONDITION_ORDER = (
+    "history_withheld", "history_present", "history_restored")
 NON_CLAIMS = ("learning", "improvement", "persistent_individuality", "selfhood", "consciousness", "sentience", "causal_closure")
 MAX_EXPERIMENT_ARTIFACT_BYTES = 4_194_304
 
@@ -108,8 +111,17 @@ class DevelopmentalHistoryInterventionProtocol:
         return value
 
 
-def make_protocol(**kwargs: Any) -> DevelopmentalHistoryInterventionProtocol:
-    raw = DevelopmentalHistoryInterventionProtocol("", "", condition_order=CONDITION_ORDER,
+def history_condition_order_for_trial(trial_index: int) -> tuple[str, ...]:
+    """Return a deterministic alternating present/withheld order for a trial."""
+    if type(trial_index) is not int or trial_index < 0:
+        raise DevelopmentalHistoryInterventionError("trial_index_invalid")
+    return (CONDITION_ORDER if trial_index % 2 == 0
+        else COUNTERBALANCED_CONDITION_ORDER)
+
+
+def make_protocol(*, condition_order: tuple[str, ...] = CONDITION_ORDER,
+        **kwargs: Any) -> DevelopmentalHistoryInterventionProtocol:
+    raw = DevelopmentalHistoryInterventionProtocol("", "", condition_order=condition_order,
         inference_purpose=PURPOSE, planned_comparisons=("present_vs_withheld", "restored_vs_withheld"),
         non_claims=NON_CLAIMS, **kwargs)
     digest = _digest(raw.semantic_payload())
@@ -120,10 +132,15 @@ def verify_protocol(protocol: DevelopmentalHistoryInterventionProtocol) -> None:
     digest = _digest(protocol.semantic_payload())
     if protocol.protocol_digest != digest or protocol.protocol_id != "devexp-protocol-" + digest[7:31]:
         raise DevelopmentalHistoryInterventionError("protocol_digest_mismatch")
+    allowed_orders = ((CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER)
+        if protocol.schema_version == COUNTERBALANCED_HISTORY_SELECTION_SCHEMA
+        else (CONDITION_ORDER,))
     if (protocol.schema_version not in {LEGACY_SCHEMA, SCHEMA,
-            HISTORY_SELECTION_SCHEMA, *OBJECTIVE_SCHEMAS}
-            or protocol.condition_order != CONDITION_ORDER or protocol.inference_purpose != PURPOSE
-            or protocol.grants_authority):
+            HISTORY_SELECTION_SCHEMA, COUNTERBALANCED_HISTORY_SELECTION_SCHEMA,
+            *OBJECTIVE_SCHEMAS}
+            or type(protocol.condition_order) is not tuple
+            or protocol.condition_order not in allowed_orders
+            or protocol.inference_purpose != PURPOSE or protocol.grants_authority):
         raise DevelopmentalHistoryInterventionError("protocol_control_invalid")
     if protocol.schema_version in OBJECTIVE_SCHEMAS:
         if (not isinstance(protocol.objective_task_digest, str)

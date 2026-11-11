@@ -13,7 +13,8 @@ import scripts.doctor_resident_objective_experiment as readiness
 
 from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
 from sentientos.developmental_history_intervention_experiment import (
-    DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
+    COUNTERBALANCED_CONDITION_ORDER, DevelopmentalExperimentStore,
+    DevelopmentalHistoryInterventionError,
 )
 from sentientos.developmental_model_replacement_experiment import ObjectivePredictionTask
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
@@ -6079,6 +6080,33 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         for item in intervention_observations)
     assert [bool(item["retrieved_record_ids"]) for item in intervention_observations
         if item["condition_id"] != "history_withheld"] == [True, True]
+
+    # A second trial preregisters and executes the reversed present/withheld
+    # order, while durable condition and decision rows remain canonical.
+    requests_before_counterbalanced = len(fake.requests)
+    counterbalanced = compared_owner.run_companion_history_intervention(
+        snapshot=source, tick_id="companion-decision-counterbalanced",
+        question=("For the synthetic avatar, choose the next pose and predict "
+            "its encoder pose. Return JSON with requested_pose and predicted_pose."),
+        history_record_allowlist=(initial.written_record_id,),
+        condition_order=COUNTERBALANCED_CONDITION_ORDER)
+    assert [item["condition_id"] for item in counterbalanced.conditions] == [
+        "history_present", "history_withheld", "history_restored"]
+    requests = [request for request in fake.requests[requests_before_counterbalanced:]
+        if request.purpose == "resident_developmental_history_intervention_experiment"
+        and request.linkage.get("condition_id") in
+            {"history_present", "history_withheld", "history_restored"}]
+    assert [request.linkage["condition_id"] for request in requests] == [
+        "history_withheld", "history_present", "history_restored"]
+    counterbalanced_run = compared_owner.experiments.load_run(
+        counterbalanced.changed_cognition_measurement_id)
+    assert tuple(counterbalanced_run["protocol"]["condition_order"]) == (
+        "history_withheld", "history_present", "history_restored")
+    assert counterbalanced_run["protocol"]["schema_version"] == (
+        "sentientos.developmental_history_intervention_protocol:v7")
+    assert [item["condition_id"] for item in counterbalanced_run[
+        "companion_intervention_decisions"]] == [
+            "history_present", "history_withheld", "history_restored"]
 
     # A later cycle reconstructs all prior observations from disk. Experimental
     # history citations belong to history_record_ids; they must not be mistaken
