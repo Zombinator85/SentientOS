@@ -194,21 +194,23 @@ def test_objective_acquisition_summary_reports_withheld_baseline_and_restoration
         counts[2] - counts[0])
 
 
-@pytest.mark.parametrize(("accurate_count", "expected"), [
-    (0, False),
-    (1, False),
-    (2, True),
-    (3, True),
+@pytest.mark.parametrize(("accurate_count", "baseline_qualified", "expected", "reason"), [
+    (0, True, False, "insufficient_accurate_acquisition_examples"),
+    (1, True, False, "insufficient_accurate_acquisition_examples"),
+    (2, True, True, None),
+    (3, True, True, None),
+    (3, False, False, "history_withheld_baseline_competence_not_demonstrated"),
 ])
 def test_affine_transfer_requires_two_accurate_acquisition_examples(
-        runner, accurate_count, expected):
+        runner, accurate_count, baseline_qualified, expected, reason):
     eligibility = runner._objective_transfer_eligibility({
-        "retained_accurate_example_count": accurate_count})
+        "retained_accurate_example_count": accurate_count,
+        "baseline_competence_qualified": baseline_qualified})
     assert eligibility["eligible"] is expected
     assert eligibility["accurate_example_count"] == accurate_count
     assert eligibility["required_accurate_example_count"] == 2
-    assert eligibility["reason"] == (
-        None if expected else "insufficient_accurate_acquisition_examples")
+    assert eligibility["history_withheld_baseline_competence_qualified"] is baseline_qualified
+    assert eligibility["reason"] == reason
 
 
 @pytest.mark.parametrize("value", [True, -1, 1.0, "2", None])
@@ -216,7 +218,16 @@ def test_affine_transfer_eligibility_rejects_invalid_accurate_counts(runner, val
     with pytest.raises(runner.RootlessExperimentalError,
             match="objective_family_acquisition_accuracy_count_invalid"):
         runner._objective_transfer_eligibility({
-            "retained_accurate_example_count": value})
+            "retained_accurate_example_count": value,
+            "baseline_competence_qualified": True})
+
+
+def test_affine_transfer_eligibility_requires_typed_baseline_qualification(runner):
+    with pytest.raises(runner.RootlessExperimentalError,
+            match="objective_family_acquisition_baseline_qualification_invalid"):
+        runner._objective_transfer_eligibility({
+            "retained_accurate_example_count": 3,
+            "baseline_competence_qualified": None})
 
 
 def test_experiment_seed_provenance_separates_task_and_backend_seeds(

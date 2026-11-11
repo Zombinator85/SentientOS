@@ -99,7 +99,7 @@ MODEL_NAME = os.environ.get("SENTIENTOS_HERMES_MODEL", "sentientos-hermes4:14b-q
 _MAX_EXPERIMENT_SEED = 2**32 - 1
 _MIN_EXPERIMENT_DISK_FREE_BYTES = 2 * 1024**3
 _OBJECTIVE_TRANSFER_TASK_FAMILY = (
-    "rootless_integer_affine_transfer_low_range_v4")
+    "rootless_integer_affine_transfer_low_range_v5")
 
 # Leave bounded space for receipt-backed evidence plus its prior-history packet.
 # The model remains configured with an 8,192-token context; this separate
@@ -214,18 +214,29 @@ def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _objective_transfer_eligibility(acquisition_summary: Mapping[str, Any]) -> dict[str, Any]:
-    """Require enough evaluator-verified examples to identify an affine rule."""
+    """Require baseline competence and enough verified examples for transfer."""
     accurate = acquisition_summary.get("retained_accurate_example_count")
     if type(accurate) is not int or accurate < 0:
         raise RootlessExperimentalError(
             "objective_family_acquisition_accuracy_count_invalid")
     required = _MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER
+    baseline_qualified = acquisition_summary.get("baseline_competence_qualified")
+    if type(baseline_qualified) is not bool:
+        raise RootlessExperimentalError(
+            "objective_family_acquisition_baseline_qualification_invalid")
+    eligible = accurate >= required and baseline_qualified
+    if not baseline_qualified:
+        reason = "history_withheld_baseline_competence_not_demonstrated"
+    elif accurate < required:
+        reason = "insufficient_accurate_acquisition_examples"
+    else:
+        reason = None
     return {
-        "eligible": accurate >= required,
-        "reason": None if accurate >= required else
-            "insufficient_accurate_acquisition_examples",
+        "eligible": eligible,
+        "reason": reason,
         "accurate_example_count": accurate,
         "required_accurate_example_count": required,
+        "history_withheld_baseline_competence_qualified": baseline_qualified,
     }
 
 
