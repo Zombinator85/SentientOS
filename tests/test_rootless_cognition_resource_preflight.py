@@ -12,6 +12,8 @@ from typing import Any
 
 import pytest
 
+from sentientos.rootless_experimental_local_model import RootlessExperimentalError
+
 pytestmark = pytest.mark.no_legacy_skip
 
 
@@ -51,6 +53,23 @@ def test_objective_transfer_uses_one_matched_current_proprioception_fact(runner)
     assert fact.payload["encoder_pose"] == "idle"
     assert fact.effect_claimed is False
     assert fact.effect_proven is False
+
+
+@pytest.mark.parametrize("missing_dependency", ["psutil", "pydantic"])
+def test_runtime_dependencies_are_checked_before_model_or_run_state(
+        runner, monkeypatch, missing_dependency):
+    def fake_find_spec(module_name):
+        return None if module_name == missing_dependency else object()
+
+    monkeypatch.setattr(runner.importlib.util, "find_spec", fake_find_spec)
+    monkeypatch.setattr(runner, "_model_residency_observed",
+        lambda _: pytest.fail("model preflight ran before dependency validation"))
+
+    with pytest.raises(RootlessExperimentalError,
+            match=f"experimental_runtime_dependency_missing:{missing_dependency}"):
+        runner.run()
+
+    assert not runner.RUN_ROOT.exists()
 
 
 @pytest.mark.parametrize(("arguments", "expected_returncode"), [

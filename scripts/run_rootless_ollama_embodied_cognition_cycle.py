@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import random
@@ -1358,10 +1359,23 @@ def _objective_family_acquisition_readiness(run_payload: Mapping[str, Any]) -> d
     }
 
 
+def _require_experiment_runtime_dependencies() -> None:
+    """Fail before model loading when telemetry or later scoring deps are absent."""
+    for module_name in ("psutil", "pydantic"):
+        try:
+            available = importlib.util.find_spec(module_name) is not None
+        except (ImportError, ValueError):
+            available = False
+        if not available:
+            raise RootlessExperimentalError(
+                f"experimental_runtime_dependency_missing:{module_name}")
+
+
 def run() -> dict[str, Any]:
     global RUN_STAGE, PRE_ACTION_DECISION_EVIDENCE
     PRE_ACTION_DECISION_EVIDENCE = None
     RUN_STAGE = "model_and_runtime_preflight"
+    _require_experiment_runtime_dependencies()
     if not MANIFEST_PATH.is_file() or MANIFEST_PATH.is_symlink():
         raise RootlessExperimentalError("pinned_hermes_manifest_missing")
     preexisting_residency = _model_residency_observed(MODEL_NAME)
