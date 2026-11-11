@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -987,6 +988,127 @@ def _bounded_resident_transition_entries(
     }
 
 
+_CODEX_HEALER_EVENT_SHAPES = {
+    "auto-repair verified": "verified",
+    "auto-repair rejected": "rejected",
+    "auto-repair denied_by_governor": "denied",
+    "auto-repair quarantined": "quarantined",
+    "auto-repair regenesis_escalated": "escalated",
+    "auto-repair deferred_backoff": "deferred",
+    "auto-repair deferred_root_cause": "deferred",
+}
+
+
+def _codex_healer_world_state_records(events: Sequence[Mapping[str, Any]],
+        *, tick_id: str) -> list[dict[str, Any]]:
+    """Project bounded recovery-ledger summaries without diagnostic prose or authority."""
+    records: list[dict[str, Any]] = []
+    for event in events[-16:]:
+        status = event.get("status")
+        disposition = (_CODEX_HEALER_EVENT_SHAPES.get(status)
+            if isinstance(status, str) else None)
+        anomaly = event.get("anomaly")
+        if disposition is None or not isinstance(anomaly, Mapping):
+            continue
+        anomaly_kind = anomaly.get("kind")
+        if (not isinstance(anomaly_kind, str) or not anomaly_kind
+                or len(anomaly_kind) > 80
+                or not all(character in "abcdefghijklmnopqrstuvwxyz0123456789_"
+                    for character in anomaly_kind)):
+            continue
+        try:
+            event_digest = record_digest(event)
+        except (TypeError, ValueError):
+            continue
+        correlation_id = event.get("correlation_id")
+        if (not isinstance(correlation_id, str) or len(correlation_id) != 64
+                or any(character not in "0123456789abcdef" for character in correlation_id)):
+            correlation_id = None
+        anomaly_subject = anomaly.get("subject")
+        subject_digest = (hashlib.sha256(anomaly_subject.encode("utf-8")).hexdigest()
+            if isinstance(anomaly_subject, str) else None)
+        admission = event.get("canonical_admission")
+        admission_projection: dict[str, str] = {}
+        if isinstance(admission, Mapping):
+            for key in ("typed_action_id", "admission_decision_ref", "canonical_handler",
+                    "canonical_router", "path_status"):
+                value = admission.get(key)
+                if (isinstance(value, str) and value and len(value) <= 160
+                        and all(character in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-"
+                            for character in value)):
+                    admission_projection[key] = value
+        action = event.get("action")
+        action_kind = action.get("kind") if isinstance(action, Mapping) else None
+        if (not isinstance(action_kind, str) or not action_kind
+                or len(action_kind) > 80
+                or not all(character in "abcdefghijklmnopqrstuvwxyz0123456789_"
+                    for character in action_kind)):
+            action_kind = None
+        details = event.get("details")
+        if not isinstance(details, Mapping):
+            details = {}
+        attempts = details.get("attempts")
+        attempt_ceiling = details.get("attempt_ceiling")
+        verification = details.get("repair_verification")
+        verification_status = (verification.get("status")
+            if isinstance(verification, Mapping) else None)
+        if (not isinstance(verification_status, str) or len(verification_status) > 40
+                or not all(character in "abcdefghijklmnopqrstuvwxyz0123456789_"
+                    for character in verification_status)):
+            verification_status = None
+        quarantined = event.get("quarantined")
+        timestamp = event.get("timestamp")
+        observed_at = None
+        staleness = "unknown"
+        if isinstance(timestamp, str) and timestamp:
+            try:
+                event_instant = _validated_daemon_tick_time(timestamp)
+                board_instant = _validated_daemon_tick_time(tick_id)
+                age_seconds = (board_instant - event_instant).total_seconds()
+                observed_at = timestamp
+                staleness = "fresh" if -30 <= age_seconds <= 120 else "stale"
+            except ValueError:
+                pass
+        payload = {
+            "observation_schema": "sentientos.codex_healer_world_state:v1",
+            "source_owner": "sentientos.codex_healer.RecoveryLedger",
+            "event_digest": event_digest,
+            "event_correlation_id": correlation_id,
+            "event_status": status,
+            "anomaly_kind": anomaly_kind,
+            "anomaly_subject_digest": subject_digest,
+            "canonical_admission": admission_projection,
+            "action_kind": action_kind,
+            "recovery_disposition": disposition,
+            "attempt_count": attempts if isinstance(attempts, int) and not isinstance(attempts, bool) else None,
+            "attempt_ceiling": attempt_ceiling if isinstance(attempt_ceiling, int) and not isinstance(attempt_ceiling, bool) else None,
+            "repair_verification_status": verification_status,
+            "quarantined": quarantined if isinstance(quarantined, bool) else None,
+            "read_only": True,
+            "current_truth": False,
+            "authority": False,
+            "effect_claimed": False,
+            "effect_proven": False,
+        }
+        records.append({
+            "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
+            "source_id": f"codex-healer-event:{event_digest}",
+            "schema_version": "sentientos.codex_healer_world_state:v1",
+            "subject_id": f"codex-healer-anomaly:{correlation_id or event_digest[:32]}",
+            "subject_kind": "codex_healer_recovery_event",
+            "stage": "observation",
+            "disposition": "recorded",
+            "evidence_strength": "recovery_ledger_digest_bound_summary",
+            "payload": payload,
+            "observed_at": observed_at,
+            "retrieved_at": tick_id,
+            "staleness": staleness,
+            "effect_claimed": False,
+            "effect_proven": False,
+        })
+    return records
+
+
 def _causal_introspection_world_state_records(runtime: CausalIntrospectionRuntime | None,
         *, tick_id: str) -> list[dict[str, Any]]:
     """Keep optional introspection recovery failure visible without aborting the board."""
@@ -1039,6 +1161,7 @@ class RuntimeMaintenanceSurfaces:
         self._resource_observation_snapshot: ProductionChatResourceObservation | None = None
         self._resource_observation_error: Exception | None = None
         self._causal_introspection_tick_id: str | None = None
+        self._codex_healer_observation_events: tuple[Mapping[str, Any], ...] = ()
         self._resource_observation_health: dict[str, Any] = dict(resource_observation_configuration_status or {
             "status": "verified" if resource_observation_owner is not None else "disabled",
             "read_only": True, "effect_authority": False,
@@ -1563,7 +1686,8 @@ class RuntimeMaintenanceSurfaces:
             return feedback
         if self._world_state_snapshot_built_for_tick == tick_key:
             return dict(self._feedback.get("surfaces", {}).get("world_state_evidence_board", {}))
-        records: list[dict[str, Any]] = []
+        records: list[dict[str, Any]] = _codex_healer_world_state_records(
+            self._codex_healer_observation_events, tick_id=tick_key)
         quarantine_record = _quarantine_custody_world_state_record(
             self._repo_root, observed_at=tick_key)
         records.append(quarantine_record)
@@ -2045,7 +2169,8 @@ class RuntimeMaintenanceSurfaces:
                         "developmental_history_invocation_resource_lineage",
                         "resource_invocation_lineage_retention"}: return 1
             if (source_kind == WorldStateSourceKind.RUNTIME_SUPERVISOR.value
-                    and subject_kind == "resident_parent_lifecycle_history"):
+                    and subject_kind in {"resident_parent_lifecycle_history",
+                        "codex_healer_recovery_event"}):
                 return 2
             if (source_kind == WorldStateSourceKind.EMBODIMENT.value
                     and subject_kind in {"embodied_strategy_proposal",
@@ -3641,6 +3766,8 @@ class RuntimeMaintenanceSurfaces:
 
     def monitor(self) -> list[dict[str, Any]]:
         events = runtime_healer_monitor(self._repo_root / "integration")
+        self._codex_healer_observation_events = tuple(
+            event for event in events if isinstance(event, Mapping))
         quarantined = sum(1 for event in events if bool(event.get("quarantined")))
         statuses = sorted({str(event.get("status", "unknown")) for event in events})
         self._feedback["surfaces"]["codex_healer"] = {
