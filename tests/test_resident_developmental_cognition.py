@@ -2116,6 +2116,59 @@ print(json.dumps({"stance": state.stance if state else None,
     assert planning_feedback["prior_epistemic_projection_digest"] == (
         expected_planner_projection.projection_digest)
 
+    # Run the real daemon planning surface under matched history-withheld and
+    # history-restored conditions. The proposition exists in both conditions;
+    # only its admitted update chain differs. The restored owner is reconstructed
+    # from the same durable files to prove the effect survives restart.
+    withheld_owner = PersistentEpistemicStateOwner(
+        tmp_path / "withheld-epistemics", allowed_namespaces=("operator",))
+    withheld_owner.register_proposition(proposition)
+    withheld_root = planning_root / "history-withheld"
+    persist_goal_graph(withheld_root, planning_graph)
+    withheld_surfaces = RuntimeMaintenanceSurfaces(withheld_root,
+        runtime_state_root=withheld_root / "runtime",
+        epistemic_state_owner=withheld_owner,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True})
+    withheld_feedback = withheld_surfaces.run_canonical_goal_planning(
+        tick_id=planning_tick)
+    assert withheld_feedback["status"] == "planned"
+    assert withheld_feedback["selected_goals"] == ["integer-affine-followup"]
+    assert withheld_feedback["deferred_goals"] == []
+    assert withheld_feedback["prior_epistemic_projection_digest"] is None
+    assert withheld_feedback["authority"] is False
+    assert withheld_feedback["execution_performed"] is False
+    assert withheld_feedback["model_invoked"] is False
+
+    restored_owner = PersistentEpistemicStateOwner(
+        epistemic_root, allowed_namespaces=("operator",))
+    restored_controller = ResidentEpistemicStateMutationController(
+        owner=restored_owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        current_sequence=current_admission_sequence,
+        receipt_root=tmp_path / "epistemic-mutation-receipts")
+    assert restored_controller.verify_receipts()["status"] == "verified"
+    restored_root = planning_root / "history-restored"
+    persist_goal_graph(restored_root, planning_graph)
+    restored_surfaces = RuntimeMaintenanceSurfaces(restored_root,
+        runtime_state_root=restored_root / "runtime",
+        epistemic_state_owner=restored_owner,
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True})
+    restored_feedback = restored_surfaces.run_canonical_goal_planning(
+        tick_id=planning_tick)
+    assert restored_feedback["status"] == planning_feedback["status"], restored_feedback
+    assert restored_feedback["selected_goals"] == planning_feedback["selected_goals"]
+    assert restored_feedback["deferred_goals"] == planning_feedback["deferred_goals"]
+    assert restored_feedback["prior_epistemic_projection_digest"] == (
+        planning_feedback["prior_epistemic_projection_digest"])
+    assert restored_feedback["authority"] is False
+    assert restored_feedback["execution_performed"] is False
+    assert restored_feedback["model_invoked"] is False
+
     allocation_graph = GoalGraph(schema_version=1, goals=(
         Goal("history-sensitive", "mapped goal", 1.0, 10, (), "rule", 2, 1,
             (f"epistemic_proposition:{proposition.proposition_id}",), True),
