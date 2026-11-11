@@ -209,7 +209,9 @@ def test_local_dev_renderer_generation_uses_ingress_namespace(monkeypatch):
 @pytest.mark.skipif(os.name != "posix", reason="durable renderer store uses POSIX dir-fd custody")
 def test_authenticated_renderer_report_returns_to_durable_unverified_world_state(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    from tests.test_resident_developmental_cognition import owner as developmental_owner
+    from tests.test_resident_developmental_cognition import (
+        FakeInvoker, owner as developmental_owner,
+    )
 
     now = datetime.now(timezone.utc).isoformat()
     report = _report()
@@ -363,6 +365,78 @@ def test_authenticated_renderer_report_returns_to_durable_unverified_world_state
         assert typed_report["renderer_independent_observation"] is False
         assert typed_report["transport_authenticated_at_capture"] is True
         assert typed_report["renderer_state_independently_observed"] is False
+
+        # Exercise the existing matched intervention owner with this exact
+        # retained renderer record. The fake supplies condition-specific
+        # outputs, so this verifies wiring and lineage only; it is not evidence
+        # that a live model changed its decision or improved performance.
+        comparison_fake = FakeInvoker()
+        comparison_fake.companion_output_by_condition = {
+            "history_present": {
+                "disposition": "answer",
+                "response": json.dumps({"requested_pose": "wave",
+                    "predicted_pose": "wave"}),
+                "evidence_ids": ["__CURRENT_FACT__"],
+                "history_record_ids": ["__CURRENT_HISTORY__"],
+            },
+            "history_withheld": {
+                "disposition": "answer",
+                "response": json.dumps({"requested_pose": "idle",
+                    "predicted_pose": "idle"}),
+                "evidence_ids": ["__CURRENT_FACT__"],
+                "history_record_ids": [],
+            },
+            "history_restored": {
+                "disposition": "answer",
+                "response": json.dumps({"requested_pose": "wave",
+                    "predicted_pose": "wave"}),
+                "evidence_ids": ["__CURRENT_FACT__"],
+                "history_record_ids": ["__CURRENT_HISTORY__"],
+            },
+        }
+        comparison_owner, _ = developmental_owner(
+            tmp_path / "cognition", comparison=True, invoker=comparison_fake,
+            allowed_source_kinds=("embodiment",), max_selected_facts=1)
+        assert later_surfaces.current_world_state_snapshot is not None
+        comparison = comparison_owner.run_companion_history_intervention(
+            snapshot=later_surfaces.current_world_state_snapshot,
+            tick_id="renderer-history-causal-comparison",
+            question=("Use the retained renderer report to choose a requested pose "
+                "and predict its renderer-reported pose. Return JSON with "
+                "requested_pose and predicted_pose."),
+            history_record_allowlist=(cognition_result["written_record_id"],))
+        assert comparison.status == "completed_controlled_intervention"
+        assert comparison.response_text_classification == (
+            "history_presence_associated_stable_response_text_difference")
+        assert comparison.restored_prompt_matches is True
+        assert comparison.conditions[0]["retrieved_record_ids"] == [
+            cognition_result["written_record_id"]]
+        assert comparison.conditions[1]["retrieved_record_ids"] == []
+        assert comparison.conditions[0]["retrieved_record_ids"] == (
+            comparison.conditions[2]["retrieved_record_ids"])
+        controls = [condition["matched_control_inputs"]
+            for condition in comparison.conditions]
+        assert controls[0] == controls[1] == controls[2]
+        condition_requests = {request.linkage["condition_id"]: request
+            for request in comparison_fake.requests
+            if request.linkage.get("condition_id") in {
+                "history_present", "history_withheld", "history_restored"}}
+        assert set(condition_requests) == {
+            "history_present", "history_withheld", "history_restored"}
+        for condition_id in ("history_present", "history_restored"):
+            prompt = json.loads(condition_requests[condition_id].prompt)
+            assert any(packet["record_id"] == cognition_result["written_record_id"]
+                for packet in prompt["developmental_history"])
+            evidence = next(item for item in prompt["historical_embodiment_reports"]
+                if item["record_id"] == cognition_result["written_record_id"])
+            reported_state = (evidence.get("typed_report_fields", {}).get(
+                "renderer_state") or evidence["reported_values"][
+                "renderer_self_report"]["reported_state"])
+            assert reported_state["motion"]["active_motion"] == "wave"
+            assert evidence["effect_proven"] is False
+        withheld_prompt = json.loads(condition_requests["history_withheld"].prompt)
+        assert withheld_prompt["developmental_history"] == []
+        assert withheld_prompt.get("historical_embodiment_reports", []) == []
 
         archived = json.loads(captures[0].read_text(encoding="utf-8"))
         archived["transport_provenance"]["source_id"] = "forged-relay"
