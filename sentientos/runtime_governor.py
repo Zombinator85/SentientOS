@@ -1276,10 +1276,17 @@ class RuntimeGovernor:
                 }
             else:
                 game_evidence_ref = {"status": "stale_or_invalid", "age_seconds": game_age}
+        # Host pressure is shared telemetry. It receives game-priority meaning
+        # only while a fresh authenticated game-performance observation is
+        # current; an unverified workload label cannot change admission.
+        game_host_pressure = (
+            game_evidence_ref.get("status") == "current"
+            and bool(pressure_reasons)
+        )
         # Background work waits for a completed, fresh observation epoch. An
         # absent or stale epoch is missing evidence, not a measurement of low
-        # pressure. Foreground chat remains governed by its separate request
-        # budget and is intentionally not deferred by this gate.
+        # pressure. Foreground chat keeps its separate request budget except
+        # when fresh game evidence makes gaming priority operationally relevant.
         incomplete = evidence_ref.get("status") != "current"
         if evidence_ref.get("status") == "current" and evidence is not None:
             incomplete = (evidence.get("cpu_utilization_percent") is None
@@ -1296,6 +1303,8 @@ class RuntimeGovernor:
             # bypass this narrower game-priority gate.  This does not grant
             # authority to inspect or control game processes.
             reason, blocks = "deferred_local_model_inference_for_game_frame_pressure", True
+        elif game_host_pressure:
+            reason, blocks = "deferred_local_model_inference_under_host_pressure_during_game", True
         elif not foreground and gpu_telemetry_incomplete:
             reason, blocks = "deferred_gpu_offload_telemetry_incomplete", True
         elif not foreground and pressure_reasons:
@@ -1323,6 +1332,7 @@ class RuntimeGovernor:
                 "gpu_telemetry_incomplete_for_model": gpu_telemetry_incomplete,
                 "game_performance_evidence": game_evidence_ref,
                 "game_frame_pressure": game_pressure,
+                "host_pressure_during_verified_game": game_host_pressure,
             },
         )
         posture = self._compose_runtime_posture(
@@ -1337,6 +1347,7 @@ class RuntimeGovernor:
         payload["observed_pressure_labels"] = sorted(labels)
         payload["game_performance_evidence"] = game_evidence_ref
         payload["game_frame_pressure"] = game_pressure
+        payload["host_pressure_during_verified_game"] = game_host_pressure
         decision = self._decision(
             action_class="local_model_inference",
             allowed=allowed,
@@ -2002,7 +2013,8 @@ class RuntimeGovernor:
             evidence_refs={
                 key: metadata[key]
                 for key in ("host_resource_evidence", "observed_pressure_labels",
-                            "game_performance_evidence", "game_frame_pressure")
+                            "game_performance_evidence", "game_frame_pressure",
+                            "host_pressure_during_verified_game")
                 if metadata is not None and key in metadata
             },
         )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 import pytest
 pytestmark = pytest.mark.no_legacy_skip
+from datetime import datetime, timezone
 import time
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
 from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass, ControlActionRequest
 from sentientos.host_collectors import HostCollectorResult
 from sentientos.host_resource_runtime import HostObservationBudget, HostObservationCollectorSpec, HostResourceRuntimeCoordinator, build_observation_plan, default_collector_specs, persist_evidence_bundle, redact_value, validate_evaluation, world_state_records
+from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
 from sentientos.runtime_governor import RuntimeGovernor
 
 
@@ -211,6 +213,71 @@ def test_nvml_gpu_pressure_reaches_background_inference_admission(monkeypatch, t
     resource_evidence = decision.delegated_outcomes["runtime_governor"]["evidence_refs"]["host_resource_evidence"]
     assert resource_evidence["gpu_utilization_percent"] == 95.0
     assert resource_evidence["vram_utilization_percent"] == 92.0
+
+
+def test_host_pressure_during_verified_game_defers_foreground_chat_and_recovers(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(
+        runtime_governor=governor, phase=LifecyclePhase.MAINTENANCE,
+        decisions_path=tmp_path / "kernel.jsonl")
+
+    def resource_plan(gpu: float):
+        return build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                lambda observed_at=None: _result("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                lambda observed_at=None: _result("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3,
+                lambda observed_at=None: _result("disk", used_percent=30.0,
+                    free_bytes=1000)),
+            HostObservationCollectorSpec("nvidia_gpu", False,
+                ("linux", "unknown"), 4, lambda observed_at=None: _result(
+                    "nvidia_gpu", device_count=1,
+                    devices=[{"index": 0, "gpu_utilization_percent": gpu,
+                              "vram_utilization_percent": gpu}]))])
+
+    game_sample = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 1, "d" * 64, "e" * 64,
+        datetime.now(timezone.utc).isoformat(), "f" * 64, 16.7, 0, 20.0,
+        4096, "available")
+    assert governor.observe_verified_game_performance(game_sample)
+
+    pressured = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "pressure",
+        plan=resource_plan(95.0)).run_cycle(correlation_id="game-gpu-pressure")
+    assert pressured is not None and validate_evaluation(pressured).ok
+    assert "gpu_pressure" in pressured.pressure_report.pressure_labels
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    foreground = ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="user", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "local_user_chat", "correlation_id": "game-chat-pressure"})
+    deferred = kernel.admit(foreground)
+    assert deferred.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_local_model_inference_under_host_pressure_during_game" in deferred.reason_codes
+    runtime_evidence = deferred.delegated_outcomes["runtime_governor"]["evidence_refs"]
+    assert runtime_evidence["host_resource_evidence"]["evaluation_id"] == pressured.evaluation_id
+    assert runtime_evidence["game_performance_evidence"]["message_id"] == "d" * 64
+    assert runtime_evidence["host_pressure_during_verified_game"] is True
+
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
+    nominal = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "recovered",
+        plan=resource_plan(20.0)).run_cycle(correlation_id="game-gpu-recovered")
+    assert nominal is not None and validate_evaluation(nominal).ok
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    recovered = kernel.admit(foreground)
+    assert recovered.outcome == AdmissionOutcome.ALLOW
+    assert recovered.delegated_outcomes["runtime_governor"]["evidence_refs"][
+        "host_resource_evidence"]["evaluation_id"] == nominal.evaluation_id
 
 
 def test_gpu_offloaded_inference_requires_gpu_telemetry_and_recovers(monkeypatch, tmp_path):
