@@ -1189,17 +1189,19 @@ class RuntimeGovernor:
         )
         evidence_ref: dict[str, object] = {"status": "not_required"}
         if reason_code == "vram_pressure_observed":
-            observation = payload.get("resource_observation")
-            try:
-                observed_at = datetime.fromisoformat(str(observation["observed_at"]))
-                if observed_at.tzinfo is None:
-                    raise ValueError("observation_timestamp_timezone_required")
-                age_seconds = (datetime.now(timezone.utc) - observed_at.astimezone(timezone.utc)).total_seconds()
-                utilization = observation.get("vram_utilization_percent")
-                threshold = observation.get("release_threshold_percent")
-                preload_threshold = observation.get("preload_threshold_percent")
-                recovery_threshold = observation.get("recovery_threshold_percent")
-                stale_after = observation.get("stale_after_seconds")
+            observation_value = payload.get("resource_observation")
+            evidence_valid = False
+            observed_at_text: str | None = None
+            age_seconds: float | None = None
+            utilization_value: float | None = None
+            threshold_value: float | None = None
+            if isinstance(observation_value, Mapping):
+                def finite_number(value: object) -> float | None:
+                    if isinstance(value, (int, float)) and not isinstance(value, bool):
+                        numeric = float(value)
+                        return numeric if math.isfinite(numeric) else None
+                    return None
+
                 expected_observation_fields = {
                     "schema_version", "admission_status", "reason_code",
                     "preload_admission_status", "preload_reason_code",
@@ -1207,42 +1209,55 @@ class RuntimeGovernor:
                     "observed_at", "release_threshold_percent",
                     "recovery_threshold_percent", "stale_after_seconds",
                 }
-                evidence_valid = (
-                    isinstance(observation, Mapping)
-                    and set(observation) == expected_observation_fields
-                    and observation.get("schema_version") == "sentientos.gaming_vram_admission_evidence:v1"
-                    and observation.get("admission_status") == "deferred"
-                    and observation.get("reason_code") == "vram_pressure"
-                    and observation.get("preload_admission_status") == "deferred"
-                    and observation.get("preload_reason_code") == "preload_vram_headroom_insufficient"
-                    and isinstance(utilization, (int, float)) and not isinstance(utilization, bool)
-                    and 0 <= float(utilization) <= 100
-                    and isinstance(threshold, (int, float)) and not isinstance(threshold, bool)
-                    and 0 <= float(threshold) <= 100
-                    and float(utilization) >= float(threshold)
-                    and isinstance(preload_threshold, (int, float))
-                    and not isinstance(preload_threshold, bool)
-                    and 0 <= float(preload_threshold) <= 100
-                    and isinstance(recovery_threshold, (int, float))
-                    and not isinstance(recovery_threshold, bool)
-                    and 0 <= float(recovery_threshold) < float(threshold)
-                    and isinstance(stale_after, (int, float)) and not isinstance(stale_after, bool)
-                    and 0 < float(stale_after) <= 120
-                    and 0 <= age_seconds <= min(float(stale_after), 30.0)
-                )
-            except (KeyError, TypeError, ValueError, OverflowError):
-                evidence_valid = False
-                age_seconds = None
-                utilization = threshold = None
-                observation = None
+                raw_observed_at = observation_value.get("observed_at")
+                raw_utilization = observation_value.get("vram_utilization_percent")
+                raw_threshold = observation_value.get("release_threshold_percent")
+                raw_preload_threshold = observation_value.get("preload_threshold_percent")
+                raw_recovery_threshold = observation_value.get("recovery_threshold_percent")
+                raw_stale_after = observation_value.get("stale_after_seconds")
+                utilization_value = finite_number(raw_utilization)
+                threshold_value = finite_number(raw_threshold)
+                preload_threshold = finite_number(raw_preload_threshold)
+                recovery_threshold = finite_number(raw_recovery_threshold)
+                stale_after = finite_number(raw_stale_after)
+                if isinstance(raw_observed_at, str):
+                    observed_at_text = raw_observed_at
+                try:
+                    parsed_observed_at = datetime.fromisoformat(
+                        raw_observed_at if isinstance(raw_observed_at, str) else "")
+                except ValueError:
+                    parsed_observed_at = None
+                if parsed_observed_at is not None and parsed_observed_at.tzinfo is not None:
+                    age_seconds = (datetime.now(timezone.utc)
+                        - parsed_observed_at.astimezone(timezone.utc)).total_seconds()
+                if (utilization_value is not None and threshold_value is not None
+                        and preload_threshold is not None and recovery_threshold is not None
+                        and stale_after is not None):
+                    evidence_valid = (
+                        set(observation_value) == expected_observation_fields
+                        and observation_value.get("schema_version") == "sentientos.gaming_vram_admission_evidence:v1"
+                        and observation_value.get("admission_status") == "deferred"
+                        and observation_value.get("reason_code") == "vram_pressure"
+                        and observation_value.get("preload_admission_status") == "deferred"
+                        and observation_value.get("preload_reason_code") == "preload_vram_headroom_insufficient"
+                        and 0 <= utilization_value <= 100
+                        and 0 <= threshold_value <= utilization_value
+                        and 0 <= preload_threshold <= 100
+                        and 0 <= recovery_threshold < threshold_value
+                        and 0 < stale_after <= 120
+                        and parsed_observed_at is not None and parsed_observed_at.tzinfo is not None
+                        and age_seconds is not None
+                        and 0 <= age_seconds <= min(stale_after, 30.0)
+                    )
             valid = valid and evidence_valid
-            evidence_ref = ({
-                "status": "current",
-                "observed_at": observation["observed_at"],
-                "age_seconds": round(float(age_seconds), 3),
-                "vram_utilization_percent": float(utilization),
-                "release_threshold_percent": float(threshold),
-            } if evidence_valid else {"status": "missing_stale_or_below_threshold"})
+            if evidence_valid:
+                assert age_seconds is not None
+                evidence_ref = {"status": "current", "observed_at": observed_at_text,
+                    "age_seconds": round(age_seconds, 3),
+                    "vram_utilization_percent": utilization_value,
+                    "release_threshold_percent": threshold_value}
+            else:
+                evidence_ref = {"status": "missing_stale_malformed_or_below_threshold"}
         payload["resource_observation_evidence"] = evidence_ref
         return self._decision(
             action_class="local_model_resource_release", allowed=valid,
