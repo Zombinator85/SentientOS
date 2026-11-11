@@ -18,6 +18,7 @@ from sentientos.canonical_memory import CanonicalMemoryStore
 from sentientos.chat_avatar_output import ChatAvatarOutputController
 from sentientos.gaming_companion_core_runtime import WSLCoreAvatarOutputSession
 from sentientos.foreground_game_bridge import BridgeForegroundGameDetector
+from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator
 from sentientos.gaming_companion_bridge import CompanionBridgeReceiver
 from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackRuntime
 from sentientos.conversation_session import ConversationSessionStore
@@ -140,7 +141,9 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
         def serving_is_current(self): return True
 
     class InferenceBridge:
-        def __init__(self, *_args, **_kwargs): pass
+        def __init__(self, *_args, **kwargs):
+            self.host_resource_observation_owner = kwargs.get(
+                "host_resource_observation_owner")
 
     class AdmissionOwner:
         def observe_verified_game_performance(self, _observation): return True
@@ -181,6 +184,11 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     assert isinstance(composition.service._avatar_output, ChatAvatarOutputController)
     assert composition._avatar_output_owner is session
     assert detector._game_performance_observer.__self__ is admission_owner
+    resource_owner = composition.service._inference.host_resource_observation_owner
+    assert type(resource_owner) is HostResourceRuntimeCoordinator
+    assert resource_owner.kernel is admission_owner
+    assert {item.collector_id for item in resource_owner.plan.collectors} == {
+        "cpu", "memory", "nvidia_gpu"}
     chat_service.close_production_chat()
     assert events[-1] == "avatar_session_closed"
 
