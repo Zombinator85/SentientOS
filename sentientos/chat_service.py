@@ -695,10 +695,11 @@ class DevelopmentLocalChatInference:
                 prompt=effective_prompt, caller=caller, correlation_id=correlation_id,
                 budget=effective_budget, linkage=linkage)
         invoke_options: dict[str, Any] = {}
-        if mode == "gaming" and self._gaming_resource_status_provider is not None:
+        resource_status_provider = self._gaming_resource_status_provider
+        if mode == "gaming" and resource_status_provider is not None:
             def require_gaming_resource_admission() -> None:
                 try:
-                    resource_state = self._gaming_resource_status_provider()
+                    resource_state = resource_status_provider()
                 except Exception:
                     resource_state = None
                 if (not isinstance(resource_state, Mapping)
