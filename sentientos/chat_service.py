@@ -34,7 +34,8 @@ from .avatar_renderer_report_ingress import RendererReportCaptureOwner
 from .foreground_game_detection import normalize_game_process_names
 from .governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget,
-    LocalModelInvocationReceipt, LocalModelPostEffectCustodyError,
+    LocalModelInvocationDeferred, LocalModelInvocationReceipt,
+    LocalModelPostEffectCustodyError,
 )
 from .installation_state import InstallationIdentity, InstallationStateRegistry
 from .control_plane_kernel import ControlPlaneKernel
@@ -693,11 +694,27 @@ class DevelopmentLocalChatInference:
             request = self._delegate.build_request(purpose="local_user_chat",
                 prompt=effective_prompt, caller=caller, correlation_id=correlation_id,
                 budget=effective_budget, linkage=linkage)
+        invoke_options: dict[str, Any] = {}
+        if mode == "gaming" and self._gaming_resource_status_provider is not None:
+            def require_gaming_resource_admission() -> None:
+                try:
+                    resource_state = self._gaming_resource_status_provider()
+                except Exception:
+                    resource_state = None
+                if (not isinstance(resource_state, Mapping)
+                        or resource_state.get("admission_status") != "available"):
+                    reason = (resource_state.get("reason_code")
+                        if isinstance(resource_state, Mapping) else None)
+                    if not isinstance(reason, str) or not reason:
+                        reason = "gaming_resource_observation_unavailable"
+                    raise LocalModelInvocationDeferred(reason)
+            invoke_options["pre_effect_guard"] = require_gaming_resource_admission
         if on_content_chunk is None:
-            return self._delegate.invoke(request)
+            return self._delegate.invoke(request, **invoke_options)
         if getattr(identity, "engine", None) != "ollama":
             raise RuntimeError("local_streaming_backend_unsupported")
-        return self._delegate.invoke(request, on_content_chunk=on_content_chunk)
+        return self._delegate.invoke(request, on_content_chunk=on_content_chunk,
+            **invoke_options)
 
     def generate_streaming(self, **kwargs: Any) -> LocalModelInvocationReceipt:
         return self.generate(**kwargs)

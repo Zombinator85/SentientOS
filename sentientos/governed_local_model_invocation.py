@@ -581,6 +581,16 @@ class LocalModelPostEffectCustodyError(RuntimeError):
         super().__init__("post_effect_custody_unconfirmed")
 
 
+class LocalModelInvocationDeferred(RuntimeError):
+    """A current runtime resource policy deferred inference before backend entry."""
+
+    def __init__(self, reason_code: str) -> None:
+        if not isinstance(reason_code, str) or not reason_code:
+            raise ValueError("invocation_defer_reason_required")
+        self.reason_code = reason_code
+        super().__init__("local_model_invocation_deferred")
+
+
 class GovernedLocalModelInvoker:
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
         self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_cancel_reason: str | None = None; self._active_residency_preload_event: threading.Event | None = None
@@ -1124,6 +1134,10 @@ class GovernedLocalModelInvoker:
                         elif request.purpose == "genesis_proposal_advice" and not self._valid_genesis_advice(output): reasons.append("output_malformed"); status = "output_malformed"
                         elif request.purpose == "discernment_judgment" and not self._valid_discernment_judgment(output, request): reasons.append("output_malformed"); status = "output_malformed"
                         else: status = "admitted_simulation" if record and record.engine in {"null", "echo"} else "admitted_completed"
+                    except LocalModelInvocationDeferred as exc:
+                        status = "deferred"
+                        reasons.extend(["runtime_resource_admission_deferred",
+                            exc.reason_code])
                     except TimeoutError: status = "timeout"; reasons.append("timeout")
                     except GovernedLocalModelResourceError as exc: status = "resource_custody_failure"; reasons.append("resource_transition:" + str(exc).split(":", 1)[0])
                     except Exception as exc:

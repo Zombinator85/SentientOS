@@ -423,6 +423,69 @@ def test_automatic_gaming_reconcile_preloads_only_with_fresh_foreground_headroom
         assert invoker.preload_calls[0]["resource_state"] == resource_state
 
 
+def test_gaming_pressure_is_rechecked_at_the_invocation_effect_boundary():
+    chat = _reload()
+    from sentientos.governed_local_model_invocation import LocalModelInvocationDeferred
+
+    class Model:
+        active_identity = SimpleNamespace(engine="ollama")
+
+    class Invoker:
+        model = Model()
+        authority_map = None
+        backend_calls = 0
+
+        def release_model_residency(self, **_kwargs):
+            return SimpleNamespace(status="already_unloaded",
+                to_dict=lambda: {"status": "already_unloaded"})
+
+        def build_request(self, **kwargs):
+            return kwargs
+
+        def invoke(self, request, *, pre_effect_guard=None, **_kwargs):
+            assert callable(pre_effect_guard)
+            pre_effect_guard()
+            self.backend_calls += 1
+            return SimpleNamespace(status="admitted_completed")
+
+    invoker = Invoker()
+    detector = SimpleNamespace(observe=lambda _names: SimpleNamespace(
+        status="available", game_foreground=True, game_process_running=True,
+        running_process_name_digests=[], process_name_digest="game",
+        observed_at="2026-11-06T09:00:00+00:00", transport_provenance=None))
+    resource_state = {"admission_status": "deferred",
+        "reason_code": "vram_pressure", "preload_admission_status": "deferred"}
+    inference = chat.DevelopmentLocalChatInference(invoker,
+        foreground_game_detector=detector,
+        gaming_resource_status_provider=lambda: resource_state)
+    inference.set_workload_mode("automatic", ["Cronos.exe"])
+
+    with pytest.raises(LocalModelInvocationDeferred,
+            match="local_model_invocation_deferred"):
+        inference.generate(prompt=("[SYSTEM_INSTRUCTION]\nRespond briefly. "
+            "[VERIFIED_RUNTIME_CONTEXT] Context. [SESSION_HISTORY_DATA] History."),
+            caller="local-user",
+            correlation_id="pressure-gate-test",
+            budget=chat.LocalModelInvocationBudget(), caller_linkage={})
+
+    assert invoker.backend_calls == 0
+    resource_state.update(admission_status="available", reason_code="headroom_available")
+    admitted = inference.generate(prompt=("[SYSTEM_INSTRUCTION]\nRespond briefly. "
+        "[VERIFIED_RUNTIME_CONTEXT] Context. [SESSION_HISTORY_DATA] History."),
+        caller="local-user", correlation_id="pressure-recovery-test",
+        budget=chat.LocalModelInvocationBudget(), caller_linkage={})
+    assert admitted.status == "admitted_completed"
+    assert invoker.backend_calls == 1
+    resource_state.update(admission_status="deferred", reason_code="vram_pressure")
+    with pytest.raises(LocalModelInvocationDeferred,
+            match="local_model_invocation_deferred"):
+        inference.generate(prompt=("[SYSTEM_INSTRUCTION]\nRespond briefly. "
+            "[VERIFIED_RUNTIME_CONTEXT] Context. [SESSION_HISTORY_DATA] History."),
+            caller="local-user", correlation_id="pressure-return-test",
+            budget=chat.LocalModelInvocationBudget(), caller_linkage={})
+    assert invoker.backend_calls == 1
+
+
 def test_chat_response_exposes_bounded_backend_timing_for_diagnostics(tmp_path):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()

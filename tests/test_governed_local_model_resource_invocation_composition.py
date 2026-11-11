@@ -20,6 +20,7 @@ from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import AdmissionOutcome, ControlPlaneKernel, LifecyclePhase
 from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, GovernedLocalModelResourceInvocationContext, LocalModelInvocationBudget
+from sentientos.governed_local_model_invocation import LocalModelInvocationDeferred
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceAllocator, GovernedLocalModelResourceBounds, GovernedLocalModelResourceLedger, GovernedLocalModelResourcePolicy
 from sentientos.host_collectors import HostCollectorResult
 from sentientos.host_resource_runtime import (HostObservationCollectorSpec,
@@ -84,6 +85,24 @@ def test_resource_backed_completion_cross_links_exact_effect_receipt_and_survive
     assert ledger._state["receipts"][-1]["effect_receipt_digest"] == receipt.receipt_digest
     assert ledger.remaining_calls(context.allocation.allocation_id) == 1
     assert GovernedLocalModelResourceLedger(ledger.path).remaining_calls(context.allocation.allocation_id) == 1
+
+
+def test_resource_admission_guard_defers_without_backend_entry_or_debit(tmp_path):
+    model, invoker, request, context, ledger = setup(tmp_path, calls=1)
+
+    def defer_for_game_pressure():
+        raise LocalModelInvocationDeferred("vram_pressure")
+
+    receipt = invoker.invoke(request, resource_context=context,
+        pre_effect_guard=defer_for_game_pressure)
+
+    assert receipt.status == "deferred"
+    assert receipt.reason_codes == (
+        "runtime_resource_admission_deferred", "vram_pressure")
+    assert receipt.effects["local_model_inference"] is False
+    assert model.calls == 0
+    assert ledger.remaining_calls(context.allocation.allocation_id) == 1
+    assert states(ledger) == ["attempted_not_begun"]
 
 
 def test_resource_receipt_linkage_is_projection_ready_without_inventing_measurements(tmp_path):
