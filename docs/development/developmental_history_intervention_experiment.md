@@ -18,10 +18,12 @@ When comparison is enabled and prior history exists, an immutable
 history-intervention protocol is atomically persisted before the first model
 invocation. Existing protocol versions preserve the fixed order:
 history_present, history_withheld, history_restored. The opt-in companion
-intervention also supports protocol v7, which records either that order or the
-counterbalanced order history_withheld, history_present, history_restored. A
-deterministic trial-index helper alternates those two orders; it is
-counterbalancing, not randomization. Restored remains third so it always follows
+intervention also supports protocol v7 for explicitly selected order and
+protocol v8 for a caller-supplied trial index. The owner derives the order for
+v8, records the index, and verifies that the recorded order matches the
+deterministic alternating schedule: even trials use history_present first;
+odd trials use history_withheld first. This is counterbalancing, not
+randomization. Restored remains third so it always follows
 exact-history revalidation. The protocol binds the snapshot and current
 projection, exact fact and developmental-record identities, record-set digest,
 model/artifact/active identity, authority-map digest, fixed budget,

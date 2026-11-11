@@ -35,7 +35,8 @@ from .governed_local_model_invocation import (
 from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
     CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER,
-    COUNTERBALANCED_HISTORY_SELECTION_SCHEMA,
+    COUNTERBALANCED_HISTORY_SELECTION_SCHEMA, SCHEDULED_HISTORY_SELECTION_SCHEMA,
+    history_condition_order_for_trial,
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
     HISTORY_SELECTION_SCHEMA, OBJECTIVE_HISTORY_SELECTION_SCHEMA,
     OBJECTIVE_SCHEMA, OBJECTIVE_SCHEMAS, make_protocol, objective_task_contamination_assessment, summarize,
@@ -6099,7 +6100,8 @@ class ResidentDevelopmentalCognitionOwner:
             prior_self_model: CognitiveSelfModelProjection | None = None,
             prior_epistemic_state: EpistemicCognitiveProjection | None = None,
             history_record_allowlist: tuple[str, ...] | None = None,
-            condition_order: tuple[str, ...] = CONDITION_ORDER
+            condition_order: tuple[str, ...] | None = None,
+            trial_index: int | None = None
             ) -> ResidentCompanionHistoryInterventionResult:
         """Compare one bounded companion decision with history present, withheld, restored.
 
@@ -6108,6 +6110,15 @@ class ResidentDevelopmentalCognitionOwner:
         cognition observations; it grants no action authority and does not
         write developmental history from the companion response.
         """
+        if trial_index is not None:
+            if (type(trial_index) is not int or trial_index < 0
+                    or condition_order is not None):
+                raise ResidentDevelopmentalCognitionError(
+                    "companion_history_intervention_condition_order_invalid")
+            effective_condition_order = history_condition_order_for_trial(trial_index)
+        else:
+            effective_condition_order = (
+                CONDITION_ORDER if condition_order is None else condition_order)
         if (not self.config.enabled or not self.config.comparison_enabled
                 or self.objective_task is not None
                 or not isinstance(tick_id, str) or not tick_id.strip()
@@ -6115,8 +6126,8 @@ class ResidentDevelopmentalCognitionOwner:
                 or not isinstance(question, str) or not question.strip()
                 or len(question) > 1200
                 or not validate_snapshot(snapshot).valid
-                or type(condition_order) is not tuple
-                or condition_order not in (
+                or type(effective_condition_order) is not tuple
+                or effective_condition_order not in (
                     CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER)
                 or (prior_self_model is not None
                     and not isinstance(prior_self_model, CognitiveSelfModelProjection))
@@ -6156,7 +6167,8 @@ class ResidentDevelopmentalCognitionOwner:
             companion_intervention_question=question,
             companion_intervention_captures=captures,
             companion_intervention_record_allowlist=history_record_allowlist,
-            companion_intervention_condition_order=condition_order)
+            companion_intervention_condition_order=effective_condition_order,
+            companion_intervention_trial_index=trial_index)
         if (cycle.status != "companion_history_intervention_completed"
                 or cycle.changed_cognition_measurement_id is None
                 or len(captures) != 3):
@@ -6310,7 +6322,8 @@ class ResidentDevelopmentalCognitionOwner:
                  companion_intervention_question: str | None = None,
                  companion_intervention_captures: list[dict[str, Any]] | None = None,
                  companion_intervention_record_allowlist: tuple[str, ...] | None = None,
-                 companion_intervention_condition_order: tuple[str, ...] | None = None
+                 companion_intervention_condition_order: tuple[str, ...] | None = None,
+                 companion_intervention_trial_index: int | None = None
                  ) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
@@ -6328,7 +6341,9 @@ class ResidentDevelopmentalCognitionOwner:
                 companion_intervention_record_allowlist=(
                     companion_intervention_record_allowlist),
                 companion_intervention_condition_order=(
-                    companion_intervention_condition_order))
+                    companion_intervention_condition_order),
+                companion_intervention_trial_index=(
+                    companion_intervention_trial_index))
         with self._composition_lock():
             return self._run_tick_locked(snapshot=snapshot, tick_id=tick_id,
                 prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
@@ -6343,7 +6358,9 @@ class ResidentDevelopmentalCognitionOwner:
                 companion_intervention_record_allowlist=(
                     companion_intervention_record_allowlist),
                 companion_intervention_condition_order=(
-                    companion_intervention_condition_order))
+                    companion_intervention_condition_order),
+                companion_intervention_trial_index=(
+                    companion_intervention_trial_index))
 
     def _run_tick_locked(self, *, snapshot: WorldStateSnapshot, tick_id: str,
                  prior_self_model: CognitiveSelfModelProjection | None = None,
@@ -6356,7 +6373,8 @@ class ResidentDevelopmentalCognitionOwner:
                  companion_intervention_question: str | None = None,
                  companion_intervention_captures: list[dict[str, Any]] | None = None,
                  companion_intervention_record_allowlist: tuple[str, ...] | None = None,
-                 companion_intervention_condition_order: tuple[str, ...] | None = None
+                 companion_intervention_condition_order: tuple[str, ...] | None = None,
+                 companion_intervention_trial_index: int | None = None
                  ) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
@@ -6373,6 +6391,12 @@ class ResidentDevelopmentalCognitionOwner:
                     or type(companion_intervention_condition_order) is not tuple
                     or companion_intervention_condition_order not in (
                         CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER)
+                    or (companion_intervention_trial_index is not None
+                        and (type(companion_intervention_trial_index) is not int
+                            or companion_intervention_trial_index < 0
+                            or companion_intervention_condition_order
+                                != history_condition_order_for_trial(
+                                    companion_intervention_trial_index)))
                     or not isinstance(companion_intervention_question, str)
                     or not companion_intervention_question.strip()
                     or len(companion_intervention_question) > 1200
@@ -6382,7 +6406,8 @@ class ResidentDevelopmentalCognitionOwner:
                     "companion_history_intervention_configuration_invalid")
         elif (companion_intervention_captures is not None
                 or companion_intervention_record_allowlist is not None
-                or companion_intervention_condition_order is not None):
+                or companion_intervention_condition_order is not None
+                or companion_intervention_trial_index is not None):
             raise ResidentDevelopmentalCognitionError(
                 "companion_history_intervention_capture_invalid")
         self._pending_cognition_candidates.clear()
@@ -6587,14 +6612,19 @@ class ResidentDevelopmentalCognitionOwner:
                         "objective_task_descriptor": objective_task.public_descriptor()}
                         if objective_task is not None else {
                             "schema_version": (
-                                COUNTERBALANCED_HISTORY_SELECTION_SCHEMA
-                                if companion_intervention_condition_order
-                                    == COUNTERBALANCED_CONDITION_ORDER
-                                else HISTORY_SELECTION_SCHEMA)}),
+                                SCHEDULED_HISTORY_SELECTION_SCHEMA
+                                if companion_intervention_trial_index is not None
+                                else COUNTERBALANCED_HISTORY_SELECTION_SCHEMA
+                                    if companion_intervention_condition_order
+                                        == COUNTERBALANCED_CONDITION_ORDER
+                                    else HISTORY_SELECTION_SCHEMA)}),
                     condition_order=(companion_intervention_condition_order
                         if companion_intervention_question is not None
                         and companion_intervention_condition_order is not None
-                        else CONDITION_ORDER))
+                        else CONDITION_ORDER),
+                    condition_order_trial_index=(
+                        companion_intervention_trial_index
+                        if companion_intervention_question is not None else None))
                 self.experiments.persist_protocol(protocol)  # preregistration precedes the first inference
                 objective_plan = (self.experiments.persist_objective_task_plan(
                     protocol, objective_task) if objective_task is not None else None)

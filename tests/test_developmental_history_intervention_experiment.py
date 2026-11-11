@@ -9,6 +9,7 @@ import pytest
 
 from sentientos.developmental_history_intervention_experiment import (
     CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER,
+    SCHEDULED_HISTORY_SELECTION_SCHEMA,
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
     history_condition_order_for_trial, make_protocol, qualify_history_transfer_decision,
     qualify_restoration_stable_history_association, qualify_semantic_history_decision,
@@ -55,6 +56,30 @@ def test_history_condition_order_counterbalances_only_present_and_withheld() -> 
         with pytest.raises(DevelopmentalHistoryInterventionError,
                 match="trial_index_invalid"):
             history_condition_order_for_trial(invalid)  # type: ignore[arg-type]
+
+
+def test_scheduled_protocol_binds_trial_index_to_condition_order() -> None:
+    kwargs = asdict(protocol())
+    kwargs.pop("protocol_id")
+    kwargs.pop("protocol_digest")
+    kwargs.pop("condition_order")
+    kwargs.pop("inference_purpose")
+    kwargs.pop("planned_comparisons")
+    kwargs.pop("non_claims")
+    kwargs["schema_version"] = SCHEDULED_HISTORY_SELECTION_SCHEMA
+    kwargs["condition_order_trial_index"] = 1
+    kwargs["history_selection_digest"] = "sha256:" + "a" * 64
+    kwargs["history_available_records_digest"] = "sha256:" + "b" * 64
+
+    scheduled = make_protocol(
+        condition_order=COUNTERBALANCED_CONDITION_ORDER, **kwargs)
+    verify_protocol(scheduled)
+    assert scheduled.condition_order_trial_index == 1
+
+    mismatched = make_protocol(condition_order=CONDITION_ORDER, **kwargs)
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+            match="protocol_control_invalid"):
+        verify_protocol(mismatched)
 
 
 def test_task_family_evidence_binding_rejects_unknown_offset_times() -> None:

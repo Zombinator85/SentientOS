@@ -23,10 +23,12 @@ OBJECTIVE_SCHEMA = "sentientos.developmental_history_intervention_protocol:v4"
 HISTORY_SELECTION_SCHEMA = "sentientos.developmental_history_intervention_protocol:v5"
 OBJECTIVE_HISTORY_SELECTION_SCHEMA = "sentientos.developmental_history_intervention_protocol:v6"
 COUNTERBALANCED_HISTORY_SELECTION_SCHEMA = "sentientos.developmental_history_intervention_protocol:v7"
+SCHEDULED_HISTORY_SELECTION_SCHEMA = "sentientos.developmental_history_intervention_protocol:v8"
 OBJECTIVE_SCHEMAS = frozenset({LEGACY_OBJECTIVE_SCHEMA, OBJECTIVE_SCHEMA,
     OBJECTIVE_HISTORY_SELECTION_SCHEMA})
 HISTORY_SELECTION_SCHEMAS = frozenset({HISTORY_SELECTION_SCHEMA,
-    OBJECTIVE_HISTORY_SELECTION_SCHEMA, COUNTERBALANCED_HISTORY_SELECTION_SCHEMA})
+    OBJECTIVE_HISTORY_SELECTION_SCHEMA, COUNTERBALANCED_HISTORY_SELECTION_SCHEMA,
+    SCHEDULED_HISTORY_SELECTION_SCHEMA})
 LEGACY_RUN_SCHEMA = "sentientos.developmental_history_intervention_run:v1"
 RUN_SCHEMA = "sentientos.developmental_history_intervention_run:v2"
 PURPOSE = "resident_developmental_history_intervention_experiment"
@@ -91,6 +93,7 @@ class DevelopmentalHistoryInterventionProtocol:
     objective_task_descriptor: Mapping[str, Any] | None = None
     history_selection_digest: str | None = None
     history_available_records_digest: str | None = None
+    condition_order_trial_index: int | None = None
     grants_authority: bool = False
     schema_version: str = SCHEMA
 
@@ -108,6 +111,8 @@ class DevelopmentalHistoryInterventionProtocol:
         if self.schema_version not in HISTORY_SELECTION_SCHEMAS:
             value.pop("history_selection_digest", None)
             value.pop("history_available_records_digest", None)
+        if self.schema_version != SCHEDULED_HISTORY_SELECTION_SCHEMA:
+            value.pop("condition_order_trial_index", None)
         return value
 
 
@@ -132,14 +137,25 @@ def verify_protocol(protocol: DevelopmentalHistoryInterventionProtocol) -> None:
     digest = _digest(protocol.semantic_payload())
     if protocol.protocol_digest != digest or protocol.protocol_id != "devexp-protocol-" + digest[7:31]:
         raise DevelopmentalHistoryInterventionError("protocol_digest_mismatch")
-    allowed_orders = ((CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER)
-        if protocol.schema_version == COUNTERBALANCED_HISTORY_SELECTION_SCHEMA
-        else (CONDITION_ORDER,))
+    if protocol.schema_version == SCHEDULED_HISTORY_SELECTION_SCHEMA:
+        allowed_orders = ((history_condition_order_for_trial(
+            protocol.condition_order_trial_index),)
+            if type(protocol.condition_order_trial_index) is int
+                and protocol.condition_order_trial_index >= 0 else ())
+    elif protocol.schema_version == COUNTERBALANCED_HISTORY_SELECTION_SCHEMA:
+        allowed_orders = (CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER)
+    else:
+        allowed_orders = (CONDITION_ORDER,)
     if (protocol.schema_version not in {LEGACY_SCHEMA, SCHEMA,
             HISTORY_SELECTION_SCHEMA, COUNTERBALANCED_HISTORY_SELECTION_SCHEMA,
-            *OBJECTIVE_SCHEMAS}
+            SCHEDULED_HISTORY_SELECTION_SCHEMA, *OBJECTIVE_SCHEMAS}
             or type(protocol.condition_order) is not tuple
             or protocol.condition_order not in allowed_orders
+            or (protocol.schema_version == SCHEDULED_HISTORY_SELECTION_SCHEMA
+                and (type(protocol.condition_order_trial_index) is not int
+                    or protocol.condition_order_trial_index < 0))
+            or (protocol.schema_version != SCHEDULED_HISTORY_SELECTION_SCHEMA
+                and protocol.condition_order_trial_index is not None)
             or protocol.inference_purpose != PURPOSE or protocol.grants_authority):
         raise DevelopmentalHistoryInterventionError("protocol_control_invalid")
     if protocol.schema_version in OBJECTIVE_SCHEMAS:

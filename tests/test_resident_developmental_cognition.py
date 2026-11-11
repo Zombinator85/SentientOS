@@ -13,7 +13,7 @@ import scripts.doctor_resident_objective_experiment as readiness
 
 from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
 from sentientos.developmental_history_intervention_experiment import (
-    COUNTERBALANCED_CONDITION_ORDER, DevelopmentalExperimentStore,
+    DevelopmentalExperimentStore,
     DevelopmentalHistoryInterventionError,
 )
 from sentientos.developmental_model_replacement_experiment import ObjectivePredictionTask
@@ -6089,7 +6089,7 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         question=("For the synthetic avatar, choose the next pose and predict "
             "its encoder pose. Return JSON with requested_pose and predicted_pose."),
         history_record_allowlist=(initial.written_record_id,),
-        condition_order=COUNTERBALANCED_CONDITION_ORDER)
+        trial_index=1)
     assert [item["condition_id"] for item in counterbalanced.conditions] == [
         "history_present", "history_withheld", "history_restored"]
     requests = [request for request in fake.requests[requests_before_counterbalanced:]
@@ -6103,7 +6103,8 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert tuple(counterbalanced_run["protocol"]["condition_order"]) == (
         "history_withheld", "history_present", "history_restored")
     assert counterbalanced_run["protocol"]["schema_version"] == (
-        "sentientos.developmental_history_intervention_protocol:v7")
+        "sentientos.developmental_history_intervention_protocol:v8")
+    assert counterbalanced_run["protocol"]["condition_order_trial_index"] == 1
     assert [item["condition_id"] for item in counterbalanced_run[
         "companion_intervention_decisions"]] == [
             "history_present", "history_withheld", "history_restored"]
