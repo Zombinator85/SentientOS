@@ -124,6 +124,8 @@ def test_rootless_cycle_input_bound_keeps_history_with_large_current_evidence(ru
 
     assert len(bounded_prompt) > 16_384
     assert len(bounded_prompt) <= runner.ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT
+    assert (runner.ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT
+        - len(bounded_prompt)) >= 1_024
     assert bounded_ids == ("record-budget-fixture",)
     assert len(legacy_prompt) <= 16_384
     assert legacy_ids == ()

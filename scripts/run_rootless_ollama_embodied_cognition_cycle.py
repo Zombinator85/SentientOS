@@ -103,7 +103,7 @@ _OBJECTIVE_TRANSFER_TASK_FAMILY = (
 # Leave bounded space for receipt-backed evidence plus its prior-history packet.
 # The model remains configured with an 8,192-token context; this separate
 # character guard addresses the 16 KiB history-selection edge seen in replay.
-ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT = 18_432
+ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT = 20_480
 
 
 def _experiment_seed_from_environment() -> int:
