@@ -664,6 +664,7 @@ class ProductionServingInferenceController:
         closed = False
         close_failure: str | None = None
         worker_exit_observed: bool | None = None
+        post_release_observation: dict[str, Any] | None = None
         if decision_valid:
             try:
                 closed = self._serving.release_current_session_after_resource_admission(
@@ -671,6 +672,12 @@ class ProductionServingInferenceController:
                 worker = getattr(model, "_process", None)
                 poll = getattr(worker, "poll", None)
                 worker_exit_observed = poll() is not None if callable(poll) else None
+                if closed:
+                    # Frame pressure is the fast path: collect telemetry only after
+                    # the release so a bounded host observation cannot delay relief.
+                    post_release_observation = self._observe_host_resources(
+                        trigger_correlation + ":resource-release-postflight",
+                        observation_namespace="local-chat-reconciliation")
             except Exception as exc:
                 close_failure = type(exc).__name__
         outcome = {
@@ -687,6 +694,11 @@ class ProductionServingInferenceController:
             "release_admission_outcome": decision.outcome.value,
             "release_reason_codes": list(decision.reason_codes),
             "resource_observation": evidence,
+            "post_release_observation": post_release_observation,
+            "post_release_measurement_interpretation": (
+                "read_only_sample_after_worker_close; no pre-release sample; "
+                "telemetry_does_not_establish_causation"
+                if post_release_observation is not None else None),
             "worker_exit_observed": worker_exit_observed,
             "close_failure": close_failure,
             "inference_performed": False,

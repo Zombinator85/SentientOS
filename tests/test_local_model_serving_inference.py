@@ -669,7 +669,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
 
     def simulated_release() -> None:
         original_close()
-        gpu_metrics.update(gpu=22.0, vram=47.0)
+        gpu_metrics.update(gpu=12.0 if trigger == "idle_game_frame_pressure" else 22.0,
+            vram=40.0 if trigger == "idle_game_frame_pressure" else 47.0)
 
     model.close = simulated_release
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
@@ -746,8 +747,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert delegated["evidence_refs"]["host_resource_evidence"]["report_id"] == (
             receipt.request["linkage"]["host_resource_observation"]["report_id"])
     assert host_resource_owner.collector_call_count == (
-        4 if trigger in {"idle_game_frame_pressure",
-            "idle_game_frame_pressure_mismatched_process"} else 8)
+        4 if trigger == "idle_game_frame_pressure_mismatched_process" else 8)
     if trigger == "idle_game_frame_pressure_mismatched_process":
         assert model.closed is False
         assert serving.current_session() is not None
@@ -795,6 +795,14 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert release["resource_observation"]["frame_time_p95_ms"] == 52.0
         assert release["resource_observation"]["hitch_count_over_50ms"] == 1
         assert "host_report_id" not in release["resource_observation"]
+        postflight = release["post_release_observation"]
+        assert postflight["status"] == "current"
+        assert postflight["no_effect_authority"] is True
+        assert postflight["gpu_utilization_percent"] == 12.0
+        assert postflight["vram_utilization_percent"] == 40.0
+        assert release["post_release_measurement_interpretation"] == (
+            "read_only_sample_after_worker_close; no pre-release sample; "
+            "telemetry_does_not_establish_causation")
         assert release["inference_performed"] is False
         assert release["host_mutation_performed"] is False
         serving.close()
