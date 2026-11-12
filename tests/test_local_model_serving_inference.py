@@ -1005,13 +1005,58 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "idle_game_frame_pressure_active_inference_unconfirmed",
             "idle_game_frame_pressure_active_inference_scheduler"}:
         invocation_results = {}
+        inference = bridge
+        resource_custody = None
+        resource_ledger = None
+        resource_allocation_id = None
+        if trigger == "idle_game_frame_pressure_active_inference_scheduler":
+            from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+            from sentientos.governed_local_model_resource_allocation import (
+                GovernedLocalModelResourceBounds,
+                GovernedLocalModelResourcePolicy,
+            )
+            from sentientos.production_chat_resource_context import (
+                ResourceBackedProductionChatInference,
+            )
+            from sentientos.production_chat_resource_provisioning import (
+                load_production_chat_resource_context_owner,
+            )
+            from sentientos.production_chat_resource_provisioning_bundle_producer import (
+                produce_production_chat_resource_provisioning_bundle,
+            )
+            from tests.test_production_chat_resource_provisioning_bundle_producer import (
+                encoded, inputs as provisioning_inputs,
+            )
+
+            installation, provisioning_artifacts = provisioning_inputs(
+                tmp_path / "scheduled-resource-provisioning", calls=2)
+            resource_bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
+            resource_policy = GovernedLocalModelResourcePolicy.create(
+                epoch=1, max_resource_specific_bounds=resource_bounds,
+                not_before="2026-09-21T08:00:00Z",
+                valid_until="2026-09-21T09:15:00Z")
+            provisioning_artifacts["requested_bounds"] = resource_bounds
+            provisioning_artifacts["resource_policy_artifact"] = encoded(
+                resource_policy.to_dict())
+            bundle = produce_production_chat_resource_provisioning_bundle(
+                installation, "scheduled-chat", **provisioning_artifacts)
+            resource_custody = load_production_chat_resource_context_owner(
+                installation, "scheduled-chat",
+                clock=lambda: "2026-09-21T08:30:00Z",
+                nonce_source=iter(("scheduled-attempt-one", "scheduled-attempt-two")).__next__)
+            resource_allocation_id = bundle.allocation_id
+            resource_ledger = resource_custody.allocator.ledger
+            inference = ResourceBackedProductionChatInference(bridge, resource_custody)
         active_prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
             "[SESSION_HISTORY_DATA]\nUSER_DATA: optional inference")
 
         def invoke_while_game_is_running():
-            invocation_results["receipt"] = bridge.generate(
-                prompt=active_prompt, caller="chat_service",
-                correlation_id="frame-pressure-active-inference")
+            arguments = {"prompt": active_prompt, "caller": "chat_service",
+                "correlation_id": "frame-pressure-active-inference"}
+            if resource_custody is not None:
+                arguments["budget"] = LocalModelInvocationBudget(8000, 4000, 512, 30.0, 2)
+                arguments["caller_linkage"] = {}
+            invocation_results["receipt"] = inference.generate(**arguments)
 
         invocation_thread = threading.Thread(target=invoke_while_game_is_running)
         if trigger != "idle_game_frame_pressure_active_inference_scheduler":
@@ -1031,11 +1076,11 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             from sentientos import chat_service
 
             service = SimpleNamespace(
-                reconcile_workload_state=bridge.reconcile_idle_game_resource_state,
+                reconcile_workload_state=inference.reconcile_workload_state,
                 resource_reconciliation_interval_seconds=(
-                    bridge.resource_reconciliation_interval_seconds),
+                    inference.resource_reconciliation_interval_seconds),
                 set_resource_reconciliation_wakeup=(
-                    bridge.set_resource_reconciliation_wakeup),
+                    inference.set_resource_reconciliation_wakeup),
                 close_outputs=lambda: None)
             previous_composition = chat_service._PRODUCTION_COMPOSITION
             previous_reconciliation_task = chat_service._RESOURCE_RECONCILIATION_TASK
@@ -1068,6 +1113,13 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             finally:
                 chat_service._PRODUCTION_COMPOSITION = previous_composition
                 chat_service._RESOURCE_RECONCILIATION_TASK = previous_reconciliation_task
+                if resource_custody is not None:
+                    resource_custody.close()
+            if resource_ledger is not None and resource_allocation_id is not None:
+                assert resource_ledger.remaining_calls(resource_allocation_id) == 1
+                assert len(resource_ledger._state["attempts"]) == 1
+                assert resource_ledger._state["receipts"][-1][
+                    "effect_receipt_digest"] == invocation_results["receipt"].receipt_digest
             reconciliation = {"status": "worker_closed",
                 "trigger_kind": "idle_game_frame_pressure_reconciliation",
                 "active_inference_cancellation_confirmed": True}
