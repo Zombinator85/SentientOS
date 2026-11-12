@@ -248,6 +248,77 @@ def test_windows_foreground_publisher_and_core_detector_compose_over_mutual_tls(
         core_detector.close()
 
 
+def test_production_game_evidence_schemas_share_one_ordered_mtls_session(tmp_path: Path):
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    source_key, ack_key = b"e" * 32, b"c" * 32
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1",
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=CompanionBridgeReceiver(source_keys={"windows-edge": source_key},
+            expected_generations={"windows-edge": "edge-generation-1"}),
+        acknowledgment_source_id="wsl-core",
+        acknowledgment_generation_id="core-generation-1", acknowledgment_key=ack_key)
+    port = runtime.start()
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(source_keys={"wsl-core": ack_key},
+            expected_generations={"wsl-core": "core-generation-1"}))
+    publication_lock = threading.Lock()
+    sequence = 0
+
+    def allocate_sequence() -> int:
+        nonlocal sequence
+        sequence += 1
+        return sequence
+
+    observer = WindowsGamePerformanceObserver(system_provider=lambda: "Windows",
+        process_provider=lambda _pid: {"cpu_percent": 33.0, "rss_bytes": 131072},
+        frame_provider=lambda _pid: ((16.7, 52.0), "f" * 64))
+    performance_publisher = WindowsGamePerformanceBridgePublisher(
+        observer=observer, client=client, source_id="windows-edge",
+        session_id="shared-game-evidence", generation_id="edge-generation-1",
+        source_key=source_key, process_id=456, sequence_allocator=allocate_sequence,
+        publication_lock=publication_lock)
+    foreground_publisher = WindowsForegroundBridgePublisher(
+        detector=ForegroundGameDetector(system_provider=lambda: "Windows",
+            process_name_provider=lambda: "game.exe"), client=client,
+        source_id="windows-edge", session_id="shared-game-evidence",
+        generation_id="edge-generation-1", source_key=source_key,
+        sequence_allocator=allocate_sequence, publication_lock=publication_lock)
+    core_detector = BridgeForegroundGameDetector(runtime=runtime,
+        source_id="windows-edge", generation_id="edge-generation-1")
+
+    class AdmissionOwner:
+        def __init__(self) -> None:
+            self.performance = []
+            self.workloads = []
+
+        def observe_verified_game_performance(self, sample):
+            self.performance.append(sample)
+            return True
+
+        def observe_verified_game_workload(self, sample):
+            self.workloads.append(sample)
+            return True
+
+    admission = AdmissionOwner()
+    core_detector.set_game_performance_admission_owner(admission)
+    core_detector.set_game_workload_admission_owner(admission)
+    try:
+        performance_ack = performance_publisher.publish_once()
+        foreground_ack = foreground_publisher.publish_once(["game.exe"])
+        assert performance_ack.sequence == 1
+        assert foreground_ack.sequence == 2
+        observation = core_detector.observe(["game.exe"])
+        assert observation.status == "available" and observation.game_foreground is True
+        assert len(admission.performance) == 1
+        assert admission.performance[0].sequence == 1
+        assert len(admission.workloads) == 1
+        assert admission.workloads[0].transport_provenance["sequence"] == 2
+        assert runtime.status().accepted_messages == 2
+    finally:
+        core_detector.close()
+
+
 def test_windows_game_performance_sample_crosses_mtls_and_retains_measured_lineage(tmp_path: Path):
     server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
     source_key, ack_key = b"windows-performance-source-key-32-bytes", b"performance-ack-key-32-bytes-long"

@@ -58,7 +58,9 @@ class WindowsGamePerformanceBridgePublisher:
     def __init__(self, *, observer: WindowsGamePerformanceObserver,
                  client: _PerformanceSender, source_id: str,
                  session_id: str, generation_id: str, source_key: bytes,
-                 process_id: int, clock: Callable[[], str] | None = None) -> None:
+                 process_id: int, clock: Callable[[], str] | None = None,
+                 sequence_allocator: Callable[[], int] | None = None,
+                 publication_lock: threading.Lock | None = None) -> None:
         if type(observer) is not WindowsGamePerformanceObserver:
             raise CompanionBridgeError("game_performance_observer_required")
         if not callable(getattr(client, "send", None)):
@@ -71,21 +73,29 @@ class WindowsGamePerformanceBridgePublisher:
         self._source_id, self._session_id = source_id, session_id
         self._generation_id, self._key = generation_id, bytes(source_key)
         self._process_id, self._sequence = process_id, 0
+        self._sequence_allocator = sequence_allocator
+        self._publication_lock = publication_lock or threading.Lock()
         self._clock = clock or (lambda: datetime.now(timezone.utc).isoformat())
         self._lock = threading.Lock()
 
     def publish_once(self, *, process_id: int | None = None) -> VerifiedBridgeMessage:
-        with self._lock:
+        with self._publication_lock, self._lock:
             selected_process_id = self._process_id if process_id is None else process_id
             if type(selected_process_id) is not int or selected_process_id < 1:
                 raise CompanionBridgeError("game_process_id_invalid")
             observation = self._observer.observe(selected_process_id)
             if type(observation) is not GamePerformanceObservation:
                 raise CompanionBridgeError("game_performance_observation_invalid")
-            self._sequence += 1
+            if self._sequence_allocator is None:
+                self._sequence += 1
+                sequence = self._sequence
+            else:
+                sequence = self._sequence_allocator()
+                if type(sequence) is not int or sequence < 1:
+                    raise CompanionBridgeError("bridge_sequence_invalid")
             encoded = encode_message(kind="observation", source_id=self._source_id,
                 session_id=self._session_id, generation_id=self._generation_id,
-                sequence=self._sequence, payload=observation.to_dict(), key=self._key,
+                sequence=sequence, payload=observation.to_dict(), key=self._key,
                 created_at=observation.observed_at or self._clock())
             return self._client.send(encoded)
 

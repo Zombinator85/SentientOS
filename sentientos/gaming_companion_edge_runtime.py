@@ -8,6 +8,7 @@ listener before its bounded dispatcher and closes them in reverse order.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import threading
 from typing import Any, Callable, Mapping, Sequence
 
 from .gaming_companion_avatar_output import (
@@ -22,6 +23,10 @@ from .game_performance_bridge import (
     WindowsGamePerformanceBridgePublisher,
     WindowsGamePerformanceObservationPump,
 )
+from .foreground_game_bridge import (
+    WindowsForegroundBridgePublisher, WindowsForegroundObservationPump,
+)
+from .foreground_game_detection import ForegroundGameDetector
 from .windows_game_performance import WindowsGamePerformanceObserver
 from .gaming_companion_tls_transport import (
     BridgeGenerationPair,
@@ -47,6 +52,8 @@ class EdgeAvatarRuntimeStatus:
     renderer_effect_proven: bool = False
     game_performance_publisher_configured: bool = False
     game_performance_publisher_running: bool = False
+    foreground_game_publisher_configured: bool = False
+    foreground_game_publisher_running: bool = False
 
 
 class WindowsEdgeAvatarRuntime:
@@ -54,11 +61,13 @@ class WindowsEdgeAvatarRuntime:
 
     def __init__(self, *, runtime: CompanionBridgeMutualTLSRuntime,
                  dispatcher: WindowsEdgeAvatarCommandDispatchOwner,
-                 game_performance_pump: WindowsGamePerformanceObservationPump | None = None
+                 game_performance_pump: WindowsGamePerformanceObservationPump | None = None,
+                 foreground_game_pump: WindowsForegroundObservationPump | None = None,
                  ) -> None:
         self._runtime = runtime
         self._dispatcher = dispatcher
         self._game_performance_pump = game_performance_pump
+        self._foreground_game_pump = foreground_game_pump
         self._state = "stopped"
         self._port: int | None = None
 
@@ -71,17 +80,23 @@ class WindowsEdgeAvatarRuntime:
             self._dispatcher.start()
             if self._game_performance_pump is not None:
                 self._game_performance_pump.start()
+            if self._foreground_game_pump is not None:
+                self._foreground_game_pump.start()
         except Exception:
             try:
-                if self._game_performance_pump is not None:
-                    self._game_performance_pump.close()
+                if self._foreground_game_pump is not None:
+                    self._foreground_game_pump.close()
             finally:
                 try:
-                    self._dispatcher.close()
+                    if self._game_performance_pump is not None:
+                        self._game_performance_pump.close()
                 finally:
-                    self._runtime.close()
-                    self._port = None
-                    self._state = "failed"
+                    try:
+                        self._dispatcher.close()
+                    finally:
+                        self._runtime.close()
+                        self._port = None
+                        self._state = "failed"
             raise
         self._state = "running"
         return self.status()
@@ -91,7 +106,10 @@ class WindowsEdgeAvatarRuntime:
             self._dispatcher.status(),
             game_performance_publisher_configured=self._game_performance_pump is not None,
             game_performance_publisher_running=(self._game_performance_pump is not None
-                and self._game_performance_pump.status().get("running") is True))
+                and self._game_performance_pump.status().get("running") is True),
+            foreground_game_publisher_configured=self._foreground_game_pump is not None,
+            foreground_game_publisher_running=(self._foreground_game_pump is not None
+                and self._foreground_game_pump.status().running))
 
     def close(self) -> EdgeAvatarRuntimeStatus:
         if self._state == "stopped":
@@ -99,10 +117,16 @@ class WindowsEdgeAvatarRuntime:
         self._state = "stopping"
         failure: Exception | None = None
         try:
+            if self._foreground_game_pump is not None:
+                self._foreground_game_pump.close()
+        except Exception as exc:
+            failure = exc
+        try:
             if self._game_performance_pump is not None:
                 self._game_performance_pump.close()
         except Exception as exc:
-            failure = exc
+            if failure is None:
+                failure = exc
         try:
             self._dispatcher.close()
         except Exception as exc:
@@ -182,6 +206,7 @@ def build_windows_edge_avatar_runtime(
         acknowledgment_key=acknowledgment_key,
     )
     game_performance_pump = None
+    foreground_game_pump = None
     if game_process_names:
         from .foreground_game_detection import normalize_game_process_names
 
@@ -216,14 +241,32 @@ def build_windows_edge_avatar_runtime(
                 expected_generations={forward_pair.acknowledgment.source_id:
                     forward_pair.acknowledgment.generation_id}),
             timeout_seconds=2.0)
+        publication_lock = threading.Lock()
+        sequence = 0
+
+        def allocate_sequence() -> int:
+            nonlocal sequence
+            sequence += 1
+            return sequence
+
+        session_id = "windows-edge-game-observation"
         performance_publisher = WindowsGamePerformanceBridgePublisher(
             observer=WindowsGamePerformanceObserver(), client=forward_client,
             source_id=forward_pair.source.source_id,
-            session_id="windows-edge-game-performance",
+            session_id=session_id,
             generation_id=forward_pair.source.generation_id,
-            source_key=forward_source_key, process_id=1)
+            source_key=forward_source_key, process_id=1,
+            sequence_allocator=allocate_sequence, publication_lock=publication_lock)
         game_performance_pump = WindowsGamePerformanceObservationPump(
             publisher=performance_publisher, process_names=process_names)
+        foreground_publisher = WindowsForegroundBridgePublisher(
+            detector=ForegroundGameDetector(), client=forward_client,
+            source_id=forward_pair.source.source_id, session_id=session_id,
+            generation_id=forward_pair.source.generation_id,
+            source_key=forward_source_key, sequence_allocator=allocate_sequence,
+            publication_lock=publication_lock)
+        foreground_game_pump = WindowsForegroundObservationPump(
+            publisher=foreground_publisher, process_names=process_names)
     dispatcher = WindowsEdgeAvatarCommandDispatchOwner(
         runtime=runtime,
         receipt_verifier=command_receipt_verifier,
@@ -232,7 +275,8 @@ def build_windows_edge_avatar_runtime(
         receipt_replay_guard=receipt_replay_guard,
     )
     return WindowsEdgeAvatarRuntime(runtime=runtime, dispatcher=dispatcher,
-        game_performance_pump=game_performance_pump)
+        game_performance_pump=game_performance_pump,
+        foreground_game_pump=foreground_game_pump)
 
 
 __all__ = [

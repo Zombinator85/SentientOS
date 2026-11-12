@@ -57,7 +57,9 @@ class WindowsForegroundBridgePublisher:
 
     def __init__(self, *, detector: ForegroundObservationSender,
                  client: CompanionBridgeLoopbackClient, source_id: str,
-                 session_id: str, generation_id: str, source_key: bytes) -> None:
+                 session_id: str, generation_id: str, source_key: bytes,
+                 sequence_allocator: Callable[[], int] | None = None,
+                 publication_lock: Any = None) -> None:
         if not callable(getattr(detector, "observe", None)):
             raise CompanionBridgeError("foreground_detector_required")
         if not isinstance(client, CompanionBridgeLoopbackClient):
@@ -79,19 +81,26 @@ class WindowsForegroundBridgePublisher:
         self._generation_id = generation_id
         self._source_key = bytes(source_key)
         self._sequence = 0
+        self._sequence_allocator = sequence_allocator
+        self._publication_lock = publication_lock or threading.Lock()
         self._lock = threading.Lock()
 
     def publish_once(self, process_names: tuple[str, ...] | list[str]) -> VerifiedBridgeMessage:
         """Sample and send one explicitly allowlisted foreground observation."""
-        with self._lock:
+        with self._publication_lock, self._lock:
             observation = self._detector.observe(process_names)
             if type(observation) is not ForegroundGameObservation:
                 raise CompanionBridgeError("foreground_observation_invalid")
             if observation.transport_provenance is not None:
                 raise CompanionBridgeError("foreground_observation_not_local")
             payload = observation.to_dict()
-            self._sequence += 1
-            sequence = self._sequence
+            if self._sequence_allocator is None:
+                self._sequence += 1
+                sequence = self._sequence
+            else:
+                sequence = self._sequence_allocator()
+                if type(sequence) is not int or sequence < 1:
+                    raise CompanionBridgeError("bridge_sequence_invalid")
             encoded = encode_message(kind="observation", source_id=self._source_id,
                 session_id=self._session_id, generation_id=self._generation_id,
                 sequence=sequence, payload=payload, key=self._source_key,

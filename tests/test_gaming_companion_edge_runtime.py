@@ -130,3 +130,45 @@ def test_edge_runtime_factory_wires_optional_durable_receipt_guard(tmp_path: Pat
     assert owner.status().listener_port is None
     assert owner.status().authority_effects_performed is False
     assert owner._dispatcher._receipt_replay_guard is guard
+
+
+def test_edge_runtime_composes_both_authenticated_game_evidence_pumps(tmp_path: Path) -> None:
+    manifest = _reverse_mutual_tls_manifest()
+    server_context, client_context, _ = _certificate_bundle(tmp_path)
+    reverse_pair = _generation_pair()
+    forward_pair = BridgeGenerationPair(
+        BridgeGenerationCustodyRecord(
+            source_id="sentientos-windows-edge", generation_id="windows-edge-game-1",
+            key_reference="credential-store:sentientos/windows-edge-source",
+            issuer_id="operator-control-plane", issued_at=datetime.now(timezone.utc).isoformat(),
+            authority_receipt_digest="c" * 64, predecessor_generation_id=None),
+        BridgeGenerationCustodyRecord(
+            source_id="sentientos-wsl-core", generation_id="wsl-core-game-ack-1",
+            key_reference="credential-store:sentientos/windows-edge-game-ack",
+            issuer_id="operator-control-plane", issued_at=datetime.now(timezone.utc).isoformat(),
+            authority_receipt_digest="d" * 64, predecessor_generation_id=None),
+    )
+    refs = {
+        (manifest["reverse_avatar_tls"]["source_generation_custody_reference"],
+         manifest["reverse_avatar_tls"]["acknowledgment_generation_custody_reference"]): reverse_pair,
+        (manifest["bridge_tls"]["source_generation_custody_reference"],
+         manifest["bridge_tls"]["acknowledgment_generation_custody_reference"]): forward_pair,
+    }
+    owner = build_windows_edge_avatar_runtime(
+        manifest=manifest,
+        generation_pair_loader=lambda source, ack: refs[(source, ack)],
+        bridge_key_reader=lambda _reference: b"k" * 32,
+        server_tls_context_factory=lambda _ca, _cert, _key: server_context,
+        client_tls_context_factory=lambda _ca, _cert, _key: client_context,
+        generation_receipt_verifier=lambda _digest, _record: True,
+        command_receipt_verifier=lambda _receipt, _digest, _message: True,
+        renderer_sink=lambda _payload, _message: True,
+        game_process_names=("game.exe",),
+    )
+
+    status = owner.status()
+    assert status.game_performance_publisher_configured is True
+    assert status.foreground_game_publisher_configured is True
+    assert status.game_performance_publisher_running is False
+    assert status.foreground_game_publisher_running is False
+    owner.close()
