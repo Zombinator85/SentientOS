@@ -377,6 +377,44 @@ def test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence(
     assert decision.allowed is expected
 
 
+def test_selected_gaming_profile_release_requires_current_observed_host_pressure(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    trigger = "idle-game-resource-reconcile-forged"
+    observation_id = "local-chat-reconciliation-" + hashlib.sha256(
+        trigger.encode("utf-8")).hexdigest()[:32]
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        ("gaming_profile_resource_reconciliation:" + trigger).encode("utf-8")).hexdigest()[:24]
+    observed_at = datetime.now(timezone.utc).isoformat()
+    evidence = {
+        "schema_version": "sentientos.production_gaming_profile_host_resource_release_evidence:v1",
+        "trigger_kind": "gaming_profile_resource_reconciliation",
+        "trigger_correlation_id": trigger,
+        "observation_correlation_id": observation_id,
+        "host_report_id": "host-report-unobserved",
+        "host_report_digest": "c" * 64,
+        "observed_at": observed_at,
+        "pressure_labels": ["cpu_pressure"],
+        "workload_mode": "gaming",
+        "workload_mode_source": "operator_selected",
+        "workload_observation_status": "not_requested",
+    }
+    decision = governor._admit_local_model_resource_release(
+        actor="production_chat_workload_resource_governor",
+        subject="production_chat_workload_resource_governor",
+        correlation_id=release_correlation,
+        metadata={"purpose": "local_model_resource_release",
+            "reason_code": "selected_gaming_profile_host_pressure",
+            "target_subsystem": "production_chat",
+            "model_identity_digest": "d" * 64,
+            "resource_observation": evidence})
+
+    assert decision.allowed is False
+    assert decision.reason == "model_resource_release_pressure_evidence_required"
+
+
 def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing(
         monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")

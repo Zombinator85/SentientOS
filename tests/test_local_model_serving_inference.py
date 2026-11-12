@@ -200,6 +200,79 @@ def test_selected_gaming_profile_reaches_inference_governor_under_host_pressure(
     serving.close()
 
 
+@pytest.mark.parametrize(("cpu_percent", "expected_status", "expected_closed"), [
+    (95.0, "worker_closed", True),
+    (20.0, "skipped", False),
+])
+def test_selected_gaming_profile_releases_optional_model_only_under_host_pressure(
+        monkeypatch, tmp_path, cpu_percent, expected_status, expected_closed):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=cpu_percent)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+        ]), clock=lambda: now.isoformat())
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner,
+        gpu_layers=24)
+    bridge.set_workload_mode("gaming")
+
+    result = bridge.reconcile_idle_game_resource_state()
+
+    assert result["status"] == expected_status
+    assert model.closed is expected_closed
+    if expected_closed:
+        assert serving.current_session() is None
+        assert result["trigger_kind"] == "gaming_profile_resource_reconciliation"
+        assert isinstance(result["release_receipt_id"], str)
+        release_files = list((tmp_path / "state" / "installations" / "install-1" /
+            "state" / "local-model" / "serving" /
+            "resource-release-receipts").glob("*.json"))
+        assert len(release_files) == 1
+        receipt = json.loads(release_files[0].read_text(encoding="utf-8"))
+        assert receipt["status"] == "worker_closed"
+        assert receipt["inference_performed"] is False
+        assert receipt["host_mutation_performed"] is False
+        assert receipt["resource_observation"]["workload_mode"] == "gaming"
+        assert receipt["resource_observation"]["workload_mode_source"] == "operator_selected"
+        assert "game_workload_message_id" not in receipt["resource_observation"]
+        decision = next(json.loads(line) for line in reversed(
+            (tmp_path / "kernel-decisions.jsonl").read_text(
+                encoding="utf-8").splitlines())
+            if json.loads(line).get("action_kind") == "local_model_resource_release")
+        delegated = decision["delegated_outcomes"]["runtime_governor"]
+        assert delegated["allowed"] is True
+        assert delegated["reason"] == "model_resource_release_fail_safe"
+        evidence = delegated["evidence_refs"]["resource_observation_evidence"]
+        assert evidence["status"] == "current"
+        assert evidence["workload_mode"] == "gaming"
+        assert evidence["workload_mode_source"] == "operator_selected"
+        assert evidence["pressure_labels"] == ["cpu_pressure"]
+        assert "game_workload_message_id" not in evidence
+    else:
+        assert result["reason"] == "current_host_pressure_evidence_required"
+        assert serving.current_session() == session
+        assert list((tmp_path / "state" / "installations" / "install-1" /
+            "state" / "local-model" / "serving" /
+            "resource-release-receipts").glob("*.json")) == []
+        serving.close()
+
+
 def test_idle_reconciliation_keeps_serving_session_without_verified_game(monkeypatch, tmp_path):
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path)
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])

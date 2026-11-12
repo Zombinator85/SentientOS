@@ -1265,6 +1265,7 @@ class RuntimeGovernor:
                 "verified_game_gpu_pressure",
                 "verified_game_host_pressure",
                 "verified_game_gpu_model_residency",
+                "selected_gaming_profile_host_pressure",
                 "rootless_experimental_epistemic_complete",
                 "rootless_experimental_developmental_complete",
             }
@@ -1633,6 +1634,94 @@ class RuntimeGovernor:
                     if release_age_seconds is not None else None,
             } if evidence_valid and isinstance(observation_value, Mapping) else {
                 "status": "missing_stale_malformed_or_unverified_game_host_pressure"})
+        elif reason_code == "selected_gaming_profile_host_pressure":
+            observation_value = payload.get("resource_observation")
+            expected_fields = {
+                "schema_version", "trigger_kind", "trigger_correlation_id",
+                "observation_correlation_id", "host_report_id", "host_report_digest",
+                "observed_at", "pressure_labels", "workload_mode",
+                "workload_mode_source", "workload_observation_status",
+            }
+            evidence_valid = False
+            release_age_seconds: float | None = None
+            host_age: float | None = None
+            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+                raw_trigger = observation_value.get("trigger_kind")
+                raw_source = observation_value.get("trigger_correlation_id")
+                raw_observation_id = observation_value.get("observation_correlation_id")
+                raw_report_id = observation_value.get("host_report_id")
+                raw_report_digest = observation_value.get("host_report_digest")
+                raw_observed_at = observation_value.get("observed_at")
+                raw_labels = observation_value.get("pressure_labels")
+                source = raw_source if isinstance(raw_source, str) else None
+                expected_observation_id = ("local-chat-reconciliation-" + hashlib.sha256(
+                    source.encode("utf-8")).hexdigest()[:32] if source is not None else None)
+                expected_release_correlation = ("production-chat-resource-release-" +
+                    hashlib.sha256((str(raw_trigger) + ":" + source).encode("utf-8")).hexdigest()[:24]
+                    if source is not None else None)
+                try:
+                    parsed_at = datetime.fromisoformat(
+                        raw_observed_at if isinstance(raw_observed_at, str) else "")
+                except ValueError:
+                    parsed_at = None
+                if parsed_at is not None and parsed_at.tzinfo is not None:
+                    release_age_seconds = (datetime.now(timezone.utc)
+                        - parsed_at.astimezone(timezone.utc)).total_seconds()
+                with self._resource_evidence_lock:
+                    host_evidence = (self._host_resource_evidence_by_correlation.get(
+                        raw_observation_id) if isinstance(raw_observation_id, str) else None)
+                try:
+                    if host_evidence is not None:
+                        host_age = (datetime.now(timezone.utc) - datetime.fromisoformat(
+                            str(host_evidence["observed_at"])).astimezone(timezone.utc)).total_seconds()
+                except (KeyError, TypeError, ValueError):
+                    host_age = None
+                raw_host_labels = (host_evidence.get("pressure_labels")
+                    if host_evidence is not None else None)
+                host_labels = (set(raw_host_labels)
+                    if isinstance(raw_host_labels, (tuple, list, set, frozenset))
+                    and all(isinstance(label, str) for label in raw_host_labels) else set())
+                evidence_valid = bool(
+                    observation_value.get("schema_version") ==
+                        "sentientos.production_gaming_profile_host_resource_release_evidence:v1"
+                    and raw_trigger == "gaming_profile_resource_reconciliation"
+                    and isinstance(source, str)
+                    and source.startswith("idle-game-resource-reconcile-")
+                    and 0 < len(source) <= 256
+                    and raw_observation_id == expected_observation_id
+                    and correlation_id == expected_release_correlation
+                    and actor == "production_chat_workload_resource_governor"
+                    and subject == actor and payload.get("target_subsystem") == "production_chat"
+                    and observation_value.get("workload_mode") == "gaming"
+                    and observation_value.get("workload_mode_source") == "operator_selected"
+                    and observation_value.get("workload_observation_status") == "not_requested"
+                    and isinstance(raw_report_id, str)
+                    and isinstance(raw_report_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", raw_report_digest) is not None
+                    and isinstance(raw_observed_at, str)
+                    and isinstance(raw_labels, (tuple, list))
+                    and all(isinstance(label, str) for label in raw_labels)
+                    and bool(host_labels.intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS))
+                    and set(raw_labels) == host_labels
+                    and host_evidence is not None
+                    and host_evidence.get("observation_correlation_id") == raw_observation_id
+                    and host_evidence.get("report_id") == raw_report_id
+                    and host_evidence.get("report_digest") == raw_report_digest
+                    and host_evidence.get("observed_at") == raw_observed_at
+                    and release_age_seconds is not None and 0 <= release_age_seconds <= 120
+                    and host_age is not None and 0 <= host_age <= 120)
+            valid = valid and evidence_valid
+            evidence_ref = ({
+                "status": "current",
+                "observation_correlation_id": observation_value.get("observation_correlation_id"),
+                "host_report_id": observation_value.get("host_report_id"),
+                "pressure_labels": observation_value.get("pressure_labels"),
+                "workload_mode": "gaming",
+                "workload_mode_source": "operator_selected",
+                "age_seconds": round(release_age_seconds, 3)
+                    if release_age_seconds is not None else None,
+            } if evidence_valid and isinstance(observation_value, Mapping) else {
+                "status": "missing_stale_malformed_or_unbound_gaming_profile_host_pressure"})
         payload["resource_observation_evidence"] = evidence_ref
         return self._decision(
             action_class="local_model_resource_release", allowed=valid,
@@ -1641,7 +1730,8 @@ class RuntimeGovernor:
                     if reason_code == "verified_game_gpu_model_residency" else
                     "model_resource_release_pressure_evidence_required"
                     if reason_code in {"vram_pressure_observed", "verified_game_gpu_pressure",
-                        "verified_game_host_pressure"} else
+                        "verified_game_host_pressure",
+                        "selected_gaming_profile_host_pressure"} else
                     "model_resource_release_request_invalid"),
             subject=subject, scope="local", origin=actor,
             pressure=self.sample_pressure(), metadata=payload,
@@ -2651,7 +2741,8 @@ class RuntimeGovernor:
                             "game_performance_evidence", "game_workload_evidence",
                             "game_frame_pressure", "host_pressure_during_verified_game",
                             "gaming_workload_profile_host_pressure",
-                            "gaming_workload_profile_evidence")
+                            "gaming_workload_profile_evidence",
+                            "resource_observation_evidence")
                 if metadata is not None and key in metadata
             },
         )

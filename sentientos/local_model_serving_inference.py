@@ -282,14 +282,14 @@ class ProductionServingInferenceController:
             raise ProductionServingInferenceError("serving_authority_map_digest_mismatch")
         return authority
 
-    def _release_after_verified_game_host_pressure(
+    def _release_after_host_pressure(
             self, session: ServingSession, model: Any,
             receipt: LocalModelInvocationReceipt | None,
             *, resource_observation: Mapping[str, Any] | None = None,
             workload_evidence: Mapping[str, Any] | None = None,
             trigger_correlation_id: str | None = None,
             trigger_kind: str = "deferred_inference") -> dict[str, Any] | None:
-        """Release optional chat residency after exact game and host pressure evidence."""
+        """Release optional chat residency after exact game/profile and host evidence."""
         if receipt is not None:
             if (receipt.status != "deferred"
                     or not any(reason.endswith(
@@ -305,20 +305,29 @@ class ProductionServingInferenceController:
             trigger_kind = "deferred_inference"
         if not isinstance(resource_observation, Mapping) or not isinstance(workload_evidence, Mapping):
             return None
-        provenance = workload_evidence.get("transport_provenance")
-        if not isinstance(provenance, Mapping):
-            return None
-        game_message_id = provenance.get("message_id")
+        selected_gaming_profile = trigger_kind == "gaming_profile_resource_reconciliation"
+        if selected_gaming_profile:
+            if (workload_evidence.get("configured_mode") != "gaming"
+                    or workload_evidence.get("mode_source") != "operator_selected"
+                    or workload_evidence.get("observation_status") != "not_requested"):
+                return None
+            game_message_id = None
+        else:
+            provenance = workload_evidence.get("transport_provenance")
+            if not isinstance(provenance, Mapping):
+                return None
+            game_message_id = provenance.get("message_id")
         labels = resource_observation.get("pressure_labels")
         if (resource_observation.get("status") != "current"
                 or resource_observation.get("no_effect_authority") is not True
                 or not isinstance(labels, (tuple, list))
                 or not all(isinstance(label, str) for label in labels)
                 or not set(labels).intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS)
-                or workload_evidence.get("observation_status") != "available"
-                or (workload_evidence.get("game_foreground") is not True
-                    and workload_evidence.get("game_process_running") is not True)
-                or not isinstance(game_message_id, str)):
+                or (not selected_gaming_profile and (
+                    workload_evidence.get("observation_status") != "available"
+                    or (workload_evidence.get("game_foreground") is not True
+                        and workload_evidence.get("game_process_running") is not True)
+                    or not isinstance(game_message_id, str)))):
             return None
         if not isinstance(trigger_correlation_id, str) or not trigger_correlation_id:
             return None
@@ -330,7 +339,9 @@ class ProductionServingInferenceController:
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
             return None
         host_release_evidence = {
-            "schema_version": "sentientos.production_game_host_resource_release_evidence:v1",
+            "schema_version": ("sentientos.production_gaming_profile_host_resource_release_evidence:v1"
+                if selected_gaming_profile else
+                "sentientos.production_game_host_resource_release_evidence:v1"),
             "trigger_kind": trigger_kind,
             "trigger_correlation_id": source_correlation,
             "observation_correlation_id": resource_observation.get(
@@ -339,12 +350,23 @@ class ProductionServingInferenceController:
             "host_report_digest": resource_observation.get("report_digest"),
             "observed_at": resource_observation.get("observed_at"),
             "pressure_labels": list(labels),
-            "game_workload_message_id": game_message_id,
         }
+        if selected_gaming_profile:
+            host_release_evidence.update({
+                "workload_mode": "gaming",
+                "workload_mode_source": "operator_selected",
+                "workload_observation_status": "not_requested",
+            })
+        else:
+            host_release_evidence["game_workload_message_id"] = game_message_id
+        reason_code = ("selected_gaming_profile_host_pressure" if selected_gaming_profile
+            else "verified_game_host_pressure")
+        actor = ("production_chat_workload_resource_governor" if selected_gaming_profile
+            else "production_chat_game_resource_governor")
         metadata = {
             "correlation_id": release_correlation,
             "purpose": "local_model_resource_release",
-            "reason_code": "verified_game_host_pressure",
+            "reason_code": reason_code,
             "target_subsystem": "production_chat",
             "model_identity_digest": digest_payload(loaded_identity.to_dict()),
             "resource_observation": host_release_evidence,
@@ -352,7 +374,7 @@ class ProductionServingInferenceController:
         decision = self._serving._kernel.admit(ControlActionRequest(
             action_kind="local_model_resource_release",
             authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
-            actor="production_chat_game_resource_governor",
+            actor=actor,
             target_subsystem="production_chat",
             requested_phase=LifecyclePhase.RUNTIME,
             metadata=metadata,
@@ -362,7 +384,7 @@ class ProductionServingInferenceController:
             and decision.outcome == AdmissionOutcome.ALLOW
             and decision.authority_class == AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
             and decision.action_kind == "local_model_resource_release"
-            and decision.actor == "production_chat_game_resource_governor"
+            and decision.actor == actor
             and decision.target_subsystem == "production_chat"
             and decision.correlation_id == release_correlation
         )
@@ -374,7 +396,7 @@ class ProductionServingInferenceController:
         if decision_valid:
             try:
                 close_completed = self._serving.release_current_session_after_resource_admission(
-                    session, reason="verified_game_host_pressure")
+                    session, reason=reason_code)
                 worker = getattr(model, "_process", None)
                 poll = getattr(worker, "poll", None)
                 worker_exit_observed = (poll() is not None if callable(poll) else None)
@@ -446,7 +468,10 @@ class ProductionServingInferenceController:
                     "observation_correlation_id"],
                 "host_report_id": host_release_evidence["host_report_id"],
                 "pressure_labels": list(labels),
-                "game_workload_message_id": game_message_id,
+                **({"workload_mode": "gaming",
+                    "workload_mode_source": "operator_selected"}
+                    if selected_gaming_profile else
+                    {"game_workload_message_id": game_message_id}),
             },
             "worker_exit_observed": worker_exit_observed,
             "close_failure": close_failure,
@@ -483,15 +508,17 @@ class ProductionServingInferenceController:
             return {"status": "skipped", "reason": "inference_or_release_in_progress"}
         try:
             workload = self.current_workload_state()
-            if workload.get("configured_mode") != "automatic":
-                return {"status": "skipped", "reason": "automatic_game_observation_required"}
-            provenance = workload.get("transport_provenance")
-            if (workload.get("observation_status") != "available"
-                    or (workload.get("game_foreground") is not True
-                        and workload.get("game_process_running") is not True)
-                    or not isinstance(provenance, Mapping)
-                    or not isinstance(provenance.get("message_id"), str)):
-                return {"status": "skipped", "reason": "fresh_verified_game_evidence_required"}
+            selected_gaming_profile = workload.get("configured_mode") == "gaming"
+            if workload.get("configured_mode") != "automatic" and not selected_gaming_profile:
+                return {"status": "skipped", "reason": "gaming_workload_profile_required"}
+            if not selected_gaming_profile:
+                provenance = workload.get("transport_provenance")
+                if (workload.get("observation_status") != "available"
+                        or (workload.get("game_foreground") is not True
+                            and workload.get("game_process_running") is not True)
+                        or not isinstance(provenance, Mapping)
+                        or not isinstance(provenance.get("message_id"), str)):
+                    return {"status": "skipped", "reason": "fresh_verified_game_evidence_required"}
             session = self._serving.current_session()
             if session is None:
                 return {"status": "skipped", "reason": "no_resident_serving_session"}
@@ -502,7 +529,7 @@ class ProductionServingInferenceController:
             load_configuration = session.binding.get("load_configuration")
             gpu_layers = (load_configuration.get("n_gpu_layers")
                 if isinstance(load_configuration, Mapping) else None)
-            if type(gpu_layers) is int and 1 <= gpu_layers <= 256:
+            if not selected_gaming_profile and type(gpu_layers) is int and 1 <= gpu_layers <= 256:
                 residency_release = self._release_after_verified_game_gpu_model_residency(
                     session, model, workload)
                 if residency_release is not None:
@@ -525,15 +552,17 @@ class ProductionServingInferenceController:
                 "configured_mode", "mode_source", "observation_status", "game_foreground",
                 "process_name_digest", "game_process_running", "running_process_name_digests",
                 "observed_at", "transport_provenance")}
-            release_outcome = self._release_after_verified_game_host_pressure(
+            trigger_kind = ("gaming_profile_resource_reconciliation"
+                if selected_gaming_profile else "idle_game_reconciliation")
+            release_outcome = self._release_after_host_pressure(
                 session, model, None, resource_observation=observation,
                 workload_evidence=evidence, trigger_correlation_id=correlation_id,
-                trigger_kind="idle_game_reconciliation")
+                trigger_kind=trigger_kind)
             if release_outcome is None:
                 return {"status": "skipped", "reason": "release_evidence_invalid"}
             return {"status": release_outcome["status"],
                 "release_receipt_id": release_outcome["receipt_id"],
-                "trigger_kind": "idle_game_reconciliation",
+                "trigger_kind": trigger_kind,
                 "observation_correlation_id": observation.get("observation_correlation_id"),
                 "serving_session_id": session.session_id}
         finally:
@@ -815,7 +844,7 @@ class ProductionServingInferenceController:
                 resource_context=resource_context,
             )
             if receipt.admission_decision_ref != binding["model_serving_admission_ref"]:
-                self._release_after_verified_game_host_pressure(session, model, receipt)
+                self._release_after_host_pressure(session, model, receipt)
         if receipt.admission_decision_ref == binding["model_serving_admission_ref"]:
             raise ProductionServingInferenceError("inference_admission_not_independent")
         return receipt
