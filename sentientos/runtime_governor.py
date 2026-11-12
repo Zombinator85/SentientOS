@@ -1264,6 +1264,7 @@ class RuntimeGovernor:
                 "vram_pressure_observed",
                 "verified_game_gpu_pressure",
                 "verified_game_host_pressure",
+                "verified_game_gpu_model_residency",
                 "rootless_experimental_epistemic_complete",
                 "rootless_experimental_developmental_complete",
             }
@@ -1469,6 +1470,71 @@ class RuntimeGovernor:
                 }
             else:
                 evidence_ref = {"status": "missing_stale_malformed_or_unverified_game_gpu_pressure"}
+        elif reason_code == "verified_game_gpu_model_residency":
+            observation_value = payload.get("resource_observation")
+            expected_fields = {
+                "schema_version", "trigger_kind", "trigger_correlation_id",
+                "game_workload_message_id", "model_gpu_layers", "serving_session_id",
+                "observed_at",
+            }
+            evidence_valid = False
+            residency_age_seconds: float | None = None
+            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+                raw_trigger = observation_value.get("trigger_correlation_id")
+                raw_game_id = observation_value.get("game_workload_message_id")
+                raw_observed_at = observation_value.get("observed_at")
+                raw_layers = observation_value.get("model_gpu_layers")
+                raw_session = observation_value.get("serving_session_id")
+                expected_release = ("production-chat-resource-release-" + hashlib.sha256(
+                    ("idle_game_gpu_residency:" + raw_trigger).encode("utf-8")).hexdigest()[:24]
+                    if isinstance(raw_trigger, str) else None)
+                try:
+                    parsed = datetime.fromisoformat(
+                        raw_observed_at if isinstance(raw_observed_at, str) else "")
+                except ValueError:
+                    parsed = None
+                if parsed is not None and parsed.tzinfo is not None:
+                    residency_age_seconds = (datetime.now(timezone.utc)
+                        - parsed.astimezone(timezone.utc)).total_seconds()
+                with self._resource_evidence_lock:
+                    game_evidence = (self._game_workload_evidence_by_message_id.get(raw_game_id)
+                        if isinstance(raw_game_id, str) else None)
+                residency_game_age: float | None = None
+                if game_evidence is not None:
+                    try:
+                        residency_game_age = (datetime.now(timezone.utc) - datetime.fromisoformat(
+                            str(game_evidence["observed_at"])).astimezone(timezone.utc)).total_seconds()
+                    except (KeyError, TypeError, ValueError):
+                        residency_game_age = None
+                evidence_valid = bool(
+                    observation_value.get("schema_version") ==
+                        "sentientos.production_game_gpu_residency_release_evidence:v1"
+                    and observation_value.get("trigger_kind") == "idle_game_gpu_residency"
+                    and isinstance(raw_trigger, str) and 0 < len(raw_trigger) <= 256
+                    and correlation_id == expected_release
+                    and actor == "production_chat_game_resource_governor"
+                    and subject == actor and payload.get("target_subsystem") == "production_chat"
+                    and type(raw_layers) is int and 1 <= raw_layers <= 256
+                    and isinstance(raw_session, str) and 0 < len(raw_session) <= 128
+                    and isinstance(raw_observed_at, str)
+                    and isinstance(game_evidence, Mapping)
+                    and game_evidence.get("message_id") == raw_game_id
+                    and (game_evidence.get("game_foreground") is True
+                         or game_evidence.get("game_process_running") is True)
+                    and residency_age_seconds is not None
+                    and 0 <= residency_age_seconds <= 120
+                    and residency_game_age is not None
+                    and 0 <= residency_game_age <= 10
+                    and game_evidence.get("observed_at") == raw_observed_at)
+            valid = valid and evidence_valid
+            evidence_ref = ({
+                "status": "current", "game_workload_message_id": observation_value.get(
+                    "game_workload_message_id"), "model_gpu_layers": observation_value.get(
+                    "model_gpu_layers"), "serving_session_id": observation_value.get(
+                    "serving_session_id"), "age_seconds": round(residency_age_seconds, 3)
+                    if residency_age_seconds is not None else None,
+            } if evidence_valid and isinstance(observation_value, Mapping) else {
+                "status": "missing_stale_or_unverified_game_gpu_residency"})
         elif reason_code == "verified_game_host_pressure":
             observation_value = payload.get("resource_observation")
             expected_fields = {
@@ -1571,6 +1637,8 @@ class RuntimeGovernor:
         return self._decision(
             action_class="local_model_resource_release", allowed=valid,
             reason=("model_resource_release_fail_safe" if valid else
+                    "model_resource_release_evidence_required"
+                    if reason_code == "verified_game_gpu_model_residency" else
                     "model_resource_release_pressure_evidence_required"
                     if reason_code in {"vram_pressure_observed", "verified_game_gpu_pressure",
                         "verified_game_host_pressure"} else

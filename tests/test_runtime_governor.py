@@ -332,6 +332,51 @@ def test_production_game_host_pressure_release_requires_exact_current_evidence(
     assert decision.reason == "model_resource_release_pressure_evidence_required"
 
 
+@pytest.mark.parametrize("mutation,expected", [
+    ("none", True), ("wrong_game", False), ("stale", False),
+    ("no_active_game", False),
+    ("zero_gpu_layers", False), ("empty_session", False),
+])
+@pytest.mark.no_legacy_skip
+def test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence(
+        monkeypatch, tmp_path, mutation, expected):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = datetime.now(timezone.utc).isoformat()
+    game_message_id = "b" * 64
+    observation = ForegroundGameObservation("available",
+        mutation != "no_active_game", "a" * 64, observed_at,
+        transport_provenance={"message_id": game_message_id, "source_id": "windows-edge",
+            "session_id": "game-session", "generation_id": "edge-generation",
+            "sequence": 1, "envelope_created_at": observed_at})
+    assert governor.observe_verified_game_workload(observation)
+    trigger = "idle-game-gpu-residency-test"
+    evidence = {"schema_version": "sentientos.production_game_gpu_residency_release_evidence:v1",
+        "trigger_kind": "idle_game_gpu_residency", "trigger_correlation_id": trigger,
+        "game_workload_message_id": game_message_id, "model_gpu_layers": 24,
+        "serving_session_id": "serving-session-1", "observed_at": observed_at}
+    if mutation == "wrong_game":
+        evidence["game_workload_message_id"] = "c" * 64
+    elif mutation == "stale":
+        evidence["observed_at"] = "2020-01-01T00:00:00+00:00"
+    elif mutation == "zero_gpu_layers":
+        evidence["model_gpu_layers"] = 0
+    elif mutation == "empty_session":
+        evidence["serving_session_id"] = ""
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        ("idle_game_gpu_residency:" + trigger).encode("utf-8")).hexdigest()[:24]
+    decision = governor._admit_local_model_resource_release(
+        actor="production_chat_game_resource_governor",
+        subject="production_chat_game_resource_governor",
+        correlation_id=release_correlation,
+        metadata={"purpose": "local_model_resource_release",
+            "reason_code": "verified_game_gpu_model_residency",
+            "target_subsystem": "production_chat", "model_identity_digest": "d" * 64,
+            "resource_observation": evidence})
+    assert decision.allowed is expected
+
+
 def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing(
         monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")

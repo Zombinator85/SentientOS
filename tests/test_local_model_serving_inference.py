@@ -292,8 +292,9 @@ def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt
 
 
 @pytest.mark.parametrize("trigger", ["deferred_inference", "idle_game_reconciliation",
-    "idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure"])
-def test_verified_game_and_host_pressure_defer_production_inference_before_effect(
+    "idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
+    "idle_game_gpu_residency"])
+def test_verified_game_resource_governance_defers_or_releases_before_effect(
         monkeypatch, tmp_path, trigger):
     now = datetime.now(timezone.utc)
     source_id, generation_id = "windows-edge", "windows-edge-generation-1"
@@ -354,7 +355,8 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
             collector_id, "available", observed_at or now.isoformat(),
             "synthetic_test_fixture", values=values)
     gpu_metrics = ({"gpu": 22.0, "vram": 47.0}
-        if trigger in {"idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure"}
+        if trigger in {"idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
+            "idle_game_gpu_residency"}
         else {"gpu": 94.0, "vram": 91.0})
     cpu_utilization = 95.0 if trigger in {
         "idle_cpu_pressure", "deferred_cpu_pressure"} else 20.0
@@ -380,7 +382,8 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
     bridge, serving, _, model, _, _ = setup(
         monkeypatch, tmp_path, kernel_override=kernel,
         host_resource_observation_owner=host_resource_owner,
-        foreground_game_detector=VerifiedGameDetector())
+        foreground_game_detector=VerifiedGameDetector(),
+        gpu_layers=24 if trigger == "idle_game_gpu_residency" else 0)
     original_close = model.close
 
     def simulated_release() -> None:
@@ -406,18 +409,25 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
             ["cpu_pressure"] if trigger == "deferred_cpu_pressure" else ["gpu_pressure"])
     else:
         reconciliation = bridge.reconcile_idle_game_resource_state()
-        if trigger == "idle_nominal_pressure":
+        if trigger == "idle_game_gpu_residency":
+            assert reconciliation["status"] == "worker_closed"
+            assert reconciliation["trigger_kind"] == "idle_game_gpu_residency"
+            assert model.closed is True
+            assert serving.current_session() is None
+            assert isinstance(reconciliation["release_receipt_id"], str)
+        elif trigger == "idle_nominal_pressure":
             assert reconciliation["status"] == "skipped"
             assert reconciliation["reason"] == "current_host_pressure_evidence_required"
             assert model.closed is False
             assert serving.current_session() is not None
             serving.close()
             return
-        assert reconciliation["status"] == "worker_closed"
-        assert isinstance(reconciliation["release_receipt_id"], str)
-        assert reconciliation["trigger_kind"] == "idle_game_reconciliation"
-        assert reconciliation["observation_correlation_id"].startswith(
-            "local-chat-reconciliation-")
+        if trigger != "idle_game_gpu_residency":
+            assert reconciliation["status"] == "worker_closed"
+            assert isinstance(reconciliation["release_receipt_id"], str)
+            assert reconciliation["trigger_kind"] == "idle_game_reconciliation"
+            assert reconciliation["observation_correlation_id"].startswith(
+                "local-chat-reconciliation-")
 
     assert model.calls == 0
     if trigger in {"deferred_inference", "deferred_cpu_pressure"}:
@@ -441,6 +451,24 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
     assert len(release_receipts) == 1
     release = json.loads(release_receipts[0].read_text(encoding="utf-8"))
     assert release["status"] == "worker_closed"
+    if trigger == "idle_game_gpu_residency":
+        assert release["trigger_kind"] == "idle_game_gpu_residency"
+        assert release["resource_observation"]["game_workload_message_id"] == "e" * 64
+        assert release["resource_observation"]["model_gpu_layers"] == 24
+        assert release["resource_observation"]["host_telemetry_used_for_admission"] is False
+        comparison = release["resource_measurement_comparison"]
+        assert comparison["before"]["gpu_utilization_percent"] == 22.0
+        assert comparison["after"]["gpu_utilization_percent"] == 22.0
+        assert comparison["before"]["vram_utilization_percent"] == 47.0
+        assert comparison["after"]["vram_utilization_percent"] == 47.0
+        assert comparison["gpu_utilization_delta_percentage_points"] == 0.0
+        assert comparison["vram_utilization_delta_percentage_points"] == 0.0
+        assert comparison["interpretation"] == (
+            "sample_delta_only; telemetry_does_not_establish_causation")
+        assert release["inference_performed"] is False
+        assert release["host_mutation_performed"] is False
+        serving.close()
+        return
     assert release["trigger_kind"] == (
         "deferred_inference" if trigger in {"deferred_inference", "deferred_cpu_pressure"}
         else "idle_game_reconciliation")

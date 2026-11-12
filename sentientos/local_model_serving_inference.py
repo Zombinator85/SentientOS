@@ -499,6 +499,17 @@ class ProductionServingInferenceController:
                 model = self._serving._current_inference_model(session)
             except ProductionServingError:
                 return {"status": "skipped", "reason": "current_serving_session_required"}
+            load_configuration = session.binding.get("load_configuration")
+            gpu_layers = (load_configuration.get("n_gpu_layers")
+                if isinstance(load_configuration, Mapping) else None)
+            if type(gpu_layers) is int and 1 <= gpu_layers <= 256:
+                residency_release = self._release_after_verified_game_gpu_model_residency(
+                    session, model, workload)
+                if residency_release is not None:
+                    return {"status": residency_release["status"],
+                        "release_receipt_id": residency_release["receipt_id"],
+                        "trigger_kind": "idle_game_gpu_residency",
+                        "serving_session_id": session.session_id}
             correlation_id = "idle-game-resource-reconcile-" + str(time.time_ns())
             observation = self._observe_host_resources(
                 correlation_id, observation_namespace="local-chat-reconciliation")
@@ -527,6 +538,138 @@ class ProductionServingInferenceController:
                 "serving_session_id": session.session_id}
         finally:
             self._receipt_capacity_lock.release()
+
+    def _release_after_verified_game_gpu_model_residency(
+            self, session: ServingSession, model: Any,
+            workload: Mapping[str, Any]) -> dict[str, Any] | None:
+        """Release only GPU-backed optional chat residency for a fresh verified game."""
+        provenance = workload.get("transport_provenance")
+        message_id = provenance.get("message_id") if isinstance(provenance, Mapping) else None
+        observed_at = workload.get("observed_at")
+        load_configuration = session.binding.get("load_configuration")
+        gpu_layers = (load_configuration.get("n_gpu_layers")
+            if isinstance(load_configuration, Mapping) else None)
+        if (workload.get("configured_mode") != "automatic"
+                or workload.get("observation_status") != "available"
+                or (workload.get("game_foreground") is not True
+                    and workload.get("game_process_running") is not True)
+                or not isinstance(message_id, str)
+                or not isinstance(observed_at, str)
+                or type(gpu_layers) is not int or not 1 <= gpu_layers <= 256):
+            return None
+        loaded_identity = getattr(model, "active_identity", None)
+        if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
+            return None
+        trigger_correlation = "idle-game-gpu-residency-" + str(time.time_ns())
+        before_sample = self._observe_host_resources(trigger_correlation,
+            observation_namespace="local-chat-reconciliation")
+        release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+            ("idle_game_gpu_residency:" + trigger_correlation).encode("utf-8")).hexdigest()[:24]
+        evidence = {
+            "schema_version": "sentientos.production_game_gpu_residency_release_evidence:v1",
+            "trigger_kind": "idle_game_gpu_residency",
+            "trigger_correlation_id": trigger_correlation,
+            "game_workload_message_id": message_id,
+            "model_gpu_layers": gpu_layers,
+            "serving_session_id": session.session_id,
+            "observed_at": observed_at,
+        }
+        decision = self._serving._kernel.admit(ControlActionRequest(
+            action_kind="local_model_resource_release",
+            authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
+            actor="production_chat_game_resource_governor",
+            target_subsystem="production_chat", requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"correlation_id": release_correlation,
+                "purpose": "local_model_resource_release",
+                "reason_code": "verified_game_gpu_model_residency",
+                "target_subsystem": "production_chat",
+                "model_identity_digest": digest_payload(loaded_identity.to_dict()),
+                "resource_observation": evidence},
+        ))
+        decision_valid = (decision.allowed and decision.outcome == AdmissionOutcome.ALLOW
+            and decision.authority_class == AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
+            and decision.action_kind == "local_model_resource_release"
+            and decision.actor == "production_chat_game_resource_governor"
+            and decision.target_subsystem == "production_chat"
+            and decision.correlation_id == release_correlation)
+        closed = False
+        close_failure: str | None = None
+        worker_exit_observed: bool | None = None
+        if decision_valid:
+            try:
+                closed = self._serving.release_current_session_after_resource_admission(
+                    session, reason="verified_game_gpu_model_residency")
+                worker = getattr(model, "_process", None)
+                poll = getattr(worker, "poll", None)
+                worker_exit_observed = poll() is not None if callable(poll) else None
+            except Exception as exc:
+                close_failure = type(exc).__name__
+        after_sample = (self._observe_host_resources(trigger_correlation + ":post-release",
+            observation_namespace="local-chat-reconciliation") if closed else None)
+
+        def sample_fields(value: Mapping[str, Any] | None) -> dict[str, Any] | None:
+            if value is None:
+                return None
+            return {key: value.get(key) for key in (
+                "status", "report_id", "observed_at", "pressure_labels",
+                "gpu_utilization_percent", "vram_utilization_percent",
+                "gpu_telemetry_sources")}
+
+        before_values = sample_fields(before_sample)
+        after_values = sample_fields(after_sample)
+        gpu_delta = (after_values["gpu_utilization_percent"]
+            - before_values["gpu_utilization_percent"]
+            if before_values is not None and after_values is not None
+            and isinstance(before_values["gpu_utilization_percent"], (int, float))
+            and isinstance(after_values["gpu_utilization_percent"], (int, float)) else None)
+        vram_delta = (after_values["vram_utilization_percent"]
+            - before_values["vram_utilization_percent"]
+            if before_values is not None and after_values is not None
+            and isinstance(before_values["vram_utilization_percent"], (int, float))
+            and isinstance(after_values["vram_utilization_percent"], (int, float)) else None)
+        outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v2",
+            "status": "worker_closed" if closed else
+                "release_effect_unconfirmed" if decision_valid else "denied",
+            "trigger_kind": "idle_game_gpu_residency",
+            "trigger_correlation_id": trigger_correlation,
+            "release_correlation_id": release_correlation,
+            "serving_session_id": session.session_id,
+            "serving_operation_id": session.binding.get("serving_operation_id"),
+            "model_identity_digest": digest_payload(loaded_identity.to_dict()),
+            "release_admission_decision_ref": decision.admission_decision_ref,
+            "release_admission_outcome": decision.outcome.value,
+            "release_reason_codes": list(decision.reason_codes),
+            "worker_exit_observed": worker_exit_observed,
+            "close_failure": close_failure,
+            "resource_observation": {"game_workload_message_id": message_id,
+                "model_gpu_layers": gpu_layers, "host_telemetry_used_for_admission": False},
+            "resource_measurement_comparison": {
+                "before": before_values, "after": after_values,
+                "gpu_utilization_delta_percentage_points": gpu_delta,
+                "vram_utilization_delta_percentage_points": vram_delta,
+                "interpretation": "sample_delta_only; telemetry_does_not_establish_causation"},
+            "inference_performed": False, "host_mutation_performed": False}
+        body = json.dumps(outcome, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False).encode("utf-8")
+        receipt_id = "serving-resource-release-" + hashlib.sha256(body).hexdigest()[:24]
+        outcome["receipt_id"] = receipt_id
+        outcome["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+            outcome, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+            allow_nan=False).encode("utf-8")).hexdigest()
+        handle = self._serving._handle
+        directory = handle.fixed_object("local-model/serving/resource-release-receipts")
+        handle.ensure_directory(directory)
+        target = directory.child(receipt_id + ".json")
+        encoded = (json.dumps(outcome, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+        try:
+            handle.durable_create(target, encoded)
+        except InstallationStateError as exc:
+            if (exc.args != ("state_object_already_exists",)
+                    or handle.read_regular_bounded(target, max_bytes=262_144) != encoded):
+                raise ProductionServingInferenceError(
+                    "resource_release_receipt_publication_failed") from exc
+        return outcome
 
     def reconcile_workload_state(self) -> dict[str, Any]:
         return self.reconcile_idle_game_resource_state()
