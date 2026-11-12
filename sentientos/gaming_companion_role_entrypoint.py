@@ -29,6 +29,7 @@ from .gaming_companion_edge_runtime import WindowsEdgeAvatarRuntime
 
 RoleRuntimeProvider = Callable[[str, Mapping[str, Any]], object]
 RoleLaunchAuthorizer = Callable[[str, Mapping[str, Any]], bool]
+RoleRuntime = WindowsEdgeAvatarRuntime | WSLCoreGamingCompanionRuntime
 MAX_ROLE_MANIFEST_BYTES = 1_048_576
 
 
@@ -150,7 +151,7 @@ def compose_authorized_runtime(*, role: str, manifest: Mapping[str, Any],
                      else WSLCoreGamingCompanionRuntime)
     if type(runtime) is not expected_type:
         raise CompanionBridgeError("companion_role_runtime_type_mismatch")
-    return runtime
+    return cast(RoleRuntime, runtime)
 
 
 def run_role(*, role: str, manifest: Mapping[str, Any],
@@ -175,7 +176,7 @@ def run_role(*, role: str, manifest: Mapping[str, Any],
             or not isinstance(poll_interval_seconds, (int, float))
             or not 0.05 <= poll_interval_seconds <= 10):
         raise CompanionBridgeError("companion_role_poll_interval_invalid")
-    runtime: object | None = None
+    runtime: RoleRuntime | None = None
     try:
         runtime = compose_authorized_runtime(role=role, manifest=manifest,
             runtime_provider=runtime_provider, launch_authorizer=launch_authorizer,
