@@ -690,6 +690,16 @@ class GovernedLocalModelInvoker:
                         try:
                             backend_result = self.model.release_residency()
                             still_resident = self.model.is_resident()
+                            # Ollama acknowledges keep_alive=0 before its process
+                            # list consistently reflects the unload.  Confirm for
+                            # a short bounded window so the receipt records the
+                            # resulting state rather than a transient stale read.
+                            if (still_resident
+                                    and getattr(identity, "engine", None) == "ollama"):
+                                deadline = time.monotonic() + 10.0
+                                while still_resident and time.monotonic() < deadline:
+                                    time.sleep(0.25)
+                                    still_resident = self.model.is_resident()
                             if still_resident:
                                 status = "release_unconfirmed"
                                 reasons = ["model_remained_resident_after_release"]

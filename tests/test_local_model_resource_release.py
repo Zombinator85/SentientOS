@@ -152,3 +152,29 @@ def test_release_receipt_does_not_claim_unload_without_residency_confirmation(
     assert receipt.status == "release_unconfirmed"
     assert receipt.reason_codes == ("model_remained_resident_after_release",)
     assert model.resident is True
+
+
+def test_ollama_release_waits_for_delayed_residency_observation(
+        monkeypatch, tmp_path: Path) -> None:
+    model, _, invoker = _configured(tmp_path, resident=True)
+    real_is_resident = model.is_resident
+    observations = 0
+
+    def delayed_observation() -> bool:
+        nonlocal observations
+        observations += 1
+        # The pre-release check and first post-release read can be stale.
+        if observations <= 3:
+            return True
+        return real_is_resident()
+
+    monkeypatch.setattr(model, "is_resident", delayed_observation)
+    monkeypatch.setattr("sentientos.governed_local_model_invocation.time.sleep",
+        lambda _seconds: None)
+
+    receipt = invoker.release_model_residency()
+
+    assert receipt.status == "released"
+    assert receipt.reason_codes == ("local_model_residency_released",)
+    assert observations == 4
+    assert model.resident is False
