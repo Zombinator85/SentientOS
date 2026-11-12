@@ -88,6 +88,7 @@ def test_windows_performance_sample_is_signed_transported_and_shape_checked(
     assert admission_runtime.status()["accepted_observations"] == 1
     governor._host_resource_evidence = {
         "evaluation_id": "host-evaluation", "epoch_id": "host-epoch",
+        "observation_correlation_id": "bridge-to-governor",
         "snapshot_id": "host-snapshot", "report_id": "host-report",
         "report_digest": "c" * 64,
         "observed_at": datetime.now(timezone.utc).isoformat(),
@@ -210,6 +211,7 @@ def test_measured_game_hitches_defer_all_optional_local_inference(
     governor = RuntimeGovernor()
     governor._host_resource_evidence = {
         "evaluation_id": "evaluation-1", "epoch_id": "epoch-1",
+        "observation_correlation_id": "game-frame-test",
         "observed_at": datetime.now(timezone.utc).isoformat(),
         "snapshot_id": "snapshot-1", "report_id": "report-1",
         "report_digest": "c" * 64, "pressure_labels": (),

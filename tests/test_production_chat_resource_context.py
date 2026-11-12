@@ -36,6 +36,7 @@ from tests.test_production_chat_resource_provisioning_bundle_producer import (
     encoded, inputs as provisioning_inputs,
 )
 from sentientos.runtime_governor import RuntimeGovernor
+from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -238,6 +239,86 @@ def test_gaming_host_pressure_deferral_does_not_debit_production_chat_allocation
         assert receipt.effects["local_model_inference"] is False
         assert backend.calls == 0
         assert custody.allocator.ledger.remaining_calls(issued.allocation_id) == 2
+    finally:
+        custody.close()
+        serving.close()
+
+
+def test_game_frame_pressure_defers_production_chat_without_debit_then_recovers(
+        monkeypatch, tmp_path):
+    """Carry verified game pacing through serving admission and the resource ledger."""
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    now = datetime.now(timezone.utc)
+
+    def collector(collector_id, values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", {"utilization_percent": 20.0})),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", {"used_percent": 40.0})),
+        ]), clock=lambda: now.isoformat())
+    serving_bridge, serving, _, backend, _, _ = serving_setup(
+        monkeypatch, tmp_path / "serving", kernel_override=kernel,
+        host_resource_observation_owner=host_owner)
+
+    installation, artifacts = provisioning_inputs(tmp_path / "allocation", calls=2)
+    bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
+    policy = GovernedLocalModelResourcePolicy.create(
+        epoch=1, max_resource_specific_bounds=bounds,
+        not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
+    artifacts["requested_bounds"] = bounds
+    artifacts["resource_policy_artifact"] = encoded(policy.to_dict())
+    issued = produce_production_chat_resource_provisioning_bundle(
+        installation, "chat-resource", **artifacts)
+    custody = load_production_chat_resource_context_owner(
+        installation, "chat-resource", clock=lambda: NOW,
+        nonce_source=iter(("frame-pressure-call", "frame-recovery-call")).__next__)
+    adapter = ResourceBackedProductionChatInference(serving_bridge, custody)
+    serving_bridge.set_workload_mode("gaming")
+    prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+        "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
+
+    def performance(sequence, message, p95, hitches):
+        return VerifiedGamePerformanceObservation(
+            "windows-edge", "windows-edge-generation-1", sequence, message * 64,
+            ("a" if sequence == 1 else "b") * 64, now.isoformat(), "c" * 64,
+            p95, hitches, 20.0, 4096, "available", now.isoformat())
+
+    try:
+        assert kernel.observe_verified_game_performance(
+            performance(1, "d", 52.0, 1))
+        deferred = adapter.generate(prompt=prompt, caller="chat_service",
+            correlation_id="game-frame-pressure", budget=LocalModelInvocationBudget(),
+            caller_linkage={})
+
+        assert deferred.status == "deferred"
+        assert deferred.effects["local_model_inference"] is False
+        assert backend.calls == 0
+        assert custody.allocator.ledger.remaining_calls(issued.allocation_id) == 2
+
+        assert kernel.observe_verified_game_performance(
+            performance(2, "e", 16.7, 0))
+        recovered = adapter.generate(prompt=prompt, caller="chat_service",
+            correlation_id="game-frame-recovered", budget=LocalModelInvocationBudget(),
+            caller_linkage={})
+
+        assert recovered.status == "admitted_completed"
+        assert recovered.effects["local_model_inference"] is True
+        assert backend.calls == 1
+        assert custody.allocator.ledger.remaining_calls(issued.allocation_id) == 1
+        admitted = recovered.request["linkage"]["host_resource_observation"]
+        assert admitted["pressure_labels"] == ["nominal"]
     finally:
         custody.close()
         serving.close()
