@@ -59,12 +59,14 @@ def test_service_surface_has_no_execution_or_model_injection_parameters() -> Non
 
 def test_enabled_adapter_constructs_only_exact_launcher_argv() -> None:
     config = LocalModelChatStartup(enabled=True, installation_identity="Install-1",
-                                   serving_operation_id="serve-explicit", port=5500)
+        serving_operation_id="serve-explicit", port=5500,
+        resource_provisioning_id="production.v1")
     adapter = LocalModelChatServiceAdapter(config, probe=lambda _url: True)
     argv = adapter._argv
     assert Path(argv[1]).as_posix().endswith("/scripts/local_model_chat.py")
     assert argv[2:] == ("--installation-identity", "Install-1", "--serving-operation-id",
-                        "serve-explicit", "--host", "127.0.0.1", "--port", "5500")
+        "serve-explicit", "--host", "127.0.0.1", "--port", "5500",
+        "--resource-provisioning-id", "production.v1")
     assert "--model-path" not in argv and "--activation-path" not in argv
     assert "--simulation" not in argv and "--custody-root" not in argv
     assert set(adapter.identity) == {"adapter", "name"}
@@ -83,9 +85,16 @@ def test_resource_provisioning_selector_is_bounded_and_fixed_in_launcher() -> No
         LocalModelChatStartup(resource_provisioning_id="production.v1").validate()
 
 
+def test_enabled_supervised_chat_requires_a_governed_resource_allocation() -> None:
+    with pytest.raises(ValueError, match="resource_provisioning_id_required_for_enabled_chat"):
+        LocalModelChatStartup(enabled=True, installation_identity="install-1",
+            serving_operation_id="serve-1").validate()
+
+
 def test_supervised_gaming_workload_mode_is_fixed_in_launcher_and_auto_fails_closed() -> None:
     gaming = LocalModelChatStartup(enabled=True, installation_identity="install-1",
-        serving_operation_id="serve-1", initial_workload_mode="gaming")
+        serving_operation_id="serve-1", initial_workload_mode="gaming",
+        resource_provisioning_id="production.v1")
     assert LocalModelChatServiceAdapter(gaming, probe=lambda _url: True)._argv[-2:] == (
         "--initial-workload-mode", "gaming")
     with pytest.raises(ValueError, match="supervised_runtime_requires_explicit_normal_or_gaming_mode"):
@@ -104,7 +113,8 @@ def test_legacy_bootstrap_paths_cannot_influence_production_composition() -> Non
 
 def test_semantic_health_distinguishes_current_unavailable_and_exit(monkeypatch) -> None:
     adapter = LocalModelChatServiceAdapter(LocalModelChatStartup(
-        enabled=True, installation_identity="install-1", serving_operation_id="serve-1"),
+        enabled=True, installation_identity="install-1", serving_operation_id="serve-1",
+        resource_provisioning_id="production.v1"),
         probe=lambda _url: True)
     monkeypatch.setattr("sentientos.runtime.services.ChildProcessServiceAdapter.health",
                         lambda _self: HealthResult(True, "process_alive"))
@@ -203,10 +213,12 @@ def test_canonical_cli_passes_only_explicit_chat_configuration(monkeypatch) -> N
     assert ops.main(["runtime", "start", "--enable-local-model-chat",
                      "--installation-identity", "install-1",
                      "--serving-operation-id", "serve-1",
+                     "--local-model-chat-resource-provisioning-id", "production.v1",
                      "--local-model-chat-port", "5501"]) == 0
     config, kwargs = seen[0]
     assert config == LocalModelChatStartup(enabled=True, installation_identity="install-1",
-                                           serving_operation_id="serve-1", port=5501)
+        serving_operation_id="serve-1", port=5501,
+        resource_provisioning_id="production.v1")
     assert kwargs == {"cadence_seconds": 2.0}
 
 
@@ -216,6 +228,7 @@ def test_canonical_cli_passes_explicit_gaming_workload_policy(monkeypatch) -> No
                         lambda config, **kwargs: seen.append(config) or 0)
     assert ops.main(["runtime", "start", "--enable-local-model-chat",
         "--installation-identity", "install-1", "--serving-operation-id", "serve-1",
+        "--local-model-chat-resource-provisioning-id", "production.v1",
         "--local-model-chat-workload-mode", "gaming"]) == 0
     assert seen[0].initial_workload_mode == "gaming"
 
@@ -305,7 +318,7 @@ while not Path(os.environ['TEST_RELEASE_CHILD']).exists() and time.monotonic() <
 
     monkeypatch.setattr(LocalModelChatServiceAdapter, "_launcher_argv", staticmethod(child_argv))
     config = LocalModelChatStartup(enabled=True, installation_identity=identity.value,
-                                   serving_operation_id="serve-handoff")
+        serving_operation_id="serve-handoff", resource_provisioning_id="test.v1")
     adapter = LocalModelChatServiceAdapter(config, installation_handle=handle)
     adapter._root = root
     adapter._cwd = root

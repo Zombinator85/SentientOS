@@ -60,9 +60,12 @@ class LocalModelChatStartup:
             raise ValueError("serving_operation_id_required")
         InstallationIdentity.parse(self.installation_identity)
         _operation_id(self.serving_operation_id)
-        if self.resource_provisioning_id is not None:
-            from sentientos.production_chat_resource_provisioning import validate_resource_provisioning_id
-            validate_resource_provisioning_id(self.resource_provisioning_id)
+        # The supervised child must have a fixed entitlement from which it
+        # constructs the allocator context and debits each governed invocation.
+        if self.resource_provisioning_id is None:
+            raise ValueError("resource_provisioning_id_required_for_enabled_chat")
+        from sentientos.production_chat_resource_provisioning import validate_resource_provisioning_id
+        validate_resource_provisioning_id(self.resource_provisioning_id)
 
 
 class DisabledLocalModelChatAdapter:
