@@ -3757,11 +3757,11 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             foreground_game_detector.set_game_workload_admission_owner(serving_kernel)
         serving = ProductionServingController(handle, serving_kernel)
         resource_collectors = tuple(spec for spec in default_collector_specs()
-            if spec.collector_id in {"cpu", "memory", "nvidia_gpu"})
+            if spec.collector_id in {"cpu", "memory", "nvidia_gpu", "thermal_sensors"})
         resource_observation_plan = build_observation_plan(
-            budget=HostObservationBudget(max_collectors=3,
+            budget=HostObservationBudget(max_collectors=4,
                 per_collector_timeout_seconds=0.5, total_deadline_seconds=1.5,
-                max_workers=3),
+                max_workers=4),
             specs=resource_collectors)
         host_resource_observation_owner = HostResourceRuntimeCoordinator(
             kernel=serving_kernel, plan=resource_observation_plan)

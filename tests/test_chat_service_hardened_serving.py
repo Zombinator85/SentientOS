@@ -192,7 +192,9 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     assert type(resource_owner) is HostResourceRuntimeCoordinator
     assert resource_owner.kernel is admission_owner
     assert {item.collector_id for item in resource_owner.plan.collectors} == {
-        "cpu", "memory", "nvidia_gpu"}
+        "cpu", "memory", "nvidia_gpu", "thermal_sensors"}
+    assert resource_owner.plan.budget.max_collectors == 4
+    assert resource_owner.plan.budget.max_workers == 4
     chat_service.close_production_chat()
     assert events[-1] == "avatar_session_closed"
 
