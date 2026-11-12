@@ -1297,7 +1297,7 @@ class RuntimeGovernor:
             observation_value = payload.get("resource_observation")
             evidence_valid = False
             observed_at_text: str | None = None
-            frame_age_seconds: float | None = None
+            age_seconds: float | None = None
             utilization_value: float | None = None
             threshold_value: float | None = None
             if isinstance(observation_value, Mapping):
@@ -1333,7 +1333,7 @@ class RuntimeGovernor:
                 except ValueError:
                     parsed_observed_at = None
                 if parsed_observed_at is not None and parsed_observed_at.tzinfo is not None:
-                    frame_age_seconds = (datetime.now(timezone.utc)
+                    age_seconds = (datetime.now(timezone.utc)
                         - parsed_observed_at.astimezone(timezone.utc)).total_seconds()
                 if (utilization_value is not None and threshold_value is not None
                         and preload_threshold is not None and recovery_threshold is not None
