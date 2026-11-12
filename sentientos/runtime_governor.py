@@ -1932,12 +1932,14 @@ class RuntimeGovernor:
                 host_labels = (set(raw_host_labels)
                     if isinstance(raw_host_labels, (tuple, list, set, frozenset))
                     and all(isinstance(label, str) for label in raw_host_labels) else set())
-                expected_source_prefix = {
-                    "gaming_profile_resource_reconciliation": (
-                        "idle-game-resource-reconcile-"),
-                    "active_gaming_profile_resource_reconciliation": (
-                        "active-gaming-profile-resource-reconcile-"),
-                }.get(raw_trigger)
+                expected_source_prefix = None
+                if isinstance(raw_trigger, str):
+                    expected_source_prefix = {
+                        "gaming_profile_resource_reconciliation": (
+                            "idle-game-resource-reconcile-"),
+                        "active_gaming_profile_resource_reconciliation": (
+                            "active-gaming-profile-resource-reconcile-"),
+                    }.get(raw_trigger)
                 evidence_valid = bool(
                     observation_value.get("schema_version") ==
                         "sentientos.production_gaming_profile_host_resource_release_evidence:v1"
