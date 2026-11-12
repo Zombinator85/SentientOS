@@ -538,9 +538,13 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             if isinstance(measurement, Mapping) else None)
         if backend_observation is None:
             continue
-        invocation = invocation_by_effect.get(str(observed_effect_digest))
-        completion = (invocation.get("backend_completion")
-            if isinstance(invocation, Mapping) else None)
+        linked_invocation = invocation_by_effect.get(str(observed_effect_digest))
+        if not isinstance(linked_invocation, Mapping):
+            lineage_findings.append(
+                f"backend_observation_invocation_missing:{observed_effect_digest}"
+            )
+            continue
+        completion = linked_invocation.get("backend_completion")
         metrics = (completion.get("invocation_resources")
             if isinstance(completion, Mapping)
             and completion.get("schema_version") ==
