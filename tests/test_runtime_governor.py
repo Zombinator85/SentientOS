@@ -416,6 +416,53 @@ def test_selected_gaming_profile_release_requires_current_observed_host_pressure
     assert decision.reason == "model_resource_release_pressure_evidence_required"
 
 
+@pytest.mark.parametrize("mutation,expected", [
+    ("none", True), ("wrong_mode", False), ("wrong_source", False),
+    ("stale", False), ("zero_gpu_layers", False), ("empty_session", False),
+])
+@pytest.mark.no_legacy_skip
+def test_selected_gaming_profile_gpu_residency_release_requires_exact_profile_evidence(
+        monkeypatch, tmp_path, mutation, expected):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = datetime.now(timezone.utc).isoformat()
+    trigger = "idle-gaming-profile-gpu-residency-test"
+    evidence = {
+        "schema_version": "sentientos.production_gaming_profile_gpu_residency_release_evidence:v1",
+        "trigger_kind": "idle_gaming_profile_gpu_residency",
+        "trigger_correlation_id": trigger,
+        "model_gpu_layers": 24,
+        "serving_session_id": "serving-session-" + "a" * 24,
+        "workload_mode": "gaming",
+        "workload_mode_source": "operator_selected",
+        "workload_observation_status": "not_requested",
+        "observed_at": observed_at,
+    }
+    if mutation == "wrong_mode":
+        evidence["workload_mode"] = "normal"
+    elif mutation == "wrong_source":
+        evidence["workload_mode_source"] = "automatic"
+    elif mutation == "stale":
+        evidence["observed_at"] = "2020-01-01T00:00:00+00:00"
+    elif mutation == "zero_gpu_layers":
+        evidence["model_gpu_layers"] = 0
+    elif mutation == "empty_session":
+        evidence["serving_session_id"] = ""
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        ("idle_gaming_profile_gpu_residency:" + trigger).encode("utf-8")).hexdigest()[:24]
+    decision = governor._admit_local_model_resource_release(
+        actor="production_chat_workload_resource_governor",
+        subject="production_chat_workload_resource_governor",
+        correlation_id=release_correlation,
+        metadata={"purpose": "local_model_resource_release",
+            "reason_code": "selected_gaming_profile_gpu_model_residency",
+            "target_subsystem": "production_chat", "model_identity_digest": "d" * 64,
+            "resource_observation": evidence})
+
+    assert decision.allowed is expected
+
+
 @pytest.mark.no_legacy_skip
 def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
         monkeypatch, tmp_path):

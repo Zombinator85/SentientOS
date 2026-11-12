@@ -532,12 +532,16 @@ def test_gaming_profile_requires_both_gpu_and_vram_samples_for_gpu_inference(
     serving.close()
 
 
-@pytest.mark.parametrize(("cpu_percent", "expected_status", "expected_closed"), [
-    (95.0, "worker_closed", True),
-    (20.0, "skipped", False),
+@pytest.mark.parametrize(("cpu_percent", "gpu_layers", "expected_status",
+                         "expected_closed", "expected_trigger"), [
+    (95.0, 24, "worker_closed", True, "idle_gaming_profile_gpu_residency"),
+    (95.0, 0, "worker_closed", True, "gaming_profile_resource_reconciliation"),
+    (20.0, 24, "worker_closed", True, "idle_gaming_profile_gpu_residency"),
+    (20.0, 0, "skipped", False, None),
 ])
-def test_selected_gaming_profile_releases_optional_model_only_under_host_pressure(
-        monkeypatch, tmp_path, cpu_percent, expected_status, expected_closed):
+def test_selected_gaming_profile_releases_gpu_model_under_pressure_or_for_residency(
+        monkeypatch, tmp_path, cpu_percent, gpu_layers, expected_status,
+        expected_closed, expected_trigger):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -561,8 +565,11 @@ def test_selected_gaming_profile_releases_optional_model_only_under_host_pressur
         ]), clock=lambda: now.isoformat())
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, host_resource_observation_owner=host_owner,
-        gpu_layers=24)
+        gpu_layers=gpu_layers)
+    reconciliation_wakeup = threading.Event()
+    bridge.set_resource_reconciliation_wakeup(reconciliation_wakeup.set)
     bridge.set_workload_mode("gaming")
+    assert reconciliation_wakeup.is_set()
 
     result = bridge.reconcile_idle_game_resource_state()
 
@@ -570,7 +577,7 @@ def test_selected_gaming_profile_releases_optional_model_only_under_host_pressur
     assert model.closed is expected_closed
     if expected_closed:
         assert serving.current_session() is None
-        assert result["trigger_kind"] == "gaming_profile_resource_reconciliation"
+        assert result["trigger_kind"] == expected_trigger
         assert isinstance(result["release_receipt_id"], str)
         release_files = list((tmp_path / "state" / "installations" / "install-1" /
             "state" / "local-model" / "serving" /
@@ -580,9 +587,6 @@ def test_selected_gaming_profile_releases_optional_model_only_under_host_pressur
         assert receipt["status"] == "worker_closed"
         assert receipt["inference_performed"] is False
         assert receipt["host_mutation_performed"] is False
-        assert receipt["resource_observation"]["workload_mode"] == "gaming"
-        assert receipt["resource_observation"]["workload_mode_source"] == "operator_selected"
-        assert "game_workload_message_id" not in receipt["resource_observation"]
         decision = next(json.loads(line) for line in reversed(
             (tmp_path / "kernel-decisions.jsonl").read_text(
                 encoding="utf-8").splitlines())
@@ -591,11 +595,22 @@ def test_selected_gaming_profile_releases_optional_model_only_under_host_pressur
         assert delegated["allowed"] is True
         assert delegated["reason"] == "model_resource_release_fail_safe"
         evidence = delegated["evidence_refs"]["resource_observation_evidence"]
-        assert evidence["status"] == "current"
-        assert evidence["workload_mode"] == "gaming"
-        assert evidence["workload_mode_source"] == "operator_selected"
-        assert evidence["pressure_labels"] == ["cpu_pressure"]
-        assert "game_workload_message_id" not in evidence
+        if expected_trigger == "gaming_profile_resource_reconciliation":
+            assert receipt["resource_observation"]["workload_mode"] == "gaming"
+            assert receipt["resource_observation"]["workload_mode_source"] == "operator_selected"
+            assert "game_workload_message_id" not in receipt["resource_observation"]
+            assert evidence["status"] == "current"
+            assert evidence["workload_mode"] == "gaming"
+            assert evidence["workload_mode_source"] == "operator_selected"
+            assert evidence["pressure_labels"] == ["cpu_pressure"]
+        else:
+            assert receipt["resource_observation"]["workload_mode"] == "gaming"
+            assert receipt["resource_observation"]["workload_mode_source"] == "operator_selected"
+            assert receipt["resource_observation"]["host_telemetry_used_for_admission"] is False
+            assert receipt["resource_measurement_comparison"]["before_sample_kind"] == "unavailable"
+            assert evidence["status"] == "current"
+            assert evidence["workload_mode"] == "gaming"
+            assert evidence["model_gpu_layers"] == gpu_layers
     else:
         assert result["reason"] == "current_host_pressure_evidence_required"
         assert serving.current_session() == session

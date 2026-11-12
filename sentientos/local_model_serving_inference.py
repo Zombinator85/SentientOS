@@ -7,6 +7,7 @@ import math
 import re
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol
 
@@ -252,7 +253,7 @@ class ProductionServingInferenceController:
         with self._workload_lock:
             self._workload_mode = validated
             self._game_process_names = names
-        if validated == "automatic":
+        if validated in {"automatic", "gaming"}:
             self._notify_resource_reconciliation_wakeup()
         return validated
 
@@ -625,13 +626,14 @@ class ProductionServingInferenceController:
             load_configuration = session.binding.get("load_configuration")
             gpu_layers = (load_configuration.get("n_gpu_layers")
                 if isinstance(load_configuration, Mapping) else None)
-            if not selected_gaming_profile and type(gpu_layers) is int and 1 <= gpu_layers <= 256:
-                residency_release = self._release_after_verified_game_gpu_model_residency(
-                    session, model, workload)
+            if type(gpu_layers) is int and 1 <= gpu_layers <= 256:
+                residency_release = self._release_after_gpu_model_residency(
+                    session, model, workload,
+                    selected_gaming_profile=selected_gaming_profile)
                 if residency_release is not None:
                     return {"status": residency_release["status"],
                         "release_receipt_id": residency_release["receipt_id"],
-                        "trigger_kind": "idle_game_gpu_residency",
+                        "trigger_kind": residency_release["trigger_kind"],
                         "serving_session_id": session.session_id}
             correlation_id = "idle-game-resource-reconcile-" + str(time.time_ns())
             observation = self._observe_host_resources(
@@ -938,51 +940,81 @@ class ProductionServingInferenceController:
                     "resource_release_receipt_publication_failed") from exc
         return outcome
 
-    def _release_after_verified_game_gpu_model_residency(
+    def _release_after_gpu_model_residency(
             self, session: ServingSession, model: Any,
-            workload: Mapping[str, Any]) -> dict[str, Any] | None:
-        """Release only GPU-backed optional chat residency for a fresh verified game."""
+            workload: Mapping[str, Any], *,
+            selected_gaming_profile: bool = False) -> dict[str, Any] | None:
+        """Release GPU-backed optional chat residency for a game or explicit profile."""
         provenance = workload.get("transport_provenance")
         message_id = provenance.get("message_id") if isinstance(provenance, Mapping) else None
         observed_at = workload.get("observed_at")
         load_configuration = session.binding.get("load_configuration")
         gpu_layers = (load_configuration.get("n_gpu_layers")
             if isinstance(load_configuration, Mapping) else None)
-        if (workload.get("configured_mode") != "automatic"
-                or workload.get("observation_status") != "available"
-                or (workload.get("game_foreground") is not True
-                    and workload.get("game_process_running") is not True)
-                or not isinstance(message_id, str)
-                or not isinstance(observed_at, str)
+        profile_evidence = (
+            workload.get("configured_mode") == "gaming"
+            and workload.get("mode_source") == "operator_selected"
+            and workload.get("observation_status") == "not_requested")
+        game_evidence = (
+            workload.get("configured_mode") == "automatic"
+            and workload.get("observation_status") == "available"
+            and (workload.get("game_foreground") is True
+                 or workload.get("game_process_running") is True)
+            and isinstance(message_id, str) and isinstance(observed_at, str))
+        if ((selected_gaming_profile and not profile_evidence)
+                or (not selected_gaming_profile and not game_evidence)
                 or type(gpu_layers) is not int or not 1 <= gpu_layers <= 256):
             return None
         loaded_identity = getattr(model, "active_identity", None)
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
             return None
-        trigger_correlation = "idle-game-gpu-residency-" + str(time.time_ns())
+        trigger_kind = ("idle_gaming_profile_gpu_residency" if selected_gaming_profile
+            else "idle_game_gpu_residency")
+        trigger_prefix = ("idle-gaming-profile-gpu-residency-"
+            if selected_gaming_profile else "idle-game-gpu-residency-")
+        trigger_correlation = trigger_prefix + str(time.time_ns())
+        evidence_time = (datetime.now(timezone.utc).isoformat()
+            if selected_gaming_profile else observed_at)
         # Host telemetry is measurement-only for this release trigger. Never
         # wait for a fresh collector cycle before freeing GPU-backed model
-        # residency for a verified game workload.
+        # residency for a verified game workload or explicitly selected profile.
         before_sample = self._latest_cached_host_resources()
         release_correlation = "production-chat-resource-release-" + hashlib.sha256(
-            ("idle_game_gpu_residency:" + trigger_correlation).encode("utf-8")).hexdigest()[:24]
-        evidence = {
-            "schema_version": "sentientos.production_game_gpu_residency_release_evidence:v1",
-            "trigger_kind": "idle_game_gpu_residency",
-            "trigger_correlation_id": trigger_correlation,
-            "game_workload_message_id": message_id,
-            "model_gpu_layers": gpu_layers,
-            "serving_session_id": session.session_id,
-            "observed_at": observed_at,
-        }
+            (trigger_kind + ":" + trigger_correlation).encode("utf-8")).hexdigest()[:24]
+        if selected_gaming_profile:
+            evidence = {
+                "schema_version": "sentientos.production_gaming_profile_gpu_residency_release_evidence:v1",
+                "trigger_kind": trigger_kind,
+                "trigger_correlation_id": trigger_correlation,
+                "model_gpu_layers": gpu_layers,
+                "serving_session_id": session.session_id,
+                "workload_mode": "gaming",
+                "workload_mode_source": "operator_selected",
+                "workload_observation_status": "not_requested",
+                "observed_at": evidence_time,
+            }
+            actor = "production_chat_workload_resource_governor"
+            reason_code = "selected_gaming_profile_gpu_model_residency"
+        else:
+            evidence = {
+                "schema_version": "sentientos.production_game_gpu_residency_release_evidence:v1",
+                "trigger_kind": trigger_kind,
+                "trigger_correlation_id": trigger_correlation,
+                "game_workload_message_id": message_id,
+                "model_gpu_layers": gpu_layers,
+                "serving_session_id": session.session_id,
+                "observed_at": evidence_time,
+            }
+            actor = "production_chat_game_resource_governor"
+            reason_code = "verified_game_gpu_model_residency"
         decision = self._serving._kernel.admit(ControlActionRequest(
             action_kind="local_model_resource_release",
             authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
-            actor="production_chat_game_resource_governor",
+            actor=actor,
             target_subsystem="production_chat", requested_phase=LifecyclePhase.RUNTIME,
             metadata={"correlation_id": release_correlation,
                 "purpose": "local_model_resource_release",
-                "reason_code": "verified_game_gpu_model_residency",
+                "reason_code": reason_code,
                 "target_subsystem": "production_chat",
                 "model_identity_digest": digest_payload(loaded_identity.to_dict()),
                 "resource_observation": evidence},
@@ -990,7 +1022,7 @@ class ProductionServingInferenceController:
         decision_valid = (decision.allowed and decision.outcome == AdmissionOutcome.ALLOW
             and decision.authority_class == AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
             and decision.action_kind == "local_model_resource_release"
-            and decision.actor == "production_chat_game_resource_governor"
+            and decision.actor == actor
             and decision.target_subsystem == "production_chat"
             and decision.correlation_id == release_correlation)
         closed = False
@@ -999,7 +1031,7 @@ class ProductionServingInferenceController:
         if decision_valid:
             try:
                 closed = self._serving.release_current_session_after_resource_admission(
-                    session, reason="verified_game_gpu_model_residency")
+                    session, reason=reason_code)
                 worker = getattr(model, "_process", None)
                 poll = getattr(worker, "poll", None)
                 worker_exit_observed = poll() is not None if callable(poll) else None
@@ -1031,7 +1063,7 @@ class ProductionServingInferenceController:
         outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v2",
             "status": "worker_closed" if closed else
                 "release_effect_unconfirmed" if decision_valid else "denied",
-            "trigger_kind": "idle_game_gpu_residency",
+            "trigger_kind": trigger_kind,
             "trigger_correlation_id": trigger_correlation,
             "release_correlation_id": release_correlation,
             "serving_session_id": session.session_id,
@@ -1042,8 +1074,12 @@ class ProductionServingInferenceController:
             "release_reason_codes": list(decision.reason_codes),
             "worker_exit_observed": worker_exit_observed,
             "close_failure": close_failure,
-            "resource_observation": {"game_workload_message_id": message_id,
-                "model_gpu_layers": gpu_layers, "host_telemetry_used_for_admission": False},
+            "resource_observation": ({"workload_mode": "gaming",
+                "workload_mode_source": "operator_selected",
+                "workload_observation_status": "not_requested",
+                "model_gpu_layers": gpu_layers, "host_telemetry_used_for_admission": False}
+                if selected_gaming_profile else {"game_workload_message_id": message_id,
+                    "model_gpu_layers": gpu_layers, "host_telemetry_used_for_admission": False}),
             "resource_measurement_comparison": {
                 "before": before_values, "after": after_values,
                 "before_sample_kind": ("recent_cached_observation"
