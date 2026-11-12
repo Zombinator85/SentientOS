@@ -1297,7 +1297,7 @@ class RuntimeGovernor:
             observation_value = payload.get("resource_observation")
             evidence_valid = False
             observed_at_text: str | None = None
-            age_seconds: float | None = None
+            frame_age_seconds: float | None = None
             utilization_value: float | None = None
             threshold_value: float | None = None
             if isinstance(observation_value, Mapping):
@@ -1333,7 +1333,7 @@ class RuntimeGovernor:
                 except ValueError:
                     parsed_observed_at = None
                 if parsed_observed_at is not None and parsed_observed_at.tzinfo is not None:
-                    age_seconds = (datetime.now(timezone.utc)
+                    frame_age_seconds = (datetime.now(timezone.utc)
                         - parsed_observed_at.astimezone(timezone.utc)).total_seconds()
                 if (utilization_value is not None and threshold_value is not None
                         and preload_threshold is not None and recovery_threshold is not None
@@ -1501,7 +1501,7 @@ class RuntimeGovernor:
                 "observed_at", "frame_time_p95_ms", "hitch_count_over_50ms",
             }
             evidence_valid = False
-            age_seconds: float | None = None
+            frame_age_seconds: float | None = None
             if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
                 source = observation_value.get("trigger_correlation_id")
                 message_id = observation_value.get("game_performance_message_id")
@@ -1519,7 +1519,7 @@ class RuntimeGovernor:
                 except ValueError:
                     parsed_at = None
                 if parsed_at is not None and parsed_at.tzinfo is not None:
-                    age_seconds = (datetime.now(timezone.utc)
+                    frame_age_seconds = (datetime.now(timezone.utc)
                         - parsed_at.astimezone(timezone.utc)).total_seconds()
                 current = self.current_verified_game_performance_evidence()
                 evidence_valid = bool(
@@ -1548,7 +1548,7 @@ class RuntimeGovernor:
                           and math.isfinite(float(p95)) and 0 < float(p95) <= 10_000
                           and float(p95) >= 50.0)
                          or (type(hitches) is int and hitches > 0))
-                    and age_seconds is not None and 0 <= age_seconds <= 10
+                    and frame_age_seconds is not None and 0 <= frame_age_seconds <= 10
                     and isinstance(current, Mapping)
                     and current.get("message_id") == message_id
                     and current.get("payload_digest") == payload_digest
@@ -1566,7 +1566,8 @@ class RuntimeGovernor:
                 "frame_time_p95_ms": observation_value.get("frame_time_p95_ms"),
                 "hitch_count_over_50ms": observation_value.get(
                     "hitch_count_over_50ms"),
-                "age_seconds": round(age_seconds, 3) if age_seconds is not None else None,
+                "age_seconds": (round(frame_age_seconds, 3)
+                    if frame_age_seconds is not None else None),
             } if evidence_valid and isinstance(observation_value, Mapping) else {
                 "status": "missing_stale_malformed_or_unverified_game_frame_pressure"})
         elif reason_code == "verified_game_gpu_model_residency":
