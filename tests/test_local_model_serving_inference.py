@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import hashlib
 import json
 import threading
@@ -739,7 +739,7 @@ def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch
 def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
         monkeypatch, tmp_path):
     now = datetime.now(timezone.utc)
-    clock_now = [now - timedelta(seconds=5)]
+    clock_now = [now]
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))

@@ -742,27 +742,21 @@ class ProductionServingInferenceController:
                             "serving_session_id": session.session_id,
                             "active_inference_cancellation_confirmed": release[
                                 "active_inference_cancellation_confirmed"]}
-                # CPU-backed serving has no GPU residency to release. Sample
-                # current host pressure at a bounded cadence and use the same
-                # governed host-pressure release path as idle gaming sessions.
-                observation = self._latest_cached_host_resources(max_age_seconds=2.0)
-                if observation is None:
-                    sample_started_at = time.monotonic()
-                    previous_sample_at = self._last_active_host_resource_sample_at
-                    if (previous_sample_at is not None
-                            and sample_started_at - previous_sample_at < 2.0):
-                        return {"status": "skipped",
-                            "reason": "active_gaming_profile_host_pressure_observation_throttled"}
-                    self._last_active_host_resource_sample_at = sample_started_at
-                    observation_correlation = (
-                        "active-gaming-profile-resource-reconcile-" + str(time.time_ns()))
-                    observation = self._observe_host_resources(
-                        observation_correlation,
-                        observation_namespace="local-chat-reconciliation")
-                else:
-                    observation_correlation = (
-                        "active-gaming-profile-resource-reconcile-cached-"
-                        + str(time.time_ns()))
+                # CPU-backed serving has no GPU residency to release. Collect
+                # a fresh, release-correlated host sample at a bounded cadence;
+                # a prior cached sample cannot authorize this distinct effect.
+                sample_started_at = time.monotonic()
+                previous_sample_at = self._last_active_host_resource_sample_at
+                if (previous_sample_at is not None
+                        and sample_started_at - previous_sample_at < 2.0):
+                    return {"status": "skipped",
+                        "reason": "active_gaming_profile_host_pressure_observation_throttled"}
+                self._last_active_host_resource_sample_at = sample_started_at
+                observation_correlation = (
+                    "active-gaming-profile-resource-reconcile-" + str(time.time_ns()))
+                observation = self._observe_host_resources(
+                    observation_correlation,
+                    observation_namespace="local-chat-reconciliation")
                 labels = observation.get("pressure_labels")
                 if (observation.get("status") != "current"
                         or observation.get("no_effect_authority") is not True
