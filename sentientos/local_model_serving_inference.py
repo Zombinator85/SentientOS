@@ -85,7 +85,8 @@ class ProductionServingInferenceController:
                  "_workload_lock", "_workload_mode", "_game_process_names",
                  "_foreground_game_detector", "_host_resource_observation_owner",
                  "_active_invoker_lock", "_active_invoker",
-                 "_resource_reconciliation_wakeup", "_preemption_lock")
+                 "_resource_reconciliation_wakeup", "_preemption_lock",
+                 "_last_active_game_preemption_attempt")
 
     RESOURCE_RECONCILIATION_INTERVAL_SECONDS = 5.0
     ACTIVE_GAME_PRIORITY_RECONCILIATION_INTERVAL_SECONDS = 0.5
@@ -111,6 +112,7 @@ class ProductionServingInferenceController:
         self._active_invoker: GovernedLocalModelInvoker | None = None
         self._resource_reconciliation_wakeup: Callable[[], None] | None = None
         self._preemption_lock = threading.Lock()
+        self._last_active_game_preemption_attempt: tuple[str, str] | None = None
 
     def cancel_pending_generation(self, *, reason: str = "client_disconnect") -> bool:
         """Forward cancellation to the exact governed invocation currently in flight."""
@@ -700,10 +702,26 @@ class ProductionServingInferenceController:
                 model = self._serving._current_inference_model(session)
             except ProductionServingError:
                 return {"status": "skipped", "reason": "current_serving_session_required"}
+            performance_getter = getattr(self._serving._kernel,
+                "current_verified_game_performance_evidence", None)
+            try:
+                performance = performance_getter() if callable(performance_getter) else None
+            except Exception:
+                performance = None
+            message_id = (performance.get("message_id")
+                if isinstance(performance, Mapping) else None)
+            attempt_key = ((session.session_id, message_id)
+                if isinstance(message_id, str) and message_id else None)
+            if (attempt_key is not None
+                    and attempt_key == self._last_active_game_preemption_attempt):
+                return {"status": "skipped",
+                    "reason": "game_pressure_release_already_attempted_for_observation"}
             release = self._release_after_game_frame_pressure(
                 session, model, workload, preempt_active_generation=True)
             if release is None:
                 return {"status": "skipped", "reason": "current_game_frame_pressure_required"}
+            if attempt_key is not None:
+                self._last_active_game_preemption_attempt = attempt_key
             return {"status": release["status"],
                 "release_receipt_id": release["receipt_id"],
                 "trigger_kind": "idle_game_frame_pressure_reconciliation",
