@@ -139,6 +139,67 @@ def test_exact_serving_backed_generation_has_independent_admission_and_linkage(m
     assert serving.current_session() == session
 
 
+@pytest.mark.parametrize(("mode", "expected_status", "expected_calls"), [
+    ("normal", "admitted_completed", 1),
+    ("gaming", "deferred", 0),
+])
+def test_selected_gaming_profile_reaches_inference_governor_under_host_pressure(
+        monkeypatch, tmp_path, mode, expected_status, expected_calls):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=95.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+        ]), clock=lambda: now.isoformat())
+    bridge, serving, _, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner)
+    bridge.set_workload_mode(mode)
+    prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+        "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
+    correlation_id = "selected-profile-pressure-" + mode
+    receipt = bridge.generate(prompt=prompt, caller="chat_service",
+        correlation_id=correlation_id)
+
+    assert receipt.status == expected_status
+    assert model.calls == expected_calls
+    linkage = receipt.request["linkage"]
+    assert linkage["workload_mode"] == mode
+    assert linkage["workload_evidence"]["configured_mode"] == mode
+    assert linkage["host_resource_observation"]["pressure_labels"] == ["cpu_pressure"]
+    lines = (tmp_path / "kernel-decisions.jsonl").read_text(
+        encoding="utf-8").splitlines()
+    decision = next(json.loads(line) for line in reversed(lines)
+        if json.loads(line).get("action_kind") == "local_model_inference")
+    delegated = decision["delegated_outcomes"]["runtime_governor"]
+    assert delegated["evidence_refs"]["host_resource_evidence"]["report_id"] == (
+        linkage["host_resource_observation"]["report_id"])
+    assert delegated["evidence_refs"]["host_pressure_during_verified_game"] is False
+    assert delegated["evidence_refs"]["gaming_workload_profile_host_pressure"] is (
+        mode == "gaming")
+    assert delegated["evidence_refs"]["gaming_workload_profile_evidence"]["mode"] == mode
+    if mode == "gaming":
+        assert delegated["reason"] == (
+            "deferred_local_model_inference_under_host_pressure_in_gaming_mode")
+    else:
+        assert delegated["reason"] == "allowed"
+    serving.close()
+
+
 def test_idle_reconciliation_keeps_serving_session_without_verified_game(monkeypatch, tmp_path):
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path)
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])

@@ -1835,6 +1835,21 @@ class RuntimeGovernor:
              or game_workload_ref.get("game_active") is True)
             and bool(pressure_reasons)
         )
+        gaming_workload_profile_active = payload.get("workload_mode") == "gaming"
+        workload_evidence = payload.get("workload_evidence")
+        workload_profile_ref = {
+            "status": "current" if gaming_workload_profile_active else "not_selected",
+            "mode": "gaming" if gaming_workload_profile_active else "normal",
+        }
+        if isinstance(workload_evidence, Mapping):
+            for key in ("configured_mode", "mode_source", "observation_status",
+                    "observed_at", "transport_provenance"):
+                value = workload_evidence.get(key)
+                if value is not None:
+                    workload_profile_ref[key] = value
+        gaming_workload_profile_host_pressure = (
+            gaming_workload_profile_active and bool(pressure_reasons)
+        )
         verified_game_active = (
             game_evidence_ref.get("status") == "current"
             or game_workload_ref.get("game_active") is True
@@ -1888,6 +1903,13 @@ class RuntimeGovernor:
         elif game_host_pressure:
             reason, blocks = ("deferred_local_model_" + operation_label
                 + "_under_host_pressure_during_game", True)
+        elif gaming_workload_profile_host_pressure:
+            # An explicit low-work gaming profile is a separate policy signal
+            # from authenticated game-presence evidence. Under current host
+            # pressure, defer optional model work without claiming that a game
+            # process was independently observed.
+            reason, blocks = ("deferred_local_model_" + operation_label
+                + "_under_host_pressure_in_gaming_mode", True)
         elif game_resource_telemetry_incomplete:
             reason, blocks = "deferred_resource_telemetry_incomplete_during_game", True
         elif optional_gpu_model_load_during_game:
@@ -1931,6 +1953,9 @@ class RuntimeGovernor:
                 "game_workload_evidence": game_workload_ref,
                 "game_frame_pressure": game_pressure,
                 "host_pressure_during_verified_game": game_host_pressure,
+                "gaming_workload_profile_host_pressure": (
+                    gaming_workload_profile_host_pressure),
+                "gaming_workload_profile_evidence": workload_profile_ref,
                 "host_resource_telemetry_incomplete_during_game": (
                     game_resource_telemetry_incomplete),
             },
@@ -1950,6 +1975,9 @@ class RuntimeGovernor:
         payload["game_workload_evidence"] = game_workload_ref
         payload["game_frame_pressure"] = game_pressure
         payload["host_pressure_during_verified_game"] = game_host_pressure
+        payload["gaming_workload_profile_host_pressure"] = (
+            gaming_workload_profile_host_pressure)
+        payload["gaming_workload_profile_evidence"] = workload_profile_ref
         payload["host_resource_telemetry_incomplete_during_game"] = (
             game_resource_telemetry_incomplete)
         decision = self._decision(
@@ -2621,8 +2649,9 @@ class RuntimeGovernor:
                 key: metadata[key]
                 for key in ("host_resource_evidence", "observed_pressure_labels",
                             "game_performance_evidence", "game_workload_evidence",
-                            "game_frame_pressure",
-                            "host_pressure_during_verified_game")
+                            "game_frame_pressure", "host_pressure_during_verified_game",
+                            "gaming_workload_profile_host_pressure",
+                            "gaming_workload_profile_evidence")
                 if metadata is not None and key in metadata
             },
         )

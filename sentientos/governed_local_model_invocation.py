@@ -1005,6 +1005,12 @@ class GovernedLocalModelInvoker:
                         observation_correlation_id)
             if execution_profile is not None:
                 admission_metadata["model_execution_profile"] = execution_profile
+            workload_mode = request.linkage.get("workload_mode")
+            workload_evidence = request.linkage.get("workload_evidence")
+            if (workload_mode in {"normal", "gaming"}
+                    and isinstance(workload_evidence, Mapping)):
+                admission_metadata["workload_mode"] = workload_mode
+                admission_metadata["workload_evidence"] = dict(workload_evidence)
             cp_req = ControlActionRequest(action_kind="local_model_inference", authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE, actor=request.caller, target_subsystem="governed_local_model_invocation", requested_phase=phase, metadata=admission_metadata)
             decision = self.kernel.admit(cp_req); decision_payload = decision.to_dict(); admitted_ref = decision.admission_decision_ref
             if not decision.allowed: reasons += list(decision.reason_codes); status = _status_for_denial(decision.outcome.value)
