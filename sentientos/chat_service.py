@@ -5901,6 +5901,12 @@ def main(argv: list[str] | None = None) -> None:
                         help="Set the production workload policy before model-serving admission")
     parser.add_argument("--game-process-name", action="append", default=[], metavar="GAME.exe",
                         help="Allowlist an executable for automatic game-aware model-serving admission; repeat as needed")
+    parser.add_argument("--gaming-companion-manifest",
+                        help="Installed signed WSL companion deployment manifest")
+    parser.add_argument("--gaming-companion-provider",
+                        help="Installed platform runtime provider as package.module:factory")
+    parser.add_argument("--gaming-companion-launch-authorizer",
+                        help="Installed role launch authorizer as package.module:callable")
     parser.add_argument("--avatar-state-path", type=Path,
                         help="Opt in to a local visual-only avatar output state file")
     parser.add_argument("--local-speech-output", action="store_true",
@@ -5915,6 +5921,13 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     if args.initial_workload_mode == "automatic" and not args.game_process_name:
         parser.error("automatic_workload_mode_requires_game_process_name")
+    companion_arguments = (args.gaming_companion_manifest,
+        args.gaming_companion_provider, args.gaming_companion_launch_authorizer)
+    if args.initial_workload_mode == "automatic":
+        if any(value is None for value in companion_arguments):
+            parser.error("automatic_workload_mode_requires_installed_companion_authority")
+    elif any(value is not None for value in companion_arguments) or args.game_process_name:
+        parser.error("gaming_companion_configuration_requires_automatic_workload_mode")
     try:
         screen_observer = _build_cli_screen_observer(
             args.screen_observation_process, args.screen_observation_consent_minutes)
@@ -5937,17 +5950,30 @@ def main(argv: list[str] | None = None) -> None:
         process_lock = handle.fixed_object(
             "local-model/chat/runtime-handoffs/active-chat-process.lock")
         with handle.exclusive_lock(process_lock, blocking=False):
-            configure_production_chat(installation_identity=args.installation_identity,
-                serving_operation_id=args.serving_operation_id,
-                expected_activation_state_digest=args.expected_activation_state_digest,
-                resource_provisioning_id=args.resource_provisioning_id,
-                runtime_handoff_id=args.runtime_handoff_id,
-                initial_workload_mode=args.initial_workload_mode,
-                game_process_names=args.game_process_name,
-                avatar_state_path=args.avatar_state_path,
-                local_speech_output=args.local_speech_output,
-                screen_observer=screen_observer)
-            run(host=args.host, port=args.port)
+            gaming_companion_runtime = None
+            try:
+                if args.initial_workload_mode == "automatic":
+                    gaming_companion_runtime = _build_supervised_gaming_companion_runtime(
+                        manifest_path=args.gaming_companion_manifest,
+                        provider_reference=args.gaming_companion_provider,
+                        launch_authorizer_reference=args.gaming_companion_launch_authorizer,
+                        game_process_names=args.game_process_name)
+                configure_production_chat(installation_identity=args.installation_identity,
+                    serving_operation_id=args.serving_operation_id,
+                    expected_activation_state_digest=args.expected_activation_state_digest,
+                    resource_provisioning_id=args.resource_provisioning_id,
+                    runtime_handoff_id=args.runtime_handoff_id,
+                    initial_workload_mode=args.initial_workload_mode,
+                    game_process_names=args.game_process_name,
+                    gaming_companion_runtime=gaming_companion_runtime,
+                    avatar_state_path=args.avatar_state_path,
+                    local_speech_output=args.local_speech_output,
+                    screen_observer=screen_observer)
+                gaming_companion_runtime = None  # production composition owns it now
+                run(host=args.host, port=args.port)
+            finally:
+                if gaming_companion_runtime is not None:
+                    gaming_companion_runtime.close()
     except Exception as exc:
         raise RuntimeError("supervised_chat_process_lifetime_unavailable") from exc
 
@@ -5976,6 +6002,67 @@ def _is_loopback_host(host: str) -> bool:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return False
+
+
+def _build_supervised_gaming_companion_runtime(*, manifest_path: str,
+        provider_reference: str, launch_authorizer_reference: str,
+        game_process_names: tuple[str, ...] | list[str]) -> Any:
+    """Compose the existing authorized WSL companion owner for supervised chat."""
+    from .gaming_companion_core_runtime import WSLCoreGamingCompanionRuntime
+    from .gaming_companion_role_entrypoint import (
+        compose_authorized_runtime, load_role_manifest, resolve_provider)
+
+    manifest = load_role_manifest(manifest_path)
+    runtime = compose_authorized_runtime(role="wsl_core", manifest=manifest,
+        runtime_provider=lambda role, config: resolve_provider(provider_reference)(role, config),
+        launch_authorizer=lambda role, config: resolve_provider(
+            launch_authorizer_reference)(role, config) is True)
+    if type(runtime) is not WSLCoreGamingCompanionRuntime:
+        raise RuntimeError("wsl_core_gaming_companion_runtime_required")
+    try:
+        runtime.start()
+        if runtime.status().get("state") != "running":
+            raise RuntimeError("wsl_core_gaming_companion_runtime_start_failed")
+        _await_authenticated_game_observation(
+            runtime.foreground_game_detector, game_process_names)
+        return runtime
+    except Exception:
+        runtime.close()
+        raise
+
+
+def _await_authenticated_game_observation(detector: Any,
+        game_process_names: tuple[str, ...] | list[str], *,
+        timeout_seconds: float = 10.0,
+        monotonic: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep) -> None:
+    """Wait a bounded startup interval for verified game state before serving admission."""
+    if (isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float))
+            or not math.isfinite(float(timeout_seconds))
+            or not 0.1 <= float(timeout_seconds) <= 30.0):
+        raise ValueError("gaming_companion_observation_timeout_invalid")
+    observe = getattr(detector, "observe", None)
+    if not callable(observe):
+        raise RuntimeError("gaming_companion_observation_owner_invalid")
+    deadline = monotonic() + float(timeout_seconds)
+    while True:
+        try:
+            observation = observe(game_process_names)
+        except Exception:
+            observation = None
+        provenance = getattr(observation, "transport_provenance", None)
+        workload_is_resolved = (
+            getattr(observation, "game_foreground", None) is True
+            or type(getattr(observation, "game_process_running", None)) is bool)
+        if (getattr(observation, "status", None) == "available"
+                and workload_is_resolved and isinstance(provenance, Mapping)
+                and isinstance(provenance.get("message_id"), str)
+                and provenance.get("message_id")):
+            return
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise RuntimeError("initial_game_workload_observation_unavailable")
+        sleep(min(0.1, remaining))
 
 
 

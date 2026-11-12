@@ -253,6 +253,28 @@ def test_restart_preserves_gaming_workload_policy(monkeypatch) -> None:
     assert adapter._argv[-2:] == ("--initial-workload-mode", "gaming")
 
 
+def test_restart_preserves_authenticated_automatic_game_configuration(monkeypatch) -> None:
+    config = LocalModelChatStartup(True, "install-1", "serve-1", port=5500,
+        resource_provisioning_id="production.v1", initial_workload_mode="automatic",
+        gaming_companion_manifest_path="/etc/sentientos/companion/deployment.json",
+        gaming_companion_provider="sentientos_platform.wsl:build_runtime",
+        gaming_companion_launch_authorizer="sentientos_platform.authority:authorize_role",
+        game_process_names=("Cronos.exe",))
+    adapter = LocalModelChatServiceAdapter(config)
+    monkeypatch.setattr(adapter, "stop", lambda: None)
+    monkeypatch.setattr("sentientos.runtime.services.ChildProcessServiceAdapter.start",
+        lambda _self: None)
+    adapter._restart_with_fresh_serving_operation(replacement_serving_operation_id="serve-2",
+        expected_activation_state_digest="a" * 64)
+    replacement = adapter.startup_configuration
+    assert replacement.initial_workload_mode == "automatic"
+    assert replacement.gaming_companion_manifest_path == config.gaming_companion_manifest_path
+    assert replacement.gaming_companion_provider == config.gaming_companion_provider
+    assert replacement.gaming_companion_launch_authorizer == config.gaming_companion_launch_authorizer
+    assert replacement.game_process_names == ("Cronos.exe",)
+    assert adapter._argv[-2:] == ("--game-process-name", "Cronos.exe")
+
+
 def test_recovery_configuration_digest_binds_gaming_workload_policy() -> None:
     normal = LocalModelChatStartup(True, "install-1", "serve-1",
         resource_provisioning_id="production.v1")

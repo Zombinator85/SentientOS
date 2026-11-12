@@ -32,6 +32,17 @@ def test_disabled_registration_has_zero_production_or_child_effects() -> None:
     assert tuple(registry.descriptors) == (SERVICE_ID,)
 
 
+def test_disabled_chat_rejects_ignored_workload_and_companion_configuration() -> None:
+    config = LocalModelChatStartup(initial_workload_mode="automatic",
+        gaming_companion_manifest_path="/etc/sentientos/companion/deployment.json",
+        gaming_companion_provider="sentientos_platform.wsl:build_runtime",
+        gaming_companion_launch_authorizer="sentientos_platform.authority:authorize_role",
+        game_process_names=("Cronos.exe",))
+    with pytest.raises(ValueError, match="chat_workload_configuration_requires_enabled_chat"):
+        build_runtime_service_registry(config,
+            adapter_factory=lambda _config: pytest.fail("disabled adapter constructed"))
+
+
 @pytest.mark.parametrize(
     ("config", "reason"),
     [
@@ -49,7 +60,9 @@ def test_invalid_identity_fails_before_adapter_construction(config: LocalModelCh
 def test_service_surface_has_no_execution_or_model_injection_parameters() -> None:
     fields = set(LocalModelChatStartup.__dataclass_fields__)
     assert fields == {"enabled", "installation_identity", "serving_operation_id", "host", "port",
-                      "resource_provisioning_id", "initial_workload_mode"}
+                      "resource_provisioning_id", "initial_workload_mode",
+                      "gaming_companion_manifest_path", "gaming_companion_provider",
+                      "gaming_companion_launch_authorizer", "game_process_names"}
     forbidden = {"executable", "script", "argv", "model_path", "activation_path", "runtime_path",
                  "interpreter_path", "custody_root", "preloaded_model", "simulation", "fallback"}
     assert not fields & forbidden
@@ -97,9 +110,152 @@ def test_supervised_gaming_workload_mode_is_fixed_in_launcher_and_auto_fails_clo
         resource_provisioning_id="production.v1")
     assert LocalModelChatServiceAdapter(gaming, probe=lambda _url: True)._argv[-2:] == (
         "--initial-workload-mode", "gaming")
-    with pytest.raises(ValueError, match="supervised_runtime_requires_explicit_normal_or_gaming_mode"):
+    with pytest.raises(ValueError, match="automatic_mode_requires_installed_companion_authority"):
         LocalModelChatStartup(enabled=True, installation_identity="install-1",
             serving_operation_id="serve-1", initial_workload_mode="automatic").validate()
+
+
+def test_supervised_automatic_mode_binds_installed_game_bridge_to_launcher_and_recovery() -> None:
+    from sentientos.runtime.local_model_chat_recovery import startup_configuration_digest
+
+    automatic = LocalModelChatStartup(enabled=True, installation_identity="install-1",
+        serving_operation_id="serve-1", resource_provisioning_id="production.v1",
+        initial_workload_mode="automatic",
+        gaming_companion_manifest_path="/etc/sentientos/companion/deployment.json",
+        gaming_companion_provider="sentientos_platform.wsl:build_runtime",
+        gaming_companion_launch_authorizer="sentientos_platform.authority:authorize_role",
+        game_process_names=("Cronos.exe",))
+    adapter = LocalModelChatServiceAdapter(automatic, probe=lambda _url: True)
+    assert adapter._argv[10:] == (
+        "--resource-provisioning-id", "production.v1",
+        "--initial-workload-mode", "automatic",
+        "--gaming-companion-manifest", "/etc/sentientos/companion/deployment.json",
+        "--gaming-companion-provider", "sentientos_platform.wsl:build_runtime",
+        "--gaming-companion-launch-authorizer",
+        "sentientos_platform.authority:authorize_role",
+        "--game-process-name", "Cronos.exe")
+    changed_provider = LocalModelChatStartup(**{
+        **automatic.__dict__,
+        "gaming_companion_provider": "sentientos_platform.wsl:other_runtime"})
+    assert startup_configuration_digest(automatic) != startup_configuration_digest(changed_provider)
+
+
+def test_supervised_automatic_mode_requires_complete_allowlisted_authority() -> None:
+    base = dict(enabled=True, installation_identity="install-1", serving_operation_id="serve-1",
+        resource_provisioning_id="production.v1", initial_workload_mode="automatic",
+        gaming_companion_manifest_path="/etc/sentientos/companion/deployment.json",
+        gaming_companion_provider="sentientos_platform.wsl:build_runtime",
+        gaming_companion_launch_authorizer="sentientos_platform.authority:authorize_role")
+    for changes, error in (
+            ({"game_process_names": ()}, "game_process_allowlist_required"),
+            ({"gaming_companion_provider": "../untrusted:factory"},
+             "gaming_companion_provider_reference_invalid"),
+            ({"gaming_companion_manifest_path": "relative/deployment.json"},
+             "gaming_companion_manifest_path_must_be_absolute")):
+        with pytest.raises(ValueError, match=error):
+            LocalModelChatStartup(**{**base, "game_process_names": ("Cronos.exe",), **changes}).validate()
+
+
+def test_chat_cli_rejects_automatic_mode_without_installed_companion_authority() -> None:
+    with pytest.raises(SystemExit):
+        chat_service.main(["--installation-identity", "install-1",
+            "--serving-operation-id", "serve-1", "--runtime-handoff-id", "a" * 32,
+            "--expected-software-generation-digest", "b" * 64,
+            "--initial-workload-mode", "automatic", "--game-process-name", "Cronos.exe"])
+
+
+def test_supervised_companion_waits_for_first_authenticated_workload_sample() -> None:
+    from types import SimpleNamespace
+
+    now = [0.0]
+    observed = []
+    class Detector:
+        def observe(self, names):
+            observed.append(tuple(names))
+            if len(observed) == 1:
+                return SimpleNamespace(status="observation_unavailable")
+            return SimpleNamespace(status="available", game_foreground=False,
+                game_process_running=False,
+                transport_provenance={"message_id": "signed-bridge-observation"})
+
+    chat_service._await_authenticated_game_observation(
+        Detector(), ("Cronos.exe",), timeout_seconds=1,
+        monotonic=lambda: now[0], sleep=lambda delay: now.__setitem__(0, now[0] + delay))
+    assert observed == [("Cronos.exe",), ("Cronos.exe",)]
+
+
+def test_supervised_companion_fails_closed_when_first_observation_times_out() -> None:
+    from types import SimpleNamespace
+
+    now = [0.0]
+    class Detector:
+        def observe(self, _names):
+            return SimpleNamespace(status="available", game_foreground=False,
+                game_process_running=None, transport_provenance={"message_id": "incomplete"})
+
+    with pytest.raises(RuntimeError, match="initial_game_workload_observation_unavailable"):
+        chat_service._await_authenticated_game_observation(
+            Detector(), ("Cronos.exe",), timeout_seconds=0.2,
+            monotonic=lambda: now[0], sleep=lambda delay: now.__setitem__(0, now[0] + delay))
+
+
+def test_supervised_companion_builder_starts_authorized_runtime_and_transfers_owner(
+        monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    from sentientos import gaming_companion_role_entrypoint as role_entrypoint
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+    from sentientos.gaming_companion_core_runtime import WSLCoreGamingCompanionRuntime
+
+    events: list[str] = []
+    observation = ForegroundGameObservation("available", False, "a" * 64,
+        "2026-11-12T12:00:00+00:00", transport_provenance={"message_id": "fresh-1"},
+        game_process_running=False, running_process_name_digests=())
+
+    class Detector:
+        def observe(self, names):
+            events.append("observe:" + ",".join(names))
+            return observation
+        def close(self): events.append("detector_close")
+
+    class OutputSession:
+        def close(self): events.append("output_close")
+
+    class Bridge:
+        def start(self):
+            events.append("bridge_start")
+            return 54321
+        def status(self):
+            return SimpleNamespace(running=True, accepted_messages=1,
+                rejected_connections=0)
+        def close(self): events.append("bridge_close")
+
+    runtime = WSLCoreGamingCompanionRuntime(Detector(), OutputSession(), Bridge())
+    monkeypatch.setattr(role_entrypoint, "load_role_manifest",
+        lambda path: events.append("manifest:" + path) or {"deployment_id": "signed-1"})
+
+    def resolve(reference):
+        if reference.endswith(":build_runtime"):
+            return lambda role, _manifest: events.append("provider:" + role) or runtime
+        return lambda role, _manifest: events.append("authorize:" + role) or True
+
+    monkeypatch.setattr(role_entrypoint, "resolve_provider", resolve)
+    def compose(*, role, manifest, runtime_provider, launch_authorizer):
+        assert launch_authorizer(role, manifest) is True
+        return runtime_provider(role, manifest)
+    monkeypatch.setattr(role_entrypoint, "compose_authorized_runtime", compose)
+
+    composed = chat_service._build_supervised_gaming_companion_runtime(
+        manifest_path="/signed/deployment.json",
+        provider_reference="installed.wsl:build_runtime",
+        launch_authorizer_reference="installed.authority:authorize_role",
+        game_process_names=("Cronos.exe",))
+    assert composed is runtime
+    assert runtime.status()["state"] == "running"
+    assert events == ["manifest:/signed/deployment.json", "authorize:wsl_core",
+        "provider:wsl_core", "bridge_start", "observe:Cronos.exe"]
+    runtime.close()
+    assert events[-2:] == ["output_close", "bridge_close"]
 
 
 def test_legacy_bootstrap_paths_cannot_influence_production_composition() -> None:
@@ -231,6 +387,27 @@ def test_canonical_cli_passes_explicit_gaming_workload_policy(monkeypatch) -> No
         "--local-model-chat-resource-provisioning-id", "production.v1",
         "--local-model-chat-workload-mode", "gaming"]) == 0
     assert seen[0].initial_workload_mode == "gaming"
+
+
+def test_canonical_cli_composes_authenticated_automatic_game_policy(monkeypatch) -> None:
+    seen = []
+    monkeypatch.setattr("sentientos.runtime.startup.run_canonical_runtime",
+                        lambda config, **kwargs: seen.append(config) or 0)
+    assert ops.main(["runtime", "start", "--enable-local-model-chat",
+        "--installation-identity", "install-1", "--serving-operation-id", "serve-1",
+        "--local-model-chat-resource-provisioning-id", "production.v1",
+        "--local-model-chat-workload-mode", "automatic",
+        "--local-model-chat-gaming-companion-manifest",
+        "/etc/sentientos/companion/deployment.json",
+        "--local-model-chat-gaming-companion-provider",
+        "sentientos_platform.wsl:build_runtime",
+        "--local-model-chat-gaming-companion-launch-authorizer",
+        "sentientos_platform.authority:authorize_role",
+        "--local-model-chat-game-process-name", "Cronos.exe"]) == 0
+    config = seen[0]
+    assert config.initial_workload_mode == "automatic"
+    assert config.game_process_names == ("Cronos.exe",)
+    config.validate()
 
 
 def test_canonical_cli_rejects_arbitrary_process_arguments() -> None:

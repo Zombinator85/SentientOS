@@ -236,8 +236,17 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     runtime_start.add_argument("--local-model-chat-port", type=int, default=5000)
     runtime_start.add_argument("--local-model-chat-resource-provisioning-id")
     runtime_start.add_argument("--local-model-chat-workload-mode",
-        choices=("normal", "gaming"), default="normal",
-        help="Select bounded normal chat or the lower-resource gaming profile")
+        choices=("normal", "gaming", "automatic"), default="normal",
+        help="Select normal, gaming, or authenticated automatic game-aware policy")
+    runtime_start.add_argument("--local-model-chat-gaming-companion-manifest",
+        help="Installed signed WSL companion deployment manifest for automatic mode")
+    runtime_start.add_argument("--local-model-chat-gaming-companion-provider",
+        help="Installed platform runtime provider as package.module:factory")
+    runtime_start.add_argument("--local-model-chat-gaming-companion-launch-authorizer",
+        help="Installed role launch authorizer as package.module:callable")
+    runtime_start.add_argument("--local-model-chat-game-process-name", action="append",
+        default=[], metavar="GAME.exe",
+        help="Allowlisted Windows executable for automatic workload observation; repeat as needed")
     runtime_start.add_argument("--health-cadence-seconds", type=float, default=2.0)
     runtime_intent = runtime_sub.add_parser("local-model-chat-recovery-intent",
         help="prepare a zero-effect exact hardened-chat recovery intent")
@@ -294,6 +303,11 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             host=str(args.local_model_chat_host), port=int(args.local_model_chat_port),
             resource_provisioning_id=args.local_model_chat_resource_provisioning_id,
             initial_workload_mode=args.local_model_chat_workload_mode,
+            gaming_companion_manifest_path=args.local_model_chat_gaming_companion_manifest,
+            gaming_companion_provider=args.local_model_chat_gaming_companion_provider,
+            gaming_companion_launch_authorizer=(
+                args.local_model_chat_gaming_companion_launch_authorizer),
+            game_process_names=tuple(args.local_model_chat_game_process_name),
         )
         return run_canonical_runtime(config, cadence_seconds=float(args.health_cadence_seconds))
 

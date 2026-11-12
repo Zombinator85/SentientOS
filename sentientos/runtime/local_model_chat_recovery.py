@@ -68,6 +68,10 @@ def startup_configuration_digest(config: LocalModelChatStartup) -> str:
                             "host": config.host, "port": config.port,
                             "initial_workload_mode": config.initial_workload_mode,
                             "resource_provisioning_id": config.resource_provisioning_id,
+                            "gaming_companion_manifest_path": config.gaming_companion_manifest_path,
+                            "gaming_companion_provider": config.gaming_companion_provider,
+                            "gaming_companion_launch_authorizer": config.gaming_companion_launch_authorizer,
+                            "game_process_names": list(config.game_process_names),
                             "restart_policy": "never"})
 
 
