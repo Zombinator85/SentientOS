@@ -427,21 +427,26 @@ def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
     observed_at = datetime.now(timezone.utc).isoformat()
     performance = VerifiedGamePerformanceObservation(
         "windows-edge", "edge-generation-1", 7, "a" * 64, "b" * 64,
-        observed_at, "c" * 64, 52.0, 1, 20.0, 4096, "available", observed_at)
+        observed_at, "c" * 64, 52.0, 1, 20.0, 4096, "available", observed_at,
+        "d" * 64)
     assert governor.observe_verified_game_performance(performance)
 
-    def request(trigger, *, digest="b" * 64, process_digest="c" * 64):
+    def request(trigger, *, digest="b" * 64, process_digest="c" * 64,
+            process_name_digest="d" * 64):
         evidence = {
-            "schema_version": "sentientos.production_game_frame_pressure_release_evidence:v2",
+            "schema_version": "sentientos.production_game_frame_pressure_release_evidence:v3",
             "trigger_kind": "idle_game_frame_pressure_reconciliation",
             "trigger_correlation_id": trigger,
             "serving_session_id": "serving-session-" + "1" * 24,
             "game_performance_message_id": "a" * 64,
             "game_performance_payload_digest": digest,
             "game_performance_process_id_digest": process_digest,
+            "game_performance_process_name_digest": process_name_digest,
             "game_performance_source_id": "windows-edge",
             "game_performance_generation_id": "edge-generation-1",
             "game_performance_sequence": 7,
+            "workload_mode": "gaming",
+            "game_workload_message_id": None,
             "observed_at": observed_at,
             "frame_time_p95_ms": 52.0,
             "hitch_count_over_50ms": 1,
@@ -463,6 +468,8 @@ def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
     rejected = request("idle-game-frame-pressure-reconcile-forged", digest="e" * 64)
     wrong_process = request("idle-game-frame-pressure-reconcile-wrong-process",
         process_digest="f" * 64)
+    wrong_name = request("idle-game-frame-pressure-reconcile-wrong-name",
+        process_name_digest="e" * 64)
 
     assert accepted.allowed is True
     assert accepted.reason == "model_resource_release_fail_safe"
@@ -471,6 +478,8 @@ def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
     assert rejected.reason == "model_resource_release_pressure_evidence_required"
     assert wrong_process.allowed is False
     assert wrong_process.reason == "model_resource_release_pressure_evidence_required"
+    assert wrong_name.allowed is False
+    assert wrong_name.reason == "model_resource_release_pressure_evidence_required"
 
 
 def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing(

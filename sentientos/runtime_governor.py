@@ -1150,7 +1150,11 @@ class RuntimeGovernor:
                     or not isinstance(observation.payload_digest, str)
                     or re.fullmatch(r"[0-9a-f]{64}", observation.payload_digest) is None
                     or not isinstance(observation.process_id_digest, str)
-                    or re.fullmatch(r"[0-9a-f]{64}", observation.process_id_digest) is None):
+                    or re.fullmatch(r"[0-9a-f]{64}", observation.process_id_digest) is None
+                    or (observation.process_name_digest is not None
+                        and (not isinstance(observation.process_name_digest, str)
+                            or re.fullmatch(r"[0-9a-f]{64}",
+                                observation.process_name_digest) is None))):
                 return False
             p95, hitches = observation.frame_time_p95_ms, observation.hitch_count_over_50ms
             if p95 is not None and (isinstance(p95, bool) or not isinstance(p95, (int, float))
@@ -1182,6 +1186,7 @@ class RuntimeGovernor:
                 "message_id": observation.message_id,
                 "payload_digest": observation.payload_digest,
                 "process_id_digest": observation.process_id_digest,
+                "process_name_digest": observation.process_name_digest,
                 "frame_time_p95_ms": float(p95) if p95 is not None else None,
                 "hitch_count_over_50ms": hitches,
                 "process_cpu_percent": (float(process_cpu)
@@ -1227,6 +1232,14 @@ class RuntimeGovernor:
             session_id = provenance.get("session_id")
             sequence = provenance.get("sequence")
             envelope_time = provenance.get("envelope_created_at")
+            running_names = observation.running_process_name_digests
+            if (running_names is not None
+                    and (not isinstance(running_names, (tuple, list))
+                        or len(running_names) > 32
+                        or any(not isinstance(value, str)
+                            or re.fullmatch(r"[0-9a-f]{64}", value) is None
+                            for value in running_names))):
+                return False
             if (observed_at.tzinfo is None or observed_at.utcoffset() is None
                     or observation.status != "available"
                     or type(observation.game_foreground) is not bool
@@ -1255,7 +1268,7 @@ class RuntimeGovernor:
                 "game_foreground": observation.game_foreground,
                 "game_process_running": observation.game_process_running,
                 "running_process_name_digests": tuple(
-                    observation.running_process_name_digests or ()),
+                    running_names or ()),
             }
             with self._resource_evidence_lock:
                 self._game_workload_evidence = evidence
@@ -1498,8 +1511,10 @@ class RuntimeGovernor:
                 "schema_version", "trigger_kind", "trigger_correlation_id",
                 "serving_session_id", "game_performance_message_id",
                 "game_performance_payload_digest", "game_performance_process_id_digest",
+                "game_performance_process_name_digest",
                 "game_performance_source_id",
                 "game_performance_generation_id", "game_performance_sequence",
+                "workload_mode", "game_workload_message_id",
                 "observed_at", "frame_time_p95_ms", "hitch_count_over_50ms",
             }
             evidence_valid = False
@@ -1510,6 +1525,8 @@ class RuntimeGovernor:
                 payload_digest = observation_value.get("game_performance_payload_digest")
                 process_id_digest = observation_value.get(
                     "game_performance_process_id_digest")
+                process_name_digest = observation_value.get(
+                    "game_performance_process_name_digest")
                 source_id = observation_value.get("game_performance_source_id")
                 generation_id = observation_value.get("game_performance_generation_id")
                 sequence = observation_value.get("game_performance_sequence")
@@ -1517,6 +1534,8 @@ class RuntimeGovernor:
                 observed_at = observation_value.get("observed_at")
                 p95 = observation_value.get("frame_time_p95_ms")
                 hitches = observation_value.get("hitch_count_over_50ms")
+                workload_mode = observation_value.get("workload_mode")
+                workload_message_id = observation_value.get("game_workload_message_id")
                 try:
                     parsed_at = datetime.fromisoformat(
                         observed_at if isinstance(observed_at, str) else "")
@@ -1526,9 +1545,47 @@ class RuntimeGovernor:
                     frame_age_seconds = (datetime.now(timezone.utc)
                         - parsed_at.astimezone(timezone.utc)).total_seconds()
                 current = self.current_verified_game_performance_evidence()
+                current_workload: dict[str, object] | None = None
+                latest_workload: dict[str, object] | None = None
+                workload_age_seconds: float | None = None
+                workload_matches_process = workload_mode == "gaming" and workload_message_id is None
+                if workload_mode == "automatic" and isinstance(workload_message_id, str):
+                    with self._resource_evidence_lock:
+                        retained = self._game_workload_evidence_by_message_id.get(
+                            workload_message_id)
+                        latest = self._game_workload_evidence
+                        current_workload = dict(retained) if retained is not None else None
+                        latest_workload = dict(latest) if latest is not None else None
+                    if current_workload is not None:
+                        try:
+                            workload_stamp = datetime.fromisoformat(
+                                str(current_workload["observed_at"]))
+                            workload_age_seconds = (datetime.now(timezone.utc)
+                                - workload_stamp.astimezone(timezone.utc)).total_seconds()
+                        except (KeyError, TypeError, ValueError):
+                            workload_age_seconds = None
+                    running_digests = (current_workload.get("running_process_name_digests")
+                        if current_workload is not None else None)
+                    matched_digests: set[str] = set()
+                    if current_workload is not None:
+                        foreground_digest = current_workload.get("process_name_digest")
+                        if current_workload.get("game_foreground") is True:
+                            if isinstance(foreground_digest, str):
+                                matched_digests.add(foreground_digest)
+                        if (current_workload.get("game_process_running") is True
+                                and isinstance(running_digests, (tuple, list))
+                                and all(isinstance(value, str) for value in running_digests)):
+                            matched_digests.update(running_digests)
+                    workload_matches_process = bool(
+                        current_workload is not None
+                        and latest_workload is not None
+                        and latest_workload.get("message_id") == workload_message_id
+                        and workload_age_seconds is not None
+                        and 0 <= workload_age_seconds <= 10
+                        and process_name_digest in matched_digests)
                 evidence_valid = bool(
                     observation_value.get("schema_version") ==
-                        "sentientos.production_game_frame_pressure_release_evidence:v2"
+                        "sentientos.production_game_frame_pressure_release_evidence:v3"
                     and observation_value.get("trigger_kind") ==
                         "idle_game_frame_pressure_reconciliation"
                     and isinstance(source, str)
@@ -1546,9 +1603,16 @@ class RuntimeGovernor:
                     and re.fullmatch(r"[0-9a-f]{64}", payload_digest) is not None
                     and isinstance(process_id_digest, str)
                     and re.fullmatch(r"[0-9a-f]{64}", process_id_digest) is not None
+                    and isinstance(process_name_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", process_name_digest) is not None
                     and isinstance(source_id, str) and source_id
                     and isinstance(generation_id, str) and generation_id
                     and type(sequence) is int and sequence > 0
+                    and workload_mode in {"automatic", "gaming"}
+                    and (workload_message_id is None or
+                        (isinstance(workload_message_id, str)
+                         and re.fullmatch(r"[0-9a-f]{64}", workload_message_id) is not None))
+                    and workload_matches_process
                     and isinstance(observed_at, str)
                     and ((isinstance(p95, (int, float)) and not isinstance(p95, bool)
                           and math.isfinite(float(p95)) and 0 < float(p95) <= 10_000
@@ -1559,6 +1623,7 @@ class RuntimeGovernor:
                     and current.get("message_id") == message_id
                     and current.get("payload_digest") == payload_digest
                     and current.get("process_id_digest") == process_id_digest
+                    and current.get("process_name_digest") == process_name_digest
                     and current.get("source_id") == source_id
                     and current.get("generation_id") == generation_id
                     and current.get("sequence") == sequence
@@ -1570,6 +1635,13 @@ class RuntimeGovernor:
                 "status": "current",
                 "game_performance_message_id": observation_value.get(
                     "game_performance_message_id"),
+                "game_performance_process_id_digest": observation_value.get(
+                    "game_performance_process_id_digest"),
+                "game_performance_process_name_digest": observation_value.get(
+                    "game_performance_process_name_digest"),
+                "workload_mode": observation_value.get("workload_mode"),
+                "game_workload_message_id": observation_value.get(
+                    "game_workload_message_id"),
                 "frame_time_p95_ms": observation_value.get("frame_time_p95_ms"),
                 "hitch_count_over_50ms": observation_value.get(
                     "hitch_count_over_50ms"),
@@ -1976,6 +2048,8 @@ class RuntimeGovernor:
                     "sequence": game_evidence["sequence"],
                     "message_id": game_evidence["message_id"],
                     "payload_digest": game_evidence["payload_digest"],
+                    "process_id_digest": game_evidence["process_id_digest"],
+                    "process_name_digest": game_evidence.get("process_name_digest"),
                     "source_observed_at": game_evidence.get("source_observed_at"),
                     "frame_time_p95_ms": p95,
                     "hitch_count_over_50ms": hitches,

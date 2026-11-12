@@ -529,7 +529,8 @@ class ProductionServingInferenceController:
                 model = self._serving._current_inference_model(session)
             except ProductionServingError:
                 return {"status": "skipped", "reason": "current_serving_session_required"}
-            frame_release = self._release_after_game_frame_pressure(session, model)
+            frame_release = self._release_after_game_frame_pressure(
+                session, model, workload)
             if frame_release is not None:
                 return {"status": frame_release["status"],
                     "release_receipt_id": frame_release["receipt_id"],
@@ -578,7 +579,8 @@ class ProductionServingInferenceController:
             self._receipt_capacity_lock.release()
 
     def _release_after_game_frame_pressure(
-            self, session: ServingSession, model: Any) -> dict[str, Any] | None:
+            self, session: ServingSession, model: Any,
+            workload: Mapping[str, Any]) -> dict[str, Any] | None:
         """Release the exact optional model when a fresh authenticated game sample shows hitches."""
         getter = getattr(self._serving._kernel,
             "current_verified_game_performance_evidence", None)
@@ -596,25 +598,43 @@ class ProductionServingInferenceController:
             isinstance(p95, (int, float)) and not isinstance(p95, bool)
             and math.isfinite(float(p95)) and 50.0 <= float(p95) <= 10_000
         ) or (type(hitches) is int and hitches > 0)
-        required = ("message_id", "payload_digest", "process_id_digest", "source_id", "generation_id",
-            "sequence", "observed_at")
+        required = (
+            "message_id", "payload_digest", "process_id_digest", "source_id",
+            "generation_id", "sequence", "observed_at")
         if not frame_pressure or any(not performance.get(key) for key in required):
+            return None
+        process_name_digest = performance.get("process_name_digest")
+        if (not isinstance(process_name_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", process_name_digest) is None):
+            return None
+        configured_mode = workload.get("configured_mode")
+        workload_message_id = None
+        if configured_mode == "automatic":
+            provenance = workload.get("transport_provenance")
+            workload_message_id = (provenance.get("message_id")
+                if isinstance(provenance, Mapping) else None)
+            if not isinstance(workload_message_id, str):
+                return None
+        elif configured_mode != "gaming":
             return None
         loaded_identity = getattr(model, "active_identity", None)
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
             return None
         trigger_correlation = "idle-game-frame-pressure-reconcile-" + str(time.time_ns())
         evidence = {
-            "schema_version": "sentientos.production_game_frame_pressure_release_evidence:v2",
+            "schema_version": "sentientos.production_game_frame_pressure_release_evidence:v3",
             "trigger_kind": "idle_game_frame_pressure_reconciliation",
             "trigger_correlation_id": trigger_correlation,
             "serving_session_id": session.session_id,
             "game_performance_message_id": performance["message_id"],
             "game_performance_payload_digest": performance["payload_digest"],
             "game_performance_process_id_digest": performance["process_id_digest"],
+            "game_performance_process_name_digest": process_name_digest,
             "game_performance_source_id": performance["source_id"],
             "game_performance_generation_id": performance["generation_id"],
             "game_performance_sequence": performance["sequence"],
+            "workload_mode": configured_mode,
+            "game_workload_message_id": workload_message_id,
             "observed_at": performance["observed_at"],
             "frame_time_p95_ms": p95,
             "hitch_count_over_50ms": hitches,

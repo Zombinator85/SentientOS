@@ -146,6 +146,7 @@ def test_authenticated_game_performance_on_core_bridge_reaches_runtime_admission
     controller = _automatic_controller(detector)
     governor._host_resource_evidence = {
         "evaluation_id": "fixture-evaluation", "epoch_id": "fixture-epoch",
+        "observation_correlation_id": "fixture-host-observation",
         "snapshot_id": "fixture-snapshot", "report_id": "fixture-report",
         "report_digest": "c" * 64, "observed_at": now().isoformat(),
         "pressure_labels": ("cpu_pressure",),

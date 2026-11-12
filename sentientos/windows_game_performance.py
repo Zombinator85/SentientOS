@@ -44,6 +44,7 @@ class GamePerformanceObservation:
     hitch_count_over_50ms: int | None
     frame_time_digest: str | None
     unsupported_reasons: tuple[str, ...] = ()
+    process_name_digest: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -377,9 +378,10 @@ def _windows_process_sample(process_id: int) -> Mapping[str, object] | None:
         # psutil documents the first nonblocking sample as meaningless zero.
         # A short bounded interval yields an actual per-process CPU reading.
         cpu_percent = process.cpu_percent(interval=PROCESS_CPU_SAMPLE_INTERVAL_SECONDS)
+        name = process.name()
     except psutil.Error:
         return None
-    return {"cpu_percent": cpu_percent, "rss_bytes": memory.rss}
+    return {"name": name, "cpu_percent": cpu_percent, "rss_bytes": memory.rss}
 
 
 def _windows_foreground_process_identity() -> tuple[int, str] | None:
@@ -556,12 +558,13 @@ class WindowsGamePerformanceObserver:
         unsupported: list[str] = []
         if self._system_provider().casefold() != "windows":
             return GamePerformanceObservation(
-                "sentientos.game_performance_observation:v1", "unsupported_platform", observed_at,
+                "sentientos.game_performance_observation:v2", "unsupported_platform", observed_at,
                 process_digest, None, None, "unsupported", 0, None, None, None, None, None,
                 ("windows_required",),
             )
         cpu_percent: float | None = None
         rss_bytes: int | None = None
+        process_name_digest: str | None = None
         try:
             process = self._process_provider(process_id)
         except (OSError, RuntimeError, ValueError):
@@ -570,6 +573,17 @@ class WindowsGamePerformanceObserver:
         if process is None:
             unsupported.append("process_provider_unavailable")
         else:
+            process_name = process.get("name")
+            if isinstance(process_name, str):
+                normalized_name = (process_name.strip().casefold()
+                    .replace("\\", "/").rsplit("/", 1)[-1])
+                if re.fullmatch(r"[a-z0-9][a-z0-9 ._-]{0,126}\.exe", normalized_name):
+                    process_name_digest = hashlib.sha256(
+                        normalized_name.encode("utf-8")).hexdigest()
+                else:
+                    unsupported.append("process_name_unavailable")
+            else:
+                unsupported.append("process_name_unavailable")
             cpu = process.get("cpu_percent")
             rss = process.get("rss_bytes")
             if (isinstance(cpu, bool) or not isinstance(cpu, (int, float))
@@ -610,9 +624,9 @@ class WindowsGamePerformanceObserver:
             unsupported.append("presentmon_observation_unavailable")
         status = "available" if not unsupported else "partial" if cpu_percent is not None or p50 is not None else "unavailable"
         return GamePerformanceObservation(
-            "sentientos.game_performance_observation:v1", status, observed_at, process_digest,
+            "sentientos.game_performance_observation:v2", status, observed_at, process_digest,
             cpu_percent, rss_bytes, frame_source, frame_count, p50, p95, p99, hitch_count,
-            frame_digest, tuple(sorted(set(unsupported))),
+            frame_digest, tuple(sorted(set(unsupported))), process_name_digest,
         )
 
 

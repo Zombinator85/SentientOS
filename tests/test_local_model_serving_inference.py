@@ -558,7 +558,7 @@ def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt
 @pytest.mark.parametrize("trigger", ["deferred_inference", "idle_game_reconciliation",
     "idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
     "idle_game_gpu_residency", "deferred_thermal_pressure",
-    "idle_game_frame_pressure"])
+    "idle_game_frame_pressure", "idle_game_frame_pressure_mismatched_process"])
 def test_verified_game_resource_governance_defers_or_releases_before_effect(
         monkeypatch, tmp_path, trigger):
     now = datetime.now(timezone.utc)
@@ -569,9 +569,11 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     accepted = []
     observer = WindowsGamePerformanceObserver(
         system_provider=lambda: "Windows",
-        process_provider=lambda _pid: {"cpu_percent": 12.0, "rss_bytes": 4096},
+        process_provider=lambda _pid: {"name": "examplegame.exe",
+            "cpu_percent": 12.0, "rss_bytes": 4096},
         frame_provider=lambda _pid: (((16.7, 52.0), "f" * 64)
-            if trigger == "idle_game_frame_pressure" else ((), None)),
+            if trigger in {"idle_game_frame_pressure",
+                "idle_game_frame_pressure_mismatched_process"} else ((), None)),
         clock=lambda: now.isoformat())
     client = CompanionBridgeLoopbackClient(port=1,
         acknowledgment_receiver=CompanionBridgeReceiver(
@@ -604,7 +606,10 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         source_id=source_id, generation_provider=lambda: generation_id,
         clock=lambda: now).receive_once()
     assert kernel.observe_verified_game_performance(game_evidence)
-    game_workload = ForegroundGameObservation("available", True, "d" * 64,
+    game_workload_digest = hashlib.sha256(("othergame.exe"
+        if trigger == "idle_game_frame_pressure_mismatched_process"
+        else "examplegame.exe").encode("utf-8")).hexdigest()
+    game_workload = ForegroundGameObservation("available", True, game_workload_digest,
         now.isoformat(), transport_provenance={"message_id": "e" * 64,
             "source_id": "windows-foreground", "session_id": "foreground-session",
             "generation_id": "foreground-generation-1", "sequence": 1,
@@ -623,7 +628,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     gpu_metrics = ({"gpu": 22.0, "vram": 47.0}
         if trigger in {"idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
             "idle_game_gpu_residency", "deferred_thermal_pressure",
-            "idle_game_frame_pressure"}
+            "idle_game_frame_pressure", "idle_game_frame_pressure_mismatched_process"}
         else {"gpu": 94.0, "vram": 91.0})
     cpu_utilization = 95.0 if trigger in {
         "idle_cpu_pressure", "deferred_cpu_pressure"} else 20.0
@@ -686,7 +691,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "deferred_inference": ["gpu_pressure"]}[trigger]
         assert host_reference["pressure_labels"] == expected_pressure
     else:
-        if trigger == "idle_game_frame_pressure":
+        if trigger in {"idle_game_frame_pressure",
+                "idle_game_frame_pressure_mismatched_process"}:
             nominal = host_resource_owner.run_cycle(
                 correlation_id="frame-pressure-test-nominal-host-sample")
             assert nominal is not None
@@ -698,6 +704,12 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             assert model.closed is True
             assert serving.current_session() is None
             assert isinstance(reconciliation["release_receipt_id"], str)
+        elif trigger == "idle_game_frame_pressure_mismatched_process":
+            assert reconciliation["status"] == "denied"
+            assert reconciliation["trigger_kind"] == (
+                "idle_game_frame_pressure_reconciliation")
+            assert model.closed is False
+            assert serving.current_session() is not None
         elif trigger == "idle_game_frame_pressure":
             assert reconciliation["status"] == "worker_closed"
             assert reconciliation["trigger_kind"] == (
@@ -712,7 +724,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             assert serving.current_session() is not None
             serving.close()
             return
-        if trigger not in {"idle_game_gpu_residency", "idle_game_frame_pressure"}:
+        if trigger not in {"idle_game_gpu_residency", "idle_game_frame_pressure",
+                "idle_game_frame_pressure_mismatched_process"}:
             assert reconciliation["status"] == "worker_closed"
             assert isinstance(reconciliation["release_receipt_id"], str)
             assert reconciliation["trigger_kind"] == "idle_game_reconciliation"
@@ -733,14 +746,25 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert delegated["evidence_refs"]["host_resource_evidence"]["report_id"] == (
             receipt.request["linkage"]["host_resource_observation"]["report_id"])
     assert host_resource_owner.collector_call_count == (
-        4 if trigger == "idle_game_frame_pressure" else 8)
-    assert model.closed is True
-    assert serving.current_session() is None
+        4 if trigger in {"idle_game_frame_pressure",
+            "idle_game_frame_pressure_mismatched_process"} else 8)
+    if trigger == "idle_game_frame_pressure_mismatched_process":
+        assert model.closed is False
+        assert serving.current_session() is not None
+    else:
+        assert model.closed is True
+        assert serving.current_session() is None
     release_receipts = list((tmp_path / "state" / "installations" / "install-1" /
         "state" / "local-model" / "serving" /
         "resource-release-receipts").glob("*.json"))
     assert len(release_receipts) == 1
     release = json.loads(release_receipts[0].read_text(encoding="utf-8"))
+    if trigger == "idle_game_frame_pressure_mismatched_process":
+        assert release["status"] == "denied"
+        assert release["resource_observation"]["game_performance_process_name_digest"] == (
+            hashlib.sha256(b"examplegame.exe").hexdigest())
+        serving.close()
+        return
     assert release["status"] == "worker_closed"
     if trigger == "idle_game_gpu_residency":
         assert release["trigger_kind"] == "idle_game_gpu_residency"
@@ -766,6 +790,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             accepted[0].message_id)
         assert release["resource_observation"]["game_performance_process_id_digest"] == (
             game_evidence.process_id_digest)
+        assert release["resource_observation"]["game_performance_process_name_digest"] == (
+            game_evidence.process_name_digest)
         assert release["resource_observation"]["frame_time_p95_ms"] == 52.0
         assert release["resource_observation"]["hitch_count_over_50ms"] == 1
         assert "host_report_id" not in release["resource_observation"]

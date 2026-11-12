@@ -122,13 +122,15 @@ def test_windows_fixture_provider_records_process_and_frame_time_observations() 
     frame_digest = "a" * 64
     observer = WindowsGamePerformanceObserver(
         system_provider=lambda: "Windows",
-        process_provider=lambda pid: {"cpu_percent": 42.5, "rss_bytes": 123456},
+        process_provider=lambda pid: {"name": "secret-game.exe",
+            "cpu_percent": 42.5, "rss_bytes": 123456},
         frame_provider=lambda pid: ((16.0, 18.0, 60.0), frame_digest),
         clock=lambda: "2026-11-02T00:00:00+00:00",
     )
     result = observer.observe(987)
     assert result.status == "available"
     assert result.process_id_digest == hashlib.sha256(b"987").hexdigest()
+    assert result.process_name_digest == hashlib.sha256(b"secret-game.exe").hexdigest()
     assert result.process_cpu_percent == 42.5
     assert result.process_rss_bytes == 123456
     assert (result.frame_time_p50_ms, result.frame_time_p95_ms,

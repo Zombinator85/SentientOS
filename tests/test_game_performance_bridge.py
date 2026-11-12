@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timedelta, timezone
 from threading import Event, Thread
 from types import SimpleNamespace
@@ -40,7 +41,7 @@ def test_windows_performance_sample_is_signed_transported_and_shape_checked(
     observed_process_ids = []
     observer = WindowsGamePerformanceObserver(system_provider=lambda: "Windows",
         process_provider=lambda pid: (observed_process_ids.append(pid)
-            or {"cpu_percent": 0.0, "rss_bytes": 1024}),
+            or {"name": "cronos.exe", "cpu_percent": 0.0, "rss_bytes": 1024}),
         frame_provider=lambda _pid: frame_samples[0])
     client = CompanionBridgeLoopbackClient(port=1,
         acknowledgment_receiver=CompanionBridgeReceiver(
@@ -66,6 +67,7 @@ def test_windows_performance_sample_is_signed_transported_and_shape_checked(
     assert sample.generation_id == generation
     assert sample.sequence == 1
     assert sample.frame_time_p95_ms == 51.0
+    assert sample.process_name_digest == hashlib.sha256(b"cronos.exe").hexdigest()
     assert sample.hitch_count_over_50ms == 1
     assert sample.process_cpu_percent == 0.0
     assert sample.process_rss_bytes == 1024
@@ -144,7 +146,8 @@ def test_game_performance_detector_rejects_wrong_generation_and_stale_sample():
     source_key = b"windows-performance-source-key-32-bytes"
     now = datetime.now(timezone.utc)
     observer = WindowsGamePerformanceObserver(system_provider=lambda: "Windows",
-        process_provider=lambda _pid: {"cpu_percent": 5.0, "rss_bytes": 2048},
+        process_provider=lambda _pid: {"name": "cronos.exe", "cpu_percent": 5.0,
+            "rss_bytes": 2048},
         frame_provider=lambda _pid: ((20.0,), "b" * 64),
         clock=lambda: now.isoformat())
     source_id, generation = "windows-edge", "edge-generation-1"
@@ -182,7 +185,8 @@ def test_detector_normalizes_windows_clock_for_governor_currentness():
     core_now = datetime.now(timezone.utc)
     source_time = core_now + timedelta(seconds=8)
     observer = WindowsGamePerformanceObserver(system_provider=lambda: "Windows",
-        process_provider=lambda _pid: {"cpu_percent": 7.0, "rss_bytes": 4096},
+        process_provider=lambda _pid: {"name": "cronos.exe", "cpu_percent": 7.0,
+            "rss_bytes": 4096},
         frame_provider=lambda _pid: ((), "unused"),
         clock=lambda: source_time.isoformat())
     payload = observer.observe(456).to_dict()

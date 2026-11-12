@@ -285,7 +285,7 @@ class BridgeForegroundGameDetector:
                     return self._unavailable("bridge_observation_unavailable")
                 if (message.kind == "observation"
                         and message.payload.get("schema_version") ==
-                            "sentientos.game_performance_observation:v1"):
+                            "sentientos.game_performance_observation:v2"):
                     self._forward_game_performance(message)
                     continue
                 parsed = self._parse(message, allowed_digests)

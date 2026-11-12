@@ -18,7 +18,7 @@ from typing import Callable, Protocol, Sequence, cast
 from .gaming_companion_bridge import CompanionBridgeError, VerifiedBridgeMessage, encode_message
 from .windows_game_performance import GamePerformanceObservation, WindowsGamePerformanceObserver
 
-_SCHEMA = "sentientos.game_performance_observation:v1"
+_SCHEMA = "sentientos.game_performance_observation:v2"
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _MAX_AGE_SECONDS = 10.0
 
@@ -48,6 +48,7 @@ class VerifiedGamePerformanceObservation:
     process_rss_bytes: int | None
     status: str
     source_observed_at: str | None = None
+    process_name_digest: str | None = None
 
 
 class WindowsGamePerformanceBridgePublisher:
@@ -122,6 +123,7 @@ class GamePerformanceBridgeDetector:
         payload = message.payload
         required = {
             "schema_version", "status", "observed_at", "process_id_digest",
+            "process_name_digest",
             "process_cpu_percent", "process_rss_bytes", "frame_time_source",
             "frame_time_sample_count", "frame_time_p50_ms", "frame_time_p95_ms",
             "frame_time_p99_ms", "hitch_count_over_50ms", "frame_time_digest",
@@ -134,6 +136,11 @@ class GamePerformanceBridgeDetector:
         process_digest = payload.get("process_id_digest")
         if not isinstance(process_digest, str) or _SHA256.fullmatch(process_digest) is None:
             raise CompanionBridgeError("game_performance_process_digest_invalid")
+        process_name_digest = payload.get("process_name_digest")
+        if (process_name_digest is not None
+                and (not isinstance(process_name_digest, str)
+                     or _SHA256.fullmatch(process_name_digest) is None)):
+            raise CompanionBridgeError("game_performance_process_name_digest_invalid")
         observed_at = payload.get("observed_at")
         try:
             stamp = datetime.fromisoformat(str(observed_at).replace("Z", "+00:00"))
@@ -205,7 +212,7 @@ class GamePerformanceBridgeDetector:
             normalized_observed_at.isoformat(),
             process_digest, float(p95) if p95 is not None else None, hitches,
             float(cpu) if cpu is not None else None, rss, status,
-            source_observed_at.isoformat())
+            source_observed_at.isoformat(), process_name_digest)
 
 
 class GamePerformanceAdmissionRuntime:
