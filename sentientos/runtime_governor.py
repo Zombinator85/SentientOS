@@ -2268,8 +2268,20 @@ class RuntimeGovernor:
             and (not isinstance(workload_evidence, Mapping)
                  or workload_evidence.get("configured_mode") == "gaming")
         )
+        conservative_automatic_gaming_profile = (
+            effective_gaming_mode
+            and isinstance(workload_evidence, Mapping)
+            and workload_evidence.get("configured_mode") == "automatic"
+            and workload_evidence.get("mode_source") in {
+                "foreground_observation_unavailable_conservative_gaming",
+                "game_process_observation_unavailable_conservative_gaming",
+            }
+        )
         gaming_workload_profile_host_pressure = (
             gaming_workload_profile_active and bool(pressure_reasons)
+        )
+        conservative_automatic_profile_host_pressure = (
+            conservative_automatic_gaming_profile and bool(pressure_reasons)
         )
         verified_game_active = (
             game_evidence_ref.get("status") == "current"
@@ -2303,7 +2315,8 @@ class RuntimeGovernor:
             incomplete = (evidence.get("cpu_utilization_percent") is None
                           or evidence.get("ram_utilization_percent") is None)
         gaming_profile_resource_telemetry_incomplete = (
-            gaming_workload_profile_active
+            (gaming_workload_profile_active
+             or conservative_automatic_gaming_profile)
             and (incomplete or gpu_resource_evidence_incomplete)
         )
         game_resource_telemetry_incomplete = (
@@ -2338,7 +2351,15 @@ class RuntimeGovernor:
             # process was independently observed.
             reason, blocks = ("deferred_local_model_" + operation_label
                 + "_under_host_pressure_in_gaming_mode", True)
+        elif conservative_automatic_profile_host_pressure:
+            # Automatic mode deliberately selects a conservative gaming
+            # profile when local game detection is unavailable. Honor that
+            # profile under shared host pressure without claiming that a game
+            # was independently verified as active.
+            reason, blocks = ("deferred_local_model_" + operation_label
+                + "_under_host_pressure_in_conservative_automatic_mode", True)
         elif (operation_kind == "inference"
+                and gaming_workload_profile_active
                 and gaming_profile_resource_telemetry_incomplete):
             # An explicitly selected gaming profile asks SentientOS to keep
             # optional inference behind the interactive workload. Missing
@@ -2346,6 +2367,12 @@ class RuntimeGovernor:
             # admit, so fail closed for this profile while preserving the
             # existing foreground-chat behavior in normal mode.
             reason, blocks = "deferred_resource_telemetry_incomplete_in_gaming_mode", True
+        elif (operation_kind == "inference"
+                and conservative_automatic_gaming_profile
+                and gaming_profile_resource_telemetry_incomplete):
+            reason, blocks = (
+                "deferred_resource_telemetry_incomplete_in_conservative_automatic_mode",
+                True)
         elif game_resource_telemetry_incomplete:
             reason, blocks = "deferred_resource_telemetry_incomplete_during_game", True
         elif optional_gpu_model_load_during_game:
@@ -2391,6 +2418,10 @@ class RuntimeGovernor:
                 "host_pressure_during_verified_game": game_host_pressure,
                 "gaming_workload_profile_host_pressure": (
                     gaming_workload_profile_host_pressure),
+                "conservative_automatic_gaming_profile": (
+                    conservative_automatic_gaming_profile),
+                "conservative_automatic_profile_host_pressure": (
+                    conservative_automatic_profile_host_pressure),
                 "gaming_workload_profile_resource_telemetry_incomplete": (
                     gaming_profile_resource_telemetry_incomplete),
                 "gaming_workload_profile_evidence": workload_profile_ref,

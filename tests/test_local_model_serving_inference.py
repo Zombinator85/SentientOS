@@ -220,6 +220,77 @@ def test_mtls_game_evidence_and_host_pressure_defer_then_govern_optional_model_r
         serving.close()
 
 
+def test_automatic_game_detection_unavailable_keeps_gpu_inference_deferred(
+        monkeypatch, tmp_path):
+    """Conservative automatic gaming mode must honor observed host pressure."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1, devices=[{
+                    "index": 0, "gpu_utilization_percent": 96.0,
+                    "vram_utilization_percent": 91.0}])),
+        ]), clock=lambda: now.isoformat())
+
+    class UnavailableGameDetector:
+        def observe(self, _process_names):
+            return ForegroundGameObservation("unavailable", None, None,
+                now.isoformat())
+
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel,
+        foreground_game_detector=UnavailableGameDetector(),
+        host_resource_observation_owner=host_owner, gpu_layers=24)
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+    try:
+        receipt = bridge.generate(
+            prompt=("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+                "[SESSION_HISTORY_DATA]\nUSER_DATA: optional request"),
+            caller="chat_service", correlation_id="automatic-game-observation-unavailable")
+
+        assert receipt.status == "deferred"
+        assert model.calls == 0
+        assert model.closed is False
+        assert serving.current_session() == session
+        assert host_owner.collector_call_count == 3
+        workload = receipt.request["linkage"]["workload_evidence"]
+        assert workload["configured_mode"] == "automatic"
+        assert workload["mode_source"] == (
+            "foreground_observation_unavailable_conservative_gaming")
+        assert workload["observation_status"] == "unavailable"
+        decisions = [json.loads(line) for line in
+            (tmp_path / "kernel-decisions.jsonl").read_text(
+                encoding="utf-8").splitlines()]
+        inference_decision = next(item for item in decisions
+            if item.get("action_kind") == "local_model_inference")
+        delegated = inference_decision["delegated_outcomes"]["runtime_governor"]
+        assert delegated["reason"] == (
+            "deferred_local_model_inference_under_host_pressure_in_conservative_automatic_mode")
+        assert delegated["evidence_refs"]["host_resource_evidence"]["status"] == "current"
+        assert delegated["evidence_refs"]["observed_pressure_labels"] == ["gpu_pressure"]
+        assert delegated["evidence_refs"]["game_workload_evidence"]["status"] == "unavailable"
+    finally:
+        serving.close()
+
+
 class Kernel:
     def __init__(self, inference=AdmissionOutcome.ALLOW):
         self.inference, self.requests = inference, []
