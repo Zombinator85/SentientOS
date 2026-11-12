@@ -59,7 +59,21 @@ def test_mtls_game_evidence_and_host_pressure_defer_then_govern_optional_model_r
     """Join authenticated game samples to host-pressure admission and release."""
     from cryptography import x509
     from cryptography.hazmat.primitives.serialization import Encoding
+    from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+    from sentientos.governed_local_model_resource_allocation import (
+        GovernedLocalModelResourceBounds,
+        GovernedLocalModelResourcePolicy,
+    )
+    from sentientos.production_chat_resource_provisioning import (
+        load_production_chat_resource_context_owner,
+    )
+    from sentientos.production_chat_resource_provisioning_bundle_producer import (
+        produce_production_chat_resource_provisioning_bundle,
+    )
     from tests.test_gaming_companion_tls_transport import _certificate_bundle
+    from tests.test_production_chat_resource_provisioning_bundle_producer import (
+        encoded, inputs as provisioning_inputs,
+    )
 
     now = datetime.now(timezone.utc)
     server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
@@ -134,6 +148,25 @@ def test_mtls_game_evidence_and_host_pressure_defer_then_govern_optional_model_r
     host_resource_owner = HostResourceRuntimeCoordinator(
         kernel=kernel, runtime_state_root=tmp_path / "host-resource",
         plan=host_plan, clock=lambda: now.isoformat())
+
+    resource_registry, provisioning_artifacts = provisioning_inputs(
+        tmp_path / "resource-provisioning", calls=2)
+    resource_bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
+    resource_policy = GovernedLocalModelResourcePolicy.create(
+        epoch=1, max_resource_specific_bounds=resource_bounds,
+        not_before="2026-09-21T08:00:00Z",
+        valid_until="2026-09-21T09:15:00Z")
+    provisioning_artifacts["requested_bounds"] = resource_bounds
+    provisioning_artifacts["resource_policy_artifact"] = encoded(
+        resource_policy.to_dict())
+    bundle = produce_production_chat_resource_provisioning_bundle(
+        resource_registry, "game-priority", **provisioning_artifacts)
+    resource_context_owner = load_production_chat_resource_context_owner(
+        resource_registry, "game-priority",
+        clock=lambda: "2026-09-21T08:30:00Z",
+        nonce_source=lambda: "deferred-game-priority-attempt")
+    assert resource_context_owner.allocator.ledger.remaining_calls(
+        bundle.allocation_id) == 2
     bridge, serving, _, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, foreground_game_detector=detector,
         host_resource_observation_owner=host_resource_owner)
@@ -142,11 +175,16 @@ def test_mtls_game_evidence_and_host_pressure_defer_then_govern_optional_model_r
         prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
             "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
         receipt = bridge.generate(prompt=prompt, caller="chat_service",
-            correlation_id="mtls-game-host-pressure")
+            correlation_id="mtls-game-host-pressure",
+            budget=LocalModelInvocationBudget(8000, 4000, 512, 30.0, 2),
+            resource_context=resource_context_owner.next_context())
         assert receipt.status == "deferred"
         assert model.calls == 0
         assert model.closed is True
         assert serving.current_session() is None
+        resource_ledger = resource_context_owner.allocator.ledger
+        assert resource_ledger.snapshot_counts() == (1, 0, 0)
+        assert resource_ledger.remaining_calls(bundle.allocation_id) == 2
         workload = receipt.request["linkage"]["workload_evidence"]
         assert workload["transport_provenance"]["message_id"] == (
             presence_message.payload["message_id"])
@@ -177,6 +215,7 @@ def test_mtls_game_evidence_and_host_pressure_defer_then_govern_optional_model_r
         assert release["resource_measurement_comparison"]["interpretation"] == (
             "sample_delta_only; telemetry_does_not_establish_causation")
     finally:
+        resource_context_owner.close()
         detector.close()
         serving.close()
 
