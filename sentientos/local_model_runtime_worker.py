@@ -288,11 +288,13 @@ class ExactRuntimeLocalModel:
     def describe(self) -> str:
         return "llama_cpp exact-runtime worker (" + str(self.active_identity.resolved_artifact_path) + ")"
 
-    def cancel_pending_generation(self) -> None:
+    def cancel_pending_generation(self) -> bool:
         """Terminate the isolated runtime process so invocation deadlines can hold."""
-        if self._process.poll() is None:
-            self._process.kill()
-            self._process.wait(timeout=5)
+        if self._process.poll() is not None:
+            return False
+        self._process.kill()
+        self._process.wait(timeout=5)
+        return self._process.poll() is not None
 
     def close(self) -> None:
         if self._process.poll() is None:

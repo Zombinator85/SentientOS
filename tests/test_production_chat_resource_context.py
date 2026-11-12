@@ -101,7 +101,7 @@ def test_adapter_forwards_exact_context_and_ordinary_chat_arguments(monkeypatch,
         return "receipt"
     monkeypatch.setattr(ProductionServingInferenceController, "generate", generate)
     monkeypatch.setattr(ProductionServingInferenceController,
-        "cancel_pending_generation", lambda self: True)
+        "cancel_pending_generation", lambda self, *, reason="client_disconnect": True)
     adapter = ResourceBackedProductionChatInference(bridge, custody)
     assert adapter.current_conversation_model_identity() == {"model_id": "stable"}
     assert adapter.cancel_pending_generation() is True

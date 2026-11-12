@@ -599,13 +599,15 @@ class GovernedLocalModelInvoker:
         """Install an explicit observational receipt sink owned by the runtime."""
         self._evidence_sink = sink
 
-    def cancel_pending_generation(self) -> bool:
+    def cancel_pending_generation(self, *, reason: str = "client_disconnect") -> bool:
         """Cancel the active governed request after a client disconnect or timeout."""
+        if reason not in {"client_disconnect", "workload_transition"}:
+            raise ValueError("invocation_cancellation_reason_invalid")
         with self._active_state_lock:
             event = self._active_release_event
             if event is None:
                 return False
-            self._active_cancel_reason = "client_disconnect"
+            self._active_cancel_reason = reason
             event.set()
         cancel = getattr(self.model, "cancel_pending_generation", None)
         if not callable(cancel):

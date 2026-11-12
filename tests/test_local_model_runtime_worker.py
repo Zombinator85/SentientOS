@@ -9,10 +9,37 @@ import sys
 
 import pytest
 
-from sentientos.local_model_runtime_worker import _WORKER, _valid_runtime_resource_seconds
+from sentientos.local_model_runtime_worker import (
+    ExactRuntimeLocalModel, _WORKER, _valid_runtime_resource_seconds,
+)
 from sentientos.local_model_resource_profile import LLAMA_CPP_RESOURCE_PROFILE_SCHEMA
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_exact_runtime_worker_reports_confirmed_process_cancellation() -> None:
+    class Process:
+        returncode = None
+        killed = False
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            self.killed = True
+            self.returncode = -9
+
+        def wait(self, *, timeout):
+            assert timeout == 5
+            return self.returncode
+
+    model = object.__new__(ExactRuntimeLocalModel)
+    process = Process()
+    model._process = process
+
+    assert model.cancel_pending_generation() is True
+    assert process.killed is True
+    assert model.cancel_pending_generation() is False
 
 
 @pytest.mark.parametrize("value", [True, -0.1, float("inf"), 10 ** 1000])

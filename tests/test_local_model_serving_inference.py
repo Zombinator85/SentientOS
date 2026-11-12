@@ -779,7 +779,8 @@ def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt
 @pytest.mark.parametrize("trigger", ["deferred_inference", "idle_game_reconciliation",
     "idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
     "idle_game_gpu_residency", "deferred_thermal_pressure",
-    "idle_game_frame_pressure", "idle_game_frame_pressure_mismatched_process"])
+    "idle_game_frame_pressure", "idle_game_frame_pressure_mismatched_process",
+    "idle_game_frame_pressure_active_inference"])
 def test_verified_game_resource_governance_defers_or_releases_before_effect(
         monkeypatch, tmp_path, trigger):
     now = datetime.now(timezone.utc)
@@ -788,13 +789,24 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     verifier = CompanionBridgeReceiver(source_keys={source_id: source_key},
         expected_generations={source_id: generation_id})
     accepted = []
+    frame_observations = 0
+
+    def observe_frames(_pid):
+        nonlocal frame_observations
+        frame_observations += 1
+        if trigger == "idle_game_frame_pressure_active_inference":
+            return (((16.7, 52.0), "f" * 64)
+                if frame_observations >= 2 else ((), None))
+        if trigger in {"idle_game_frame_pressure",
+                "idle_game_frame_pressure_mismatched_process"}:
+            return ((16.7, 52.0), "f" * 64)
+        return (), None
+
     observer = WindowsGamePerformanceObserver(
         system_provider=lambda: "Windows",
         process_provider=lambda _pid: {"name": "examplegame.exe",
             "cpu_percent": 12.0, "rss_bytes": 4096},
-        frame_provider=lambda _pid: (((16.7, 52.0), "f" * 64)
-            if trigger in {"idle_game_frame_pressure",
-                "idle_game_frame_pressure_mismatched_process"} else ((), None)),
+        frame_provider=observe_frames,
         clock=lambda: now.isoformat())
     client = CompanionBridgeLoopbackClient(port=1,
         acknowledgment_receiver=CompanionBridgeReceiver(
@@ -813,9 +825,14 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     publisher.publish_once()
 
     class OneMessageReceiver:
+        def __init__(self, index=0):
+            self.index = index
+
         def receive(self, timeout=None):
             del timeout
-            return accepted[0]
+            message = accepted[self.index]
+            self.index += 1
+            return message
 
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -849,7 +866,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     gpu_metrics = ({"gpu": 22.0, "vram": 47.0}
         if trigger in {"idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
             "idle_game_gpu_residency", "deferred_thermal_pressure",
-            "idle_game_frame_pressure", "idle_game_frame_pressure_mismatched_process"}
+            "idle_game_frame_pressure", "idle_game_frame_pressure_mismatched_process",
+            "idle_game_frame_pressure_active_inference"}
         else {"gpu": 94.0, "vram": 91.0})
     cpu_utilization = 95.0 if trigger in {
         "idle_cpu_pressure", "deferred_cpu_pressure"} else 20.0
@@ -881,17 +899,34 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     host_resource_owner = HostResourceRuntimeCoordinator(
         kernel=kernel, runtime_state_root=tmp_path / "host-resource",
         plan=host_plan, clock=lambda: now.isoformat())
+    active_started = threading.Event()
+    active_cancelled = threading.Event()
+
+    def active_generation():
+        active_started.set()
+        if not active_cancelled.wait(timeout=5):
+            raise AssertionError("game-pressure cancellation was not delivered")
+        raise RuntimeError("fixture_generation_cancelled_for_game_priority")
+
     bridge, serving, _, model, _, _ = setup(
         monkeypatch, tmp_path, kernel_override=kernel,
         host_resource_observation_owner=host_resource_owner,
         foreground_game_detector=VerifiedGameDetector(),
-        gpu_layers=24 if trigger == "idle_game_gpu_residency" else 0)
+        gpu_layers=24 if trigger == "idle_game_gpu_residency" else 0,
+        on_generate=active_generation
+            if trigger == "idle_game_frame_pressure_active_inference" else None)
+    if trigger == "idle_game_frame_pressure_active_inference":
+        model.cancel_pending_generation = lambda: (active_cancelled.set() or True)
     original_close = model.close
 
     def simulated_release() -> None:
         original_close()
-        gpu_metrics.update(gpu=12.0 if trigger == "idle_game_frame_pressure" else 22.0,
-            vram=40.0 if trigger == "idle_game_frame_pressure" else 47.0)
+        gpu_metrics.update(gpu=12.0 if trigger in {
+            "idle_game_frame_pressure", "idle_game_frame_pressure_active_inference"}
+            else 22.0,
+            vram=40.0 if trigger in {
+                "idle_game_frame_pressure", "idle_game_frame_pressure_active_inference"}
+                else 47.0)
 
     model.close = simulated_release
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
@@ -912,6 +947,38 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "deferred_thermal_pressure": ["thermal_pressure"],
             "deferred_inference": ["gpu_pressure"]}[trigger]
         assert host_reference["pressure_labels"] == expected_pressure
+    elif trigger == "idle_game_frame_pressure_active_inference":
+        invocation_results = {}
+        active_prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+            "[SESSION_HISTORY_DATA]\nUSER_DATA: optional inference")
+
+        def invoke_while_game_is_running():
+            invocation_results["receipt"] = bridge.generate(
+                prompt=active_prompt, caller="chat_service",
+                correlation_id="frame-pressure-active-inference")
+
+        invocation_thread = threading.Thread(target=invoke_while_game_is_running)
+        invocation_thread.start()
+        assert active_started.wait(timeout=5)
+        publisher.publish_once()
+        changed_game_evidence = GamePerformanceBridgeDetector(
+            receiver=OneMessageReceiver(index=1), source_id=source_id,
+            generation_provider=lambda: generation_id, clock=lambda: now
+        ).receive_once()
+        assert kernel.observe_verified_game_performance(changed_game_evidence)
+
+        reconciliation = bridge.reconcile_idle_game_resource_state()
+        invocation_thread.join(timeout=5)
+
+        assert not invocation_thread.is_alive()
+        assert reconciliation["status"] == "worker_closed"
+        assert reconciliation["trigger_kind"] == (
+            "idle_game_frame_pressure_reconciliation")
+        assert reconciliation["active_inference_cancellation_confirmed"] is True
+        assert invocation_results["receipt"].status == "cancelled"
+        assert invocation_results["receipt"].output_text is None
+        assert model.closed is True
+        assert serving.current_session() is None
     else:
         if trigger in {"idle_game_frame_pressure",
                 "idle_game_frame_pressure_mismatched_process"}:
@@ -954,7 +1021,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             assert reconciliation["observation_correlation_id"].startswith(
                 "local-chat-reconciliation-")
 
-    assert model.calls == 0
+    assert model.calls == (1 if trigger == "idle_game_frame_pressure_active_inference" else 0)
     if trigger in {"deferred_inference", "deferred_cpu_pressure", "deferred_thermal_pressure"}:
         decisions = [json.loads(line) for line in (tmp_path / "kernel-decisions.jsonl").read_text(
             encoding="utf-8").splitlines()]
@@ -1006,16 +1073,25 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert release["host_mutation_performed"] is False
         serving.close()
         return
-    if trigger == "idle_game_frame_pressure":
+    if trigger in {"idle_game_frame_pressure",
+            "idle_game_frame_pressure_active_inference"}:
+        expected_game_performance_message_id = (
+            accepted[1].message_id
+                if trigger == "idle_game_frame_pressure_active_inference"
+            else accepted[0].message_id)
         assert release["trigger_kind"] == "idle_game_frame_pressure_reconciliation"
         assert release["resource_observation"]["game_performance_message_id"] == (
-            accepted[0].message_id)
+            expected_game_performance_message_id)
         assert release["resource_observation"]["game_performance_process_id_digest"] == (
             game_evidence.process_id_digest)
         assert release["resource_observation"]["game_performance_process_name_digest"] == (
             game_evidence.process_name_digest)
         assert release["resource_observation"]["frame_time_p95_ms"] == 52.0
         assert release["resource_observation"]["hitch_count_over_50ms"] == 1
+        assert release["active_inference_preemption_requested"] is (
+            trigger == "idle_game_frame_pressure_active_inference")
+        assert release["active_inference_cancellation_confirmed"] is (
+            True if trigger == "idle_game_frame_pressure_active_inference" else None)
         assert "host_report_id" not in release["resource_observation"]
         postflight = release["post_release_observation"]
         assert postflight["status"] == "current"

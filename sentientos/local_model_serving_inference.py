@@ -84,7 +84,7 @@ class ProductionServingInferenceController:
     __slots__ = ("_serving", "_runtime_handoff_id", "_receipt_capacity_lock",
                  "_workload_lock", "_workload_mode", "_game_process_names",
                  "_foreground_game_detector", "_host_resource_observation_owner",
-                 "_active_invoker_lock", "_active_invoker")
+                 "_active_invoker_lock", "_active_invoker", "_preemption_lock")
 
     def __init__(self, serving_controller: ProductionServingController, *,
                  runtime_handoff_id: str | None = None,
@@ -105,12 +105,14 @@ class ProductionServingInferenceController:
         self._host_resource_observation_owner = host_resource_observation_owner
         self._active_invoker_lock = threading.Lock()
         self._active_invoker: GovernedLocalModelInvoker | None = None
+        self._preemption_lock = threading.Lock()
 
-    def cancel_pending_generation(self) -> bool:
+    def cancel_pending_generation(self, *, reason: str = "client_disconnect") -> bool:
         """Forward cancellation to the exact governed invocation currently in flight."""
         with self._active_invoker_lock:
             invoker = self._active_invoker
-        return invoker.cancel_pending_generation() if invoker is not None else False
+        return (invoker.cancel_pending_generation(reason=reason)
+            if invoker is not None else False)
 
     def _observe_host_resources(self, correlation_id: str, *,
                                 observation_namespace: str = "local-chat-inference") -> dict[str, Any]:
@@ -548,7 +550,7 @@ class ProductionServingInferenceController:
     def reconcile_idle_game_resource_state(self) -> dict[str, Any]:
         """Release an exact resident session on verified game/GPU pressure, without inference."""
         if not self._receipt_capacity_lock.acquire(blocking=False):
-            return {"status": "skipped", "reason": "inference_or_release_in_progress"}
+            return self._preempt_for_verified_game_frame_pressure()
         try:
             workload = self.current_workload_state()
             selected_gaming_profile = workload.get("configured_mode") == "gaming"
@@ -634,9 +636,45 @@ class ProductionServingInferenceController:
         finally:
             self._receipt_capacity_lock.release()
 
+    def _preempt_for_verified_game_frame_pressure(self) -> dict[str, Any]:
+        """Admit and cancel one in-flight optional call when fresh game pacing regresses."""
+        if not self._preemption_lock.acquire(blocking=False):
+            return {"status": "skipped", "reason": "game_priority_release_in_progress"}
+        try:
+            workload = self.current_workload_state()
+            provenance = workload.get("transport_provenance")
+            if (workload.get("configured_mode") != "automatic"
+                    or workload.get("observation_status") != "available"
+                    or (workload.get("game_foreground") is not True
+                        and workload.get("game_process_running") is not True)
+                    or not isinstance(provenance, Mapping)
+                    or not isinstance(provenance.get("message_id"), str)):
+                return {"status": "skipped",
+                    "reason": "fresh_verified_game_evidence_required"}
+            session = self._serving.current_session()
+            if session is None:
+                return {"status": "skipped", "reason": "no_resident_serving_session"}
+            try:
+                model = self._serving._current_inference_model(session)
+            except ProductionServingError:
+                return {"status": "skipped", "reason": "current_serving_session_required"}
+            release = self._release_after_game_frame_pressure(
+                session, model, workload, preempt_active_generation=True)
+            if release is None:
+                return {"status": "skipped", "reason": "current_game_frame_pressure_required"}
+            return {"status": release["status"],
+                "release_receipt_id": release["receipt_id"],
+                "trigger_kind": "idle_game_frame_pressure_reconciliation",
+                "serving_session_id": session.session_id,
+                "active_inference_cancellation_confirmed": release[
+                    "active_inference_cancellation_confirmed"]}
+        finally:
+            self._preemption_lock.release()
+
     def _release_after_game_frame_pressure(
             self, session: ServingSession, model: Any,
-            workload: Mapping[str, Any]) -> dict[str, Any] | None:
+            workload: Mapping[str, Any], *,
+            preempt_active_generation: bool = False) -> dict[str, Any] | None:
         """Release the exact optional model when a fresh authenticated game sample shows hitches."""
         getter = getattr(self._serving._kernel,
             "current_verified_game_performance_evidence", None)
@@ -719,6 +757,7 @@ class ProductionServingInferenceController:
             and decision.correlation_id == release_correlation)
         closed = False
         close_failure: str | None = None
+        active_inference_cancellation_confirmed: bool | None = None
         worker_exit_observed: bool | None = None
         before_release_observation: dict[str, Any] | None = None
         post_release_observation: dict[str, Any] | None = None
@@ -728,8 +767,14 @@ class ProductionServingInferenceController:
                 # Use only an already completed, fresh cache entry. This lookup
                 # never waits for a collector and never affects release admission.
                 before_release_observation = self._latest_cached_host_resources()
-                closed = self._serving.release_current_session_after_resource_admission(
-                    session, reason="verified_game_frame_pressure")
+                if preempt_active_generation:
+                    active_inference_cancellation_confirmed = (
+                        self.cancel_pending_generation(reason="workload_transition"))
+                    if not active_inference_cancellation_confirmed:
+                        close_failure = "active_inference_cancellation_unconfirmed"
+                if not preempt_active_generation or active_inference_cancellation_confirmed:
+                    closed = self._serving.release_current_session_after_resource_admission(
+                        session, reason="verified_game_frame_pressure")
                 worker = getattr(model, "_process", None)
                 poll = getattr(worker, "poll", None)
                 worker_exit_observed = poll() is not None if callable(poll) else None
@@ -805,6 +850,8 @@ class ProductionServingInferenceController:
                 "telemetry_does_not_establish_causation"
                 if post_release_observation is not None else None),
             "worker_exit_observed": worker_exit_observed,
+            "active_inference_preemption_requested": preempt_active_generation,
+            "active_inference_cancellation_confirmed": active_inference_cancellation_confirmed,
             "close_failure": close_failure,
             "inference_performed": False,
             "host_mutation_performed": False,
