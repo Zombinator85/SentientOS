@@ -1670,6 +1670,11 @@ class RuntimeGovernor:
             game_evidence_ref.get("status") == "current"
             or game_workload_ref.get("game_active") is True
         )
+        optional_gpu_model_load_during_game = (
+            operation_kind == "model_serving"
+            and gpu_offload_requested
+            and verified_game_active
+        )
         automatic_serving_workload_unavailable = (
             operation_kind == "model_serving"
             and payload.get("workload_mode") == "automatic"
@@ -1716,6 +1721,12 @@ class RuntimeGovernor:
                 + "_under_host_pressure_during_game", True)
         elif game_resource_telemetry_incomplete:
             reason, blocks = "deferred_resource_telemetry_incomplete_during_game", True
+        elif optional_gpu_model_load_during_game:
+            # Loading an optional GPU model can create a large transient
+            # allocation even when the current utilization sample is nominal.
+            # Preserve game priority by waiting until authenticated game
+            # activity ends; this does not affect CPU-only serving.
+            reason, blocks = "deferred_gpu_model_serving_while_game_active", True
         elif not foreground and gpu_telemetry_incomplete:
             reason, blocks = "deferred_gpu_offload_telemetry_incomplete", True
         elif not foreground and pressure_reasons:
@@ -1773,7 +1784,8 @@ class RuntimeGovernor:
         payload["host_resource_telemetry_incomplete_during_game"] = (
             game_resource_telemetry_incomplete)
         decision = self._decision(
-            action_class="local_model_inference",
+            action_class=("local_model_serving" if operation_kind == "model_serving"
+                else "local_model_inference"),
             allowed=allowed,
             reason=reason,
             subject=subject,

@@ -102,13 +102,15 @@ def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, o
     assert kernel.requests[0].authority_class is AuthorityClass.MODEL_SERVING
 
 
-@pytest.mark.parametrize(("gpu_value", "should_load", "expected_reason"), [
-    (94.0, False, "deferred_local_model_serving_under_host_pressure_during_game"),
-    (20.0, True, "allowed"),
-    (None, False, "deferred_resource_telemetry_incomplete_during_game"),
+@pytest.mark.parametrize(("gpu_value", "game_active", "gpu_layers", "should_load", "expected_reason"), [
+    (94.0, True, 16, False, "deferred_local_model_serving_under_host_pressure_during_game"),
+    (20.0, True, 16, False, "deferred_gpu_model_serving_while_game_active"),
+    (20.0, False, 16, True, "allowed"),
+    (None, True, 16, False, "deferred_resource_telemetry_incomplete_during_game"),
+    (20.0, True, 0, True, "allowed"),
 ])
 def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
-        monkeypatch, handle, gpu_value, should_load, expected_reason):
+        monkeypatch, handle, gpu_value, game_active, gpu_layers, should_load, expected_reason):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(handle.root / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(handle.root))
@@ -142,14 +144,14 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
             HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
                 collect_gpu)
         ]), clock=lambda: now.isoformat())
-    game = ForegroundGameObservation("available", True, "a" * 64, now.isoformat(),
+    game = ForegroundGameObservation("available", game_active, "a" * 64, now.isoformat(),
         transport_provenance={"message_id": "b" * 64, "source_id": "windows-foreground",
             "session_id": "game-session", "generation_id": "game-generation",
             "sequence": 1, "envelope_created_at": now.isoformat()})
     assert kernel.observe_verified_game_workload(game)
     factory_calls: list[str] = []
     ctl = controller(monkeypatch, handle,
-        [evidence(gpu_layers=16), evidence(gpu_layers=16)], kernel=kernel,
+        [evidence(gpu_layers=gpu_layers), evidence(gpu_layers=gpu_layers)], kernel=kernel,
         factory=lambda _chain, _load: factory_calls.append("loaded") or Model(identity()))
 
     def admission_context(correlation_id, activation_state):
@@ -164,14 +166,16 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
             "host_resource_observation_id": observation_id,
             "model_execution_profile": {
                 "schema_version": "sentientos.model_execution_profile:v1",
-                "engine": "llama_cpp", "accelerator_route": "gpu",
+                "engine": "llama_cpp",
+                "accelerator_route": "gpu" if load_configuration["n_gpu_layers"] else "cpu",
                 "gpu_layers": load_configuration["n_gpu_layers"],
                 "configuration_digest": semantic_digest(load_configuration),
             },
             "workload_mode": "automatic",
             "serving_workload_evidence": {
                 "configured_mode": "automatic", "observation_status": "available",
-                "game_foreground": True,
+                "game_foreground": game_active,
+                "game_process_running": game_active,
                 "transport_provenance": {"message_id": "b" * 64},
             },
         }
@@ -188,6 +192,7 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
     decision = __import__("json").loads(
         (handle.root / "kernel-decisions.jsonl").read_text(encoding="utf-8").splitlines()[-1])
     runtime = decision["delegated_outcomes"]["runtime_governor"]
+    assert runtime["action_class"] == "local_model_serving"
     assert runtime["reason"] == expected_reason
     assert runtime["evidence_refs"]["host_resource_evidence"]["status"] == "current"
     assert runtime["evidence_refs"]["game_workload_evidence"]["message_id"] == "b" * 64
