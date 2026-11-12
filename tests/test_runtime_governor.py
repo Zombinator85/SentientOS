@@ -377,6 +377,7 @@ def test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence(
     assert decision.allowed is expected
 
 
+@pytest.mark.no_legacy_skip
 def test_selected_gaming_profile_release_requires_current_observed_host_pressure(
         monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
