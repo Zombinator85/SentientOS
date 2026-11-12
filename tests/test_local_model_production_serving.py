@@ -106,6 +106,8 @@ def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, o
     (94.0, True, 16, False, "deferred_local_model_serving_under_host_pressure_during_game"),
     (20.0, True, 16, False, "deferred_gpu_model_serving_while_game_active"),
     (20.0, False, 16, True, "allowed"),
+    ((None, 20.0), False, 16, False, "deferred_gpu_offload_telemetry_incomplete"),
+    ((20.0, None), False, 16, False, "deferred_gpu_offload_telemetry_incomplete"),
     (None, True, 16, False, "deferred_resource_telemetry_incomplete_during_game"),
     (20.0, True, 0, True, "allowed"),
 ])
@@ -128,11 +130,13 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
         if gpu_value is None:
             return HostCollectorResult("nvidia_gpu", "unavailable",
                 observed_at or now.isoformat(), "synthetic_test_fixture", values={})
+        gpu_utilization, vram_utilization = (gpu_value if isinstance(gpu_value, tuple)
+            else (gpu_value, gpu_value))
         return HostCollectorResult("nvidia_gpu", "available",
             observed_at or now.isoformat(), "synthetic_test_fixture",
             values={"device_count": 1, "devices": [{"index": 0,
-                "gpu_utilization_percent": gpu_value,
-                "vram_utilization_percent": gpu_value}]})
+                "gpu_utilization_percent": gpu_utilization,
+                "vram_utilization_percent": vram_utilization}]})
 
     host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
         runtime_state_root=handle.root / "host-resource",

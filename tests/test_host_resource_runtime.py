@@ -379,4 +379,5 @@ def test_gpu_offloaded_inference_requires_gpu_telemetry_and_recovers(monkeypatch
     assert gpu_with_measurement.outcome == AdmissionOutcome.ALLOW
     evidence = gpu_with_measurement.delegated_outcomes["runtime_governor"]["evidence_refs"]["host_resource_evidence"]
     assert evidence["gpu_telemetry_available"] is True
+    assert evidence["gpu_telemetry_complete"] is True
     assert evidence["gpu_utilization_percent"] == 15.0

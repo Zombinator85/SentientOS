@@ -1104,6 +1104,10 @@ class RuntimeGovernor:
                     evaluation.snapshot.gpu_utilization_percent is not None
                     or evaluation.snapshot.vram_utilization_percent is not None
                 ),
+                "gpu_telemetry_complete": (
+                    evaluation.snapshot.gpu_utilization_percent is not None
+                    and evaluation.snapshot.vram_utilization_percent is not None
+                ),
                 "observation_correlation_id": evaluation.epoch.correlation_id,
             }
             with self._resource_evidence_lock:
@@ -1814,6 +1818,7 @@ class RuntimeGovernor:
                         "gpu_utilization_percent": evidence.get("gpu_utilization_percent"),
                         "vram_utilization_percent": evidence.get("vram_utilization_percent"),
                         "gpu_telemetry_available": evidence.get("gpu_telemetry_available"),
+                        "gpu_telemetry_complete": evidence.get("gpu_telemetry_complete"),
                         "age_seconds": round(evidence_age_seconds, 3),
                     }
                 else:
@@ -1926,11 +1931,11 @@ class RuntimeGovernor:
              or game_workload_ref.get("game_active") is True)
             and bool(pressure_reasons)
         )
-        gaming_workload_profile_active = payload.get("workload_mode") == "gaming"
+        effective_gaming_mode = payload.get("workload_mode") == "gaming"
         workload_evidence = payload.get("workload_evidence")
         workload_profile_ref = {
-            "status": "current" if gaming_workload_profile_active else "not_selected",
-            "mode": "gaming" if gaming_workload_profile_active else "normal",
+            "status": "current" if effective_gaming_mode else "not_selected",
+            "mode": "gaming" if effective_gaming_mode else "normal",
         }
         if isinstance(workload_evidence, Mapping):
             for key in ("configured_mode", "mode_source", "observation_status",
@@ -1938,6 +1943,11 @@ class RuntimeGovernor:
                 value = workload_evidence.get(key)
                 if value is not None:
                     workload_profile_ref[key] = value
+        gaming_workload_profile_active = (
+            effective_gaming_mode
+            and (not isinstance(workload_evidence, Mapping)
+                 or workload_evidence.get("configured_mode") == "gaming")
+        )
         gaming_workload_profile_host_pressure = (
             gaming_workload_profile_active and bool(pressure_reasons)
         )
@@ -1954,12 +1964,15 @@ class RuntimeGovernor:
             operation_kind == "model_serving"
             and payload.get("workload_mode") == "automatic"
             and game_workload_ref.get("status") != "current")
-        gpu_telemetry_incomplete = (
-            (not foreground or verified_game_active)
-            and gpu_telemetry_required
+        gpu_resource_evidence_incomplete = (
+            gpu_telemetry_required
             and evidence_ref.get("status") == "current"
             and evidence is not None
-            and evidence.get("gpu_telemetry_available") is not True
+            and evidence.get("gpu_telemetry_complete") is not True
+        )
+        gpu_telemetry_incomplete = (
+            (not foreground or verified_game_active)
+            and gpu_resource_evidence_incomplete
         )
         # Background work waits for a completed, fresh observation epoch. An
         # absent or stale epoch is missing evidence, not a measurement of low
@@ -1971,7 +1984,7 @@ class RuntimeGovernor:
                           or evidence.get("ram_utilization_percent") is None)
         gaming_profile_resource_telemetry_incomplete = (
             gaming_workload_profile_active
-            and (incomplete or gpu_telemetry_incomplete)
+            and (incomplete or gpu_resource_evidence_incomplete)
         )
         game_resource_telemetry_incomplete = (
             verified_game_active

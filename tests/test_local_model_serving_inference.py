@@ -258,6 +258,78 @@ def test_gaming_profile_defers_optional_inference_when_resource_telemetry_is_inc
     serving.close()
 
 
+@pytest.mark.parametrize("missing_dimension", ["gpu_utilization", "vram_utilization"])
+@pytest.mark.parametrize(("mode", "expected_status", "expected_calls"), [
+    ("normal", "admitted_completed", 1),
+    ("gaming", "deferred", 0),
+])
+def test_gaming_profile_requires_both_gpu_and_vram_samples_for_gpu_inference(
+        monkeypatch, tmp_path, mode, expected_status, expected_calls,
+        missing_dimension):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    gpu_values = {"gpu_utilization_percent": 42.0,
+        "vram_utilization_percent": 38.0}
+    gpu_values[missing_dimension + "_percent"] = None
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", devices=[gpu_values])),
+        ]), clock=lambda: now.isoformat())
+    bridge, serving, _, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner,
+        gpu_layers=24)
+    monkeypatch.setattr(
+        "sentientos.governed_local_model_invocation._verified_model_execution_profile",
+        lambda *_: {
+            "schema_version": "sentientos.model_execution_profile:v1",
+            "engine": "llama_cpp", "accelerator_route": "gpu", "gpu_layers": 24,
+            "configuration_digest": "a" * 64,
+        })
+    bridge.set_workload_mode(mode)
+    prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+        "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
+    receipt = bridge.generate(prompt=prompt, caller="chat_service",
+        correlation_id=f"partial-gpu-telemetry-{missing_dimension}-{mode}")
+
+    assert receipt.status == expected_status
+    assert model.calls == expected_calls
+    host_observation = receipt.request["linkage"]["host_resource_observation"]
+    assert host_observation["gpu_telemetry_available"] is True
+    assert host_observation["gpu_telemetry_complete"] is False
+    lines = (tmp_path / "kernel-decisions.jsonl").read_text(
+        encoding="utf-8").splitlines()
+    decision = next(json.loads(line) for line in reversed(lines)
+        if json.loads(line).get("action_kind") == "local_model_inference")
+    delegated = decision["delegated_outcomes"]["runtime_governor"]
+    assert delegated["evidence_refs"]["host_resource_evidence"][
+        "gpu_telemetry_complete"] is False
+    if mode == "gaming":
+        assert delegated["reason"] == (
+            "deferred_resource_telemetry_incomplete_in_gaming_mode")
+        assert delegated["evidence_refs"][
+            "gaming_workload_profile_resource_telemetry_incomplete"] is True
+    else:
+        assert delegated["reason"] == "allowed"
+    serving.close()
+
+
 @pytest.mark.parametrize(("cpu_percent", "expected_status", "expected_closed"), [
     (95.0, "worker_closed", True),
     (20.0, "skipped", False),
