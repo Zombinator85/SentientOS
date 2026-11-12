@@ -200,6 +200,64 @@ def test_selected_gaming_profile_reaches_inference_governor_under_host_pressure(
     serving.close()
 
 
+@pytest.mark.parametrize(("mode", "expected_status", "expected_calls"), [
+    ("normal", "admitted_completed", 1),
+    ("gaming", "deferred", 0),
+])
+def test_gaming_profile_defers_optional_inference_when_resource_telemetry_is_incomplete(
+        monkeypatch, tmp_path, mode, expected_status, expected_calls):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    def missing_memory(*, observed_at=None):
+        return HostCollectorResult("memory", "unavailable",
+            observed_at or now.isoformat(), "synthetic_missing_memory",
+            warnings=("sensor_unavailable",))
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                missing_memory),
+        ]), clock=lambda: now.isoformat())
+    bridge, serving, _, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner)
+    bridge.set_workload_mode(mode)
+    prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+        "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
+    receipt = bridge.generate(prompt=prompt, caller="chat_service",
+        correlation_id="selected-profile-incomplete-" + mode)
+
+    assert receipt.status == expected_status
+    assert model.calls == expected_calls
+    lines = (tmp_path / "kernel-decisions.jsonl").read_text(
+        encoding="utf-8").splitlines()
+    decision = next(json.loads(line) for line in reversed(lines)
+        if json.loads(line).get("action_kind") == "local_model_inference")
+    delegated = decision["delegated_outcomes"]["runtime_governor"]
+    assert delegated["evidence_refs"][
+        "gaming_workload_profile_resource_telemetry_incomplete"] is (mode == "gaming")
+    assert delegated["evidence_refs"]["host_resource_evidence"]["status"] == "current"
+    if mode == "gaming":
+        assert delegated["reason"] == (
+            "deferred_resource_telemetry_incomplete_in_gaming_mode")
+    else:
+        assert delegated["reason"] == "allowed"
+    serving.close()
+
+
 @pytest.mark.parametrize(("cpu_percent", "expected_status", "expected_closed"), [
     (95.0, "worker_closed", True),
     (20.0, "skipped", False),

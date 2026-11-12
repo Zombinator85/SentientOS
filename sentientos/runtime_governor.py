@@ -1969,6 +1969,10 @@ class RuntimeGovernor:
         if evidence_ref.get("status") == "current" and evidence is not None:
             incomplete = (evidence.get("cpu_utilization_percent") is None
                           or evidence.get("ram_utilization_percent") is None)
+        gaming_profile_resource_telemetry_incomplete = (
+            gaming_workload_profile_active
+            and (incomplete or gpu_telemetry_incomplete)
+        )
         game_resource_telemetry_incomplete = (
             verified_game_active
             and (evidence_ref.get("status") != "current" or evidence is None
@@ -2001,6 +2005,14 @@ class RuntimeGovernor:
             # process was independently observed.
             reason, blocks = ("deferred_local_model_" + operation_label
                 + "_under_host_pressure_in_gaming_mode", True)
+        elif (operation_kind == "inference"
+                and gaming_profile_resource_telemetry_incomplete):
+            # An explicitly selected gaming profile asks SentientOS to keep
+            # optional inference behind the interactive workload. Missing
+            # resource evidence cannot establish that inference is safe to
+            # admit, so fail closed for this profile while preserving the
+            # existing foreground-chat behavior in normal mode.
+            reason, blocks = "deferred_resource_telemetry_incomplete_in_gaming_mode", True
         elif game_resource_telemetry_incomplete:
             reason, blocks = "deferred_resource_telemetry_incomplete_during_game", True
         elif optional_gpu_model_load_during_game:
@@ -2046,6 +2058,8 @@ class RuntimeGovernor:
                 "host_pressure_during_verified_game": game_host_pressure,
                 "gaming_workload_profile_host_pressure": (
                     gaming_workload_profile_host_pressure),
+                "gaming_workload_profile_resource_telemetry_incomplete": (
+                    gaming_profile_resource_telemetry_incomplete),
                 "gaming_workload_profile_evidence": workload_profile_ref,
                 "host_resource_telemetry_incomplete_during_game": (
                     game_resource_telemetry_incomplete),
@@ -2068,6 +2082,8 @@ class RuntimeGovernor:
         payload["host_pressure_during_verified_game"] = game_host_pressure
         payload["gaming_workload_profile_host_pressure"] = (
             gaming_workload_profile_host_pressure)
+        payload["gaming_workload_profile_resource_telemetry_incomplete"] = (
+            gaming_profile_resource_telemetry_incomplete)
         payload["gaming_workload_profile_evidence"] = workload_profile_ref
         payload["host_resource_telemetry_incomplete_during_game"] = (
             game_resource_telemetry_incomplete)
@@ -2742,6 +2758,7 @@ class RuntimeGovernor:
                             "game_performance_evidence", "game_workload_evidence",
                             "game_frame_pressure", "host_pressure_during_verified_game",
                             "gaming_workload_profile_host_pressure",
+                            "gaming_workload_profile_resource_telemetry_incomplete",
                             "gaming_workload_profile_evidence",
                             "resource_observation_evidence")
                 if metadata is not None and key in metadata
