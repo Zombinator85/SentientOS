@@ -309,8 +309,11 @@ def test_readiness_unavailable_exposes_no_internal_identity(monkeypatch) -> None
 
 def test_production_startup_runs_and_shutdown_joins_idle_resource_reconciler(monkeypatch) -> None:
     events: list[str] = []
+    wakeup = {}
     service = SimpleNamespace(
         reconcile_workload_state=lambda: events.append("reconcile") or {"status": "skipped"},
+        resource_reconciliation_interval_seconds=lambda: 0.5,
+        set_resource_reconciliation_wakeup=lambda callback: wakeup.update(callback=callback),
         close_outputs=lambda: events.append("service_close"),
     )
     serving = SimpleNamespace(close=lambda: events.append("serving_close"))
@@ -322,11 +325,13 @@ def test_production_startup_runs_and_shutdown_joins_idle_resource_reconciler(mon
     async def exercise() -> None:
         await chat_service._startup_event()
         await asyncio.sleep(0.02)
+        wakeup["callback"]()
+        await asyncio.sleep(0.02)
         await chat_service._shutdown_event()
 
     try:
         asyncio.run(exercise())
-        assert "reconcile" in events
+        assert events.count("reconcile") >= 2
         assert events[-2:] == ["service_close", "serving_close"]
         assert chat_service._RESOURCE_RECONCILIATION_TASK is None
     finally:
