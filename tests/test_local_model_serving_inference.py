@@ -292,7 +292,7 @@ def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt
 
 
 @pytest.mark.parametrize("trigger", ["deferred_inference", "idle_game_reconciliation",
-    "idle_nominal_pressure"])
+    "idle_nominal_pressure", "idle_cpu_pressure"])
 def test_verified_game_and_host_pressure_defer_production_inference_before_effect(
         monkeypatch, tmp_path, trigger):
     now = datetime.now(timezone.utc)
@@ -354,7 +354,9 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
             collector_id, "available", observed_at or now.isoformat(),
             "synthetic_test_fixture", values=values)
     gpu_metrics = ({"gpu": 22.0, "vram": 47.0}
-        if trigger == "idle_nominal_pressure" else {"gpu": 94.0, "vram": 91.0})
+        if trigger in {"idle_nominal_pressure", "idle_cpu_pressure"}
+        else {"gpu": 94.0, "vram": 91.0})
+    cpu_utilization = 95.0 if trigger == "idle_cpu_pressure" else 20.0
 
     def collect_gpu(*, observed_at=None):
         return HostCollectorResult("nvidia_gpu", "available",
@@ -365,7 +367,7 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
 
     host_plan = build_observation_plan(specs=[
         HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
-            collector("cpu", utilization_percent=20.0)),
+            collector("cpu", utilization_percent=cpu_utilization)),
         HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
             collector("memory", used_percent=40.0)),
         HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
@@ -404,7 +406,7 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
         reconciliation = bridge.reconcile_idle_game_resource_state()
         if trigger == "idle_nominal_pressure":
             assert reconciliation["status"] == "skipped"
-            assert reconciliation["reason"] == "current_gpu_pressure_evidence_required"
+            assert reconciliation["reason"] == "current_host_pressure_evidence_required"
             assert model.closed is False
             assert serving.current_session() is not None
             serving.close()
@@ -437,15 +439,21 @@ def test_verified_game_and_host_pressure_defer_production_inference_before_effec
     assert len(release_receipts) == 1
     release = json.loads(release_receipts[0].read_text(encoding="utf-8"))
     assert release["status"] == "worker_closed"
-    assert release["trigger_kind"] == trigger
+    assert release["trigger_kind"] == (
+        "deferred_inference" if trigger == "deferred_inference"
+        else "idle_game_reconciliation")
     assert release["resource_observation"]["game_workload_message_id"] == "e" * 64
+    assert release["resource_observation"]["pressure_labels"] == (
+        ["cpu_pressure"] if trigger == "idle_cpu_pressure" else ["gpu_pressure"])
     comparison = release["resource_measurement_comparison"]
     assert comparison["status"] == "comparable"
     assert comparison["before"]["gpu_telemetry_sources"] == [{
         "collector_id": "nvidia_gpu", "status": "available",
         "source": "synthetic_test_fixture"}]
-    assert comparison["gpu_utilization_delta_percentage_points"] == -72.0
-    assert comparison["vram_utilization_delta_percentage_points"] == -44.0
+    expected_delta = 0.0 if trigger == "idle_cpu_pressure" else -72.0
+    expected_vram_delta = 0.0 if trigger == "idle_cpu_pressure" else -44.0
+    assert comparison["gpu_utilization_delta_percentage_points"] == expected_delta
+    assert comparison["vram_utilization_delta_percentage_points"] == expected_vram_delta
     assert comparison["interpretation"] == (
         "sample_delta_only; telemetry_does_not_establish_causation")
     assert release["worker_exit_observed"] is None

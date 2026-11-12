@@ -55,6 +55,7 @@ from .host_resource_runtime import (
     HostResourceRuntimeCoordinator,
     validate_evaluation as validate_host_resource_evaluation,
 )
+from .host_resource_governor import ACTIONABLE_RESOURCE_PRESSURE_LABELS
 
 
 class ProductionServingInferenceError(RuntimeError):
@@ -281,14 +282,14 @@ class ProductionServingInferenceController:
             raise ProductionServingInferenceError("serving_authority_map_digest_mismatch")
         return authority
 
-    def _release_after_verified_game_gpu_pressure(
+    def _release_after_verified_game_host_pressure(
             self, session: ServingSession, model: Any,
             receipt: LocalModelInvocationReceipt | None,
             *, resource_observation: Mapping[str, Any] | None = None,
             workload_evidence: Mapping[str, Any] | None = None,
             trigger_correlation_id: str | None = None,
             trigger_kind: str = "deferred_inference") -> dict[str, Any] | None:
-        """Use the existing release owner for exact, current game and host evidence."""
+        """Release optional chat residency after exact game and host pressure evidence."""
         if receipt is not None:
             if (receipt.status != "deferred"
                     or not any(reason.endswith(
@@ -311,7 +312,9 @@ class ProductionServingInferenceController:
         labels = resource_observation.get("pressure_labels")
         if (resource_observation.get("status") != "current"
                 or resource_observation.get("no_effect_authority") is not True
-                or not isinstance(labels, (tuple, list)) or "gpu_pressure" not in labels
+                or not isinstance(labels, (tuple, list))
+                or not all(isinstance(label, str) for label in labels)
+                or not set(labels).intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS)
                 or workload_evidence.get("observation_status") != "available"
                 or (workload_evidence.get("game_foreground") is not True
                     and workload_evidence.get("game_process_running") is not True)
@@ -327,7 +330,7 @@ class ProductionServingInferenceController:
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
             return None
         host_release_evidence = {
-            "schema_version": "sentientos.production_game_gpu_resource_release_evidence:v2",
+            "schema_version": "sentientos.production_game_host_resource_release_evidence:v1",
             "trigger_kind": trigger_kind,
             "trigger_correlation_id": source_correlation,
             "observation_correlation_id": resource_observation.get(
@@ -336,14 +339,12 @@ class ProductionServingInferenceController:
             "host_report_digest": resource_observation.get("report_digest"),
             "observed_at": resource_observation.get("observed_at"),
             "pressure_labels": list(labels),
-            "gpu_utilization_percent": resource_observation.get("gpu_utilization_percent"),
-            "vram_utilization_percent": resource_observation.get("vram_utilization_percent"),
             "game_workload_message_id": game_message_id,
         }
         metadata = {
             "correlation_id": release_correlation,
             "purpose": "local_model_resource_release",
-            "reason_code": "verified_game_gpu_pressure",
+            "reason_code": "verified_game_host_pressure",
             "target_subsystem": "production_chat",
             "model_identity_digest": digest_payload(loaded_identity.to_dict()),
             "resource_observation": host_release_evidence,
@@ -373,15 +374,15 @@ class ProductionServingInferenceController:
         if decision_valid:
             try:
                 close_completed = self._serving.release_current_session_after_resource_admission(
-                    session, reason="verified_game_gpu_pressure")
+                    session, reason="verified_game_host_pressure")
                 worker = getattr(model, "_process", None)
                 poll = getattr(worker, "poll", None)
                 worker_exit_observed = (poll() is not None if callable(poll) else None)
                 if close_completed:
                     post_release_observation = self._observe_host_resources(
                         source_correlation + ":resource-release-postflight")
-                    before_gpu = host_release_evidence["gpu_utilization_percent"]
-                    before_vram = host_release_evidence["vram_utilization_percent"]
+                    before_gpu = resource_observation.get("gpu_utilization_percent")
+                    before_vram = resource_observation.get("vram_utilization_percent")
                     after_gpu = post_release_observation.get("gpu_utilization_percent")
                     after_vram = post_release_observation.get("vram_utilization_percent")
 
@@ -444,6 +445,7 @@ class ProductionServingInferenceController:
                 "observation_correlation_id": host_release_evidence[
                     "observation_correlation_id"],
                 "host_report_id": host_release_evidence["host_report_id"],
+                "pressure_labels": list(labels),
                 "game_workload_message_id": game_message_id,
             },
             "worker_exit_observed": worker_exit_observed,
@@ -504,14 +506,15 @@ class ProductionServingInferenceController:
             if (observation.get("status") != "current"
                     or observation.get("no_effect_authority") is not True
                     or not isinstance(labels, (tuple, list))
-                    or "gpu_pressure" not in labels):
-                return {"status": "skipped", "reason": "current_gpu_pressure_evidence_required",
+                    or not all(isinstance(label, str) for label in labels)
+                    or not set(labels).intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS)):
+                return {"status": "skipped", "reason": "current_host_pressure_evidence_required",
                     "observation_correlation_id": observation.get("observation_correlation_id")}
             evidence = {key: workload.get(key) for key in (
                 "configured_mode", "mode_source", "observation_status", "game_foreground",
                 "process_name_digest", "game_process_running", "running_process_name_digests",
                 "observed_at", "transport_provenance")}
-            release_outcome = self._release_after_verified_game_gpu_pressure(
+            release_outcome = self._release_after_verified_game_host_pressure(
                 session, model, None, resource_observation=observation,
                 workload_evidence=evidence, trigger_correlation_id=correlation_id,
                 trigger_kind="idle_game_reconciliation")
@@ -669,7 +672,7 @@ class ProductionServingInferenceController:
                 resource_context=resource_context,
             )
             if receipt.admission_decision_ref != binding["model_serving_admission_ref"]:
-                self._release_after_verified_game_gpu_pressure(session, model, receipt)
+                self._release_after_verified_game_host_pressure(session, model, receipt)
         if receipt.admission_decision_ref == binding["model_serving_admission_ref"]:
             raise ProductionServingInferenceError("inference_admission_not_independent")
         return receipt

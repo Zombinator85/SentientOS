@@ -30,6 +30,9 @@ PRESSURE_LABELS = frozenset(
         "unknown",
     }
 )
+ACTIONABLE_RESOURCE_PRESSURE_LABELS = frozenset({
+    "cpu_pressure", "memory_pressure", "gpu_pressure", "thermal_pressure",
+})
 CANDIDATE_KINDS = frozenset(
     {
         "reduce_model_load_candidate",

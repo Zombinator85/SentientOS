@@ -15,6 +15,7 @@ from typing import Any, Deque, Mapping
 from sentientos.audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
 from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.federated_governance import get_controller as get_federated_governance_controller
+from sentientos.host_resource_governor import ACTIONABLE_RESOURCE_PRESSURE_LABELS
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 from sentientos.trust_ledger import get_trust_ledger
 
@@ -1262,6 +1263,7 @@ class RuntimeGovernor:
                 "development_chat_shutdown",
                 "vram_pressure_observed",
                 "verified_game_gpu_pressure",
+                "verified_game_host_pressure",
                 "rootless_experimental_epistemic_complete",
                 "rootless_experimental_developmental_complete",
             }
@@ -1467,12 +1469,111 @@ class RuntimeGovernor:
                 }
             else:
                 evidence_ref = {"status": "missing_stale_malformed_or_unverified_game_gpu_pressure"}
+        elif reason_code == "verified_game_host_pressure":
+            observation_value = payload.get("resource_observation")
+            expected_fields = {
+                "schema_version", "trigger_kind", "trigger_correlation_id",
+                "observation_correlation_id", "host_report_id", "host_report_digest",
+                "observed_at", "pressure_labels", "game_workload_message_id",
+            }
+            evidence_valid = False
+            release_age_seconds = None
+            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+                raw_trigger_kind = observation_value.get("trigger_kind")
+                raw_source = observation_value.get("trigger_correlation_id")
+                raw_observation_id = observation_value.get("observation_correlation_id")
+                raw_report_id = observation_value.get("host_report_id")
+                raw_report_digest = observation_value.get("host_report_digest")
+                raw_observed_at = observation_value.get("observed_at")
+                raw_labels = observation_value.get("pressure_labels")
+                raw_game_id = observation_value.get("game_workload_message_id")
+                namespace = ("local-chat-inference" if raw_trigger_kind == "deferred_inference"
+                    else "local-chat-reconciliation" if raw_trigger_kind == "idle_game_reconciliation"
+                    else None)
+                source_correlation = raw_source if isinstance(raw_source, str) else None
+                expected_id = (namespace + "-" + hashlib.sha256(
+                    source_correlation.encode("utf-8")).hexdigest()[:32]
+                    if source_correlation is not None and namespace is not None else None)
+                expected_release_correlation = ("production-chat-resource-release-" +
+                    hashlib.sha256((source_correlation if raw_trigger_kind == "deferred_inference"
+                        else str(raw_trigger_kind) + ":" + source_correlation).encode("utf-8")).hexdigest()[:24]
+                    if source_correlation is not None else None)
+                try:
+                    parsed_observed_at = datetime.fromisoformat(
+                        raw_observed_at if isinstance(raw_observed_at, str) else "")
+                except ValueError:
+                    parsed_observed_at = None
+                if parsed_observed_at is not None and parsed_observed_at.tzinfo is not None:
+                    release_age_seconds = (datetime.now(timezone.utc)
+                        - parsed_observed_at.astimezone(timezone.utc)).total_seconds()
+                with self._resource_evidence_lock:
+                    host_evidence = (self._host_resource_evidence_by_correlation.get(
+                        raw_observation_id) if isinstance(raw_observation_id, str) else None)
+                    game_evidence = (self._game_workload_evidence_by_message_id.get(
+                        raw_game_id) if isinstance(raw_game_id, str) else None)
+                host_age = None
+                game_age = None
+                try:
+                    if host_evidence is not None:
+                        host_age = (datetime.now(timezone.utc) - datetime.fromisoformat(
+                            str(host_evidence["observed_at"])).astimezone(timezone.utc)).total_seconds()
+                    if game_evidence is not None:
+                        game_age = (datetime.now(timezone.utc) - datetime.fromisoformat(
+                            str(game_evidence["observed_at"])).astimezone(timezone.utc)).total_seconds()
+                except (KeyError, TypeError, ValueError):
+                    host_age = game_age = None
+                raw_host_labels = (host_evidence.get("pressure_labels")
+                    if host_evidence is not None else None)
+                host_labels = (set(raw_host_labels)
+                    if isinstance(raw_host_labels, (tuple, list, set, frozenset))
+                    and all(isinstance(label, str) for label in raw_host_labels) else set())
+                evidence_valid = bool(
+                    observation_value.get("schema_version") ==
+                        "sentientos.production_game_host_resource_release_evidence:v1"
+                    and raw_trigger_kind in {"deferred_inference", "idle_game_reconciliation"}
+                    and isinstance(source_correlation, str) and 0 < len(source_correlation) <= 256
+                    and raw_observation_id == expected_id
+                    and correlation_id == expected_release_correlation
+                    and actor == "production_chat_game_resource_governor"
+                    and subject == actor and payload.get("target_subsystem") == "production_chat"
+                    and isinstance(raw_report_id, str)
+                    and isinstance(raw_report_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", raw_report_digest) is not None
+                    and isinstance(raw_observed_at, str)
+                    and isinstance(raw_labels, (list, tuple))
+                    and all(isinstance(label, str) for label in raw_labels)
+                    and bool(host_labels.intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS))
+                    and set(raw_labels) == host_labels
+                    and host_evidence is not None
+                    and host_evidence.get("observation_correlation_id") == raw_observation_id
+                    and host_evidence.get("report_id") == raw_report_id
+                    and host_evidence.get("report_digest") == raw_report_digest
+                    and host_evidence.get("observed_at") == raw_observed_at
+                    and game_evidence is not None
+                    and game_evidence.get("message_id") == raw_game_id
+                    and (game_evidence.get("game_foreground") is True
+                         or game_evidence.get("game_process_running") is True)
+                    and release_age_seconds is not None and 0 <= release_age_seconds <= 120
+                    and host_age is not None and 0 <= host_age <= 120
+                    and game_age is not None and 0 <= game_age <= 10)
+            valid = valid and evidence_valid
+            evidence_ref = ({
+                "status": "current",
+                "observation_correlation_id": observation_value.get("observation_correlation_id"),
+                "host_report_id": observation_value.get("host_report_id"),
+                "game_workload_message_id": observation_value.get("game_workload_message_id"),
+                "pressure_labels": observation_value.get("pressure_labels"),
+                "age_seconds": round(release_age_seconds, 3)
+                    if release_age_seconds is not None else None,
+            } if evidence_valid and isinstance(observation_value, Mapping) else {
+                "status": "missing_stale_malformed_or_unverified_game_host_pressure"})
         payload["resource_observation_evidence"] = evidence_ref
         return self._decision(
             action_class="local_model_resource_release", allowed=valid,
             reason=("model_resource_release_fail_safe" if valid else
                     "model_resource_release_pressure_evidence_required"
-                    if reason_code in {"vram_pressure_observed", "verified_game_gpu_pressure"} else
+                    if reason_code in {"vram_pressure_observed", "verified_game_gpu_pressure",
+                        "verified_game_host_pressure"} else
                     "model_resource_release_request_invalid"),
             subject=subject, scope="local", origin=actor,
             pressure=self.sample_pressure(), metadata=payload,
