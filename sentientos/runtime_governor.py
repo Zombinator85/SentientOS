@@ -1306,6 +1306,28 @@ class RuntimeGovernor:
             with self._resource_evidence_lock:
                 self._game_workload_evidence = evidence
                 self._game_workload_evidence_by_message_id[message_id] = evidence
+                # The edge sends workload and pacing on one ordered source
+                # session. A fresh explicit inactive observation supersedes an
+                # older pacing sample from that same source generation; keeping
+                # the old sample current would continue to defer GPU serving
+                # after the game had ended. Preserve samples from other source
+                # generations and any pacing sample observed later in time.
+                performance = self._game_performance_evidence
+                if (observation.game_foreground is False
+                        and observation.game_process_running is False
+                        and performance is not None
+                        and performance.get("source_id") == source_id
+                        and performance.get("generation_id") == generation_id):
+                    try:
+                        performance_time = datetime.fromisoformat(
+                            str(performance["observed_at"]).replace("Z", "+00:00"))
+                    except (KeyError, TypeError, ValueError):
+                        performance_time = None
+                    if (performance_time is not None
+                            and performance_time.tzinfo is not None
+                            and performance_time.astimezone(timezone.utc)
+                                <= observed_at.astimezone(timezone.utc)):
+                        self._game_performance_evidence = None
                 while (len(self._game_workload_evidence_by_message_id)
                        > MAX_RETAINED_GAME_WORKLOAD_EVIDENCE):
                     oldest = next(iter(self._game_workload_evidence_by_message_id))

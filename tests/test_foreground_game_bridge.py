@@ -84,6 +84,8 @@ def _automatic_controller(detector: BridgeForegroundGameDetector):
     controller._workload_mode = "normal"
     controller._game_process_names = ()
     controller._foreground_game_detector = detector
+    controller._active_invoker_lock = Lock()
+    controller._resource_reconciliation_wakeup = None
     controller.set_workload_mode("automatic", ("game.exe",))
     return controller
 

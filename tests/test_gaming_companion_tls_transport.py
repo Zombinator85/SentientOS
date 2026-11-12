@@ -18,6 +18,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from sentientos.gaming_companion_bridge import CompanionBridgeReceiver, encode_message
+from sentientos.control_plane_kernel import ControlPlaneKernel
 from sentientos.avatar_renderer_report_ingress import RendererReportCaptureOwner
 from sentientos.avatar_renderer_report_relay import WindowsRendererReportRelay
 from sentientos.foreground_game_bridge import (
@@ -39,6 +40,7 @@ from sentientos.gaming_companion_tls_transport import (
     verify_generation_rotation,
     verify_generation_pair_rotation,
 )
+from sentientos.runtime_governor import PressureSnapshot, RuntimeGovernor
 from sentientos.windows_game_performance import WindowsGamePerformanceObserver
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -248,7 +250,13 @@ def test_windows_foreground_publisher_and_core_detector_compose_over_mutual_tls(
         core_detector.close()
 
 
-def test_production_game_evidence_schemas_share_one_ordered_mtls_session(tmp_path: Path):
+def test_production_game_evidence_schemas_share_one_ordered_mtls_session(
+        tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
     server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
     source_key, ack_key = b"e" * 32, b"c" * 32
     runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1",
@@ -272,7 +280,7 @@ def test_production_game_evidence_schemas_share_one_ordered_mtls_session(tmp_pat
 
     observer = WindowsGamePerformanceObserver(system_provider=lambda: "Windows",
         process_provider=lambda _pid: {"cpu_percent": 33.0, "rss_bytes": 131072},
-        frame_provider=lambda _pid: ((16.7, 52.0), "f" * 64))
+        frame_provider=lambda _pid: ((16.7, 20.0), "f" * 64))
     performance_publisher = WindowsGamePerformanceBridgePublisher(
         observer=observer, client=client, source_id="windows-edge",
         session_id="shared-game-evidence", generation_id="edge-generation-1",
@@ -287,22 +295,13 @@ def test_production_game_evidence_schemas_share_one_ordered_mtls_session(tmp_pat
     core_detector = BridgeForegroundGameDetector(runtime=runtime,
         source_id="windows-edge", generation_id="edge-generation-1")
 
-    class AdmissionOwner:
-        def __init__(self) -> None:
-            self.performance = []
-            self.workloads = []
-
-        def observe_verified_game_performance(self, sample):
-            self.performance.append(sample)
-            return True
-
-        def observe_verified_game_workload(self, sample):
-            self.workloads.append(sample)
-            return True
-
-    admission = AdmissionOwner()
-    core_detector.set_game_performance_admission_owner(admission)
-    core_detector.set_game_workload_admission_owner(admission)
+    governor = RuntimeGovernor()
+    monkeypatch.setattr(governor, "sample_pressure", lambda: PressureSnapshot(
+        0.0, 0.0, 0.0, 0.0, 0.0, datetime.now(timezone.utc).isoformat()))
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "control-plane" / "decisions.jsonl")
+    core_detector.set_game_performance_admission_owner(kernel)
+    core_detector.set_game_workload_admission_owner(kernel)
     try:
         performance_ack = performance_publisher.publish_once()
         foreground_ack = foreground_publisher.publish_once(["game.exe"])
@@ -310,11 +309,79 @@ def test_production_game_evidence_schemas_share_one_ordered_mtls_session(tmp_pat
         assert foreground_ack.sequence == 2
         observation = core_detector.observe(["game.exe"])
         assert observation.status == "available" and observation.game_foreground is True
-        assert len(admission.performance) == 1
-        assert admission.performance[0].sequence == 1
-        assert len(admission.workloads) == 1
-        assert admission.workloads[0].transport_provenance["sequence"] == 2
+        performance_evidence = kernel.current_verified_game_performance_evidence()
+        assert performance_evidence is not None
+        assert performance_evidence["sequence"] == 1
+        assert governor._game_workload_evidence is not None
+        assert governor._game_workload_evidence["sequence"] == 2
         assert runtime.status().accepted_messages == 2
+
+        def admit(observation, correlation_id):
+            observation_id = "local-chat-serving-" + hashlib.sha256(
+                correlation_id.encode("utf-8")).hexdigest()[:32]
+            observed_at = datetime.now(timezone.utc).isoformat()
+            governor._host_resource_evidence_by_correlation[observation_id] = {
+                "observation_correlation_id": observation_id,
+                "observed_at": observed_at,
+                "evaluation_id": "evaluation-fixture",
+                "epoch_id": "epoch-fixture",
+                "snapshot_id": "snapshot-fixture",
+                "report_id": "report-fixture",
+                "report_digest": "a" * 64,
+                "pressure_labels": (),
+                "cpu_utilization_percent": 20.0,
+                "ram_utilization_percent": 40.0,
+                "gpu_utilization_percent": 10.0,
+                "vram_utilization_percent": 20.0,
+                "gpu_telemetry_available": True,
+                "gpu_telemetry_complete": True,
+            }
+            return governor._admit_local_model_inference(
+                actor="chat_service", subject="local_model", correlation_id=correlation_id,
+                operation_kind="model_serving", metadata={
+                "resource_governance_required": True,
+                "purpose": "local_model_serving",
+                "host_resource_observation_namespace": "local-chat-serving",
+                "host_resource_observation_id": observation_id,
+                "workload_mode": "automatic",
+                "model_execution_profile": {
+                    "schema_version": "sentientos.model_execution_profile:v1",
+                    "engine": "llama_cpp", "accelerator_route": "gpu",
+                    "gpu_layers": 8, "configuration_digest": "d" * 64,
+                },
+                "serving_workload_evidence": {
+                    "transport_provenance": {
+                        "message_id": observation.transport_provenance["message_id"]}},
+                })
+
+        decision = admit(observation, "mTLS-game-serving-active")
+        assert decision.allowed is False
+        assert decision.reason == "deferred_gpu_model_serving_while_game_active"
+
+        idle_foreground_publisher = WindowsForegroundBridgePublisher(
+            detector=ForegroundGameDetector(system_provider=lambda: "Windows",
+                process_name_provider=lambda: "explorer.exe",
+                running_process_names_provider=lambda: ()), client=client,
+            source_id="windows-edge", session_id="shared-game-evidence",
+            generation_id="edge-generation-1", source_key=source_key,
+            sequence_allocator=allocate_sequence, publication_lock=publication_lock)
+        idle_ack = idle_foreground_publisher.publish_once(["game.exe"])
+        assert idle_ack.sequence == 3
+        idle_observation = core_detector.observe(["game.exe"])
+        assert idle_observation.status == "available"
+        assert idle_observation.game_foreground is False
+        assert idle_observation.game_process_running is False
+        idle_decision = admit(idle_observation, "mTLS-game-serving-idle")
+        assert idle_decision.allowed is True
+
+        resumed_ack = foreground_publisher.publish_once(["game.exe"])
+        assert resumed_ack.sequence == 4
+        resumed_observation = core_detector.observe(["game.exe"])
+        assert resumed_observation.game_foreground is True
+        resumed_decision = admit(resumed_observation, "mTLS-game-serving-resumed")
+        assert resumed_decision.allowed is False
+        assert resumed_decision.reason == "deferred_gpu_model_serving_while_game_active"
+        assert runtime.status().accepted_messages == 4
     finally:
         core_detector.close()
 
