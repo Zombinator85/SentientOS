@@ -19,6 +19,12 @@ from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from sentientos.gaming_companion_bridge import CompanionBridgeReceiver, encode_message
 from sentientos.control_plane_kernel import ControlPlaneKernel
+from sentientos.host_collectors import HostCollectorResult
+from sentientos.host_resource_runtime import (
+    HostObservationCollectorSpec,
+    HostResourceRuntimeCoordinator,
+    build_observation_plan,
+)
 from sentientos.avatar_renderer_report_ingress import RendererReportCaptureOwner
 from sentientos.avatar_renderer_report_relay import WindowsRendererReportRelay
 from sentientos.foreground_game_bridge import (
@@ -300,6 +306,23 @@ def test_production_game_evidence_schemas_share_one_ordered_mtls_session(
         0.0, 0.0, 0.0, 0.0, 0.0, datetime.now(timezone.utc).isoformat()))
     kernel = ControlPlaneKernel(runtime_governor=governor,
         decisions_path=tmp_path / "control-plane" / "decisions.jsonl")
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or datetime.now(timezone.utc).isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1, devices=[{
+                    "index": 0, "gpu_utilization_percent": 10.0,
+                    "vram_utilization_percent": 20.0}])),
+        ]))
     core_detector.set_game_performance_admission_owner(kernel)
     core_detector.set_game_workload_admission_owner(kernel)
     try:
@@ -319,23 +342,8 @@ def test_production_game_evidence_schemas_share_one_ordered_mtls_session(
         def admit(observation, correlation_id):
             observation_id = "local-chat-serving-" + hashlib.sha256(
                 correlation_id.encode("utf-8")).hexdigest()[:32]
-            observed_at = datetime.now(timezone.utc).isoformat()
-            governor._host_resource_evidence_by_correlation[observation_id] = {
-                "observation_correlation_id": observation_id,
-                "observed_at": observed_at,
-                "evaluation_id": "evaluation-fixture",
-                "epoch_id": "epoch-fixture",
-                "snapshot_id": "snapshot-fixture",
-                "report_id": "report-fixture",
-                "report_digest": "a" * 64,
-                "pressure_labels": (),
-                "cpu_utilization_percent": 20.0,
-                "ram_utilization_percent": 40.0,
-                "gpu_utilization_percent": 10.0,
-                "vram_utilization_percent": 20.0,
-                "gpu_telemetry_available": True,
-                "gpu_telemetry_complete": True,
-            }
+            evaluation = host_owner.run_cycle(correlation_id=observation_id)
+            assert evaluation is not None
             return governor._admit_local_model_inference(
                 actor="chat_service", subject="local_model", correlation_id=correlation_id,
                 operation_kind="model_serving", metadata={
@@ -357,6 +365,9 @@ def test_production_game_evidence_schemas_share_one_ordered_mtls_session(
         decision = admit(observation, "mTLS-game-serving-active")
         assert decision.allowed is False
         assert decision.reason == "deferred_gpu_model_serving_while_game_active"
+        assert decision.evidence_refs["host_resource_evidence"]["status"] == "current"
+        assert decision.evidence_refs["host_resource_evidence"][
+            "gpu_telemetry_complete"] is True
 
         idle_foreground_publisher = WindowsForegroundBridgePublisher(
             detector=ForegroundGameDetector(system_provider=lambda: "Windows",
@@ -381,6 +392,7 @@ def test_production_game_evidence_schemas_share_one_ordered_mtls_session(
         resumed_decision = admit(resumed_observation, "mTLS-game-serving-resumed")
         assert resumed_decision.allowed is False
         assert resumed_decision.reason == "deferred_gpu_model_serving_while_game_active"
+        assert host_owner.collector_call_count == 9
         assert runtime.status().accepted_messages == 4
     finally:
         core_detector.close()
