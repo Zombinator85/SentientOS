@@ -595,7 +595,7 @@ class ProductionServingInferenceController:
     def reconcile_idle_game_resource_state(self) -> dict[str, Any]:
         """Release an exact resident session on verified game/GPU pressure, without inference."""
         if not self._receipt_capacity_lock.acquire(blocking=False):
-            return self._preempt_for_verified_game_frame_pressure()
+            return self._preempt_for_verified_game_workload()
         try:
             workload = self.current_workload_state()
             selected_gaming_profile = workload.get("configured_mode") == "gaming"
@@ -682,8 +682,8 @@ class ProductionServingInferenceController:
         finally:
             self._receipt_capacity_lock.release()
 
-    def _preempt_for_verified_game_frame_pressure(self) -> dict[str, Any]:
-        """Admit and cancel one in-flight optional call when fresh game pacing regresses."""
+    def _preempt_for_verified_game_workload(self) -> dict[str, Any]:
+        """Admit and cancel optional inference when a game workload takes priority."""
         if not self._preemption_lock.acquire(blocking=False):
             return {"status": "skipped", "reason": "game_priority_release_in_progress"}
         try:
@@ -724,12 +724,13 @@ class ProductionServingInferenceController:
                     "active_inference_cancellation_confirmed": release[
                         "active_inference_cancellation_confirmed"]}
             provenance = workload.get("transport_provenance")
+            workload_message_id = (provenance.get("message_id")
+                if isinstance(provenance, Mapping) else None)
             if (workload.get("configured_mode") != "automatic"
                     or workload.get("observation_status") != "available"
                     or (workload.get("game_foreground") is not True
                         and workload.get("game_process_running") is not True)
-                    or not isinstance(provenance, Mapping)
-                    or not isinstance(provenance.get("message_id"), str)):
+                    or not isinstance(workload_message_id, str)):
                 return {"status": "skipped",
                     "reason": "fresh_verified_game_evidence_required"}
             session = self._serving.current_session()
@@ -756,7 +757,27 @@ class ProductionServingInferenceController:
             release = self._release_after_game_frame_pressure(
                 session, model, workload, preempt_active_generation=True)
             if release is None:
-                return {"status": "skipped", "reason": "current_game_frame_pressure_required"}
+                with self._active_invoker_lock:
+                    active_invoker = self._active_invoker
+                if active_invoker is None:
+                    return {"status": "skipped",
+                        "reason": "current_game_frame_pressure_required"}
+                workload_attempt_key = (session.session_id, workload_message_id)
+                if workload_attempt_key == self._last_active_game_preemption_attempt:
+                    return {"status": "skipped",
+                        "reason": "game_residency_release_already_attempted_for_observation"}
+                residency_release = self._release_after_gpu_model_residency(
+                    session, model, workload, preempt_active_generation=True)
+                if residency_release is None:
+                    return {"status": "skipped",
+                        "reason": "verified_game_gpu_residency_release_unavailable"}
+                self._last_active_game_preemption_attempt = workload_attempt_key
+                return {"status": residency_release["status"],
+                    "release_receipt_id": residency_release["receipt_id"],
+                    "trigger_kind": residency_release["trigger_kind"],
+                    "serving_session_id": session.session_id,
+                    "active_inference_cancellation_confirmed": residency_release[
+                        "active_inference_cancellation_confirmed"]}
             if release_attempt_key is not None:
                 self._last_active_game_preemption_attempt = release_attempt_key
             return {"status": release["status"],
@@ -1133,6 +1154,9 @@ class ProductionServingInferenceController:
                 "gpu_utilization_delta_percentage_points": gpu_delta,
                 "vram_utilization_delta_percentage_points": vram_delta,
                 "interpretation": "sample_delta_only; telemetry_does_not_establish_causation"},
+            "active_inference_preemption_requested": preempt_active_generation,
+            "active_inference_cancellation_confirmed":
+                active_inference_cancellation_confirmed,
             "inference_performed": False, "host_mutation_performed": False}
         if selected_gaming_profile:
             outcome.update({

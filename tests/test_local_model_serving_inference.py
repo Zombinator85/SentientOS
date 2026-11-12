@@ -736,6 +736,71 @@ def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch
         "active_inference_preemption_requested"] is True
 
 
+def test_verified_automatic_game_cancels_active_optional_gpu_inference(
+        monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    started = threading.Event()
+    cancelled = threading.Event()
+
+    def active_generation():
+        started.set()
+        if not cancelled.wait(timeout=5):
+            raise AssertionError("verified-game cancellation was not delivered")
+        raise RuntimeError("fixture_generation_cancelled_for_verified_game")
+
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, gpu_layers=24, on_generate=active_generation)
+    model.cancel_pending_generation = lambda: (cancelled.set() or True)
+    invocation_result = {}
+    invocation = threading.Thread(target=lambda: invocation_result.setdefault(
+        "receipt", bridge.generate(prompt="optional chat work", caller="operator",
+            correlation_id="automatic-game-active-inference")))
+    invocation.start()
+    assert started.wait(timeout=5)
+
+    game_workload = ForegroundGameObservation("available", True,
+        hashlib.sha256(b"examplegame.exe").hexdigest(), now.isoformat(),
+        transport_provenance={"message_id": "d" * 64,
+            "source_id": "windows-edge", "session_id": "foreground-session",
+            "generation_id": "foreground-generation-1", "sequence": 1,
+            "envelope_created_at": now.isoformat()})
+    assert kernel.observe_verified_game_workload(game_workload)
+
+    class VerifiedGameDetector:
+        def observe(self, process_names):
+            assert tuple(process_names) == ("examplegame.exe",)
+            return game_workload
+
+    bridge._foreground_game_detector = VerifiedGameDetector()
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+    reconciliation = bridge.reconcile_idle_game_resource_state()
+    invocation.join(timeout=5)
+
+    assert not invocation.is_alive()
+    assert reconciliation["status"] == "worker_closed"
+    assert reconciliation["trigger_kind"] == "idle_game_gpu_residency"
+    assert reconciliation["active_inference_cancellation_confirmed"] is True
+    assert invocation_result["receipt"].status == "cancelled"
+    assert invocation_result["receipt"].output_text is None
+    assert model.closed is True
+    assert serving.current_session() is None
+
+    release_path = next((tmp_path / "state" / "installations" / "install-1" /
+        "state" / "local-model" / "serving" / "resource-release-receipts").glob("*.json"))
+    release = json.loads(release_path.read_text(encoding="utf-8"))
+    assert release["active_inference_preemption_requested"] is True
+    assert release["active_inference_cancellation_confirmed"] is True
+    assert release["resource_observation"]["game_workload_message_id"] == "d" * 64
+    assert release["inference_performed"] is False
+    assert release["host_mutation_performed"] is False
+    serving.close()
+
+
 def test_governed_resource_release_retries_after_worker_close_failure(monkeypatch, tmp_path):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
