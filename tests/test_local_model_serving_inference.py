@@ -70,10 +70,12 @@ class Model:
     def __init__(self, identity, on_generate=None):
         self.active_identity, self.calls, self.closed, self.on_generate = identity, 0, False, on_generate
         self.prompts = []
+        self.generation_parameters = []
 
     def generate(self, prompt, **kwargs):
         self.calls += 1
         self.prompts.append(prompt)
+        self.generation_parameters.append(dict(kwargs))
         if self.on_generate: self.on_generate()
         return "answer"
 
@@ -275,6 +277,7 @@ def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt
         assert linkage["max_backend_threads"] == 2
         assert receipt.generation_config["actual_generation_parameters"][
             "max_backend_threads"] == 2
+        assert model.generation_parameters[0]["max_backend_threads"] == 2
         state = bridge.current_workload_state()
         assert state["configured_game_process_names"] == ["examplegame.exe"]
         evidence = linkage["workload_evidence"]
