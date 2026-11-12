@@ -740,8 +740,9 @@ def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch
     (24, False), (0, True),
 ], ids=["gpu-residency", "cpu-host-pressure"])
 def test_verified_automatic_game_cancels_active_optional_inference(
-        monkeypatch, tmp_path, gpu_layers, cpu_pressure):
+        monkeypatch, tmp_path, gpu_layers, cpu_pressure, request):
     import asyncio
+    from cryptography import x509
     from sentientos import chat_service
     from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
     from sentientos.governed_local_model_resource_allocation import (
@@ -756,9 +757,17 @@ def test_verified_automatic_game_cancels_active_optional_inference(
     from sentientos.production_chat_resource_provisioning_bundle_producer import (
         produce_production_chat_resource_provisioning_bundle,
     )
+    from sentientos.foreground_game_bridge import BridgeForegroundGameDetector
+    from sentientos.gaming_companion_bridge import CompanionBridgeReceiver
+    from sentientos.gaming_companion_tls_transport import (
+        CompanionBridgeMutualTLSClient, CompanionBridgeMutualTLSRuntime,
+    )
+    from sentientos.foreground_game_detection import ForegroundGameDetector
     from tests.test_production_chat_resource_provisioning_bundle_producer import (
         encoded, inputs as provisioning_inputs,
     )
+    from tests.test_gaming_companion_tls_transport import _certificate_bundle
+    from cryptography.hazmat.primitives.serialization import Encoding
 
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
@@ -766,6 +775,39 @@ def test_verified_automatic_game_cancels_active_optional_inference(
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
     kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
         decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    server_certificate = x509.load_pem_x509_certificate(
+        (tmp_path / "server.pem").read_bytes())
+    source_key, ack_key = b"g" * 32, b"a" * 32
+    source_id, generation_id = "windows-edge", "edge-cancellation-generation-1"
+    bridge_runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1", port=0,
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=CompanionBridgeReceiver(source_keys={source_id: source_key},
+            expected_generations={source_id: generation_id}),
+        acknowledgment_source_id="wsl-core",
+        acknowledgment_generation_id="core-cancellation-generation-1",
+        acknowledgment_key=ack_key)
+    port = bridge_runtime.start()
+    request.addfinalizer(bridge_runtime.close)
+    bridge_client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-core": ack_key},
+            expected_generations={"wsl-core": "core-cancellation-generation-1"}),
+        expected_server_certificate_sha256=hashlib.sha256(
+            server_certificate.public_bytes(Encoding.DER)).hexdigest())
+    presence_publisher = WindowsForegroundBridgePublisher(
+        detector=ForegroundGameDetector(system_provider=lambda: "Windows",
+            process_name_provider=lambda: "ExampleGame.exe",
+            running_process_names_provider=lambda: ("ExampleGame.exe",),
+            clock=lambda: now.isoformat()),
+        client=bridge_client, source_id=source_id,
+        session_id="active-inference-game-presence", generation_id=generation_id,
+        source_key=source_key)
+    game_detector = BridgeForegroundGameDetector(runtime=bridge_runtime,
+        source_id=source_id, generation_id=generation_id, clock=lambda: now)
+    game_detector.set_game_workload_admission_owner(kernel)
 
     def collector(collector_id, **values):
         return lambda *, observed_at=None: HostCollectorResult(
@@ -826,17 +868,7 @@ def test_verified_automatic_game_cancels_active_optional_inference(
         service, serving)
     chat_service._RESOURCE_RECONCILIATION_TASK = None
     invocation_result = {}
-    game_workload = ForegroundGameObservation("available", True,
-        hashlib.sha256(b"examplegame.exe").hexdigest(), now.isoformat(),
-        transport_provenance={"message_id": "d" * 64,
-            "source_id": "windows-edge", "session_id": "foreground-session",
-            "generation_id": "foreground-generation-1", "sequence": 1,
-            "envelope_created_at": now.isoformat()})
-    class VerifiedGameDetector:
-        def observe(self, process_names):
-            assert tuple(process_names) == ("examplegame.exe",)
-            return game_workload
-
+    game_message_id = {}
     active_prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
         "[SESSION_HISTORY_DATA]\nUSER_DATA: optional inference")
 
@@ -855,8 +887,9 @@ def test_verified_automatic_game_cancels_active_optional_inference(
             invocation.start()
             if not await asyncio.to_thread(started.wait, 5):
                 raise AssertionError("optional inference did not start")
-            assert kernel.observe_verified_game_workload(game_workload)
-            bridge._foreground_game_detector = VerifiedGameDetector()
+            presence_message = presence_publisher.publish_once(("ExampleGame.exe",))
+            game_message_id["value"] = presence_message.payload["message_id"]
+            bridge._foreground_game_detector = game_detector
             bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
             assert bridge.resource_reconciliation_interval_seconds() == 0.5
             if not await asyncio.to_thread(cancelled.wait, 5):
@@ -875,6 +908,7 @@ def test_verified_automatic_game_cancels_active_optional_inference(
         chat_service._PRODUCTION_COMPOSITION = previous_composition
         chat_service._RESOURCE_RECONCILIATION_TASK = previous_reconciliation_task
         resource_custody.close()
+        game_detector.close()
 
     assert scheduler_started is True
     assert not invocation.is_alive()
@@ -898,7 +932,8 @@ def test_verified_automatic_game_cancels_active_optional_inference(
     release = json.loads(release_path.read_text(encoding="utf-8"))
     assert release["active_inference_preemption_requested"] is True
     assert release["active_inference_cancellation_confirmed"] is True
-    assert release["resource_observation"]["game_workload_message_id"] == "d" * 64
+    assert release["resource_observation"]["game_workload_message_id"] == (
+        game_message_id["value"])
     if cpu_pressure:
         assert release["resource_observation"]["pressure_labels"] == ["cpu_pressure"]
         assert release["resource_observation"]["host_report_id"]
