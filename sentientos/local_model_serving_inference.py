@@ -747,18 +747,18 @@ class ProductionServingInferenceController:
                 performance = None
             message_id = (performance.get("message_id")
                 if isinstance(performance, Mapping) else None)
-            attempt_key = ((session.session_id, message_id)
+            release_attempt_key = ((session.session_id, message_id)
                 if isinstance(message_id, str) and message_id else None)
-            if (attempt_key is not None
-                    and attempt_key == self._last_active_game_preemption_attempt):
+            if (release_attempt_key is not None
+                    and release_attempt_key == self._last_active_game_preemption_attempt):
                 return {"status": "skipped",
                     "reason": "game_pressure_release_already_attempted_for_observation"}
             release = self._release_after_game_frame_pressure(
                 session, model, workload, preempt_active_generation=True)
             if release is None:
                 return {"status": "skipped", "reason": "current_game_frame_pressure_required"}
-            if attempt_key is not None:
-                self._last_active_game_preemption_attempt = attempt_key
+            if release_attempt_key is not None:
+                self._last_active_game_preemption_attempt = release_attempt_key
             return {"status": release["status"],
                 "release_receipt_id": release["receipt_id"],
                 "trigger_kind": "idle_game_frame_pressure_reconciliation",
