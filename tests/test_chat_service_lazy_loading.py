@@ -442,6 +442,79 @@ def test_exhausted_governed_cpu_allocation_returns_durable_resource_response(tmp
     }
 
 
+def test_game_host_pressure_pre_effect_deferral_returns_durable_resource_response(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+
+    class DeferredPressureInvoker(SimulationInvoker):
+        def __init__(self):
+            super().__init__()
+            self.backend_calls = 0
+
+        def invoke(self, request, **_kwargs):
+            self.calls += 1
+            return SimpleNamespace(
+                status="deferred",
+                reason_codes=(
+                    "runtime_resource_admission_deferred",
+                    "runtime_governor:deferred_local_model_inference_under_host_pressure_during_game",
+                ),
+                output_text=None,
+                output_digest=None,
+                request={"linkage": {
+                    "host_resource_observation": {
+                        "status": "current",
+                        "observation_correlation_id": "game-host-pressure-observation",
+                        "report_id": "host-report-1",
+                        "report_digest": "c" * 64,
+                        "observed_at": "2026-11-12T12:00:00+00:00",
+                        "pressure_labels": ["cpu_pressure"],
+                        "cpu_utilization_percent": 95.0,
+                        "ram_utilization_percent": 40.0,
+                        "no_effect_authority": True,
+                    },
+                }},
+                receipt_id="lmrec-game-pressure-deferral",
+                receipt_digest="d" * 64,
+                resource_allocation_digest="e" * 64,
+                resource_attempt_id=None,
+                effects={"local_model_inference": False},
+            )
+
+    invoker = DeferredPressureInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+
+    response = client.post("/chat", json={"message": "Give me a short answer."})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "active game and current host resource evidence" in body["response"]
+    assert "no model reply was generated" in body["response"]
+    assert body["context"]["response_origin"] == "deterministic_grounding_policy"
+    assert invoker.calls == 1
+    assert invoker.backend_calls == 0
+    session = chat._CONVERSATION_SERVICE.sessions.load(body["session_id"])
+    assistant = next(turn for turn in session["turns"]
+        if turn.get("turn_id") == body["turn_id"])
+    decision = assistant["linkage"]["policy_decision"]["payload"]
+    assert decision["policy_id"] == "governed_model_resource_policy:v1"
+    assert decision["reason_code"] == (
+        "deferred_local_model_inference_under_host_pressure_during_game")
+    evidence = decision["evidence"]["governed_resource_admission"]
+    assert evidence["status"] == "deferred_before_model_effect"
+    assert evidence["model_inference_performed"] is False
+    assert evidence["host_resource_observation"] == {
+        "status": "current",
+        "observation_correlation_id": "game-host-pressure-observation",
+        "report_id": "host-report-1",
+        "report_digest": "c" * 64,
+        "observed_at": "2026-11-12T12:00:00+00:00",
+        "pressure_labels": ["cpu_pressure"],
+        "cpu_utilization_percent": 95.0,
+        "ram_utilization_percent": 40.0,
+        "no_effect_authority": True,
+    }
+
+
 @pytest.mark.parametrize(("foreground", "preload_admission", "expected_calls"), [
     (True, "available", 1),
     (False, "available", 0),

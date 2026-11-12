@@ -3384,15 +3384,25 @@ class PersistentConversationService:
         inference_completed_ns = time.monotonic_ns()
         receipt_effects = getattr(receipt, "effects", None)
         denial_reasons = getattr(receipt, "reason_codes", ())
+        no_model_effect = (
+            isinstance(receipt_effects, Mapping)
+            and receipt_effects.get("local_model_inference") is False)
         cpu_budget_exhausted = (
             receipt.status == "resource_denied"
-            and isinstance(receipt_effects, Mapping)
-            and receipt_effects.get("local_model_inference") is False
+            and no_model_effect
             and isinstance(denial_reasons, (tuple, list))
             and any(isinstance(reason, str)
                 and reason.endswith("cpu_seconds_entitlement_exhausted")
                 for reason in denial_reasons))
-        if cpu_budget_exhausted:
+        game_host_pressure_deferred = (
+            receipt.status == "deferred"
+            and no_model_effect
+            and isinstance(denial_reasons, (tuple, list))
+            and any(isinstance(reason, str)
+                and reason.endswith(
+                    "deferred_local_model_inference_under_host_pressure_during_game")
+                for reason in denial_reasons))
+        if cpu_budget_exhausted or game_host_pressure_deferred:
             allocation_digest = getattr(receipt, "resource_allocation_digest", None)
             if (not isinstance(allocation_digest, str)
                     or re.fullmatch(r"[0-9a-f]{64}", allocation_digest) is None):
@@ -3407,27 +3417,67 @@ class PersistentConversationService:
             attempt_id = getattr(receipt, "resource_attempt_id", None)
             if not isinstance(attempt_id, str) or not attempt_id:
                 attempt_id = None
-            return self._complete_deterministic_grounding_response(
-                session_id=session["session_id"], user_turn=user_turn,
-                response_text=(
-                    "This chat allocation has reached its governed CPU-seconds budget. "
-                    "Your message is saved, but no model reply was generated. A model reply "
-                    "requires a newly authorized resource allocation."),
-                correction={"policy_id": "governed_model_resource_policy:v1",
-                    "reason_code": "cpu_seconds_entitlement_exhausted"},
-                runtime_context=runtime_context, history=history, memory=memory,
-                on_content_chunk=on_content_chunk,
-                screen_observation_provenance=screen_observation,
-                governed_resource_admission_evidence={
+            if game_host_pressure_deferred:
+                resource_reason = (
+                    "deferred_local_model_inference_under_host_pressure_during_game")
+                response_text = (
+                    "I’m pausing optional model inference because the active game and current "
+                    "host resource evidence show pressure. Your message is saved, but no model "
+                    "reply was generated. Ask again after resource headroom recovers.")
+                request_linkage = receipt.request.get("linkage")
+                request_linkage = (request_linkage if isinstance(request_linkage, Mapping)
+                    else {})
+                observation = request_linkage.get("host_resource_observation")
+                observation_evidence: dict[str, Any] | None = None
+                if isinstance(observation, Mapping):
+                    observation_evidence = {
+                        key: observation[key] for key in (
+                            "status", "observation_correlation_id", "report_id",
+                            "report_digest", "observed_at", "pressure_labels",
+                            "cpu_utilization_percent", "ram_utilization_percent",
+                            "gpu_utilization_percent", "vram_utilization_percent",
+                            "no_effect_authority") if key in observation}
+                    labels = observation_evidence.get("pressure_labels")
+                    if (not isinstance(labels, (tuple, list))
+                            or not all(isinstance(label, str) for label in labels)):
+                        observation_evidence.pop("pressure_labels", None)
+                resource_evidence: dict[str, Any] = {
                     "schema_version": "sentientos.governed_model_resource_denial:v1",
-                    "status": "denied_before_model_effect",
-                    "reason_code": "cpu_seconds_entitlement_exhausted",
+                    "status": "deferred_before_model_effect",
+                    "reason_code": resource_reason,
                     "resource_allocation_digest": allocation_digest,
                     "resource_attempt_id": attempt_id,
                     "invocation_receipt_id": receipt_id,
                     "invocation_receipt_digest": receipt_digest,
                     "model_inference_performed": False,
-                })
+                }
+                if observation_evidence is not None:
+                    resource_evidence["host_resource_observation"] = observation_evidence
+            else:
+                resource_reason = "cpu_seconds_entitlement_exhausted"
+                response_text = (
+                    "This chat allocation has reached its governed CPU-seconds budget. "
+                    "Your message is saved, but no model reply was generated. A model reply "
+                    "requires a newly authorized resource allocation.")
+                resource_evidence = {
+                    "schema_version": "sentientos.governed_model_resource_denial:v1",
+                    "status": "denied_before_model_effect",
+                    "reason_code": resource_reason,
+                    "resource_allocation_digest": allocation_digest,
+                    "resource_attempt_id": attempt_id,
+                    "invocation_receipt_id": receipt_id,
+                    "invocation_receipt_digest": receipt_digest,
+                    "model_inference_performed": False,
+                }
+            return self._complete_deterministic_grounding_response(
+                session_id=session["session_id"], user_turn=user_turn,
+                response_text=response_text,
+                correction={"policy_id": "governed_model_resource_policy:v1",
+                    "reason_code": resource_reason},
+                runtime_context=runtime_context, history=history, memory=memory,
+                on_content_chunk=on_content_chunk,
+                screen_observation_provenance=screen_observation,
+                governed_resource_admission_evidence=resource_evidence)
         accepted_statuses = {"admitted_completed"}
         if isinstance(self._inference, DevelopmentLocalChatInference):
             accepted_statuses.add("admitted_simulation")
