@@ -553,6 +553,30 @@ through its installed provider, while the Windows publisher remains a separate
 installed component. The observer sees only which allowlisted executable is
 foreground, not game content or measured gameplay impact.
 
+When canonical chat owns the WSL-core runtime, the Windows edge can use the
+`sentientos-gaming-companion-edge-supervisor` foreground process. An installed
+platform provider can obtain a stopped edge-only
+`GamingCompanionProcessSupervisor` from
+`GamingCompanionPlatformPairProcessProvider.windows_edge_supervisor`. The
+entrypoint verifies the deployment launch record before provider composition;
+the process supervisor then verifies each fresh generation pair and exact
+Windows-edge command before spawn, monitors health, and applies the existing
+bounded recovery policy. It does not start a second WSL-core listener. A host
+service manager may own this foreground supervisor process, but this command
+does not install an OS service or startup persistence.
+
+```text
+sentientos-gaming-companion-edge-supervisor --manifest deployment.json \
+  --provider sentientos_platform.windows_pair:build_windows_edge_supervisor \
+  --launch-authorizer sentientos_platform.authority:verify_pair_launch
+```
+
+The `build_windows_edge_supervisor` callback is installation-supplied and must
+return the exact edge-only supervisor; it cannot mint generation records or
+authorize process launch. Target Windows service installation, ACL enforcement,
+DPAPI custody, and Windows-to-WSL network commissioning still require the
+installed platform.
+
 `sentientos.windows_game_performance.WindowsGamePerformanceObserver` is a
 separate read-only adapter for selected Windows process CPU/RSS and bounded
 PresentMon CSV frame-time samples. It reports p50/p95/p99, hitches above 50 ms,
