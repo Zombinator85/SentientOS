@@ -29,6 +29,10 @@ from sentientos.gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackClient,
     CompanionBridgeLoopbackRuntime,
 )
+from sentientos.gaming_companion_tls_transport import (
+    CompanionBridgeMutualTLSClient,
+    CompanionBridgeMutualTLSRuntime,
+)
 from sentientos.game_performance_bridge import (
     GamePerformanceBridgeDetector,
     WindowsGamePerformanceBridgePublisher,
@@ -47,6 +51,133 @@ from sentientos.host_resource_runtime import (
 from sentientos.windows_game_performance import WindowsGamePerformanceObserver
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_mtls_game_evidence_and_host_pressure_defer_then_govern_optional_model_release(
+        monkeypatch, tmp_path, request):
+    """Join authenticated game samples to host-pressure admission and release."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives.serialization import Encoding
+    from tests.test_gaming_companion_tls_transport import _certificate_bundle
+
+    now = datetime.now(timezone.utc)
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    server_certificate = x509.load_pem_x509_certificate(
+        (tmp_path / "server.pem").read_bytes())
+    server_pin = hashlib.sha256(server_certificate.public_bytes(Encoding.DER)).hexdigest()
+    source_key = b"authenticated-game-resource-source-key"
+    ack_key = b"authenticated-core-resource-ack-key-32"
+    source_id, generation_id = "windows-edge", "edge-resource-generation-1"
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1", port=0,
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=CompanionBridgeReceiver(source_keys={source_id: source_key},
+            expected_generations={source_id: generation_id}),
+        acknowledgment_source_id="wsl-core",
+        acknowledgment_generation_id="core-resource-generation-1",
+        acknowledgment_key=ack_key)
+    port = runtime.start()
+    request.addfinalizer(runtime.close)
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-core": ack_key},
+            expected_generations={"wsl-core": "core-resource-generation-1"}),
+        expected_server_certificate_sha256=server_pin)
+
+    class GamePresenceSample:
+        def observe(self, process_names):
+            assert tuple(process_names) == ("examplegame.exe",)
+            return ForegroundGameObservation("available", True,
+                hashlib.sha256(b"examplegame.exe").hexdigest(), now.isoformat())
+
+    presence_publisher = WindowsForegroundBridgePublisher(
+        detector=GamePresenceSample(), client=client, source_id=source_id,
+        session_id="game-presence-session", generation_id=generation_id,
+        source_key=source_key)
+    presence_message = presence_publisher.publish_once(("examplegame.exe",))
+    performance_publisher = WindowsGamePerformanceBridgePublisher(
+        observer=WindowsGamePerformanceObserver(
+            system_provider=lambda: "Windows",
+            process_provider=lambda _pid: {"name": "examplegame.exe",
+                "cpu_percent": 15.0, "rss_bytes": 8192},
+            frame_provider=lambda _pid: ((), None),
+            clock=lambda: now.isoformat()),
+        client=client, source_id=source_id, session_id="game-performance-session",
+        generation_id=generation_id, source_key=source_key, process_id=4012)
+    performance_message = performance_publisher.publish_once()
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    detector = BridgeForegroundGameDetector(runtime=runtime, source_id=source_id,
+        generation_id=generation_id, clock=lambda: now)
+    detector.set_game_workload_admission_owner(kernel)
+    detector.set_game_performance_admission_owner(kernel)
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_plan = build_observation_plan(specs=[
+        HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+            collector("cpu", utilization_percent=95.0)),
+        HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+            collector("memory", used_percent=40.0)),
+        HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+            collector("nvidia_gpu", device_count=0, devices=[])),
+    ])
+    host_resource_owner = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "host-resource",
+        plan=host_plan, clock=lambda: now.isoformat())
+    bridge, serving, _, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, foreground_game_detector=detector,
+        host_resource_observation_owner=host_resource_owner)
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+    try:
+        prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+            "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
+        receipt = bridge.generate(prompt=prompt, caller="chat_service",
+            correlation_id="mtls-game-host-pressure")
+        assert receipt.status == "deferred"
+        assert model.calls == 0
+        assert model.closed is True
+        assert serving.current_session() is None
+        workload = receipt.request["linkage"]["workload_evidence"]
+        assert workload["transport_provenance"]["message_id"] == (
+            presence_message.payload["message_id"])
+        decisions = [json.loads(line) for line in (tmp_path / "kernel-decisions.jsonl").read_text(
+            encoding="utf-8").splitlines()]
+        inference_decision = next(item for item in decisions
+            if item.get("action_kind") == "local_model_inference")
+        delegated = inference_decision["delegated_outcomes"]["runtime_governor"]
+        assert delegated["reason"] == (
+            "deferred_local_model_inference_under_host_pressure_during_game")
+        assert delegated["evidence_refs"]["game_performance_evidence"]["message_id"] == (
+            performance_message.payload["message_id"])
+        assert delegated["evidence_refs"]["game_workload_evidence"]["message_id"] == (
+            presence_message.payload["message_id"])
+        assert delegated["evidence_refs"]["host_resource_evidence"]["report_id"] == (
+            receipt.request["linkage"]["host_resource_observation"]["report_id"])
+        assert delegated["evidence_refs"]["observed_pressure_labels"] == ["cpu_pressure"]
+        assert host_resource_owner.collector_call_count == 6
+        release_files = list((tmp_path / "state" / "installations" / "install-1" /
+            "state" / "local-model" / "serving" / "resource-release-receipts").glob("*.json"))
+        assert len(release_files) == 1
+        release = json.loads(release_files[0].read_text(encoding="utf-8"))
+        assert release["status"] == "worker_closed"
+        assert release["inference_performed"] is False
+        assert release["host_mutation_performed"] is False
+        assert release["resource_measurement_comparison"]["status"] == (
+            "insufficient_gpu_measurements")
+        assert release["resource_measurement_comparison"]["interpretation"] == (
+            "sample_delta_only; telemetry_does_not_establish_causation")
+    finally:
+        detector.close()
+        serving.close()
 
 
 class Kernel:
