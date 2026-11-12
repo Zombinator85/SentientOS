@@ -251,7 +251,12 @@ def test_recovery_configuration_digest_binds_gaming_workload_policy() -> None:
     normal = LocalModelChatStartup(True, "install-1", "serve-1")
     gaming = LocalModelChatStartup(True, "install-1", "serve-1",
         initial_workload_mode="gaming")
-    assert startup_configuration_digest(normal) != startup_configuration_digest(gaming)
+    allocated = LocalModelChatStartup(True, "install-1", "serve-1",
+        resource_provisioning_id="primary.v1")
+    other_allocation = LocalModelChatStartup(True, "install-1", "serve-1",
+        resource_provisioning_id="gaming.v1")
+    assert len({startup_configuration_digest(config)
+                for config in (normal, gaming, allocated, other_allocation)}) == 4
 
 
 def test_recovery_surface_has_no_generic_process_or_model_escape() -> None:

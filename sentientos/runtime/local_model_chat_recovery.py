@@ -67,6 +67,7 @@ def startup_configuration_digest(config: LocalModelChatStartup) -> str:
                             "installation_identity": config.installation_identity,
                             "host": config.host, "port": config.port,
                             "initial_workload_mode": config.initial_workload_mode,
+                            "resource_provisioning_id": config.resource_provisioning_id,
                             "restart_policy": "never"})
 
 
