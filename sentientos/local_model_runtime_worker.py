@@ -126,7 +126,12 @@ try:
     restore_threads[0](restore_threads[1],restore_threads[2],restore_threads[3])
   if len(output)>32768: raise RuntimeError("response_too_large")
   emit({"type":"generated","output":output,**resources(),
-   "invocation_resources":generation_resources(resource_before,generation_started)})
+   "invocation_resources":generation_resources(resource_before,generation_started),
+   "backend_thread_limit_control":{"schema_version":"sentientos.llama_cpp_backend_thread_limit_control:v1",
+    "requested_ceiling":thread_ceiling if has_thread_ceiling else None,
+    "setter_function":"llama_set_n_threads" if has_thread_ceiling else None,
+    "n_threads_argument":effective_threads,
+    "n_threads_batch_argument":effective_threads}})
 except Exception as exc:
  emit({"type":"error","error_type":type(exc).__name__,"diagnostic":str(exc)[:512]})
  sys.exit(70)
@@ -246,9 +251,28 @@ class ExactRuntimeLocalModel:
             self._process.stdin.write(data + "\n"); self._process.stdin.flush()
             response = self._read()
         if (set(response) != {"type", "output", "peak_rss_kib", "user_cpu_seconds",
-                              "system_cpu_seconds", "invocation_resources"}
+                              "system_cpu_seconds", "invocation_resources",
+                              "backend_thread_limit_control"}
                 or response["type"] != "generated" or not isinstance(response["output"], str)):
             raise ModelLoadError("exact runtime worker malformed response")
+        thread_control = response["backend_thread_limit_control"]
+        requested_ceiling = generation.get("max_backend_threads")
+        if (not isinstance(thread_control, Mapping)
+                or set(thread_control) != {"schema_version", "requested_ceiling",
+                    "setter_function", "n_threads_argument", "n_threads_batch_argument"}
+                or thread_control.get("schema_version") != (
+                    "sentientos.llama_cpp_backend_thread_limit_control:v1")
+                or thread_control.get("requested_ceiling") != requested_ceiling):
+            raise ModelLoadError("exact runtime worker thread control malformed")
+        if requested_ceiling is None:
+            if any(thread_control.get(key) is not None for key in (
+                    "setter_function", "n_threads_argument", "n_threads_batch_argument")):
+                raise ModelLoadError("exact runtime worker thread control malformed")
+        elif (thread_control.get("setter_function") != "llama_set_n_threads"
+                or any(type(thread_control.get(key)) is not int
+                    or not 1 <= thread_control[key] <= requested_ceiling
+                    for key in ("n_threads_argument", "n_threads_batch_argument"))):
+            raise ModelLoadError("exact runtime worker thread control malformed")
         resources = response["invocation_resources"]
         if not isinstance(resources, Mapping) or set(resources) != {
                 "schema_version", "user_cpu_seconds", "system_cpu_seconds", "wall_seconds",
@@ -266,13 +290,14 @@ class ExactRuntimeLocalModel:
         self.user_cpu_seconds = response["user_cpu_seconds"]
         self.system_cpu_seconds = response["system_cpu_seconds"]
         completion = {
-            "schema_version": "sentientos.llama_cpp_completion_observation:v2",
+            "schema_version": "sentientos.llama_cpp_completion_observation:v3",
             "backend": "llama_cpp",
             "finish_reason": "unknown",
             "completion_tokens": None,
             "prompt_tokens": None,
             "token_limit_reached": None,
             "invocation_resources": dict(resources),
+            "backend_thread_limit_control": dict(thread_control),
         }
         return response["output"], completion
 

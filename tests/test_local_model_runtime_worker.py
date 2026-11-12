@@ -147,6 +147,13 @@ def test_exact_runtime_worker_reports_bounded_invocation_resources_and_restores_
     else:
         assert generated["type"] == "generated"
         assert generated["output"] == "fixture response"
+        assert generated["backend_thread_limit_control"] == {
+            "schema_version": "sentientos.llama_cpp_backend_thread_limit_control:v1",
+            "requested_ceiling": thread_ceiling,
+            "setter_function": "llama_set_n_threads",
+            "n_threads_argument": effective_threads,
+            "n_threads_batch_argument": effective_threads,
+        }
     assert json.loads(captured_options.read_text(encoding="utf-8")) == {
         "n_ctx": 64, "n_gpu_layers": 0, "n_batch": 128, "n_ubatch": 64,
         "n_threads": 4, "n_threads_batch": 2,

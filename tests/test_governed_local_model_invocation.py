@@ -372,7 +372,7 @@ def test_worker_resource_measurements_are_bound_to_invocation_receipt(tmp_path: 
         generation=GenerationConfig(max_new_tokens=8))
     authority = build_local_model_authority_map(config, allowed_roots=[tmp_path])
     completion = {
-        "schema_version": "sentientos.llama_cpp_completion_observation:v2",
+        "schema_version": "sentientos.llama_cpp_completion_observation:v3",
         "backend": "llama_cpp",
         "finish_reason": "unknown",
         "completion_tokens": None,
@@ -385,21 +385,36 @@ def test_worker_resource_measurements_are_bound_to_invocation_receipt(tmp_path: 
             "wall_seconds": 0.18,
             "process_peak_rss_bytes": 7_340_032,
         },
+        "backend_thread_limit_control": {
+            "schema_version": "sentientos.llama_cpp_backend_thread_limit_control:v1",
+            "requested_ceiling": 2,
+            "setter_function": "llama_set_n_threads",
+            "n_threads_argument": 2,
+            "n_threads_batch_argument": 2,
+        },
     }
     model = BackendMetadataModel("answer", completion)
+    model.supports_per_invocation_thread_limit = True
     invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
         kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
             decisions_path=tmp_path / "decisions.jsonl"), runtime_root=tmp_path / "runtime")
     request = invoker.build_request(purpose="local_user_chat", prompt="hello",
-        caller="test", correlation_id="worker-resource-observation")
+        caller="test", correlation_id="worker-resource-observation",
+        linkage={"max_backend_threads": 2})
 
     receipt = invoker.invoke(request)
 
     assert receipt.status == "admitted_completed"
     payload = receipt.to_dict()
     assert payload["backend_completion"] == completion
+    assert payload["generation_config"]["actual_generation_parameters"][
+        "max_backend_threads"] == 2
     valid, reasons = validate_receipt(payload)
     assert valid, reasons
+    payload["request"]["linkage"]["max_backend_threads"] = 1
+    valid, reasons = validate_receipt(payload)
+    assert not valid and "backend_thread_limit_control_unbound" in reasons
+    payload["request"]["linkage"]["max_backend_threads"] = 2
     payload["backend_completion"]["invocation_resources"]["user_cpu_seconds"] = -1
     valid, reasons = validate_receipt(payload)
     assert not valid
@@ -431,6 +446,30 @@ def test_worker_resource_observation_rejects_invalid_measurements(field: str, va
         },
     }
     completion["invocation_resources"][field] = value
+
+    assert not validate_llama_completion_observation(completion)
+
+
+def test_backend_thread_limit_control_observation_is_bounded_and_exact() -> None:
+    completion = {
+        "schema_version": "sentientos.llama_cpp_completion_observation:v3",
+        "backend": "llama_cpp", "finish_reason": "unknown",
+        "completion_tokens": None, "prompt_tokens": None,
+        "token_limit_reached": None,
+        "invocation_resources": {
+            "schema_version": "sentientos.llama_cpp_invocation_resource_observation:v1",
+            "user_cpu_seconds": 0.1, "system_cpu_seconds": 0.01,
+            "wall_seconds": 0.11, "process_peak_rss_bytes": 8_388_608,
+        },
+        "backend_thread_limit_control": {
+            "schema_version": "sentientos.llama_cpp_backend_thread_limit_control:v1",
+            "requested_ceiling": 2, "setter_function": "llama_set_n_threads",
+            "n_threads_argument": 2, "n_threads_batch_argument": 2,
+        },
+    }
+    assert validate_llama_completion_observation(completion)
+
+    completion["backend_thread_limit_control"]["n_threads_argument"] = 3
 
     assert not validate_llama_completion_observation(completion)
 

@@ -36,8 +36,11 @@ INVOCATION_RECEIPT_SCHEMA = "sentientos.local_model_invocation_receipt:v2"
 INVOCATION_RECEIPT_SCHEMA_V3 = "sentientos.local_model_invocation_receipt:v3"
 LLAMA_COMPLETION_OBSERVATION_SCHEMA_V1 = "sentientos.llama_cpp_completion_observation:v1"
 LLAMA_COMPLETION_OBSERVATION_SCHEMA = "sentientos.llama_cpp_completion_observation:v2"
+LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3 = "sentientos.llama_cpp_completion_observation:v3"
 LLAMA_INVOCATION_RESOURCE_OBSERVATION_SCHEMA = (
     "sentientos.llama_cpp_invocation_resource_observation:v1")
+LLAMA_BACKEND_THREAD_LIMIT_CONTROL_SCHEMA = (
+    "sentientos.llama_cpp_backend_thread_limit_control:v1")
 MAX_INVOCATION_RECEIPT_BYTES = 256 * 1024
 MAX_INVOCATION_RECEIPTS = 256
 OLLAMA_BACKEND_DIAGNOSTICS = frozenset({
@@ -60,8 +63,12 @@ def validate_llama_completion_observation(value: object) -> bool:
     if schema == LLAMA_COMPLETION_OBSERVATION_SCHEMA_V1:
         if set(value) != common:
             return False
-    elif schema == LLAMA_COMPLETION_OBSERVATION_SCHEMA:
-        if set(value) != common | {"invocation_resources"}:
+    elif schema in {LLAMA_COMPLETION_OBSERVATION_SCHEMA,
+                    LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3}:
+        expected = common | {"invocation_resources"}
+        if schema == LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3:
+            expected.add("backend_thread_limit_control")
+        if set(value) != expected:
             return False
         metrics = value.get("invocation_resources")
         if (not isinstance(metrics, Mapping)
@@ -83,6 +90,26 @@ def validate_llama_completion_observation(value: object) -> bool:
         rss = metrics.get("process_peak_rss_bytes")
         if rss is not None and (type(rss) is not int or not 0 <= rss <= 1_099_511_627_776):
             return False
+        if schema == LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3:
+            control = value.get("backend_thread_limit_control")
+            if (not isinstance(control, Mapping)
+                    or set(control) != {"schema_version", "requested_ceiling",
+                        "setter_function", "n_threads_argument", "n_threads_batch_argument"}
+                    or control.get("schema_version") != LLAMA_BACKEND_THREAD_LIMIT_CONTROL_SCHEMA):
+                return False
+            requested = control.get("requested_ceiling")
+            setter = control.get("setter_function")
+            n_threads = control.get("n_threads_argument")
+            n_threads_batch = control.get("n_threads_batch_argument")
+            if requested is None:
+                if setter is not None or n_threads is not None or n_threads_batch is not None:
+                    return False
+            elif (type(requested) is not int or not 1 <= requested <= 256
+                    or setter != "llama_set_n_threads"
+                    or type(n_threads) is not int or not 1 <= n_threads <= requested
+                    or type(n_threads_batch) is not int
+                    or not 1 <= n_threads_batch <= requested):
+                return False
     else:
         return False
     if (value.get("backend") != "llama_cpp"
@@ -515,6 +542,24 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
             if not validate_backend_completion_observation(completion):
                 reasons.append("backend_completion_observation_invalid")
             elif (isinstance(completion, Mapping)
+                    and completion.get("schema_version") ==
+                        LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3):
+                thread_control = completion.get("backend_thread_limit_control")
+                request_value = payload.get("request")
+                request_linkage = (request_value.get("linkage")
+                    if isinstance(request_value, Mapping) else None)
+                expected_thread_limit = (request_linkage.get("max_backend_threads")
+                    if isinstance(request_linkage, Mapping) else None)
+                generation_config = payload.get("generation_config")
+                actual_parameters = (generation_config.get("actual_generation_parameters")
+                    if isinstance(generation_config, Mapping) else None)
+                actual_thread_limit = (actual_parameters.get("max_backend_threads")
+                    if isinstance(actual_parameters, Mapping) else None)
+                if (not isinstance(thread_control, Mapping)
+                        or thread_control.get("requested_ceiling") != expected_thread_limit
+                        or actual_thread_limit != expected_thread_limit):
+                    reasons.append("backend_thread_limit_control_unbound")
+            if (isinstance(completion, Mapping)
                     and completion.get("finish_reason") == "length"
                     and payload.get("output_truncated") is not True):
                 reasons.append("backend_completion_truncation_mismatch")
