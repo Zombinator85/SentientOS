@@ -800,8 +800,21 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert postflight["no_effect_authority"] is True
         assert postflight["gpu_utilization_percent"] == 12.0
         assert postflight["vram_utilization_percent"] == 40.0
+        beforeflight = release["before_release_observation"]
+        assert beforeflight["status"] == "current"
+        assert beforeflight["no_effect_authority"] is True
+        assert beforeflight["gpu_utilization_percent"] == 22.0
+        assert beforeflight["vram_utilization_percent"] == 47.0
+        comparison = release["resource_measurement_comparison"]
+        assert comparison["status"] == "comparable"
+        assert comparison["before_sample_kind"] == "recent_cached_observation"
+        assert comparison["gpu_utilization_delta_percentage_points"] == -10.0
+        assert comparison["vram_utilization_delta_percentage_points"] == -7.0
+        assert comparison["interpretation"] == (
+            "sample_delta_only; telemetry_does_not_establish_causation")
         assert release["post_release_measurement_interpretation"] == (
-            "read_only_sample_after_worker_close; no pre-release sample; "
+            "read_only_sample_after_worker_close; pre-release sample is a "
+            "recent cache entry when available; "
             "telemetry_does_not_establish_causation")
         assert release["inference_performed"] is False
         assert release["host_mutation_performed"] is False

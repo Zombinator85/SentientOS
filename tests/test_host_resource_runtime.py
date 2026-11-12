@@ -65,6 +65,31 @@ def test_observation_owner_bounds_process_local_epoch_cache(tmp_path):
     assert "tick-0" not in coordinator._epochs_by_correlation
 
 
+def test_latest_evaluation_is_fresh_cached_and_nonblocking(tmp_path):
+    now = [datetime(2026, 11, 12, tzinfo=timezone.utc)]
+    plan = build_observation_plan(specs=[HostObservationCollectorSpec(
+        "memory", True, ("linux", "unknown"), 1,
+        lambda observed_at=None: _result("memory", used_percent=20.0))])
+    coordinator = HostResourceRuntimeCoordinator(
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME),
+        runtime_state_root=tmp_path, plan=plan,
+        clock=lambda: now[0].isoformat())
+
+    assert coordinator.latest_evaluation() is None
+    completed = coordinator.run_cycle(correlation_id="before-frame-pressure")
+    assert completed is not None
+    assert coordinator.latest_evaluation() is completed
+
+    now[0] = now[0].replace(second=16)
+    assert coordinator.latest_evaluation() is None
+    now[0] = datetime(2026, 11, 12, tzinfo=timezone.utc)
+    assert coordinator._cycle_lock.acquire(blocking=False)
+    try:
+        assert coordinator.latest_evaluation() is None
+    finally:
+        coordinator._cycle_lock.release()
+
+
 def test_timeout_exception_partial_failure_and_late_discard(tmp_path):
     def ok(*, observed_at=None): return _result("ok", used_percent=0)
     def boom(*, observed_at=None): raise RuntimeError("/home/alice secret Traceback")

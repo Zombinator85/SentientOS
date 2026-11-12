@@ -213,6 +213,37 @@ class HostResourceRuntimeCoordinator:
         with self._cycle_lock:
             return self._run_cycle(correlation_id=correlation_id, decision=decision)
 
+    def latest_evaluation(self, *, max_age_seconds: float = 15.0) -> HostResourceRuntimeEvaluation | None:
+        """Return the latest completed read-only sample if fresh, without collecting telemetry.
+
+        The nonblocking cache read is suitable for fast paths that must not wait
+        for a host observation. It carries no admission or actuation authority.
+        """
+        if (isinstance(max_age_seconds, bool)
+                or not isinstance(max_age_seconds, (int, float))
+                or not math.isfinite(float(max_age_seconds))
+                or not 0 <= float(max_age_seconds) <= 300):
+            return None
+        if not self._cycle_lock.acquire(blocking=False):
+            return None
+        try:
+            evaluation = (next(reversed(self._epochs_by_correlation.values()), None)
+                if self._epochs_by_correlation else None)
+        finally:
+            self._cycle_lock.release()
+        if evaluation is None or not validate_evaluation(evaluation).ok:
+            return None
+        try:
+            observed_at = datetime.fromisoformat(evaluation.epoch.observed_at)
+            current_at = datetime.fromisoformat(self.clock())
+            if observed_at.tzinfo is None or current_at.tzinfo is None:
+                return None
+            age_seconds = (current_at.astimezone(timezone.utc)
+                - observed_at.astimezone(timezone.utc)).total_seconds()
+        except (TypeError, ValueError, OverflowError):
+            return None
+        return evaluation if 0 <= age_seconds <= float(max_age_seconds) else None
+
     def _run_cycle(self, *, correlation_id: str, decision: ControlActionDecision | None = None) -> HostResourceRuntimeEvaluation | None:
         if correlation_id in self._epochs_by_correlation: return self._epochs_by_correlation[correlation_id]
         decision = decision or self.request_admission(correlation_id)

@@ -159,6 +159,37 @@ class ProductionServingInferenceController:
             "no_effect_authority": True,
         }
 
+    def _latest_cached_host_resources(self) -> dict[str, Any] | None:
+        """Summarize a fresh cached sample without starting or waiting for collection."""
+        owner = self._host_resource_observation_owner
+        getter = getattr(owner, "latest_evaluation", None)
+        if not callable(getter):
+            return None
+        try:
+            evaluation = getter(max_age_seconds=15.0)
+        except Exception:
+            return None
+        if (evaluation is None
+                or not validate_host_resource_evaluation(evaluation).ok
+                or not evaluation.no_effect_authority):
+            return None
+        return {
+            "status": "current",
+            "evaluation_id": evaluation.evaluation_id,
+            "observation_correlation_id": evaluation.epoch.correlation_id,
+            "report_id": evaluation.pressure_report.report_id,
+            "observed_at": evaluation.epoch.observed_at,
+            "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
+            "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
+            "gpu_telemetry_sources": [
+                {"collector_id": result.collector_id, "status": result.status,
+                 "source": result.source[:128]}
+                for result in evaluation.epoch.results
+                if result.collector_id == "nvidia_gpu"
+            ],
+            "no_effect_authority": True,
+        }
+
     def set_workload_mode(self, mode: str,
                           game_process_names: tuple[str, ...] | list[str] = ()) -> WorkloadMode:
         """Set a process-local chat budget mode; this grants no host authority."""
@@ -664,9 +695,14 @@ class ProductionServingInferenceController:
         closed = False
         close_failure: str | None = None
         worker_exit_observed: bool | None = None
+        before_release_observation: dict[str, Any] | None = None
         post_release_observation: dict[str, Any] | None = None
+        resource_measurement_comparison: dict[str, Any] | None = None
         if decision_valid:
             try:
+                # Use only an already completed, fresh cache entry. This lookup
+                # never waits for a collector and never affects release admission.
+                before_release_observation = self._latest_cached_host_resources()
                 closed = self._serving.release_current_session_after_resource_admission(
                     session, reason="verified_game_frame_pressure")
                 worker = getattr(model, "_process", None)
@@ -678,6 +714,47 @@ class ProductionServingInferenceController:
                     post_release_observation = self._observe_host_resources(
                         trigger_correlation + ":resource-release-postflight",
                         observation_namespace="local-chat-reconciliation")
+                    def sample_fields(sample: Mapping[str, Any] | None) -> dict[str, Any] | None:
+                        if sample is None:
+                            return None
+                        return {key: sample.get(key) for key in (
+                            "status", "report_id", "observed_at",
+                            "gpu_utilization_percent", "vram_utilization_percent",
+                            "gpu_telemetry_sources")}
+
+                    def finite_percent(value: object) -> float | None:
+                        if (isinstance(value, (int, float)) and not isinstance(value, bool)
+                                and math.isfinite(float(value)) and 0 <= float(value) <= 100):
+                            return float(value)
+                        return None
+
+                    before_sample = sample_fields(before_release_observation)
+                    after_sample = sample_fields(post_release_observation)
+                    before_gpu = finite_percent(before_sample.get(
+                        "gpu_utilization_percent") if before_sample else None)
+                    after_gpu = finite_percent(after_sample.get(
+                        "gpu_utilization_percent") if after_sample else None)
+                    before_vram = finite_percent(before_sample.get(
+                        "vram_utilization_percent") if before_sample else None)
+                    after_vram = finite_percent(after_sample.get(
+                        "vram_utilization_percent") if after_sample else None)
+                    gpu_delta = (after_gpu - before_gpu
+                        if before_gpu is not None and after_gpu is not None else None)
+                    vram_delta = (after_vram - before_vram
+                        if before_vram is not None and after_vram is not None else None)
+                    resource_measurement_comparison = {
+                        "schema_version": "sentientos.resource_measurement_comparison:v1",
+                        "status": ("comparable" if gpu_delta is not None or vram_delta is not None
+                            else "insufficient_gpu_measurements"),
+                        "before": before_sample,
+                        "before_sample_kind": ("recent_cached_observation"
+                            if before_sample is not None else "unavailable"),
+                        "after": after_sample,
+                        "gpu_utilization_delta_percentage_points": gpu_delta,
+                        "vram_utilization_delta_percentage_points": vram_delta,
+                        "interpretation": (
+                            "sample_delta_only; telemetry_does_not_establish_causation"),
+                    }
             except Exception as exc:
                 close_failure = type(exc).__name__
         outcome = {
@@ -694,9 +771,12 @@ class ProductionServingInferenceController:
             "release_admission_outcome": decision.outcome.value,
             "release_reason_codes": list(decision.reason_codes),
             "resource_observation": evidence,
+            "before_release_observation": before_release_observation,
             "post_release_observation": post_release_observation,
+            "resource_measurement_comparison": resource_measurement_comparison,
             "post_release_measurement_interpretation": (
-                "read_only_sample_after_worker_close; no pre-release sample; "
+                "read_only_sample_after_worker_close; pre-release sample is a "
+                "recent cache entry when available; "
                 "telemetry_does_not_establish_causation"
                 if post_release_observation is not None else None),
             "worker_exit_observed": worker_exit_observed,
