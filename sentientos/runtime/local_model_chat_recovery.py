@@ -66,6 +66,7 @@ def startup_configuration_digest(config: LocalModelChatStartup) -> str:
     return semantic_digest({"service_id": SERVICE_ID,
                             "installation_identity": config.installation_identity,
                             "host": config.host, "port": config.port,
+                            "initial_workload_mode": config.initial_workload_mode,
                             "restart_policy": "never"})
 
 

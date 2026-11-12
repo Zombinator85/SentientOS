@@ -49,7 +49,7 @@ def test_invalid_identity_fails_before_adapter_construction(config: LocalModelCh
 def test_service_surface_has_no_execution_or_model_injection_parameters() -> None:
     fields = set(LocalModelChatStartup.__dataclass_fields__)
     assert fields == {"enabled", "installation_identity", "serving_operation_id", "host", "port",
-                      "resource_provisioning_id"}
+                      "resource_provisioning_id", "initial_workload_mode"}
     forbidden = {"executable", "script", "argv", "model_path", "activation_path", "runtime_path",
                  "interpreter_path", "custody_root", "preloaded_model", "simulation", "fallback"}
     assert not fields & forbidden
@@ -81,6 +81,16 @@ def test_resource_provisioning_selector_is_bounded_and_fixed_in_launcher() -> No
                 serving_operation_id="serve-1", resource_provisioning_id=invalid).validate()
     with pytest.raises(ValueError, match="resource_provisioning_requires_enabled_chat"):
         LocalModelChatStartup(resource_provisioning_id="production.v1").validate()
+
+
+def test_supervised_gaming_workload_mode_is_fixed_in_launcher_and_auto_fails_closed() -> None:
+    gaming = LocalModelChatStartup(enabled=True, installation_identity="install-1",
+        serving_operation_id="serve-1", initial_workload_mode="gaming")
+    assert LocalModelChatServiceAdapter(gaming, probe=lambda _url: True)._argv[-2:] == (
+        "--initial-workload-mode", "gaming")
+    with pytest.raises(ValueError, match="supervised_runtime_requires_explicit_normal_or_gaming_mode"):
+        LocalModelChatStartup(enabled=True, installation_identity="install-1",
+            serving_operation_id="serve-1", initial_workload_mode="automatic").validate()
 
 
 def test_legacy_bootstrap_paths_cannot_influence_production_composition() -> None:
@@ -198,6 +208,16 @@ def test_canonical_cli_passes_only_explicit_chat_configuration(monkeypatch) -> N
     assert config == LocalModelChatStartup(enabled=True, installation_identity="install-1",
                                            serving_operation_id="serve-1", port=5501)
     assert kwargs == {"cadence_seconds": 2.0}
+
+
+def test_canonical_cli_passes_explicit_gaming_workload_policy(monkeypatch) -> None:
+    seen = []
+    monkeypatch.setattr("sentientos.runtime.startup.run_canonical_runtime",
+                        lambda config, **kwargs: seen.append(config) or 0)
+    assert ops.main(["runtime", "start", "--enable-local-model-chat",
+        "--installation-identity", "install-1", "--serving-operation-id", "serve-1",
+        "--local-model-chat-workload-mode", "gaming"]) == 0
+    assert seen[0].initial_workload_mode == "gaming"
 
 
 def test_canonical_cli_rejects_arbitrary_process_arguments() -> None:

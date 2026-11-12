@@ -16,7 +16,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Callable, Literal, Mapping
 
 from sentientos.installation_state import InstallationIdentity, InstallationStateHandle
 from sentientos.local_model_production_serving import _operation_id
@@ -41,12 +41,15 @@ class LocalModelChatStartup:
     host: str = "127.0.0.1"
     port: int = 5000
     resource_provisioning_id: str | None = None
+    initial_workload_mode: Literal["normal", "gaming"] = "normal"
 
     def validate(self) -> None:
         if self.host != "127.0.0.1":
             raise ValueError("local_model_chat_host_must_be_loopback")
         if not 1024 <= self.port <= 65535:
             raise ValueError("local_model_chat_port_out_of_range")
+        if self.initial_workload_mode not in {"normal", "gaming"}:
+            raise ValueError("supervised_runtime_requires_explicit_normal_or_gaming_mode")
         if not self.enabled:
             if self.resource_provisioning_id is not None:
                 raise ValueError("resource_provisioning_requires_enabled_chat")
@@ -148,6 +151,8 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
             argv += ("--expected-software-generation-digest", expected_source_generation_digest)
         if config.resource_provisioning_id is not None:
             argv += ("--resource-provisioning-id", config.resource_provisioning_id)
+        if config.initial_workload_mode != "normal":
+            argv += ("--initial-workload-mode", config.initial_workload_mode)
         return argv
 
     def _restart_with_fresh_serving_operation(
@@ -160,9 +165,11 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         self.stop()
         if self._process is not None and self._process.poll() is None:
             self.force_stop()
-        self._config = LocalModelChatStartup(True, self._config.installation_identity,
-                                             replacement, self._config.host, self._config.port,
-                                             self._config.resource_provisioning_id)
+        self._config = LocalModelChatStartup(
+            enabled=True, installation_identity=self._config.installation_identity,
+            serving_operation_id=replacement, host=self._config.host, port=self._config.port,
+            resource_provisioning_id=self._config.resource_provisioning_id,
+            initial_workload_mode=self._config.initial_workload_mode)
         self._handoff_id = uuid.uuid4().hex if self._installation_handle is not None else None
         self._published_handoff_record = None
         self._argv = self._launcher_argv(self._config, root=self._root,

@@ -27,6 +27,7 @@ from sentientos.runtime.local_model_chat_recovery import (
     build_recovery_intent,
     build_startup_snapshot,
     require_fresh_operation,
+    startup_configuration_digest,
     verify_approval,
     verified_serving_receipts,
     write_startup_snapshot,
@@ -233,6 +234,24 @@ def test_restart_preserves_resource_provisioning_identity(monkeypatch) -> None:
                                                    expected_activation_state_digest="a" * 64)
     assert adapter.startup_configuration.resource_provisioning_id == "production.v1"
     assert adapter._argv[-2:] == ("--resource-provisioning-id", "production.v1")
+
+
+def test_restart_preserves_gaming_workload_policy(monkeypatch) -> None:
+    adapter = LocalModelChatServiceAdapter(LocalModelChatStartup(
+        True, "install-1", "serve-1", port=5500, initial_workload_mode="gaming"))
+    monkeypatch.setattr(adapter, "stop", lambda: None)
+    monkeypatch.setattr("sentientos.runtime.services.ChildProcessServiceAdapter.start", lambda _self: None)
+    adapter._restart_with_fresh_serving_operation(replacement_serving_operation_id="serve-2",
+        expected_activation_state_digest="a" * 64)
+    assert adapter.startup_configuration.initial_workload_mode == "gaming"
+    assert adapter._argv[-2:] == ("--initial-workload-mode", "gaming")
+
+
+def test_recovery_configuration_digest_binds_gaming_workload_policy() -> None:
+    normal = LocalModelChatStartup(True, "install-1", "serve-1")
+    gaming = LocalModelChatStartup(True, "install-1", "serve-1",
+        initial_workload_mode="gaming")
+    assert startup_configuration_digest(normal) != startup_configuration_digest(gaming)
 
 
 def test_recovery_surface_has_no_generic_process_or_model_escape() -> None:
