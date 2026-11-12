@@ -1114,6 +1114,106 @@ def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_pa
 
 
 
+def test_authenticated_game_evidence_constrains_actual_cpu_inference(monkeypatch, tmp_path):
+    """The authenticated automatic workload applies gaming limits to an inference call."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives.serialization import Encoding
+    from sentientos.foreground_game_detection import ForegroundGameDetector
+    from sentientos.gaming_companion_tls_transport import (
+        CompanionBridgeMutualTLSClient, CompanionBridgeMutualTLSRuntime,
+    )
+    from sentientos.gaming_workload_policy import GamingWorkloadPolicy
+    from tests.test_gaming_companion_tls_transport import _certificate_bundle
+    from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    server_certificate = x509.load_pem_x509_certificate(
+        (tmp_path / "server.pem").read_bytes())
+    source_key, acknowledgment_key = b"r" * 32, b"s" * 32
+    source_id, generation_id = "windows-edge", "gaming-inference-generation-1"
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1", port=0,
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=CompanionBridgeReceiver(source_keys={source_id: source_key},
+            expected_generations={source_id: generation_id}),
+        acknowledgment_source_id="wsl-core",
+        acknowledgment_generation_id="gaming-inference-core-generation-1",
+        acknowledgment_key=acknowledgment_key)
+    port = runtime.start()
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-core": acknowledgment_key},
+            expected_generations={"wsl-core": "gaming-inference-core-generation-1"}),
+        expected_server_certificate_sha256=hashlib.sha256(
+            server_certificate.public_bytes(Encoding.DER)).hexdigest())
+    publisher = WindowsForegroundBridgePublisher(
+        detector=ForegroundGameDetector(system_provider=lambda: "Windows",
+            process_name_provider=lambda: "ExampleGame.exe",
+            running_process_names_provider=lambda: ("ExampleGame.exe",),
+            clock=lambda: now.isoformat()),
+        client=client, source_id=source_id,
+        session_id="authenticated-gaming-inference-session",
+        generation_id=generation_id, source_key=source_key)
+    detector = BridgeForegroundGameDetector(runtime=runtime, source_id=source_id,
+        generation_id=generation_id, clock=lambda: now)
+    detector.set_game_workload_admission_owner(kernel)
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+        ]), clock=lambda: now.isoformat())
+    bridge, serving, _, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, foreground_game_detector=detector,
+        host_resource_observation_owner=host_owner, gpu_layers=0)
+    try:
+        message = publisher.publish_once(("ExampleGame.exe",))
+        bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+        prompt = ("[SYSTEM_INSTRUCTION]\nBase rules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+            "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
+        receipt = bridge.generate(prompt=prompt, caller="chat_service",
+            correlation_id="authenticated-game-constrained-cpu-inference",
+            budget=LocalModelInvocationBudget(8000, 4000, 512, 30.0, 2))
+
+        assert receipt.status == "admitted_completed"
+        assert model.calls == 1
+        assert GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION in model.prompts[0]
+        lineage = receipt.request["linkage"]["workload_evidence"]
+        assert lineage["configured_mode"] == "automatic"
+        assert lineage["game_foreground"] is True
+        assert lineage["transport_provenance"]["message_id"] == message.payload["message_id"]
+        assert receipt.request["linkage"]["workload_mode"] == "gaming"
+        assert receipt.request["linkage"]["max_backend_threads"] == 2
+        assert receipt.generation_config["actual_generation_parameters"][
+            "max_backend_threads"] == 2
+        assert host_owner.collector_call_count == 2
+        inference_decision = next(json.loads(line) for line in
+            (tmp_path / "kernel-decisions.jsonl").read_text(
+                encoding="utf-8").splitlines()
+            if '"authority_class": "local_model_inference"' in line)
+        evidence = inference_decision["delegated_outcomes"][
+            "runtime_governor"]["evidence_refs"]["game_workload_evidence"]
+        assert evidence["status"] == "current"
+        assert evidence["message_id"] == message.payload["message_id"]
+    finally:
+        serving.close()
+        detector.close()
+
+
 def test_screen_observation_style_is_preserved_by_exact_serving(monkeypatch, tmp_path):
     bridge, _, _, model, _, _ = setup(monkeypatch, tmp_path)
     bridge.set_workload_mode("gaming")
