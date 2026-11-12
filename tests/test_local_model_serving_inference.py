@@ -605,6 +605,75 @@ def test_selected_gaming_profile_releases_optional_model_only_under_host_pressur
         serving.close()
 
 
+def test_governed_resource_release_retries_after_worker_close_failure(monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=95.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+        ]), clock=lambda: now.isoformat())
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner,
+        gpu_layers=24)
+    bridge.set_workload_mode("gaming")
+    close_calls = 0
+
+    def close_once_fails():
+        nonlocal close_calls
+        close_calls += 1
+        if close_calls == 1:
+            raise RuntimeError("worker_shutdown_unconfirmed")
+        model.closed = True
+
+    model.close = close_once_fails
+    receipt_root = (tmp_path / "state" / "installations" / "install-1" / "state" /
+        "local-model" / "serving" / "resource-release-receipts")
+
+    failed = bridge.reconcile_idle_game_resource_state()
+
+    assert failed["status"] == "release_effect_unconfirmed"
+    assert model.closed is False
+    assert serving._session == session
+    failed_receipt = json.loads(next(receipt_root.glob("*.json")).read_text(
+        encoding="utf-8"))
+    assert failed_receipt["status"] == "release_effect_unconfirmed"
+    assert failed_receipt["close_failure"] == "RuntimeError"
+
+    retried = bridge.reconcile_idle_game_resource_state()
+
+    assert retried["status"] == "worker_closed"
+    assert model.closed is True
+    assert serving._session is None and serving._model is None
+    release_receipts = [json.loads(path.read_text(encoding="utf-8"))
+        for path in sorted(receipt_root.glob("*.json"))]
+    assert {item["status"] for item in release_receipts} == {
+        "release_effect_unconfirmed", "worker_closed"}
+    assert sum(item["receipt_id"] == failed_receipt["receipt_id"]
+        and item["status"] == "release_effect_unconfirmed"
+        for item in release_receipts) == 1
+    decisions = [json.loads(line) for line in (tmp_path / "kernel-decisions.jsonl"
+        ).read_text(encoding="utf-8").splitlines()]
+    release_admissions = [item for item in decisions
+        if item.get("action_kind") == "local_model_resource_release"]
+    assert len(release_admissions) == 2
+    assert all(item["delegated_outcomes"]["runtime_governor"]["allowed"]
+        for item in release_admissions)
+
+
 def test_idle_reconciliation_keeps_serving_session_without_verified_game(monkeypatch, tmp_path):
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path)
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
