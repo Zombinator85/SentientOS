@@ -639,10 +639,60 @@ class ProductionServingController:
                     or after["activation_history_digest"] != before["activation_history_digest"]
                     or after["catalog_proof"] != proof):
                 raise ProductionServingError("activation_changed_during_load")
+            resource_revalidation_decision_ref: str | None = None
+            resource_revalidation_correlation: str | None = None
+            if admission_context_provider is not None:
+                # The first resource admission authorizes beginning the exact
+                # load. Game presence and host pressure can change while a GPU
+                # model is loading, so require a fresh control-plane decision
+                # before publishing the resident serving session.
+                resource_revalidation_correlation = (
+                    correlation + ":post-load-resource-revalidation")
+                try:
+                    post_load_context = admission_context_provider(
+                        resource_revalidation_correlation, state)
+                except Exception as exc:
+                    raise ProductionServingError(
+                        "model_serving_resource_revalidation_unavailable") from exc
+                if not isinstance(post_load_context, Mapping):
+                    raise ProductionServingError(
+                        "model_serving_resource_revalidation_invalid")
+                post_load_metadata = {**dict(post_load_context), **operation_intent,
+                    "correlation_id": resource_revalidation_correlation,
+                    "resource_admission_phase": "post_load_revalidation",
+                    "serving_operation_attempt_id": serving_attempt["attempt_id"],
+                    "serving_operation_attempt_semantic_digest":
+                        serving_attempt["attempt_semantic_digest"]}
+                post_load_decision = self._kernel.admit(ControlActionRequest(
+                    action_kind=ACTION, authority_class=AuthorityClass.MODEL_SERVING,
+                    actor=PRINCIPAL, target_subsystem=TARGET_SUBSYSTEM,
+                    requested_phase=LifecyclePhase.RUNTIME,
+                    metadata=post_load_metadata))
+                if (post_load_decision.outcome != AdmissionOutcome.ALLOW
+                        or post_load_decision.authority_class != AuthorityClass.MODEL_SERVING
+                        or post_load_decision.actor != PRINCIPAL
+                        or post_load_decision.action_kind != ACTION
+                        or post_load_decision.target_subsystem != TARGET_SUBSYSTEM
+                        or post_load_decision.correlation_id
+                            != resource_revalidation_correlation
+                        or not isinstance(post_load_decision.admission_decision_ref, str)
+                        or not post_load_decision.admission_decision_ref):
+                    raise ProductionServingError(
+                        "model_serving_resource_policy_changed_during_load")
+                resource_revalidation_decision_ref = (
+                    post_load_decision.admission_decision_ref)
+            resource_revalidation_binding = (
+                {"resource_admission_revalidation_decision_ref":
+                    resource_revalidation_decision_ref,
+                 "resource_admission_revalidation_correlation_id":
+                    resource_revalidation_correlation}
+                if resource_revalidation_decision_ref is not None
+                and resource_revalidation_correlation is not None else {})
             binding = {**operation_intent,
                        "serving_operation_attempt_id": serving_attempt["attempt_id"],
                        "serving_operation_attempt_semantic_digest": serving_attempt["attempt_semantic_digest"],
                        "control_plane_correlation_id": correlation,
+                       **resource_revalidation_binding,
                        "activation_state": state, "catalog_proof": proof,
                        "catalog_proof_semantic_digest": proof["proof_semantic_digest"],
                        "commissioning_receipt_id": state["commissioning_receipt_id"],

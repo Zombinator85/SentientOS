@@ -298,6 +298,113 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
     assert runtime["evidence_refs"]["game_workload_evidence"]["message_id"] == "b" * 64
 
 
+def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
+        monkeypatch, handle):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(handle.root / "governor"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(handle.root / "federation"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(handle.root))
+    now = datetime.now(timezone.utc)
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=handle.root / "kernel-decisions.jsonl")
+
+    def observation(active, message_id, sequence):
+        return ForegroundGameObservation("available", active, "a" * 64,
+            now.isoformat(), transport_provenance={
+                "message_id": message_id, "source_id": "windows-foreground",
+                "session_id": "game-session", "generation_id": "game-generation",
+                "sequence": sequence, "envelope_created_at": now.isoformat()})
+
+    idle_game = observation(False, "b" * 64, 1)
+    active_game = observation(True, "c" * 64, 2)
+    assert kernel.observe_verified_game_workload(idle_game)
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=handle.root / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1, devices=[{
+                    "index": 0, "gpu_utilization_percent": 20.0,
+                    "vram_utilization_percent": 30.0}]))
+        ]), clock=lambda: now.isoformat())
+    model = Model(identity())
+    current = evidence(gpu_layers=16)
+    latest_game = {"observation": idle_game}
+
+    def load_model(_chain, _load):
+        latest_game["observation"] = active_game
+        assert kernel.observe_verified_game_workload(active_game)
+        return model
+
+    ctl = controller(monkeypatch, handle, [current] * 4, kernel=kernel,
+        factory=load_model)
+
+    def admission_context(correlation_id, activation_state):
+        observation_id = "local-chat-serving-" + hashlib.sha256(
+            correlation_id.encode("utf-8")).hexdigest()[:32]
+        assert host_owner.run_cycle(correlation_id=observation_id) is not None
+        game = latest_game["observation"]
+        load_configuration = activation_state["load_configuration"]
+        return {
+            "resource_governance_required": True,
+            "purpose": "local_model_serving",
+            "host_resource_observation_namespace": "local-chat-serving",
+            "host_resource_observation_id": observation_id,
+            "workload_mode": "automatic",
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp", "accelerator_route": "gpu",
+                "gpu_layers": 16,
+                "configuration_digest": semantic_digest(load_configuration),
+            },
+            "serving_workload_evidence": {
+                "configured_mode": "automatic",
+                "observation_status": game.status,
+                "game_foreground": game.game_foreground,
+                "game_process_running": game.game_process_running,
+                "transport_provenance": game.transport_provenance,
+            },
+        }
+
+    with pytest.raises(ProductionServingError,
+            match="model_serving_resource_policy_changed_during_load"):
+        ctl.establish(operation_id="serving-game-started-during-load",
+            admission_context_provider=admission_context)
+
+    assert model.closed is True
+    assert ctl.current_session() is None
+    decisions = [__import__("json").loads(line) for line in
+        (handle.root / "kernel-decisions.jsonl").read_text(
+            encoding="utf-8").splitlines()]
+    serving_decisions = [item for item in decisions
+        if item.get("authority_class") == AuthorityClass.MODEL_SERVING.value]
+    assert [item["final_disposition"] for item in serving_decisions] == ["allow", "defer"]
+    assert serving_decisions[0]["correlation_id"] != serving_decisions[1]["correlation_id"]
+    assert serving_decisions[1]["delegated_outcomes"]["runtime_governor"]["reason"] == (
+        "deferred_gpu_model_serving_while_game_active")
+    assert serving_decisions[1]["delegated_outcomes"]["runtime_governor"][
+        "evidence_refs"]["game_workload_evidence"]["message_id"] == "c" * 64
+    assert host_owner.collector_call_count == 6
+    from sentientos.local_model_production_serving import read_serving_operation_history
+    assert read_serving_operation_history(handle)[0]["status"] == (
+        "reservation_outcome_unknown")
+    with pytest.raises(ProductionServingError, match="serving_operation_reused"):
+        ctl.establish(operation_id="serving-game-started-during-load",
+            admission_context_provider=admission_context)
+    assert len([item for item in
+        read_serving_operation_history(handle)]) == 1
+
+
 def test_observed_identity_mismatch_closes_without_bind(monkeypatch, handle):
     model = Model(identity(engine="substituted")); ctl = controller(monkeypatch, handle, [evidence()], factory=lambda c, l: model)
     with pytest.raises(ProductionServingError, match="observed_identity_mismatch"): ctl.establish(operation_id="serve-operation-1")
@@ -571,7 +678,8 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
                 encoding="utf-8").splitlines()]
         serving_decisions = [item for item in decisions
             if item.get("authority_class") == AuthorityClass.MODEL_SERVING.value]
-        assert [item["final_disposition"] for item in serving_decisions] == ["defer", "allow"]
+        assert [item["final_disposition"] for item in serving_decisions] == [
+            "defer", "allow", "allow"]
         assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
             "reason"] == "deferred_gpu_model_serving_while_game_active"
         assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
@@ -580,7 +688,14 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
         assert serving_decisions[1]["delegated_outcomes"]["runtime_governor"][
             "evidence_refs"]["game_workload_evidence"]["message_id"] == (
                 idle_message.payload["message_id"])
-        assert host_owner.collector_call_count == 6
+        assert serving_decisions[2]["delegated_outcomes"]["runtime_governor"][
+            "evidence_refs"]["game_workload_evidence"]["message_id"] == (
+                idle_message.payload["message_id"])
+        assert session.binding["resource_admission_revalidation_correlation_id"] == (
+            serving_decisions[2]["correlation_id"])
+        assert session.binding["resource_admission_revalidation_decision_ref"] == (
+            serving_decisions[2]["admission_decision_ref"])
+        assert host_owner.collector_call_count == 9
     finally:
         ctl.close()
         detector.close()
