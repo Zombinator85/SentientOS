@@ -127,6 +127,29 @@ def test_failed_worker_close_preserves_exact_session_for_release_retry(monkeypat
     assert len(invalidations) == 1
 
 
+def test_resource_release_waits_for_exact_worker_exit_confirmation(monkeypatch, handle):
+    current = evidence()
+    model = Model(identity())
+    poll_results = iter((None, 0))
+    model._process = SimpleNamespace(poll=lambda: next(poll_results))
+    ctl = controller(monkeypatch, handle, [current] * 3, factory=lambda c, l: model)
+    session = ctl.establish(operation_id="serve-operation-exit-confirmation")
+
+    with pytest.raises(ProductionServingError,
+                       match="exact_runtime_worker_exit_unconfirmed"):
+        ctl.release_current_session_after_resource_admission(
+            session, reason="verified_game_host_pressure")
+
+    assert ctl._session == session
+    assert ctl._model is model
+
+    assert ctl.release_current_session_after_resource_admission(
+        session, reason="verified_game_host_pressure") is True
+    assert ctl._session is None and ctl._model is None
+    assert len(handle.list_regular_names(
+        handle.fixed_object("local-model/serving/invalidations"))) == 1
+
+
 @pytest.mark.parametrize("outcome", [AdmissionOutcome.DENY, AdmissionOutcome.DEFER, AdmissionOutcome.QUARANTINE])
 def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, outcome):
     called = [] ; kernel = Kernel(outcome)

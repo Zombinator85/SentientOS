@@ -708,6 +708,10 @@ class ProductionServingController:
             # worker refuses to close, its owner must retain the handle so a
             # governed caller can report the failed release and retry it.
             model.close()
+            worker = getattr(model, "_process", None)
+            poll = getattr(worker, "poll", None)
+            if callable(poll) and poll() is None:
+                raise ProductionServingError("exact_runtime_worker_exit_unconfirmed")
         self._session = self._model = None
         if session is None:
             return
