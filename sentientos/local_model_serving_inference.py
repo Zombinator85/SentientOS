@@ -838,9 +838,9 @@ class ProductionServingInferenceController:
                     # The busy cadence must not start a host-collector cycle
                     # on every tick. Reuse a very fresh sample when possible;
                     # otherwise refresh at most once per bounded interval.
-                    observation = self._latest_cached_host_resources(
+                    cached_observation = self._latest_cached_host_resources(
                         max_age_seconds=2.0)
-                    if observation is None:
+                    if cached_observation is None:
                         sample_started_at = time.monotonic()
                         previous_sample_at = self._last_active_host_resource_sample_at
                         if (previous_sample_at is not None
@@ -850,21 +850,22 @@ class ProductionServingInferenceController:
                         self._last_active_host_resource_sample_at = sample_started_at
                         observation_correlation = (
                             "active-game-resource-reconcile-" + str(time.time_ns()))
-                        observation = self._observe_host_resources(
+                        active_observation = self._observe_host_resources(
                             observation_correlation,
                             observation_namespace="local-chat-reconciliation")
                     else:
                         observation_correlation = (
                             "active-game-resource-reconcile-cached-" + str(time.time_ns()))
-                    labels = observation.get("pressure_labels")
-                    if (observation.get("status") != "current"
-                            or observation.get("no_effect_authority") is not True
+                        active_observation = cached_observation
+                    labels = active_observation.get("pressure_labels")
+                    if (active_observation.get("status") != "current"
+                            or active_observation.get("no_effect_authority") is not True
                             or not isinstance(labels, (tuple, list))
                             or not all(isinstance(label, str) for label in labels)
                             or not set(labels).intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS)):
                         return {"status": "skipped",
                             "reason": "current_host_pressure_evidence_required",
-                            "observation_correlation_id": observation.get(
+                            "observation_correlation_id": active_observation.get(
                                 "observation_correlation_id")}
                     # Collection is bounded but can outlast a foreground-game
                     # observation. Re-read the authenticated source before
@@ -880,7 +881,7 @@ class ProductionServingInferenceController:
                             or not isinstance(workload_message_id, str)):
                         return {"status": "skipped",
                             "reason": "fresh_verified_game_evidence_required",
-                            "observation_correlation_id": observation.get(
+                            "observation_correlation_id": active_observation.get(
                                 "observation_correlation_id")}
                     workload_attempt_key = (session.session_id, workload_message_id)
                     if workload_attempt_key == self._last_active_game_preemption_attempt:
@@ -891,7 +892,7 @@ class ProductionServingInferenceController:
                         "game_foreground", "process_name_digest", "game_process_running",
                         "running_process_name_digests", "observed_at", "transport_provenance")}
                     host_release = self._release_after_host_pressure(
-                        session, model, None, resource_observation=observation,
+                        session, model, None, resource_observation=active_observation,
                         workload_evidence=workload_evidence,
                         trigger_correlation_id=observation_correlation,
                         trigger_kind="idle_game_reconciliation",
@@ -903,7 +904,7 @@ class ProductionServingInferenceController:
                     return {"status": host_release["status"],
                         "release_receipt_id": host_release["receipt_id"],
                         "trigger_kind": "idle_game_reconciliation",
-                        "observation_correlation_id": observation.get(
+                        "observation_correlation_id": active_observation.get(
                             "observation_correlation_id"),
                         "serving_session_id": session.session_id,
                         "active_inference_cancellation_confirmed": host_release[
