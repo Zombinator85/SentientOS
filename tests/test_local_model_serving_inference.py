@@ -1200,6 +1200,7 @@ def test_authenticated_game_evidence_constrains_actual_cpu_inference(monkeypatch
         assert receipt.request["linkage"]["max_backend_threads"] == 2
         assert receipt.generation_config["actual_generation_parameters"][
             "max_backend_threads"] == 2
+        assert model.generation_parameters[-1]["max_backend_threads"] == 2
         assert host_owner.collector_call_count == 2
         inference_decision = next(json.loads(line) for line in
             (tmp_path / "kernel-decisions.jsonl").read_text(
