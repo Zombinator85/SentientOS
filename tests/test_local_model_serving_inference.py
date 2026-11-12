@@ -545,6 +545,61 @@ def test_idle_reconciliation_keeps_serving_session_without_verified_game(monkeyp
     serving.close()
 
 
+def test_automatic_game_release_revalidates_game_after_host_collection(monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=95.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+        ]), clock=lambda: now.isoformat())
+
+    class GamePresenceChangesDuringCollection:
+        calls = 0
+
+        def observe(self, _names):
+            self.calls += 1
+            present = self.calls == 1
+            return ForegroundGameObservation(
+                "available", present,
+                hashlib.sha256(b"examplegame.exe").hexdigest(), now.isoformat(),
+                transport_provenance={"message_id": f"game-presence-{self.calls}"},
+                game_process_running=present,
+                running_process_name_digests=((hashlib.sha256(
+                    b"examplegame.exe").hexdigest(),) if present else ()))
+
+    detector = GamePresenceChangesDuringCollection()
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, foreground_game_detector=detector,
+        host_resource_observation_owner=host_owner, gpu_layers=0)
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+
+    result = bridge.reconcile_idle_game_resource_state()
+
+    assert result["status"] == "skipped", (result, detector.calls)
+    assert result["reason"] == "fresh_verified_game_evidence_required"
+    assert detector.calls == 2
+    assert model.closed is False
+    assert serving.current_session() == session
+    assert list((tmp_path / "state" / "installations" / "install-1" /
+        "state" / "local-model" / "serving" /
+        "resource-release-receipts").glob("*.json")) == []
+    serving.close()
+
+
 @pytest.mark.parametrize("mode,style_expected", [("normal", False), ("gaming", True)])
 def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_path, mode, style_expected):
     bridge, _, _, model, _, _ = setup(monkeypatch, tmp_path)

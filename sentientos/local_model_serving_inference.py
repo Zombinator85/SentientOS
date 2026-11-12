@@ -589,6 +589,22 @@ class ProductionServingInferenceController:
                     or not set(labels).intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS)):
                 return {"status": "skipped", "reason": "current_host_pressure_evidence_required",
                     "observation_correlation_id": observation.get("observation_correlation_id")}
+            if not selected_gaming_profile:
+                # Collection can outlast the game-presence observation that
+                # authorized automatic-mode reconciliation. Revalidate after
+                # collection so an ended/unverified game cannot trigger release.
+                workload = self.current_workload_state()
+                provenance = workload.get("transport_provenance")
+                if (workload.get("configured_mode") != "automatic"
+                        or workload.get("observation_status") != "available"
+                        or (workload.get("game_foreground") is not True
+                            and workload.get("game_process_running") is not True)
+                        or not isinstance(provenance, Mapping)
+                        or not isinstance(provenance.get("message_id"), str)):
+                    return {"status": "skipped",
+                        "reason": "fresh_verified_game_evidence_required",
+                        "observation_correlation_id": observation.get(
+                            "observation_correlation_id")}
             evidence = {key: workload.get(key) for key in (
                 "configured_mode", "mode_source", "observation_status", "game_foreground",
                 "process_name_digest", "game_process_running", "running_process_name_digests",
