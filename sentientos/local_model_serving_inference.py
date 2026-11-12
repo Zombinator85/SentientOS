@@ -83,7 +83,8 @@ class ProductionServingInferenceController:
 
     __slots__ = ("_serving", "_runtime_handoff_id", "_receipt_capacity_lock",
                  "_workload_lock", "_workload_mode", "_game_process_names",
-                 "_foreground_game_detector", "_host_resource_observation_owner")
+                 "_foreground_game_detector", "_host_resource_observation_owner",
+                 "_active_invoker_lock", "_active_invoker")
 
     def __init__(self, serving_controller: ProductionServingController, *,
                  runtime_handoff_id: str | None = None,
@@ -102,6 +103,14 @@ class ProductionServingInferenceController:
         self._game_process_names: tuple[str, ...] = ()
         self._foreground_game_detector = foreground_game_detector or ForegroundGameDetector()
         self._host_resource_observation_owner = host_resource_observation_owner
+        self._active_invoker_lock = threading.Lock()
+        self._active_invoker: GovernedLocalModelInvoker | None = None
+
+    def cancel_pending_generation(self) -> bool:
+        """Forward cancellation to the exact governed invocation currently in flight."""
+        with self._active_invoker_lock:
+            invoker = self._active_invoker
+        return invoker.cancel_pending_generation() if invoker is not None else False
 
     def _observe_host_resources(self, correlation_id: str, *,
                                 observation_namespace: str = "local-chat-inference") -> dict[str, Any]:
@@ -1095,12 +1104,19 @@ class ProductionServingInferenceController:
             if len(receipt_names) >= MAX_INVOCATION_RECEIPTS:
                 raise ProductionServingInferenceError(
                     "invocation_receipt_capacity_exhausted")
-            receipt = invoker.invoke(
-                request,
-                pre_effect_guard=current,
-                post_effect_guard=current_after,
-                resource_context=resource_context,
-            )
+            with self._active_invoker_lock:
+                self._active_invoker = invoker
+            try:
+                receipt = invoker.invoke(
+                    request,
+                    pre_effect_guard=current,
+                    post_effect_guard=current_after,
+                    resource_context=resource_context,
+                )
+            finally:
+                with self._active_invoker_lock:
+                    if self._active_invoker is invoker:
+                        self._active_invoker = None
             if receipt.admission_decision_ref != binding["model_serving_admission_ref"]:
                 self._release_after_host_pressure(session, model, receipt)
         if receipt.admission_decision_ref == binding["model_serving_admission_ref"]:

@@ -100,8 +100,11 @@ def test_adapter_forwards_exact_context_and_ordinary_chat_arguments(monkeypatch,
         seen.update(kwargs)
         return "receipt"
     monkeypatch.setattr(ProductionServingInferenceController, "generate", generate)
+    monkeypatch.setattr(ProductionServingInferenceController,
+        "cancel_pending_generation", lambda self: True)
     adapter = ResourceBackedProductionChatInference(bridge, custody)
     assert adapter.current_conversation_model_identity() == {"model_id": "stable"}
+    assert adapter.cancel_pending_generation() is True
     result = adapter.generate(prompt="serialized allocation_id=forged", caller="chat", correlation_id="session-forged",
                               budget=object(), caller_linkage={"principal_id": "forged", "memory": "forged"})
     assert result == "receipt"

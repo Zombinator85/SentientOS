@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+import threading
 from types import MappingProxyType, SimpleNamespace
 
 import pytest
@@ -268,6 +269,40 @@ def test_exact_serving_backed_generation_has_independent_admission_and_linkage(m
         assert key in linkage
     assert [r.authority_class for r in kernel.requests] == [AuthorityClass.MODEL_SERVING, AuthorityClass.LOCAL_MODEL_INFERENCE]
     assert serving.current_session() == session
+
+
+def test_production_cancellation_reaches_active_governed_invocation(monkeypatch, tmp_path):
+    started = threading.Event()
+    cancelled = threading.Event()
+
+    def generate_until_cancelled():
+        started.set()
+        if not cancelled.wait(timeout=5):
+            raise AssertionError("cancellation hook was not called")
+        raise RuntimeError("fixture_generation_cancelled")
+
+    bridge, serving, _, model, _, _ = setup(
+        monkeypatch, tmp_path, on_generate=generate_until_cancelled)
+    model.cancel_pending_generation = lambda: (cancelled.set() or True)
+    results = {}
+
+    def invoke():
+        results["receipt"] = bridge.generate(
+            prompt="long work", caller="operator", correlation_id="cancel-active")
+
+    worker = threading.Thread(target=invoke)
+    worker.start()
+    assert started.wait(timeout=5)
+
+    assert bridge.cancel_pending_generation() is True
+    worker.join(timeout=5)
+
+    assert not worker.is_alive()
+    assert results["receipt"].status == "cancelled"
+    assert results["receipt"].output_text is None
+    assert bridge.cancel_pending_generation() is False
+    assert serving.current_session() is not None
+    serving.close()
 
 
 @pytest.mark.parametrize(("mode", "expected_status", "expected_calls"), [

@@ -140,6 +140,9 @@ class ResourceBackedProductionChatInference:
     def reconcile_workload_state(self) -> Mapping[str, Any]:
         return self._delegate.reconcile_idle_game_resource_state()
 
+    def cancel_pending_generation(self) -> bool:
+        return self._delegate.cancel_pending_generation()
+
     def verify_stored_chat_invocation(self, *, receipt_id: str, receipt_digest: str,
                                      session_id: str, user_turn_id: str,
                                      assistant_text: str | None = None,
