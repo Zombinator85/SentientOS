@@ -430,14 +430,15 @@ def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
         observed_at, "c" * 64, 52.0, 1, 20.0, 4096, "available", observed_at)
     assert governor.observe_verified_game_performance(performance)
 
-    def request(trigger, *, digest="b" * 64):
+    def request(trigger, *, digest="b" * 64, process_digest="c" * 64):
         evidence = {
-            "schema_version": "sentientos.production_game_frame_pressure_release_evidence:v1",
+            "schema_version": "sentientos.production_game_frame_pressure_release_evidence:v2",
             "trigger_kind": "idle_game_frame_pressure_reconciliation",
             "trigger_correlation_id": trigger,
             "serving_session_id": "serving-session-" + "1" * 24,
             "game_performance_message_id": "a" * 64,
             "game_performance_payload_digest": digest,
+            "game_performance_process_id_digest": process_digest,
             "game_performance_source_id": "windows-edge",
             "game_performance_generation_id": "edge-generation-1",
             "game_performance_sequence": 7,
@@ -460,12 +461,16 @@ def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
 
     accepted = request("idle-game-frame-pressure-reconcile-valid")
     rejected = request("idle-game-frame-pressure-reconcile-forged", digest="e" * 64)
+    wrong_process = request("idle-game-frame-pressure-reconcile-wrong-process",
+        process_digest="f" * 64)
 
     assert accepted.allowed is True
     assert accepted.reason == "model_resource_release_fail_safe"
     assert accepted.evidence_refs["resource_observation_evidence"]["status"] == "current"
     assert rejected.allowed is False
     assert rejected.reason == "model_resource_release_pressure_evidence_required"
+    assert wrong_process.allowed is False
+    assert wrong_process.reason == "model_resource_release_pressure_evidence_required"
 
 
 def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing(

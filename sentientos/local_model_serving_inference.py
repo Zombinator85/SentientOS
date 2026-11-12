@@ -596,7 +596,7 @@ class ProductionServingInferenceController:
             isinstance(p95, (int, float)) and not isinstance(p95, bool)
             and math.isfinite(float(p95)) and 50.0 <= float(p95) <= 10_000
         ) or (type(hitches) is int and hitches > 0)
-        required = ("message_id", "payload_digest", "source_id", "generation_id",
+        required = ("message_id", "payload_digest", "process_id_digest", "source_id", "generation_id",
             "sequence", "observed_at")
         if not frame_pressure or any(not performance.get(key) for key in required):
             return None
@@ -605,12 +605,13 @@ class ProductionServingInferenceController:
             return None
         trigger_correlation = "idle-game-frame-pressure-reconcile-" + str(time.time_ns())
         evidence = {
-            "schema_version": "sentientos.production_game_frame_pressure_release_evidence:v1",
+            "schema_version": "sentientos.production_game_frame_pressure_release_evidence:v2",
             "trigger_kind": "idle_game_frame_pressure_reconciliation",
             "trigger_correlation_id": trigger_correlation,
             "serving_session_id": session.session_id,
             "game_performance_message_id": performance["message_id"],
             "game_performance_payload_digest": performance["payload_digest"],
+            "game_performance_process_id_digest": performance["process_id_digest"],
             "game_performance_source_id": performance["source_id"],
             "game_performance_generation_id": performance["generation_id"],
             "game_performance_sequence": performance["sequence"],

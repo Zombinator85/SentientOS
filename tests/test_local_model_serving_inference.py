@@ -764,6 +764,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert release["trigger_kind"] == "idle_game_frame_pressure_reconciliation"
         assert release["resource_observation"]["game_performance_message_id"] == (
             accepted[0].message_id)
+        assert release["resource_observation"]["game_performance_process_id_digest"] == (
+            game_evidence.process_id_digest)
         assert release["resource_observation"]["frame_time_p95_ms"] == 52.0
         assert release["resource_observation"]["hitch_count_over_50ms"] == 1
         assert "host_report_id" not in release["resource_observation"]
