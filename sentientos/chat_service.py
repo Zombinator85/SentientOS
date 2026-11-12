@@ -4028,8 +4028,11 @@ async def _startup_event() -> None:
     if composition is not None and _RESOURCE_RECONCILIATION_TASK is None:
         loop = asyncio.get_running_loop()
         reconciliation_wakeup = asyncio.Event()
-        composition.set_resource_reconciliation_wakeup(
-            lambda: loop.call_soon_threadsafe(reconciliation_wakeup.set))
+
+        def notify_reconciliation_wakeup() -> None:
+            loop.call_soon_threadsafe(reconciliation_wakeup.set)
+
+        composition.set_resource_reconciliation_wakeup(notify_reconciliation_wakeup)
         async def reconcile_resources() -> None:
             while True:
                 reconciliation_wakeup.clear()
