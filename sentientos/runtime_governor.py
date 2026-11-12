@@ -1193,6 +1193,21 @@ class RuntimeGovernor:
         except (ImportError, AttributeError, TypeError, ValueError, OverflowError):
             return False
 
+    def current_verified_game_performance_evidence(self) -> dict[str, object] | None:
+        """Return the current authenticated game-pacing sample for bounded consumers."""
+        with self._resource_evidence_lock:
+            evidence = (dict(self._game_performance_evidence)
+                if self._game_performance_evidence is not None else None)
+        if evidence is None:
+            return None
+        try:
+            observed_at = datetime.fromisoformat(str(evidence["observed_at"]))
+            age = (datetime.now(timezone.utc)
+                - observed_at.astimezone(timezone.utc)).total_seconds()
+        except (KeyError, TypeError, ValueError):
+            return None
+        return evidence if 0 <= age <= 10 else None
+
     def observe_verified_game_workload(self, observation: object) -> bool:
         """Retain fresh bridge-verified allowlisted game-presence evidence."""
         try:
@@ -1269,6 +1284,7 @@ class RuntimeGovernor:
                 "verified_game_gpu_pressure",
                 "verified_game_host_pressure",
                 "verified_game_gpu_model_residency",
+                "verified_game_frame_pressure",
                 "selected_gaming_profile_host_pressure",
                 "rootless_experimental_epistemic_complete",
                 "rootless_experimental_developmental_complete",
@@ -1475,6 +1491,84 @@ class RuntimeGovernor:
                 }
             else:
                 evidence_ref = {"status": "missing_stale_malformed_or_unverified_game_gpu_pressure"}
+        elif reason_code == "verified_game_frame_pressure":
+            observation_value = payload.get("resource_observation")
+            expected_fields = {
+                "schema_version", "trigger_kind", "trigger_correlation_id",
+                "serving_session_id", "game_performance_message_id",
+                "game_performance_payload_digest", "game_performance_source_id",
+                "game_performance_generation_id", "game_performance_sequence",
+                "observed_at", "frame_time_p95_ms", "hitch_count_over_50ms",
+            }
+            evidence_valid = False
+            age_seconds: float | None = None
+            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+                source = observation_value.get("trigger_correlation_id")
+                message_id = observation_value.get("game_performance_message_id")
+                payload_digest = observation_value.get("game_performance_payload_digest")
+                source_id = observation_value.get("game_performance_source_id")
+                generation_id = observation_value.get("game_performance_generation_id")
+                sequence = observation_value.get("game_performance_sequence")
+                session_id = observation_value.get("serving_session_id")
+                observed_at = observation_value.get("observed_at")
+                p95 = observation_value.get("frame_time_p95_ms")
+                hitches = observation_value.get("hitch_count_over_50ms")
+                try:
+                    parsed_at = datetime.fromisoformat(
+                        observed_at if isinstance(observed_at, str) else "")
+                except ValueError:
+                    parsed_at = None
+                if parsed_at is not None and parsed_at.tzinfo is not None:
+                    age_seconds = (datetime.now(timezone.utc)
+                        - parsed_at.astimezone(timezone.utc)).total_seconds()
+                current = self.current_verified_game_performance_evidence()
+                evidence_valid = bool(
+                    observation_value.get("schema_version") ==
+                        "sentientos.production_game_frame_pressure_release_evidence:v1"
+                    and observation_value.get("trigger_kind") ==
+                        "idle_game_frame_pressure_reconciliation"
+                    and isinstance(source, str)
+                    and source.startswith("idle-game-frame-pressure-reconcile-")
+                    and correlation_id == "production-chat-resource-release-" +
+                        hashlib.sha256(("idle_game_frame_pressure_reconciliation:" +
+                            source).encode("utf-8")).hexdigest()[:24]
+                    and actor == "production_chat_game_resource_governor"
+                    and subject == actor and payload.get("target_subsystem") == "production_chat"
+                    and isinstance(session_id, str)
+                    and re.fullmatch(r"serving-session-[0-9a-f]{24}", session_id) is not None
+                    and isinstance(message_id, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", message_id) is not None
+                    and isinstance(payload_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", payload_digest) is not None
+                    and isinstance(source_id, str) and source_id
+                    and isinstance(generation_id, str) and generation_id
+                    and type(sequence) is int and sequence > 0
+                    and isinstance(observed_at, str)
+                    and ((isinstance(p95, (int, float)) and not isinstance(p95, bool)
+                          and math.isfinite(float(p95)) and 0 < float(p95) <= 10_000
+                          and float(p95) >= 50.0)
+                         or (type(hitches) is int and hitches > 0))
+                    and age_seconds is not None and 0 <= age_seconds <= 10
+                    and isinstance(current, Mapping)
+                    and current.get("message_id") == message_id
+                    and current.get("payload_digest") == payload_digest
+                    and current.get("source_id") == source_id
+                    and current.get("generation_id") == generation_id
+                    and current.get("sequence") == sequence
+                    and current.get("observed_at") == observed_at
+                    and current.get("frame_time_p95_ms") == p95
+                    and current.get("hitch_count_over_50ms") == hitches)
+            valid = valid and evidence_valid
+            evidence_ref = ({
+                "status": "current",
+                "game_performance_message_id": observation_value.get(
+                    "game_performance_message_id"),
+                "frame_time_p95_ms": observation_value.get("frame_time_p95_ms"),
+                "hitch_count_over_50ms": observation_value.get(
+                    "hitch_count_over_50ms"),
+                "age_seconds": round(age_seconds, 3) if age_seconds is not None else None,
+            } if evidence_valid and isinstance(observation_value, Mapping) else {
+                "status": "missing_stale_malformed_or_unverified_game_frame_pressure"})
         elif reason_code == "verified_game_gpu_model_residency":
             observation_value = payload.get("resource_observation")
             expected_fields = {
@@ -1736,6 +1830,7 @@ class RuntimeGovernor:
                     "model_resource_release_pressure_evidence_required"
                     if reason_code in {"vram_pressure_observed", "verified_game_gpu_pressure",
                         "verified_game_host_pressure",
+                        "verified_game_frame_pressure",
                         "selected_gaming_profile_host_pressure"} else
                     "model_resource_release_request_invalid"),
             subject=subject, scope="local", origin=actor,

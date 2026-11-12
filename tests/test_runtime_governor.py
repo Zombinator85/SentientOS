@@ -416,6 +416,58 @@ def test_selected_gaming_profile_release_requires_current_observed_host_pressure
     assert decision.reason == "model_resource_release_pressure_evidence_required"
 
 
+@pytest.mark.no_legacy_skip
+def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
+        monkeypatch, tmp_path):
+    from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = datetime.now(timezone.utc).isoformat()
+    performance = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 7, "a" * 64, "b" * 64,
+        observed_at, "c" * 64, 52.0, 1, 20.0, 4096, "available", observed_at)
+    assert governor.observe_verified_game_performance(performance)
+
+    def request(trigger, *, digest="b" * 64):
+        evidence = {
+            "schema_version": "sentientos.production_game_frame_pressure_release_evidence:v1",
+            "trigger_kind": "idle_game_frame_pressure_reconciliation",
+            "trigger_correlation_id": trigger,
+            "serving_session_id": "serving-session-" + "1" * 24,
+            "game_performance_message_id": "a" * 64,
+            "game_performance_payload_digest": digest,
+            "game_performance_source_id": "windows-edge",
+            "game_performance_generation_id": "edge-generation-1",
+            "game_performance_sequence": 7,
+            "observed_at": observed_at,
+            "frame_time_p95_ms": 52.0,
+            "hitch_count_over_50ms": 1,
+        }
+        correlation = "production-chat-resource-release-" + hashlib.sha256(
+            ("idle_game_frame_pressure_reconciliation:" + trigger)
+            .encode("utf-8")).hexdigest()[:24]
+        return governor._admit_local_model_resource_release(
+            actor="production_chat_game_resource_governor",
+            subject="production_chat_game_resource_governor",
+            correlation_id=correlation,
+            metadata={"purpose": "local_model_resource_release",
+                "reason_code": "verified_game_frame_pressure",
+                "target_subsystem": "production_chat",
+                "model_identity_digest": "d" * 64,
+                "resource_observation": evidence})
+
+    accepted = request("idle-game-frame-pressure-reconcile-valid")
+    rejected = request("idle-game-frame-pressure-reconcile-forged", digest="e" * 64)
+
+    assert accepted.allowed is True
+    assert accepted.reason == "model_resource_release_fail_safe"
+    assert accepted.evidence_refs["resource_observation_evidence"]["status"] == "current"
+    assert rejected.allowed is False
+    assert rejected.reason == "model_resource_release_pressure_evidence_required"
+
+
 def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing(
         monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")

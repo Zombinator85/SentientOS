@@ -529,6 +529,12 @@ class ProductionServingInferenceController:
                 model = self._serving._current_inference_model(session)
             except ProductionServingError:
                 return {"status": "skipped", "reason": "current_serving_session_required"}
+            frame_release = self._release_after_game_frame_pressure(session, model)
+            if frame_release is not None:
+                return {"status": frame_release["status"],
+                    "release_receipt_id": frame_release["receipt_id"],
+                    "trigger_kind": "idle_game_frame_pressure_reconciliation",
+                    "serving_session_id": session.session_id}
             load_configuration = session.binding.get("load_configuration")
             gpu_layers = (load_configuration.get("n_gpu_layers")
                 if isinstance(load_configuration, Mapping) else None)
@@ -570,6 +576,122 @@ class ProductionServingInferenceController:
                 "serving_session_id": session.session_id}
         finally:
             self._receipt_capacity_lock.release()
+
+    def _release_after_game_frame_pressure(
+            self, session: ServingSession, model: Any) -> dict[str, Any] | None:
+        """Release the exact optional model when a fresh authenticated game sample shows hitches."""
+        getter = getattr(self._serving._kernel,
+            "current_verified_game_performance_evidence", None)
+        if not callable(getter):
+            return None
+        try:
+            performance = getter()
+        except Exception:
+            return None
+        if not isinstance(performance, Mapping):
+            return None
+        p95 = performance.get("frame_time_p95_ms")
+        hitches = performance.get("hitch_count_over_50ms")
+        frame_pressure = (
+            isinstance(p95, (int, float)) and not isinstance(p95, bool)
+            and math.isfinite(float(p95)) and 50.0 <= float(p95) <= 10_000
+        ) or (type(hitches) is int and hitches > 0)
+        required = ("message_id", "payload_digest", "source_id", "generation_id",
+            "sequence", "observed_at")
+        if not frame_pressure or any(not performance.get(key) for key in required):
+            return None
+        loaded_identity = getattr(model, "active_identity", None)
+        if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
+            return None
+        trigger_correlation = "idle-game-frame-pressure-reconcile-" + str(time.time_ns())
+        evidence = {
+            "schema_version": "sentientos.production_game_frame_pressure_release_evidence:v1",
+            "trigger_kind": "idle_game_frame_pressure_reconciliation",
+            "trigger_correlation_id": trigger_correlation,
+            "serving_session_id": session.session_id,
+            "game_performance_message_id": performance["message_id"],
+            "game_performance_payload_digest": performance["payload_digest"],
+            "game_performance_source_id": performance["source_id"],
+            "game_performance_generation_id": performance["generation_id"],
+            "game_performance_sequence": performance["sequence"],
+            "observed_at": performance["observed_at"],
+            "frame_time_p95_ms": p95,
+            "hitch_count_over_50ms": hitches,
+        }
+        release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+            ("idle_game_frame_pressure_reconciliation:" + trigger_correlation)
+            .encode("utf-8")).hexdigest()[:24]
+        decision = self._serving._kernel.admit(ControlActionRequest(
+            action_kind="local_model_resource_release",
+            authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
+            actor="production_chat_game_resource_governor",
+            target_subsystem="production_chat", requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"correlation_id": release_correlation,
+                "purpose": "local_model_resource_release",
+                "reason_code": "verified_game_frame_pressure",
+                "target_subsystem": "production_chat",
+                "model_identity_digest": digest_payload(loaded_identity.to_dict()),
+                "resource_observation": evidence},
+        ))
+        decision_valid = (decision.allowed
+            and decision.outcome == AdmissionOutcome.ALLOW
+            and decision.authority_class == AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
+            and decision.action_kind == "local_model_resource_release"
+            and decision.actor == "production_chat_game_resource_governor"
+            and decision.target_subsystem == "production_chat"
+            and decision.correlation_id == release_correlation)
+        closed = False
+        close_failure: str | None = None
+        worker_exit_observed: bool | None = None
+        if decision_valid:
+            try:
+                closed = self._serving.release_current_session_after_resource_admission(
+                    session, reason="verified_game_frame_pressure")
+                worker = getattr(model, "_process", None)
+                poll = getattr(worker, "poll", None)
+                worker_exit_observed = poll() is not None if callable(poll) else None
+            except Exception as exc:
+                close_failure = type(exc).__name__
+        outcome = {
+            "schema_version": "sentientos.production_chat_resource_release_receipt:v2",
+            "status": "worker_closed" if closed else
+                "release_effect_unconfirmed" if decision_valid else "denied",
+            "trigger_kind": "idle_game_frame_pressure_reconciliation",
+            "trigger_correlation_id": trigger_correlation,
+            "release_correlation_id": release_correlation,
+            "serving_session_id": session.session_id,
+            "serving_operation_id": session.binding.get("serving_operation_id"),
+            "model_identity_digest": digest_payload(loaded_identity.to_dict()),
+            "release_admission_decision_ref": decision.admission_decision_ref,
+            "release_admission_outcome": decision.outcome.value,
+            "release_reason_codes": list(decision.reason_codes),
+            "resource_observation": evidence,
+            "worker_exit_observed": worker_exit_observed,
+            "close_failure": close_failure,
+            "inference_performed": False,
+            "host_mutation_performed": False,
+        }
+        encoded_body = json.dumps(outcome, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False).encode("utf-8")
+        receipt_id = "serving-resource-release-" + hashlib.sha256(encoded_body).hexdigest()[:24]
+        outcome["receipt_id"] = receipt_id
+        outcome["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+            outcome, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+            allow_nan=False).encode("utf-8")).hexdigest()
+        handle = self._serving._handle
+        directory = handle.fixed_object("local-model/serving/resource-release-receipts")
+        handle.ensure_directory(directory)
+        target = directory.child(receipt_id + ".json")
+        encoded = (json.dumps(outcome, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+        try:
+            handle.durable_create(target, encoded)
+        except InstallationStateError as exc:
+            if (exc.args != ("state_object_already_exists",)
+                    or handle.read_regular_bounded(target, max_bytes=262_144) != encoded):
+                raise ProductionServingInferenceError(
+                    "resource_release_receipt_publication_failed") from exc
+        return outcome
 
     def _release_after_verified_game_gpu_model_residency(
             self, session: ServingSession, model: Any,
