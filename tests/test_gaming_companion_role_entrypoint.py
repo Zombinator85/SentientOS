@@ -225,6 +225,29 @@ def test_configured_game_performance_publisher_participates_in_edge_health() -> 
     runtime.close()
 
 
+def test_configured_foreground_game_publisher_participates_in_edge_health() -> None:
+    listener = _EdgeListener()
+    dispatcher = _EdgeDispatcher()
+    runtime = WindowsEdgeAvatarRuntime(runtime=listener, dispatcher=dispatcher)  # type: ignore[arg-type]
+    runtime.start()
+
+    class Pump:
+        running = False
+
+        def status(self):
+            return SimpleNamespace(running=self.running)
+
+        def close(self) -> None:
+            self.running = False
+
+    pump = Pump()
+    runtime._foreground_game_pump = cast(Any, pump)
+    assert not runtime_is_healthy("windows_edge", runtime)
+    pump.running = True
+    assert runtime_is_healthy("windows_edge", runtime)
+    runtime.close()
+
+
 def test_unsupported_host_does_not_invoke_or_import_provider() -> None:
     called = False
 

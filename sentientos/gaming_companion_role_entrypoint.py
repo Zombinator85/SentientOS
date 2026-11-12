@@ -108,7 +108,9 @@ def runtime_is_healthy(role: str, runtime: object) -> bool:
             and status.state == "running" and status.listener_port is not None
             and status.dispatch.state == "running"
             and (not status.game_performance_publisher_configured
-                  or status.game_performance_publisher_running))
+                  or status.game_performance_publisher_running)
+            and (not status.foreground_game_publisher_configured
+                  or status.foreground_game_publisher_running))
     if role == "wsl_core":
         return (type(runtime) is WSLCoreGamingCompanionRuntime
             and status.get("state") == "running"
