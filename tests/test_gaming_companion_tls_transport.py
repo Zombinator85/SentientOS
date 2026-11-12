@@ -18,7 +18,13 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from sentientos.gaming_companion_bridge import CompanionBridgeReceiver, encode_message
-from sentientos.control_plane_kernel import ControlPlaneKernel
+from sentientos.control_plane_kernel import (
+    AdmissionOutcome,
+    AuthorityClass,
+    ControlActionRequest,
+    ControlPlaneKernel,
+    LifecyclePhase,
+)
 from sentientos.host_collectors import HostCollectorResult
 from sentientos.host_resource_runtime import (
     HostObservationCollectorSpec,
@@ -62,6 +68,12 @@ def _certificate_bundle(root: Path):
         .public_key(ca_key.public_key()).serial_number(x509.random_serial_number())
         .not_valid_before(now - timedelta(minutes=1)).not_valid_after(now + timedelta(days=1))
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .add_extension(x509.KeyUsage(digital_signature=False, content_commitment=False,
+            key_encipherment=False, data_encipherment=False, key_agreement=False,
+            key_cert_sign=True, crl_sign=True, encipher_only=None, decipher_only=None),
+            critical=True)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(ca_key.public_key()), critical=False)
+        .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False)
         .sign(ca_key, hashes.SHA256()))
     ca_path = root / "ca.pem"
     ca_path.write_bytes(ca_cert.public_bytes(serialization.Encoding.PEM))
@@ -72,6 +84,7 @@ def _certificate_bundle(root: Path):
         builder = (x509.CertificateBuilder().subject_name(subject).issuer_name(ca_name)
             .public_key(key.public_key()).serial_number(x509.random_serial_number())
             .not_valid_before(now - timedelta(minutes=1)).not_valid_after(now + timedelta(days=1))
+            .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False)
             .add_extension(x509.ExtendedKeyUsage([usage]), critical=False))
         if san is not None:
             builder = builder.add_extension(x509.SubjectAlternativeName([san]), critical=False)
@@ -344,13 +357,17 @@ def test_production_game_evidence_schemas_share_one_ordered_mtls_session(
                 correlation_id.encode("utf-8")).hexdigest()[:32]
             evaluation = host_owner.run_cycle(correlation_id=observation_id)
             assert evaluation is not None
-            return governor._admit_local_model_inference(
-                actor="chat_service", subject="local_model", correlation_id=correlation_id,
-                operation_kind="model_serving", metadata={
+            return kernel.admit(ControlActionRequest(
+                action_kind="establish_exact_activated_model_serving_session",
+                authority_class=AuthorityClass.MODEL_SERVING,
+                actor="chat_service", target_subsystem="local_model_chat",
+                requested_phase=LifecyclePhase.RUNTIME,
+                metadata={
                 "resource_governance_required": True,
                 "purpose": "local_model_serving",
                 "host_resource_observation_namespace": "local-chat-serving",
                 "host_resource_observation_id": observation_id,
+                "correlation_id": correlation_id,
                 "workload_mode": "automatic",
                 "model_execution_profile": {
                     "schema_version": "sentientos.model_execution_profile:v1",
@@ -360,13 +377,14 @@ def test_production_game_evidence_schemas_share_one_ordered_mtls_session(
                 "serving_workload_evidence": {
                     "transport_provenance": {
                         "message_id": observation.transport_provenance["message_id"]}},
-                })
+                }))
 
         decision = admit(observation, "mTLS-game-serving-active")
-        assert decision.allowed is False
-        assert decision.reason == "deferred_gpu_model_serving_while_game_active"
-        assert decision.evidence_refs["host_resource_evidence"]["status"] == "current"
-        assert decision.evidence_refs["host_resource_evidence"][
+        assert decision.outcome == AdmissionOutcome.DEFER
+        assert "runtime_governor:deferred_gpu_model_serving_while_game_active" in decision.reason_codes
+        runtime_decision = decision.delegated_outcomes["runtime_governor"]
+        assert runtime_decision["evidence_refs"]["host_resource_evidence"]["status"] == "current"
+        assert runtime_decision["evidence_refs"]["host_resource_evidence"][
             "gpu_telemetry_complete"] is True
 
         idle_foreground_publisher = WindowsForegroundBridgePublisher(
@@ -383,15 +401,15 @@ def test_production_game_evidence_schemas_share_one_ordered_mtls_session(
         assert idle_observation.game_foreground is False
         assert idle_observation.game_process_running is False
         idle_decision = admit(idle_observation, "mTLS-game-serving-idle")
-        assert idle_decision.allowed is True
+        assert idle_decision.outcome == AdmissionOutcome.ALLOW
 
         resumed_ack = foreground_publisher.publish_once(["game.exe"])
         assert resumed_ack.sequence == 4
         resumed_observation = core_detector.observe(["game.exe"])
         assert resumed_observation.game_foreground is True
         resumed_decision = admit(resumed_observation, "mTLS-game-serving-resumed")
-        assert resumed_decision.allowed is False
-        assert resumed_decision.reason == "deferred_gpu_model_serving_while_game_active"
+        assert resumed_decision.outcome == AdmissionOutcome.DEFER
+        assert "runtime_governor:deferred_gpu_model_serving_while_game_active" in resumed_decision.reason_codes
         assert host_owner.collector_call_count == 9
         assert runtime.status().accepted_messages == 4
     finally:
