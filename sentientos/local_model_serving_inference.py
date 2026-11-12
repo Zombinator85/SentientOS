@@ -123,7 +123,7 @@ class ProductionServingInferenceController:
             if invoker is not None else False)
 
     def resource_reconciliation_interval_seconds(self) -> float:
-        """Poll verified game pressure faster only during automatic-mode inference.
+        """Poll workload priority faster during automatic or gaming-mode inference.
 
         The regular cadence can run host collectors and remains deliberately
         conservative. While optional inference is actually in flight, the busy
@@ -131,8 +131,8 @@ class ProductionServingInferenceController:
         can request governed cancellation, so a shorter interval is bounded.
         """
         with self._workload_lock:
-            automatic = self._workload_mode == "automatic"
-        if automatic:
+            priority_mode = self._workload_mode in {"automatic", "gaming"}
+        if priority_mode:
             with self._active_invoker_lock:
                 inference_active = self._active_invoker is not None
             if inference_active:
@@ -688,6 +688,41 @@ class ProductionServingInferenceController:
             return {"status": "skipped", "reason": "game_priority_release_in_progress"}
         try:
             workload = self.current_workload_state()
+            if workload.get("configured_mode") == "gaming":
+                with self._active_invoker_lock:
+                    active_invoker = self._active_invoker
+                if active_invoker is None:
+                    return {"status": "skipped", "reason": "active_inference_required"}
+                session = self._serving.current_session()
+                if session is None:
+                    return {"status": "skipped", "reason": "no_resident_serving_session"}
+                try:
+                    model = self._serving._current_inference_model(session)
+                except ProductionServingError:
+                    return {"status": "skipped", "reason": "current_serving_session_required"}
+                load_configuration = session.binding.get("load_configuration")
+                gpu_layers = (load_configuration.get("n_gpu_layers")
+                    if isinstance(load_configuration, Mapping) else None)
+                if type(gpu_layers) is not int or not 1 <= gpu_layers <= 256:
+                    return {"status": "skipped",
+                        "reason": "gpu_backed_serving_session_required"}
+                attempt_key = (session.session_id, "gaming-profile:" + str(id(active_invoker)))
+                if attempt_key == self._last_active_game_preemption_attempt:
+                    return {"status": "skipped",
+                        "reason": "gaming_profile_release_already_attempted_for_invocation"}
+                release = self._release_after_gpu_model_residency(
+                    session, model, workload, selected_gaming_profile=True,
+                    preempt_active_generation=True)
+                if release is None:
+                    return {"status": "skipped",
+                        "reason": "gaming_profile_gpu_residency_release_unavailable"}
+                self._last_active_game_preemption_attempt = attempt_key
+                return {"status": release["status"],
+                    "release_receipt_id": release["receipt_id"],
+                    "trigger_kind": release["trigger_kind"],
+                    "serving_session_id": session.session_id,
+                    "active_inference_cancellation_confirmed": release[
+                        "active_inference_cancellation_confirmed"]}
             provenance = workload.get("transport_provenance")
             if (workload.get("configured_mode") != "automatic"
                     or workload.get("observation_status") != "available"
@@ -943,7 +978,8 @@ class ProductionServingInferenceController:
     def _release_after_gpu_model_residency(
             self, session: ServingSession, model: Any,
             workload: Mapping[str, Any], *,
-            selected_gaming_profile: bool = False) -> dict[str, Any] | None:
+            selected_gaming_profile: bool = False,
+            preempt_active_generation: bool = False) -> dict[str, Any] | None:
         """Release GPU-backed optional chat residency for a game or explicit profile."""
         provenance = workload.get("transport_provenance")
         message_id = provenance.get("message_id") if isinstance(provenance, Mapping) else None
@@ -991,6 +1027,7 @@ class ProductionServingInferenceController:
                 "workload_mode": "gaming",
                 "workload_mode_source": "operator_selected",
                 "workload_observation_status": "not_requested",
+                "active_inference_preemption_requested": preempt_active_generation,
                 "observed_at": evidence_time,
             }
             actor = "production_chat_workload_resource_governor"
@@ -1028,10 +1065,18 @@ class ProductionServingInferenceController:
         closed = False
         close_failure: str | None = None
         worker_exit_observed: bool | None = None
+        active_inference_cancellation_confirmed: bool | None = None
         if decision_valid:
             try:
-                closed = self._serving.release_current_session_after_resource_admission(
-                    session, reason=reason_code)
+                if preempt_active_generation:
+                    active_inference_cancellation_confirmed = (
+                        self.cancel_pending_generation(reason="workload_transition"))
+                    if not active_inference_cancellation_confirmed:
+                        close_failure = "active_inference_cancellation_unconfirmed"
+                if (not preempt_active_generation
+                        or active_inference_cancellation_confirmed):
+                    closed = self._serving.release_current_session_after_resource_admission(
+                        session, reason=reason_code)
                 worker = getattr(model, "_process", None)
                 poll = getattr(worker, "poll", None)
                 worker_exit_observed = poll() is not None if callable(poll) else None
@@ -1077,6 +1122,7 @@ class ProductionServingInferenceController:
             "resource_observation": ({"workload_mode": "gaming",
                 "workload_mode_source": "operator_selected",
                 "workload_observation_status": "not_requested",
+                "active_inference_preemption_requested": preempt_active_generation,
                 "model_gpu_layers": gpu_layers, "host_telemetry_used_for_admission": False}
                 if selected_gaming_profile else {"game_workload_message_id": message_id,
                     "model_gpu_layers": gpu_layers, "host_telemetry_used_for_admission": False}),
@@ -1088,6 +1134,12 @@ class ProductionServingInferenceController:
                 "vram_utilization_delta_percentage_points": vram_delta,
                 "interpretation": "sample_delta_only; telemetry_does_not_establish_causation"},
             "inference_performed": False, "host_mutation_performed": False}
+        if selected_gaming_profile:
+            outcome.update({
+                "active_inference_preemption_requested": preempt_active_generation,
+                "active_inference_cancellation_confirmed":
+                    active_inference_cancellation_confirmed,
+            })
         body = json.dumps(outcome, sort_keys=True, separators=(",", ":"),
             ensure_ascii=False, allow_nan=False).encode("utf-8")
         receipt_id = "serving-resource-release-" + hashlib.sha256(body).hexdigest()[:24]

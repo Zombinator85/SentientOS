@@ -419,6 +419,7 @@ def test_selected_gaming_profile_release_requires_current_observed_host_pressure
 @pytest.mark.parametrize("mutation,expected", [
     ("none", True), ("wrong_mode", False), ("wrong_source", False),
     ("stale", False), ("zero_gpu_layers", False), ("empty_session", False),
+    ("invalid_preemption", False),
 ])
 @pytest.mark.no_legacy_skip
 def test_selected_gaming_profile_gpu_residency_release_requires_exact_profile_evidence(
@@ -437,6 +438,7 @@ def test_selected_gaming_profile_gpu_residency_release_requires_exact_profile_ev
         "workload_mode": "gaming",
         "workload_mode_source": "operator_selected",
         "workload_observation_status": "not_requested",
+        "active_inference_preemption_requested": False,
         "observed_at": observed_at,
     }
     if mutation == "wrong_mode":
@@ -449,6 +451,8 @@ def test_selected_gaming_profile_gpu_residency_release_requires_exact_profile_ev
         evidence["model_gpu_layers"] = 0
     elif mutation == "empty_session":
         evidence["serving_session_id"] = ""
+    elif mutation == "invalid_preemption":
+        evidence["active_inference_preemption_requested"] = "yes"
     release_correlation = "production-chat-resource-release-" + hashlib.sha256(
         ("idle_gaming_profile_gpu_residency:" + trigger).encode("utf-8")).hexdigest()[:24]
     decision = governor._admit_local_model_resource_release(

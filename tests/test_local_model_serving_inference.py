@@ -620,6 +620,122 @@ def test_selected_gaming_profile_releases_gpu_model_under_pressure_or_for_reside
         serving.close()
 
 
+def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=25.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1, devices=[{
+                    "index": 0, "gpu_utilization_percent": 20.0,
+                    "vram_utilization_percent": 35.0}])),
+        ]), clock=lambda: now.isoformat())
+    started = threading.Event()
+    cancelled = threading.Event()
+
+    def active_generation():
+        started.set()
+        if not cancelled.wait(timeout=5):
+            raise AssertionError("gaming-profile cancellation was not delivered")
+        raise RuntimeError("fixture_generation_cancelled_for_gaming_profile")
+
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner,
+        gpu_layers=24, on_generate=active_generation)
+    model.cancel_pending_generation = lambda: (cancelled.set() or True)
+    inference_result = {}
+    invocation = threading.Thread(target=lambda: inference_result.setdefault(
+        "receipt", bridge.generate(prompt="optional chat work", caller="operator",
+            correlation_id="gaming-profile-active-inference")))
+
+    import asyncio
+    from sentientos import chat_service
+    from types import SimpleNamespace
+
+    reconciliations = []
+    service = SimpleNamespace(
+        reconcile_workload_state=lambda: reconciliations.append(
+            bridge.reconcile_workload_state()) or reconciliations[-1],
+        resource_reconciliation_interval_seconds=(
+            bridge.resource_reconciliation_interval_seconds),
+        set_resource_reconciliation_wakeup=(bridge.set_resource_reconciliation_wakeup),
+        close_outputs=lambda: None)
+    previous_composition = chat_service._PRODUCTION_COMPOSITION
+    previous_reconciliation_task = chat_service._RESOURCE_RECONCILIATION_TASK
+    chat_service._PRODUCTION_COMPOSITION = chat_service.ProductionChatComposition(
+        service, serving)
+    chat_service._RESOURCE_RECONCILIATION_TASK = None
+
+    async def run_reconciliation_scheduler():
+        await chat_service._startup_event()
+        try:
+            invocation.start()
+            if not await asyncio.to_thread(started.wait, 5):
+                raise AssertionError("active inference did not start")
+            bridge.set_workload_mode("gaming")
+            if not await asyncio.to_thread(cancelled.wait, 5):
+                raise AssertionError("scheduler did not cancel gaming-profile inference")
+            assert bridge.resource_reconciliation_interval_seconds() == 0.5
+            await asyncio.to_thread(invocation.join, 5)
+            assert not invocation.is_alive()
+            return chat_service._RESOURCE_RECONCILIATION_TASK is not None
+        finally:
+            await chat_service._shutdown_event()
+
+    try:
+        scheduler_started = asyncio.run(run_reconciliation_scheduler())
+    finally:
+        chat_service._PRODUCTION_COMPOSITION = previous_composition
+        chat_service._RESOURCE_RECONCILIATION_TASK = previous_reconciliation_task
+
+    assert not invocation.is_alive()
+    assert scheduler_started is True
+    assert any(item.get("trigger_kind") == "idle_gaming_profile_gpu_residency"
+        for item in reconciliations)
+    reconciliation = next(item for item in reconciliations
+        if item.get("trigger_kind") == "idle_gaming_profile_gpu_residency")
+    assert reconciliation["status"] == "worker_closed"
+    assert reconciliation["trigger_kind"] == "idle_gaming_profile_gpu_residency"
+    assert reconciliation["active_inference_cancellation_confirmed"] is True
+    assert inference_result["receipt"].status == "cancelled"
+    assert inference_result["receipt"].output_text is None
+    assert model.closed is True
+    assert model.calls == 1
+    assert serving.current_session() is None
+    release_path = next((tmp_path / "state" / "installations" / "install-1" /
+        "state" / "local-model" / "serving" / "resource-release-receipts").glob("*.json"))
+    release = json.loads(release_path.read_text(encoding="utf-8"))
+    assert release["active_inference_preemption_requested"] is True
+    assert release["active_inference_cancellation_confirmed"] is True
+    assert release["resource_observation"]["workload_mode"] == "gaming"
+    assert release["resource_observation"]["workload_mode_source"] == "operator_selected"
+    assert "game_workload_message_id" not in release["resource_observation"]
+    decision = next(json.loads(line) for line in reversed(
+        (tmp_path / "kernel-decisions.jsonl").read_text(
+            encoding="utf-8").splitlines())
+        if json.loads(line).get("action_kind") == "local_model_resource_release")
+    delegated = decision["delegated_outcomes"]["runtime_governor"]
+    assert delegated["allowed"] is True
+    assert delegated["reason"] == "model_resource_release_fail_safe"
+    assert delegated["evidence_refs"]["resource_observation_evidence"][
+        "active_inference_preemption_requested"] is True
+
+
 def test_governed_resource_release_retries_after_worker_close_failure(monkeypatch, tmp_path):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")

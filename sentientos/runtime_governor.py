@@ -1940,7 +1940,8 @@ class RuntimeGovernor:
             expected_fields = {
                 "schema_version", "trigger_kind", "trigger_correlation_id",
                 "model_gpu_layers", "serving_session_id", "workload_mode",
-                "workload_mode_source", "workload_observation_status", "observed_at",
+                "workload_mode_source", "workload_observation_status",
+                "active_inference_preemption_requested", "observed_at",
             }
             evidence_valid = False
             profile_age_seconds: float | None = None
@@ -1977,6 +1978,8 @@ class RuntimeGovernor:
                     and observation_value.get("workload_mode") == "gaming"
                     and observation_value.get("workload_mode_source") == "operator_selected"
                     and observation_value.get("workload_observation_status") == "not_requested"
+                    and type(observation_value.get(
+                        "active_inference_preemption_requested")) is bool
                     and isinstance(raw_observed_at, str)
                     and profile_age_seconds is not None
                     and 0 <= profile_age_seconds <= 120)
@@ -1987,6 +1990,8 @@ class RuntimeGovernor:
                 "model_gpu_layers": observation_value.get("model_gpu_layers"),
                 "workload_mode": "gaming",
                 "workload_mode_source": "operator_selected",
+                "active_inference_preemption_requested": observation_value.get(
+                    "active_inference_preemption_requested"),
                 "age_seconds": round(profile_age_seconds, 3)
                     if profile_age_seconds is not None else None,
             } if evidence_valid and isinstance(observation_value, Mapping) else {
