@@ -8,7 +8,7 @@ import re
 import threading
 import time
 from pathlib import Path
-from typing import Any, Mapping, Protocol
+from typing import Any, Callable, Mapping, Protocol
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .chat_response_grounding import corrected_gaming_output
@@ -84,7 +84,11 @@ class ProductionServingInferenceController:
     __slots__ = ("_serving", "_runtime_handoff_id", "_receipt_capacity_lock",
                  "_workload_lock", "_workload_mode", "_game_process_names",
                  "_foreground_game_detector", "_host_resource_observation_owner",
-                 "_active_invoker_lock", "_active_invoker", "_preemption_lock")
+                 "_active_invoker_lock", "_active_invoker",
+                 "_resource_reconciliation_wakeup", "_preemption_lock")
+
+    RESOURCE_RECONCILIATION_INTERVAL_SECONDS = 5.0
+    ACTIVE_GAME_PRIORITY_RECONCILIATION_INTERVAL_SECONDS = 0.5
 
     def __init__(self, serving_controller: ProductionServingController, *,
                  runtime_handoff_id: str | None = None,
@@ -105,6 +109,7 @@ class ProductionServingInferenceController:
         self._host_resource_observation_owner = host_resource_observation_owner
         self._active_invoker_lock = threading.Lock()
         self._active_invoker: GovernedLocalModelInvoker | None = None
+        self._resource_reconciliation_wakeup: Callable[[], None] | None = None
         self._preemption_lock = threading.Lock()
 
     def cancel_pending_generation(self, *, reason: str = "client_disconnect") -> bool:
@@ -113,6 +118,41 @@ class ProductionServingInferenceController:
             invoker = self._active_invoker
         return (invoker.cancel_pending_generation(reason=reason)
             if invoker is not None else False)
+
+    def resource_reconciliation_interval_seconds(self) -> float:
+        """Poll verified game pressure faster only during automatic-mode inference.
+
+        The regular cadence can run host collectors and remains deliberately
+        conservative. While optional inference is actually in flight, the busy
+        reconciliation path reads only verified workload/frame evidence and
+        can request governed cancellation, so a shorter interval is bounded.
+        """
+        with self._workload_lock:
+            automatic = self._workload_mode == "automatic"
+        if automatic:
+            with self._active_invoker_lock:
+                inference_active = self._active_invoker is not None
+            if inference_active:
+                return self.ACTIVE_GAME_PRIORITY_RECONCILIATION_INTERVAL_SECONDS
+        return self.RESOURCE_RECONCILIATION_INTERVAL_SECONDS
+
+    def set_resource_reconciliation_wakeup(
+            self, callback: Callable[[], None] | None) -> None:
+        """Bind a scheduler wakeup; it carries no decision or effect authority."""
+        if callback is not None and not callable(callback):
+            raise TypeError("resource_reconciliation_wakeup_must_be_callable")
+        with self._active_invoker_lock:
+            self._resource_reconciliation_wakeup = callback
+
+    def _notify_resource_reconciliation_wakeup(self) -> None:
+        with self._active_invoker_lock:
+            callback = self._resource_reconciliation_wakeup
+        if callback is not None:
+            try:
+                callback()
+            except Exception:
+                # A failed optimization must not fail a governed inference.
+                pass
 
     def _observe_host_resources(self, correlation_id: str, *,
                                 observation_namespace: str = "local-chat-inference") -> dict[str, Any]:
@@ -210,6 +250,8 @@ class ProductionServingInferenceController:
         with self._workload_lock:
             self._workload_mode = validated
             self._game_process_names = names
+        if validated == "automatic":
+            self._notify_resource_reconciliation_wakeup()
         return validated
 
     def current_workload_mode(self) -> WorkloadMode:
@@ -1153,6 +1195,7 @@ class ProductionServingInferenceController:
                     "invocation_receipt_capacity_exhausted")
             with self._active_invoker_lock:
                 self._active_invoker = invoker
+            self._notify_resource_reconciliation_wakeup()
             try:
                 receipt = invoker.invoke(
                     request,

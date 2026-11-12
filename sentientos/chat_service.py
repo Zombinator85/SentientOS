@@ -814,6 +814,12 @@ class ProductionChatComposition:
         return self._serving.serving_is_current()
     def reconcile_workload_state(self) -> dict[str, Any]:
         return self.service.reconcile_workload_state()
+    def resource_reconciliation_interval_seconds(self) -> float:
+        return self.service.resource_reconciliation_interval_seconds()
+
+    def set_resource_reconciliation_wakeup(
+            self, callback: Callable[[], None] | None) -> None:
+        self.service.set_resource_reconciliation_wakeup(callback)
 
 class HistoryInterventionRequest(BaseModel):
     session_id: str
@@ -1452,6 +1458,23 @@ class PersistentConversationService:
         if callable(reconciler):
             return dict(reconciler())
         return self.current_workload_state()
+
+    def resource_reconciliation_interval_seconds(self) -> float:
+        interval_provider = getattr(
+            self._inference, "resource_reconciliation_interval_seconds", None)
+        if not callable(interval_provider):
+            return 5.0
+        interval = interval_provider()
+        if (isinstance(interval, bool) or not isinstance(interval, (int, float))
+                or not math.isfinite(float(interval)) or not 0.1 <= interval <= 60.0):
+            raise RuntimeError("resource_reconciliation_interval_invalid")
+        return float(interval)
+
+    def set_resource_reconciliation_wakeup(
+            self, callback: Callable[[], None] | None) -> None:
+        setter = getattr(self._inference, "set_resource_reconciliation_wakeup", None)
+        if callable(setter):
+            setter(callback)
 
     def screen_observation_configured(self) -> bool:
         return self._screen_observer is not None
@@ -4003,8 +4026,13 @@ async def _startup_event() -> None:
     LOGGER.info("Chat interface ready")
     composition = _PRODUCTION_COMPOSITION
     if composition is not None and _RESOURCE_RECONCILIATION_TASK is None:
+        loop = asyncio.get_running_loop()
+        reconciliation_wakeup = asyncio.Event()
+        composition.set_resource_reconciliation_wakeup(
+            lambda: loop.call_soon_threadsafe(reconciliation_wakeup.set))
         async def reconcile_resources() -> None:
             while True:
+                reconciliation_wakeup.clear()
                 operation = asyncio.create_task(asyncio.to_thread(
                     composition.reconcile_workload_state))
                 try:
@@ -4015,13 +4043,20 @@ async def _startup_event() -> None:
                 except Exception as exc:
                     LOGGER.warning("Idle workload resource reconciliation failed: %s",
                         type(exc).__name__)
-                await asyncio.sleep(5)
+                try:
+                    timeout = composition.resource_reconciliation_interval_seconds()
+                    await asyncio.wait_for(reconciliation_wakeup.wait(), timeout=timeout)
+                except asyncio.TimeoutError:
+                    pass
         _RESOURCE_RECONCILIATION_TASK = asyncio.create_task(reconcile_resources())
 
 
 @APP.on_event("shutdown")
 async def _shutdown_event() -> None:
     global _RESOURCE_RECONCILIATION_TASK
+    composition = _PRODUCTION_COMPOSITION
+    if composition is not None:
+        composition.set_resource_reconciliation_wakeup(None)
     task = _RESOURCE_RECONCILIATION_TASK
     _RESOURCE_RECONCILIATION_TASK = None
     if task is not None:

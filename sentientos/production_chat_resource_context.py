@@ -140,6 +140,12 @@ class ResourceBackedProductionChatInference:
     def reconcile_workload_state(self) -> Mapping[str, Any]:
         return self._delegate.reconcile_idle_game_resource_state()
 
+    def resource_reconciliation_interval_seconds(self) -> float:
+        return self._delegate.resource_reconciliation_interval_seconds()
+
+    def set_resource_reconciliation_wakeup(self, callback: Any | None) -> None:
+        self._delegate.set_resource_reconciliation_wakeup(callback)
+
     def cancel_pending_generation(self, *, reason: str = "client_disconnect") -> bool:
         return self._delegate.cancel_pending_generation(reason=reason)
 

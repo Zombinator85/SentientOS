@@ -102,9 +102,17 @@ def test_adapter_forwards_exact_context_and_ordinary_chat_arguments(monkeypatch,
     monkeypatch.setattr(ProductionServingInferenceController, "generate", generate)
     monkeypatch.setattr(ProductionServingInferenceController,
         "cancel_pending_generation", lambda self, *, reason="client_disconnect": True)
+    monkeypatch.setattr(ProductionServingInferenceController,
+        "resource_reconciliation_interval_seconds", lambda self: 0.5)
+    wakeups = []
+    monkeypatch.setattr(ProductionServingInferenceController,
+        "set_resource_reconciliation_wakeup", lambda self, callback: wakeups.append(callback))
     adapter = ResourceBackedProductionChatInference(bridge, custody)
     assert adapter.current_conversation_model_identity() == {"model_id": "stable"}
     assert adapter.cancel_pending_generation() is True
+    assert adapter.resource_reconciliation_interval_seconds() == 0.5
+    adapter.set_resource_reconciliation_wakeup(lambda: None)
+    assert len(wakeups) == 1 and callable(wakeups[0])
     result = adapter.generate(prompt="serialized allocation_id=forged", caller="chat", correlation_id="session-forged",
                               budget=object(), caller_linkage={"principal_id": "forged", "memory": "forged"})
     assert result == "receipt"

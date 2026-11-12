@@ -305,6 +305,42 @@ def test_production_cancellation_reaches_active_governed_invocation(monkeypatch,
     serving.close()
 
 
+def test_resource_reconciliation_accelerates_only_during_automatic_inference(
+        monkeypatch, tmp_path):
+    started = threading.Event()
+    finish = threading.Event()
+
+    def wait_for_release():
+        started.set()
+        if not finish.wait(timeout=5):
+            raise AssertionError("fixture inference release timed out")
+        return "answer"
+
+    bridge, serving, _, _, _, _ = setup(
+        monkeypatch, tmp_path, on_generate=wait_for_release)
+    wakeup = threading.Event()
+    bridge.set_resource_reconciliation_wakeup(wakeup.set)
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+    assert wakeup.wait(timeout=1)
+    wakeup.clear()
+    assert bridge.resource_reconciliation_interval_seconds() == 5.0
+    result = {}
+    thread = threading.Thread(target=lambda: result.setdefault("receipt", bridge.generate(
+        prompt=("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+            "[SESSION_HISTORY_DATA]\nUSER_DATA: hello"),
+        caller="operator", correlation_id="adaptive-resource-poll")))
+    thread.start()
+    assert started.wait(timeout=5)
+    assert wakeup.wait(timeout=1)
+    assert bridge.resource_reconciliation_interval_seconds() == 0.5
+    finish.set()
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+    assert result["receipt"].status == "admitted_completed"
+    assert bridge.resource_reconciliation_interval_seconds() == 5.0
+    serving.close()
+
+
 @pytest.mark.parametrize(("mode", "expected_status", "expected_calls"), [
     ("normal", "admitted_completed", 1),
     ("gaming", "deferred", 0),
