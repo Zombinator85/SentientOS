@@ -42,6 +42,36 @@ def test_exact_runtime_worker_reports_confirmed_process_cancellation() -> None:
     assert model.cancel_pending_generation() is False
 
 
+def test_exact_runtime_worker_close_waits_for_live_process_exit() -> None:
+    process = subprocess.Popen(
+        [sys.executable, "-u", "-c",
+         "import sys\n"
+         "print('ready', flush=True)\n"
+         "for line in sys.stdin:\n"
+         "    if line.strip() == '{\"type\":\"shutdown\"}':\n"
+         "        print('shutdown', flush=True)\n"
+         "        break\n"],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, bufsize=1,
+    )
+    model = object.__new__(ExactRuntimeLocalModel)
+    model._process = process
+    try:
+        assert process.stdout is not None
+        assert process.stdout.readline() == "ready\n"
+        assert process.poll() is None
+
+        model.close()
+
+        assert process.wait(timeout=1) == 0
+        assert process.poll() == 0
+        model.close()
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=1)
+
+
 @pytest.mark.parametrize("value", [True, -0.1, float("inf"), 10 ** 1000])
 def test_runtime_resource_seconds_rejects_nonfinite_or_unrepresentable_values(value: object) -> None:
     assert not _valid_runtime_resource_seconds(value)
