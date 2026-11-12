@@ -533,6 +533,32 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         observed_effect_digest = item.get("effect_receipt_digest")
         if observed_effect_digest is not None and observed_effect_digest not in invocation_by_effect:
             lineage_findings.append(f"invocation_receipt_missing:{observed_effect_digest}")
+        measurement = item.get("resource_specific_measurement")
+        backend_observation = (measurement.get("backend_resource_observation")
+            if isinstance(measurement, Mapping) else None)
+        if backend_observation is None:
+            continue
+        invocation = invocation_by_effect.get(str(observed_effect_digest))
+        completion = (invocation.get("backend_completion")
+            if isinstance(invocation, Mapping) else None)
+        metrics = (completion.get("invocation_resources")
+            if isinstance(completion, Mapping)
+            and completion.get("schema_version") ==
+                "sentientos.llama_cpp_completion_observation:v3" else None)
+        expected_observation = ({
+            "schema_version": (
+                "sentientos.governed_local_model_backend_resource_observation:v1"),
+            "backend": "llama_cpp",
+            "observation_source": "exact_runtime_worker_process",
+            "user_cpu_seconds": metrics.get("user_cpu_seconds"),
+            "system_cpu_seconds": metrics.get("system_cpu_seconds"),
+            "wall_seconds": metrics.get("wall_seconds"),
+            "process_peak_rss_bytes": metrics.get("process_peak_rss_bytes"),
+        } if isinstance(metrics, Mapping) else None)
+        if (not isinstance(backend_observation, Mapping)
+                or dict(backend_observation) != expected_observation):
+            lineage_findings.append(
+                f"backend_resource_observation_receipt_mismatch:{item.get('attempt_id')}")
     receipt_states_by_attempt: dict[str, set[str]] = {}
     for item in raw_receipts:
         if isinstance(item, Mapping):

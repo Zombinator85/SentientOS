@@ -132,6 +132,21 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
         "wall_seconds": 0.18, "process_peak_rss_bytes": 7_340_032,
     }
     assert ledger._state["receipts"][-1]["effect_receipt_digest"] == receipt.receipt_digest
+    from sentientos.host_resource_runtime import resource_consumption_world_state_records
+
+    projected = resource_consumption_world_state_records(
+        ledger=ledger, invocation_receipts=[receipt.to_dict()])[0]
+    assert projected["disposition"] == "recorded"
+    assert projected["payload"]["lineage_posture"] == "verified"
+
+    substituted = receipt.to_dict()
+    substituted["backend_completion"]["invocation_resources"][
+        "user_cpu_seconds"] = 0.15
+    degraded = resource_consumption_world_state_records(
+        ledger=ledger, invocation_receipts=[substituted])[0]
+    assert degraded["disposition"] == "degraded"
+    assert any(finding.startswith("backend_resource_observation_receipt_mismatch:")
+        for finding in degraded["payload"]["lineage_findings"])
 
 
 def test_resource_admission_guard_defers_without_backend_entry_or_debit(tmp_path):
