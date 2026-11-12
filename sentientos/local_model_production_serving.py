@@ -703,9 +703,12 @@ class ProductionServingController:
 
     def _invalidate_locked(self, reason: str) -> None:
         session, model = self._session, self._model
-        self._session = self._model = None
         if model is not None:
+            # Keep the exact serving references until shutdown succeeds. If a
+            # worker refuses to close, its owner must retain the handle so a
+            # governed caller can report the failed release and retry it.
             model.close()
+        self._session = self._model = None
         if session is None:
             return
         invalidation = {"schema_version": INVALIDATION_SCHEMA, "session_id": session.session_id,

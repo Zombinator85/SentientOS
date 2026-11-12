@@ -93,6 +93,40 @@ def test_success_loads_once_binds_receipt_and_performs_zero_inference(monkeypatc
     assert handle.list_regular_names(handle.fixed_object("logs/privileges"))
 
 
+def test_failed_worker_close_preserves_exact_session_for_release_retry(monkeypatch, handle):
+    current = evidence()
+    model = Model(identity())
+    close_calls = 0
+
+    def close_once_fails():
+        nonlocal close_calls
+        close_calls += 1
+        if close_calls == 1:
+            raise RuntimeError("worker_shutdown_unconfirmed")
+        model.closed = True
+
+    model.close = close_once_fails
+    ctl = controller(monkeypatch, handle, [current] * 3, factory=lambda c, l: model)
+    session = ctl.establish(operation_id="serve-operation-retry-release")
+
+    with pytest.raises(RuntimeError, match="worker_shutdown_unconfirmed"):
+        ctl.release_current_session_after_resource_admission(
+            session, reason="verified_game_host_pressure")
+
+    assert ctl._session == session
+    assert ctl._model is model
+    invalidation_directory = handle.root / "local-model" / "serving" / "invalidations"
+    assert not invalidation_directory.exists()
+
+    assert ctl.release_current_session_after_resource_admission(
+        session, reason="verified_game_host_pressure") is True
+    assert model.closed is True
+    assert ctl._session is None and ctl._model is None
+    invalidations = handle.list_regular_names(
+        handle.fixed_object("local-model/serving/invalidations"))
+    assert len(invalidations) == 1
+
+
 @pytest.mark.parametrize("outcome", [AdmissionOutcome.DENY, AdmissionOutcome.DEFER, AdmissionOutcome.QUARANTINE])
 def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, outcome):
     called = [] ; kernel = Kernel(outcome)
