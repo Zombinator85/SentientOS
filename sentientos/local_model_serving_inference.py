@@ -87,7 +87,8 @@ class ProductionServingInferenceController:
                  "_foreground_game_detector", "_host_resource_observation_owner",
                  "_active_invoker_lock", "_active_invoker",
                  "_resource_reconciliation_wakeup", "_preemption_lock",
-                 "_last_active_game_preemption_attempt")
+                 "_last_active_game_preemption_attempt",
+                 "_last_active_host_resource_sample_at")
 
     RESOURCE_RECONCILIATION_INTERVAL_SECONDS = 5.0
     ACTIVE_GAME_PRIORITY_RECONCILIATION_INTERVAL_SECONDS = 0.5
@@ -114,6 +115,7 @@ class ProductionServingInferenceController:
         self._resource_reconciliation_wakeup: Callable[[], None] | None = None
         self._preemption_lock = threading.Lock()
         self._last_active_game_preemption_attempt: tuple[str, str] | None = None
+        self._last_active_host_resource_sample_at: float | None = None
 
     def cancel_pending_generation(self, *, reason: str = "client_disconnect") -> bool:
         """Forward cancellation to the exact governed invocation currently in flight."""
@@ -213,14 +215,15 @@ class ProductionServingInferenceController:
             "no_effect_authority": True,
         }
 
-    def _latest_cached_host_resources(self) -> dict[str, Any] | None:
+    def _latest_cached_host_resources(self, *, max_age_seconds: float = 15.0
+            ) -> dict[str, Any] | None:
         """Summarize a fresh cached sample without starting or waiting for collection."""
         owner = self._host_resource_observation_owner
         getter = getattr(owner, "latest_evaluation", None)
         if not callable(getter):
             return None
         try:
-            evaluation = getter(max_age_seconds=15.0)
+            evaluation = getter(max_age_seconds=max_age_seconds)
         except Exception:
             return None
         if (evaluation is None
@@ -232,7 +235,9 @@ class ProductionServingInferenceController:
             "evaluation_id": evaluation.evaluation_id,
             "observation_correlation_id": evaluation.epoch.correlation_id,
             "report_id": evaluation.pressure_report.report_id,
+            "report_digest": evaluation.policy_decision.report_digest,
             "observed_at": evaluation.epoch.observed_at,
+            "pressure_labels": list(evaluation.pressure_report.pressure_labels),
             "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
             "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
             "gpu_telemetry_sources": [
@@ -378,7 +383,8 @@ class ProductionServingInferenceController:
             *, resource_observation: Mapping[str, Any] | None = None,
             workload_evidence: Mapping[str, Any] | None = None,
             trigger_correlation_id: str | None = None,
-            trigger_kind: str = "deferred_inference") -> dict[str, Any] | None:
+            trigger_kind: str = "deferred_inference",
+            preempt_active_generation: bool = False) -> dict[str, Any] | None:
         """Release optional chat residency after exact game/profile and host evidence."""
         if receipt is not None:
             if (receipt.status != "deferred"
@@ -448,7 +454,10 @@ class ProductionServingInferenceController:
                 "workload_observation_status": "not_requested",
             })
         else:
-            host_release_evidence["game_workload_message_id"] = game_message_id
+            host_release_evidence.update({
+                "game_workload_message_id": game_message_id,
+                "active_inference_preemption_requested": preempt_active_generation,
+            })
         reason_code = ("selected_gaming_profile_host_pressure" if selected_gaming_profile
             else "verified_game_host_pressure")
         actor = ("production_chat_workload_resource_governor" if selected_gaming_profile
@@ -483,10 +492,18 @@ class ProductionServingInferenceController:
         post_release_observation: dict[str, Any] | None = None
         resource_measurement_comparison: dict[str, Any] | None = None
         worker_exit_observed: bool | None = None
+        active_inference_cancellation_confirmed: bool | None = None
         if decision_valid:
             try:
-                close_completed = self._serving.release_current_session_after_resource_admission(
-                    session, reason=reason_code)
+                if preempt_active_generation:
+                    active_inference_cancellation_confirmed = (
+                        self.cancel_pending_generation(reason="workload_transition"))
+                    if not active_inference_cancellation_confirmed:
+                        close_failure = "active_inference_cancellation_unconfirmed"
+                if (not preempt_active_generation
+                        or active_inference_cancellation_confirmed):
+                    close_completed = self._serving.release_current_session_after_resource_admission(
+                        session, reason=reason_code)
                 worker = getattr(model, "_process", None)
                 poll = getattr(worker, "poll", None)
                 worker_exit_observed = (poll() is not None if callable(poll) else None)
@@ -565,6 +582,9 @@ class ProductionServingInferenceController:
             },
             "worker_exit_observed": worker_exit_observed,
             "close_failure": close_failure,
+            "active_inference_preemption_requested": preempt_active_generation,
+            "active_inference_cancellation_confirmed":
+                active_inference_cancellation_confirmed,
             "post_release_observation": post_release_observation,
             "resource_measurement_comparison": resource_measurement_comparison,
             "inference_performed": False,
@@ -769,8 +789,79 @@ class ProductionServingInferenceController:
                 residency_release = self._release_after_gpu_model_residency(
                     session, model, workload, preempt_active_generation=True)
                 if residency_release is None:
-                    return {"status": "skipped",
-                        "reason": "verified_game_gpu_residency_release_unavailable"}
+                    # The busy cadence must not start a host-collector cycle
+                    # on every tick. Reuse a very fresh sample when possible;
+                    # otherwise refresh at most once per bounded interval.
+                    observation = self._latest_cached_host_resources(
+                        max_age_seconds=2.0)
+                    if observation is None:
+                        sample_started_at = time.monotonic()
+                        previous_sample_at = self._last_active_host_resource_sample_at
+                        if (previous_sample_at is not None
+                                and sample_started_at - previous_sample_at < 2.0):
+                            return {"status": "skipped",
+                                "reason": "active_game_host_pressure_observation_throttled"}
+                        self._last_active_host_resource_sample_at = sample_started_at
+                        observation_correlation = (
+                            "active-game-resource-reconcile-" + str(time.time_ns()))
+                        observation = self._observe_host_resources(
+                            observation_correlation,
+                            observation_namespace="local-chat-reconciliation")
+                    else:
+                        observation_correlation = (
+                            "active-game-resource-reconcile-cached-" + str(time.time_ns()))
+                    labels = observation.get("pressure_labels")
+                    if (observation.get("status") != "current"
+                            or observation.get("no_effect_authority") is not True
+                            or not isinstance(labels, (tuple, list))
+                            or not all(isinstance(label, str) for label in labels)
+                            or not set(labels).intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS)):
+                        return {"status": "skipped",
+                            "reason": "current_host_pressure_evidence_required",
+                            "observation_correlation_id": observation.get(
+                                "observation_correlation_id")}
+                    # Collection is bounded but can outlast a foreground-game
+                    # observation. Re-read the authenticated source before
+                    # binding that evidence to the pressure-triggered release.
+                    workload = self.current_workload_state()
+                    provenance = workload.get("transport_provenance")
+                    workload_message_id = (provenance.get("message_id")
+                        if isinstance(provenance, Mapping) else None)
+                    if (workload.get("configured_mode") != "automatic"
+                            or workload.get("observation_status") != "available"
+                            or (workload.get("game_foreground") is not True
+                                and workload.get("game_process_running") is not True)
+                            or not isinstance(workload_message_id, str)):
+                        return {"status": "skipped",
+                            "reason": "fresh_verified_game_evidence_required",
+                            "observation_correlation_id": observation.get(
+                                "observation_correlation_id")}
+                    workload_attempt_key = (session.session_id, workload_message_id)
+                    if workload_attempt_key == self._last_active_game_preemption_attempt:
+                        return {"status": "skipped",
+                            "reason": "game_resource_release_already_attempted_for_observation"}
+                    workload_evidence = {key: workload.get(key) for key in (
+                        "configured_mode", "mode_source", "observation_status",
+                        "game_foreground", "process_name_digest", "game_process_running",
+                        "running_process_name_digests", "observed_at", "transport_provenance")}
+                    host_release = self._release_after_host_pressure(
+                        session, model, None, resource_observation=observation,
+                        workload_evidence=workload_evidence,
+                        trigger_correlation_id=observation_correlation,
+                        trigger_kind="idle_game_reconciliation",
+                        preempt_active_generation=True)
+                    if host_release is None:
+                        return {"status": "skipped",
+                            "reason": "verified_game_host_pressure_release_unavailable"}
+                    self._last_active_game_preemption_attempt = workload_attempt_key
+                    return {"status": host_release["status"],
+                        "release_receipt_id": host_release["receipt_id"],
+                        "trigger_kind": "idle_game_reconciliation",
+                        "observation_correlation_id": observation.get(
+                            "observation_correlation_id"),
+                        "serving_session_id": session.session_id,
+                        "active_inference_cancellation_confirmed": host_release[
+                            "active_inference_cancellation_confirmed"]}
                 self._last_active_game_preemption_attempt = workload_attempt_key
                 return {"status": residency_release["status"],
                     "release_receipt_id": residency_release["receipt_id"],
@@ -1061,6 +1152,7 @@ class ProductionServingInferenceController:
                 "game_workload_message_id": message_id,
                 "model_gpu_layers": gpu_layers,
                 "serving_session_id": session.session_id,
+                "active_inference_preemption_requested": preempt_active_generation,
                 "observed_at": evidence_time,
             }
             actor = "production_chat_game_resource_governor"

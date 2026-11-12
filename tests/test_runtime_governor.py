@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import os
 from pathlib import Path
@@ -265,7 +265,8 @@ def test_production_game_gpu_release_requires_exact_current_evidence(
 
 @pytest.mark.parametrize("mutation", [
     "report_digest", "game_message_id", "pressure_labels", "stale_observation",
-    "wrong_target", "wrong_correlation",
+    "wrong_target", "wrong_correlation", "invalid_preemption_flag",
+    "stale_cached_inference_sample",
 ])
 @pytest.mark.no_legacy_skip
 def test_production_game_host_pressure_release_requires_exact_current_evidence(
@@ -277,9 +278,16 @@ def test_production_game_host_pressure_release_requires_exact_current_evidence(
     source_correlation = "production-host-pressure-release-source"
     observation_id = "local-chat-inference-" + hashlib.sha256(
         source_correlation.encode("utf-8")).hexdigest()[:32]
+    trigger_kind = ("idle_game_reconciliation" if
+        mutation == "stale_cached_inference_sample" else "deferred_inference")
+    release_source = (source_correlation if trigger_kind == "deferred_inference" else
+        trigger_kind + ":" + source_correlation)
     release_correlation = "production-chat-resource-release-" + hashlib.sha256(
-        source_correlation.encode("utf-8")).hexdigest()[:24]
-    observed_at = datetime.now(timezone.utc).isoformat()
+        release_source.encode("utf-8")).hexdigest()[:24]
+    current_time = datetime.now(timezone.utc)
+    observed_at = ((current_time - timedelta(seconds=3)).isoformat()
+        if mutation == "stale_cached_inference_sample" else current_time.isoformat())
+    game_observed_at = current_time.isoformat()
     game_message_id = "b" * 64
     governor._host_resource_evidence_by_correlation[observation_id] = {
         "observation_correlation_id": observation_id,
@@ -289,14 +297,14 @@ def test_production_game_host_pressure_release_requires_exact_current_evidence(
         "pressure_labels": ("cpu_pressure",),
     }
     workload = ForegroundGameObservation("available", True, "a" * 64,
-        observed_at, transport_provenance={"message_id": game_message_id,
+        game_observed_at, transport_provenance={"message_id": game_message_id,
             "source_id": "windows-foreground", "session_id": "session-1",
             "generation_id": "generation-1", "sequence": 1,
-            "envelope_created_at": observed_at})
+            "envelope_created_at": game_observed_at})
     assert governor.observe_verified_game_workload(workload)
     evidence = {
         "schema_version": "sentientos.production_game_host_resource_release_evidence:v1",
-        "trigger_kind": "deferred_inference",
+        "trigger_kind": trigger_kind,
         "trigger_correlation_id": source_correlation,
         "observation_correlation_id": observation_id,
         "host_report_id": "host-report-1",
@@ -304,6 +312,7 @@ def test_production_game_host_pressure_release_requires_exact_current_evidence(
         "observed_at": observed_at,
         "pressure_labels": ["cpu_pressure"],
         "game_workload_message_id": game_message_id,
+        "active_inference_preemption_requested": False,
     }
     metadata = {
         "purpose": "local_model_resource_release",
@@ -322,6 +331,8 @@ def test_production_game_host_pressure_release_requires_exact_current_evidence(
         evidence["observed_at"] = "2020-01-01T00:00:00+00:00"
     elif mutation == "wrong_target":
         metadata["target_subsystem"] = "host"
+    elif mutation == "invalid_preemption_flag":
+        evidence["active_inference_preemption_requested"] = "true"
 
     decision = governor._admit_local_model_resource_release(
         actor=actor, subject=actor,
@@ -336,6 +347,7 @@ def test_production_game_host_pressure_release_requires_exact_current_evidence(
     ("none", True), ("wrong_game", False), ("stale", False),
     ("no_active_game", False),
     ("zero_gpu_layers", False), ("empty_session", False),
+    ("invalid_preemption_flag", False),
 ])
 @pytest.mark.no_legacy_skip
 def test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence(
@@ -355,7 +367,8 @@ def test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence(
     evidence = {"schema_version": "sentientos.production_game_gpu_residency_release_evidence:v1",
         "trigger_kind": "idle_game_gpu_residency", "trigger_correlation_id": trigger,
         "game_workload_message_id": game_message_id, "model_gpu_layers": 24,
-        "serving_session_id": "serving-session-1", "observed_at": observed_at}
+        "serving_session_id": "serving-session-1",
+        "active_inference_preemption_requested": False, "observed_at": observed_at}
     if mutation == "wrong_game":
         evidence["game_workload_message_id"] = "c" * 64
     elif mutation == "stale":
@@ -364,6 +377,8 @@ def test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence(
         evidence["model_gpu_layers"] = 0
     elif mutation == "empty_session":
         evidence["serving_session_id"] = ""
+    elif mutation == "invalid_preemption_flag":
+        evidence["active_inference_preemption_requested"] = "true"
     release_correlation = "production-chat-resource-release-" + hashlib.sha256(
         ("idle_game_gpu_residency:" + trigger).encode("utf-8")).hexdigest()[:24]
     decision = governor._admit_local_model_resource_release(

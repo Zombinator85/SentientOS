@@ -1688,7 +1688,7 @@ class RuntimeGovernor:
             expected_fields = {
                 "schema_version", "trigger_kind", "trigger_correlation_id",
                 "game_workload_message_id", "model_gpu_layers", "serving_session_id",
-                "observed_at",
+                "active_inference_preemption_requested", "observed_at",
             }
             evidence_valid = False
             residency_age_seconds: float | None = None
@@ -1729,6 +1729,8 @@ class RuntimeGovernor:
                     and subject == actor and payload.get("target_subsystem") == "production_chat"
                     and type(raw_layers) is int and 1 <= raw_layers <= 256
                     and isinstance(raw_session, str) and 0 < len(raw_session) <= 128
+                    and type(observation_value.get(
+                        "active_inference_preemption_requested")) is bool
                     and isinstance(raw_observed_at, str)
                     and isinstance(game_evidence, Mapping)
                     and game_evidence.get("message_id") == raw_game_id
@@ -1744,7 +1746,9 @@ class RuntimeGovernor:
                 "status": "current", "game_workload_message_id": observation_value.get(
                     "game_workload_message_id"), "model_gpu_layers": observation_value.get(
                     "model_gpu_layers"), "serving_session_id": observation_value.get(
-                    "serving_session_id"), "age_seconds": round(residency_age_seconds, 3)
+                    "serving_session_id"), "active_inference_preemption_requested":
+                    observation_value.get("active_inference_preemption_requested"),
+                    "age_seconds": round(residency_age_seconds, 3)
                     if residency_age_seconds is not None else None,
             } if evidence_valid and isinstance(observation_value, Mapping) else {
                 "status": "missing_stale_or_unverified_game_gpu_residency"})
@@ -1754,6 +1758,7 @@ class RuntimeGovernor:
                 "schema_version", "trigger_kind", "trigger_correlation_id",
                 "observation_correlation_id", "host_report_id", "host_report_digest",
                 "observed_at", "pressure_labels", "game_workload_message_id",
+                "active_inference_preemption_requested",
             }
             evidence_valid = False
             release_age_seconds = None
@@ -1773,6 +1778,13 @@ class RuntimeGovernor:
                 expected_id = (namespace + "-" + hashlib.sha256(
                     source_correlation.encode("utf-8")).hexdigest()[:32]
                     if source_correlation is not None and namespace is not None else None)
+                cached_inference_sample_id = (
+                    raw_trigger_kind == "idle_game_reconciliation"
+                    and isinstance(raw_observation_id, str)
+                    and re.fullmatch(r"local-chat-inference-[0-9a-f]{32}",
+                        raw_observation_id) is not None)
+                host_freshness_limit_seconds = (
+                    2.0 if cached_inference_sample_id else 120.0)
                 expected_release_correlation = ("production-chat-resource-release-" +
                     hashlib.sha256((source_correlation if raw_trigger_kind == "deferred_inference"
                         else str(raw_trigger_kind) + ":" + source_correlation).encode("utf-8")).hexdigest()[:24]
@@ -1811,7 +1823,7 @@ class RuntimeGovernor:
                         "sentientos.production_game_host_resource_release_evidence:v1"
                     and raw_trigger_kind in {"deferred_inference", "idle_game_reconciliation"}
                     and isinstance(source_correlation, str) and 0 < len(source_correlation) <= 256
-                    and raw_observation_id == expected_id
+                    and (raw_observation_id == expected_id or cached_inference_sample_id)
                     and correlation_id == expected_release_correlation
                     and actor == "production_chat_game_resource_governor"
                     and subject == actor and payload.get("target_subsystem") == "production_chat"
@@ -1821,6 +1833,8 @@ class RuntimeGovernor:
                     and isinstance(raw_observed_at, str)
                     and isinstance(raw_labels, (list, tuple))
                     and all(isinstance(label, str) for label in raw_labels)
+                    and type(observation_value.get(
+                        "active_inference_preemption_requested")) is bool
                     and bool(host_labels.intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS))
                     and set(raw_labels) == host_labels
                     and host_evidence is not None
@@ -1828,12 +1842,13 @@ class RuntimeGovernor:
                     and host_evidence.get("report_id") == raw_report_id
                     and host_evidence.get("report_digest") == raw_report_digest
                     and host_evidence.get("observed_at") == raw_observed_at
+                    and host_age is not None and 0 <= host_age <=
+                        host_freshness_limit_seconds
                     and game_evidence is not None
                     and game_evidence.get("message_id") == raw_game_id
                     and (game_evidence.get("game_foreground") is True
                          or game_evidence.get("game_process_running") is True)
                     and release_age_seconds is not None and 0 <= release_age_seconds <= 120
-                    and host_age is not None and 0 <= host_age <= 120
                     and game_age is not None and 0 <= game_age <= 10)
             valid = valid and evidence_valid
             evidence_ref = ({
@@ -1842,6 +1857,8 @@ class RuntimeGovernor:
                 "host_report_id": observation_value.get("host_report_id"),
                 "game_workload_message_id": observation_value.get("game_workload_message_id"),
                 "pressure_labels": observation_value.get("pressure_labels"),
+                "active_inference_preemption_requested": observation_value.get(
+                    "active_inference_preemption_requested"),
                 "age_seconds": round(release_age_seconds, 3)
                     if release_age_seconds is not None else None,
             } if evidence_valid and isinstance(observation_value, Mapping) else {

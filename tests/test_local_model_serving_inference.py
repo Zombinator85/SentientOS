@@ -736,8 +736,11 @@ def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch
         "active_inference_preemption_requested"] is True
 
 
-def test_verified_automatic_game_cancels_active_optional_gpu_inference(
-        monkeypatch, tmp_path):
+@pytest.mark.parametrize(("gpu_layers", "cpu_pressure"), [
+    (24, False), (0, True),
+], ids=["gpu-residency", "cpu-host-pressure"])
+def test_verified_automatic_game_cancels_active_optional_inference(
+        monkeypatch, tmp_path, gpu_layers, cpu_pressure):
     import asyncio
     from sentientos import chat_service
     from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
@@ -763,6 +766,24 @@ def test_verified_automatic_game_cancels_active_optional_gpu_inference(
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
     kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
         decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=95.0 if cpu_pressure else 25.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1, devices=[{
+                    "index": 0, "gpu_utilization_percent": 20.0,
+                    "vram_utilization_percent": 35.0}])),
+        ]), clock=lambda: now.isoformat())
     started = threading.Event()
     cancelled = threading.Event()
 
@@ -773,7 +794,8 @@ def test_verified_automatic_game_cancels_active_optional_gpu_inference(
         raise RuntimeError("fixture_generation_cancelled_for_verified_game")
 
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
-        kernel_override=kernel, gpu_layers=24, on_generate=active_generation)
+        kernel_override=kernel, host_resource_observation_owner=host_owner,
+        gpu_layers=gpu_layers, on_generate=active_generation)
     model.cancel_pending_generation = lambda: (cancelled.set() or True)
     installation, provisioning_artifacts = provisioning_inputs(
         tmp_path / "automatic-game-resource-provisioning", calls=2)
@@ -838,7 +860,9 @@ def test_verified_automatic_game_cancels_active_optional_gpu_inference(
             bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
             assert bridge.resource_reconciliation_interval_seconds() == 0.5
             if not await asyncio.to_thread(cancelled.wait, 5):
-                raise AssertionError("scheduled game-priority cancellation was not delivered")
+                raise AssertionError(
+                    f"scheduled game-priority cancellation was not delivered: "
+                    f"{reconciliations!r}")
             await asyncio.to_thread(invocation.join, 5)
             assert not invocation.is_alive()
             return chat_service._RESOURCE_RECONCILIATION_TASK is not None
@@ -854,10 +878,12 @@ def test_verified_automatic_game_cancels_active_optional_gpu_inference(
 
     assert scheduler_started is True
     assert not invocation.is_alive()
-    reconciliation = next(item for item in reconciliations
-        if item.get("trigger_kind") == "idle_game_gpu_residency")
+    trigger_kind = "idle_game_reconciliation" if cpu_pressure else "idle_game_gpu_residency"
+    reconciliation = next((item for item in reconciliations
+        if item.get("trigger_kind") == trigger_kind), None)
+    assert reconciliation is not None, reconciliations
     assert reconciliation["status"] == "worker_closed"
-    assert reconciliation["trigger_kind"] == "idle_game_gpu_residency"
+    assert reconciliation["trigger_kind"] == trigger_kind
     assert reconciliation["active_inference_cancellation_confirmed"] is True
     assert invocation_result["receipt"].status == "cancelled"
     assert invocation_result["receipt"].output_text is None
@@ -873,8 +899,26 @@ def test_verified_automatic_game_cancels_active_optional_gpu_inference(
     assert release["active_inference_preemption_requested"] is True
     assert release["active_inference_cancellation_confirmed"] is True
     assert release["resource_observation"]["game_workload_message_id"] == "d" * 64
+    if cpu_pressure:
+        assert release["resource_observation"]["pressure_labels"] == ["cpu_pressure"]
+        assert release["resource_observation"]["host_report_id"]
+        assert host_owner.collector_call_count == 6
+    else:
+        assert release["resource_observation"]["model_gpu_layers"] == 24
+        assert host_owner.collector_call_count == 6
     assert release["inference_performed"] is False
     assert release["host_mutation_performed"] is False
+    release_decision = next(json.loads(line) for line in reversed(
+        (tmp_path / "kernel-decisions.jsonl").read_text(
+            encoding="utf-8").splitlines())
+        if json.loads(line).get("action_kind") == "local_model_resource_release")
+    release_governor = release_decision["delegated_outcomes"]["runtime_governor"]
+    assert release_governor["allowed"] is True
+    assert release_governor["evidence_refs"]["resource_observation_evidence"][
+        "active_inference_preemption_requested"] is True
+    assert resource_ledger.remaining_calls(bundle.allocation_id) == 1
+    assert len(resource_ledger._state["attempts"]) == 1
+    assert resource_ledger._state["receipts"][-1]["state"] == "reconciled"
     serving.close()
 
 
