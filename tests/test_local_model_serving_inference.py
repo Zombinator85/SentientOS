@@ -878,7 +878,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert delegated["evidence_refs"]["host_resource_evidence"]["report_id"] == (
             receipt.request["linkage"]["host_resource_observation"]["report_id"])
     assert host_resource_owner.collector_call_count == (
-        4 if trigger == "idle_game_frame_pressure_mismatched_process" else 8)
+        4 if trigger in {"idle_game_gpu_residency",
+            "idle_game_frame_pressure_mismatched_process"} else 8)
     if trigger == "idle_game_frame_pressure_mismatched_process":
         assert model.closed is False
         assert serving.current_session() is not None
@@ -903,12 +904,12 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert release["resource_observation"]["model_gpu_layers"] == 24
         assert release["resource_observation"]["host_telemetry_used_for_admission"] is False
         comparison = release["resource_measurement_comparison"]
-        assert comparison["before"]["gpu_utilization_percent"] == 22.0
+        assert comparison["before"] is None
+        assert comparison["before_sample_kind"] == "unavailable"
         assert comparison["after"]["gpu_utilization_percent"] == 22.0
-        assert comparison["before"]["vram_utilization_percent"] == 47.0
         assert comparison["after"]["vram_utilization_percent"] == 47.0
-        assert comparison["gpu_utilization_delta_percentage_points"] == 0.0
-        assert comparison["vram_utilization_delta_percentage_points"] == 0.0
+        assert comparison["gpu_utilization_delta_percentage_points"] is None
+        assert comparison["vram_utilization_delta_percentage_points"] is None
         assert comparison["interpretation"] == (
             "sample_delta_only; telemetry_does_not_establish_causation")
         assert release["inference_performed"] is False

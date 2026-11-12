@@ -828,8 +828,10 @@ class ProductionServingInferenceController:
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
             return None
         trigger_correlation = "idle-game-gpu-residency-" + str(time.time_ns())
-        before_sample = self._observe_host_resources(trigger_correlation,
-            observation_namespace="local-chat-reconciliation")
+        # Host telemetry is measurement-only for this release trigger. Never
+        # wait for a fresh collector cycle before freeing GPU-backed model
+        # residency for a verified game workload.
+        before_sample = self._latest_cached_host_resources()
         release_correlation = "production-chat-resource-release-" + hashlib.sha256(
             ("idle_game_gpu_residency:" + trigger_correlation).encode("utf-8")).hexdigest()[:24]
         evidence = {
@@ -912,6 +914,8 @@ class ProductionServingInferenceController:
                 "model_gpu_layers": gpu_layers, "host_telemetry_used_for_admission": False},
             "resource_measurement_comparison": {
                 "before": before_values, "after": after_values,
+                "before_sample_kind": ("recent_cached_observation"
+                    if before_values is not None else "unavailable"),
                 "gpu_utilization_delta_percentage_points": gpu_delta,
                 "vram_utilization_delta_percentage_points": vram_delta,
                 "interpretation": "sample_delta_only; telemetry_does_not_establish_causation"},
