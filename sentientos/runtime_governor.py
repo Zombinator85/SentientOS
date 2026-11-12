@@ -1643,8 +1643,8 @@ class RuntimeGovernor:
                 "workload_mode_source", "workload_observation_status",
             }
             evidence_valid = False
-            release_age_seconds: float | None = None
-            host_age: float | None = None
+            profile_release_age_seconds: float | None = None
+            profile_host_age: float | None = None
             if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
                 raw_trigger = observation_value.get("trigger_kind")
                 raw_source = observation_value.get("trigger_correlation_id")
@@ -1665,17 +1665,17 @@ class RuntimeGovernor:
                 except ValueError:
                     parsed_at = None
                 if parsed_at is not None and parsed_at.tzinfo is not None:
-                    release_age_seconds = (datetime.now(timezone.utc)
+                    profile_release_age_seconds = (datetime.now(timezone.utc)
                         - parsed_at.astimezone(timezone.utc)).total_seconds()
                 with self._resource_evidence_lock:
                     host_evidence = (self._host_resource_evidence_by_correlation.get(
                         raw_observation_id) if isinstance(raw_observation_id, str) else None)
                 try:
                     if host_evidence is not None:
-                        host_age = (datetime.now(timezone.utc) - datetime.fromisoformat(
+                        profile_host_age = (datetime.now(timezone.utc) - datetime.fromisoformat(
                             str(host_evidence["observed_at"])).astimezone(timezone.utc)).total_seconds()
                 except (KeyError, TypeError, ValueError):
-                    host_age = None
+                    profile_host_age = None
                 raw_host_labels = (host_evidence.get("pressure_labels")
                     if host_evidence is not None else None)
                 host_labels = (set(raw_host_labels)
@@ -1708,8 +1708,9 @@ class RuntimeGovernor:
                     and host_evidence.get("report_id") == raw_report_id
                     and host_evidence.get("report_digest") == raw_report_digest
                     and host_evidence.get("observed_at") == raw_observed_at
-                    and release_age_seconds is not None and 0 <= release_age_seconds <= 120
-                    and host_age is not None and 0 <= host_age <= 120)
+                    and profile_release_age_seconds is not None
+                    and 0 <= profile_release_age_seconds <= 120
+                    and profile_host_age is not None and 0 <= profile_host_age <= 120)
             valid = valid and evidence_valid
             evidence_ref = ({
                 "status": "current",
@@ -1718,8 +1719,8 @@ class RuntimeGovernor:
                 "pressure_labels": observation_value.get("pressure_labels"),
                 "workload_mode": "gaming",
                 "workload_mode_source": "operator_selected",
-                "age_seconds": round(release_age_seconds, 3)
-                    if release_age_seconds is not None else None,
+                "age_seconds": round(profile_release_age_seconds, 3)
+                    if profile_release_age_seconds is not None else None,
             } if evidence_valid and isinstance(observation_value, Mapping) else {
                 "status": "missing_stale_malformed_or_unbound_gaming_profile_host_pressure"})
         payload["resource_observation_evidence"] = evidence_ref
