@@ -357,6 +357,38 @@ def test_gaming_resource_pressure_uses_durable_non_model_response(tmp_path):
     assert evidence["gaming_resource_status"] == resource_state
 
 
+def test_gaming_host_cpu_pressure_uses_durable_non_model_response(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    resource_state = {
+        "schema_version": "sentientos.gaming_host_pressure_admission_evidence:v1",
+        "admission_status": "deferred",
+        "reason_code": "cpu_pressure",
+        "cpu_utilization_percent": 93.0,
+        "ram_utilization_percent": 60.0,
+        "pressure_labels": ["cpu_pressure"],
+        "observed_at": "2026-11-06T09:00:00+00:00",
+    }
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="gaming",
+        gaming_resource_status_provider=lambda: resource_state)
+
+    response = client.post("/chat", json={"message": "Tell me a quick joke."})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "host CPU pressure is high" in body["response"]
+    assert invoker.calls == 0
+    session = chat._CONVERSATION_SERVICE.sessions.load(body["session_id"])
+    assistant = next(turn for turn in session["turns"]
+        if turn.get("turn_id") == body["turn_id"])
+    evidence = assistant["linkage"]["policy_decision"]["payload"]["evidence"]
+    assert evidence["gaming_resource_status"]["reason_code"] == "cpu_pressure"
+    assert evidence["gaming_resource_status"]["cpu_utilization_percent"] == 93.0
+    assert evidence["gaming_resource_status"]["ram_utilization_percent"] == 60.0
+    assert evidence["gaming_resource_status"]["pressure_labels"] == ["cpu_pressure"]
+
+
 @pytest.mark.parametrize(("foreground", "preload_admission", "expected_calls"), [
     (True, "available", 1),
     (False, "available", 0),

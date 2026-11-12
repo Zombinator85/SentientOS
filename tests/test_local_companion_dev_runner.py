@@ -51,6 +51,41 @@ def test_gaming_resource_observation_fails_closed_when_telemetry_is_missing():
     assert calls == ["vram_telemetry_unavailable"]
 
 
+def test_host_pressure_defers_inference_with_hysteresis_without_model_release():
+    calls = []
+    guard = _GamingResourcePressureGuard()
+    release = lambda reason: calls.append(reason) or {"status": "released"}
+
+    cpu_high = _apply_gaming_resource_observation(guard, 70.0,
+        "2026-11-08T13:00:00+00:00", release,
+        cpu_utilization_percent=93.0, ram_utilization_percent=60.0,
+        pressure_labels=("cpu_pressure",))
+    assert cpu_high["admission_status"] == "deferred"
+    assert cpu_high["reason_code"] == "cpu_pressure"
+    assert cpu_high["cpu_utilization_percent"] == 93.0
+    assert calls == []
+
+    cpu_hysteresis = _apply_gaming_resource_observation(guard, 70.0,
+        "2026-11-08T13:00:15+00:00", release,
+        cpu_utilization_percent=88.0, ram_utilization_percent=60.0,
+        pressure_labels=())
+    assert cpu_hysteresis["admission_status"] == "deferred"
+
+    recovered = _apply_gaming_resource_observation(guard, 70.0,
+        "2026-11-08T13:00:30+00:00", release,
+        cpu_utilization_percent=84.0, ram_utilization_percent=60.0,
+        pressure_labels=())
+    assert recovered["admission_status"] == "available"
+
+    memory_high = _apply_gaming_resource_observation(guard, 70.0,
+        "2026-11-08T13:00:45+00:00", release,
+        cpu_utilization_percent=60.0, ram_utilization_percent=91.0,
+        pressure_labels=("memory_pressure",))
+    assert memory_high["admission_status"] == "deferred"
+    assert memory_high["reason_code"] == "memory_pressure"
+    assert calls == []
+
+
 def test_forward_lines_surfaces_worker_output_after_ready(tmp_path, capsys) -> None:
     lines: queue.Queue[str] = queue.Queue()
     report_file = tmp_path / "renderer-reports.jsonl"

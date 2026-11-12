@@ -700,6 +700,9 @@ class DevelopmentLocalChatInference:
                     "admission_status", "reason_code", "vram_utilization_percent",
                     "observed_at", "release_threshold_percent",
                     "recovery_threshold_percent", "stale_after_seconds",
+                    "cpu_utilization_percent", "ram_utilization_percent",
+                    "pressure_labels",
+                    "host_pressure_recovery_percent",
                 )
                 linkage["gaming_resource_admission_evidence"] = {
                     "schema_version": "sentientos.gaming_resource_admission_evidence:v1",
@@ -1540,9 +1543,16 @@ class PersistentConversationService:
                     key: resource_status[key] for key in (
                         "admission_status", "reason_code",
                         "vram_utilization_percent", "observed_at",
-                        "release_threshold_percent", "recovery_threshold_percent")
-                    if key in resource_status and isinstance(
-                        resource_status[key], (str, int, float, type(None)))
+                        "release_threshold_percent", "recovery_threshold_percent",
+                        "cpu_utilization_percent", "ram_utilization_percent",
+                        "pressure_labels",
+                        "host_pressure_recovery_percent")
+                    if key in resource_status and (
+                        isinstance(resource_status[key], (str, int, float, type(None)))
+                        or (key == "pressure_labels"
+                            and isinstance(resource_status[key], (tuple, list))
+                            and all(isinstance(label, str)
+                                for label in resource_status[key])))
                 }
         except Exception:
             workload_context = {"availability": "unavailable"}
@@ -3154,6 +3164,24 @@ class PersistentConversationService:
                     "SentientOS is still monitoring the system; ask again when memory headroom "
                     "recovers."
                 )
+            elif reason == "cpu_pressure":
+                response_text = (
+                    "I’m pausing model inference while the game is active because host CPU "
+                    "pressure is high. Your message is saved, but I haven’t queued a model reply. "
+                    "SentientOS will resume after CPU headroom returns."
+                )
+            elif reason == "memory_pressure":
+                response_text = (
+                    "I’m pausing model inference while the game is active because host memory "
+                    "pressure is high. Your message is saved, but I haven’t queued a model reply. "
+                    "SentientOS will resume after memory headroom returns."
+                )
+            elif reason == "cpu_and_memory_pressure":
+                response_text = (
+                    "I’m pausing model inference while the game is active because host CPU and "
+                    "memory pressure are high. Your message is saved, but I haven’t queued a model "
+                    "reply. SentientOS will resume after host headroom returns."
+                )
             elif reason == "vram_telemetry_stale":
                 response_text = (
                     "I’m pausing model inference while the game is active because the GPU "
@@ -3172,7 +3200,8 @@ class PersistentConversationService:
                 "policy_id": "gaming_resource_pressure_policy:v1",
                 "reason_code": (reason if reason in {
                     "vram_pressure", "vram_telemetry_unavailable",
-                    "vram_telemetry_not_observed", "vram_telemetry_stale"}
+                    "vram_telemetry_not_observed", "vram_telemetry_stale",
+                    "cpu_pressure", "memory_pressure", "cpu_and_memory_pressure"}
                     else "vram_telemetry_unavailable"),
             }
             return self._complete_deterministic_grounding_response(

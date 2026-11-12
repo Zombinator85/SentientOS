@@ -304,8 +304,10 @@ def test_dev_sampler_stays_fresh_and_closes_during_blocked_inference(monkeypatch
             from datetime import datetime, timezone
             self.cycles += 1
             return SimpleNamespace(
-                snapshot=SimpleNamespace(vram_utilization_percent=91.0),
-                epoch=SimpleNamespace(observed_at=datetime.now(timezone.utc).isoformat()))
+                snapshot=SimpleNamespace(vram_utilization_percent=70.0,
+                    cpu_utilization_percent=93.0, ram_utilization_percent=64.0),
+                epoch=SimpleNamespace(observed_at=datetime.now(timezone.utc).isoformat()),
+                pressure_report=SimpleNamespace(pressure_labels=("cpu_pressure",)))
 
     monkeypatch.setattr(host_runtime, "HostResourceRuntimeCoordinator", FakeCoordinator)
     monkeypatch.setattr(host_runtime, "summary_for_evaluation", lambda evaluation: {
@@ -351,11 +353,13 @@ def test_dev_sampler_stays_fresh_and_closes_during_blocked_inference(monkeypatch
     inference_thread.start()
     assert entered.wait(1)
 
-    def observe_vram(utilization, observed_at):
+    def observe_vram(utilization, observed_at, cpu=None, memory=None, labels=()):
         resource_state = runner._apply_gaming_resource_observation(
             guard, utilization, observed_at,
             lambda reason: invoker.release_model_residency(
-                reason_code=reason, cancel_active=False))
+                reason_code=reason, cancel_active=False),
+            cpu_utilization_percent=cpu, ram_utilization_percent=memory,
+            pressure_labels=labels)
         workload_state = inference.reconcile_workload_state()
         resource_state["workload_reconciliation"] = workload_state[
             "workload_reconciliation"]
@@ -384,12 +388,13 @@ def test_dev_sampler_stays_fresh_and_closes_during_blocked_inference(monkeypatch
                    for earlier, later in zip(sample_monotonic, sample_monotonic[1:]))
         assert all(item[2]["workload_reconciliation"]["reason_code"]
                    == "inference_in_progress" for item in observations)
-        assert all(item[2]["reason_code"] == "vram_pressure"
-                   and item[2]["residency_release"]["status"] == "deferred"
+        assert all(item[2]["reason_code"] == "cpu_pressure"
+                   and item[2]["admission_status"] == "deferred"
                    for item in observations)
-        assert len(release_attempts) >= 3
-        assert all(reason == "vram_pressure_observed" and cancel_active is False
-                   for reason, cancel_active in release_attempts)
+        assert all(item[2]["cpu_utilization_percent"] == 93.0
+                   and item[2]["ram_utilization_percent"] == 64.0
+                   for item in observations)
+        assert release_attempts == []
         sampler.close()
         assert not sampler._thread.is_alive()
         assert not unblock.is_set()
