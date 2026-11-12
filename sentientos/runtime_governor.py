@@ -1210,6 +1210,23 @@ class RuntimeGovernor:
                 "process_rss_bytes": process_rss,
             }
             with self._resource_evidence_lock:
+                previous = self._game_performance_evidence
+                if (previous is not None
+                        and previous.get("source_id") == evidence["source_id"]
+                        and previous.get("generation_id") == evidence["generation_id"]):
+                    previous_sequence = previous.get("sequence")
+                    previous_observed_at = previous.get("observed_at")
+                    if type(previous_sequence) is not int or not isinstance(
+                            previous_observed_at, str):
+                        return False
+                    previous_timestamp = datetime.fromisoformat(
+                        previous_observed_at.replace("Z", "+00:00"))
+                    if (previous_timestamp.tzinfo is None
+                            or previous_timestamp.utcoffset() is None
+                            or observation.sequence <= previous_sequence
+                            or observed_at.astimezone(timezone.utc)
+                                < previous_timestamp.astimezone(timezone.utc)):
+                        return False
                 self._game_performance_evidence = evidence
             return True
         except (ImportError, AttributeError, TypeError, ValueError, OverflowError):

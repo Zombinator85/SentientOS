@@ -513,6 +513,13 @@ def test_game_performance_observation_rejects_source_clock_mismatch(
     assert retained["source_observed_at"] == source_ahead
     assert retained["source_clock_offset_seconds"] == 8.0
 
+    replay = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 1, "1" * 64, "2" * 64,
+        observed_at, "c" * 64, 16.7, 0, 20.0, 4096, "available",
+        source_ahead, "d" * 64, 8.0)
+    assert governor.observe_verified_game_performance(replay) is False
+    assert governor.current_verified_game_performance_evidence() == retained
+
 
 def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing(
         monkeypatch, tmp_path):
