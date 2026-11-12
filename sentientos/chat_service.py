@@ -3394,14 +3394,18 @@ class PersistentConversationService:
             and any(isinstance(reason, str)
                 and reason.endswith("cpu_seconds_entitlement_exhausted")
                 for reason in denial_reasons))
+        game_pressure_reason_codes = (
+            "deferred_local_model_inference_under_host_pressure_during_game",
+            "deferred_local_model_inference_under_host_pressure_in_gaming_mode",
+        )
+        game_pressure_reason = (next((reason_code for reason_code in
+            game_pressure_reason_codes if isinstance(denial_reasons, (tuple, list)
+            ) and any(isinstance(reason, str) and reason.endswith(reason_code)
+                for reason in denial_reasons)), None))
         game_host_pressure_deferred = (
             receipt.status == "deferred"
             and no_model_effect
-            and isinstance(denial_reasons, (tuple, list))
-            and any(isinstance(reason, str)
-                and reason.endswith(
-                    "deferred_local_model_inference_under_host_pressure_during_game")
-                for reason in denial_reasons))
+            and game_pressure_reason is not None)
         if cpu_budget_exhausted or game_host_pressure_deferred:
             allocation_digest = getattr(receipt, "resource_allocation_digest", None)
             if (not isinstance(allocation_digest, str)
@@ -3418,12 +3422,18 @@ class PersistentConversationService:
             if not isinstance(attempt_id, str) or not attempt_id:
                 attempt_id = None
             if game_host_pressure_deferred:
-                resource_reason = (
-                    "deferred_local_model_inference_under_host_pressure_during_game")
-                response_text = (
-                    "I’m pausing optional model inference because the active game and current "
-                    "host resource evidence show pressure. Your message is saved, but no model "
-                    "reply was generated. Ask again after resource headroom recovers.")
+                resource_reason = str(game_pressure_reason)
+                if resource_reason.endswith("_during_game"):
+                    response_text = (
+                        "I’m pausing optional model inference because the active game and current "
+                        "host resource evidence show pressure. Your message is saved, but no model "
+                        "reply was generated. Ask again after resource headroom recovers.")
+                else:
+                    response_text = (
+                        "I’m pausing optional model inference because the selected gaming "
+                        "workload profile and current host resource evidence show pressure. Your "
+                        "message is saved, but no model reply was generated. Ask again after "
+                        "resource headroom recovers.")
                 request_linkage = receipt.request.get("linkage")
                 request_linkage = (request_linkage if isinstance(request_linkage, Mapping)
                     else {})

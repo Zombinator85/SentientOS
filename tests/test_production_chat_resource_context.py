@@ -237,19 +237,33 @@ def test_gaming_host_pressure_deferral_does_not_debit_production_chat_allocation
         installation, "chat-resource", clock=lambda: NOW,
         nonce_source=lambda: "gaming-pressure-call")
     adapter = ResourceBackedProductionChatInference(serving_bridge, custody)
+    service = PersistentConversationService(
+        inference=adapter,
+        session_store=ConversationSessionStore(tmp_path / "conversations"),
+        memory_store=CanonicalMemoryStore(tmp_path / "memory"))
     serving_bridge.set_workload_mode("gaming")
-    prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
-        "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
 
     try:
-        receipt = adapter.generate(prompt=prompt, caller="chat_service",
-            correlation_id="gaming-pressure-allocation-debit",
-            budget=LocalModelInvocationBudget(), caller_linkage={})
+        response = service.chat("hello")
 
-        assert receipt.status == "deferred"
-        assert receipt.effects["local_model_inference"] is False
+        assert response.context["response_origin"] == "deterministic_grounding_policy"
+        assert "selected gaming workload profile" in response.response
+        assert "no model reply was generated" in response.response
         assert backend.calls == 0
         assert custody.allocator.ledger.remaining_calls(issued.allocation_id) == 2
+        stored = service.sessions.load(response.session_id)
+        assistant = next(turn for turn in stored["turns"]
+            if turn.get("turn_id") == response.turn_id)
+        decision = assistant["linkage"]["policy_decision"]["payload"]
+        assert decision["policy_id"] == "governed_model_resource_policy:v1"
+        assert decision["reason_code"] == (
+            "deferred_local_model_inference_under_host_pressure_in_gaming_mode")
+        resource_evidence = decision["evidence"]["governed_resource_admission"]
+        assert resource_evidence["status"] == "deferred_before_model_effect"
+        assert resource_evidence["model_inference_performed"] is False
+        assert resource_evidence["host_resource_observation"]["pressure_labels"] == [
+            "cpu_pressure"]
+        assert resource_evidence["host_resource_observation"]["no_effect_authority"] is True
     finally:
         custody.close()
         serving.close()
