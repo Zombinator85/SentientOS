@@ -119,7 +119,7 @@ def runtime_is_healthy(role: str, runtime: object) -> bool:
 def compose_authorized_runtime(*, role: str, manifest: Mapping[str, Any],
         runtime_provider: RoleRuntimeProvider,
         launch_authorizer: RoleLaunchAuthorizer,
-        system_name: str | None = None, is_wsl: bool | None = None) -> object:
+        system_name: str | None = None, is_wsl: bool | None = None) -> RoleRuntime:
     """Resolve one exact role runtime only after installed launch authorization."""
     if role not in {"windows_edge", "wsl_core"}:
         raise CompanionBridgeError("companion_role_invalid")
