@@ -1118,8 +1118,18 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             if resource_ledger is not None and resource_allocation_id is not None:
                 assert resource_ledger.remaining_calls(resource_allocation_id) == 1
                 assert len(resource_ledger._state["attempts"]) == 1
-                assert resource_ledger._state["receipts"][-1][
-                    "effect_receipt_digest"] == invocation_results["receipt"].receipt_digest
+                invocation_receipt = invocation_results["receipt"]
+                resource_receipts = resource_ledger._state["receipts"][-3:]
+                assert [item["state"] for item in resource_receipts] == [
+                    "attempt_begun", "measured_completed", "reconciled"]
+                assert resource_receipts[-1]["effect_receipt_digest"] == (
+                    invocation_receipt.receipt_digest)
+                assert invocation_receipt.resource_allocation_digest == (
+                    resource_custody.allocation.allocation_digest)
+                assert invocation_receipt.resource_attempt_id == resource_receipts[0][
+                    "attempt_id"]
+                assert invocation_receipt.resource_consumption_receipt_digests == tuple(
+                    item["receipt_digest"] for item in resource_receipts[-2:])
             reconciliation = {"status": "worker_closed",
                 "trigger_kind": "idle_game_frame_pressure_reconciliation",
                 "active_inference_cancellation_confirmed": True}
