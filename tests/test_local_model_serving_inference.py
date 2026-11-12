@@ -738,6 +738,25 @@ def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch
 
 def test_verified_automatic_game_cancels_active_optional_gpu_inference(
         monkeypatch, tmp_path):
+    import asyncio
+    from sentientos import chat_service
+    from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+    from sentientos.governed_local_model_resource_allocation import (
+        GovernedLocalModelResourceBounds, GovernedLocalModelResourcePolicy,
+    )
+    from sentientos.production_chat_resource_context import (
+        ResourceBackedProductionChatInference,
+    )
+    from sentientos.production_chat_resource_provisioning import (
+        load_production_chat_resource_context_owner,
+    )
+    from sentientos.production_chat_resource_provisioning_bundle_producer import (
+        produce_production_chat_resource_provisioning_bundle,
+    )
+    from tests.test_production_chat_resource_provisioning_bundle_producer import (
+        encoded, inputs as provisioning_inputs,
+    )
+
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -756,37 +775,95 @@ def test_verified_automatic_game_cancels_active_optional_gpu_inference(
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, gpu_layers=24, on_generate=active_generation)
     model.cancel_pending_generation = lambda: (cancelled.set() or True)
+    installation, provisioning_artifacts = provisioning_inputs(
+        tmp_path / "automatic-game-resource-provisioning", calls=2)
+    resource_bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
+    resource_policy = GovernedLocalModelResourcePolicy.create(
+        epoch=1, max_resource_specific_bounds=resource_bounds,
+        not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
+    provisioning_artifacts["requested_bounds"] = resource_bounds
+    provisioning_artifacts["resource_policy_artifact"] = encoded(resource_policy.to_dict())
+    bundle = produce_production_chat_resource_provisioning_bundle(
+        installation, "automatic-game-chat", **provisioning_artifacts)
+    resource_custody = load_production_chat_resource_context_owner(
+        installation, "automatic-game-chat", clock=lambda: "2026-09-21T08:30:00Z",
+        nonce_source=iter(("automatic-attempt-one", "automatic-attempt-two")).__next__)
+    inference = ResourceBackedProductionChatInference(bridge, resource_custody)
+    resource_ledger = resource_custody.allocator.ledger
+    reconciliations = []
+    service = SimpleNamespace(
+        reconcile_workload_state=lambda: reconciliations.append(
+            bridge.reconcile_workload_state()) or reconciliations[-1],
+        resource_reconciliation_interval_seconds=(
+            bridge.resource_reconciliation_interval_seconds),
+        set_resource_reconciliation_wakeup=(bridge.set_resource_reconciliation_wakeup),
+        close_outputs=lambda: None)
+    previous_composition = chat_service._PRODUCTION_COMPOSITION
+    previous_reconciliation_task = chat_service._RESOURCE_RECONCILIATION_TASK
+    chat_service._PRODUCTION_COMPOSITION = chat_service.ProductionChatComposition(
+        service, serving)
+    chat_service._RESOURCE_RECONCILIATION_TASK = None
     invocation_result = {}
-    invocation = threading.Thread(target=lambda: invocation_result.setdefault(
-        "receipt", bridge.generate(prompt="optional chat work", caller="operator",
-            correlation_id="automatic-game-active-inference")))
-    invocation.start()
-    assert started.wait(timeout=5)
-
     game_workload = ForegroundGameObservation("available", True,
         hashlib.sha256(b"examplegame.exe").hexdigest(), now.isoformat(),
         transport_provenance={"message_id": "d" * 64,
             "source_id": "windows-edge", "session_id": "foreground-session",
             "generation_id": "foreground-generation-1", "sequence": 1,
             "envelope_created_at": now.isoformat()})
-    assert kernel.observe_verified_game_workload(game_workload)
-
     class VerifiedGameDetector:
         def observe(self, process_names):
             assert tuple(process_names) == ("examplegame.exe",)
             return game_workload
 
-    bridge._foreground_game_detector = VerifiedGameDetector()
-    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
-    reconciliation = bridge.reconcile_idle_game_resource_state()
-    invocation.join(timeout=5)
+    active_prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+        "[SESSION_HISTORY_DATA]\nUSER_DATA: optional inference")
 
+    def invoke():
+        invocation_result["receipt"] = inference.generate(
+            prompt=active_prompt, caller="chat_service",
+            correlation_id="automatic-game-active-inference",
+            budget=LocalModelInvocationBudget(8000, 4000, 512, 30.0, 2),
+            caller_linkage={})
+
+    invocation = threading.Thread(target=invoke)
+
+    async def run_reconciliation_scheduler():
+        await chat_service._startup_event()
+        try:
+            invocation.start()
+            if not await asyncio.to_thread(started.wait, 5):
+                raise AssertionError("optional inference did not start")
+            assert kernel.observe_verified_game_workload(game_workload)
+            bridge._foreground_game_detector = VerifiedGameDetector()
+            bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+            assert bridge.resource_reconciliation_interval_seconds() == 0.5
+            if not await asyncio.to_thread(cancelled.wait, 5):
+                raise AssertionError("scheduled game-priority cancellation was not delivered")
+            await asyncio.to_thread(invocation.join, 5)
+            assert not invocation.is_alive()
+            return chat_service._RESOURCE_RECONCILIATION_TASK is not None
+        finally:
+            await chat_service._shutdown_event()
+
+    try:
+        scheduler_started = asyncio.run(run_reconciliation_scheduler())
+    finally:
+        chat_service._PRODUCTION_COMPOSITION = previous_composition
+        chat_service._RESOURCE_RECONCILIATION_TASK = previous_reconciliation_task
+        resource_custody.close()
+
+    assert scheduler_started is True
     assert not invocation.is_alive()
+    reconciliation = next(item for item in reconciliations
+        if item.get("trigger_kind") == "idle_game_gpu_residency")
     assert reconciliation["status"] == "worker_closed"
     assert reconciliation["trigger_kind"] == "idle_game_gpu_residency"
     assert reconciliation["active_inference_cancellation_confirmed"] is True
     assert invocation_result["receipt"].status == "cancelled"
     assert invocation_result["receipt"].output_text is None
+    assert resource_ledger.remaining_calls(bundle.allocation_id) == 1
+    assert len(resource_ledger._state["attempts"]) == 1
+    assert resource_ledger._state["receipts"][-1]["state"] == "reconciled"
     assert model.closed is True
     assert serving.current_session() is None
 
