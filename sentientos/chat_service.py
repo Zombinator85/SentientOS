@@ -3398,10 +3398,11 @@ class PersistentConversationService:
             "deferred_local_model_inference_under_host_pressure_during_game",
             "deferred_local_model_inference_under_host_pressure_in_gaming_mode",
         )
-        game_pressure_reason = (next((reason_code for reason_code in
-            game_pressure_reason_codes if isinstance(denial_reasons, (tuple, list)
-            ) and any(isinstance(reason, str) and reason.endswith(reason_code)
-                for reason in denial_reasons)), None))
+        game_pressure_reason = None
+        if isinstance(denial_reasons, (tuple, list)):
+            game_pressure_reason = next((reason_code for reason_code in
+                game_pressure_reason_codes if any(isinstance(reason, str)
+                    and reason.endswith(reason_code) for reason in denial_reasons)), None)
         game_host_pressure_deferred = (
             receipt.status == "deferred"
             and no_model_effect
