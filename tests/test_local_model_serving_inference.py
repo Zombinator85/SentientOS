@@ -1033,6 +1033,15 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             duplicate = bridge.reconcile_idle_game_resource_state()
             assert duplicate == {"status": "skipped",
                 "reason": "game_pressure_release_already_attempted_for_observation"}
+            publisher.publish_once()
+            newer_game_evidence = GamePerformanceBridgeDetector(
+                receiver=OneMessageReceiver(index=2), source_id=source_id,
+                generation_provider=lambda: generation_id, clock=lambda: now
+            ).receive_once()
+            assert kernel.observe_verified_game_performance(newer_game_evidence)
+            retry = bridge.reconcile_idle_game_resource_state()
+            assert retry["status"] == "release_effect_unconfirmed"
+            assert retry["active_inference_cancellation_confirmed"] is False
             finish_generation.set()
             invocation_thread.join(timeout=5)
             assert not invocation_thread.is_alive()
@@ -1103,17 +1112,27 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     release_receipts = list((tmp_path / "state" / "installations" / "install-1" /
         "state" / "local-model" / "serving" /
         "resource-release-receipts").glob("*.json"))
-    assert len(release_receipts) == 1
-    release = json.loads(release_receipts[0].read_text(encoding="utf-8"))
+    expected_release_receipt_count = (2
+        if trigger == "idle_game_frame_pressure_active_inference_unconfirmed" else 1)
+    assert len(release_receipts) == expected_release_receipt_count
+    decoded_releases = [json.loads(path.read_text(encoding="utf-8"))
+        for path in release_receipts]
     if trigger == "idle_game_frame_pressure_active_inference_unconfirmed":
         assert model.closed is False
         assert serving.current_session() is not None
-        assert release["status"] == "release_effect_unconfirmed"
-        assert release["active_inference_preemption_requested"] is True
-        assert release["active_inference_cancellation_confirmed"] is False
-        assert release["close_failure"] == "active_inference_cancellation_unconfirmed"
+        assert all(release["status"] == "release_effect_unconfirmed"
+            for release in decoded_releases)
+        assert all(release["active_inference_preemption_requested"] is True
+            for release in decoded_releases)
+        assert all(release["active_inference_cancellation_confirmed"] is False
+            for release in decoded_releases)
+        assert all(release["close_failure"] ==
+            "active_inference_cancellation_unconfirmed" for release in decoded_releases)
+        assert {release["resource_observation"]["game_performance_message_id"]
+            for release in decoded_releases} == {accepted[1].message_id, accepted[2].message_id}
         serving.close()
         return
+    release = decoded_releases[0]
     if trigger == "idle_game_frame_pressure_mismatched_process":
         assert model.closed is False
         assert serving.current_session() is not None
