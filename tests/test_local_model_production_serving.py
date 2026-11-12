@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import hashlib
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -10,6 +12,7 @@ from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass, Co
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_model_production_serving import ProductionServingController, ProductionServingError
+from sentientos.local_model_runtime_worker import ExactRuntimeLocalModel
 from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.foreground_game_detection import ForegroundGameObservation
 from sentientos.host_collectors import HostCollectorResult
@@ -148,6 +151,42 @@ def test_resource_release_waits_for_exact_worker_exit_confirmation(monkeypatch, 
     assert ctl._session is None and ctl._model is None
     assert len(handle.list_regular_names(
         handle.fixed_object("local-model/serving/invalidations"))) == 1
+
+
+def test_production_serving_release_closes_the_exact_runtime_process(monkeypatch, handle):
+    process = subprocess.Popen(
+        [sys.executable, "-u", "-c",
+         "import sys, json\n"
+         "print('ready', flush=True)\n"
+         "for line in sys.stdin:\n"
+         "    if json.loads(line).get('type') == 'shutdown':\n"
+         "        print('shutdown', flush=True)\n"
+         "        break\n"],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, bufsize=1)
+    assert process.stdout is not None
+    try:
+        assert process.stdout.readline() == "ready\n"
+        model = object.__new__(ExactRuntimeLocalModel)
+        model._process = process
+        model.active_identity = identity()
+        ctl = controller(monkeypatch, handle, [evidence()] * 3,
+                         factory=lambda _chain, _load: model)
+        session = ctl.establish(operation_id="serve-operation-real-worker-release")
+
+        assert process.poll() is None
+        assert ctl.release_current_session_after_resource_admission(
+            session, reason="verified_game_host_pressure") is True
+
+        assert process.wait(timeout=2) == 0
+        assert process.poll() == 0
+        assert ctl.current_session() is None
+        assert len(handle.list_regular_names(
+            handle.fixed_object("local-model/serving/invalidations"))) == 1
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=2)
 
 
 @pytest.mark.parametrize("outcome", [AdmissionOutcome.DENY, AdmissionOutcome.DEFER, AdmissionOutcome.QUARANTINE])
