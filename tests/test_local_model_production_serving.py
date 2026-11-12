@@ -402,3 +402,146 @@ def test_new_operation_reestablishes_distinct_lifetime(monkeypatch, handle, caus
     assert len({item["invalidation_id"] for item in invalidations}) == 2
     assert {(item["session_id"], item["serving_operation_id"]) for item in invalidations} == {
         (first.session_id, "serve-operation-1"), (second.session_id, "serve-operation-2")}
+
+
+def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
+        monkeypatch, handle, tmp_path):
+    """Authenticated game entry blocks the exact model factory until fresh idle evidence."""
+    import json
+    from cryptography import x509
+    from cryptography.hazmat.primitives.serialization import Encoding
+    from sentientos.foreground_game_bridge import (
+        BridgeForegroundGameDetector, WindowsForegroundBridgePublisher,
+    )
+    from sentientos.foreground_game_detection import ForegroundGameDetector
+    from sentientos.gaming_companion_bridge import CompanionBridgeReceiver
+    from sentientos.gaming_companion_tls_transport import (
+        CompanionBridgeMutualTLSClient, CompanionBridgeMutualTLSRuntime,
+    )
+    from sentientos.host_resource_runtime import HostObservationCollectorSpec
+    from tests.test_gaming_companion_tls_transport import _certificate_bundle
+
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(handle.root / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(handle.root))
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=handle.root / "kernel-decisions.jsonl")
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    server_certificate = x509.load_pem_x509_certificate(
+        (tmp_path / "server.pem").read_bytes())
+    source_key, acknowledgment_key = b"p" * 32, b"q" * 32
+    source_id, generation_id = "windows-edge", "serving-load-generation-1"
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1", port=0,
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=CompanionBridgeReceiver(source_keys={source_id: source_key},
+            expected_generations={source_id: generation_id}),
+        acknowledgment_source_id="wsl-core",
+        acknowledgment_generation_id="serving-core-generation-1",
+        acknowledgment_key=acknowledgment_key)
+    port = runtime.start()
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-core": acknowledgment_key},
+            expected_generations={"wsl-core": "serving-core-generation-1"}),
+        expected_server_certificate_sha256=hashlib.sha256(
+            server_certificate.public_bytes(Encoding.DER)).hexdigest())
+    foreground = {"game": True}
+    publisher = WindowsForegroundBridgePublisher(
+        detector=ForegroundGameDetector(system_provider=lambda: "Windows",
+            process_name_provider=lambda: ("ExampleGame.exe" if foreground["game"]
+                else "explorer.exe"),
+            running_process_names_provider=lambda: (
+                ("ExampleGame.exe",) if foreground["game"] else ()),
+            clock=lambda: now.isoformat()),
+        client=client, source_id=source_id, session_id="serving-load-game-session",
+        generation_id=generation_id, source_key=source_key)
+    detector = BridgeForegroundGameDetector(runtime=runtime, source_id=source_id,
+        generation_id=generation_id, clock=lambda: now)
+    detector.set_game_workload_admission_owner(kernel)
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=handle.root / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1, devices=[{
+                    "index": 0, "gpu_utilization_percent": 10.0,
+                    "vram_utilization_percent": 20.0}])),
+        ]), clock=lambda: now.isoformat())
+    factory_calls = []
+    model = Model(identity())
+    current = evidence(gpu_layers=16)
+    ctl = controller(monkeypatch, handle, [current, current, current, current], kernel=kernel,
+        factory=lambda _chain, _load: factory_calls.append("loaded") or model)
+
+    def admission_context(correlation_id, activation_state):
+        observation_id = "local-chat-serving-" + hashlib.sha256(
+            correlation_id.encode("utf-8")).hexdigest()[:32]
+        host_owner.run_cycle(correlation_id=observation_id)
+        workload = detector.observe(("ExampleGame.exe",))
+        load_configuration = activation_state["load_configuration"]
+        return {
+            "resource_governance_required": True,
+            "purpose": "local_model_serving",
+            "host_resource_observation_namespace": "local-chat-serving",
+            "host_resource_observation_id": observation_id,
+            "workload_mode": "automatic",
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp", "accelerator_route": "gpu",
+                "gpu_layers": load_configuration["n_gpu_layers"],
+                "configuration_digest": semantic_digest(load_configuration),
+            },
+            "serving_workload_evidence": {
+                "configured_mode": "automatic",
+                "observation_status": workload.status,
+                "game_foreground": workload.game_foreground,
+                "game_process_running": workload.game_process_running,
+                "transport_provenance": workload.transport_provenance,
+            },
+        }
+
+    try:
+        active_message = publisher.publish_once(("ExampleGame.exe",))
+        with pytest.raises(ProductionServingError, match="control_plane_not_allowed"):
+            ctl.establish(operation_id="serving-game-active",
+                admission_context_provider=admission_context)
+        assert factory_calls == []
+        assert ctl.current_session() is None
+
+        foreground["game"] = False
+        idle_message = publisher.publish_once(("ExampleGame.exe",))
+        session = ctl.establish(operation_id="serving-game-idle",
+            admission_context_provider=admission_context)
+        assert factory_calls == ["loaded"]
+        assert ctl.current_session() == session
+
+        decisions = [json.loads(line) for line in
+            (handle.root / "kernel-decisions.jsonl").read_text(
+                encoding="utf-8").splitlines()]
+        serving_decisions = [item for item in decisions
+            if item.get("authority_class") == AuthorityClass.MODEL_SERVING.value]
+        assert [item["final_disposition"] for item in serving_decisions] == ["defer", "allow"]
+        assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
+            "reason"] == "deferred_gpu_model_serving_while_game_active"
+        assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
+            "evidence_refs"]["game_workload_evidence"]["message_id"] == (
+                active_message.payload["message_id"])
+        assert serving_decisions[1]["delegated_outcomes"]["runtime_governor"][
+            "evidence_refs"]["game_workload_evidence"]["message_id"] == (
+                idle_message.payload["message_id"])
+        assert host_owner.collector_call_count == 6
+    finally:
+        ctl.close()
+        detector.close()
