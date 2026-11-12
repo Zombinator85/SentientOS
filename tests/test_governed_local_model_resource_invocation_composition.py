@@ -54,7 +54,7 @@ class DenyingKernel:
     def admit(self, request):
         return SimpleNamespace(allowed=False, outcome=AdmissionOutcome.DENY, reason_codes=("test_denial",), admission_decision_ref=None, to_dict=lambda: {"outcome": "deny"})
 
-def setup(tmp_path: Path, *, calls=2, model=None, kernel=None):
+def setup(tmp_path: Path, *, calls=2, model=None, kernel=None, cpu_ceiling=None):
     tmp_path.mkdir(parents=True, exist_ok=True)
     public = bytes(range(32)); key_id = "ed25519-sha256:" + hashlib.sha256(public).hexdigest(); issuer = "issuer"
     issuance = RootPrincipalIssuer(issuer_id=issuer, sponsorship_verifier=Sponsor(), provenance_signer=Signer(key_id)).mint_root_with_provenance(sponsorship_evidence={}, subject_binding_digest="sha256:" + "2" * 64, epoch=7, issued_at="2026-09-21T08:00:00Z", expires_at="2026-09-21T10:00:00Z", signed_at="2026-09-21T08:10:00Z")
@@ -64,7 +64,8 @@ def setup(tmp_path: Path, *, calls=2, model=None, kernel=None):
     registry_body = {"schema": REGISTRY_SCHEMA, "registry_version": 1, "generated_at": "2026-09-21T08:00:00Z", "valid_until": "2026-09-21T09:30:00Z", "revoked_principals": []}
     rd = registry_digest_for(registry_body); rp = tmp_path / "registry.json"; rp.write_text(json.dumps({**registry_body, "registry_digest": rd}))
     current = PrincipalCurrentnessVerifier().verify(issuance.principal, auth, ReadOnlyPrincipalRevocationRegistry.load(rp, expected_registry_version=1, expected_registry_digest=rd), current_time=NOW)
-    bounds = GovernedLocalModelResourceBounds(100, 200, 20, 5.0, calls)
+    bounds = GovernedLocalModelResourceBounds(100, 200, 20, 5.0, calls,
+        cpu_ceiling)
     policy = GovernedLocalModelResourcePolicy.create(epoch=11, max_resource_specific_bounds=bounds, not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
     ledger = GovernedLocalModelResourceLedger(tmp_path / "ledger.json"); allocator = GovernedLocalModelResourceAllocator(policy=policy, ledger=ledger)
     allocation = allocator.issue(principal=issuance.principal, authenticated=auth, current=current, requested_bounds=bounds, requested_not_before="2026-09-21T08:00:00Z", requested_not_after="2026-09-21T10:00:00Z", current_time=NOW)
@@ -147,6 +148,56 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
     assert degraded["disposition"] == "degraded"
     assert any(finding.startswith("backend_resource_observation_receipt_mismatch:")
         for finding in degraded["payload"]["lineage_findings"])
+
+
+def test_exact_worker_cpu_overrun_denies_later_generation_through_invoker(tmp_path):
+    class OverrunMeasuredModel(Model):
+        supports_per_invocation_thread_limit = True
+
+        def generate_governed_with_metadata(self, prompt, **kwargs):
+            self.calls += 1
+            ceiling = kwargs.get("max_backend_threads")
+            return self.text, {
+                "schema_version": "sentientos.llama_cpp_completion_observation:v3",
+                "backend": "llama_cpp", "finish_reason": "unknown",
+                "completion_tokens": None, "prompt_tokens": None,
+                "token_limit_reached": None,
+                "invocation_resources": {
+                    "schema_version": "sentientos.llama_cpp_invocation_resource_observation:v1",
+                    "user_cpu_seconds": 0.9, "system_cpu_seconds": 0.0,
+                    "wall_seconds": 0.3, "process_peak_rss_bytes": 7_340_032,
+                },
+                "backend_thread_limit_control": {
+                    "schema_version": "sentientos.llama_cpp_backend_thread_limit_control:v1",
+                    "requested_ceiling": ceiling, "setter_function": "llama_set_n_threads",
+                    "n_threads_argument": min(2, ceiling),
+                    "n_threads_batch_argument": min(2, ceiling),
+                },
+            }
+
+    model, invoker, _, context, ledger = setup(
+        tmp_path, model=OverrunMeasuredModel(), cpu_ceiling=1.6)
+    request = invoker.build_request(purpose="local_user_chat", prompt="hello",
+        caller="test", correlation_id="cpu-budget-feedback",
+        budget=LocalModelInvocationBudget(100, 200, 20, 0.4, 2),
+        linkage={"max_backend_threads": 2})
+
+    first = invoker.invoke(request, resource_context=context)
+    assert first.status == "admitted_completed" and model.calls == 1
+    assert ledger.cpu_seconds_used(context.allocation.allocation_id) == 0.9
+
+    second_request = invoker.build_request(purpose="local_user_chat", prompt="hello",
+        caller="test", correlation_id="cpu-budget-feedback-second",
+        budget=LocalModelInvocationBudget(100, 200, 20, 0.4, 2),
+        linkage={"max_backend_threads": 2})
+    second = invoker.invoke(second_request, resource_context=replace(
+        context, durable_attempt_nonce="cpu-budget-feedback-second"))
+    assert second.status == "resource_denied", second.reason_codes
+    assert any(reason.endswith("cpu_seconds_entitlement_exhausted")
+        for reason in second.reason_codes)
+    assert second.effects["local_model_inference"] is False
+    assert model.calls == 1
+    assert len(ledger._state["attempts"]) == 1
 
 
 def test_resource_admission_guard_defers_without_backend_entry_or_debit(tmp_path):

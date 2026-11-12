@@ -138,6 +138,7 @@ class GovernedLocalModelResourceBounds:
     max_new_tokens: int
     timeout_seconds: float
     max_calls_per_correlation: int
+    max_cpu_seconds_per_allocation: float | None = None
 
     def __post_init__(self) -> None:
         for name in ("max_input_chars", "max_output_chars", "max_new_tokens", "max_calls_per_correlation"):
@@ -146,14 +147,33 @@ class GovernedLocalModelResourceBounds:
                 raise GovernedLocalModelResourceError(f"invalid_{name}")
         if type(self.timeout_seconds) not in (int, float) or isinstance(self.timeout_seconds, bool) or not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
             raise GovernedLocalModelResourceError("invalid_timeout_seconds")
+        if (self.max_cpu_seconds_per_allocation is not None
+                and (type(self.max_cpu_seconds_per_allocation) not in (int, float)
+                    or isinstance(self.max_cpu_seconds_per_allocation, bool)
+                    or not math.isfinite(self.max_cpu_seconds_per_allocation)
+                    or self.max_cpu_seconds_per_allocation <= 0)):
+            raise GovernedLocalModelResourceError("invalid_max_cpu_seconds_per_allocation")
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, object]) -> "GovernedLocalModelResourceBounds":
-        _closed(value, set(cls.__dataclass_fields__), "bounds")
+        required = set(cls.__dataclass_fields__) - {"max_cpu_seconds_per_allocation"}
+        if frozenset(value) not in {frozenset(required), frozenset(cls.__dataclass_fields__)}:
+            raise GovernedLocalModelResourceError("bounds_fields_not_exact")
         return cls(**dict(value))  # type: ignore[arg-type]
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        result = asdict(self)
+        if self.max_cpu_seconds_per_allocation is None:
+            result.pop("max_cpu_seconds_per_allocation")
+        return result
+
+    def is_within(self, maximum: "GovernedLocalModelResourceBounds") -> bool:
+        for name in self.__dataclass_fields__:
+            requested = getattr(self, name)
+            limit = getattr(maximum, name)
+            if limit is not None and (requested is None or requested > limit):
+                return False
+        return True
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,7 +279,10 @@ class GovernedLocalModelResourceAllocation:
                    validity=GovernedLocalModelAllocationValidity.from_mapping(validity), allocator_id=ALLOCATOR_ID,
                    epoch=value["epoch"], policy_digest=_sha(value["policy_digest"], "policy_digest"), allocation_digest=claimed)
 
-    def to_dict(self) -> dict[str, object]: return asdict(self)
+    def to_dict(self) -> dict[str, object]:
+        result = asdict(self)
+        result["resource_specific_bounds"] = self.resource_specific_bounds.to_dict()
+        return result
 
 
 _MEASUREMENT_FIELDS = {"generation_attempted", "call_units_consumed", "generated_output_size_bytes",
@@ -450,10 +473,16 @@ class GovernedLocalModelResourceLedger:
         for attempt_id, attempt in attempts.items():
             if (not isinstance(attempt_id, str) or not attempt_id.startswith("lmattempt-")
                     or not isinstance(attempt, dict)
-                    or set(attempt) != {"allocation_id", "status"}
+                    or set(attempt) not in ({"allocation_id", "status"},
+                        {"allocation_id", "status", "cpu_budget_reservation_seconds"})
                     or attempt.get("allocation_id") not in allocation_values
                     or attempt.get("status") not in {"provisional", "begun", "restored"}):
                 raise GovernedLocalModelResourceError("malformed_ledger_attempt")
+            reservation = attempt.get("cpu_budget_reservation_seconds")
+            if (reservation is not None and (type(reservation) not in (int, float)
+                    or isinstance(reservation, bool) or not math.isfinite(reservation)
+                    or reservation <= 0)):
+                raise GovernedLocalModelResourceError("malformed_ledger_cpu_reservation")
             attempt_allocations[attempt_id] = allocation_values[attempt["allocation_id"]]
 
         seen: dict[str, str] = {}
@@ -640,6 +669,56 @@ class GovernedLocalModelResourceLedger:
         used = sum(1 for value in self._state["attempts"].values() if value["allocation_id"] == allocation_id and value["status"] in {"provisional", "begun"})
         return allocation.resource_specific_bounds.max_calls_per_correlation - used
 
+    def cpu_seconds_used(self, allocation_id: str) -> float:
+        """Return measured CPU use plus reservations for unresolved attempts."""
+        with self._lock:
+            return self._cpu_seconds_used_locked(allocation_id)
+
+    def _cpu_seconds_used_locked(self, allocation_id: str) -> float:
+        allocation = self.allocation(allocation_id)
+        ceiling = allocation.resource_specific_bounds.max_cpu_seconds_per_allocation
+        if ceiling is None:
+            return 0.0
+        attempts = self._state["attempts"]
+        receipts = self._state["receipts"]
+        assert isinstance(attempts, Mapping) and isinstance(receipts, list)
+        total = 0.0
+        for attempt_id, attempt in attempts.items():
+            if (not isinstance(attempt, Mapping)
+                    or attempt.get("allocation_id") != allocation_id
+                    or attempt.get("status") == "restored"):
+                continue
+            history = [receipt for receipt in receipts
+                if isinstance(receipt, Mapping)
+                and receipt.get("attempt_id") == attempt_id]
+            measured = next((receipt for receipt in reversed(history)
+                if receipt.get("state") == "reconciled"), None)
+            measurement = (measured.get("resource_specific_measurement")
+                if isinstance(measured, Mapping) else None)
+            observation = (measurement.get("backend_resource_observation")
+                if isinstance(measurement, Mapping) else None)
+            if isinstance(observation, Mapping):
+                user_cpu = observation.get("user_cpu_seconds")
+                system_cpu = observation.get("system_cpu_seconds")
+                if (isinstance(user_cpu, (int, float)) and not isinstance(user_cpu, bool)
+                        and isinstance(system_cpu, (int, float))
+                        and not isinstance(system_cpu, bool)):
+                    total += float(user_cpu) + float(system_cpu)
+                    continue
+            reservation = attempt.get("cpu_budget_reservation_seconds")
+            # Old or incomplete durable attempts cannot release capacity based
+            # on an absent measurement; consume the full remaining ceiling.
+            total += float(reservation) if reservation is not None else ceiling
+        return total
+
+    def remaining_cpu_seconds(self, allocation_id: str) -> float | None:
+        """Return policy-bounded CPU capacity, or None when no ceiling exists."""
+        with self._lock:
+            ceiling = self.allocation(allocation_id).resource_specific_bounds.max_cpu_seconds_per_allocation
+            if ceiling is None:
+                return None
+            return max(0.0, ceiling - self._cpu_seconds_used_locked(allocation_id))
+
     def snapshot_counts(self) -> tuple[int, int, int]:
         """Return non-mutating allocation, attempt, and receipt counts."""
         with self._lock:
@@ -694,8 +773,8 @@ class GovernedLocalModelResourceAllocator:
               current: CurrentAuthenticatedRootPrincipalEvidence, requested_bounds: GovernedLocalModelResourceBounds,
               requested_not_before: str, requested_not_after: str, current_time: str) -> GovernedLocalModelResourceAllocation:
         self._principal(principal, authenticated, current, current_time); self._policy_current(self.policy, current_time)
-        for name in GovernedLocalModelResourceBounds.__dataclass_fields__:
-            if getattr(requested_bounds, name) > getattr(self.policy.max_resource_specific_bounds, name): raise GovernedLocalModelResourceError("requested_bounds_exceed_policy")
+        if not requested_bounds.is_within(self.policy.max_resource_specific_bounds):
+            raise GovernedLocalModelResourceError("requested_bounds_exceed_policy")
         before = max(_time(requested_not_before, "requested_not_before"), _time(principal.issued_at, "issued_at"), _time(self.policy.not_before, "policy_not_before"))
         after = min(_time(requested_not_after, "requested_not_after"), _time(principal.expires_at, "expires_at"), _time(current.registry_valid_until, "registry_valid_until"), _time(self.policy.valid_until, "policy_valid_until"))
         now = _time(current_time, "current_time")
@@ -710,7 +789,9 @@ class GovernedLocalModelResourceAllocator:
 
     def final_gate(self, *, allocation: GovernedLocalModelResourceAllocation, principal: CausalResourcePrincipal,
                    authenticated: AuthenticatedRootPrincipalEvidence, current: CurrentAuthenticatedRootPrincipalEvidence,
-                   policy: GovernedLocalModelResourcePolicy, current_time: str, durable_attempt_nonce: str) -> str:
+                   policy: GovernedLocalModelResourcePolicy, current_time: str, durable_attempt_nonce: str,
+                   requested_timeout_seconds: float | None = None,
+                   max_backend_threads: int | None = None) -> str:
         self._principal(principal, authenticated, current, current_time); self._policy_current(policy, current_time)
         exact = GovernedLocalModelResourceAllocation.from_mapping(allocation.to_dict())
         if exact != self.ledger.allocation(exact.allocation_id): raise GovernedLocalModelResourceError("allocation_substitution")
@@ -720,12 +801,32 @@ class GovernedLocalModelResourceAllocator:
         if now < _time(exact.validity.not_before, "allocation_not_before") or now >= _time(exact.validity.not_after, "allocation_not_after"): raise GovernedLocalModelResourceError("allocation_expired")
         if not isinstance(durable_attempt_nonce, str) or not durable_attempt_nonce: raise GovernedLocalModelResourceError("invalid_durable_attempt_nonce")
         attempt_id = "lmattempt-" + _digest({"allocation_digest": exact.allocation_digest, "durable_attempt_nonce": durable_attempt_nonce})[:32]
+        cpu_reservation: float | None = None
+        cpu_ceiling = exact.resource_specific_bounds.max_cpu_seconds_per_allocation
+        if cpu_ceiling is not None:
+            if (not isinstance(requested_timeout_seconds, (int, float))
+                    or isinstance(requested_timeout_seconds, bool)
+                    or not math.isfinite(requested_timeout_seconds)
+                    or requested_timeout_seconds <= 0
+                    or requested_timeout_seconds > exact.resource_specific_bounds.timeout_seconds
+                    or not isinstance(max_backend_threads, int)
+                    or isinstance(max_backend_threads, bool)
+                    or not 1 <= max_backend_threads <= 256):
+                raise GovernedLocalModelResourceError("cpu_budget_reservation_evidence_required")
+            cpu_reservation = float(requested_timeout_seconds) * max_backend_threads
         with self.ledger._lock:
             if attempt_id in self.ledger._state["attempts"]: raise GovernedLocalModelResourceError("duplicate_attempt_id")
             if self.ledger.remaining_calls(exact.allocation_id) <= 0: raise GovernedLocalModelResourceError("call_entitlement_exhausted")
+            if (cpu_reservation is not None and cpu_ceiling is not None
+                    and self.ledger.cpu_seconds_used(exact.allocation_id) + cpu_reservation
+                        > cpu_ceiling):
+                raise GovernedLocalModelResourceError("cpu_seconds_entitlement_exhausted")
             candidate = self.ledger._candidate()
-            candidate["attempts"][attempt_id] = {
+            attempt: dict[str, object] = {
                 "allocation_id": exact.allocation_id, "status": "provisional"}
+            if cpu_reservation is not None:
+                attempt["cpu_budget_reservation_seconds"] = cpu_reservation
+            candidate["attempts"][attempt_id] = attempt
             self.ledger._persist_candidate(candidate)
         return attempt_id
 

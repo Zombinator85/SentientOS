@@ -1039,6 +1039,13 @@ class GovernedLocalModelInvoker:
                     raise GovernedLocalModelResourceError("allocation_substitution")
                 if resource_context.allocator.policy != resource_context.policy or allocation.policy_digest != resource_context.policy.policy_digest or allocation.epoch != resource_context.policy.epoch:
                     raise GovernedLocalModelResourceError("allocation_policy_mismatch")
+                if (allocation.resource_specific_bounds.max_cpu_seconds_per_allocation is not None
+                        and (record is None or record.engine != "llama_cpp"
+                            or type(thread_limit) is not int
+                            or getattr(self.model, "supports_per_invocation_thread_limit", False)
+                                is not True)):
+                    raise GovernedLocalModelResourceError(
+                        "cpu_budget_requires_verified_backend_thread_limit")
                 for dimension in LocalModelInvocationBudget.__dataclass_fields__:
                     if getattr(request.budget, dimension) > getattr(allocation.resource_specific_bounds, dimension):
                         raise GovernedLocalModelResourceError(f"request_budget_exceeds_allocation:{dimension}")
@@ -1074,7 +1081,17 @@ class GovernedLocalModelInvoker:
             else:
                 if resource_context is not None:
                     try:
-                        attempt_id = resource_context.allocator.final_gate(allocation=resource_context.allocation, principal=resource_context.principal, authenticated=resource_context.authenticated, current=resource_context.current, policy=resource_context.policy, current_time=resource_context.clock(), durable_attempt_nonce=resource_context.durable_attempt_nonce)
+                        attempt_id = resource_context.allocator.final_gate(
+                            allocation=resource_context.allocation,
+                            principal=resource_context.principal,
+                            authenticated=resource_context.authenticated,
+                            current=resource_context.current,
+                            policy=resource_context.policy,
+                            current_time=resource_context.clock(),
+                            durable_attempt_nonce=resource_context.durable_attempt_nonce,
+                            requested_timeout_seconds=request.budget.timeout_seconds,
+                            max_backend_threads=(thread_limit
+                                if type(thread_limit) is int else None))
                     except GovernedLocalModelResourceError as exc:
                         status = "resource_denied"; reasons.append("resource_gate:" + str(exc).split(":", 1)[0])
                 if resource_context is None or attempt_id is not None:

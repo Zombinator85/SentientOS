@@ -36,7 +36,7 @@ class Verifier:
     def verify(self, *, algorithm: str, public_key: str, payload: bytes, signature: str) -> bool: return True
 
 
-def context(tmp_path: Path) -> tuple[Any, ...]:
+def context(tmp_path: Path, *, cpu_ceiling: float | None = None) -> tuple[Any, ...]:
     public = bytes(range(32))
     key_id = "ed25519-sha256:" + hashlib.sha256(public).hexdigest()
     issuer = "resource-principal-issuer"
@@ -54,7 +54,8 @@ def context(tmp_path: Path) -> tuple[Any, ...]:
     rd = registry_digest_for(registry_body); rp = tmp_path / "registry.json"; rp.write_text(json.dumps({**registry_body, "registry_digest": rd}))
     registry = ReadOnlyPrincipalRevocationRegistry.load(rp, expected_registry_version=1, expected_registry_digest=rd)
     current = PrincipalCurrentnessVerifier().verify(issuance.principal, authenticated, registry, current_time=NOW)
-    bounds = GovernedLocalModelResourceBounds(100, 200, 20, 5.0, 2)
+    bounds = GovernedLocalModelResourceBounds(100, 200, 20, 5.0, 2,
+        cpu_ceiling)
     policy = GovernedLocalModelResourcePolicy.create(epoch=11, max_resource_specific_bounds=bounds,
         not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
     ledger = GovernedLocalModelResourceLedger(tmp_path / "ledger.json")
@@ -134,6 +135,71 @@ def test_validated_backend_process_measurements_join_governed_resource_usage(tmp
     assert measured.receipt_digest == reconciled.previous_receipt_digest
     assert reconciled.effect_receipt_digest == "a" * 64
     assert reopened.remaining_calls(allocation.allocation_id) == 1
+
+
+def test_measured_worker_cpu_reduces_later_allocation_capacity(tmp_path: Path) -> None:
+    principal, authenticated, current, policy, ledger, allocator, allocation = (
+        context(tmp_path, cpu_ceiling=1.0))
+    first_attempt = allocator.final_gate(
+        allocation=allocation, principal=principal, authenticated=authenticated,
+        current=current, policy=policy, current_time=NOW,
+        durable_attempt_nonce="cpu-measured-first",
+        requested_timeout_seconds=0.4, max_backend_threads=1)
+    assert ledger.cpu_seconds_used(allocation.allocation_id) == 0.4
+    assert ledger.remaining_cpu_seconds(allocation.allocation_id) == 0.6
+    allocator.record_backend_entry(allocation, first_attempt, observed_at=NOW)
+    observation = {
+        "schema_version": "sentientos.governed_local_model_backend_resource_observation:v1",
+        "backend": "llama_cpp", "observation_source": "exact_runtime_worker_process",
+        "user_cpu_seconds": 0.5, "system_cpu_seconds": 0.15,
+        "wall_seconds": 0.3, "process_peak_rss_bytes": 7_340_032,
+    }
+    measurement = allocator.measurement(allocation, generation_attempted=True,
+        call_units_consumed=1, latency_ms=300, invocation_outcome="completed",
+        backend_resource_observation=observation)
+    allocator.append_receipt(allocation, first_attempt, state="measured_completed",
+        observed_at=NOW, measurement=measurement)
+    allocator.append_receipt(allocation, first_attempt, state="reconciled",
+        observed_at=NOW, measurement=measurement, effect_receipt_digest="a" * 64)
+    assert ledger.cpu_seconds_used(allocation.allocation_id) == 0.65
+
+    with pytest.raises(GovernedLocalModelResourceError,
+                       match="cpu_seconds_entitlement_exhausted"):
+        allocator.final_gate(allocation=allocation, principal=principal,
+            authenticated=authenticated, current=current, policy=policy,
+            current_time=NOW, durable_attempt_nonce="cpu-measured-denied",
+            requested_timeout_seconds=0.4, max_backend_threads=1)
+
+    second_attempt = allocator.final_gate(allocation=allocation,
+        principal=principal, authenticated=authenticated, current=current,
+        policy=policy, current_time=NOW,
+        durable_attempt_nonce="cpu-measured-narrowed",
+        requested_timeout_seconds=0.35, max_backend_threads=1)
+    assert ledger.cpu_seconds_used(allocation.allocation_id) == 1.0
+    restarted = GovernedLocalModelResourceLedger(ledger.path)
+    assert restarted.cpu_seconds_used(allocation.allocation_id) == 1.0
+    assert restarted.remaining_cpu_seconds(allocation.allocation_id) == 0.0
+    assert second_attempt in restarted._state["attempts"]
+
+
+def test_unmeasured_cpu_reservation_remains_charged_until_not_begun_reconciliation(
+        tmp_path: Path) -> None:
+    principal, authenticated, current, policy, ledger, allocator, allocation = (
+        context(tmp_path, cpu_ceiling=1.0))
+    attempt = allocator.final_gate(allocation=allocation, principal=principal,
+        authenticated=authenticated, current=current, policy=policy,
+        current_time=NOW, durable_attempt_nonce="cpu-reservation-recovery",
+        requested_timeout_seconds=0.7, max_backend_threads=1)
+    assert ledger.cpu_seconds_used(allocation.allocation_id) == 0.7
+    allocator.reconcile_not_begun(allocation, attempt, observed_at=NOW)
+    assert ledger.cpu_seconds_used(allocation.allocation_id) == 0.0
+    next_attempt = allocator.final_gate(allocation=allocation,
+        principal=principal, authenticated=authenticated, current=current,
+        policy=policy, current_time=NOW,
+        durable_attempt_nonce="cpu-reservation-released",
+        requested_timeout_seconds=0.7, max_backend_threads=1)
+    assert ledger.cpu_seconds_used(allocation.allocation_id) == 0.7
+    assert next_attempt in ledger._state["attempts"]
 
 
 def test_provisional_restore_survives_restart_and_entry_is_irrevocable(tmp_path: Path) -> None:
@@ -220,6 +286,23 @@ def test_integer_bounds_reject_bool_and_nonpositive(bad: object) -> None:
 @pytest.mark.parametrize("bad", [float("nan"), float("inf"), 0.0])
 def test_timeout_rejects_nonfinite_and_nonpositive(bad: float) -> None:
     with pytest.raises(GovernedLocalModelResourceError): GovernedLocalModelResourceBounds(1, 1, 1, bad, 1)
+
+
+@pytest.mark.parametrize("bad", [True, 0, -1, float("nan"), float("inf")])
+def test_cpu_seconds_ceiling_rejects_boolean_nonpositive_and_nonfinite(bad: object) -> None:
+    with pytest.raises(GovernedLocalModelResourceError,
+                       match="invalid_max_cpu_seconds_per_allocation"):
+        GovernedLocalModelResourceBounds(1, 1, 1, 1.0, 1, bad)  # type: ignore[arg-type]
+
+
+def test_cpu_seconds_ceiling_must_narrow_policy_bounds() -> None:
+    policy_max = GovernedLocalModelResourceBounds(100, 200, 20, 5.0, 2, 4.0)
+    assert GovernedLocalModelResourceBounds(100, 200, 20, 5.0, 2, 2.0).is_within(
+        policy_max)
+    assert not GovernedLocalModelResourceBounds(100, 200, 20, 5.0, 2).is_within(
+        policy_max)
+    assert not GovernedLocalModelResourceBounds(100, 200, 20, 5.0, 2, 5.0).is_within(
+        policy_max)
 
 
 def test_policy_loader_is_exact_digest_bound_and_closed(tmp_path: Path) -> None:
