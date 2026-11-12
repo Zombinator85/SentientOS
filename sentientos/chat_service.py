@@ -3674,6 +3674,8 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                               expected_activation_state_digest: str | None = None,
                               control_plane_kernel: ControlPlaneKernel | None = None,
                               foreground_game_detector: BridgeForegroundGameDetector | None = None,
+                              initial_workload_mode: WorkloadMode = "normal",
+                              game_process_names: tuple[str, ...] | list[str] = (),
                               renderer_report_capture_owner: RendererReportCaptureOwner | None = None,
                               resource_context_owner: ProductionChatResourceContextOwner | None = None,
                               resource_provisioning_id: str | None = None,
@@ -3754,10 +3756,6 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             foreground_game_detector.set_game_performance_admission_owner(serving_kernel)
             foreground_game_detector.set_game_workload_admission_owner(serving_kernel)
         serving = ProductionServingController(handle, serving_kernel)
-        establish_arguments = {"operation_id": serving_operation_id}
-        if expected_activation_state_digest is not None:
-            establish_arguments["expected_activation_state_digest"] = expected_activation_state_digest
-        serving.establish(**establish_arguments)
         resource_collectors = tuple(spec for spec in default_collector_specs()
             if spec.collector_id in {"cpu", "memory", "nvidia_gpu"})
         resource_observation_plan = build_observation_plan(
@@ -3771,6 +3769,47 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             serving, runtime_handoff_id=runtime_handoff_id,
             foreground_game_detector=foreground_game_detector,
             host_resource_observation_owner=host_resource_observation_owner)
+        inference_bridge.set_workload_mode(initial_workload_mode, game_process_names)
+
+        def serving_resource_admission_context(
+                correlation_id: str, activation_state: Mapping[str, Any]
+                ) -> Mapping[str, Any]:
+            observation_id = "local-chat-serving-" + hashlib.sha256(
+                correlation_id.encode("utf-8")).hexdigest()[:32]
+            host_resource_observation_owner.run_cycle(correlation_id=observation_id)
+            workload = inference_bridge.current_workload_state()
+            load_configuration = activation_state.get("load_configuration")
+            gpu_layers = (load_configuration.get("n_gpu_layers")
+                if isinstance(load_configuration, Mapping) else None)
+            profile_layers = (gpu_layers if type(gpu_layers) is int
+                and 0 <= gpu_layers <= 256 else None)
+            model_execution_profile = {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp",
+                "accelerator_route": ("gpu" if profile_layers else
+                    "cpu" if profile_layers == 0 else "unknown"),
+                "gpu_layers": profile_layers,
+                "configuration_digest": digest_payload(
+                    dict(load_configuration) if isinstance(load_configuration, Mapping) else {}),
+            }
+            return {
+                "resource_governance_required": True,
+                "purpose": "local_model_serving",
+                "host_resource_observation_namespace": "local-chat-serving",
+                "host_resource_observation_id": observation_id,
+                "model_execution_profile": model_execution_profile,
+                "workload_mode": workload.get("configured_mode"),
+                "serving_workload_evidence": {key: workload.get(key) for key in (
+                    "configured_mode", "mode_source", "observation_status",
+                    "game_foreground", "game_process_running", "observed_at",
+                    "transport_provenance")},
+            }
+
+        establish_arguments: dict[str, Any] = {"operation_id": serving_operation_id}
+        if expected_activation_state_digest is not None:
+            establish_arguments["expected_activation_state_digest"] = expected_activation_state_digest
+        establish_arguments["admission_context_provider"] = serving_resource_admission_context
+        serving.establish(**establish_arguments)
         inference: ChatInference = (
             inference_bridge if resource_context_owner is None
             else ResourceBackedProductionChatInference(inference_bridge, resource_context_owner)
@@ -5857,6 +5896,11 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--resource-provisioning-id")
     parser.add_argument("--runtime-handoff-id", required=True)
     parser.add_argument("--expected-software-generation-digest", required=True)
+    parser.add_argument("--initial-workload-mode", choices=("normal", "gaming", "automatic"),
+                        default="normal",
+                        help="Set the production workload policy before model-serving admission")
+    parser.add_argument("--game-process-name", action="append", default=[], metavar="GAME.exe",
+                        help="Allowlist an executable for automatic game-aware model-serving admission; repeat as needed")
     parser.add_argument("--avatar-state-path", type=Path,
                         help="Opt in to a local visual-only avatar output state file")
     parser.add_argument("--local-speech-output", action="store_true",
@@ -5869,6 +5913,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args(argv)
+    if args.initial_workload_mode == "automatic" and not args.game_process_name:
+        parser.error("automatic_workload_mode_requires_game_process_name")
     try:
         screen_observer = _build_cli_screen_observer(
             args.screen_observation_process, args.screen_observation_consent_minutes)
@@ -5896,6 +5942,8 @@ def main(argv: list[str] | None = None) -> None:
                 expected_activation_state_digest=args.expected_activation_state_digest,
                 resource_provisioning_id=args.resource_provisioning_id,
                 runtime_handoff_id=args.runtime_handoff_id,
+                initial_workload_mode=args.initial_workload_mode,
+                game_process_names=args.game_process_name,
                 avatar_state_path=args.avatar_state_path,
                 local_speech_output=args.local_speech_output,
                 screen_observer=screen_observer)

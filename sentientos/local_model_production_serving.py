@@ -555,13 +555,22 @@ class ProductionServingController:
                 self._invalidate_locked(reason)
 
     def establish(self, *, operation_id: str,
-                  expected_activation_state_digest: str | None = None) -> ServingSession:
+                  expected_activation_state_digest: str | None = None,
+                  admission_context_provider: Callable[
+                      [str, Mapping[str, Any]], Mapping[str, Any]
+                  ] | None = None
+                  ) -> ServingSession:
         with self._lifecycle_lock:
             return self._establish_locked(operation_id=operation_id,
-                expected_activation_state_digest=expected_activation_state_digest)
+                expected_activation_state_digest=expected_activation_state_digest,
+                admission_context_provider=admission_context_provider)
 
     def _establish_locked(self, *, operation_id: str,
-                  expected_activation_state_digest: str | None = None) -> ServingSession:
+                  expected_activation_state_digest: str | None = None,
+                  admission_context_provider: Callable[
+                      [str, Mapping[str, Any]], Mapping[str, Any]
+                  ] | None = None
+                  ) -> ServingSession:
         operation_id = _operation_id(operation_id)
         if expected_activation_state_digest is not None:
             expected_activation_state_digest = _semantic_digest(expected_activation_state_digest)
@@ -587,10 +596,20 @@ class ProductionServingController:
                   "runtime_id": state["runtime_id"], "authority_map_digest": state["authority_map_digest"]}
         operation_intent = {**intent, "serving_operation_id": operation_id}
         correlation = "model-serving:" + semantic_digest(operation_intent)
+        admission_context: Mapping[str, Any] = {}
+        if admission_context_provider is not None:
+            try:
+                admission_context = admission_context_provider(correlation, state)
+            except Exception as exc:
+                raise ProductionServingError("model_serving_resource_preflight_unavailable") from exc
+            if not isinstance(admission_context, Mapping):
+                raise ProductionServingError("model_serving_resource_preflight_invalid")
+        admission_metadata = {**dict(admission_context), **operation_intent,
+            "correlation_id": correlation}
         decision = self._kernel.admit(ControlActionRequest(
             action_kind=ACTION, authority_class=AuthorityClass.MODEL_SERVING, actor=PRINCIPAL,
             target_subsystem=TARGET_SUBSYSTEM, requested_phase=LifecyclePhase.RUNTIME,
-            metadata={**operation_intent, "correlation_id": correlation}))
+            metadata=admission_metadata))
         if (decision.outcome != AdmissionOutcome.ALLOW or decision.authority_class != AuthorityClass.MODEL_SERVING
                 or decision.actor != PRINCIPAL or decision.action_kind != ACTION
                 or decision.target_subsystem != TARGET_SUBSYSTEM or decision.correlation_id != correlation):
@@ -642,6 +661,8 @@ class ProductionServingController:
                        "admission_outcome": "allow", "model_loaded": True, "serving_session_bound": True,
                        "inference_performed": False, "local_model_inference_authority_granted": False,
                        "adjacent_authority_granted": False}
+            if admission_context:
+                receipt["resource_admission_context"] = dict(admission_context)
             receipt["receipt_id"] = "serving-receipt-" + semantic_digest(receipt)[:24]
             receipt["receipt_semantic_digest"] = semantic_digest(receipt)
             # The persistent receipt cannot contain its own identity in its

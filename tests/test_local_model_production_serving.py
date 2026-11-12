@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+import hashlib
 from types import SimpleNamespace
 
 import pytest
@@ -9,6 +11,13 @@ from sentientos.installation_state import InstallationIdentity, InstallationStat
 from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_model_production_serving import ProductionServingController, ProductionServingError
 from sentientos.local_runtime_provisioning import semantic_digest
+from sentientos.foreground_game_detection import ForegroundGameObservation
+from sentientos.host_collectors import HostCollectorResult
+from sentientos.host_resource_runtime import (
+    HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
+    build_observation_plan,
+)
+from sentientos.runtime_governor import RuntimeGovernor
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -27,12 +36,13 @@ class Model:
     def close(self): self.closed = True
 
 
-def evidence(generation=1):
+def evidence(generation=1, *, gpu_layers=0):
     proof = {"proof_semantic_digest": "proof-digest", "deployment_receipt_id": "deployment-1"}
     state = {"installation_identity": "install-1", "generation": generation, "model_id": "model-1",
         "artifact_id": "artifact-1", "artifact_path": "/models/exact.gguf", "artifact_sha256": "a" * 64,
         "artifact_size_bytes": 42, "route_id": "route-1", "runtime_id": "runtime-1",
-        "interpreter_path": "/runtime/python", "load_configuration": {"n_ctx": 1024, "n_gpu_layers": 0},
+        "interpreter_path": "/runtime/python", "load_configuration": {
+            "n_ctx": 1024, "n_gpu_layers": gpu_layers},
         "authority_map_digest": "authority-1", "commissioning_receipt_id": "commissioning-receipt-1",
         "commissioning_receipt_semantic_digest": "commissioning-digest"}
     state["state_semantic_digest"] = semantic_digest(state)
@@ -90,6 +100,97 @@ def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, o
     with pytest.raises(ProductionServingError, match="control_plane_not_allowed"): ctl.establish(operation_id="serve-operation-1")
     assert called == [] and ctl.current_session() is None
     assert kernel.requests[0].authority_class is AuthorityClass.MODEL_SERVING
+
+
+@pytest.mark.parametrize(("gpu_value", "should_load", "expected_reason"), [
+    (94.0, False, "deferred_local_model_serving_under_host_pressure_during_game"),
+    (20.0, True, "allowed"),
+    (None, False, "deferred_resource_telemetry_incomplete_during_game"),
+])
+def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
+        monkeypatch, handle, gpu_value, should_load, expected_reason):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(handle.root / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(handle.root))
+    now = datetime.now(timezone.utc)
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=handle.root / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    def collect_gpu(*, observed_at=None):
+        if gpu_value is None:
+            return HostCollectorResult("nvidia_gpu", "unavailable",
+                observed_at or now.isoformat(), "synthetic_test_fixture", values={})
+        return HostCollectorResult("nvidia_gpu", "available",
+            observed_at or now.isoformat(), "synthetic_test_fixture",
+            values={"device_count": 1, "devices": [{"index": 0,
+                "gpu_utilization_percent": gpu_value,
+                "vram_utilization_percent": gpu_value}]})
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=handle.root / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collect_gpu)
+        ]), clock=lambda: now.isoformat())
+    game = ForegroundGameObservation("available", True, "a" * 64, now.isoformat(),
+        transport_provenance={"message_id": "b" * 64, "source_id": "windows-foreground",
+            "session_id": "game-session", "generation_id": "game-generation",
+            "sequence": 1, "envelope_created_at": now.isoformat()})
+    assert kernel.observe_verified_game_workload(game)
+    factory_calls: list[str] = []
+    ctl = controller(monkeypatch, handle,
+        [evidence(gpu_layers=16), evidence(gpu_layers=16)], kernel=kernel,
+        factory=lambda _chain, _load: factory_calls.append("loaded") or Model(identity()))
+
+    def admission_context(correlation_id, activation_state):
+        observation_id = "local-chat-serving-" + hashlib.sha256(
+            correlation_id.encode("utf-8")).hexdigest()[:32]
+        host_owner.run_cycle(correlation_id=observation_id)
+        load_configuration = activation_state["load_configuration"]
+        return {
+            "resource_governance_required": True,
+            "purpose": "local_model_serving",
+            "host_resource_observation_namespace": "local-chat-serving",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp", "accelerator_route": "gpu",
+                "gpu_layers": load_configuration["n_gpu_layers"],
+                "configuration_digest": semantic_digest(load_configuration),
+            },
+            "workload_mode": "automatic",
+            "serving_workload_evidence": {
+                "configured_mode": "automatic", "observation_status": "available",
+                "game_foreground": True,
+                "transport_provenance": {"message_id": "b" * 64},
+            },
+        }
+
+    if should_load:
+        ctl.establish(operation_id="serve-operation-1",
+            admission_context_provider=admission_context)
+        assert factory_calls == ["loaded"]
+        ctl.close()
+        return
+    with pytest.raises(ProductionServingError, match="control_plane_not_allowed"):
+        ctl.establish(operation_id="serve-operation-1", admission_context_provider=admission_context)
+    assert factory_calls == []
+    decision = __import__("json").loads(
+        (handle.root / "kernel-decisions.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    runtime = decision["delegated_outcomes"]["runtime_governor"]
+    assert runtime["reason"] == expected_reason
+    assert runtime["evidence_refs"]["host_resource_evidence"]["status"] == "current"
+    assert runtime["evidence_refs"]["game_workload_evidence"]["message_id"] == "b" * 64
 
 
 def test_observed_identity_mismatch_closes_without_bind(monkeypatch, handle):

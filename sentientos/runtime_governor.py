@@ -193,6 +193,7 @@ class RuntimeGovernor:
             "federated_control": ActionProfile("federated_control", priority=2, family="federated", local_safety=False, deferrable=True),
             "control_plane_task": ActionProfile("control_plane_task", priority=3, family="control_plane", local_safety=False, deferrable=True),
             "local_model_inference": ActionProfile("local_model_inference", priority=3, family="local_model", local_safety=True, deferrable=True),
+            "local_model_serving": ActionProfile("local_model_serving", priority=3, family="local_model", local_safety=True, deferrable=True),
             "local_model_resource_release": ActionProfile("local_model_resource_release", priority=0, family="local_model", local_safety=True, deferrable=False),
             "amendment_apply": ActionProfile("amendment_apply", priority=4, family="amendment", local_safety=False, deferrable=True),
             "unknown": ActionProfile("unknown", priority=5, family="unknown", local_safety=False, deferrable=True),
@@ -1050,6 +1051,10 @@ class RuntimeGovernor:
                 metadata=payload,
                 correlation_id=correlation_id,
             )
+        if normalized == "local_model_serving":
+            return self._admit_local_model_serving(
+                actor=actor, subject=subject, metadata=payload,
+                correlation_id=correlation_id)
         if normalized == "local_model_resource_release":
             return self._admit_local_model_resource_release(
                 actor=actor, subject=subject, metadata=payload,
@@ -1473,6 +1478,22 @@ class RuntimeGovernor:
             pressure=self.sample_pressure(), metadata=payload,
             correlation_id=correlation_id)
 
+    def _admit_local_model_serving(
+        self, *, actor: str, subject: str, metadata: dict[str, object] | None,
+        correlation_id: str | None,
+    ) -> GovernorDecision:
+        payload = dict(metadata or {})
+        if payload.get("resource_governance_required") is not True:
+            return self._decision(
+                action_class="local_model_serving", allowed=True,
+                reason="resource_preflight_not_composed", subject=subject,
+                scope="local", origin=actor, pressure=self.sample_pressure(),
+                metadata={**payload, "resource_observation_evidence": {
+                    "status": "not_composed"}}, correlation_id=correlation_id)
+        return self._admit_local_model_inference(
+            actor=actor, subject=subject, metadata=payload,
+            correlation_id=correlation_id, operation_kind="model_serving")
+
     def _admit_local_model_inference(
         self,
         *,
@@ -1480,14 +1501,19 @@ class RuntimeGovernor:
         subject: str,
         metadata: dict[str, object] | None,
         correlation_id: str | None,
+        operation_kind: str = "inference",
     ) -> GovernorDecision:
         pressure = self.sample_pressure()
         now = datetime.now(timezone.utc)
         payload = dict(metadata or {})
+        operation_label = "serving" if operation_kind == "model_serving" else "inference"
         purpose = str(payload.get("purpose") or "")
         foreground = purpose == "local_user_chat"
         requested_observation_id = payload.get("host_resource_observation_id")
-        expected_observation_id = ("local-chat-inference-" + hashlib.sha256(
+        namespace = payload.get("host_resource_observation_namespace")
+        if namespace not in {"local-chat-inference", "local-chat-serving"}:
+            namespace = "local-chat-inference"
+        expected_observation_id = (str(namespace) + "-" + hashlib.sha256(
             correlation_id.encode("utf-8")).hexdigest()[:32]
             if isinstance(correlation_id, str) else None)
         with self._resource_evidence_lock:
@@ -1616,6 +1642,22 @@ class RuntimeGovernor:
             else:
                 game_workload_ref = {"status": "stale_or_invalid",
                     "game_active": False, "age_seconds": workload_age}
+        serving_workload = payload.get("serving_workload_evidence")
+        requested_game_message_id: str | None = None
+        if isinstance(serving_workload, Mapping):
+            provenance = serving_workload.get("transport_provenance")
+            if isinstance(provenance, Mapping):
+                raw_message_id = provenance.get("message_id")
+                if isinstance(raw_message_id, str):
+                    requested_game_message_id = raw_message_id
+        if (operation_kind == "model_serving"
+                and payload.get("workload_mode") == "automatic"):
+            if (game_workload_ref.get("status") != "current"
+                    or requested_game_message_id is None
+                    or (game_workload is not None
+                        and game_workload.get("message_id") != requested_game_message_id)):
+                game_workload_ref = {"status": "unavailable_or_unbound",
+                    "game_active": False}
         # Host pressure is shared telemetry. It receives game-priority meaning
         # only while fresh authenticated game-presence or game-performance
         # evidence is current; an unverified workload label cannot change admission.
@@ -1628,6 +1670,10 @@ class RuntimeGovernor:
             game_evidence_ref.get("status") == "current"
             or game_workload_ref.get("game_active") is True
         )
+        automatic_serving_workload_unavailable = (
+            operation_kind == "model_serving"
+            and payload.get("workload_mode") == "automatic"
+            and game_workload_ref.get("status") != "current")
         gpu_telemetry_incomplete = (
             (not foreground or verified_game_active)
             and gpu_telemetry_required
@@ -1653,7 +1699,9 @@ class RuntimeGovernor:
 
         reason = "allowed"
         blocks = False
-        if not foreground and incomplete:
+        if automatic_serving_workload_unavailable:
+            reason, blocks = "deferred_game_workload_observation_unavailable_for_model_serving", True
+        elif not foreground and incomplete:
             reason, blocks = "deferred_resource_telemetry_incomplete", True
         elif game_pressure:
             # A verified game-pacing regression is direct evidence that the
@@ -1661,20 +1709,28 @@ class RuntimeGovernor:
             # optional model inference, so do not let its foreground purpose
             # bypass this narrower game-priority gate.  This does not grant
             # authority to inspect or control game processes.
-            reason, blocks = "deferred_local_model_inference_for_game_frame_pressure", True
+            reason, blocks = ("deferred_local_model_" + operation_label
+                + "_for_game_frame_pressure", True)
         elif game_host_pressure:
-            reason, blocks = "deferred_local_model_inference_under_host_pressure_during_game", True
+            reason, blocks = ("deferred_local_model_" + operation_label
+                + "_under_host_pressure_during_game", True)
         elif game_resource_telemetry_incomplete:
             reason, blocks = "deferred_resource_telemetry_incomplete_during_game", True
         elif not foreground and gpu_telemetry_incomplete:
             reason, blocks = "deferred_gpu_offload_telemetry_incomplete", True
         elif not foreground and pressure_reasons:
-            reason, blocks = "deferred_background_inference_under_host_pressure", True
+            reason, blocks = ("deferred_background_model_serving_under_host_pressure"
+                if operation_kind == "model_serving" else
+                "deferred_background_inference_under_host_pressure", True)
         elif not foreground and pressure.composite >= self._pressure_warn:
-            reason, blocks = "deferred_background_inference_under_runtime_pressure", True
+            reason, blocks = ("deferred_background_model_serving_under_runtime_pressure"
+                if operation_kind == "model_serving" else
+                "deferred_background_inference_under_runtime_pressure", True)
 
         posture_eval = PostureRuleEvaluation(
-            dimension="host_resource_inference_admission",
+            dimension=("host_resource_model_serving_admission"
+                if operation_kind == "model_serving" else
+                "host_resource_inference_admission"),
             reason=reason,
             restriction_class=self._restriction_class_for_reason(reason),
             blocks=blocks,
@@ -1700,7 +1756,8 @@ class RuntimeGovernor:
             },
         )
         posture = self._compose_runtime_posture(
-            action_class="local_model_inference",
+            action_class=("local_model_serving" if operation_kind == "model_serving"
+                else "local_model_inference"),
             scope="local",
             pressure=pressure,
             now=now,
@@ -1727,7 +1784,9 @@ class RuntimeGovernor:
             correlation_id=correlation_id,
             posture=posture,
         )
-        self._record_contention(action_class="local_model_inference", allowed=allowed, now=now)
+        self._record_contention(action_class=("local_model_serving"
+            if operation_kind == "model_serving" else "local_model_inference"),
+            allowed=allowed, now=now)
         return decision
 
     def sample_pressure(self) -> PressureSnapshot:

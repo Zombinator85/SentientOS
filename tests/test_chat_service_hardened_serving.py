@@ -144,6 +144,8 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
         def __init__(self, *_args, **kwargs):
             self.host_resource_observation_owner = kwargs.get(
                 "host_resource_observation_owner")
+        def set_workload_mode(self, _mode, _game_process_names=()):
+            events.append("workload_mode_initialized")
 
     class AdmissionOwner:
         def observe_verified_game_performance(self, _observation): return True

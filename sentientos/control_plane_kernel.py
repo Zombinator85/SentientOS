@@ -553,6 +553,7 @@ class ControlPlaneKernel:
             AuthorityClass.SPEC_AMENDMENT: "control_plane_task",
             AuthorityClass.PRIVILEGED_OPERATOR_CONTROL: "control_plane_task",
             AuthorityClass.LOCAL_MODEL_INFERENCE: "local_model_inference",
+            AuthorityClass.MODEL_SERVING: "local_model_serving",
             AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE: "local_model_resource_release",
         }
         action_class = action_map.get(request.authority_class)
