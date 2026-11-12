@@ -264,6 +264,20 @@ class GovernedLocalModelResourceAllocation:
 
 _MEASUREMENT_FIELDS = {"generation_attempted", "call_units_consumed", "generated_output_size_bytes",
  "returned_output_size_bytes", "output_truncated", "latency_ms", "configured_bounds", "invocation_outcome", "actual_token_count"}
+_BACKEND_RESOURCE_OBSERVATION_SCHEMA = (
+    "sentientos.governed_local_model_backend_resource_observation:v1")
+_BACKEND_RESOURCE_OBSERVATION_FIELDS = {
+    "schema_version", "backend", "observation_source", "user_cpu_seconds",
+    "system_cpu_seconds", "wall_seconds", "process_peak_rss_bytes"}
+
+
+def _valid_backend_resource_seconds(value: object) -> bool:
+    try:
+        return (value is None or (not isinstance(value, bool)
+            and isinstance(value, (int, float))
+            and math.isfinite(float(value)) and 0 <= float(value) <= 3600))
+    except (OverflowError, TypeError, ValueError):
+        return False
 _STATES = {"attempted_not_begun", "attempt_begun", "measured_completed", "measured_timeout", "measured_backend_failure", "reconciled"}
 
 
@@ -285,13 +299,35 @@ class GovernedLocalModelResourceConsumptionReceipt:
         _closed(value, set(cls.__dataclass_fields__), "receipt")
         measurement = value["resource_specific_measurement"]
         if not isinstance(measurement, Mapping): raise GovernedLocalModelResourceError("malformed_measurement")
-        _closed(measurement, _MEASUREMENT_FIELDS, "measurement")
+        measurement_fields = frozenset(measurement)
+        if measurement_fields not in {
+                frozenset(_MEASUREMENT_FIELDS),
+                frozenset(_MEASUREMENT_FIELDS | {"backend_resource_observation"})}:
+            raise GovernedLocalModelResourceError("measurement_fields_not_exact")
         if measurement["actual_token_count"] is not None: raise GovernedLocalModelResourceError("actual_token_count_untrusted")
         if type(measurement["generation_attempted"]) is not bool or type(measurement["call_units_consumed"]) is not int or measurement["call_units_consumed"] not in (0, 1):
             raise GovernedLocalModelResourceError("invalid_measurement")
         configured = measurement["configured_bounds"]
         if not isinstance(configured, Mapping): raise GovernedLocalModelResourceError("invalid_configured_bounds")
         GovernedLocalModelResourceBounds.from_mapping(configured)
+        backend_observation = measurement.get("backend_resource_observation")
+        if backend_observation is not None:
+            if (not isinstance(backend_observation, Mapping)
+                    or set(backend_observation) != _BACKEND_RESOURCE_OBSERVATION_FIELDS
+                    or backend_observation.get("schema_version") !=
+                        _BACKEND_RESOURCE_OBSERVATION_SCHEMA
+                    or backend_observation.get("backend") != "llama_cpp"
+                    or backend_observation.get("observation_source") !=
+                        "exact_runtime_worker_process"):
+                raise GovernedLocalModelResourceError("backend_resource_observation_invalid")
+            for name in ("user_cpu_seconds", "system_cpu_seconds", "wall_seconds"):
+                metric = backend_observation.get(name)
+                if not _valid_backend_resource_seconds(metric):
+                    raise GovernedLocalModelResourceError("backend_resource_observation_invalid")
+            rss = backend_observation.get("process_peak_rss_bytes")
+            if rss is not None and (type(rss) is not int
+                    or not 0 <= rss <= 1_099_511_627_776):
+                raise GovernedLocalModelResourceError("backend_resource_observation_invalid")
         if value["state"] not in _STATES: raise GovernedLocalModelResourceError("invalid_receipt_state")
         _time(value["observed_at"], "observed_at")
         for field in ("allocation_digest", "receipt_digest"):
@@ -739,12 +775,18 @@ class GovernedLocalModelResourceAllocator:
     def measurement(allocation: GovernedLocalModelResourceAllocation, *, generation_attempted: bool,
                     call_units_consumed: int, generated_output_size_bytes: int | None = None,
                     returned_output_size_bytes: int | None = None, output_truncated: bool = False,
-                    latency_ms: int | None = None, invocation_outcome: str) -> Mapping[str, object]:
-        return {"generation_attempted": generation_attempted, "call_units_consumed": call_units_consumed,
+                    latency_ms: int | None = None, invocation_outcome: str,
+                    backend_resource_observation: Mapping[str, object] | None = None
+                    ) -> Mapping[str, object]:
+        measurement: dict[str, object] = {
+                "generation_attempted": generation_attempted, "call_units_consumed": call_units_consumed,
                 "generated_output_size_bytes": generated_output_size_bytes, "returned_output_size_bytes": returned_output_size_bytes,
                 "output_truncated": output_truncated, "latency_ms": latency_ms,
                 "configured_bounds": allocation.resource_specific_bounds.to_dict(), "invocation_outcome": invocation_outcome,
                 "actual_token_count": None}
+        if backend_resource_observation is not None:
+            measurement["backend_resource_observation"] = dict(backend_resource_observation)
+        return measurement
 
     def record_backend_entry(self, allocation: GovernedLocalModelResourceAllocation,
                              attempt_id: str, *, observed_at: str

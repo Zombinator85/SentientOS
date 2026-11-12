@@ -557,6 +557,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "generated_output_size": "measured" if isinstance(measurement.get("generated_output_size_bytes"), int) else "unknown",
             "returned_output_size": "measured" if isinstance(measurement.get("returned_output_size_bytes"), int) else "unknown",
             "latency": "measured" if isinstance(measurement.get("latency_ms"), int) else "unknown",
+            "backend_process_cpu_rss": ("backend_reported_measurement"
+                if isinstance(measurement.get("backend_resource_observation"), Mapping)
+                else "unknown"),
             "token_count": "unknown",
             "shared_host_cpu_gpu": "unknown_without_independent_observation",
         }

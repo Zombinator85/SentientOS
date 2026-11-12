@@ -87,6 +87,53 @@ def test_resource_backed_completion_cross_links_exact_effect_receipt_and_survive
     assert GovernedLocalModelResourceLedger(ledger.path).remaining_calls(context.allocation.allocation_id) == 1
 
 
+def test_exact_backend_resource_observation_flows_into_governed_allocation_receipt(tmp_path):
+    class MeasuredModel(Model):
+        supports_per_invocation_thread_limit = True
+
+        def generate_governed_with_metadata(self, prompt, **kwargs):
+            self.calls += 1
+            ceiling = kwargs.get("max_backend_threads")
+            control = {
+                "schema_version": "sentientos.llama_cpp_backend_thread_limit_control:v1",
+                "requested_ceiling": ceiling,
+                "setter_function": "llama_set_n_threads" if ceiling is not None else None,
+                "n_threads_argument": min(2, ceiling) if ceiling is not None else None,
+                "n_threads_batch_argument": min(2, ceiling) if ceiling is not None else None,
+            }
+            return self.text, {
+                "schema_version": "sentientos.llama_cpp_completion_observation:v3",
+                "backend": "llama_cpp", "finish_reason": "unknown",
+                "completion_tokens": None, "prompt_tokens": None,
+                "token_limit_reached": None,
+                "invocation_resources": {
+                    "schema_version": "sentientos.llama_cpp_invocation_resource_observation:v1",
+                    "user_cpu_seconds": 0.14, "system_cpu_seconds": 0.02,
+                    "wall_seconds": 0.18, "process_peak_rss_bytes": 7_340_032,
+                },
+                "backend_thread_limit_control": control,
+            }
+
+    model, invoker, _, context, ledger = setup(tmp_path, model=MeasuredModel())
+    request = invoker.build_request(purpose="local_user_chat", prompt="hello",
+        caller="test", correlation_id="observed-backend-resources",
+        budget=LocalModelInvocationBudget(100, 200, 20, 5.0, 2),
+        linkage={"max_backend_threads": 2})
+
+    receipt = invoker.invoke(request, resource_context=context)
+
+    assert receipt.status == "admitted_completed" and model.calls == 1
+    observation = ledger._state["receipts"][-2]["resource_specific_measurement"][
+        "backend_resource_observation"]
+    assert observation == {
+        "schema_version": "sentientos.governed_local_model_backend_resource_observation:v1",
+        "backend": "llama_cpp", "observation_source": "exact_runtime_worker_process",
+        "user_cpu_seconds": 0.14, "system_cpu_seconds": 0.02,
+        "wall_seconds": 0.18, "process_peak_rss_bytes": 7_340_032,
+    }
+    assert ledger._state["receipts"][-1]["effect_receipt_digest"] == receipt.receipt_digest
+
+
 def test_resource_admission_guard_defers_without_backend_entry_or_debit(tmp_path):
     model, invoker, request, context, ledger = setup(tmp_path, calls=1)
 

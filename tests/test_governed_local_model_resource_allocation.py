@@ -85,6 +85,57 @@ def test_real_principal_durable_debit_receipt_chain_and_restart(tmp_path: Path) 
     assert set(reconciled.resource_specific_measurement) == {"generation_attempted", "call_units_consumed", "generated_output_size_bytes", "returned_output_size_bytes", "output_truncated", "latency_ms", "configured_bounds", "invocation_outcome", "actual_token_count"}
 
 
+def test_validated_backend_process_measurements_join_governed_resource_usage(tmp_path: Path) -> None:
+    principal, authenticated, current, policy, ledger, allocator, allocation = context(tmp_path)
+    attempt = allocator.final_gate(allocation=allocation, principal=principal,
+        authenticated=authenticated, current=current, policy=policy, current_time=NOW,
+        durable_attempt_nonce="backend-measurement")
+    allocator.record_backend_entry(allocation, attempt, observed_at=NOW)
+    invalid = {
+        "schema_version": "sentientos.governed_local_model_backend_resource_observation:v1",
+        "backend": "llama_cpp", "observation_source": "exact_runtime_worker_process",
+        "user_cpu_seconds": -1, "system_cpu_seconds": 0.02,
+        "wall_seconds": 0.18, "process_peak_rss_bytes": 7_340_032,
+    }
+    invalid_measurement = allocator.measurement(allocation, generation_attempted=True,
+        call_units_consumed=1, latency_ms=10, invocation_outcome="completed",
+        backend_resource_observation=invalid)
+    with pytest.raises(GovernedLocalModelResourceError,
+                       match="backend_resource_observation_invalid"):
+        allocator.append_receipt(allocation, attempt, state="measured_completed",
+            observed_at=NOW, measurement=invalid_measurement)
+    oversized = dict(invalid, user_cpu_seconds=10 ** 1000)
+    with pytest.raises(GovernedLocalModelResourceError,
+                       match="backend_resource_observation_invalid"):
+        allocator.append_receipt(allocation, attempt, state="measured_completed",
+            observed_at=NOW, measurement=allocator.measurement(allocation,
+                generation_attempted=True, call_units_consumed=1,
+                latency_ms=10, invocation_outcome="completed",
+                backend_resource_observation=oversized))
+    observation = {
+        "schema_version": "sentientos.governed_local_model_backend_resource_observation:v1",
+        "backend": "llama_cpp", "observation_source": "exact_runtime_worker_process",
+        "user_cpu_seconds": 0.14, "system_cpu_seconds": 0.02,
+        "wall_seconds": 0.18, "process_peak_rss_bytes": 7_340_032,
+    }
+    measurement = allocator.measurement(allocation, generation_attempted=True,
+        call_units_consumed=1, latency_ms=180, invocation_outcome="completed",
+        backend_resource_observation=observation)
+    measured = allocator.append_receipt(allocation, attempt,
+        state="measured_completed", observed_at="2026-09-21T08:30:01Z",
+        measurement=measurement)
+    reconciled = allocator.append_receipt(allocation, attempt, state="reconciled",
+        observed_at="2026-09-21T08:30:02Z", measurement=measurement,
+        effect_receipt_digest="a" * 64)
+
+    reopened = GovernedLocalModelResourceLedger(ledger.path)
+    stored = reopened._state["receipts"][-1]["resource_specific_measurement"]
+    assert stored["backend_resource_observation"] == observation
+    assert measured.receipt_digest == reconciled.previous_receipt_digest
+    assert reconciled.effect_receipt_digest == "a" * 64
+    assert reopened.remaining_calls(allocation.allocation_id) == 1
+
+
 def test_provisional_restore_survives_restart_and_entry_is_irrevocable(tmp_path: Path) -> None:
     p, auth, current, policy, ledger, allocator, allocation = context(tmp_path)
     attempt = allocator.final_gate(allocation=allocation, principal=p, authenticated=auth, current=current, policy=policy, current_time=NOW, durable_attempt_nonce="restore")
@@ -120,14 +171,22 @@ def test_resource_world_state_reread_keeps_event_identity_and_never_redebits(tmp
         authenticated=authenticated, current=current, policy=policy, current_time=NOW,
         durable_attempt_nonce="reread")
     begun = allocator.record_backend_entry(allocation, attempt, observed_at="2026-09-21T08:30:00Z")
+    backend_observation = {
+        "schema_version": "sentientos.governed_local_model_backend_resource_observation:v1",
+        "backend": "llama_cpp", "observation_source": "exact_runtime_worker_process",
+        "user_cpu_seconds": 0.14, "system_cpu_seconds": 0.02,
+        "wall_seconds": 0.18, "process_peak_rss_bytes": 7_340_032,
+    }
     measured = allocator.append_receipt(allocation, attempt, state="measured_completed",
         observed_at="2026-09-21T08:30:01Z", measurement=allocator.measurement(allocation,
             generation_attempted=True, call_units_consumed=1, generated_output_size_bytes=4,
-            returned_output_size_bytes=4, latency_ms=10, invocation_outcome="completed"))
+            returned_output_size_bytes=4, latency_ms=10, invocation_outcome="completed",
+            backend_resource_observation=backend_observation))
     allocator.append_receipt(allocation, attempt, state="reconciled",
         observed_at="2026-09-21T08:30:02Z", measurement=allocator.measurement(allocation,
             generation_attempted=True, call_units_consumed=1, generated_output_size_bytes=4,
-            returned_output_size_bytes=4, latency_ms=10, invocation_outcome="completed"),
+            returned_output_size_bytes=4, latency_ms=10, invocation_outcome="completed",
+            backend_resource_observation=backend_observation),
         effect_receipt_digest="a" * 64)
     before = ledger.snapshot_counts()
     first = resource_consumption_world_state_records(ledger=ledger,
@@ -145,6 +204,9 @@ def test_resource_world_state_reread_keeps_event_identity_and_never_redebits(tmp
         row["receipt_digest"] for row in second["payload"]["consumption_receipts"]]
     assert begun.receipt_digest in {row["receipt_digest"] for row in first["payload"]["consumption_receipts"]}
     assert measured.receipt_digest in {row["receipt_digest"] for row in first["payload"]["consumption_receipts"]}
+    assert any(row["resource_specific_measurement"].get(
+        "backend_resource_observation") == backend_observation
+        for row in first["payload"]["consumption_receipts"])
     assert recovered.snapshot_counts() == before
     assert recovered.remaining_calls(allocation.allocation_id) == 1
 

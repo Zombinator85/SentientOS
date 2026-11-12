@@ -1254,6 +1254,24 @@ class GovernedLocalModelInvoker:
                 raise
         if resource_context is not None and attempt_id is not None and backend_entered:
             try:
+                backend_resource_observation: Mapping[str, object] | None = None
+                if (isinstance(backend_completion, Mapping)
+                        and backend_completion.get("schema_version") ==
+                            LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3
+                        and validate_backend_completion_observation(backend_completion)):
+                    backend_metrics = backend_completion.get("invocation_resources")
+                    if isinstance(backend_metrics, Mapping):
+                        backend_resource_observation = {
+                            "schema_version": (
+                                "sentientos.governed_local_model_backend_resource_observation:v1"),
+                            "backend": "llama_cpp",
+                            "observation_source": "exact_runtime_worker_process",
+                            "user_cpu_seconds": backend_metrics.get("user_cpu_seconds"),
+                            "system_cpu_seconds": backend_metrics.get("system_cpu_seconds"),
+                            "wall_seconds": backend_metrics.get("wall_seconds"),
+                            "process_peak_rss_bytes": backend_metrics.get(
+                                "process_peak_rss_bytes"),
+                        }
                 measurement = resource_context.allocator.measurement(
                     resource_context.allocation, generation_attempted=True, call_units_consumed=1,
                     generated_output_size_bytes=(len(generated_output.encode("utf-8"))
@@ -1261,7 +1279,8 @@ class GovernedLocalModelInvoker:
                     returned_output_size_bytes=(len(output.encode("utf-8"))
                         if output is not None else None),
                     output_truncated=truncated, latency_ms=receipt.latency_ms,
-                    invocation_outcome=status)
+                    invocation_outcome=status,
+                    backend_resource_observation=backend_resource_observation)
                 state = ("measured_timeout" if status == "timeout" else
                     "measured_backend_failure" if status == "backend_failure" else "measured_completed")
                 measured = resource_context.allocator.append_receipt(
