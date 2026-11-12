@@ -49,6 +49,7 @@ class VerifiedGamePerformanceObservation:
     status: str
     source_observed_at: str | None = None
     process_name_digest: str | None = None
+    source_clock_offset_seconds: float = 0.0
 
 
 class WindowsGamePerformanceBridgePublisher:
@@ -212,7 +213,8 @@ class GamePerformanceBridgeDetector:
             normalized_observed_at.isoformat(),
             process_digest, float(p95) if p95 is not None else None, hitches,
             float(cpu) if cpu is not None else None, rss, status,
-            source_observed_at.isoformat(), process_name_digest)
+            source_observed_at.isoformat(), process_name_digest,
+            self._source_clock_offset)
 
 
 class GamePerformanceAdmissionRuntime:

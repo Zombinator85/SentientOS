@@ -1140,6 +1140,21 @@ class RuntimeGovernor:
                 source_observed_at.replace("Z", "+00:00"))
             if source_timestamp.tzinfo is None or source_timestamp.utcoffset() is None:
                 return False
+            source_clock_offset = getattr(observation,
+                "source_clock_offset_seconds", 0.0)
+            if (isinstance(source_clock_offset, bool)
+                    or not isinstance(source_clock_offset, (int, float))
+                    or not math.isfinite(float(source_clock_offset))
+                    or abs(float(source_clock_offset)) > 30.0):
+                return False
+            if (getattr(observation, "source_observed_at", None) is None
+                    and float(source_clock_offset) != 0.0):
+                return False
+            normalized_source_timestamp = (source_timestamp.astimezone(timezone.utc)
+                - timedelta(seconds=float(source_clock_offset)))
+            if abs((observed_at.astimezone(timezone.utc)
+                    - normalized_source_timestamp).total_seconds()) > 0.002:
+                return False
             age = (datetime.now(timezone.utc) - observed_at.astimezone(timezone.utc)).total_seconds()
             if (age < 0 or age > 10 or observation.status not in {"available", "partial"}
                     or not isinstance(observation.source_id, str) or not observation.source_id
@@ -1180,6 +1195,7 @@ class RuntimeGovernor:
                 "observed_at": observed_at.astimezone(timezone.utc).isoformat(),
                 "source_observed_at": source_timestamp.astimezone(
                     timezone.utc).isoformat(),
+                "source_clock_offset_seconds": float(source_clock_offset),
                 "source_id": observation.source_id,
                 "generation_id": observation.generation_id,
                 "sequence": observation.sequence,

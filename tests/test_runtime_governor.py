@@ -482,6 +482,38 @@ def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
     assert wrong_name.reason == "model_resource_release_pressure_evidence_required"
 
 
+@pytest.mark.no_legacy_skip
+def test_game_performance_observation_rejects_source_clock_mismatch(
+        monkeypatch, tmp_path):
+    from datetime import timedelta
+    from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    now = datetime.now(timezone.utc)
+    observed_at = now.isoformat()
+    stale_source = (now - timedelta(minutes=1)).isoformat()
+    inconsistent = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 1, "a" * 64, "b" * 64,
+        observed_at, "c" * 64, 52.0, 1, 20.0, 4096, "available",
+        stale_source, "d" * 64)
+
+    assert governor.observe_verified_game_performance(inconsistent) is False
+    assert governor.current_verified_game_performance_evidence() is None
+
+    source_ahead = (now + timedelta(seconds=8)).isoformat()
+    valid = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 2, "e" * 64, "f" * 64,
+        observed_at, "c" * 64, 52.0, 1, 20.0, 4096, "available",
+        source_ahead, "d" * 64, 8.0)
+    assert governor.observe_verified_game_performance(valid) is True
+    retained = governor.current_verified_game_performance_evidence()
+    assert retained is not None
+    assert retained["source_observed_at"] == source_ahead
+    assert retained["source_clock_offset_seconds"] == 8.0
+
+
 def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing(
         monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")

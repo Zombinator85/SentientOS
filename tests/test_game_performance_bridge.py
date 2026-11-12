@@ -204,6 +204,7 @@ def test_detector_normalizes_windows_clock_for_governor_currentness():
 
     assert observation.observed_at == core_now.isoformat()
     assert observation.source_observed_at == source_time.isoformat()
+    assert observation.source_clock_offset_seconds == 8.0
     assert observation.status == "available"
     assert observation.frame_time_p95_ms is None
 
