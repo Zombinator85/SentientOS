@@ -389,6 +389,59 @@ def test_gaming_host_cpu_pressure_uses_durable_non_model_response(tmp_path):
     assert evidence["gaming_resource_status"]["pressure_labels"] == ["cpu_pressure"]
 
 
+def test_exhausted_governed_cpu_allocation_returns_durable_resource_response(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+
+    class ExhaustedCpuInvoker(SimulationInvoker):
+        def __init__(self):
+            super().__init__()
+            self.backend_calls = 0
+
+        def invoke(self, request, **_kwargs):
+            self.calls += 1
+            return SimpleNamespace(
+                status="resource_denied",
+                reason_codes=("resource_gate:cpu_seconds_entitlement_exhausted",),
+                output_text=None,
+                output_digest=None,
+                request={"linkage": {}},
+                receipt_id="lmrec-cpu-budget-denial",
+                receipt_digest="a" * 64,
+                resource_allocation_digest="b" * 64,
+                resource_attempt_id=None,
+                effects={"local_model_inference": False},
+            )
+
+    invoker = ExhaustedCpuInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+
+    response = client.post("/chat", json={"message": "Give me a short answer."})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "governed CPU-seconds budget" in body["response"]
+    assert "newly authorized resource allocation" in body["response"]
+    assert body["context"]["response_origin"] == "deterministic_grounding_policy"
+    assert invoker.calls == 1
+    assert invoker.backend_calls == 0
+    session = chat._CONVERSATION_SERVICE.sessions.load(body["session_id"])
+    assistant = next(turn for turn in session["turns"]
+        if turn.get("turn_id") == body["turn_id"])
+    decision = assistant["linkage"]["policy_decision"]["payload"]
+    assert decision["policy_id"] == "governed_model_resource_policy:v1"
+    assert decision["reason_code"] == "cpu_seconds_entitlement_exhausted"
+    assert decision["evidence"]["governed_resource_admission"] == {
+        "schema_version": "sentientos.governed_model_resource_denial:v1",
+        "status": "denied_before_model_effect",
+        "reason_code": "cpu_seconds_entitlement_exhausted",
+        "resource_allocation_digest": "b" * 64,
+        "resource_attempt_id": None,
+        "invocation_receipt_id": "lmrec-cpu-budget-denial",
+        "invocation_receipt_digest": "a" * 64,
+        "model_inference_performed": False,
+    }
+
+
 @pytest.mark.parametrize(("foreground", "preload_admission", "expected_calls"), [
     (True, "available", 1),
     (False, "available", 0),

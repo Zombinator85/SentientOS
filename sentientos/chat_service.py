@@ -2002,7 +2002,8 @@ class PersistentConversationService:
             response_text: str, correction: Mapping[str, str],
             runtime_context: Mapping[str, Any], history: Any,
             memory: Mapping[str, Any], on_content_chunk: Callable[[str], None] | None,
-            screen_observation_provenance: Mapping[str, Any] | None = None
+            screen_observation_provenance: Mapping[str, Any] | None = None,
+            governed_resource_admission_evidence: Mapping[str, Any] | None = None
             ) -> ChatResponse:
         """Persist a verified policy answer without invoking the language model."""
         workload = runtime_context.get("workload")
@@ -2032,6 +2033,9 @@ class PersistentConversationService:
             screen_observation_provenance)
         if bounded_screen_provenance is not None:
             evidence["screen_observation_provenance"] = bounded_screen_provenance
+        if governed_resource_admission_evidence is not None:
+            evidence["governed_resource_admission"] = dict(
+                governed_resource_admission_evidence)
         decision_payload = {
             "schema": "sentientos.deterministic_grounding_policy_decision:v1",
             "session_id": session_id,
@@ -3378,6 +3382,52 @@ class PersistentConversationService:
                 on_content_chunk=streamed_model_chunks.append,
             )
         inference_completed_ns = time.monotonic_ns()
+        receipt_effects = getattr(receipt, "effects", None)
+        denial_reasons = getattr(receipt, "reason_codes", ())
+        cpu_budget_exhausted = (
+            receipt.status == "resource_denied"
+            and isinstance(receipt_effects, Mapping)
+            and receipt_effects.get("local_model_inference") is False
+            and isinstance(denial_reasons, (tuple, list))
+            and any(isinstance(reason, str)
+                and reason.endswith("cpu_seconds_entitlement_exhausted")
+                for reason in denial_reasons))
+        if cpu_budget_exhausted:
+            allocation_digest = getattr(receipt, "resource_allocation_digest", None)
+            if (not isinstance(allocation_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", allocation_digest) is None):
+                allocation_digest = None
+            receipt_digest = getattr(receipt, "receipt_digest", None)
+            if (not isinstance(receipt_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", receipt_digest) is None):
+                receipt_digest = None
+            receipt_id = getattr(receipt, "receipt_id", None)
+            if not isinstance(receipt_id, str) or not receipt_id:
+                receipt_id = None
+            attempt_id = getattr(receipt, "resource_attempt_id", None)
+            if not isinstance(attempt_id, str) or not attempt_id:
+                attempt_id = None
+            return self._complete_deterministic_grounding_response(
+                session_id=session["session_id"], user_turn=user_turn,
+                response_text=(
+                    "This chat allocation has reached its governed CPU-seconds budget. "
+                    "Your message is saved, but no model reply was generated. A model reply "
+                    "requires a newly authorized resource allocation."),
+                correction={"policy_id": "governed_model_resource_policy:v1",
+                    "reason_code": "cpu_seconds_entitlement_exhausted"},
+                runtime_context=runtime_context, history=history, memory=memory,
+                on_content_chunk=on_content_chunk,
+                screen_observation_provenance=screen_observation,
+                governed_resource_admission_evidence={
+                    "schema_version": "sentientos.governed_model_resource_denial:v1",
+                    "status": "denied_before_model_effect",
+                    "reason_code": "cpu_seconds_entitlement_exhausted",
+                    "resource_allocation_digest": allocation_digest,
+                    "resource_attempt_id": attempt_id,
+                    "invocation_receipt_id": receipt_id,
+                    "invocation_receipt_digest": receipt_digest,
+                    "model_inference_performed": False,
+                })
         accepted_statuses = {"admitted_completed"}
         if isinstance(self._inference, DevelopmentLocalChatInference):
             accepted_statuses.add("admitted_simulation")
