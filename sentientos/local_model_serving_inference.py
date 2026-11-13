@@ -366,6 +366,9 @@ class ProductionServingInferenceController:
                     "game_process_observation_unavailable_conservative_gaming"}
                 and current.get("observation_status") in
                     CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES)
+        if (expected_configured_mode == "normal"
+                and trigger_kind == "idle_host_gpu_resource_reconciliation"):
+            return current.get("configured_mode") == "normal"
         provenance = current.get("transport_provenance")
         return (current.get("configured_mode") == "automatic"
             and current.get("observation_status") == "available"
@@ -465,6 +468,7 @@ class ProductionServingInferenceController:
             "gaming_profile_resource_reconciliation",
             "active_gaming_profile_resource_reconciliation",
         }
+        general_gpu_pressure = trigger_kind == "idle_host_gpu_resource_reconciliation"
         conservative_automatic_profile = trigger_kind in {
             "conservative_automatic_gaming_resource_reconciliation",
             "active_conservative_automatic_gaming_resource_reconciliation",
@@ -484,6 +488,10 @@ class ProductionServingInferenceController:
                         CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES):
                 return None
             game_message_id = None
+        elif general_gpu_pressure:
+            if workload_evidence.get("configured_mode") != "normal":
+                return None
+            game_message_id = None
         else:
             provenance = workload_evidence.get("transport_provenance")
             if not isinstance(provenance, Mapping):
@@ -494,8 +502,11 @@ class ProductionServingInferenceController:
                 or resource_observation.get("no_effect_authority") is not True
                 or not isinstance(labels, (tuple, list))
                 or not all(isinstance(label, str) for label in labels)
-                or not set(labels).intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS)
-                or (not selected_gaming_profile and not conservative_automatic_profile and (
+                or not set(labels).intersection(
+                    {"gpu_pressure"} if general_gpu_pressure
+                    else ACTIONABLE_RESOURCE_PRESSURE_LABELS)
+                or (not selected_gaming_profile and not conservative_automatic_profile
+                    and not general_gpu_pressure and (
                     workload_evidence.get("observation_status") != "available"
                     or (workload_evidence.get("game_foreground") is not True
                         and workload_evidence.get("game_process_running") is not True)
@@ -515,7 +526,9 @@ class ProductionServingInferenceController:
             return None
         profile_release = selected_gaming_profile or conservative_automatic_profile
         host_release_evidence = {
-            "schema_version": ("sentientos.production_gaming_profile_host_resource_release_evidence:v1"
+            "schema_version": ("sentientos.production_host_gpu_pressure_release_evidence:v1"
+                if general_gpu_pressure else
+                "sentientos.production_gaming_profile_host_resource_release_evidence:v1"
                 if selected_gaming_profile else
                 "sentientos.production_conservative_automatic_gaming_host_resource_release_evidence:v1"
                 if conservative_automatic_profile else
@@ -529,7 +542,20 @@ class ProductionServingInferenceController:
             "observed_at": resource_observation.get("observed_at"),
             "pressure_labels": list(labels),
         }
-        if selected_gaming_profile:
+        if general_gpu_pressure:
+            load_configuration = session.binding.get("load_configuration")
+            gpu_layers = (load_configuration.get("n_gpu_layers")
+                if isinstance(load_configuration, Mapping) else None)
+            host_release_evidence.update({
+                "serving_session_id": session.session_id,
+                "model_gpu_layers": gpu_layers,
+                "gpu_utilization_percent": resource_observation.get(
+                    "gpu_utilization_percent"),
+                "vram_utilization_percent": resource_observation.get(
+                    "vram_utilization_percent"),
+                "active_inference_preemption_requested": False,
+            })
+        elif selected_gaming_profile:
             host_release_evidence.update({
                 "workload_mode": "gaming",
                 "workload_mode_source": "operator_selected",
@@ -548,11 +574,13 @@ class ProductionServingInferenceController:
                 "game_workload_message_id": game_message_id,
                 "active_inference_preemption_requested": preempt_active_generation,
             })
-        reason_code = ("selected_gaming_profile_host_pressure" if selected_gaming_profile
+        reason_code = ("host_gpu_pressure_observed" if general_gpu_pressure else
+            "selected_gaming_profile_host_pressure" if selected_gaming_profile
             else "conservative_automatic_profile_host_pressure"
             if conservative_automatic_profile
             else "verified_game_host_pressure")
-        actor = ("production_chat_workload_resource_governor" if profile_release
+        actor = ("production_chat_host_resource_governor" if general_gpu_pressure else
+            "production_chat_workload_resource_governor" if profile_release
             else "production_chat_game_resource_governor")
         metadata = {
             "correlation_id": release_correlation,
@@ -679,6 +707,15 @@ class ProductionServingInferenceController:
                      "workload_observation_status": workload_evidence.get(
                          "observation_status")}
                     if conservative_automatic_profile else
+                    {"gpu_utilization_percent": host_release_evidence.get(
+                        "gpu_utilization_percent"),
+                     "vram_utilization_percent": host_release_evidence.get(
+                        "vram_utilization_percent"),
+                     "model_gpu_layers": host_release_evidence.get(
+                        "model_gpu_layers"),
+                     "active_inference_preemption_requested": False,
+                     "host_telemetry_used_for_admission": True}
+                    if general_gpu_pressure else
                     {"game_workload_message_id": game_message_id}),
             },
             "worker_exit_observed": worker_exit_observed,
@@ -714,7 +751,7 @@ class ProductionServingInferenceController:
         return outcome
 
     def reconcile_idle_game_resource_state(self) -> dict[str, Any]:
-        """Release optional residency under current gaming-priority evidence, without inference."""
+        """Release idle optional residency for game priority or host GPU pressure."""
         # A bounded client timeout can finish while the backend worker ignores
         # cancellation. The request then releases the receipt-capacity lock,
         # but the invocation owner still holds the exact worker handle. Route
@@ -742,6 +779,8 @@ class ProductionServingInferenceController:
             return self._preempt_for_verified_game_workload()
         try:
             workload = self.current_workload_state()
+            if workload.get("configured_mode") == "normal":
+                return self._reconcile_idle_normal_gpu_pressure(workload)
             selected_gaming_profile = workload.get("configured_mode") == "gaming"
             conservative_automatic_profile = (
                 workload.get("configured_mode") == "automatic"
@@ -848,6 +887,58 @@ class ProductionServingInferenceController:
                 "serving_session_id": session.session_id}
         finally:
             self._receipt_capacity_lock.release()
+
+    def _reconcile_idle_normal_gpu_pressure(
+            self, workload: Mapping[str, Any]) -> dict[str, Any]:
+        """Release only idle SentientOS GPU residency under current host GPU pressure."""
+        with self._active_invoker_lock:
+            active_invoker = self._active_invoker
+        if active_invoker is not None and active_invoker.backend_work_pending():
+            return {"status": "skipped", "reason": "active_inference_requires_quiescence"}
+        session = self._serving.current_session()
+        if session is None:
+            return {"status": "skipped", "reason": "no_resident_serving_session"}
+        try:
+            model = self._serving._current_inference_model(session)
+        except ProductionServingError:
+            return {"status": "skipped", "reason": "current_serving_session_required"}
+        load_configuration = session.binding.get("load_configuration")
+        gpu_layers = (load_configuration.get("n_gpu_layers")
+            if isinstance(load_configuration, Mapping) else None)
+        if type(gpu_layers) is not int or not 1 <= gpu_layers <= 256:
+            return {"status": "skipped", "reason": "gpu_backed_serving_session_required"}
+        correlation_id = "idle-host-gpu-resource-reconcile-" + str(time.time_ns())
+        observation = self._observe_host_resources(
+            correlation_id, observation_namespace="local-chat-reconciliation")
+        labels = observation.get("pressure_labels")
+        if (observation.get("status") != "current"
+                or observation.get("no_effect_authority") is not True
+                or not isinstance(labels, (tuple, list))
+                or not all(isinstance(label, str) for label in labels)
+                or "gpu_pressure" not in labels):
+            return {"status": "skipped", "reason": "current_host_gpu_pressure_required",
+                "observation_correlation_id": observation.get(
+                    "observation_correlation_id")}
+        current_workload = self.current_workload_state()
+        if current_workload.get("configured_mode") != "normal":
+            return {"status": "skipped", "reason": "normal_workload_mode_not_current",
+                "observation_correlation_id": observation.get(
+                    "observation_correlation_id")}
+        evidence = {"configured_mode": "normal"}
+        release = self._release_after_host_pressure(
+            session, model, None, resource_observation=observation,
+            workload_evidence=evidence, trigger_correlation_id=correlation_id,
+            trigger_kind="idle_host_gpu_resource_reconciliation")
+        if release is None:
+            return {"status": "skipped", "reason": "release_evidence_invalid",
+                "observation_correlation_id": observation.get(
+                    "observation_correlation_id")}
+        return {"status": release["status"],
+            "release_receipt_id": release["receipt_id"],
+            "trigger_kind": "idle_host_gpu_resource_reconciliation",
+            "observation_correlation_id": observation.get(
+                "observation_correlation_id"),
+            "serving_session_id": session.session_id}
 
     def _preempt_for_verified_game_workload(self) -> dict[str, Any]:
         """Admit and cancel optional inference when a game workload takes priority."""

@@ -1357,6 +1357,7 @@ class RuntimeGovernor:
                 "gaming_mode_entered",
                 "development_chat_shutdown",
                 "vram_pressure_observed",
+                "host_gpu_pressure_observed",
                 "verified_game_gpu_pressure",
                 "verified_game_host_pressure",
                 "verified_game_gpu_model_residency",
@@ -1441,6 +1442,135 @@ class RuntimeGovernor:
                     "release_threshold_percent": threshold_value}
             else:
                 evidence_ref = {"status": "missing_stale_malformed_or_below_threshold"}
+        elif reason_code == "host_gpu_pressure_observed":
+            observation_value = payload.get("resource_observation")
+            expected_fields = {
+                "schema_version", "trigger_kind", "trigger_correlation_id",
+                "observation_correlation_id", "host_report_id", "host_report_digest",
+                "observed_at", "pressure_labels", "gpu_utilization_percent",
+                "vram_utilization_percent", "serving_session_id",
+                "model_gpu_layers", "active_inference_preemption_requested",
+            }
+            evidence_valid = False
+            host_gpu_observation_id: str | None = None
+            host_gpu_report_id: str | None = None
+            host_gpu_source_correlation = None
+            host_gpu_value = host_vram_value = None
+            host_gpu_release_age_seconds = host_gpu_evidence_age = None
+            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+                source_value = observation_value.get("trigger_correlation_id")
+                host_gpu_source_correlation = (source_value if isinstance(source_value, str)
+                    else None)
+                observation_value_id = observation_value.get(
+                    "observation_correlation_id")
+                host_gpu_observation_id = (observation_value_id
+                    if isinstance(observation_value_id, str) else None)
+                raw_report_id = observation_value.get("host_report_id")
+                host_gpu_report_id = (raw_report_id
+                    if isinstance(raw_report_id, str) else None)
+                raw_observed_at = observation_value.get("observed_at")
+                raw_labels = observation_value.get("pressure_labels")
+
+                def finite_percent(value: object) -> float | None:
+                    if (isinstance(value, (int, float)) and not isinstance(value, bool)
+                            and math.isfinite(float(value))
+                            and 0 <= float(value) <= 100):
+                        return float(value)
+                    return None
+
+                host_gpu_value = finite_percent(observation_value.get(
+                    "gpu_utilization_percent"))
+                host_vram_value = finite_percent(observation_value.get(
+                    "vram_utilization_percent"))
+                expected_observation_id = ("local-chat-reconciliation-" +
+                    hashlib.sha256(host_gpu_source_correlation.encode(
+                        "utf-8")).hexdigest()[:32]
+                    if host_gpu_source_correlation is not None else None)
+                expected_release_correlation = ("production-chat-resource-release-" +
+                    hashlib.sha256(("idle_host_gpu_resource_reconciliation:" +
+                        host_gpu_source_correlation).encode("utf-8")).hexdigest()[:24]
+                    if host_gpu_source_correlation is not None else None)
+                try:
+                    parsed_at = datetime.fromisoformat(
+                        raw_observed_at if isinstance(raw_observed_at, str) else "")
+                except ValueError:
+                    parsed_at = None
+                if parsed_at is not None and parsed_at.tzinfo is not None:
+                    host_gpu_release_age_seconds = (datetime.now(timezone.utc)
+                        - parsed_at.astimezone(timezone.utc)).total_seconds()
+                with self._resource_evidence_lock:
+                    host_evidence = (self._host_resource_evidence_by_correlation.get(
+                        host_gpu_observation_id)
+                        if host_gpu_observation_id is not None else None)
+                try:
+                    if host_evidence is not None:
+                        host_gpu_evidence_age = (datetime.now(timezone.utc)
+                            - datetime.fromisoformat(
+                            str(host_evidence["observed_at"])).astimezone(timezone.utc)).total_seconds()
+                except (KeyError, TypeError, ValueError):
+                    host_gpu_evidence_age = None
+                raw_host_labels = (host_evidence.get("pressure_labels")
+                    if host_evidence is not None else None)
+                host_labels = (set(raw_host_labels)
+                    if isinstance(raw_host_labels, (tuple, list, set, frozenset))
+                    and all(isinstance(label, str) for label in raw_host_labels) else set())
+                raw_digest = observation_value.get("host_report_digest")
+                evidence_valid = bool(
+                    observation_value.get("schema_version") ==
+                        "sentientos.production_host_gpu_pressure_release_evidence:v1"
+                    and observation_value.get("trigger_kind") ==
+                        "idle_host_gpu_resource_reconciliation"
+                    and isinstance(host_gpu_source_correlation, str)
+                    and host_gpu_source_correlation.startswith(
+                        "idle-host-gpu-resource-reconcile-")
+                    and 0 < len(host_gpu_source_correlation) <= 256
+                    and host_gpu_observation_id == expected_observation_id
+                    and correlation_id == expected_release_correlation
+                    and actor == "production_chat_host_resource_governor"
+                    and subject == actor
+                    and payload.get("target_subsystem") == "production_chat"
+                    and isinstance(host_gpu_report_id, str)
+                    and bool(host_gpu_report_id)
+                    and isinstance(raw_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", raw_digest) is not None
+                    and isinstance(raw_observed_at, str)
+                    and isinstance(raw_labels, (list, tuple))
+                    and all(isinstance(label, str) for label in raw_labels)
+                    and set(raw_labels) == host_labels
+                    and "gpu_pressure" in host_labels
+                    and type(observation_value.get(
+                        "active_inference_preemption_requested")) is bool
+                    and observation_value.get(
+                        "active_inference_preemption_requested") is False
+                    and type(observation_value.get("model_gpu_layers")) is int
+                    and 1 <= observation_value["model_gpu_layers"] <= 256
+                    and isinstance(observation_value.get("serving_session_id"), str)
+                    and bool(observation_value.get("serving_session_id"))
+                    and ((host_gpu_value is not None and host_gpu_value >= 90.0)
+                         or (host_vram_value is not None and host_vram_value >= 90.0))
+                    and host_gpu_release_age_seconds is not None
+                    and 0 <= host_gpu_release_age_seconds <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS
+                    and host_gpu_evidence_age is not None
+                    and 0 <= host_gpu_evidence_age <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS
+                    and host_evidence is not None
+                    and host_evidence.get("observation_correlation_id") == host_gpu_observation_id
+                    and host_evidence.get("report_id") == host_gpu_report_id
+                    and host_evidence.get("report_digest") == raw_digest
+                    and host_evidence.get("observed_at") == raw_observed_at
+                    and host_evidence.get("gpu_utilization_percent") == host_gpu_value
+                    and host_evidence.get("vram_utilization_percent") == host_vram_value)
+            valid = valid and evidence_valid
+            evidence_ref = ({
+                "status": "current",
+                "observation_correlation_id": host_gpu_observation_id,
+                "host_report_id": host_gpu_report_id,
+                "pressure_labels": observation_value.get("pressure_labels"),
+                "gpu_utilization_percent": host_gpu_value,
+                "vram_utilization_percent": host_vram_value,
+                "age_seconds": round(host_gpu_release_age_seconds, 3)
+                    if host_gpu_release_age_seconds is not None else None,
+            } if evidence_valid and isinstance(observation_value, Mapping) else {
+                "status": "missing_stale_malformed_or_unverified_host_gpu_pressure"})
         elif reason_code == "verified_game_gpu_pressure":
             observation_value = payload.get("resource_observation")
             expected_fields = {
@@ -2089,7 +2219,8 @@ class RuntimeGovernor:
                     if reason_code in {"verified_game_gpu_model_residency",
                         "selected_gaming_profile_gpu_model_residency"} else
                     "model_resource_release_pressure_evidence_required"
-                    if reason_code in {"vram_pressure_observed", "verified_game_gpu_pressure",
+                    if reason_code in {"vram_pressure_observed", "host_gpu_pressure_observed",
+                        "verified_game_gpu_pressure",
                         "verified_game_host_pressure",
                         "verified_game_frame_pressure",
                         "selected_gaming_profile_host_pressure",
@@ -2347,6 +2478,10 @@ class RuntimeGovernor:
             and gpu_offload_requested
             and verified_game_active
         )
+        optional_inference_during_game = (
+            operation_kind == "inference"
+            and verified_game_active
+        )
         optional_gpu_model_load_in_gaming_profile = (
             operation_kind == "model_serving"
             and gpu_offload_requested
@@ -2447,6 +2582,13 @@ class RuntimeGovernor:
                 True)
         elif game_resource_telemetry_incomplete:
             reason, blocks = "deferred_resource_telemetry_incomplete_during_game", True
+        elif optional_inference_during_game:
+            # Optional inference on either route is preempted when authenticated
+            # game activity is current. Do not start work that the existing
+            # game-priority reconciliation will immediately cancel, even when
+            # sampled utilization is nominal. This admission decision does not
+            # control the game process or grant telemetry hardware authority.
+            reason, blocks = "deferred_local_model_inference_while_game_active", True
         elif optional_gpu_model_load_during_game:
             # Loading an optional GPU model can create a large transient
             # allocation even when the current utilization sample is nominal.

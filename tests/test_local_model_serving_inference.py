@@ -920,6 +920,114 @@ def test_conservative_automatic_profile_releases_resident_model_only_under_host_
         serving.close()
 
 
+@pytest.mark.parametrize(("gpu_percent", "vram_percent", "expected_status"), [
+    (94.0, 92.0, "worker_closed"),
+    (20.0, 30.0, "skipped"),
+])
+def test_normal_mode_releases_only_idle_gpu_residency_under_host_gpu_pressure(
+        monkeypatch, tmp_path, gpu_percent, vram_percent, expected_status):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1, devices=[{
+                    "index": 0, "gpu_utilization_percent": gpu_percent,
+                    "vram_utilization_percent": vram_percent}]))
+        ]), clock=lambda: now.isoformat())
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner,
+        gpu_layers=24)
+    import asyncio
+    from sentientos import chat_service
+
+    reconciliations = []
+    state_after_reconciliation = []
+    reconciliation_finished = threading.Event()
+
+    def reconcile():
+        result = bridge.reconcile_idle_game_resource_state()
+        reconciliations.append(result)
+        state_after_reconciliation.append(
+            (model.closed, serving.current_session() == session))
+        reconciliation_finished.set()
+        return result
+
+    service = SimpleNamespace(
+        reconcile_workload_state=reconcile,
+        resource_reconciliation_interval_seconds=(
+            bridge.resource_reconciliation_interval_seconds),
+        set_resource_reconciliation_wakeup=(bridge.set_resource_reconciliation_wakeup),
+        close_outputs=lambda: None)
+    previous_composition = chat_service._PRODUCTION_COMPOSITION
+    previous_reconciliation_task = chat_service._RESOURCE_RECONCILIATION_TASK
+    chat_service._PRODUCTION_COMPOSITION = chat_service.ProductionChatComposition(
+        service, serving)
+    chat_service._RESOURCE_RECONCILIATION_TASK = None
+
+    async def run_scheduler():
+        await chat_service._startup_event()
+        try:
+            if not await asyncio.to_thread(reconciliation_finished.wait, 5):
+                raise AssertionError("scheduled normal-mode resource reconciliation did not run")
+            return chat_service._RESOURCE_RECONCILIATION_TASK is not None
+        finally:
+            await chat_service._shutdown_event()
+
+    try:
+        scheduler_started = asyncio.run(run_scheduler())
+    finally:
+        chat_service._PRODUCTION_COMPOSITION = previous_composition
+        chat_service._RESOURCE_RECONCILIATION_TASK = previous_reconciliation_task
+    result = reconciliations[0]
+
+    assert scheduler_started is True
+    assert result["status"] == expected_status
+    assert host_owner.collector_call_count == (
+        6 if expected_status == "worker_closed" else 3)
+    if expected_status == "worker_closed":
+        assert state_after_reconciliation == [(True, False)]
+        assert result["trigger_kind"] == "idle_host_gpu_resource_reconciliation"
+        release_path = next((tmp_path / "state" / "installations" / "install-1" /
+            "state" / "local-model" / "serving" /
+            "resource-release-receipts").glob("*.json"))
+        receipt = json.loads(release_path.read_text(encoding="utf-8"))
+        evidence = receipt["resource_observation"]
+        assert evidence["pressure_labels"] == ["gpu_pressure"]
+        assert evidence["model_gpu_layers"] == 24
+        assert evidence["active_inference_preemption_requested"] is False
+        assert receipt["inference_performed"] is False
+        assert receipt["host_mutation_performed"] is False
+        decisions = [json.loads(line) for line in
+            (tmp_path / "kernel-decisions.jsonl").read_text(
+                encoding="utf-8").splitlines()]
+        release = next(item for item in decisions
+            if item.get("action_kind") == "local_model_resource_release")
+        delegated = release["delegated_outcomes"]["runtime_governor"]
+        assert delegated["allowed"] is True
+        assert delegated["reason"] == "model_resource_release_fail_safe"
+        assert delegated["evidence_refs"]["resource_observation_evidence"][
+            "status"] == "current"
+    else:
+        assert state_after_reconciliation == [(False, True)]
+        assert result["reason"] == "current_host_gpu_pressure_required"
+
+
 def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch, tmp_path):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
@@ -1786,11 +1894,15 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
     kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
         decisions_path=tmp_path / "kernel-decisions.jsonl")
-    cpu = {"utilization_percent": 20.0}
+    gpu = {"gpu_utilization_percent": 20.0,
+        "vram_utilization_percent": 30.0}
 
     def collector(collector_id, **values):
         def collect(*, observed_at=None):
-            current = cpu if collector_id == "cpu" else values
+            current = (values if collector_id != "nvidia_gpu" else {
+                "device_count": 1,
+                "devices": [{"index": 0, **gpu}],
+            })
             return HostCollectorResult(collector_id, "available",
                 observed_at or now.isoformat(), "synthetic_test_fixture",
                 values=dict(current))
@@ -1800,11 +1912,11 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
         runtime_state_root=tmp_path / "host-resource",
         plan=build_observation_plan(specs=[
             HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
-                collector("cpu")),
+                collector("cpu", utilization_percent=20.0)),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
                 collector("memory", used_percent=40.0)),
             HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
-                collector("nvidia_gpu", device_count=0, devices=[])),
+                collector("nvidia_gpu")),
         ]), clock=lambda: now.isoformat())
     admission_observations = []
 
@@ -1842,15 +1954,17 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
             return model
         return create
 
-    _bridge, serving, first_session, first_model, _kernel, _ = setup(
+    bridge, serving, first_session, first_model, _kernel, _ = setup(
         monkeypatch, tmp_path, kernel_override=kernel,
         host_resource_observation_owner=host_owner,
-        serving_admission_context_provider=admission_context,
+        serving_admission_context_provider=admission_context, gpu_layers=24,
         model_factory=model_factory)
-    assert serving.release_current_session_after_resource_admission(
-        first_session, reason="governed_resource_pressure") is True
+    gpu.update(gpu_utilization_percent=95.0, vram_utilization_percent=92.0)
+    release = bridge.reconcile_idle_game_resource_state()
+    assert release["status"] == "worker_closed"
+    assert release["trigger_kind"] == "idle_host_gpu_resource_reconciliation"
     assert first_model.closed is True
-    cpu["utilization_percent"] = 95.0
+    assert serving.resource_recovery_pending() is True
 
     from sentientos import chat_service
     deferred = threading.Event()
@@ -1889,7 +2003,7 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
             assert serving.current_session() is None
             assert serving.resource_recovery_pending() is True
             assert len(models) == 1
-            cpu["utilization_percent"] = 20.0
+            gpu.update(gpu_utilization_percent=20.0, vram_utilization_percent=30.0)
             callback = wakeup_callbacks[-1]
             callback()
             if not await asyncio.to_thread(restored.wait, 5):
@@ -1918,7 +2032,7 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
     (result, observed_labels, pressure_reasons, restored_session, recovery_pending,
         restored_model_closed) = outcome
     assert result["serving_recovery"]["status"] == "restored"
-    assert any("cpu_pressure" in labels for labels in observed_labels)
+    assert any("gpu_pressure" in labels for labels in observed_labels)
     assert observed_labels[-1] == ("nominal",)
     assert "deferred_background_model_serving_under_host_pressure" in pressure_reasons
     assert restored_session is not None and restored_session != first_session
@@ -1990,6 +2104,8 @@ def test_automatic_game_release_revalidates_game_before_release(
 
 @pytest.mark.parametrize("mode,style_expected", [("normal", False), ("gaming", True)])
 def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_path, mode, style_expected):
+    from sentientos.gaming_workload_policy import GamingWorkloadPolicy
+
     bridge, _, _, model, _, _ = setup(monkeypatch, tmp_path)
     bridge.set_workload_mode(mode)
     prompt = ("[SYSTEM_INSTRUCTION]\nBase rules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
@@ -1998,7 +2114,6 @@ def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_pa
     receipt = bridge.generate(prompt=prompt, caller="chat_service", correlation_id="gaming-style")
 
     observed_prompt = model.prompts[0]
-    from sentientos.gaming_workload_policy import GamingWorkloadPolicy
     instruction = GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION
     assert (instruction in observed_prompt) is style_expected
     assert receipt.request["linkage"].get("workload_response_style") == (
@@ -2010,15 +2125,14 @@ def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_pa
 
 
 
-def test_authenticated_game_evidence_constrains_actual_cpu_inference(monkeypatch, tmp_path):
-    """The authenticated automatic workload applies gaming limits to an inference call."""
+def test_authenticated_game_evidence_defers_cpu_inference(monkeypatch, tmp_path):
+    """Authenticated game presence defers optional CPU inference."""
     from cryptography import x509
     from cryptography.hazmat.primitives.serialization import Encoding
     from sentientos.foreground_game_detection import ForegroundGameDetector
     from sentientos.gaming_companion_tls_transport import (
         CompanionBridgeMutualTLSClient, CompanionBridgeMutualTLSRuntime,
     )
-    from sentientos.gaming_workload_policy import GamingWorkloadPolicy
     from tests.test_gaming_companion_tls_transport import _certificate_bundle
     from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
 
@@ -2085,18 +2199,14 @@ def test_authenticated_game_evidence_constrains_actual_cpu_inference(monkeypatch
             correlation_id="authenticated-game-constrained-cpu-inference",
             budget=LocalModelInvocationBudget(8000, 4000, 512, 30.0, 2))
 
-        assert receipt.status == "admitted_completed"
-        assert model.calls == 1
-        assert GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION in model.prompts[0]
+        assert receipt.status == "deferred"
+        assert model.calls == 0
         lineage = receipt.request["linkage"]["workload_evidence"]
         assert lineage["configured_mode"] == "automatic"
         assert lineage["game_foreground"] is True
         assert lineage["transport_provenance"]["message_id"] == message.payload["message_id"]
         assert receipt.request["linkage"]["workload_mode"] == "gaming"
         assert receipt.request["linkage"]["max_backend_threads"] == 2
-        assert receipt.generation_config["actual_generation_parameters"][
-            "max_backend_threads"] == 2
-        assert model.generation_parameters[-1]["max_backend_threads"] == 2
         assert host_owner.collector_call_count == 2
         inference_decision = next(json.loads(line) for line in
             (tmp_path / "kernel-decisions.jsonl").read_text(
@@ -2106,6 +2216,9 @@ def test_authenticated_game_evidence_constrains_actual_cpu_inference(monkeypatch
             "runtime_governor"]["evidence_refs"]["game_workload_evidence"]
         assert evidence["status"] == "current"
         assert evidence["message_id"] == message.payload["message_id"]
+        assert inference_decision["delegated_outcomes"][
+            "runtime_governor"]["reason"] == (
+                "deferred_local_model_inference_while_game_active")
     finally:
         serving.close()
         detector.close()
@@ -2247,11 +2360,14 @@ def test_verified_game_presence_preempts_active_cpu_inference_without_pressure(
         game_process_running=True,
         running_process_name_digests=(hashlib.sha256(
             b"examplegame.exe").hexdigest(),))
-    assert kernel.observe_verified_game_workload(game_workload)
+    game_active = threading.Event()
 
     class VerifiedGameDetector:
         def observe(self, _names):
-            return game_workload
+            if game_active.is_set():
+                return game_workload
+            return ForegroundGameObservation("available", False, None,
+                now.isoformat(), game_process_running=False)
 
     def collector(collector_id, **values):
         return lambda *, observed_at=None: HostCollectorResult(
@@ -2290,6 +2406,8 @@ def test_verified_game_presence_preempts_active_cpu_inference_without_pressure(
     worker.start()
     assert started.wait(timeout=5)
 
+    game_active.set()
+    assert kernel.observe_verified_game_workload(game_workload)
     preemption = bridge.reconcile_idle_game_resource_state()
     worker.join(timeout=5)
 
@@ -2338,11 +2456,14 @@ def test_verified_game_presence_retries_unconfirmed_cpu_inference_cancellation(
         game_process_running=True,
         running_process_name_digests=(hashlib.sha256(
             b"examplegame.exe").hexdigest(),))
-    assert kernel.observe_verified_game_workload(game_workload)
+    game_active = threading.Event()
 
     class VerifiedGameDetector:
         def observe(self, _names):
-            return game_workload
+            if game_active.is_set():
+                return game_workload
+            return ForegroundGameObservation("available", False, None,
+                now.isoformat(), game_process_running=False)
 
     def collector(collector_id, **values):
         return lambda *, observed_at=None: HostCollectorResult(
@@ -2393,6 +2514,8 @@ def test_verified_game_presence_retries_unconfirmed_cpu_inference_cancellation(
     worker.start()
     assert started.wait(timeout=5)
 
+    game_active.set()
+    assert kernel.observe_verified_game_workload(game_workload)
     first = bridge.reconcile_idle_game_resource_state()
     second = bridge.reconcile_idle_game_resource_state()
     worker.join(timeout=5)
@@ -2419,7 +2542,7 @@ def test_verified_game_presence_retries_unconfirmed_cpu_inference_cancellation(
     serving.close()
 
 
-def test_verified_game_presence_preempts_each_new_inference_on_same_snapshot(
+def test_verified_game_presence_defers_each_new_inference_on_same_snapshot(
         monkeypatch, tmp_path):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
@@ -2436,11 +2559,26 @@ def test_verified_game_presence_preempts_each_new_inference_on_same_snapshot(
         game_process_running=True,
         running_process_name_digests=(hashlib.sha256(
             b"examplegame.exe").hexdigest(),))
-    assert kernel.observe_verified_game_workload(game_workload)
+    game_stopped = ForegroundGameObservation("available", False,
+        hashlib.sha256(b"explorer.exe").hexdigest(), now.isoformat(),
+        transport_provenance={"message_id": hashlib.sha256(
+            b"authenticated-game-stopped-sequence-2").hexdigest(),
+            "source_id": "windows-edge", "session_id": "game-session",
+            "generation_id": "edge-generation", "sequence": 2,
+            "envelope_created_at": now.isoformat()},
+        game_process_running=False, running_process_name_digests=())
+    current_observation = [game_workload]
+    last_observed_message_id = [None]
 
     class VerifiedGameDetector:
         def observe(self, _names):
-            return game_workload
+            observation = current_observation[0]
+            provenance = observation.transport_provenance
+            message_id = provenance["message_id"] if provenance is not None else None
+            if message_id != last_observed_message_id[0]:
+                assert kernel.observe_verified_game_workload(observation)
+                last_observed_message_id[0] = message_id
+            return observation
 
     def collector(collector_id, **values):
         return lambda *, observed_at=None: HostCollectorResult(
@@ -2455,57 +2593,56 @@ def test_verified_game_presence_preempts_each_new_inference_on_same_snapshot(
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
                 collector("memory", used_percent=40.0)),
         ]), clock=lambda: now.isoformat())
-    started = threading.Event()
-    cancelled = threading.Event()
-
-    def active_generation():
-        started.set()
-        if not cancelled.wait(timeout=5):
-            raise AssertionError("active game did not preempt new optional inference")
-        raise RuntimeError("fixture_cancelled_for_game_workload_priority")
-
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, host_resource_observation_owner=host_owner,
-        foreground_game_detector=VerifiedGameDetector(), gpu_layers=0,
-        on_generate=active_generation)
-    model.cancel_pending_generation = lambda: (cancelled.set() or True)
+        foreground_game_detector=VerifiedGameDetector(), gpu_layers=0)
+    _, _, _, resource_context, resource_ledger = resource_allocation_setup(
+        tmp_path / "game-priority-resource-allocation", calls=2,
+        max_input_chars=8192)
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
-    results = []
+    prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n"
+        "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\n"
+        "USER_DATA: optional inference")
+    budget = LocalModelInvocationBudget(8192, 200, 20, 5.0, 2)
+    receipts = [bridge.generate(prompt=prompt, caller="chat_service",
+        correlation_id=correlation_id, budget=budget,
+        resource_context=replace(resource_context,
+            durable_attempt_nonce=f"{correlation_id}-nonce"))
+        for correlation_id in (
+            "active-cpu-game-priority-first", "active-cpu-game-priority-second")]
+    current_observation[0] = game_stopped
+    receipts.append(bridge.generate(prompt=prompt, caller="chat_service",
+        correlation_id="inference-after-game-stopped", budget=budget,
+        resource_context=replace(resource_context,
+            durable_attempt_nonce="inference-after-game-stopped-nonce")))
 
-    def run_active_generation(correlation_id):
-        result = {}
-        worker = threading.Thread(target=lambda: result.setdefault("receipt",
-            bridge.generate(prompt=("[SYSTEM_INSTRUCTION]\nRules.\n"
-                "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\n"
-                "USER_DATA: optional inference"), caller="chat_service",
-                correlation_id=correlation_id)))
-        worker.start()
-        assert started.wait(timeout=5)
-        preemption = bridge.reconcile_idle_game_resource_state()
-        worker.join(timeout=5)
-        assert not worker.is_alive()
-        assert result["receipt"].status == "cancelled"
-        results.append(preemption)
-
-    run_active_generation("active-cpu-game-priority-first")
-    started.clear()
-    cancelled.clear()
-    run_active_generation("active-cpu-game-priority-second")
-
-    assert [result["status"] for result in results] == ["preempted", "preempted"]
-    assert [result["game_workload_message_id"] for result in results] == [
-        message_id, message_id]
-    assert all(result["active_inference_cancellation_confirmed"] is True
-        for result in results)
+    assert [receipt.status for receipt in receipts] == [
+        "deferred", "deferred", "admitted_completed"]
+    assert model.calls == 1
+    assert resource_ledger.snapshot_counts() == (1, 1, 3)
+    assert resource_ledger.remaining_calls(
+        resource_context.allocation.allocation_id) == 1
     assert serving.current_session() == session
     decisions = [json.loads(line) for line in
         (tmp_path / "kernel-decisions.jsonl").read_text(
             encoding="utf-8").splitlines()]
-    preemptions = [item for item in decisions
-        if item.get("action_kind") == "local_model_inference_preemption"]
-    assert len(preemptions) == 2
-    assert len({item["correlation_id"] for item in preemptions}) == 2
-    assert host_owner.collector_call_count == 4
+    inference_decisions = [item for item in decisions
+        if item.get("action_kind") == "local_model_inference"]
+    assert len(inference_decisions) == 3
+    assert all(item["delegated_outcomes"]["runtime_governor"]["reason"] ==
+        "deferred_local_model_inference_while_game_active"
+        for item in inference_decisions[:2])
+    assert inference_decisions[2]["delegated_outcomes"]["runtime_governor"][
+        "allowed"] is True
+    assert all(item["delegated_outcomes"]["runtime_governor"][
+        "evidence_refs"]["observed_pressure_labels"] == ["nominal"]
+        for item in inference_decisions)
+    assert all(item["delegated_outcomes"]["runtime_governor"][
+        "evidence_refs"]["game_workload_evidence"]["message_id"] == message_id
+        for item in inference_decisions[:2])
+    assert inference_decisions[2]["delegated_outcomes"]["runtime_governor"][
+        "evidence_refs"]["game_workload_evidence"]["game_active"] is False
+    assert host_owner.collector_call_count == 6
     serving.close()
 
 
@@ -2526,11 +2663,14 @@ def test_game_priority_retains_timed_out_backend_for_later_preemption(
         game_process_running=True,
         running_process_name_digests=(hashlib.sha256(
             b"examplegame.exe").hexdigest(),))
-    assert kernel.observe_verified_game_workload(game_workload)
+    game_active = threading.Event()
 
     class VerifiedGameDetector:
         def observe(self, _names):
-            return game_workload
+            if game_active.is_set():
+                return game_workload
+            return ForegroundGameObservation("available", False, None,
+                now.isoformat(), game_process_running=False)
 
     def collector(collector_id, **values):
         return lambda *, observed_at=None: HostCollectorResult(
@@ -2598,6 +2738,8 @@ def test_game_priority_retains_timed_out_backend_for_later_preemption(
     assert timed_out.status == "timeout"
     assert cancellation_attempts == 1
     assert bridge.resource_reconciliation_interval_seconds() == 0.5
+    game_active.set()
+    assert kernel.observe_verified_game_workload(game_workload)
     workload_after_timeout = bridge.current_workload_state()
     assert workload_after_timeout["configured_mode"] == "automatic"
     assert workload_after_timeout["observation_status"] == "available"
@@ -2615,7 +2757,7 @@ def test_game_priority_retains_timed_out_backend_for_later_preemption(
             max_calls_per_correlation=2),
         resource_context=replace(resource_context,
             durable_attempt_nonce="nonce-second-request"))
-    assert overlapping_attempt.status == "backend_failure"
+    assert overlapping_attempt.status == "deferred"
     assert bridge._active_invoker is lingering_invoker
     assert model.calls == 1
     assert len(resource_ledger._state["attempts"]) == 1
@@ -3027,7 +3169,13 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     game_evidence = GamePerformanceBridgeDetector(receiver=OneMessageReceiver(),
         source_id=source_id, generation_provider=lambda: generation_id,
         clock=lambda: now).receive_once()
-    assert kernel.observe_verified_game_performance(game_evidence)
+    late_game_transition = trigger in {
+        "idle_game_frame_pressure_active_inference",
+        "idle_game_frame_pressure_active_inference_unconfirmed",
+        "idle_game_frame_pressure_active_inference_scheduler",
+    }
+    if not late_game_transition:
+        assert kernel.observe_verified_game_performance(game_evidence)
     game_workload_digest = hashlib.sha256(("othergame.exe"
         if trigger == "idle_game_frame_pressure_mismatched_process"
         else "examplegame.exe").encode("utf-8")).hexdigest()
@@ -3036,12 +3184,18 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "source_id": "windows-foreground", "session_id": "foreground-session",
             "generation_id": "foreground-generation-1", "sequence": 1,
             "envelope_created_at": now.isoformat()})
-    assert kernel.observe_verified_game_workload(game_workload)
+    game_workload_active = threading.Event()
+    if not late_game_transition:
+        assert kernel.observe_verified_game_workload(game_workload)
+        game_workload_active.set()
 
     class VerifiedGameDetector:
         def observe(self, process_names):
             del process_names
-            return game_workload
+            if game_workload_active.is_set():
+                return game_workload
+            return ForegroundGameObservation("available", False, None,
+                now.isoformat(), game_process_running=False)
 
     def collector(collector_id, **values):
         return lambda *, observed_at=None: HostCollectorResult(
@@ -3222,6 +3376,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                 generation_provider=lambda: generation_id, clock=lambda: now
             ).receive_once()
             assert kernel.observe_verified_game_performance(changed_game_evidence)
+            game_workload_active.set()
+            assert kernel.observe_verified_game_workload(game_workload)
 
         scheduler_state = None
         if trigger == "idle_game_frame_pressure_active_inference_scheduler":
@@ -3254,6 +3410,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                         generation_provider=lambda: generation_id, clock=lambda: now
                     ).receive_once()
                     assert kernel.observe_verified_game_performance(changed)
+                    game_workload_active.set()
+                    assert kernel.observe_verified_game_workload(game_workload)
                     if not await asyncio.to_thread(active_cancelled.wait, 5):
                         raise AssertionError("scheduler did not deliver game-priority cancellation")
                     await asyncio.to_thread(invocation_thread.join, 5)

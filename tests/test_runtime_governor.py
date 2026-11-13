@@ -793,6 +793,55 @@ def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing
     assert decision.evidence_refs["game_workload_evidence"]["game_active"] is True
 
 
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("accelerator_route,gpu_layers", [("gpu", 1), ("cpu", 0)])
+def test_active_verified_game_defers_new_inference_with_nominal_telemetry(
+        monkeypatch, tmp_path, accelerator_route, gpu_layers):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    governor = RuntimeGovernor()
+    stamp = datetime.now(timezone.utc).isoformat()
+    correlation_id = "game-active-nominal-gpu-inference"
+    observation = ForegroundGameObservation(
+        "available", True, "a" * 64, stamp,
+        transport_provenance={"message_id": "b" * 64, "source_id": "windows-edge",
+            "session_id": "game-session", "generation_id": "edge-generation",
+            "sequence": 1, "envelope_created_at": stamp})
+    assert governor.observe_verified_game_workload(observation)
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        correlation_id.encode("utf-8")).hexdigest()[:32]
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "observed_at": stamp, "evaluation_id": "evaluation-nominal-game",
+        "epoch_id": "epoch-nominal-game", "snapshot_id": "snapshot-nominal-game",
+        "report_id": "report-nominal-game", "report_digest": "c" * 64,
+        "pressure_labels": (), "cpu_utilization_percent": 20.0,
+        "ram_utilization_percent": 40.0, "gpu_utilization_percent": 12.0,
+        "vram_utilization_percent": 30.0, "gpu_telemetry_available": True,
+        "gpu_telemetry_complete": True,
+        "observation_correlation_id": observation_id,
+    }
+
+    decision = governor._admit_local_model_inference(
+        actor="chat_service", subject="chat", correlation_id=correlation_id,
+        metadata={"purpose": "local_user_chat",
+            "host_resource_observation_namespace": "local-chat-inference",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp", "accelerator_route": accelerator_route,
+                "gpu_layers": gpu_layers,
+                "configuration_digest": "d" * 64,
+            }})
+
+    assert decision.allowed is False
+    assert decision.reason == "deferred_local_model_inference_while_game_active"
+    assert decision.evidence_refs["observed_pressure_labels"] == []
+    assert decision.evidence_refs["game_workload_evidence"]["game_active"] is True
+
+
 def test_background_gpu_inference_keeps_background_pressure_classification(
         monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
