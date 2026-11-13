@@ -2423,6 +2423,7 @@ class RuntimeGovernor:
                         "report_digest": evidence["report_digest"],
                         "observation_correlation_id": evidence[
                             "observation_correlation_id"],
+                        "cpu_utilization_percent": evidence.get("cpu_utilization_percent"),
                         "gpu_utilization_percent": evidence.get("gpu_utilization_percent"),
                         "vram_utilization_percent": evidence.get("vram_utilization_percent"),
                         "ram_utilization_percent": evidence.get("ram_utilization_percent"),
@@ -2685,6 +2686,13 @@ class RuntimeGovernor:
             # weights and working set compete for the same constrained memory.
             reason, blocks = (
                 "deferred_local_model_inference_under_memory_pressure", True)
+        elif (operation_kind == "inference" and foreground
+                and "cpu_pressure" in pressure_reasons):
+            # Inference on either accelerator route still consumes host CPU
+            # resources. Keep optional chat behind a host already reporting
+            # CPU pressure without controlling or attributing other processes.
+            reason, blocks = (
+                "deferred_local_model_inference_under_cpu_pressure", True)
         elif (operation_kind in {"inference", "model_serving"}
                 and gaming_workload_profile_active
                 and gaming_profile_resource_telemetry_incomplete):

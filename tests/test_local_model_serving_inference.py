@@ -316,6 +316,10 @@ def test_automatic_game_detection_unavailable_keeps_gpu_inference_deferred(
         "deferred_local_model_inference_under_memory_pressure"),
     ("memory", 0, "deferred",
         "deferred_local_model_inference_under_memory_pressure"),
+    ("cpu", 24, "deferred",
+        "deferred_local_model_inference_under_cpu_pressure"),
+    ("cpu", 0, "deferred",
+        "deferred_local_model_inference_under_cpu_pressure"),
 ])
 def test_current_host_pressure_defers_optional_foreground_inference_by_resource_route(
         monkeypatch, tmp_path, pressure_kind, gpu_layers, expected_status,
@@ -338,7 +342,8 @@ def test_current_host_pressure_defers_optional_foreground_inference_by_resource_
         runtime_state_root=tmp_path / "host-resource",
         plan=build_observation_plan(specs=[
             HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
-                collector("cpu", utilization_percent=20.0)),
+                collector("cpu", utilization_percent=(96.0 if pressure_kind == "cpu"
+                    else 20.0))),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
                 collector("memory", used_percent=(96.0 if pressure_kind == "memory"
                     else 40.0))),
@@ -385,13 +390,15 @@ def test_current_host_pressure_defers_optional_foreground_inference_by_resource_
             if item.get("action_kind") == "local_model_inference")
         delegated = inference_decision["delegated_outcomes"]["runtime_governor"]
         assert delegated["evidence_refs"]["host_resource_evidence"]["status"] == "current"
-        expected_label = "gpu_pressure" if pressure_kind == "gpu" else "memory_pressure"
+        expected_label = f"{pressure_kind}_pressure"
         assert delegated["evidence_refs"]["observed_pressure_labels"] == [expected_label]
         assert delegated["reason"] == expected_reason
         if expected_status == "deferred":
             assert receipt.output_text is None
             assert delegated["evidence_refs"]["host_resource_evidence"][
                 "ram_utilization_percent"] == (96.0 if pressure_kind == "memory" else 40.0)
+            assert delegated["evidence_refs"]["host_resource_evidence"][
+                "cpu_utilization_percent"] == (96.0 if pressure_kind == "cpu" else 20.0)
         else:
             assert receipt.output_text == "answer"
     finally:
