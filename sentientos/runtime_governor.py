@@ -2282,8 +2282,11 @@ class RuntimeGovernor:
                 raw_message_id = provenance.get("message_id")
                 if isinstance(raw_message_id, str):
                     requested_game_message_id = raw_message_id
-        if (operation_kind == "model_serving"
-                and payload.get("workload_mode") == "automatic"):
+        automatic_mode_requested = (
+            payload.get("workload_mode") == "automatic"
+            or (isinstance(serving_workload, Mapping)
+                and serving_workload.get("configured_mode") == "automatic"))
+        if operation_kind == "model_serving" and automatic_mode_requested:
             if (game_workload_ref.get("status") != "current"
                     or requested_game_message_id is None
                     or (game_workload is not None
@@ -2298,7 +2301,10 @@ class RuntimeGovernor:
              or game_workload_ref.get("game_active") is True)
             and bool(pressure_reasons)
         )
-        effective_gaming_mode = payload.get("workload_mode") == "gaming"
+        effective_workload_mode = payload.get("effective_workload_mode")
+        if effective_workload_mode not in {"normal", "gaming"}:
+            effective_workload_mode = payload.get("workload_mode")
+        effective_gaming_mode = effective_workload_mode == "gaming"
         workload_evidence = payload.get("workload_evidence")
         if not isinstance(workload_evidence, Mapping):
             workload_evidence = payload.get("serving_workload_evidence")
@@ -2349,7 +2355,7 @@ class RuntimeGovernor:
         )
         automatic_serving_workload_unavailable = (
             operation_kind == "model_serving"
-            and payload.get("workload_mode") == "automatic"
+            and automatic_mode_requested
             and game_workload_ref.get("status") != "current")
         conservative_automatic_profile_requires_gpu_telemetry = (
             conservative_automatic_gaming_profile

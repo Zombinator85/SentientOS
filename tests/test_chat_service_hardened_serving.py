@@ -142,6 +142,7 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
                 "fixture-serving-correlation", {
                     "load_configuration": {"n_gpu_layers": 16}})
             events.append(("serving_workload_mode", context["workload_mode"],
+                context["effective_workload_mode"],
                 context["serving_workload_evidence"]))
         def close(self): events.append("serving_closed")
         def serving_is_current(self): return True
@@ -211,9 +212,10 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     assert resource_owner.plan.budget.max_workers == 4
     serving_admission = next(item for item in events
         if isinstance(item, tuple) and item[0] == "serving_workload_mode")
-    assert serving_admission[1] == "gaming"
-    assert serving_admission[2]["configured_mode"] == "automatic"
-    assert serving_admission[2]["mode_source"] == (
+    assert serving_admission[1] == "automatic"
+    assert serving_admission[2] == "gaming"
+    assert serving_admission[3]["configured_mode"] == "automatic"
+    assert serving_admission[3]["mode_source"] == (
         "foreground_observation_unavailable_conservative_gaming")
     chat_service.close_production_chat()
     assert events[-1] == "avatar_session_closed"

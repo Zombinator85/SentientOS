@@ -3969,7 +3969,8 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                 "host_resource_observation_namespace": "local-chat-serving",
                 "host_resource_observation_id": observation_id,
                 "model_execution_profile": model_execution_profile,
-                "workload_mode": workload.get("effective_mode"),
+                "workload_mode": workload.get("configured_mode"),
+                "effective_workload_mode": workload.get("effective_mode"),
                 "serving_workload_evidence": {key: workload.get(key) for key in (
                     "configured_mode", "mode_source", "observation_status",
                     "game_foreground", "game_process_running", "observed_at",

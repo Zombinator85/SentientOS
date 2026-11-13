@@ -205,7 +205,11 @@ def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, o
     (20.0, False, 16, "automatic", True, "allowed"),
     (20.0, False, 16, "gaming", False, "deferred_gpu_model_serving_in_gaming_mode"),
     (20.0, False, 16, "conservative_automatic", False,
-        "deferred_gpu_model_serving_in_conservative_automatic_mode"),
+        "deferred_game_workload_observation_unavailable_for_model_serving"),
+    (20.0, False, 16, "automatic_unverified_gaming", False,
+        "deferred_game_workload_observation_unavailable_for_model_serving"),
+    (20.0, False, 16, "automatic_unverified_normal", False,
+        "deferred_game_workload_observation_unavailable_for_model_serving"),
     ((None, 20.0), False, 16, "automatic", False, "deferred_gpu_offload_telemetry_incomplete"),
     ((20.0, None), False, 16, "automatic", False, "deferred_gpu_offload_telemetry_incomplete"),
     (None, True, 16, "automatic", False, "deferred_resource_telemetry_incomplete_during_game"),
@@ -265,13 +269,17 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
         host_owner.run_cycle(correlation_id=observation_id)
         load_configuration = activation_state["load_configuration"]
         conservative_automatic = workload_mode == "conservative_automatic"
+        unverified_automatic_gaming = workload_mode == "automatic_unverified_gaming"
+        unverified_automatic_normal = workload_mode == "automatic_unverified_normal"
         effective_mode = (
-            "gaming" if conservative_automatic
+            "gaming" if conservative_automatic or unverified_automatic_gaming
             or (workload_mode == "automatic" and game_active)
             else "normal" if workload_mode == "automatic"
             else workload_mode)
-        configured_mode = ("automatic" if workload_mode == "automatic"
-            or conservative_automatic else workload_mode)
+        configured_mode = ("automatic" if workload_mode in {
+            "automatic", "conservative_automatic", "automatic_unverified_gaming",
+            "automatic_unverified_normal"}
+            else workload_mode)
         return {
             "resource_governance_required": True,
             "purpose": "local_model_serving",
@@ -284,12 +292,16 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
                 "gpu_layers": load_configuration["n_gpu_layers"],
                 "configuration_digest": semantic_digest(load_configuration),
             },
-            "workload_mode": effective_mode,
+            "workload_mode": ("normal" if unverified_automatic_normal
+                else configured_mode),
+            "effective_workload_mode": effective_mode,
             "serving_workload_evidence": {
                 "configured_mode": configured_mode,
                 "mode_source": (
                     "foreground_observation_unavailable_conservative_gaming"
                     if conservative_automatic else
+                    "foreground_allowlist_match" if unverified_automatic_gaming else
+                    "foreground_allowlist_no_match" if unverified_automatic_normal else
                     "foreground_allowlist_match" if workload_mode == "automatic"
                     and game_active else
                     "foreground_allowlist_no_match" if workload_mode == "automatic"
@@ -302,7 +314,9 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
                 "game_foreground": game_active,
                 "game_process_running": game_active,
                 "transport_provenance": (None if conservative_automatic
-                    or workload_mode == "gaming" else {"message_id": "b" * 64}),
+                    or unverified_automatic_gaming or unverified_automatic_normal
+                    or workload_mode == "gaming"
+                    else {"message_id": "b" * 64}),
             },
         }
 
@@ -330,6 +344,14 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
         assert runtime["evidence_refs"][
             "gaming_workload_profile_evidence"]["mode_source"] == (
                 expected_mode_source)
+    elif workload_mode == "automatic_unverified_gaming":
+        assert runtime["evidence_refs"][
+            "gaming_workload_profile_evidence"]["mode_source"] == (
+                "foreground_allowlist_match")
+    elif workload_mode == "automatic_unverified_normal":
+        assert runtime["evidence_refs"][
+            "gaming_workload_profile_evidence"]["mode_source"] == (
+                "foreground_allowlist_no_match")
     else:
         assert runtime["evidence_refs"]["game_workload_evidence"]["message_id"] == "b" * 64
 
@@ -405,7 +427,8 @@ def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
-            "workload_mode": mode,
+            "workload_mode": "automatic" if automatic_mode else mode,
+            "effective_workload_mode": mode,
             "model_execution_profile": {
                 "schema_version": "sentientos.model_execution_profile:v1",
                 "engine": "llama_cpp", "accelerator_route": "gpu",
@@ -698,7 +721,8 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
-            "workload_mode": ("gaming" if workload.game_foreground is True
+            "workload_mode": "automatic",
+            "effective_workload_mode": ("gaming" if workload.game_foreground is True
                 or workload.game_process_running is True else "normal"),
             "model_execution_profile": {
                 "schema_version": "sentientos.model_execution_profile:v1",
