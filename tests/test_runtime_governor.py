@@ -192,7 +192,7 @@ def test_local_model_resource_release_rejects_unknown_reason(
 
 @pytest.mark.parametrize("mutation", [
     "report_digest", "game_message_id", "pressure_labels", "below_pressure_threshold",
-    "stale_observation", "wrong_target",
+    "stale_observation", "owner_window_stale", "wrong_target",
 ])
 def test_production_game_gpu_release_requires_exact_current_evidence(
         monkeypatch, tmp_path, mutation):
@@ -205,7 +205,9 @@ def test_production_game_gpu_release_requires_exact_current_evidence(
         source_correlation.encode("utf-8")).hexdigest()[:32]
     release_correlation = "production-chat-resource-release-" + hashlib.sha256(
         source_correlation.encode("utf-8")).hexdigest()[:24]
-    observed_at = datetime.now(timezone.utc).isoformat()
+    game_observed_at = datetime.now(timezone.utc).isoformat()
+    observed_at = (datetime.now(timezone.utc) - timedelta(seconds=16)).isoformat() \
+        if mutation == "owner_window_stale" else game_observed_at
     game_message_id = "b" * 64
     governor._host_resource_evidence_by_correlation[observation_id] = {
         "observation_correlation_id": observation_id,
@@ -217,10 +219,10 @@ def test_production_game_gpu_release_requires_exact_current_evidence(
         "vram_utilization_percent": 93.0,
     }
     workload = ForegroundGameObservation("available", True, "a" * 64,
-        observed_at, transport_provenance={"message_id": game_message_id,
+        game_observed_at, transport_provenance={"message_id": game_message_id,
             "source_id": "windows-foreground", "session_id": "session-1",
             "generation_id": "generation-1", "sequence": 1,
-            "envelope_created_at": observed_at})
+            "envelope_created_at": game_observed_at})
     assert governor.observe_verified_game_workload(workload)
     evidence = {
         "schema_version": "sentientos.production_game_gpu_resource_release_evidence:v1",
@@ -266,7 +268,7 @@ def test_production_game_gpu_release_requires_exact_current_evidence(
 @pytest.mark.parametrize("mutation", [
     "report_digest", "game_message_id", "pressure_labels", "stale_observation",
     "wrong_target", "wrong_correlation", "invalid_preemption_flag",
-    "stale_cached_inference_sample",
+    "stale_cached_inference_sample", "owner_window_stale",
 ])
 @pytest.mark.no_legacy_skip
 def test_production_game_host_pressure_release_requires_exact_current_evidence(
@@ -286,7 +288,9 @@ def test_production_game_host_pressure_release_requires_exact_current_evidence(
         release_source.encode("utf-8")).hexdigest()[:24]
     current_time = datetime.now(timezone.utc)
     observed_at = ((current_time - timedelta(seconds=3)).isoformat()
-        if mutation == "stale_cached_inference_sample" else current_time.isoformat())
+        if mutation == "stale_cached_inference_sample" else
+        (current_time - timedelta(seconds=16)).isoformat()
+        if mutation == "owner_window_stale" else current_time.isoformat())
     game_observed_at = current_time.isoformat()
     game_message_id = "b" * 64
     governor._host_resource_evidence_by_correlation[observation_id] = {

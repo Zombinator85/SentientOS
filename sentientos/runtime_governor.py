@@ -1344,6 +1344,10 @@ class RuntimeGovernor:
         correlation_id: str | None,
     ) -> GovernorDecision:
         """Admit a narrowly scoped, fail-safe local model residency release."""
+        from sentientos.host_resource_runtime import (
+            HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS,
+        )
+
         payload = dict(metadata or {})
         identity_digest = payload.get("model_identity_digest")
         reason_code = payload.get("reason_code")
@@ -1541,8 +1545,9 @@ class RuntimeGovernor:
                     and (game_evidence.get("game_foreground") is True
                          or game_evidence.get("game_process_running") is True)
                     and release_age_seconds is not None
-                    and 0 <= release_age_seconds <= 120
-                    and host_age is not None and 0 <= host_age <= 120
+                    and 0 <= release_age_seconds <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS
+                    and host_age is not None
+                    and 0 <= host_age <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS
                     and game_age is not None and 0 <= game_age <= 10
                     and host_evidence is not None
                     and host_evidence.get("observation_correlation_id") == observation_id
@@ -1810,7 +1815,8 @@ class RuntimeGovernor:
                     and re.fullmatch(r"local-chat-inference-[0-9a-f]{32}",
                         raw_observation_id) is not None)
                 host_freshness_limit_seconds = (
-                    2.0 if cached_inference_sample_id else 120.0)
+                    2.0 if cached_inference_sample_id
+                    else HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS)
                 expected_release_correlation = ("production-chat-resource-release-" +
                     hashlib.sha256((source_correlation if raw_trigger_kind == "deferred_inference"
                         else str(raw_trigger_kind) + ":" + source_correlation).encode("utf-8")).hexdigest()[:24]
@@ -1874,7 +1880,8 @@ class RuntimeGovernor:
                     and game_evidence.get("message_id") == raw_game_id
                     and (game_evidence.get("game_foreground") is True
                          or game_evidence.get("game_process_running") is True)
-                    and release_age_seconds is not None and 0 <= release_age_seconds <= 120
+                    and release_age_seconds is not None
+                    and 0 <= release_age_seconds <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS
                     and game_age is not None and 0 <= game_age <= 10)
             valid = valid and evidence_valid
             evidence_ref = ({
@@ -1995,8 +2002,9 @@ class RuntimeGovernor:
                     and host_evidence.get("report_digest") == raw_report_digest
                     and host_evidence.get("observed_at") == raw_observed_at
                     and profile_release_age_seconds is not None
-                    and 0 <= profile_release_age_seconds <= 120
-                    and profile_host_age is not None and 0 <= profile_host_age <= 120)
+                    and 0 <= profile_release_age_seconds <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS
+                    and profile_host_age is not None
+                    and 0 <= profile_host_age <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS)
             valid = valid and evidence_valid
             evidence_ref = ({
                 "status": "current",

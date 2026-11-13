@@ -54,6 +54,7 @@ from .local_model_production_serving import (
     read_serving_operation_history,
 )
 from .host_resource_runtime import (
+    HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS,
     HostResourceRuntimeCoordinator,
     validate_evaluation as validate_host_resource_evaluation,
 )
@@ -216,7 +217,8 @@ class ProductionServingInferenceController:
             "no_effect_authority": True,
         }
 
-    def _latest_cached_host_resources(self, *, max_age_seconds: float = 15.0
+    def _latest_cached_host_resources(
+            self, *, max_age_seconds: float = HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS
             ) -> dict[str, Any] | None:
         """Summarize a fresh cached sample without starting or waiting for collection."""
         owner = self._host_resource_observation_owner
