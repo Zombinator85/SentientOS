@@ -307,9 +307,19 @@ def test_automatic_game_detection_unavailable_keeps_gpu_inference_deferred(
         serving.close()
 
 
-@pytest.mark.parametrize("gpu_layers,expected_status", [(24, "deferred"), (0, "admitted_completed")])
-def test_current_gpu_pressure_defers_only_gpu_backed_foreground_inference(
-        monkeypatch, tmp_path, gpu_layers, expected_status):
+@pytest.mark.parametrize(("pressure_kind", "gpu_layers", "expected_status",
+    "expected_reason"), [
+    ("gpu", 24, "deferred",
+        "deferred_gpu_backed_local_model_inference_under_gpu_pressure"),
+    ("gpu", 0, "admitted_completed", "allowed"),
+    ("memory", 24, "deferred",
+        "deferred_local_model_inference_under_memory_pressure"),
+    ("memory", 0, "deferred",
+        "deferred_local_model_inference_under_memory_pressure"),
+])
+def test_current_host_pressure_defers_optional_foreground_inference_by_resource_route(
+        monkeypatch, tmp_path, pressure_kind, gpu_layers, expected_status,
+        expected_reason):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -330,11 +340,13 @@ def test_current_gpu_pressure_defers_only_gpu_backed_foreground_inference(
             HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
                 collector("cpu", utilization_percent=20.0)),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
-                collector("memory", used_percent=40.0)),
+                collector("memory", used_percent=(96.0 if pressure_kind == "memory"
+                    else 40.0))),
             HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
                 collector("nvidia_gpu", device_count=1, devices=[{
-                    "index": 0, "gpu_utilization_percent": 96.0,
-                    "vram_utilization_percent": 91.0}])),
+                    "index": 0,
+                    "gpu_utilization_percent": 96.0 if pressure_kind == "gpu" else 20.0,
+                    "vram_utilization_percent": 91.0 if pressure_kind == "gpu" else 30.0}])),
         ]), clock=lambda: now.isoformat())
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, host_resource_observation_owner=host_owner,
@@ -354,17 +366,18 @@ def test_current_gpu_pressure_defers_only_gpu_backed_foreground_inference(
         receipt = bridge.generate(
             prompt=("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
                 "[SESSION_HISTORY_DATA]\nUSER_DATA: optional request"),
-            caller="chat_service", correlation_id="foreground-gpu-pressure",
+            caller="chat_service", correlation_id="foreground-resource-pressure",
             budget=LocalModelInvocationBudget(8192, 200, 20, 5.0, 2),
             resource_context=resource_context)
 
         assert receipt.status == expected_status
-        assert model.calls == (0 if gpu_layers else 1)
+        assert model.calls == (1 if expected_status == "admitted_completed" else 0)
         assert serving.current_session() == session
         assert resource_ledger.remaining_calls(
-            resource_context.allocation.allocation_id) == (2 if gpu_layers else 1)
+            resource_context.allocation.allocation_id) == (
+                1 if expected_status == "admitted_completed" else 2)
         assert resource_ledger.snapshot_counts() == (
-            (1, 0, 0) if gpu_layers else (1, 1, 3))
+            (1, 1, 3) if expected_status == "admitted_completed" else (1, 0, 0))
         decisions = [json.loads(line) for line in
             (tmp_path / "kernel-decisions.jsonl").read_text(
                 encoding="utf-8").splitlines()]
@@ -372,13 +385,14 @@ def test_current_gpu_pressure_defers_only_gpu_backed_foreground_inference(
             if item.get("action_kind") == "local_model_inference")
         delegated = inference_decision["delegated_outcomes"]["runtime_governor"]
         assert delegated["evidence_refs"]["host_resource_evidence"]["status"] == "current"
-        assert delegated["evidence_refs"]["observed_pressure_labels"] == ["gpu_pressure"]
-        if gpu_layers:
-            assert delegated["reason"] == (
-                "deferred_gpu_backed_local_model_inference_under_gpu_pressure")
+        expected_label = "gpu_pressure" if pressure_kind == "gpu" else "memory_pressure"
+        assert delegated["evidence_refs"]["observed_pressure_labels"] == [expected_label]
+        assert delegated["reason"] == expected_reason
+        if expected_status == "deferred":
             assert receipt.output_text is None
+            assert delegated["evidence_refs"]["host_resource_evidence"][
+                "ram_utilization_percent"] == (96.0 if pressure_kind == "memory" else 40.0)
         else:
-            assert delegated["reason"] == "allowed"
             assert receipt.output_text == "answer"
     finally:
         serving.close()

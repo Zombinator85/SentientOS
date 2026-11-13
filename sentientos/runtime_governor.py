@@ -2425,6 +2425,7 @@ class RuntimeGovernor:
                             "observation_correlation_id"],
                         "gpu_utilization_percent": evidence.get("gpu_utilization_percent"),
                         "vram_utilization_percent": evidence.get("vram_utilization_percent"),
+                        "ram_utilization_percent": evidence.get("ram_utilization_percent"),
                         "gpu_telemetry_available": evidence.get("gpu_telemetry_available"),
                         "gpu_telemetry_complete": evidence.get("gpu_telemetry_complete"),
                         "age_seconds": round(evidence_age_seconds, 3),
@@ -2677,6 +2678,13 @@ class RuntimeGovernor:
             # when the competing process cannot be attributed to a game.
             reason, blocks = (
                 "deferred_gpu_backed_local_model_inference_under_gpu_pressure", True)
+        elif (operation_kind == "inference" and foreground
+                and "memory_pressure" in pressure_reasons):
+            # Foreground chat remains optional model work. A current host RAM
+            # pressure signal also applies to CPU-backed inference, whose model
+            # weights and working set compete for the same constrained memory.
+            reason, blocks = (
+                "deferred_local_model_inference_under_memory_pressure", True)
         elif (operation_kind in {"inference", "model_serving"}
                 and gaming_workload_profile_active
                 and gaming_profile_resource_telemetry_incomplete):
