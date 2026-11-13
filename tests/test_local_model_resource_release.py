@@ -9,7 +9,9 @@ from types import SimpleNamespace
 
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
-from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
+from sentientos.governed_local_model_invocation import (
+    GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt,
+)
 from sentientos.local_model import LocalModel
 from sentientos.local_model_authority import build_local_model_authority_map
 
@@ -132,26 +134,43 @@ def test_pressure_release_defers_without_interrupting_active_inference(
 def test_admitted_release_cancellation_keeps_admission_for_invocation_receipt(
         tmp_path: Path) -> None:
     model, _, invoker = _configured(tmp_path, resident=True)
-    active_release_event = threading.Event()
-    assert invoker._active_invocation_lock.acquire(blocking=False)
-    invoker._active_release_event = active_release_event
-    model.cancel_pending_generation = lambda: True  # type: ignore[attr-defined]
+    generation_started = threading.Event()
+    backend_cancelled = threading.Event()
 
-    def quiesce_after_cancellation() -> None:
-        assert active_release_event.wait(timeout=1.0)
-        invoker._active_invocation_lock.release()
+    def generate(_prompt: str, **kwargs: object) -> str:
+        generation_started.set()
+        cancel_event = kwargs.get("_cancel_event")
+        assert isinstance(cancel_event, threading.Event)
+        assert cancel_event.wait(timeout=2.0)
+        assert backend_cancelled.wait(timeout=2.0)
+        raise RuntimeError("synthetic_backend_cancelled")
 
-    worker = threading.Thread(target=quiesce_after_cancellation)
+    model.generate = generate  # type: ignore[attr-defined]
+    model.cancel_pending_generation = lambda: (backend_cancelled.set() or True)  # type: ignore[attr-defined]
+    request = invoker.build_request(purpose="local_user_chat", prompt="wait",
+        caller="test", correlation_id="owner-release-cancellation",
+        budget=LocalModelInvocationBudget(timeout_seconds=3.0))
+    invocation_result = []
+    worker = threading.Thread(target=lambda: invocation_result.append(
+        invoker.invoke(request)))
     worker.start()
-    try:
-        receipt = invoker.release_model_residency()
-    finally:
-        worker.join(timeout=1.0)
+    assert generation_started.wait(timeout=1.0)
+    release_receipt = invoker.release_model_residency()
+    worker.join(timeout=2.0)
 
     assert not worker.is_alive()
-    assert receipt.status == "released"
-    assert invoker._active_cancel_reason == "workload_transition"
-    assert invoker._active_cancel_admission_ref == receipt.admission_decision_ref
+    assert release_receipt.status == "released"
+    assert len(invocation_result) == 1
+    invocation_receipt = invocation_result[0]
+    assert invocation_receipt.status == "cancelled"
+    assert invocation_receipt.cancellation_admission_decision_ref == (
+        release_receipt.admission_decision_ref)
+    assert validate_receipt(invocation_receipt.to_dict())[0]
+    persisted = json.loads((tmp_path / "runtime" / "receipts" /
+        f"{invocation_receipt.receipt_id}.json").read_text(encoding="utf-8"))
+    assert validate_receipt(persisted)[0]
+    assert persisted["cancellation_admission_decision_ref"] == (
+        release_receipt.admission_decision_ref)
 
 
 def test_unloaded_model_is_not_reloaded_by_release_transition(tmp_path: Path) -> None:
