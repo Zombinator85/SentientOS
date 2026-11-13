@@ -543,8 +543,9 @@ def test_production_cancellation_reaches_active_governed_invocation(monkeypatch,
     serving.close()
 
 
-def test_resource_reconciliation_accelerates_only_during_automatic_inference(
-        monkeypatch, tmp_path):
+@pytest.mark.parametrize("mode", ["normal", "automatic"])
+def test_resource_reconciliation_accelerates_during_active_inference(
+        monkeypatch, tmp_path, mode):
     started = threading.Event()
     finish = threading.Event()
 
@@ -558,9 +559,10 @@ def test_resource_reconciliation_accelerates_only_during_automatic_inference(
         monkeypatch, tmp_path, on_generate=wait_for_release)
     wakeup = threading.Event()
     bridge.set_resource_reconciliation_wakeup(wakeup.set)
-    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
-    assert wakeup.wait(timeout=1)
-    wakeup.clear()
+    if mode == "automatic":
+        bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+        assert wakeup.wait(timeout=1)
+        wakeup.clear()
     assert bridge.resource_reconciliation_interval_seconds() == 5.0
     result = {}
     thread = threading.Thread(target=lambda: result.setdefault("receipt", bridge.generate(
@@ -1638,11 +1640,11 @@ def test_normal_host_pressure_cancels_active_optional_inference(
         serving.close()
 
 
-@pytest.mark.parametrize(("gpu_layers", "cpu_pressure"), [
-    (24, False), (0, True),
-], ids=["gpu-residency", "cpu-host-pressure"])
-def test_verified_automatic_game_cancels_active_optional_inference(
-        monkeypatch, tmp_path, gpu_layers, cpu_pressure, request):
+@pytest.mark.parametrize(("gpu_layers", "cpu_pressure", "game_active"), [
+    (24, False, True), (0, True, True), (0, True, False),
+], ids=["gpu-game-residency", "cpu-game-pressure", "cpu-normal-host-pressure"])
+def test_scheduled_resource_priority_cancels_active_optional_inference(
+        monkeypatch, tmp_path, gpu_layers, cpu_pressure, game_active, request):
     import asyncio
     from cryptography import x509
     from sentientos import chat_service
@@ -1774,6 +1776,7 @@ def test_verified_automatic_game_cancels_active_optional_inference(
     chat_service._RESOURCE_RECONCILIATION_TASK = None
     invocation_result = {}
     game_message_id = {}
+    runtime_residency = {}
     active_prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
         "[SESSION_HISTORY_DATA]\nUSER_DATA: optional inference")
 
@@ -1794,30 +1797,37 @@ def test_verified_automatic_game_cancels_active_optional_inference(
                 raise AssertionError("optional inference did not start")
             if cpu_pressure:
                 cpu_telemetry["utilization_percent"] = 95.0
-            presence_message = presence_publisher.publish_once(("ExampleGame.exe",))
-            game_message_id["value"] = presence_message.payload["message_id"]
-            bridge._foreground_game_detector = game_detector
-            bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+            if game_active:
+                presence_message = presence_publisher.publish_once(("ExampleGame.exe",))
+                game_message_id["value"] = presence_message.payload["message_id"]
+                bridge._foreground_game_detector = game_detector
+                bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+            else:
+                bridge._notify_resource_reconciliation_wakeup()
             assert bridge.resource_reconciliation_interval_seconds() == 0.5
             if not await asyncio.to_thread(cancelled.wait, 5):
                 raise AssertionError(
-                    f"scheduled game-priority cancellation was not delivered: "
+                    f"scheduled resource-priority cancellation was not delivered: "
                     f"{reconciliations!r}")
-            expected_release_trigger = ("idle_game_reconciliation" if cpu_pressure
-                else "idle_game_gpu_residency")
-            release_deadline = time.monotonic() + 5
-            while time.monotonic() < release_deadline:
-                if any(item.get("trigger_kind") == expected_release_trigger
-                        and item.get("status") == "worker_closed"
-                        for item in reconciliations):
-                    break
-                await asyncio.sleep(.01)
-            else:
-                raise AssertionError(
-                    f"scheduled game-priority release was not confirmed: "
-                    f"{reconciliations!r}")
+            if game_active:
+                expected_release_trigger = ("idle_game_reconciliation" if cpu_pressure
+                    else "idle_game_gpu_residency")
+                release_deadline = time.monotonic() + 5
+                while time.monotonic() < release_deadline:
+                    if any(item.get("trigger_kind") == expected_release_trigger
+                            and item.get("status") == "worker_closed"
+                            for item in reconciliations):
+                        break
+                    await asyncio.sleep(.01)
+                else:
+                    raise AssertionError(
+                        f"scheduled game-priority release was not confirmed: "
+                        f"{reconciliations!r}")
             await asyncio.to_thread(invocation.join, 5)
             assert not invocation.is_alive()
+            runtime_residency["model_closed"] = model.closed
+            runtime_residency["session_current"] = (
+                serving.current_session() == session)
             return chat_service._RESOURCE_RECONCILIATION_TASK is not None
         finally:
             await chat_service._shutdown_event()
@@ -1832,30 +1842,54 @@ def test_verified_automatic_game_cancels_active_optional_inference(
 
     assert scheduler_started is True
     assert not invocation.is_alive()
-    trigger_kind = "idle_game_reconciliation" if cpu_pressure else "idle_game_gpu_residency"
-    reconciliation = next((item for item in reconciliations
-        if item.get("trigger_kind") == trigger_kind), None)
-    assert reconciliation is not None, reconciliations
-    assert reconciliation["status"] == "worker_closed", reconciliations
-    assert reconciliation["trigger_kind"] == trigger_kind
-    if cpu_pressure:
+    if game_active:
+        trigger_kind = ("idle_game_reconciliation" if cpu_pressure
+            else "idle_game_gpu_residency")
+        reconciliation = next((item for item in reconciliations
+            if item.get("trigger_kind") == trigger_kind), None)
+        assert reconciliation is not None, reconciliations
+        assert reconciliation["status"] == "worker_closed", reconciliations
+        assert reconciliation["trigger_kind"] == trigger_kind
+        if cpu_pressure:
+            preemption = next((item for item in reconciliations
+                if item.get("trigger_kind") ==
+                    "verified_game_workload_active_inference_preemption"), None)
+            assert preemption is not None, reconciliations
+            assert preemption["active_inference_cancellation_confirmed"] is True
+        else:
+            assert reconciliation["active_inference_cancellation_confirmed"] is True
+    else:
         preemption = next((item for item in reconciliations
             if item.get("trigger_kind") ==
-                "verified_game_workload_active_inference_preemption"), None)
+                "host_resource_pressure_active_inference_preemption"), None)
         assert preemption is not None, reconciliations
+        assert preemption["status"] == "preempted"
         assert preemption["active_inference_cancellation_confirmed"] is True
-    else:
-        assert reconciliation["active_inference_cancellation_confirmed"] is True
     assert invocation_result["receipt"].status == "cancelled"
     assert invocation_result["receipt"].output_text is None
     assert resource_ledger.remaining_calls(bundle.allocation_id) == 1
     assert len(resource_ledger._state["attempts"]) == 1
     assert resource_ledger._state["receipts"][-1]["state"] == "reconciled"
-    assert model.closed is True
-    assert serving.current_session() is None
+    assert runtime_residency["model_closed"] is game_active
+    assert runtime_residency["session_current"] is (not game_active)
 
-    release_path = next((tmp_path / "state" / "installations" / "install-1" /
-        "state" / "local-model" / "serving" / "resource-release-receipts").glob("*.json"))
+    release_directory = (tmp_path / "state" / "installations" / "install-1" /
+        "state" / "local-model" / "serving" / "resource-release-receipts")
+    if not game_active:
+        assert not list(release_directory.glob("*.json"))
+        preemption_decision = next(json.loads(line) for line in reversed(
+            (tmp_path / "kernel-decisions.jsonl").read_text(
+                encoding="utf-8").splitlines())
+            if json.loads(line).get("action_kind") == "local_model_inference_preemption")
+        preemption_governor = preemption_decision["delegated_outcomes"]["runtime_governor"]
+        assert preemption_governor["allowed"] is True
+        assert preemption_governor["reason"] == (
+            "allowed_host_resource_pressure_inference_preemption")
+        assert preemption_governor["evidence_refs"]["host_resource_evidence"][
+            "pressure_labels"] == ["cpu_pressure"]
+        return
+
+    release_path = next(release_directory.glob("*.json"))
     release = json.loads(release_path.read_text(encoding="utf-8"))
     assert release["active_inference_preemption_requested"] is (not cpu_pressure)
     assert release["active_inference_cancellation_confirmed"] is (

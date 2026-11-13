@@ -116,7 +116,7 @@ class ProductionServingInferenceController:
                  "_last_active_host_resource_sample_at")
 
     RESOURCE_RECONCILIATION_INTERVAL_SECONDS = 5.0
-    ACTIVE_GAME_PRIORITY_RECONCILIATION_INTERVAL_SECONDS = 0.5
+    ACTIVE_RESOURCE_PRIORITY_RECONCILIATION_INTERVAL_SECONDS = 0.5
 
     def __init__(self, serving_controller: ProductionServingController, *,
                  runtime_handoff_id: str | None = None,
@@ -151,20 +151,16 @@ class ProductionServingInferenceController:
             if invoker is not None else False)
 
     def resource_reconciliation_interval_seconds(self) -> float:
-        """Poll workload priority faster during automatic or gaming-mode inference.
+        """Poll resource governance faster while optional inference is active.
 
-        The regular cadence can run host collectors and remains deliberately
-        conservative. While optional inference is actually in flight, the busy
-        reconciliation path reads only verified workload/frame evidence and
-        can request governed cancellation, so a shorter interval is bounded.
+        The active path can observe host pressure and request governed
+        cancellation, or prioritize a verified gaming workload. It runs more
+        often only while a backend invocation is pending.
         """
-        with self._workload_lock:
-            priority_mode = self._workload_mode in {"automatic", "gaming"}
-        if priority_mode:
-            with self._active_invoker_lock:
-                inference_active = self._active_invoker is not None
-            if inference_active:
-                return self.ACTIVE_GAME_PRIORITY_RECONCILIATION_INTERVAL_SECONDS
+        with self._active_invoker_lock:
+            inference_active = self._active_invoker is not None
+        if inference_active:
+            return self.ACTIVE_RESOURCE_PRIORITY_RECONCILIATION_INTERVAL_SECONDS
         return self.RESOURCE_RECONCILIATION_INTERVAL_SECONDS
 
     def set_resource_reconciliation_wakeup(
