@@ -640,6 +640,7 @@ class ProductionServingInferenceController:
                 "observation_correlation_id": host_release_evidence[
                     "observation_correlation_id"],
                 "host_report_id": host_release_evidence["host_report_id"],
+                "host_report_digest": host_release_evidence["host_report_digest"],
                 "pressure_labels": list(labels),
                 **({"workload_mode": "gaming",
                     "workload_mode_source": "operator_selected"}
