@@ -261,11 +261,19 @@ def read_serving_operation_history(handle: Any, *, maximum: int = MAX_SERVING_OP
             "serving_operation_attempt_id", "serving_operation_attempt_semantic_digest",
             "model_loaded_at",
         }
+        receipt_fields = frozenset(receipt) if isinstance(receipt, dict) else frozenset()
+        contextual_receipt_fields = {
+            frozenset(legacy_receipt_fields | {"resource_admission_context"}),
+            frozenset(linked_receipt_fields | {"resource_admission_context"}),
+        }
         if (not isinstance(receipt, dict) or raw != _canonical(receipt)
-                or frozenset(receipt) not in {frozenset(legacy_receipt_fields),
+                or (receipt_fields not in {frozenset(legacy_receipt_fields),
                     frozenset(linked_receipt_fields)}
+                    and receipt_fields not in contextual_receipt_fields)
+                or ("resource_admission_context" in receipt
+                    and not isinstance(receipt.get("resource_admission_context"), dict))
                 or receipt.get("status") not in {"production_current", "serving_session_bound"}
-                or (frozenset(receipt) == frozenset(linked_receipt_fields)
+                or ("serving_operation_attempt_id" in receipt
                     and (not isinstance(receipt.get("model_loaded_at"), str)
                         or not isinstance(receipt.get("serving_operation_attempt_id"), str)
                         or not receipt.get("serving_operation_attempt_id")

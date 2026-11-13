@@ -1479,7 +1479,9 @@ def test_scheduled_reconciliation_restores_released_model_through_fresh_serving_
 
     def admission_context(correlation_id, _activation_state):
         admission_contexts.append(correlation_id)
-        return {}
+        return {"resource_governance_required": True,
+            "purpose": "local_model_serving",
+            "host_resource_observation_id": correlation_id}
 
     def model_factory_factory(identity):
         def create(_config, _load):

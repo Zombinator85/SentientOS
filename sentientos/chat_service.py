@@ -816,7 +816,8 @@ class ProductionChatComposition:
     def ready(self) -> bool:
         return self._serving.serving_is_current()
     def reconcile_workload_state(self) -> dict[str, Any]:
-        recovery_pending = self._serving.resource_recovery_pending()
+        recovery_pending = getattr(self._serving,
+            "resource_recovery_pending", lambda: False)()
         result = self.service.reconcile_workload_state()
         if recovery_pending:
             # Give the ordinary workload/resource owner the first chance to observe
