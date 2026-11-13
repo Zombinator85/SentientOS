@@ -2115,35 +2115,37 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
             memory.update(used_percent=40.0)
             cpu.update(utilization_percent=20.0)
             thermal["zones"][0]["temperature_c"] = 55.0
-            if pressure_kind == "gpu":
-                serving_mode["value"] = "automatic"
-                publish_recovery_game(True)
+            serving_mode["value"] = "automatic"
+            publish_recovery_game(True)
             callback = wakeup_callbacks[-1]
             callback()
-            if pressure_kind == "gpu":
-                deadline = time.monotonic() + 5
-                while time.monotonic() < deadline:
-                    if (recovery_results and recovery_results[-1].get(
-                            "serving_recovery", {}).get("status") == "deferred"
-                            and len(models) == 1):
-                        decisions_now = [json.loads(line) for line in
-                            (tmp_path / "kernel-decisions.jsonl").read_text(
-                                encoding="utf-8").splitlines()]
-                        if any(item.get("action_kind") ==
-                                "establish_exact_activated_model_serving_session"
-                                and item.get("delegated_outcomes", {}).get(
-                                    "runtime_governor", {}).get("reason") ==
-                                    "deferred_gpu_model_serving_while_game_active"
-                                for item in decisions_now):
-                            break
-                    await asyncio.sleep(.01)
-                else:
-                    raise AssertionError(
-                        "recovery did not defer while the verified game remained active")
-                assert serving.current_session() is None
-                assert serving.resource_recovery_pending() is True
-                publish_recovery_game(False)
-                callback()
+            game_serving_reason = (
+                "deferred_gpu_model_serving_while_game_active"
+                if pressure_kind == "gpu" else
+                "deferred_cpu_model_serving_while_game_active")
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                if (recovery_results and recovery_results[-1].get(
+                        "serving_recovery", {}).get("status") == "deferred"
+                        and len(models) == 1):
+                    decisions_now = [json.loads(line) for line in
+                        (tmp_path / "kernel-decisions.jsonl").read_text(
+                            encoding="utf-8").splitlines()]
+                    if any(item.get("action_kind") ==
+                            "establish_exact_activated_model_serving_session"
+                            and item.get("delegated_outcomes", {}).get(
+                                "runtime_governor", {}).get("reason") ==
+                                game_serving_reason
+                            for item in decisions_now):
+                        break
+                await asyncio.sleep(.01)
+            else:
+                raise AssertionError(
+                    "recovery did not defer while the verified game remained active")
+            assert serving.current_session() is None
+            assert serving.resource_recovery_pending() is True
+            publish_recovery_game(False)
+            callback()
             if not await asyncio.to_thread(restored.wait, 5):
                 raise AssertionError("scheduler did not recover after host pressure cleared")
             decisions = [json.loads(line) for line in

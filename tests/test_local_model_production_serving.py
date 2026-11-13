@@ -205,6 +205,8 @@ def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, o
     (20.0, True, 16, "automatic", False, "deferred_gpu_model_serving_while_game_active"),
     (20.0, False, 16, "automatic", True, "allowed"),
     (20.0, False, 16, "gaming", False, "deferred_gpu_model_serving_in_gaming_mode"),
+    (20.0, False, 0, "gaming", False,
+        "deferred_cpu_model_serving_in_gaming_mode"),
     (20.0, False, 16, "conservative_automatic", False,
         "deferred_game_workload_observation_unavailable_for_model_serving"),
     (20.0, False, 16, "automatic_unverified_gaming", False,
@@ -214,7 +216,8 @@ def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, o
     ((None, 20.0), False, 16, "automatic", False, "deferred_gpu_offload_telemetry_incomplete"),
     ((20.0, None), False, 16, "automatic", False, "deferred_gpu_offload_telemetry_incomplete"),
     (None, True, 16, "automatic", False, "deferred_resource_telemetry_incomplete_during_game"),
-    (20.0, True, 0, "automatic", True, "allowed"),
+    (20.0, True, 0, "automatic", False,
+        "deferred_cpu_model_serving_while_game_active"),
 ])
 def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
         monkeypatch, handle, gpu_value, game_active, gpu_layers, workload_mode,
@@ -339,7 +342,9 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
     assert runtime["evidence_refs"]["host_resource_evidence"]["status"] == "current"
     if workload_mode in {"gaming", "conservative_automatic"}:
         assert runtime["evidence_refs"][
-            "optional_gpu_model_load_in_gaming_profile"] is True
+            "optional_model_load_in_gaming_profile"] is True
+        assert runtime["evidence_refs"][
+            "optional_gpu_model_load_in_gaming_profile"] is (gpu_layers > 0)
         expected_mode_source = (
             "foreground_observation_unavailable_conservative_gaming"
             if workload_mode == "conservative_automatic" else "operator_selected")
@@ -448,12 +453,14 @@ def test_cpu_and_thermal_pressure_block_initial_model_load_before_factory(
     assert runtime["evidence_refs"]["observed_pressure_labels"] == [expected_label]
 
 
-@pytest.mark.parametrize(("transition", "expected_reason"), [
-    ("game_started", "deferred_gpu_model_serving_while_game_active"),
-    ("gaming_profile_selected", "deferred_gpu_model_serving_in_gaming_mode"),
+@pytest.mark.parametrize(("transition", "gpu_layers", "expected_reason"), [
+    ("game_started", 16, "deferred_gpu_model_serving_while_game_active"),
+    ("game_started", 0, "deferred_cpu_model_serving_while_game_active"),
+    ("gaming_profile_selected", 16, "deferred_gpu_model_serving_in_gaming_mode"),
+    ("gaming_profile_selected", 0, "deferred_cpu_model_serving_in_gaming_mode"),
 ])
-def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
-        monkeypatch, handle, transition, expected_reason):
+def test_runtime_governor_revalidates_game_priority_after_model_load(
+        monkeypatch, handle, transition, gpu_layers, expected_reason):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(handle.root / "governor"))
     monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(handle.root / "federation"))
@@ -492,7 +499,7 @@ def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
                     "vram_utilization_percent": 30.0}]))
         ]), clock=lambda: now.isoformat())
     model = Model(identity())
-    current = evidence(gpu_layers=16)
+    current = evidence(gpu_layers=gpu_layers)
     latest_game = {"observation": idle_game}
     latest_mode = {"mode": "normal"}
 
@@ -523,8 +530,9 @@ def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
             "effective_workload_mode": mode,
             "model_execution_profile": {
                 "schema_version": "sentientos.model_execution_profile:v1",
-                "engine": "llama_cpp", "accelerator_route": "gpu",
-                "gpu_layers": 16,
+                "engine": "llama_cpp",
+                "accelerator_route": "gpu" if gpu_layers else "cpu",
+                "gpu_layers": gpu_layers,
                 "configuration_digest": semantic_digest(load_configuration),
             },
             "serving_workload_evidence": {
@@ -564,7 +572,9 @@ def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
         assert runtime_evidence["game_workload_evidence"]["message_id"] == "c" * 64
     else:
         assert runtime_evidence[
-            "optional_gpu_model_load_in_gaming_profile"] is True
+            "optional_model_load_in_gaming_profile"] is True
+        assert runtime_evidence[
+            "optional_gpu_model_load_in_gaming_profile"] is (gpu_layers > 0)
     assert host_owner.collector_call_count == 6
     from sentientos.local_model_production_serving import read_serving_operation_history
     assert read_serving_operation_history(handle)[0]["status"] == (

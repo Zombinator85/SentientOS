@@ -2595,18 +2595,16 @@ class RuntimeGovernor:
             game_evidence_ref.get("status") == "current"
             or game_workload_ref.get("game_active") is True
         )
-        optional_gpu_model_load_during_game = (
+        optional_model_load_during_game = (
             operation_kind == "model_serving"
-            and gpu_offload_requested
             and verified_game_active
         )
         optional_inference_during_game = (
             operation_kind == "inference"
             and verified_game_active
         )
-        optional_gpu_model_load_in_gaming_profile = (
+        optional_model_load_in_gaming_profile = (
             operation_kind == "model_serving"
-            and gpu_offload_requested
             and (gaming_workload_profile_active
                  or conservative_automatic_gaming_profile)
         )
@@ -2732,19 +2730,24 @@ class RuntimeGovernor:
             # sampled utilization is nominal. This admission decision does not
             # control the game process or grant telemetry hardware authority.
             reason, blocks = "deferred_local_model_inference_while_game_active", True
-        elif optional_gpu_model_load_during_game:
-            # Loading an optional GPU model can create a large transient
-            # allocation even when the current utilization sample is nominal.
-            # Preserve game priority by waiting until authenticated game
-            # activity ends; this does not affect CPU-only serving.
-            reason, blocks = "deferred_gpu_model_serving_while_game_active", True
-        elif optional_gpu_model_load_in_gaming_profile:
+        elif optional_model_load_during_game:
+            # Loading an optional model can consume CPU, memory, or accelerator
+            # resources even when current utilization is nominal. Preserve game
+            # priority on both execution routes until authenticated game
+            # activity ends; this does not control the game process.
+            reason = ("deferred_gpu_model_serving_while_game_active"
+                if gpu_offload_requested else
+                "deferred_cpu_model_serving_while_game_active")
+            blocks = True
+        elif optional_model_load_in_gaming_profile:
             # The explicit and conservative gaming profiles prioritize the
-            # interactive workload over optional GPU residency, without
-            # claiming that a game process was independently observed.
-            reason = ("deferred_gpu_model_serving_in_conservative_automatic_mode"
-                if conservative_automatic_gaming_profile else
-                "deferred_gpu_model_serving_in_gaming_mode")
+            # interactive workload over optional residency on both execution
+            # routes, without claiming that a game process was independently
+            # observed.
+            route = "gpu" if gpu_offload_requested else "cpu"
+            profile = ("conservative_automatic_mode"
+                if conservative_automatic_gaming_profile else "gaming_mode")
+            reason = f"deferred_{route}_model_serving_in_{profile}"
             blocks = True
         elif not foreground and gpu_telemetry_incomplete:
             reason, blocks = "deferred_gpu_offload_telemetry_incomplete", True
@@ -2802,8 +2805,10 @@ class RuntimeGovernor:
                 "model_gpu_layers": gpu_layers,
                 "model_accelerator_route": accelerator_route,
                 "model_configuration_digest": gpu_profile_digest,
+                "optional_model_load_in_gaming_profile": (
+                    optional_model_load_in_gaming_profile),
                 "optional_gpu_model_load_in_gaming_profile": (
-                    optional_gpu_model_load_in_gaming_profile),
+                    optional_model_load_in_gaming_profile and gpu_offload_requested),
                 "gpu_telemetry_incomplete_for_model": gpu_telemetry_incomplete,
                 "game_performance_evidence": game_evidence_ref,
                 "game_workload_evidence": game_workload_ref,
@@ -2840,8 +2845,10 @@ class RuntimeGovernor:
         payload["game_performance_evidence"] = game_evidence_ref
         payload["game_workload_evidence"] = game_workload_ref
         payload["game_frame_pressure"] = game_pressure
+        payload["optional_model_load_in_gaming_profile"] = (
+            optional_model_load_in_gaming_profile)
         payload["optional_gpu_model_load_in_gaming_profile"] = (
-            optional_gpu_model_load_in_gaming_profile)
+            optional_model_load_in_gaming_profile and gpu_offload_requested)
         payload["host_pressure_during_verified_game"] = game_host_pressure
         payload["gaming_workload_profile_host_pressure"] = (
             gaming_workload_profile_host_pressure)
@@ -3520,6 +3527,7 @@ class RuntimeGovernor:
                 for key in ("host_resource_evidence", "observed_pressure_labels",
                             "game_performance_evidence", "game_workload_evidence",
                             "game_frame_pressure", "host_pressure_during_verified_game",
+                            "optional_model_load_in_gaming_profile",
                             "optional_gpu_model_load_in_gaming_profile",
                             "gaming_workload_profile_host_pressure",
                             "gaming_workload_profile_resource_telemetry_incomplete",
