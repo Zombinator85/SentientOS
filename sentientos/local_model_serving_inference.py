@@ -317,6 +317,35 @@ class ProductionServingInferenceController:
             state["configured_game_process_names"] = list(names)
         return state
 
+    def _release_workload_evidence_is_current(
+            self, trigger_kind: str,
+            expected_configured_mode: str | None = None) -> bool:
+        """Recheck workload authorization at the release admission boundary."""
+        current = self.current_workload_state()
+        if expected_configured_mode == "gaming" or trigger_kind in {
+                "gaming_profile_resource_reconciliation",
+                "active_gaming_profile_resource_reconciliation",
+                "idle_gaming_profile_gpu_residency"}:
+            return (current.get("configured_mode") == "gaming"
+                and current.get("mode_source") == "operator_selected"
+                and current.get("observation_status") == "not_requested")
+        if expected_configured_mode == "automatic" and trigger_kind in {
+                "conservative_automatic_gaming_resource_reconciliation",
+                "active_conservative_automatic_gaming_resource_reconciliation"}:
+            return (current.get("configured_mode") == "automatic"
+                and current.get("mode_source") in {
+                    "foreground_observation_unavailable_conservative_gaming",
+                    "game_process_observation_unavailable_conservative_gaming"}
+                and current.get("observation_status") in
+                    CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES)
+        provenance = current.get("transport_provenance")
+        return (current.get("configured_mode") == "automatic"
+            and current.get("observation_status") == "available"
+            and (current.get("game_foreground") is True
+                or current.get("game_process_running") is True)
+            and isinstance(provenance, Mapping)
+            and isinstance(provenance.get("message_id"), str))
+
     def _software_generation_attribution(self) -> dict[str, Any]:
         if self._runtime_handoff_id is None:
             return unavailable_chat_process_software_generation()
@@ -452,6 +481,9 @@ class ProductionServingInferenceController:
              trigger_kind + ":" + source_correlation).encode("utf-8")).hexdigest()[:24]
         loaded_identity = getattr(model, "active_identity", None)
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
+            return None
+        if not self._release_workload_evidence_is_current(
+                trigger_kind, str(workload_evidence.get("configured_mode"))):
             return None
         profile_release = selected_gaming_profile or conservative_automatic_profile
         host_release_evidence = {
@@ -1124,6 +1156,9 @@ class ProductionServingInferenceController:
             "frame_time_p95_ms": p95,
             "hitch_count_over_50ms": hitches,
         }
+        if not self._release_workload_evidence_is_current(
+                "idle_game_frame_pressure_reconciliation", str(configured_mode)):
+            return None
         release_correlation = "production-chat-resource-release-" + hashlib.sha256(
             ("idle_game_frame_pressure_reconciliation:" + trigger_correlation)
             .encode("utf-8")).hexdigest()[:24]
@@ -1294,6 +1329,11 @@ class ProductionServingInferenceController:
         if ((selected_gaming_profile and not profile_evidence)
                 or (not selected_gaming_profile and not game_evidence)
                 or type(gpu_layers) is not int or not 1 <= gpu_layers <= 256):
+            return None
+        if not self._release_workload_evidence_is_current(
+                ("idle_gaming_profile_gpu_residency" if selected_gaming_profile
+                    else "idle_game_gpu_residency"),
+                "gaming" if selected_gaming_profile else "automatic"):
             return None
         loaded_identity = getattr(model, "active_identity", None)
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):

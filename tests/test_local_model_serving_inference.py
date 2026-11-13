@@ -1660,7 +1660,9 @@ def test_scheduled_reconciliation_restores_released_model_through_fresh_serving_
     serving.close()
 
 
-def test_automatic_game_release_revalidates_game_after_host_collection(monkeypatch, tmp_path):
+@pytest.mark.parametrize("gpu_layers,expected_detector_calls", [(0, 2), (24, 3)])
+def test_automatic_game_release_revalidates_game_before_release(
+        monkeypatch, tmp_path, gpu_layers, expected_detector_calls):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -1699,14 +1701,14 @@ def test_automatic_game_release_revalidates_game_after_host_collection(monkeypat
     detector = GamePresenceChangesDuringCollection()
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, foreground_game_detector=detector,
-        host_resource_observation_owner=host_owner, gpu_layers=0)
+        host_resource_observation_owner=host_owner, gpu_layers=gpu_layers)
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
 
     result = bridge.reconcile_idle_game_resource_state()
 
     assert result["status"] == "skipped", (result, detector.calls)
     assert result["reason"] == "fresh_verified_game_evidence_required"
-    assert detector.calls == 2
+    assert detector.calls == expected_detector_calls
     assert model.closed is False
     assert serving.current_session() == session
     assert list((tmp_path / "state" / "installations" / "install-1" /
