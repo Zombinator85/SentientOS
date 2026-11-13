@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -14,7 +15,7 @@ from sentientos.control_plane_kernel import (
 )
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.local_model import ActiveModelIdentity
-from sentientos.local_model_authority import build_local_model_authority_map
+from sentientos.local_model_authority import build_local_model_authority_map, digest_payload
 from sentientos.local_model_production_serving import ProductionServingController, ServingSession
 from sentientos.local_model_serving_inference import (
     ProductionServingInferenceController,
@@ -370,7 +371,7 @@ def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generat
         InstallationIdentity.parse(installation_identity), create=True)
     kernel = kernel_override or Kernel(inference)
     model = Model(identity, on_generate)
-    factory = model_factory(identity) if model_factory is not None else (lambda c, l: model)
+    factory = model_factory(identity, model) if model_factory is not None else (lambda c, l: model)
     serving = ProductionServingController(handle, kernel, model_factory=factory)
     monkeypatch.setattr(serving, "_commissioning_identity", lambda s: identity.to_dict())
     session = serving.establish(operation_id=serving_operation_id,
@@ -980,6 +981,60 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
             return ForegroundGameObservation("unavailable", None, None,
                 now.isoformat())
 
+    bridge_holder = {}
+
+    def serving_resource_context(correlation_id, activation_state):
+        observation_id = "local-chat-serving-" + hashlib.sha256(
+            correlation_id.encode("utf-8")).hexdigest()[:32]
+        host_owner.run_cycle(correlation_id=observation_id)
+        if "bridge" in bridge_holder:
+            workload = bridge_holder["bridge"].current_workload_state()
+        else:
+            workload = {"configured_mode": "normal", "mode_source": "operator_selected",
+                "observation_status": "not_requested", "game_foreground": None,
+                "game_process_running": None, "observed_at": None,
+                "transport_provenance": None}
+        load_configuration = activation_state.get("load_configuration")
+        gpu_layers = (load_configuration.get("n_gpu_layers")
+            if isinstance(load_configuration, Mapping) else None)
+        profile_layers = (gpu_layers if type(gpu_layers) is int
+            and 0 <= gpu_layers <= 256 else None)
+        model_execution_profile = {
+            "schema_version": "sentientos.model_execution_profile:v1",
+            "engine": "llama_cpp",
+            "accelerator_route": ("gpu" if profile_layers else
+                "cpu" if profile_layers == 0 else "unknown"),
+            "gpu_layers": profile_layers,
+            "configuration_digest": digest_payload(
+                dict(load_configuration) if isinstance(load_configuration, Mapping) else {}),
+        }
+        return {
+            "resource_governance_required": True,
+            "purpose": "local_model_serving",
+            "host_resource_observation_namespace": "local-chat-serving",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": model_execution_profile,
+            "workload_mode": workload.get("configured_mode"),
+            "serving_workload_evidence": {key: workload.get(key) for key in (
+                "configured_mode", "mode_source", "observation_status",
+                "game_foreground", "game_process_running", "observed_at",
+                "transport_provenance")},
+        }
+
+    models = []
+
+    def model_factory(identity, initial_model):
+        models.append(initial_model)
+        initial_pending = [True]
+        def create(_config, _load):
+            if initial_pending[0]:
+                initial_pending[0] = False
+                return initial_model
+            model = Model(identity)
+            models.append(model)
+            return model
+        return create
+
     started = threading.Event()
     cancelled = threading.Event()
 
@@ -992,7 +1047,10 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, foreground_game_detector=UnavailableGameDetector(),
         host_resource_observation_owner=host_owner, gpu_layers=24,
-        on_generate=active_generation)
+        on_generate=active_generation,
+        serving_admission_context_provider=serving_resource_context,
+        model_factory=model_factory)
+    bridge_holder["bridge"] = bridge
     model.cancel_pending_generation = lambda: (cancelled.set() or True)
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
     inference_result = {}
@@ -1021,20 +1079,39 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
         close_outputs=lambda: None)
     previous_composition = chat_service._PRODUCTION_COMPOSITION
     previous_reconciliation_task = chat_service._RESOURCE_RECONCILIATION_TASK
-    chat_service._PRODUCTION_COMPOSITION = chat_service.ProductionChatComposition(
-        service, serving)
+    composition = chat_service.ProductionChatComposition(service, serving)
+    chat_service._PRODUCTION_COMPOSITION = composition
     chat_service._RESOURCE_RECONCILIATION_TASK = None
+    recovery_results = {}
 
     async def run_reconciliation_scheduler():
         await chat_service._startup_event()
         try:
             invocation.start()
-            assert await asyncio.to_thread(started.wait, 5), inference_result
+            assert await asyncio.to_thread(started.wait, 5), {
+                "status": getattr(inference_result.get("receipt"), "status", None),
+                "request": getattr(inference_result.get("receipt"), "request", None),
+                "error": inference_result.get("error")}
             host_pressure[0] = True
             assert await asyncio.to_thread(cancelled.wait, 5)
             assert bridge.resource_reconciliation_interval_seconds() == 0.5
             await asyncio.to_thread(invocation.join, 5)
             assert not invocation.is_alive()
+            deferred = await asyncio.to_thread(composition.reconcile_workload_state)
+            recovery_results["automatic"] = deferred["serving_recovery"]
+            assert recovery_results["automatic"]["status"] == "deferred"
+            assert serving.current_session() is None
+            assert serving.resource_recovery_pending() is True
+
+            host_pressure[0] = False
+            bridge.set_workload_mode("gaming")
+            restored = await asyncio.to_thread(composition.reconcile_workload_state)
+            recovery_results["gaming"] = restored["serving_recovery"]
+            recovered_session = serving.current_session()
+            assert recovery_results["gaming"]["status"] == "restored"
+            assert recovered_session is not None and recovered_session != session
+            recovery_results["model_is_current"] = models[1].closed is False
+            recovery_results["pending_cleared"] = not serving.resource_recovery_pending()
             return chat_service._RESOURCE_RECONCILIATION_TASK is not None
         finally:
             await chat_service._shutdown_event()
@@ -1071,6 +1148,12 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
         assert release["active_inference_cancellation_confirmed"] is True
         assert release["resource_observation"]["configured_mode"] == "automatic"
         assert release["resource_observation"]["workload_observation_status"] == "unavailable"
+        assert recovery_results["automatic"]["reason_code"] == (
+            "model_serving_control_plane_not_allowed")
+        assert recovery_results["gaming"]["status"] == "restored"
+        assert recovery_results["model_is_current"] is True
+        assert recovery_results["pending_cleared"] is True
+        assert len(models) == 2
     finally:
         serving.close()
 
@@ -1483,8 +1566,11 @@ def test_scheduled_reconciliation_restores_released_model_through_fresh_serving_
             "purpose": "local_model_serving",
             "host_resource_observation_id": correlation_id}
 
-    def model_factory_factory(identity):
+    def model_factory_factory(identity, initial_model):
         def create(_config, _load):
+            if not models:
+                models.append(initial_model)
+                return initial_model
             model = Model(identity)
             models.append(model)
             return model
