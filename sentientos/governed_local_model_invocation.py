@@ -637,6 +637,8 @@ class LocalModelInvocationDeferred(RuntimeError):
 
 
 class GovernedLocalModelInvoker:
+    CANCELLATION_QUIESCENCE_TIMEOUT_SECONDS = 0.5
+
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
         self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_cancel_reason: str | None = None; self._active_residency_preload_event: threading.Event | None = None
 
@@ -645,7 +647,7 @@ class GovernedLocalModelInvoker:
         self._evidence_sink = sink
 
     def cancel_pending_generation(self, *, reason: str = "client_disconnect") -> bool:
-        """Cancel the active governed request after a client disconnect or timeout."""
+        """Request cancellation and confirm the exact backend worker has stopped."""
         if reason not in {"client_disconnect", "workload_transition"}:
             raise ValueError("invocation_cancellation_reason_invalid")
         with self._active_state_lock:
@@ -658,9 +660,14 @@ class GovernedLocalModelInvoker:
         if not callable(cancel):
             return False
         try:
-            return cancel() is True
+            requested = cancel() is True
         except Exception:
             return False
+        if not requested or not self._active_invocation_lock.acquire(
+                timeout=self.CANCELLATION_QUIESCENCE_TIMEOUT_SECONDS):
+            return False
+        self._active_invocation_lock.release()
+        return True
 
     def release_model_residency(self, *, reason_code: str = "gaming_mode_entered",
                                  correlation_id: str | None = None,

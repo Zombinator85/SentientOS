@@ -2104,9 +2104,12 @@ def test_verified_game_presence_retries_unconfirmed_cpu_inference_cancellation(
     def cancel_pending_generation():
         nonlocal cancel_attempt_count
         cancel_attempt_count += 1
-        if cancel_attempt_count == 2:
-            cancelled.set()
-        return cancelled.is_set()
+        if cancel_attempt_count == 1:
+            # The backend accepted the request but kept running; the governed
+            # owner must report unconfirmed until this invocation exits.
+            return True
+        cancelled.set()
+        return True
 
     model.cancel_pending_generation = cancel_pending_generation
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
