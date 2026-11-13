@@ -144,16 +144,16 @@ class ProductionServingInferenceController:
         self._last_active_host_resource_sample_at: float | None = None
 
     def cancel_pending_generation(self, *, reason: str = "client_disconnect",
-                                 preemption_admission_decision_ref: str | None = None) -> bool:
+                                 cancellation_admission_decision_ref: str | None = None) -> bool:
         """Forward cancellation to the exact governed invocation currently in flight."""
         with self._active_invoker_lock:
             invoker = self._active_invoker
         if invoker is None:
             return False
-        if preemption_admission_decision_ref is None:
+        if cancellation_admission_decision_ref is None:
             return invoker.cancel_pending_generation(reason=reason)
         return invoker.cancel_pending_generation(reason=reason,
-            preemption_admission_decision_ref=preemption_admission_decision_ref)
+            cancellation_admission_decision_ref=cancellation_admission_decision_ref)
 
     def resource_reconciliation_interval_seconds(self) -> float:
         """Poll resource governance faster while optional inference is active.
@@ -638,7 +638,8 @@ class ProductionServingInferenceController:
             try:
                 if preempt_active_generation:
                     active_inference_cancellation_confirmed = (
-                        self.cancel_pending_generation(reason="workload_transition"))
+                        self.cancel_pending_generation(reason="workload_transition",
+                            cancellation_admission_decision_ref=decision.admission_decision_ref))
                     if not active_inference_cancellation_confirmed:
                         close_failure = "active_inference_cancellation_unconfirmed"
                 if (not preempt_active_generation
@@ -1111,17 +1112,17 @@ class ProductionServingInferenceController:
             if not allowed:
                 return {"status": "denied",
                     "reason": "host_pressure_preemption_admission_required",
-                    "preemption_admission_decision_ref": admission.admission_decision_ref,
+                    "cancellation_admission_decision_ref": admission.admission_decision_ref,
                     "observation_correlation_id": observation_id}
             cancelled = active_invoker.cancel_pending_generation(
                 reason="workload_transition",
-                preemption_admission_decision_ref=admission.admission_decision_ref)
+                cancellation_admission_decision_ref=admission.admission_decision_ref)
             return {"status": "preempted" if cancelled else "preemption_unconfirmed",
                 "reason": ("host_resource_pressure_optional_inference_priority"
                     if cancelled else "active_inference_cancellation_unconfirmed"),
                 "trigger_kind": "host_resource_pressure_active_inference_preemption",
                 "serving_session_id": session.session_id,
-                "preemption_admission_decision_ref": admission.admission_decision_ref,
+                "cancellation_admission_decision_ref": admission.admission_decision_ref,
                 "observation_correlation_id": observation_id,
                 "host_report_id": report_id,
                 "pressure_labels": pressure_labels,
@@ -1503,15 +1504,15 @@ class ProductionServingInferenceController:
                 "allowed_verified_game_workload_inference_preemption")
         if not admitted:
             return {"status": "denied", "reason": "verified_game_preemption_admission_required",
-                "preemption_admission_decision_ref": decision.admission_decision_ref,
+                "cancellation_admission_decision_ref": decision.admission_decision_ref,
                 "trigger_kind": "verified_game_workload_active_inference_preemption",
                 "serving_session_id": session.session_id}
         cancelled = self.cancel_pending_generation(reason="workload_transition",
-            preemption_admission_decision_ref=decision.admission_decision_ref)
+            cancellation_admission_decision_ref=decision.admission_decision_ref)
         return {"status": "preempted" if cancelled else "preemption_unconfirmed",
             "reason": ("verified_game_workload_priority" if cancelled else
                 "active_inference_cancellation_unconfirmed"),
-            "preemption_admission_decision_ref": decision.admission_decision_ref,
+            "cancellation_admission_decision_ref": decision.admission_decision_ref,
             "game_workload_message_id": message_id,
             "trigger_kind": "verified_game_workload_active_inference_preemption",
             "serving_session_id": session.session_id,
@@ -1618,7 +1619,8 @@ class ProductionServingInferenceController:
                 before_release_observation = self._latest_cached_host_resources()
                 if preempt_active_generation:
                     active_inference_cancellation_confirmed = (
-                        self.cancel_pending_generation(reason="workload_transition"))
+                        self.cancel_pending_generation(reason="workload_transition",
+                            cancellation_admission_decision_ref=decision.admission_decision_ref))
                     if not active_inference_cancellation_confirmed:
                         close_failure = "active_inference_cancellation_unconfirmed"
                 if not preempt_active_generation or active_inference_cancellation_confirmed:
@@ -1837,7 +1839,8 @@ class ProductionServingInferenceController:
             try:
                 if preempt_active_generation:
                     active_inference_cancellation_confirmed = (
-                        self.cancel_pending_generation(reason="workload_transition"))
+                        self.cancel_pending_generation(reason="workload_transition",
+                            cancellation_admission_decision_ref=decision.admission_decision_ref))
                     if not active_inference_cancellation_confirmed:
                         close_failure = "active_inference_cancellation_unconfirmed"
                 if (not preempt_active_generation

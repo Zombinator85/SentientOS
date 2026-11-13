@@ -272,7 +272,7 @@ def test_invocation_timeout_cancels_cooperative_model_worker(tmp_path: Path) -> 
 
 
 
-def test_governed_preemption_reference_is_bound_to_cancelled_receipt(tmp_path: Path) -> None:
+def test_governed_cancellation_admission_is_bound_to_receipt(tmp_path: Path) -> None:
     model_path = tmp_path / "m.gguf"
     model_path.write_bytes(b"bytes")
     config = ModelConfig(candidates=[ModelCandidate(
@@ -298,20 +298,20 @@ def test_governed_preemption_reference_is_bound_to_cancelled_receipt(tmp_path: P
     assert model.calls == 1
     preemption_ref = "decision:governed-test-preemption"
     assert invoker.cancel_pending_generation(reason="workload_transition",
-        preemption_admission_decision_ref=preemption_ref) is True
+        cancellation_admission_decision_ref=preemption_ref) is True
     worker.join(1)
 
     assert not worker.is_alive()
     assert result[0].status == "cancelled"
     assert "cancelled_for_workload_transition" in result[0].reason_codes
-    assert result[0].preemption_admission_decision_ref == preemption_ref
+    assert result[0].cancellation_admission_decision_ref == preemption_ref
     assert result[0].schema_version == "sentientos.local_model_invocation_receipt:v4"
     valid, reasons = validate_receipt(result[0].to_dict())
     assert valid, reasons
     persisted = json.loads((tmp_path / "runtime" / "receipts" /
         f"{result[0].receipt_id}.json").read_text(encoding="utf-8"))
     assert validate_receipt(persisted)[0]
-    assert persisted["preemption_admission_decision_ref"] == preemption_ref
+    assert persisted["cancellation_admission_decision_ref"] == preemption_ref
     assert published_receipts[0]["receipt_digest"] == result[0].receipt_digest
     assert model.cancelled.is_set()
 

@@ -1440,6 +1440,8 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
         release_path = next((tmp_path / "state" / "installations" / "install-1" /
             "state" / "local-model" / "serving" / "resource-release-receipts").glob("*.json"))
         release = json.loads(release_path.read_text(encoding="utf-8"))
+        assert inference_result["receipt"].cancellation_admission_decision_ref == (
+            release["release_admission_decision_ref"])
         assert release["active_inference_preemption_requested"] is True
         assert release["active_inference_cancellation_confirmed"] is True
         assert release["resource_observation"]["configured_mode"] == "automatic"
@@ -1525,8 +1527,7 @@ def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
             "active_gaming_profile_resource_reconciliation")
         assert reconciliation["active_inference_cancellation_confirmed"] is True
         assert result["receipt"].status == "cancelled"
-        assert result["receipt"].preemption_admission_decision_ref == (
-            reconciliation["preemption_admission_decision_ref"])
+        assert result["receipt"].cancellation_admission_decision_ref
         assert result["receipt"].schema_version == (
             "sentientos.local_model_invocation_receipt:v4")
         assert result["receipt"].effects["local_model_inference"] is True
@@ -1539,6 +1540,8 @@ def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
         assert release["active_inference_preemption_requested"] is True
         assert release["active_inference_cancellation_confirmed"] is True
         assert release["resource_observation"]["workload_mode"] == "gaming"
+        assert result["receipt"].cancellation_admission_decision_ref == (
+            release["release_admission_decision_ref"])
         assert release["resource_observation"]["pressure_labels"] == ["cpu_pressure"]
         assert release["resource_observation"]["host_report_id"]
         assert release["host_mutation_performed"] is False
@@ -1870,7 +1873,7 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
         assert preemption["status"] == "preempted"
         assert preemption["active_inference_cancellation_confirmed"] is True
     assert invocation_result["receipt"].status == "cancelled"
-    assert invocation_result["receipt"].preemption_admission_decision_ref
+    assert invocation_result["receipt"].cancellation_admission_decision_ref
     assert invocation_result["receipt"].schema_version == (
         "sentientos.local_model_invocation_receipt:v4")
     assert invocation_result["receipt"].output_text is None
@@ -1914,10 +1917,19 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
     assert release["resource_observation"]["game_workload_message_id"] == (
         game_message_id["value"])
     if cpu_pressure:
+        preemption_decision = next(json.loads(line) for line in reversed(
+            (tmp_path / "kernel-decisions.jsonl").read_text(
+                encoding="utf-8").splitlines())
+            if json.loads(line).get("action_kind") ==
+                "local_model_inference_preemption")
+        assert invocation_result["receipt"].cancellation_admission_decision_ref == (
+            preemption_decision["admission_decision_ref"])
         assert release["resource_observation"]["pressure_labels"] == ["cpu_pressure"]
         assert release["resource_observation"]["host_report_id"]
         assert host_owner.collector_call_count >= 6
     else:
+        assert invocation_result["receipt"].cancellation_admission_decision_ref == (
+            release["release_admission_decision_ref"])
         assert release["resource_observation"]["model_gpu_layers"] == 24
         assert host_owner.collector_call_count >= 6
     assert release["inference_performed"] is False
