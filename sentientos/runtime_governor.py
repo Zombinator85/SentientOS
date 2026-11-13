@@ -2377,7 +2377,8 @@ class RuntimeGovernor:
         foreground = purpose == "local_user_chat"
         requested_observation_id = payload.get("host_resource_observation_id")
         namespace = payload.get("host_resource_observation_namespace")
-        if namespace not in {"local-chat-inference", "local-chat-serving"}:
+        if namespace not in {"local-chat-inference", "local-chat-serving",
+                "local-chat-reconciliation"}:
             namespace = "local-chat-inference"
         expected_observation_id = (str(namespace) + "-" + hashlib.sha256(
             correlation_id.encode("utf-8")).hexdigest()[:32]
@@ -2430,6 +2431,8 @@ class RuntimeGovernor:
                         "report_digest": evidence["report_digest"],
                         "observation_correlation_id": evidence[
                             "observation_correlation_id"],
+                        "observed_at": evidence.get("observed_at"),
+                        "pressure_labels": sorted(labels),
                         "cpu_utilization_percent": evidence.get("cpu_utilization_percent"),
                         "gpu_utilization_percent": evidence.get("gpu_utilization_percent"),
                         "vram_utilization_percent": evidence.get("vram_utilization_percent"),
@@ -2770,7 +2773,7 @@ class RuntimeGovernor:
 
         preemption = payload.get("active_inference_preemption")
         preemption_requested = preemption is not None
-        preemption_valid = (
+        game_preemption_valid = (
             isinstance(preemption, Mapping)
             and preemption.get("schema_version") ==
                 "sentientos.active_inference_preemption:v1"
@@ -2786,9 +2789,44 @@ class RuntimeGovernor:
             and preemption.get("game_workload_message_id") ==
                 game_workload_ref.get("message_id")
         )
+        host_pressure_preemption_fields = {
+            "schema_version", "preemption_kind", "workload_mode",
+            "serving_session_id", "model_identity_digest",
+            "observation_correlation_id", "host_report_id", "host_report_digest",
+            "pressure_labels", "observed_at",
+        }
+        host_pressure_preemption_valid = (
+            isinstance(preemption, Mapping)
+            and set(preemption) == host_pressure_preemption_fields
+            and preemption.get("schema_version") ==
+                "sentientos.active_inference_preemption:v2"
+            and preemption.get("preemption_kind") == "host_resource_pressure"
+            and preemption.get("workload_mode") == "normal"
+            and actor == "production_chat_host_resource_governor"
+            and subject == actor
+            and isinstance(preemption.get("serving_session_id"), str)
+            and re.fullmatch(r"serving-session-[0-9a-f]{24}", str(
+                preemption.get("serving_session_id"))) is not None
+            and isinstance(preemption.get("model_identity_digest"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", str(
+                preemption.get("model_identity_digest"))) is not None
+            and evidence_ref.get("status") == "current"
+            and isinstance(preemption.get("observation_correlation_id"), str)
+            and preemption.get("observation_correlation_id") ==
+                evidence_ref.get("observation_correlation_id")
+            and preemption.get("host_report_id") == evidence_ref.get("report_id")
+            and preemption.get("host_report_digest") == evidence_ref.get("report_digest")
+            and preemption.get("observed_at") == evidence_ref.get("observed_at")
+            and isinstance(preemption.get("pressure_labels"), list)
+            and preemption.get("pressure_labels") == sorted(pressure_reasons)
+            and bool(pressure_reasons)
+        )
+        preemption_valid = game_preemption_valid or host_pressure_preemption_valid
         if preemption_requested:
             reason = ("allowed_verified_game_workload_inference_preemption"
-                if preemption_valid else
+                if game_preemption_valid else
+                "allowed_host_resource_pressure_inference_preemption"
+                if host_pressure_preemption_valid else
                 "deferred_active_inference_preemption_game_evidence_unavailable")
             blocks = not preemption_valid
 
@@ -2837,6 +2875,8 @@ class RuntimeGovernor:
                     game_resource_telemetry_incomplete),
                 "active_inference_preemption_requested": preemption_requested,
                 "active_inference_preemption_admitted": preemption_valid,
+                "active_host_pressure_preemption_admitted":
+                    host_pressure_preemption_valid,
             },
         )
         posture = self._compose_runtime_posture(

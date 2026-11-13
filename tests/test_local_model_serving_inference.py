@@ -1552,6 +1552,92 @@ def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
         serving.close()
 
 
+def test_normal_host_pressure_cancels_active_optional_inference(
+        monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    cpu_pressure = {"active": False}
+
+    def collector(collector_id, **values):
+        def collect(*, observed_at=None):
+            current = dict(values)
+            if collector_id == "cpu":
+                current["utilization_percent"] = (
+                    95.0 if cpu_pressure["active"] else 20.0)
+            return HostCollectorResult(collector_id, "available",
+                observed_at or now.isoformat(), "synthetic_test_fixture",
+                values=current)
+        return collect
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+        ]), clock=lambda: now.isoformat())
+    started = threading.Event()
+    cancelled = threading.Event()
+
+    def active_generation():
+        started.set()
+        if not cancelled.wait(timeout=5):
+            raise AssertionError("normal host-pressure cancellation was not delivered")
+        raise RuntimeError("fixture_generation_cancelled_for_normal_host_pressure")
+
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner,
+        gpu_layers=0, on_generate=active_generation)
+    model.cancel_pending_generation = lambda: (cancelled.set() or True)
+    result = {}
+    invocation = threading.Thread(target=lambda: result.setdefault(
+        "receipt", bridge.generate(prompt=("[SYSTEM_INSTRUCTION]\nRules.\n"
+            "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello"),
+            caller="operator", correlation_id="normal-host-pressure-active-inference")))
+    invocation.start()
+    try:
+        assert started.wait(timeout=5)
+        cpu_pressure["active"] = True
+        reconciliation = bridge.reconcile_workload_state()
+        invocation.join(timeout=5)
+
+        assert not invocation.is_alive()
+        assert reconciliation["status"] == "preempted", reconciliation
+        assert reconciliation["trigger_kind"] == (
+            "host_resource_pressure_active_inference_preemption")
+        assert reconciliation["pressure_labels"] == ["cpu_pressure"]
+        assert reconciliation["active_inference_cancellation_confirmed"] is True
+        assert reconciliation["model_residency_released"] is False
+        assert result["receipt"].status == "cancelled"
+        assert result["receipt"].effects["local_model_inference"] is True
+        assert model.closed is False
+        assert serving.current_session() == session
+        assert host_owner.latest_evaluation().pressure_report.pressure_labels == (
+            "cpu_pressure",)
+        decisions = [json.loads(line) for line in
+            (tmp_path / "kernel-decisions.jsonl").read_text(
+                encoding="utf-8").splitlines()]
+        preemption = next(item for item in reversed(decisions)
+            if item.get("action_kind") == "local_model_inference_preemption")
+        delegated = preemption["delegated_outcomes"]["runtime_governor"]
+        assert delegated["allowed"] is True
+        assert delegated["reason"] == (
+            "allowed_host_resource_pressure_inference_preemption")
+        evidence = delegated["evidence_refs"]["host_resource_evidence"]
+        assert evidence["status"] == "current"
+        assert evidence["pressure_labels"] == ["cpu_pressure"]
+    finally:
+        if invocation.is_alive():
+            model.cancel_pending_generation()
+            invocation.join(timeout=5)
+        serving.close()
+
+
 @pytest.mark.parametrize(("gpu_layers", "cpu_pressure"), [
     (24, False), (0, True),
 ], ids=["gpu-residency", "cpu-host-pressure"])

@@ -825,6 +825,9 @@ class ProductionServingInferenceController:
             if (pending_workload.get("configured_mode") == "gaming"
                     or verified_active_game):
                 return self._preempt_for_verified_game_workload()
+            if pending_workload.get("configured_mode") == "normal":
+                return self._preempt_active_inference_for_host_pressure(
+                    active_invoker)
         if not self._receipt_capacity_lock.acquire(blocking=False):
             return self._preempt_for_verified_game_workload()
         try:
@@ -1007,6 +1010,124 @@ class ProductionServingInferenceController:
             "observation_correlation_id": observation.get(
                 "observation_correlation_id"),
             "serving_session_id": session.session_id}
+
+    def _preempt_active_inference_for_host_pressure(
+            self, active_invoker: GovernedLocalModelInvoker) -> dict[str, Any]:
+        """Govern cancellation of an in-flight optional request on fresh host pressure."""
+        if not self._preemption_lock.acquire(blocking=False):
+            return {"status": "skipped", "reason": "host_pressure_preemption_in_progress"}
+        try:
+            with self._active_invoker_lock:
+                if self._active_invoker is not active_invoker:
+                    return {"status": "skipped", "reason": "active_inference_changed"}
+            if not active_invoker.backend_work_pending():
+                return {"status": "skipped", "reason": "active_backend_work_required"}
+            workload = self.current_workload_state()
+            if workload.get("configured_mode") != "normal":
+                return {"status": "skipped", "reason": "normal_workload_mode_not_current"}
+            sample_started_at = time.monotonic()
+            previous_sample_at = self._last_active_host_resource_sample_at
+            if (previous_sample_at is not None
+                    and sample_started_at - previous_sample_at < 2.0):
+                return {"status": "skipped",
+                    "reason": "active_host_pressure_observation_throttled"}
+            self._last_active_host_resource_sample_at = sample_started_at
+            correlation_id = "active-normal-host-resource-preemption-" + str(time.time_ns())
+            observation = self._observe_host_resources(
+                correlation_id, observation_namespace="local-chat-reconciliation")
+            labels = observation.get("pressure_labels")
+            if (observation.get("status") != "current"
+                    or observation.get("no_effect_authority") is not True
+                    or not isinstance(labels, (tuple, list))
+                    or not all(isinstance(label, str) for label in labels)
+                    or not set(labels).intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS)):
+                return {"status": "skipped",
+                    "reason": "current_actionable_host_pressure_required",
+                    "observation_correlation_id": observation.get(
+                        "observation_correlation_id")}
+            # A game or profile transition may take ownership while collectors run.
+            workload = self.current_workload_state()
+            if workload.get("configured_mode") != "normal":
+                return {"status": "skipped", "reason": "normal_workload_mode_not_current",
+                    "observation_correlation_id": observation.get(
+                        "observation_correlation_id")}
+            session = self._serving.current_session()
+            if session is None:
+                return {"status": "skipped", "reason": "no_resident_serving_session"}
+            try:
+                model = self._serving._current_inference_model(session)
+            except ProductionServingError:
+                return {"status": "skipped", "reason": "current_serving_session_required"}
+            identity = getattr(model, "active_identity", None)
+            if identity is None or not callable(getattr(identity, "to_dict", None)):
+                return {"status": "skipped", "reason": "exact_loaded_model_identity_required"}
+            observation_id = observation.get("observation_correlation_id")
+            report_id = observation.get("report_id")
+            report_digest = observation.get("report_digest")
+            observed_at = observation.get("observed_at")
+            if any(not isinstance(value, str) or not value for value in (
+                    observation_id, report_id, report_digest, observed_at)):
+                return {"status": "skipped", "reason": "host_pressure_binding_incomplete"}
+            pressure_labels = sorted(set(labels).intersection(
+                ACTIONABLE_RESOURCE_PRESSURE_LABELS))
+            admission = self._serving._kernel.admit(ControlActionRequest(
+                action_kind="local_model_inference_preemption",
+                authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+                actor="production_chat_host_resource_governor",
+                target_subsystem="governed_local_model_invocation",
+                requested_phase=LifecyclePhase.RUNTIME,
+                metadata={
+                    "correlation_id": correlation_id,
+                    "purpose": "local_user_chat",
+                    "resource_governance_required": True,
+                    "host_resource_observation_namespace": "local-chat-reconciliation",
+                    "host_resource_observation_id": observation_id,
+                    "active_inference_preemption": {
+                        "schema_version": "sentientos.active_inference_preemption:v2",
+                        "preemption_kind": "host_resource_pressure",
+                        "workload_mode": "normal",
+                        "serving_session_id": session.session_id,
+                        "model_identity_digest": digest_payload(identity.to_dict()),
+                        "observation_correlation_id": observation_id,
+                        "host_report_id": report_id,
+                        "host_report_digest": report_digest,
+                        "pressure_labels": pressure_labels,
+                        "observed_at": observed_at,
+                    },
+                }))
+            delegated = admission.delegated_outcomes.get("runtime_governor")
+            allowed = (admission.allowed
+                and admission.outcome == AdmissionOutcome.ALLOW
+                and admission.authority_class == AuthorityClass.LOCAL_MODEL_INFERENCE
+                and admission.action_kind == "local_model_inference_preemption"
+                and admission.actor == "production_chat_host_resource_governor"
+                and admission.target_subsystem == "governed_local_model_invocation"
+                and admission.correlation_id == correlation_id
+                and isinstance(delegated, Mapping)
+                and delegated.get("allowed") is True
+                and delegated.get("reason") ==
+                    "allowed_host_resource_pressure_inference_preemption")
+            if not allowed:
+                return {"status": "denied",
+                    "reason": "host_pressure_preemption_admission_required",
+                    "preemption_admission_decision_ref": admission.admission_decision_ref,
+                    "observation_correlation_id": observation_id}
+            cancelled = active_invoker.cancel_pending_generation(
+                reason="workload_transition")
+            return {"status": "preempted" if cancelled else "preemption_unconfirmed",
+                "reason": ("host_resource_pressure_optional_inference_priority"
+                    if cancelled else "active_inference_cancellation_unconfirmed"),
+                "trigger_kind": "host_resource_pressure_active_inference_preemption",
+                "serving_session_id": session.session_id,
+                "preemption_admission_decision_ref": admission.admission_decision_ref,
+                "observation_correlation_id": observation_id,
+                "host_report_id": report_id,
+                "pressure_labels": pressure_labels,
+                "active_inference_cancellation_confirmed": cancelled,
+                "model_residency_released": False,
+            }
+        finally:
+            self._preemption_lock.release()
 
     def _preempt_for_verified_game_workload(self) -> dict[str, Any]:
         """Admit and cancel optional inference when a game workload takes priority."""
