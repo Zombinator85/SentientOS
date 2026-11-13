@@ -472,6 +472,66 @@ def test_conservative_automatic_profile_release_requires_registered_host_evidenc
     assert decision.evidence_refs["resource_observation_evidence"]["status"] != "current"
 
 
+@pytest.mark.parametrize("observation_status,expected", [
+    ("unavailable", True),
+    ("bridge_observation_unavailable", True),
+    ("bridge_observation_invalid", True),
+    ("bridge_observation_expired", True),
+    ("unsupported_platform", False),
+])
+@pytest.mark.no_legacy_skip
+def test_conservative_automatic_release_retains_only_known_unavailable_statuses(
+        monkeypatch, tmp_path, observation_status, expected):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    trigger = "automatic-game-resource-reconcile-status-validation"
+    observation_id = "local-chat-reconciliation-" + hashlib.sha256(
+        trigger.encode("utf-8")).hexdigest()[:32]
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        ("conservative_automatic_gaming_resource_reconciliation:" + trigger)
+        .encode("utf-8")).hexdigest()[:24]
+    observed_at = datetime.now(timezone.utc).isoformat()
+    report_id = "host-report-status-validation"
+    report_digest = "a" * 64
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "observation_correlation_id": observation_id,
+        "observed_at": observed_at,
+        "report_id": report_id,
+        "report_digest": report_digest,
+        "pressure_labels": ("cpu_pressure",),
+    }
+    evidence = {
+        "schema_version": "sentientos.production_conservative_automatic_gaming_host_resource_release_evidence:v1",
+        "trigger_kind": "conservative_automatic_gaming_resource_reconciliation",
+        "trigger_correlation_id": trigger,
+        "observation_correlation_id": observation_id,
+        "host_report_id": report_id,
+        "host_report_digest": report_digest,
+        "observed_at": observed_at,
+        "pressure_labels": ["cpu_pressure"],
+        "configured_mode": "automatic",
+        "workload_mode": "gaming",
+        "workload_mode_source": "foreground_observation_unavailable_conservative_gaming",
+        "workload_observation_status": observation_status,
+    }
+    decision = governor._admit_local_model_resource_release(
+        actor="production_chat_workload_resource_governor",
+        subject="production_chat_workload_resource_governor",
+        correlation_id=release_correlation,
+        metadata={"purpose": "local_model_resource_release",
+            "reason_code": "conservative_automatic_profile_host_pressure",
+            "target_subsystem": "production_chat",
+            "model_identity_digest": "d" * 64,
+            "resource_observation": evidence})
+
+    assert decision.allowed is expected
+    if expected:
+        assert decision.evidence_refs["resource_observation_evidence"]["status"] == "current"
+    else:
+        assert decision.reason == "model_resource_release_pressure_evidence_required"
+
+
 @pytest.mark.parametrize("mutation,expected", [
     ("none", True), ("wrong_mode", False), ("wrong_source", False),
     ("stale", False), ("zero_gpu_layers", False), ("empty_session", False),

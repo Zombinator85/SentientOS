@@ -16,6 +16,9 @@ from sentientos.audit_trust_runtime import evaluate_audit_trust, write_audit_tru
 from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.federated_governance import get_controller as get_federated_governance_controller
 from sentientos.host_resource_governor import ACTIONABLE_RESOURCE_PRESSURE_LABELS
+from sentientos.foreground_game_detection import (
+    CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES,
+)
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 from sentientos.trust_ledger import get_trust_ledger
 
@@ -1952,7 +1955,8 @@ class RuntimeGovernor:
                 conservative_source = observation_value.get("workload_mode_source")
                 expected_workload_source = (
                     "operator_selected" if selected_profile else conservative_source)
-                expected_workload_status = "not_requested" if selected_profile else "unavailable"
+                expected_workload_status = ("not_requested" if selected_profile else
+                    observation_value.get("workload_observation_status"))
                 expected_schema = (
                     "sentientos.production_gaming_profile_host_resource_release_evidence:v1"
                     if selected_profile else
@@ -1970,6 +1974,8 @@ class RuntimeGovernor:
                     and observation_value.get("workload_mode") == "gaming"
                     and observation_value.get("workload_mode_source") == expected_workload_source
                     and observation_value.get("workload_observation_status") == expected_workload_status
+                    and (selected_profile or expected_workload_status in
+                        CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES)
                     and (selected_profile or (
                         observation_value.get("configured_mode") == "automatic"
                         and conservative_source in {

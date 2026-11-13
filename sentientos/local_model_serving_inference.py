@@ -37,6 +37,7 @@ from .local_model_resource_profile import (
 from .installation_state import InstallationStateError
 from .gaming_workload_policy import EffectiveWorkloadMode, GamingWorkloadPolicy, WorkloadMode
 from .foreground_game_detection import (
+    CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES,
     ForegroundGameDetector,
     ForegroundGameObservation,
     normalize_game_process_names,
@@ -57,13 +58,6 @@ from .host_resource_runtime import (
     validate_evaluation as validate_host_resource_evaluation,
 )
 from .host_resource_governor import ACTIONABLE_RESOURCE_PRESSURE_LABELS
-
-_CONSERVATIVE_AUTOMATIC_GAME_OBSERVATION_FAILURES = frozenset({
-    "unavailable",
-    "bridge_observation_unavailable",
-    "bridge_observation_invalid",
-    "bridge_observation_expired",
-})
 
 
 class ProductionServingInferenceError(RuntimeError):
@@ -428,7 +422,7 @@ class ProductionServingInferenceController:
                         "foreground_observation_unavailable_conservative_gaming",
                         "game_process_observation_unavailable_conservative_gaming"}
                     or workload_evidence.get("observation_status") not in
-                        _CONSERVATIVE_AUTOMATIC_GAME_OBSERVATION_FAILURES):
+                        CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES):
                 return None
             game_message_id = None
         else:
@@ -484,7 +478,8 @@ class ProductionServingInferenceController:
                 "configured_mode": "automatic",
                 "workload_mode": "gaming",
                 "workload_mode_source": workload_evidence.get("mode_source"),
-                "workload_observation_status": "unavailable",
+                "workload_observation_status": workload_evidence.get(
+                    "observation_status"),
             })
         else:
             host_release_evidence.update({
@@ -616,7 +611,8 @@ class ProductionServingInferenceController:
                     {"configured_mode": "automatic",
                      "workload_mode": "gaming",
                      "workload_mode_source": workload_evidence.get("mode_source"),
-                     "workload_observation_status": "unavailable"}
+                     "workload_observation_status": workload_evidence.get(
+                         "observation_status")}
                     if conservative_automatic_profile else
                     {"game_workload_message_id": game_message_id}),
             },
@@ -665,7 +661,7 @@ class ProductionServingInferenceController:
                     "foreground_observation_unavailable_conservative_gaming",
                     "game_process_observation_unavailable_conservative_gaming"}
                 and workload.get("observation_status") in
-                    _CONSERVATIVE_AUTOMATIC_GAME_OBSERVATION_FAILURES)
+                    CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES)
             if workload.get("configured_mode") != "automatic" and not selected_gaming_profile:
                 return {"status": "skipped", "reason": "gaming_workload_profile_required"}
             if not selected_gaming_profile and not conservative_automatic_profile:
@@ -734,7 +730,8 @@ class ProductionServingInferenceController:
             elif conservative_automatic_profile:
                 workload = self.current_workload_state()
                 if (workload.get("configured_mode") != "automatic"
-                        or workload.get("observation_status") != "unavailable"
+                        or workload.get("observation_status") not in
+                            CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES
                         or workload.get("mode_source") not in {
                             "foreground_observation_unavailable_conservative_gaming",
                             "game_process_observation_unavailable_conservative_gaming"}):
@@ -854,7 +851,7 @@ class ProductionServingInferenceController:
                     "foreground_observation_unavailable_conservative_gaming",
                     "game_process_observation_unavailable_conservative_gaming"}
                 and workload.get("observation_status") in
-                    _CONSERVATIVE_AUTOMATIC_GAME_OBSERVATION_FAILURES)
+                    CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES)
             if conservative_automatic_profile:
                 with self._active_invoker_lock:
                     active_invoker = self._active_invoker

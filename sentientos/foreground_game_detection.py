@@ -12,6 +12,16 @@ from typing import Any, Callable, Mapping
 
 _PROCESS_NAME = re.compile(r"[a-z0-9][a-z0-9 ._-]{0,126}\.exe\Z")
 
+# These statuses represent the explicit compatibility signal or authenticated
+# bridge failures that select conservative gaming mode. Other detector errors
+# still fail closed at host-resource release admission.
+CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES = frozenset({
+    "unavailable",
+    "bridge_observation_unavailable",
+    "bridge_observation_invalid",
+    "bridge_observation_expired",
+})
+
 
 @dataclass(frozen=True, slots=True)
 class ForegroundGameObservation:

@@ -750,7 +750,7 @@ def test_selected_gaming_profile_releases_gpu_model_under_pressure_or_for_reside
     (20.0, "skipped"),
 ])
 def test_conservative_automatic_profile_releases_resident_model_only_under_host_pressure(
-        monkeypatch, tmp_path, cpu_percent, expected_status):
+        monkeypatch, tmp_path, request, cpu_percent, expected_status):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -773,13 +773,25 @@ def test_conservative_automatic_profile_releases_resident_model_only_under_host_
                 collector("memory", used_percent=40.0)),
         ]), clock=lambda: now.isoformat())
 
-    class UnavailableGameDetector:
-        def observe(self, _process_names):
-            return ForegroundGameObservation("unavailable", None, None,
-                now.isoformat())
+    source_key = b"automatic-idle-release-game-source-key"
+    acknowledgment_key = b"automatic-idle-release-core-ack-key"
+    source_id = "idle-release-game-edge"
+    generation_id = "idle-release-game-generation-1"
+    runtime = CompanionBridgeLoopbackRuntime(
+        receiver=CompanionBridgeReceiver(source_keys={source_id: source_key},
+            expected_generations={source_id: generation_id}),
+        acknowledgment_source_id="sentientos-core",
+        acknowledgment_generation_id="sentientos-core-generation-1",
+        acknowledgment_key=acknowledgment_key)
+    runtime.start()
+    detector = BridgeForegroundGameDetector(runtime=runtime,
+        source_id=source_id, generation_id=generation_id,
+        max_observation_age_seconds=5)
+    request.addfinalizer(detector.close)
+    detector.set_game_workload_admission_owner(kernel)
 
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
-        kernel_override=kernel, foreground_game_detector=UnavailableGameDetector(),
+        kernel_override=kernel, foreground_game_detector=detector,
         host_resource_observation_owner=host_owner, gpu_layers=24)
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
 
@@ -800,7 +812,7 @@ def test_conservative_automatic_profile_releases_resident_model_only_under_host_
         assert evidence["workload_mode"] == "gaming"
         assert evidence["workload_mode_source"] == (
             "foreground_observation_unavailable_conservative_gaming")
-        assert evidence["workload_observation_status"] == "unavailable"
+        assert evidence["workload_observation_status"] == "bridge_observation_unavailable"
         assert "game_workload_message_id" not in evidence
         assert receipt["inference_performed"] is False
         assert receipt["host_mutation_performed"] is False
@@ -815,7 +827,7 @@ def test_conservative_automatic_profile_releases_resident_model_only_under_host_
         observed = delegated["evidence_refs"]["resource_observation_evidence"]
         assert observed["status"] == "current"
         assert observed["configured_mode"] == "automatic"
-        assert observed["workload_observation_status"] == "unavailable"
+        assert observed["workload_observation_status"] == "bridge_observation_unavailable"
     else:
         assert model.closed is False
         assert serving.current_session() == session
@@ -1185,7 +1197,8 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
         assert release["active_inference_preemption_requested"] is True
         assert release["active_inference_cancellation_confirmed"] is True
         assert release["resource_observation"]["configured_mode"] == "automatic"
-        assert release["resource_observation"]["workload_observation_status"] == "unavailable"
+        assert release["resource_observation"]["workload_observation_status"] == (
+            "bridge_observation_unavailable")
         assert recovery_results["automatic"]["reason_code"] == (
             "model_serving_control_plane_not_allowed")
         assert recovery_results["automatic_restored"]["status"] == "restored"
