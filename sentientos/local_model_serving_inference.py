@@ -1056,7 +1056,15 @@ class ProductionServingInferenceController:
                         preemption = self._admit_active_game_inference_preemption(
                             session, model, workload)
                         if preemption is not None:
-                            self._last_active_game_preemption_attempt = workload_attempt_key
+                            # A transiently unconfirmed cancellation must be
+                            # retried on the next reconciliation tick. Keep the
+                            # observation dedupe only after the active invocation
+                            # has actually confirmed cancellation (or admission
+                            # was denied for this exact observation).
+                            if (preemption.get("active_inference_cancellation_confirmed")
+                                    is True or preemption.get("status") == "denied"):
+                                self._last_active_game_preemption_attempt = (
+                                    workload_attempt_key)
                             return preemption
                         return {"status": "skipped",
                             "reason": "current_host_pressure_or_preemption_admission_required",
@@ -1117,8 +1125,13 @@ class ProductionServingInferenceController:
         identity = getattr(model, "active_identity", None)
         if identity is None or not callable(getattr(identity, "to_dict", None)):
             return None
+        # Each retry needs a new admission context: the kernel deduplicates
+        # correlation IDs, while an earlier cancellation attempt may have been
+        # admitted but not confirmed by the invocation owner.
+        attempt_nonce = str(time.time_ns())
         correlation_id = "active-game-inference-preemption-" + hashlib.sha256(
-            (session.session_id + ":" + message_id).encode("utf-8")).hexdigest()[:24]
+            (session.session_id + ":" + message_id + ":" + attempt_nonce)
+            .encode("utf-8")).hexdigest()[:24]
         request = ControlActionRequest(
             action_kind="local_model_inference_preemption",
             authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
