@@ -2381,9 +2381,12 @@ def test_game_priority_retains_timed_out_backend_for_later_preemption(
 
 
 def test_game_priority_scheduler_retries_timed_out_allocated_backend(
-        monkeypatch, tmp_path):
+        monkeypatch, tmp_path, request):
     import asyncio
+    from cryptography import x509
+    from cryptography.hazmat.primitives.serialization import Encoding
     from sentientos import chat_service
+    from tests.test_gaming_companion_tls_transport import _certificate_bundle
 
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
@@ -2391,19 +2394,42 @@ def test_game_priority_scheduler_retries_timed_out_allocated_backend(
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
     kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
         decisions_path=tmp_path / "kernel-decisions.jsonl")
-    message_id = hashlib.sha256(b"scheduler-game-after-timeout").hexdigest()
-    game_workload = ForegroundGameObservation("available", True,
-        hashlib.sha256(b"examplegame.exe").hexdigest(), now.isoformat(),
-        transport_provenance={"message_id": message_id, "source_id": "windows-edge",
-            "session_id": "game-session", "generation_id": "edge-generation",
-            "sequence": 1, "envelope_created_at": now.isoformat()},
-        game_process_running=True,
-        running_process_name_digests=(hashlib.sha256(
-            b"examplegame.exe").hexdigest(),))
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    server_certificate = x509.load_pem_x509_certificate(
+        (tmp_path / "server.pem").read_bytes())
+    server_pin = hashlib.sha256(server_certificate.public_bytes(Encoding.DER)).hexdigest()
+    source_id, generation_id = "windows-edge", "edge-scheduler-generation"
+    source_key = b"authenticated-scheduler-game-source-key"
+    ack_key = b"authenticated-scheduler-core-ack-key-32"
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1", port=0,
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=CompanionBridgeReceiver(source_keys={source_id: source_key},
+            expected_generations={source_id: generation_id}),
+        acknowledgment_source_id="wsl-core",
+        acknowledgment_generation_id="core-scheduler-generation",
+        acknowledgment_key=ack_key)
+    port = runtime.start()
+    request.addfinalizer(runtime.close)
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-core": ack_key},
+            expected_generations={"wsl-core": "core-scheduler-generation"}),
+        expected_server_certificate_sha256=server_pin)
 
-    class VerifiedGameDetector:
-        def observe(self, _names):
-            return game_workload
+    class GamePresenceSample:
+        def observe(self, process_names):
+            assert tuple(name.casefold() for name in process_names) == (
+                "examplegame.exe",)
+            return ForegroundGameObservation("available", True,
+                hashlib.sha256(b"examplegame.exe").hexdigest(), now.isoformat())
+
+    publisher = WindowsForegroundBridgePublisher(detector=GamePresenceSample(),
+        client=client, source_id=source_id, session_id="scheduler-game-session",
+        generation_id=generation_id, source_key=source_key)
+    detector = BridgeForegroundGameDetector(runtime=runtime, source_id=source_id,
+        generation_id=generation_id, clock=lambda: now)
+    detector.set_game_workload_admission_owner(kernel)
 
     def collector(collector_id, **values):
         return lambda *, observed_at=None: HostCollectorResult(
@@ -2436,7 +2462,7 @@ def test_game_priority_scheduler_retries_timed_out_allocated_backend(
 
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, host_resource_observation_owner=host_owner,
-        foreground_game_detector=VerifiedGameDetector(), gpu_layers=0,
+        foreground_game_detector=detector, gpu_layers=0,
         on_generate=active_generation)
     cancellation_attempts = 0
 
@@ -2489,7 +2515,8 @@ def test_game_priority_scheduler_retries_timed_out_allocated_backend(
             assert bridge._active_invoker is not None
             assert bridge._active_invoker.backend_work_pending()
 
-            assert kernel.observe_verified_game_workload(game_workload)
+            game_message = publisher.publish_once(("ExampleGame.exe",))
+            invocation_results["game_message"] = game_message
             bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
             if not await asyncio.to_thread(worker_stopped.wait, 5):
                 raise AssertionError("scheduled retry did not stop the backend worker")
@@ -2513,7 +2540,8 @@ def test_game_priority_scheduler_retries_timed_out_allocated_backend(
     assert reconciliations
     preemption = next(item for item in reconciliations
         if item.get("status") == "preempted")
-    assert preemption["game_workload_message_id"] == message_id
+    assert preemption["game_workload_message_id"] == (
+        invocation_results["game_message"].payload["message_id"])
     assert preemption["active_inference_cancellation_confirmed"] is True
     assert cancellation_attempts == 2
     assert model.calls == 1
