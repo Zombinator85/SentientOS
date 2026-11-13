@@ -916,7 +916,8 @@ def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch
             assert bridge.resource_reconciliation_interval_seconds() == 0.5
             await asyncio.to_thread(invocation.join, 5)
             assert not invocation.is_alive()
-            return chat_service._RESOURCE_RECONCILIATION_TASK is not None
+            return (chat_service._RESOURCE_RECONCILIATION_TASK is not None,
+                serving.current_session() == session, model.closed)
         finally:
             await chat_service._shutdown_event()
 
@@ -927,7 +928,7 @@ def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch
         chat_service._RESOURCE_RECONCILIATION_TASK = previous_reconciliation_task
 
     assert not invocation.is_alive()
-    assert scheduler_started is True
+    assert scheduler_started == (True, True, False)
     assert any(item.get("trigger_kind") == "idle_gaming_profile_gpu_residency"
         for item in reconciliations)
     reconciliation = next(item for item in reconciliations
@@ -2377,6 +2378,156 @@ def test_game_priority_retains_timed_out_backend_for_later_preemption(
     assert resource_ledger.remaining_calls(resource_context.allocation.allocation_id) == 1
     assert host_owner.collector_call_count == 4
     serving.close()
+
+
+def test_game_priority_scheduler_retries_timed_out_allocated_backend(
+        monkeypatch, tmp_path):
+    import asyncio
+    from sentientos import chat_service
+
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    message_id = hashlib.sha256(b"scheduler-game-after-timeout").hexdigest()
+    game_workload = ForegroundGameObservation("available", True,
+        hashlib.sha256(b"examplegame.exe").hexdigest(), now.isoformat(),
+        transport_provenance={"message_id": message_id, "source_id": "windows-edge",
+            "session_id": "game-session", "generation_id": "edge-generation",
+            "sequence": 1, "envelope_created_at": now.isoformat()},
+        game_process_running=True,
+        running_process_name_digests=(hashlib.sha256(
+            b"examplegame.exe").hexdigest(),))
+
+    class VerifiedGameDetector:
+        def observe(self, _names):
+            return game_workload
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+        ]), clock=lambda: now.isoformat())
+    _, _, _, resource_context, resource_ledger = resource_allocation_setup(
+        tmp_path / "resource-allocation", calls=2, max_input_chars=8192)
+    started = threading.Event()
+    release_worker = threading.Event()
+    worker_stopped = threading.Event()
+    timeout_returned = threading.Event()
+    invocation_results = {}
+    reconciliations = []
+
+    def active_generation():
+        started.set()
+        if not release_worker.wait(timeout=5):
+            raise AssertionError("scheduler did not stop the timed-out inference")
+        worker_stopped.set()
+        raise RuntimeError("fixture_generation_stopped_by_scheduled_game_preemption")
+
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner,
+        foreground_game_detector=VerifiedGameDetector(), gpu_layers=0,
+        on_generate=active_generation)
+    cancellation_attempts = 0
+
+    def cancel_pending_generation():
+        nonlocal cancellation_attempts
+        cancellation_attempts += 1
+        if cancellation_attempts == 1:
+            return False
+        release_worker.set()
+        return True
+
+    model.cancel_pending_generation = cancel_pending_generation
+    bridge.set_workload_mode("normal")
+
+    def invoke_until_timeout():
+        invocation_results["receipt"] = bridge.generate(
+            prompt=("[SYSTEM_INSTRUCTION]\nX\n"
+                "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\nU"),
+            caller="chat_service", correlation_id="scheduled-timeout-game-priority",
+            budget=LocalModelInvocationBudget(max_input_chars=8192,
+                max_output_chars=200, max_new_tokens=20, timeout_seconds=0.02,
+                max_calls_per_correlation=2),
+            resource_context=resource_context)
+        timeout_returned.set()
+
+    invocation = threading.Thread(target=invoke_until_timeout)
+    service = SimpleNamespace(
+        reconcile_workload_state=lambda: (
+            reconciliations.append(bridge.reconcile_workload_state())
+            or reconciliations[-1]),
+        resource_reconciliation_interval_seconds=(
+            bridge.resource_reconciliation_interval_seconds),
+        set_resource_reconciliation_wakeup=bridge.set_resource_reconciliation_wakeup,
+        close_outputs=lambda: None)
+    previous_composition = chat_service._PRODUCTION_COMPOSITION
+    previous_task = chat_service._RESOURCE_RECONCILIATION_TASK
+    chat_service._PRODUCTION_COMPOSITION = chat_service.ProductionChatComposition(
+        service, serving)
+    chat_service._RESOURCE_RECONCILIATION_TASK = None
+
+    async def run_scheduler():
+        await chat_service._startup_event()
+        try:
+            invocation.start()
+            if not await asyncio.to_thread(started.wait, 5):
+                raise AssertionError("fixture inference did not start")
+            if not await asyncio.to_thread(timeout_returned.wait, 5):
+                raise AssertionError("bounded invocation did not return its timeout")
+            assert invocation_results["receipt"].status == "timeout"
+            assert bridge._active_invoker is not None
+            assert bridge._active_invoker.backend_work_pending()
+
+            assert kernel.observe_verified_game_workload(game_workload)
+            bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+            if not await asyncio.to_thread(worker_stopped.wait, 5):
+                raise AssertionError("scheduled retry did not stop the backend worker")
+            await asyncio.to_thread(invocation.join, 5)
+            assert not invocation.is_alive()
+            return chat_service._RESOURCE_RECONCILIATION_TASK is not None
+        finally:
+            await chat_service._shutdown_event()
+
+    try:
+        scheduler_started = asyncio.run(run_scheduler())
+    finally:
+        chat_service._PRODUCTION_COMPOSITION = previous_composition
+        chat_service._RESOURCE_RECONCILIATION_TASK = previous_task
+        if invocation.is_alive():
+            release_worker.set()
+            invocation.join(timeout=5)
+        serving.close()
+
+    assert scheduler_started is True
+    assert reconciliations
+    preemption = next(item for item in reconciliations
+        if item.get("status") == "preempted")
+    assert preemption["game_workload_message_id"] == message_id
+    assert preemption["active_inference_cancellation_confirmed"] is True
+    assert cancellation_attempts == 2
+    assert model.calls == 1
+    assert len(resource_ledger._state["attempts"]) == 1
+    assert resource_ledger.remaining_calls(resource_context.allocation.allocation_id) == 1
+    assert [item["state"] for item in resource_ledger._state["receipts"]] == [
+        "attempt_begun", "measured_timeout", "reconciled"]
+    decisions = [json.loads(line) for line in
+        (tmp_path / "kernel-decisions.jsonl").read_text(
+            encoding="utf-8").splitlines()]
+    decision = next(item for item in decisions
+        if item.get("action_kind") == "local_model_inference_preemption")
+    assert decision["delegated_outcomes"]["runtime_governor"]["reason"] == (
+        "allowed_verified_game_workload_inference_preemption")
 
 
 @pytest.mark.parametrize("trigger", ["deferred_inference", "idle_game_reconciliation",
