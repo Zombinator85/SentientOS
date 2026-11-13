@@ -216,8 +216,9 @@ def test_mtls_game_evidence_and_host_pressure_defer_then_govern_optional_model_r
         assert release["status"] == "worker_closed"
         assert release["inference_performed"] is False
         assert release["host_mutation_performed"] is False
-        assert release["resource_measurement_comparison"]["status"] == (
-            "insufficient_gpu_measurements")
+        assert release["resource_measurement_comparison"]["status"] == "comparable"
+        assert release["resource_measurement_comparison"][
+            "ram_utilization_delta_percentage_points"] == 0.0
         assert release["resource_measurement_comparison"]["interpretation"] == (
             "sample_delta_only; telemetry_does_not_establish_causation")
     finally:
