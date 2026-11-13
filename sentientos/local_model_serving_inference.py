@@ -116,7 +116,8 @@ class ProductionServingInferenceController:
         self._active_invoker: GovernedLocalModelInvoker | None = None
         self._resource_reconciliation_wakeup: Callable[[], None] | None = None
         self._preemption_lock = threading.Lock()
-        self._last_active_game_preemption_attempt: tuple[str, str] | None = None
+        self._last_active_game_preemption_attempt: (
+            tuple[str, str] | tuple[str, str, GovernedLocalModelInvoker] | None) = None
         self._last_active_host_resource_sample_at: float | None = None
 
     def cancel_pending_generation(self, *, reason: str = "client_disconnect") -> bool:
@@ -999,6 +1000,10 @@ class ProductionServingInferenceController:
                 if workload_attempt_key == self._last_active_game_preemption_attempt:
                     return {"status": "skipped",
                         "reason": "game_residency_release_already_attempted_for_observation"}
+                invocation_attempt_key = (*workload_attempt_key, active_invoker)
+                if invocation_attempt_key == self._last_active_game_preemption_attempt:
+                    return {"status": "skipped",
+                        "reason": "game_preemption_already_attempted_for_invocation"}
                 residency_release = self._release_after_gpu_model_residency(
                     session, model, workload, preempt_active_generation=True)
                 if residency_release is None:
@@ -1064,7 +1069,7 @@ class ProductionServingInferenceController:
                             if (preemption.get("active_inference_cancellation_confirmed")
                                     is True or preemption.get("status") == "denied"):
                                 self._last_active_game_preemption_attempt = (
-                                    workload_attempt_key)
+                                    invocation_attempt_key)
                             return preemption
                         return {"status": "skipped",
                             "reason": "current_host_pressure_or_preemption_admission_required",
