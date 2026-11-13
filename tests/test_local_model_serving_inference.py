@@ -1905,8 +1905,9 @@ def test_scheduled_reconciliation_restores_released_model_through_fresh_serving_
     serving.close()
 
 
+@pytest.mark.parametrize("pressure_kind", ["gpu", "memory"])
 def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
-        monkeypatch, tmp_path):
+        monkeypatch, tmp_path, pressure_kind):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -1915,13 +1916,13 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
         decisions_path=tmp_path / "kernel-decisions.jsonl")
     gpu = {"gpu_utilization_percent": 20.0,
         "vram_utilization_percent": 30.0}
+    memory = {"used_percent": 40.0}
 
     def collector(collector_id, **values):
         def collect(*, observed_at=None):
-            current = (values if collector_id != "nvidia_gpu" else {
-                "device_count": 1,
-                "devices": [{"index": 0, **gpu}],
-            })
+            current = ({"device_count": 1, "devices": [{"index": 0, **gpu}]}
+                if collector_id == "nvidia_gpu" else
+                memory if collector_id == "memory" else values)
             return HostCollectorResult(collector_id, "available",
                 observed_at or now.isoformat(), "synthetic_test_fixture",
                 values=dict(current))
@@ -1933,7 +1934,7 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
             HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
                 collector("cpu", utilization_percent=20.0)),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
-                collector("memory", used_percent=40.0)),
+                collector("memory")),
             HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
                 collector("nvidia_gpu")),
         ]), clock=lambda: now.isoformat())
@@ -1976,12 +1977,18 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
     bridge, serving, first_session, first_model, _kernel, _ = setup(
         monkeypatch, tmp_path, kernel_override=kernel,
         host_resource_observation_owner=host_owner,
-        serving_admission_context_provider=admission_context, gpu_layers=24,
+        serving_admission_context_provider=admission_context,
+        gpu_layers=24 if pressure_kind == "gpu" else 0,
         model_factory=model_factory)
-    gpu.update(gpu_utilization_percent=95.0, vram_utilization_percent=92.0)
+    if pressure_kind == "gpu":
+        gpu.update(gpu_utilization_percent=95.0, vram_utilization_percent=92.0)
+    else:
+        memory.update(used_percent=95.0)
     release = bridge.reconcile_idle_game_resource_state()
     assert release["status"] == "worker_closed"
-    assert release["trigger_kind"] == "idle_host_gpu_resource_reconciliation"
+    assert release["trigger_kind"] == (
+        "idle_host_gpu_resource_reconciliation" if pressure_kind == "gpu" else
+        "idle_host_memory_resource_reconciliation")
     assert first_model.closed is True
     assert serving.resource_recovery_pending() is True
 
@@ -2023,6 +2030,7 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
             assert serving.resource_recovery_pending() is True
             assert len(models) == 1
             gpu.update(gpu_utilization_percent=20.0, vram_utilization_percent=30.0)
+            memory.update(used_percent=40.0)
             callback = wakeup_callbacks[-1]
             callback()
             if not await asyncio.to_thread(restored.wait, 5):
@@ -2051,7 +2059,8 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
     (result, observed_labels, pressure_reasons, restored_session, recovery_pending,
         restored_model_closed) = outcome
     assert result["serving_recovery"]["status"] == "restored"
-    assert any("gpu_pressure" in labels for labels in observed_labels)
+    expected_pressure = "gpu_pressure" if pressure_kind == "gpu" else "memory_pressure"
+    assert any(expected_pressure in labels for labels in observed_labels)
     assert observed_labels[-1] == ("nominal",)
     assert "deferred_background_model_serving_under_host_pressure" in pressure_reasons
     assert restored_session is not None and restored_session != first_session
