@@ -727,6 +727,56 @@ def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing
     assert decision.evidence_refs["game_workload_evidence"]["game_active"] is True
 
 
+@pytest.mark.parametrize("age_seconds,expected_status", [
+    (14, "current"),
+    (16, "stale_or_invalid"),
+])
+@pytest.mark.no_legacy_skip
+def test_model_admission_uses_host_observation_owner_freshness_window(
+        monkeypatch, tmp_path, age_seconds, expected_status):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    governor = RuntimeGovernor()
+    correlation_id = "host-observation-freshness-contract"
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        correlation_id.encode("utf-8")).hexdigest()[:32]
+    observed_at = (datetime.now(timezone.utc)
+        - timedelta(seconds=age_seconds)).isoformat()
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "evaluation_id": "evaluation-freshness",
+        "epoch_id": "epoch-freshness",
+        "observed_at": observed_at,
+        "snapshot_id": "snapshot-freshness",
+        "report_id": "report-freshness",
+        "report_digest": "a" * 64,
+        "pressure_labels": (),
+        "cpu_utilization_percent": 10.0,
+        "ram_utilization_percent": 20.0,
+        "gpu_utilization_percent": 5.0,
+        "vram_utilization_percent": 10.0,
+        "gpu_telemetry_available": True,
+        "gpu_telemetry_complete": True,
+        "observation_correlation_id": observation_id,
+    }
+
+    decision = governor._admit_local_model_inference(
+        actor="chat_service", subject="chat", correlation_id=correlation_id,
+        metadata={"purpose": "background_model_work",
+            "host_resource_observation_namespace": "local-chat-inference",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp", "accelerator_route": "cpu",
+                "gpu_layers": 0, "configuration_digest": "b" * 64,
+            }})
+
+    assert decision.evidence_refs["host_resource_evidence"]["status"] == expected_status
+    assert decision.allowed is (expected_status == "current")
+
+
 def test_federated_control_blocked_by_critical_storm(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))

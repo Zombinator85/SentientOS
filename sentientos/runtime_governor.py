@@ -2145,12 +2145,20 @@ class RuntimeGovernor:
         evidence_ref: dict[str, object] = {"status": "unavailable"}
         labels: set[str] = set()
         if evidence is not None:
+            # Match the observation owner's cache contract. Admission must not
+            # treat a correlated retry sample as current after the coordinator
+            # itself would have aged it out.
+            from sentientos.host_resource_runtime import (
+                HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS,
+            )
+
             try:
                 observed_at = datetime.fromisoformat(str(evidence["observed_at"]))
                 evidence_age_seconds = (now - observed_at).total_seconds()
             except (KeyError, TypeError, ValueError):
                 evidence_age_seconds = None
-            if evidence_age_seconds is not None and 0 <= evidence_age_seconds <= 120:
+            if (evidence_age_seconds is not None
+                    and 0 <= evidence_age_seconds <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS):
                 raw_labels = evidence.get("pressure_labels")
                 if isinstance(raw_labels, (tuple, list)) and all(
                         isinstance(label, str) for label in raw_labels):

@@ -30,6 +30,7 @@ CollectorCallable = Callable[..., HostCollectorResult]
 STATUSES = {"available", "partial", "unavailable", "error", "timeout", "invalid", "unsupported", "skipped"}
 FORBIDDEN_TEXT = re.compile(r"([A-Za-z]:\\\\|/home/|/tmp/|/workspace/|SENTIENTOS_|TOKEN|PASSWORD|SECRET|Traceback|cmdline|environ|[0-9a-f]{2}(:[0-9a-f]{2}){5})", re.I)
 MAX_RETAINED_OBSERVATION_EPOCHS = 128
+HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS = 15.0
 
 @dataclass(frozen=True)
 class HostObservationBudget:
@@ -213,7 +214,11 @@ class HostResourceRuntimeCoordinator:
         with self._cycle_lock:
             return self._run_cycle(correlation_id=correlation_id, decision=decision)
 
-    def latest_evaluation(self, *, max_age_seconds: float = 15.0) -> HostResourceRuntimeEvaluation | None:
+    def latest_evaluation(
+        self,
+        *,
+        max_age_seconds: float = HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS,
+    ) -> HostResourceRuntimeEvaluation | None:
         """Return the latest completed read-only sample if fresh, without collecting telemetry.
 
         The nonblocking cache read is suitable for fast paths that must not wait
