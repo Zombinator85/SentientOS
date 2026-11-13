@@ -1003,14 +1003,54 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
             inference_result["error"] = f"{type(exc).__name__}:{exc}"
 
     invocation = threading.Thread(target=invoke_optional_work)
-    invocation.start()
-    try:
-        assert started.wait(timeout=5), inference_result
-        host_pressure[0] = True
-        reconciliation = bridge.reconcile_idle_game_resource_state()
-        invocation.join(timeout=5)
+    import asyncio
+    from sentientos import chat_service
+    from types import SimpleNamespace
 
-        assert not invocation.is_alive()
+    reconciliations = []
+    service = SimpleNamespace(
+        reconcile_workload_state=lambda: reconciliations.append(
+            bridge.reconcile_workload_state()) or reconciliations[-1],
+        resource_reconciliation_interval_seconds=(
+            bridge.resource_reconciliation_interval_seconds),
+        set_resource_reconciliation_wakeup=(bridge.set_resource_reconciliation_wakeup),
+        close_outputs=lambda: None)
+    previous_composition = chat_service._PRODUCTION_COMPOSITION
+    previous_reconciliation_task = chat_service._RESOURCE_RECONCILIATION_TASK
+    chat_service._PRODUCTION_COMPOSITION = chat_service.ProductionChatComposition(
+        service, serving)
+    chat_service._RESOURCE_RECONCILIATION_TASK = None
+
+    async def run_reconciliation_scheduler():
+        await chat_service._startup_event()
+        try:
+            invocation.start()
+            assert await asyncio.to_thread(started.wait, 5), inference_result
+            host_pressure[0] = True
+            assert await asyncio.to_thread(cancelled.wait, 5)
+            assert bridge.resource_reconciliation_interval_seconds() == 0.5
+            await asyncio.to_thread(invocation.join, 5)
+            assert not invocation.is_alive()
+            return chat_service._RESOURCE_RECONCILIATION_TASK is not None
+        finally:
+            await chat_service._shutdown_event()
+
+    try:
+        scheduler_started = asyncio.run(run_reconciliation_scheduler())
+    finally:
+        chat_service._PRODUCTION_COMPOSITION = previous_composition
+        chat_service._RESOURCE_RECONCILIATION_TASK = previous_reconciliation_task
+
+    assert scheduler_started is True
+    assert not invocation.is_alive()
+    assert len(reconciliations) >= 2
+    assert any(item.get("trigger_kind") == (
+        "active_conservative_automatic_gaming_resource_reconciliation")
+        for item in reconciliations)
+    reconciliation = next(item for item in reconciliations
+        if item.get("trigger_kind") ==
+        "active_conservative_automatic_gaming_resource_reconciliation")
+    try:
         assert reconciliation["status"] == "worker_closed"
         assert reconciliation["trigger_kind"] == (
             "active_conservative_automatic_gaming_resource_reconciliation")
@@ -1028,9 +1068,6 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
         assert release["resource_observation"]["configured_mode"] == "automatic"
         assert release["resource_observation"]["workload_observation_status"] == "unavailable"
     finally:
-        if invocation.is_alive():
-            cancelled.set()
-            invocation.join(timeout=5)
         serving.close()
 
 
