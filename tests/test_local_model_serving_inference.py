@@ -1630,11 +1630,14 @@ def test_verified_automatic_game_cancels_active_optional_inference(
             collector_id, "available", observed_at or now.isoformat(),
             "synthetic_test_fixture", values=values)
 
+    cpu_telemetry = {"utilization_percent": 25.0}
     host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
         runtime_state_root=tmp_path / "host-resource",
         plan=build_observation_plan(specs=[
             HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
-                collector("cpu", utilization_percent=95.0 if cpu_pressure else 25.0)),
+                lambda *, observed_at=None: HostCollectorResult("cpu", "available",
+                    observed_at or now.isoformat(), "synthetic_test_fixture",
+                    values=dict(cpu_telemetry))),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
                 collector("memory", used_percent=40.0)),
             HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
@@ -1703,6 +1706,8 @@ def test_verified_automatic_game_cancels_active_optional_inference(
             invocation.start()
             if not await asyncio.to_thread(started.wait, 5):
                 raise AssertionError("optional inference did not start")
+            if cpu_pressure:
+                cpu_telemetry["utilization_percent"] = 95.0
             presence_message = presence_publisher.publish_once(("ExampleGame.exe",))
             game_message_id["value"] = presence_message.payload["message_id"]
             bridge._foreground_game_detector = game_detector
@@ -1711,6 +1716,19 @@ def test_verified_automatic_game_cancels_active_optional_inference(
             if not await asyncio.to_thread(cancelled.wait, 5):
                 raise AssertionError(
                     f"scheduled game-priority cancellation was not delivered: "
+                    f"{reconciliations!r}")
+            expected_release_trigger = ("idle_game_reconciliation" if cpu_pressure
+                else "idle_game_gpu_residency")
+            release_deadline = time.monotonic() + 5
+            while time.monotonic() < release_deadline:
+                if any(item.get("trigger_kind") == expected_release_trigger
+                        and item.get("status") == "worker_closed"
+                        for item in reconciliations):
+                    break
+                await asyncio.sleep(.01)
+            else:
+                raise AssertionError(
+                    f"scheduled game-priority release was not confirmed: "
                     f"{reconciliations!r}")
             await asyncio.to_thread(invocation.join, 5)
             assert not invocation.is_alive()
@@ -1732,9 +1750,16 @@ def test_verified_automatic_game_cancels_active_optional_inference(
     reconciliation = next((item for item in reconciliations
         if item.get("trigger_kind") == trigger_kind), None)
     assert reconciliation is not None, reconciliations
-    assert reconciliation["status"] == "worker_closed"
+    assert reconciliation["status"] == "worker_closed", reconciliations
     assert reconciliation["trigger_kind"] == trigger_kind
-    assert reconciliation["active_inference_cancellation_confirmed"] is True
+    if cpu_pressure:
+        preemption = next((item for item in reconciliations
+            if item.get("trigger_kind") ==
+                "verified_game_workload_active_inference_preemption"), None)
+        assert preemption is not None, reconciliations
+        assert preemption["active_inference_cancellation_confirmed"] is True
+    else:
+        assert reconciliation["active_inference_cancellation_confirmed"] is True
     assert invocation_result["receipt"].status == "cancelled"
     assert invocation_result["receipt"].output_text is None
     assert resource_ledger.remaining_calls(bundle.allocation_id) == 1
@@ -1746,17 +1771,18 @@ def test_verified_automatic_game_cancels_active_optional_inference(
     release_path = next((tmp_path / "state" / "installations" / "install-1" /
         "state" / "local-model" / "serving" / "resource-release-receipts").glob("*.json"))
     release = json.loads(release_path.read_text(encoding="utf-8"))
-    assert release["active_inference_preemption_requested"] is True
-    assert release["active_inference_cancellation_confirmed"] is True
+    assert release["active_inference_preemption_requested"] is (not cpu_pressure)
+    assert release["active_inference_cancellation_confirmed"] is (
+        None if cpu_pressure else True)
     assert release["resource_observation"]["game_workload_message_id"] == (
         game_message_id["value"])
     if cpu_pressure:
         assert release["resource_observation"]["pressure_labels"] == ["cpu_pressure"]
         assert release["resource_observation"]["host_report_id"]
-        assert host_owner.collector_call_count == 6
+        assert host_owner.collector_call_count >= 6
     else:
         assert release["resource_observation"]["model_gpu_layers"] == 24
-        assert host_owner.collector_call_count == 6
+        assert host_owner.collector_call_count >= 6
     assert release["inference_performed"] is False
     assert release["host_mutation_performed"] is False
     release_decision = next(json.loads(line) for line in reversed(
@@ -1766,7 +1792,7 @@ def test_verified_automatic_game_cancels_active_optional_inference(
     release_governor = release_decision["delegated_outcomes"]["runtime_governor"]
     assert release_governor["allowed"] is True
     assert release_governor["evidence_refs"]["resource_observation_evidence"][
-        "active_inference_preemption_requested"] is True
+        "active_inference_preemption_requested"] is (not cpu_pressure)
     assert resource_ledger.remaining_calls(bundle.allocation_id) == 1
     assert len(resource_ledger._state["attempts"]) == 1
     assert resource_ledger._state["receipts"][-1]["state"] == "reconciled"

@@ -128,6 +128,10 @@ def test_failed_worker_close_preserves_exact_session_for_release_retry(monkeypat
     invalidations = handle.list_regular_names(
         handle.fixed_object("local-model/serving/invalidations"))
     assert len(invalidations) == 1
+    assert ctl.release_current_session_after_resource_admission(
+        session, reason="verified_game_host_pressure") is True
+    assert handle.list_regular_names(
+        handle.fixed_object("local-model/serving/invalidations")) == invalidations
 
 
 def test_resource_release_waits_for_exact_worker_exit_confirmation(monkeypatch, handle):

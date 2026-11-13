@@ -473,6 +473,7 @@ class ProductionServingController:
         self._allow_synthetic = allow_synthetic_evidence_for_tests
         self._session: ServingSession | None = None
         self._model: Any | None = None
+        self._last_released_session_id: str | None = None
         self._admission_context_provider: Callable[
             [str, Mapping[str, Any]], Mapping[str, Any]
         ] | None = None
@@ -814,6 +815,7 @@ class ProductionServingController:
         self._session = self._model = None
         if session is None:
             return
+        self._last_released_session_id = session.session_id
         invalidation = {"schema_version": INVALIDATION_SCHEMA, "session_id": session.session_id,
                         "serving_operation_id": session.binding["serving_operation_id"],
                         "prior_status": session.status, "status": "non_current_unloaded", "reason": reason}
@@ -828,7 +830,12 @@ class ProductionServingController:
         """Close this exact serving worker only after its owner was admitted."""
         with self._lifecycle_lock:
             if self._session != expected or self._model is None:
-                return False
+                # A concurrent, already admitted release can win this race.
+                # Confirm that exact session was invalidated; a replacement
+                # session stays a distinct live effect and is never reported
+                # as closed here.
+                return (self._session is None and self._model is None
+                    and expected.session_id == self._last_released_session_id)
             self._invalidate_locked(reason)
             released = self._session is None and self._model is None
             if released and self._admission_context_provider is not None:
