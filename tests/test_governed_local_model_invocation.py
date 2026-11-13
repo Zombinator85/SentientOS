@@ -1,6 +1,7 @@
 # mypy: ignore-errors
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from threading import Event, Thread
 from time import monotonic
@@ -271,7 +272,7 @@ def test_invocation_timeout_cancels_cooperative_model_worker(tmp_path: Path) -> 
 
 
 
-def test_client_disconnect_cancels_governed_generation(tmp_path: Path) -> None:
+def test_governed_preemption_reference_is_bound_to_cancelled_receipt(tmp_path: Path) -> None:
     model_path = tmp_path / "m.gguf"
     model_path.write_bytes(b"bytes")
     config = ModelConfig(candidates=[ModelCandidate(
@@ -283,6 +284,8 @@ def test_client_disconnect_cancels_governed_generation(tmp_path: Path) -> None:
         kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
             decisions_path=tmp_path / "decisions.jsonl"),
         runtime_root=tmp_path / "runtime")
+    published_receipts = []
+    invoker.register_evidence_sink(published_receipts.append)
     request = invoker.build_request(purpose="local_user_chat", prompt="wait",
         caller="test", correlation_id="client-disconnect",
         budget=LocalModelInvocationBudget(timeout_seconds=2))
@@ -293,12 +296,23 @@ def test_client_disconnect_cancels_governed_generation(tmp_path: Path) -> None:
     while model.calls == 0 and monotonic() < deadline:
         Event().wait(0.005)
     assert model.calls == 1
-    assert invoker.cancel_pending_generation() is True
+    preemption_ref = "decision:governed-test-preemption"
+    assert invoker.cancel_pending_generation(reason="workload_transition",
+        preemption_admission_decision_ref=preemption_ref) is True
     worker.join(1)
 
     assert not worker.is_alive()
     assert result[0].status == "cancelled"
-    assert "cancelled_by_client_disconnect" in result[0].reason_codes
+    assert "cancelled_for_workload_transition" in result[0].reason_codes
+    assert result[0].preemption_admission_decision_ref == preemption_ref
+    assert result[0].schema_version == "sentientos.local_model_invocation_receipt:v4"
+    valid, reasons = validate_receipt(result[0].to_dict())
+    assert valid, reasons
+    persisted = json.loads((tmp_path / "runtime" / "receipts" /
+        f"{result[0].receipt_id}.json").read_text(encoding="utf-8"))
+    assert validate_receipt(persisted)[0]
+    assert persisted["preemption_admission_decision_ref"] == preemption_ref
+    assert published_receipts[0]["receipt_digest"] == result[0].receipt_digest
     assert model.cancelled.is_set()
 
 

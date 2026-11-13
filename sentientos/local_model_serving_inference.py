@@ -143,12 +143,17 @@ class ProductionServingInferenceController:
             tuple[str, str] | tuple[str, str, GovernedLocalModelInvoker] | None) = None
         self._last_active_host_resource_sample_at: float | None = None
 
-    def cancel_pending_generation(self, *, reason: str = "client_disconnect") -> bool:
+    def cancel_pending_generation(self, *, reason: str = "client_disconnect",
+                                 preemption_admission_decision_ref: str | None = None) -> bool:
         """Forward cancellation to the exact governed invocation currently in flight."""
         with self._active_invoker_lock:
             invoker = self._active_invoker
-        return (invoker.cancel_pending_generation(reason=reason)
-            if invoker is not None else False)
+        if invoker is None:
+            return False
+        if preemption_admission_decision_ref is None:
+            return invoker.cancel_pending_generation(reason=reason)
+        return invoker.cancel_pending_generation(reason=reason,
+            preemption_admission_decision_ref=preemption_admission_decision_ref)
 
     def resource_reconciliation_interval_seconds(self) -> float:
         """Poll resource governance faster while optional inference is active.
@@ -1109,7 +1114,8 @@ class ProductionServingInferenceController:
                     "preemption_admission_decision_ref": admission.admission_decision_ref,
                     "observation_correlation_id": observation_id}
             cancelled = active_invoker.cancel_pending_generation(
-                reason="workload_transition")
+                reason="workload_transition",
+                preemption_admission_decision_ref=admission.admission_decision_ref)
             return {"status": "preempted" if cancelled else "preemption_unconfirmed",
                 "reason": ("host_resource_pressure_optional_inference_priority"
                     if cancelled else "active_inference_cancellation_unconfirmed"),
@@ -1500,7 +1506,8 @@ class ProductionServingInferenceController:
                 "preemption_admission_decision_ref": decision.admission_decision_ref,
                 "trigger_kind": "verified_game_workload_active_inference_preemption",
                 "serving_session_id": session.session_id}
-        cancelled = self.cancel_pending_generation(reason="workload_transition")
+        cancelled = self.cancel_pending_generation(reason="workload_transition",
+            preemption_admission_decision_ref=decision.admission_decision_ref)
         return {"status": "preempted" if cancelled else "preemption_unconfirmed",
             "reason": ("verified_game_workload_priority" if cancelled else
                 "active_inference_cancellation_unconfirmed"),

@@ -34,6 +34,7 @@ SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "gen
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
 INVOCATION_RECEIPT_SCHEMA = "sentientos.local_model_invocation_receipt:v2"
 INVOCATION_RECEIPT_SCHEMA_V3 = "sentientos.local_model_invocation_receipt:v3"
+INVOCATION_RECEIPT_SCHEMA_V4 = "sentientos.local_model_invocation_receipt:v4"
 LLAMA_COMPLETION_OBSERVATION_SCHEMA_V1 = "sentientos.llama_cpp_completion_observation:v1"
 LLAMA_COMPLETION_OBSERVATION_SCHEMA = "sentientos.llama_cpp_completion_observation:v2"
 LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3 = "sentientos.llama_cpp_completion_observation:v3"
@@ -426,6 +427,7 @@ class LocalModelInvocationReceipt:
     resource_linkage_digest: str | None = None
     schema_version: str = INVOCATION_RECEIPT_SCHEMA
     backend_completion: Mapping[str, Any] | None = None
+    preemption_admission_decision_ref: str | None = None
 
     def semantic_payload(self) -> dict[str, Any]:
         payload = {"schema_version": self.schema_version, "request": dict(self.request),
@@ -438,6 +440,10 @@ class LocalModelInvocationReceipt:
         if self.schema_version == INVOCATION_RECEIPT_SCHEMA_V3:
             payload["backend_completion"] = (dict(self.backend_completion)
                 if self.backend_completion is not None else None)
+        if self.schema_version == INVOCATION_RECEIPT_SCHEMA_V4:
+            payload["backend_completion"] = (dict(self.backend_completion)
+                if self.backend_completion is not None else None)
+            payload["preemption_admission_decision_ref"] = self.preemption_admission_decision_ref
         return payload
 
     @property
@@ -533,13 +539,16 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
         # Historical v1 receipts intentionally omit schema_version and bind
         # exactly the pre-v2 field set. An explicit null is not legacy.
         semantic = {key: payload.get(key) for key in legacy_semantic_keys}
-    elif schema in {INVOCATION_RECEIPT_SCHEMA, INVOCATION_RECEIPT_SCHEMA_V3}:
+    elif schema in {INVOCATION_RECEIPT_SCHEMA, INVOCATION_RECEIPT_SCHEMA_V3,
+                    INVOCATION_RECEIPT_SCHEMA_V4}:
         semantic = {key: payload.get(key) for key in (
             "schema_version", *legacy_semantic_keys, "observed_at")}
-        if schema == INVOCATION_RECEIPT_SCHEMA_V3:
+        if schema in {INVOCATION_RECEIPT_SCHEMA_V3, INVOCATION_RECEIPT_SCHEMA_V4}:
             semantic["backend_completion"] = payload.get("backend_completion")
             completion = payload.get("backend_completion")
-            if not validate_backend_completion_observation(completion):
+            if (completion is None and schema == INVOCATION_RECEIPT_SCHEMA_V4):
+                pass
+            elif not validate_backend_completion_observation(completion):
                 reasons.append("backend_completion_observation_invalid")
             elif (isinstance(completion, Mapping)
                     and completion.get("schema_version") ==
@@ -563,6 +572,12 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
                     and completion.get("finish_reason") == "length"
                     and payload.get("output_truncated") is not True):
                 reasons.append("backend_completion_truncation_mismatch")
+        if schema == INVOCATION_RECEIPT_SCHEMA_V4:
+            semantic["preemption_admission_decision_ref"] = payload.get(
+                "preemption_admission_decision_ref")
+            if (not isinstance(semantic["preemption_admission_decision_ref"], str)
+                    or not semantic["preemption_admission_decision_ref"]):
+                reasons.append("preemption_admission_decision_ref_invalid")
         observed_at = payload.get("observed_at")
         try:
             timestamp = datetime.fromisoformat(str(observed_at).replace("Z", "+00:00"))
@@ -640,7 +655,7 @@ class GovernedLocalModelInvoker:
     CANCELLATION_QUIESCENCE_TIMEOUT_SECONDS = 0.5
 
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
-        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_cancel_reason: str | None = None; self._active_residency_preload_event: threading.Event | None = None; self._backend_quiescence_callbacks: list[Callable[[], None]] = []
+        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_cancel_reason: str | None = None; self._active_cancel_admission_ref: str | None = None; self._active_residency_preload_event: threading.Event | None = None; self._backend_quiescence_callbacks: list[Callable[[], None]] = []
 
     def register_evidence_sink(self, sink: Callable[[Mapping[str, Any]], None] | None) -> None:
         """Install an explicit observational receipt sink owned by the runtime."""
@@ -668,7 +683,6 @@ class GovernedLocalModelInvoker:
             if self._active_release_event is not release_event:
                 return
             self._active_release_event = None
-            self._active_cancel_reason = None
             callbacks = self._backend_quiescence_callbacks
             self._backend_quiescence_callbacks = []
         for callback in callbacks:
@@ -678,15 +692,21 @@ class GovernedLocalModelInvoker:
                 # Lifecycle bookkeeping must not change the backend result.
                 pass
 
-    def cancel_pending_generation(self, *, reason: str = "client_disconnect") -> bool:
+    def cancel_pending_generation(self, *, reason: str = "client_disconnect",
+                                  preemption_admission_decision_ref: str | None = None) -> bool:
         """Request cancellation and confirm the exact backend worker has stopped."""
         if reason not in {"client_disconnect", "workload_transition"}:
             raise ValueError("invocation_cancellation_reason_invalid")
+        if (preemption_admission_decision_ref is not None
+                and (not isinstance(preemption_admission_decision_ref, str)
+                     or not preemption_admission_decision_ref)):
+            raise ValueError("invocation_preemption_admission_reference_invalid")
         with self._active_state_lock:
             event = self._active_release_event
             if event is None:
                 return False
             self._active_cancel_reason = reason
+            self._active_cancel_admission_ref = preemption_admission_decision_ref
             event.set()
         cancel = getattr(self.model, "cancel_pending_generation", None)
         if not callable(cancel):
@@ -982,6 +1002,7 @@ class GovernedLocalModelInvoker:
         resource_linkage_persistence_confirmed: bool | None = (
             False if resource_context is not None else None)
         generated_output: str | None = None
+        preemption_admission_ref: str | None = None
         inference_attempted = threading.Event()
         active_release_event: threading.Event | None = None
         record = self._record_for(request.model_id)
@@ -1187,6 +1208,7 @@ class GovernedLocalModelInvoker:
                         with self._active_state_lock:
                             self._active_release_event = active_release_event
                             self._active_cancel_reason = None
+                            self._active_cancel_admission_ref = None
                         # Ollama supports an event check around connection setup, closing the
                         # race where disconnect lands just before the HTTP request is installed.
                         if getattr(identity, "engine", None) == "ollama":
@@ -1297,6 +1319,7 @@ class GovernedLocalModelInvoker:
                             status = "cancelled"
                             with self._active_state_lock:
                                 cancel_reason = self._active_cancel_reason
+                                preemption_admission_ref = self._active_cancel_admission_ref
                             reasons.append({"workload_transition": "cancelled_for_workload_transition",
                                 "client_disconnect": "cancelled_by_client_disconnect",
                                 "timeout": "cancelled_after_timeout"}.get(cancel_reason or "unknown",
@@ -1319,7 +1342,10 @@ class GovernedLocalModelInvoker:
         receipt_output = generated_output if generated_output is not None else output
         actual_generation_parameters = ({key: value for key, value in gen_kwargs.items()
             if key not in {"on_content_chunk", "_cancel_event"}} if "gen_kwargs" in locals() else {})
-        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": actual_generation_parameters}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=INVOCATION_RECEIPT_SCHEMA_V3 if backend_completion is not None else INVOCATION_RECEIPT_SCHEMA, backend_completion=backend_completion)
+        receipt_schema = (INVOCATION_RECEIPT_SCHEMA_V4 if preemption_admission_ref
+            else INVOCATION_RECEIPT_SCHEMA_V3 if backend_completion is not None
+            else INVOCATION_RECEIPT_SCHEMA)
+        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": actual_generation_parameters}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=receipt_schema, backend_completion=backend_completion, preemption_admission_decision_ref=preemption_admission_ref)
         if persist:
             try:
                 self._persist(request, receipt, decision_payload,
