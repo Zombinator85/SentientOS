@@ -2330,6 +2330,15 @@ def test_game_priority_retains_timed_out_backend_for_later_preemption(
     assert isinstance(model.active_identity.to_dict(), Mapping)
     assert bridge._active_invoker is not None
     assert bridge._active_invoker.backend_work_pending()
+    lingering_invoker = bridge._active_invoker
+    overlapping_attempt = bridge.generate(prompt=("[SYSTEM_INSTRUCTION]\nRules.\n"
+        "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\n"
+        "USER_DATA: must not overlap lingering inference"), caller="chat_service",
+        correlation_id="game-priority-no-overlapping-backend",
+        budget=LocalModelInvocationBudget(timeout_seconds=0.02))
+    assert overlapping_attempt.status == "backend_failure"
+    assert bridge._active_invoker is lingering_invoker
+    assert model.calls == 1
 
     preemption = bridge.reconcile_idle_game_resource_state()
 
@@ -2347,7 +2356,7 @@ def test_game_priority_retains_timed_out_backend_for_later_preemption(
         if item.get("action_kind") == "local_model_inference_preemption")
     assert decision["delegated_outcomes"]["runtime_governor"]["reason"] == (
         "allowed_verified_game_workload_inference_preemption")
-    assert host_owner.collector_call_count == 2
+    assert host_owner.collector_call_count == 4
     serving.close()
 
 
