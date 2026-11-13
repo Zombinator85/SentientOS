@@ -2317,7 +2317,9 @@ class RuntimeGovernor:
         gaming_profile_resource_telemetry_incomplete = (
             (gaming_workload_profile_active
              or conservative_automatic_gaming_profile)
-            and (incomplete or gpu_resource_evidence_incomplete)
+            and (incomplete or gpu_resource_evidence_incomplete
+                 or (conservative_automatic_gaming_profile
+                     and accelerator_route in {None, "unknown"}))
         )
         game_resource_telemetry_incomplete = (
             verified_game_active
@@ -2358,7 +2360,7 @@ class RuntimeGovernor:
             # was independently verified as active.
             reason, blocks = ("deferred_local_model_" + operation_label
                 + "_under_host_pressure_in_conservative_automatic_mode", True)
-        elif (operation_kind == "inference"
+        elif (operation_kind in {"inference", "model_serving"}
                 and gaming_workload_profile_active
                 and gaming_profile_resource_telemetry_incomplete):
             # An explicitly selected gaming profile asks SentientOS to keep
@@ -2367,7 +2369,7 @@ class RuntimeGovernor:
             # admit, so fail closed for this profile while preserving the
             # existing foreground-chat behavior in normal mode.
             reason, blocks = "deferred_resource_telemetry_incomplete_in_gaming_mode", True
-        elif (operation_kind == "inference"
+        elif (operation_kind in {"inference", "model_serving"}
                 and conservative_automatic_gaming_profile
                 and gaming_profile_resource_telemetry_incomplete):
             reason, blocks = (
@@ -2424,6 +2426,8 @@ class RuntimeGovernor:
                     conservative_automatic_profile_host_pressure),
                 "gaming_workload_profile_resource_telemetry_incomplete": (
                     gaming_profile_resource_telemetry_incomplete),
+                "gaming_workload_profile_model_route_unverified": (
+                    accelerator_route in {None, "unknown"}),
                 "gaming_workload_profile_evidence": workload_profile_ref,
                 "host_resource_telemetry_incomplete_during_game": (
                     game_resource_telemetry_incomplete),

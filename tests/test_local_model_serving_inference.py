@@ -220,8 +220,9 @@ def test_mtls_game_evidence_and_host_pressure_defer_then_govern_optional_model_r
         serving.close()
 
 
+@pytest.mark.parametrize("gpu_observation", ["pressure", "unavailable"])
 def test_automatic_game_detection_unavailable_keeps_gpu_inference_deferred(
-        monkeypatch, tmp_path):
+        monkeypatch, tmp_path, gpu_observation):
     """Conservative automatic gaming mode must honor observed host pressure."""
     from datetime import datetime, timezone
 
@@ -245,9 +246,12 @@ def test_automatic_game_detection_unavailable_keeps_gpu_inference_deferred(
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
                 collector("memory", used_percent=40.0)),
             HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
-                collector("nvidia_gpu", device_count=1, devices=[{
+                (collector("nvidia_gpu", device_count=1, devices=[{
                     "index": 0, "gpu_utilization_percent": 96.0,
-                    "vram_utilization_percent": 91.0}])),
+                    "vram_utilization_percent": 91.0}]) if gpu_observation == "pressure"
+                 else lambda *, observed_at=None: HostCollectorResult(
+                    "nvidia_gpu", "unavailable", observed_at or now.isoformat(),
+                    "synthetic_test_fixture"))),
         ]), clock=lambda: now.isoformat())
 
     class UnavailableGameDetector:
@@ -283,9 +287,15 @@ def test_automatic_game_detection_unavailable_keeps_gpu_inference_deferred(
             if item.get("action_kind") == "local_model_inference")
         delegated = inference_decision["delegated_outcomes"]["runtime_governor"]
         assert delegated["reason"] == (
-            "deferred_local_model_inference_under_host_pressure_in_conservative_automatic_mode")
+            "deferred_local_model_inference_under_host_pressure_in_conservative_automatic_mode"
+            if gpu_observation == "pressure" else
+            "deferred_resource_telemetry_incomplete_in_conservative_automatic_mode")
         assert delegated["evidence_refs"]["host_resource_evidence"]["status"] == "current"
-        assert delegated["evidence_refs"]["observed_pressure_labels"] == ["gpu_pressure"]
+        if gpu_observation == "pressure":
+            assert delegated["evidence_refs"]["observed_pressure_labels"] == ["gpu_pressure"]
+        else:
+            assert delegated["evidence_refs"]["host_resource_evidence"][
+                "gpu_telemetry_complete"] is False
         assert delegated["evidence_refs"]["game_workload_evidence"]["status"] == "unavailable"
     finally:
         serving.close()
