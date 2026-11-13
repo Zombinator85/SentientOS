@@ -320,6 +320,10 @@ def test_automatic_game_detection_unavailable_keeps_gpu_inference_deferred(
         "deferred_local_model_inference_under_cpu_pressure"),
     ("cpu", 0, "deferred",
         "deferred_local_model_inference_under_cpu_pressure"),
+    ("thermal", 24, "deferred",
+        "deferred_local_model_inference_under_thermal_pressure"),
+    ("thermal", 0, "deferred",
+        "deferred_local_model_inference_under_thermal_pressure"),
 ])
 def test_current_host_pressure_defers_optional_foreground_inference_by_resource_route(
         monkeypatch, tmp_path, pressure_kind, gpu_layers, expected_status,
@@ -351,7 +355,8 @@ def test_current_host_pressure_defers_optional_foreground_inference_by_resource_
                 collector("nvidia_gpu", device_count=1, devices=[{
                     "index": 0,
                     "gpu_utilization_percent": 96.0 if pressure_kind == "gpu" else 20.0,
-                    "vram_utilization_percent": 91.0 if pressure_kind == "gpu" else 30.0}])),
+                    "vram_utilization_percent": 91.0 if pressure_kind == "gpu" else 30.0,
+                    "temperature_c": 92.0 if pressure_kind == "thermal" else 55.0}])),
         ]), clock=lambda: now.isoformat())
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, host_resource_observation_owner=host_owner,
@@ -399,6 +404,9 @@ def test_current_host_pressure_defers_optional_foreground_inference_by_resource_
                 "ram_utilization_percent"] == (96.0 if pressure_kind == "memory" else 40.0)
             assert delegated["evidence_refs"]["host_resource_evidence"][
                 "cpu_utilization_percent"] == (96.0 if pressure_kind == "cpu" else 20.0)
+            if pressure_kind == "thermal":
+                assert delegated["evidence_refs"]["host_resource_evidence"][
+                    "thermal_zone_temperatures_c"] == {"nvidia_gpu_0": 92.0}
         else:
             assert receipt.output_text == "answer"
     finally:

@@ -1103,6 +1103,8 @@ class RuntimeGovernor:
                 "ram_utilization_percent": evaluation.snapshot.ram_utilization_percent,
                 "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
                 "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
+                "thermal_zone_temperatures_c": dict(
+                    evaluation.snapshot.thermal_zone_temperatures_c),
                 "gpu_telemetry_available": (
                     evaluation.snapshot.gpu_utilization_percent is not None
                     or evaluation.snapshot.vram_utilization_percent is not None
@@ -2414,6 +2416,11 @@ class RuntimeGovernor:
                 if isinstance(raw_labels, (tuple, list)) and all(
                         isinstance(label, str) for label in raw_labels):
                     labels = set(raw_labels)
+                    raw_thermal_temperatures = evidence.get(
+                        "thermal_zone_temperatures_c")
+                    thermal_temperatures = (
+                        dict(raw_thermal_temperatures)
+                        if isinstance(raw_thermal_temperatures, Mapping) else {})
                     evidence_ref = {
                         "status": "current",
                         "evaluation_id": evidence["evaluation_id"],
@@ -2427,6 +2434,7 @@ class RuntimeGovernor:
                         "gpu_utilization_percent": evidence.get("gpu_utilization_percent"),
                         "vram_utilization_percent": evidence.get("vram_utilization_percent"),
                         "ram_utilization_percent": evidence.get("ram_utilization_percent"),
+                        "thermal_zone_temperatures_c": thermal_temperatures,
                         "gpu_telemetry_available": evidence.get("gpu_telemetry_available"),
                         "gpu_telemetry_complete": evidence.get("gpu_telemetry_complete"),
                         "age_seconds": round(evidence_age_seconds, 3),
@@ -2693,6 +2701,13 @@ class RuntimeGovernor:
             # CPU pressure without controlling or attributing other processes.
             reason, blocks = (
                 "deferred_local_model_inference_under_cpu_pressure", True)
+        elif (operation_kind == "inference" and foreground
+                and "thermal_pressure" in pressure_reasons):
+            # Host thermal pressure is inspect-only evidence, but optional
+            # inference can yield to it without asserting cooling or hardware
+            # control authority.
+            reason, blocks = (
+                "deferred_local_model_inference_under_thermal_pressure", True)
         elif (operation_kind in {"inference", "model_serving"}
                 and gaming_workload_profile_active
                 and gaming_profile_resource_telemetry_incomplete):
