@@ -811,7 +811,7 @@ class ProductionServingInferenceController:
             active_invoker = self._active_invoker
         pending_backend = (active_invoker is not None
             and active_invoker.backend_work_pending())
-        if pending_backend:
+        if active_invoker is not None and pending_backend:
             pending_workload = self.current_workload_state()
             provenance = pending_workload.get("transport_provenance")
             verified_active_game = (
