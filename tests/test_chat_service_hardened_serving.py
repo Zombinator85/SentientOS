@@ -117,7 +117,8 @@ def test_production_chat_requires_process_generation_handoff_before_custody(monk
     monkeypatch.setattr(chat_service, "sentientos_data_dir", lambda: tmp_path)
     chat_service.close_production_chat()
     with pytest.raises(RuntimeError, match="chat_process_generation_handoff_required"):
-        chat_service.configure_production_chat(installation_identity="Install-1", serving_operation_id="serve-explicit")
+        chat_service.configure_production_chat(installation_identity="Install-1",
+            serving_operation_id="serve-explicit", resource_provisioning_id="fixture.v1")
     assert events == []
 
 
@@ -175,6 +176,24 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
 
     monkeypatch.setattr(chat_service, "ProductionServingController", Serving)
     monkeypatch.setattr(chat_service, "ProductionServingInferenceController", InferenceBridge)
+    class ResourceOwner:
+        def close(self): events.append("resource_owner_closed")
+
+    class ResourceBackedInference:
+        def __init__(self, delegate, owner):
+            self._delegate = delegate
+            self._owner = owner
+            self.host_resource_observation_owner = (
+                delegate.host_resource_observation_owner)
+
+        def __getattr__(self, name):
+            return getattr(self._delegate, name)
+
+    monkeypatch.setattr(chat_service, "ResourceBackedProductionChatInference",
+        ResourceBackedInference)
+    monkeypatch.setattr(
+        "sentientos.production_chat_resource_provisioning.load_production_chat_resource_context_owner",
+        lambda _handle, _provisioning_id: ResourceOwner())
     monkeypatch.setattr(HostResourceRuntimeCoordinator, "run_cycle",
         lambda _owner, **_kwargs: None)
     monkeypatch.setattr(chat_service, "sentientos_data_dir", lambda: tmp_path / "data")
@@ -194,7 +213,8 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     chat_service.close_production_chat()
     chat_service.configure_production_chat(
         installation_identity="Install-1", serving_operation_id="serve-1",
-        runtime_handoff_id="handoff-1", avatar_output_session=session,
+        runtime_handoff_id="handoff-1", resource_provisioning_id="fixture.v1",
+        avatar_output_session=session,
         foreground_game_detector=detector, control_plane_kernel=admission_owner)
     composition = chat_service._PRODUCTION_COMPOSITION
     assert composition is not None

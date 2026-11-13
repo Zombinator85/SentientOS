@@ -3899,6 +3899,13 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             raise ValueError("avatar_output_session_and_state_path_mutually_exclusive")
         avatar_output_emitter = avatar_output_session.emitter
     identity = InstallationIdentity.parse(installation_identity)
+    if resource_provisioning_id is not None:
+        from .production_chat_resource_provisioning import validate_resource_provisioning_id
+
+        resource_provisioning_id = validate_resource_provisioning_id(
+            resource_provisioning_id)
+    if resource_context_owner is None and resource_provisioning_id is None:
+        raise ValueError("resource_provisioning_context_required_for_production_chat")
     if runtime_handoff_id is None:
         raise RuntimeError("chat_process_generation_handoff_required")
     try:

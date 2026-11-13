@@ -17,6 +17,27 @@ def test_configure_production_chat_rejects_nonexact_owner_before_establishing(mo
             resource_context_owner=object())  # type: ignore[arg-type]
 
 
+def test_configure_production_chat_requires_governed_resource_owner_before_custody(
+        monkeypatch):
+    monkeypatch.setattr(chat_service, "open_chat_process_handoff",
+        lambda **_kwargs: pytest.fail("process custody opened before resource governance"))
+    with pytest.raises(ValueError,
+                       match="resource_provisioning_context_required_for_production_chat"):
+        chat_service.configure_production_chat(
+            installation_identity="Install-1", serving_operation_id="op",
+            runtime_handoff_id="handoff-1")
+
+
+def test_configure_production_chat_validates_resource_identity_before_custody(
+        monkeypatch):
+    monkeypatch.setattr(chat_service, "open_chat_process_handoff",
+        lambda **_kwargs: pytest.fail("process custody opened for invalid resource identity"))
+    with pytest.raises(ValueError, match="invalid_resource_provisioning_id"):
+        chat_service.configure_production_chat(
+            installation_identity="Install-1", serving_operation_id="op",
+            runtime_handoff_id="handoff-1", resource_provisioning_id="../bad")
+
+
 def test_remote_avatar_output_requires_owned_core_session():
     with pytest.raises(TypeError, match="exact_wsl_core_avatar_output_session_required"):
         chat_service.configure_production_chat(

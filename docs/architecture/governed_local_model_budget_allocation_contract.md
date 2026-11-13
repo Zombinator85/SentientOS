@@ -129,7 +129,7 @@ The registered definition is visible to a later exact admission check, but eligi
 
 `ProductionServingInferenceController.generate` now accepts that exact typed context as an optional keyword-only input and forwards the same object, without inspecting or reconstructing it, to the governed invoker beside the existing serving-currentness guards. The bridge issues no allocation, creates no principal/authentication/currentness evidence or policy, and derives no nonce. Model-serving admission, per-invocation `LOCAL_MODEL_INFERENCE` admission, and resource allocation remain three independent statements. Resource denial remains an invocation receipt outcome; serving-session absence/currentness retains the existing serving-error semantics.
 
-The legacy no-context path and its process-local `invocation_counts` safeguard remain unchanged and independent. Caller linkage remains ordinary namespaced caller data and cannot activate resource custody. Serving-session binding and stable conversation-model identity contain no resource entitlement. Consequently, this is explicit capability, not a claim that all production local inference is resource-enforced. Control-plane resource composition, allocation revocation administration, child/delegated allocation, other resource classes, exact token accounting, physical-resource accounting, and activation remain deferred.
+The standalone invoker retains its legacy no-context path and process-local `invocation_counts` safeguard for callers that do not compose persistent production chat. Caller linkage remains ordinary namespaced caller data and cannot activate resource custody. Serving-session binding and stable conversation-model identity contain no resource entitlement. The lower-level serving inference bridge still accepts an optional typed context, but `configure_production_chat` now fails closed unless given either a trusted owner or a validated provisioning ID; the CLI already requires that ID. This makes governed allocation mandatory for the supported persistent production-chat composition without claiming that every local-model runtime elsewhere in the repository is resource-enforced. Control-plane resource composition, allocation revocation administration, child/delegated allocation, other resource classes, exact token accounting, physical-resource accounting, and allocation issuance remain deferred.
 
 The next slice previously selected here—trusted resource-context ownership for
 persistent production chat—is implemented by the composition below.
@@ -154,9 +154,10 @@ message, session, correlation, caller-linkage, history, or memory data. Exhausti
 duplicate nonces, and stale evidence fail through the resource-backed invocation path;
 there is no per-operation downgrade to the legacy path.
 
-The no-owner `configure_production_chat` mode is deliberately preserved, so this does
-not claim that all production chat is automatically resource-enforced. Upstream
-production allocation provisioning remains separate. The exact next slice is:
-**establish concrete production startup/provisioning custody that supplies the
-persistent-chat owner with a genuine pre-existing principal/authentication/currentness
-bundle, allocator policy, and issued allocation**.
+Production chat no longer has a no-owner composition mode. It validates a supplied
+provisioning ID before opening process handoff custody, then loads the exact existing
+owner bundle; callers with an already-held owner must present its single-process
+custody. The composition still does not issue allocations or manufacture principal,
+authentication, currentness, or policy evidence. The remaining provisioning work is
+to establish an operational, governed path that issues and refreshes those existing
+resource bundles for production chat.
