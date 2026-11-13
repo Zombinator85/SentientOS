@@ -189,11 +189,17 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
         def __getattr__(self, name):
             return getattr(self._delegate, name)
 
+    loaded_resource_contexts = []
+
+    def load_resource_context(actual_handle, provisioning_id):
+        loaded_resource_contexts.append((actual_handle, provisioning_id))
+        return ResourceOwner()
+
     monkeypatch.setattr(chat_service, "ResourceBackedProductionChatInference",
         ResourceBackedInference)
     monkeypatch.setattr(
         "sentientos.production_chat_resource_provisioning.load_production_chat_resource_context_owner",
-        lambda _handle, _provisioning_id: ResourceOwner())
+        load_resource_context)
     monkeypatch.setattr(HostResourceRuntimeCoordinator, "run_cycle",
         lambda _owner, **_kwargs: None)
     monkeypatch.setattr(chat_service, "sentientos_data_dir", lambda: tmp_path / "data")
@@ -221,6 +227,7 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     assert composition.service._avatar_output is not None
     assert isinstance(composition.service._avatar_output, ChatAvatarOutputController)
     assert composition._avatar_output_owner is session
+    assert loaded_resource_contexts == [(handle, "fixture.v1")]
     assert detector._game_performance_observer.__self__ is admission_owner
     assert detector._game_workload_observer.__self__ is admission_owner
     resource_owner = composition.service._inference.host_resource_observation_owner
