@@ -405,10 +405,20 @@ class ProductionServingInferenceController:
             "gaming_profile_resource_reconciliation",
             "active_gaming_profile_resource_reconciliation",
         }
+        conservative_automatic_profile = (
+            trigger_kind == "conservative_automatic_gaming_resource_reconciliation")
         if selected_gaming_profile:
             if (workload_evidence.get("configured_mode") != "gaming"
                     or workload_evidence.get("mode_source") != "operator_selected"
                     or workload_evidence.get("observation_status") != "not_requested"):
+                return None
+            game_message_id = None
+        elif conservative_automatic_profile:
+            if (workload_evidence.get("configured_mode") != "automatic"
+                    or workload_evidence.get("mode_source") not in {
+                        "foreground_observation_unavailable_conservative_gaming",
+                        "game_process_observation_unavailable_conservative_gaming"}
+                    or workload_evidence.get("observation_status") != "unavailable"):
                 return None
             game_message_id = None
         else:
@@ -422,7 +432,7 @@ class ProductionServingInferenceController:
                 or not isinstance(labels, (tuple, list))
                 or not all(isinstance(label, str) for label in labels)
                 or not set(labels).intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS)
-                or (not selected_gaming_profile and (
+                or (not selected_gaming_profile and not conservative_automatic_profile and (
                     workload_evidence.get("observation_status") != "available"
                     or (workload_evidence.get("game_foreground") is not True
                         and workload_evidence.get("game_process_running") is not True)
@@ -437,9 +447,12 @@ class ProductionServingInferenceController:
         loaded_identity = getattr(model, "active_identity", None)
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
             return None
+        profile_release = selected_gaming_profile or conservative_automatic_profile
         host_release_evidence = {
             "schema_version": ("sentientos.production_gaming_profile_host_resource_release_evidence:v1"
                 if selected_gaming_profile else
+                "sentientos.production_conservative_automatic_gaming_host_resource_release_evidence:v1"
+                if conservative_automatic_profile else
                 "sentientos.production_game_host_resource_release_evidence:v1"),
             "trigger_kind": trigger_kind,
             "trigger_correlation_id": source_correlation,
@@ -456,14 +469,23 @@ class ProductionServingInferenceController:
                 "workload_mode_source": "operator_selected",
                 "workload_observation_status": "not_requested",
             })
+        elif conservative_automatic_profile:
+            host_release_evidence.update({
+                "configured_mode": "automatic",
+                "workload_mode": "gaming",
+                "workload_mode_source": workload_evidence.get("mode_source"),
+                "workload_observation_status": "unavailable",
+            })
         else:
             host_release_evidence.update({
                 "game_workload_message_id": game_message_id,
                 "active_inference_preemption_requested": preempt_active_generation,
             })
         reason_code = ("selected_gaming_profile_host_pressure" if selected_gaming_profile
+            else "conservative_automatic_profile_host_pressure"
+            if conservative_automatic_profile
             else "verified_game_host_pressure")
-        actor = ("production_chat_workload_resource_governor" if selected_gaming_profile
+        actor = ("production_chat_workload_resource_governor" if profile_release
             else "production_chat_game_resource_governor")
         metadata = {
             "correlation_id": release_correlation,
@@ -581,6 +603,11 @@ class ProductionServingInferenceController:
                 **({"workload_mode": "gaming",
                     "workload_mode_source": "operator_selected"}
                     if selected_gaming_profile else
+                    {"configured_mode": "automatic",
+                     "workload_mode": "gaming",
+                     "workload_mode_source": workload_evidence.get("mode_source"),
+                     "workload_observation_status": "unavailable"}
+                    if conservative_automatic_profile else
                     {"game_workload_message_id": game_message_id}),
             },
             "worker_exit_observed": worker_exit_observed,
@@ -616,15 +643,21 @@ class ProductionServingInferenceController:
         return outcome
 
     def reconcile_idle_game_resource_state(self) -> dict[str, Any]:
-        """Release an exact resident session on verified game/GPU pressure, without inference."""
+        """Release optional residency under current gaming-priority evidence, without inference."""
         if not self._receipt_capacity_lock.acquire(blocking=False):
             return self._preempt_for_verified_game_workload()
         try:
             workload = self.current_workload_state()
             selected_gaming_profile = workload.get("configured_mode") == "gaming"
+            conservative_automatic_profile = (
+                workload.get("configured_mode") == "automatic"
+                and workload.get("mode_source") in {
+                    "foreground_observation_unavailable_conservative_gaming",
+                    "game_process_observation_unavailable_conservative_gaming"}
+                and workload.get("observation_status") == "unavailable")
             if workload.get("configured_mode") != "automatic" and not selected_gaming_profile:
                 return {"status": "skipped", "reason": "gaming_workload_profile_required"}
-            if not selected_gaming_profile:
+            if not selected_gaming_profile and not conservative_automatic_profile:
                 provenance = workload.get("transport_provenance")
                 if (workload.get("observation_status") != "available"
                         or (workload.get("game_foreground") is not True
@@ -658,7 +691,9 @@ class ProductionServingInferenceController:
                         "release_receipt_id": residency_release["receipt_id"],
                         "trigger_kind": residency_release["trigger_kind"],
                         "serving_session_id": session.session_id}
-            correlation_id = "idle-game-resource-reconcile-" + str(time.time_ns())
+            correlation_prefix = ("automatic-game-resource-reconcile-"
+                if conservative_automatic_profile else "idle-game-resource-reconcile-")
+            correlation_id = correlation_prefix + str(time.time_ns())
             observation = self._observe_host_resources(
                 correlation_id, observation_namespace="local-chat-reconciliation")
             labels = observation.get("pressure_labels")
@@ -669,7 +704,7 @@ class ProductionServingInferenceController:
                     or not set(labels).intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS)):
                 return {"status": "skipped", "reason": "current_host_pressure_evidence_required",
                     "observation_correlation_id": observation.get("observation_correlation_id")}
-            if not selected_gaming_profile:
+            if not selected_gaming_profile and not conservative_automatic_profile:
                 # Collection can outlast the game-presence observation that
                 # authorized automatic-mode reconciliation. Revalidate after
                 # collection so an ended/unverified game cannot trigger release.
@@ -685,12 +720,25 @@ class ProductionServingInferenceController:
                         "reason": "fresh_verified_game_evidence_required",
                         "observation_correlation_id": observation.get(
                             "observation_correlation_id")}
+            elif conservative_automatic_profile:
+                workload = self.current_workload_state()
+                if (workload.get("configured_mode") != "automatic"
+                        or workload.get("observation_status") != "unavailable"
+                        or workload.get("mode_source") not in {
+                            "foreground_observation_unavailable_conservative_gaming",
+                            "game_process_observation_unavailable_conservative_gaming"}):
+                    return {"status": "skipped",
+                        "reason": "conservative_automatic_gaming_profile_not_current",
+                        "observation_correlation_id": observation.get(
+                            "observation_correlation_id")}
             evidence = {key: workload.get(key) for key in (
                 "configured_mode", "mode_source", "observation_status", "game_foreground",
                 "process_name_digest", "game_process_running", "running_process_name_digests",
                 "observed_at", "transport_provenance")}
             trigger_kind = ("gaming_profile_resource_reconciliation"
-                if selected_gaming_profile else "idle_game_reconciliation")
+                if selected_gaming_profile else
+                "conservative_automatic_gaming_resource_reconciliation"
+                if conservative_automatic_profile else "idle_game_reconciliation")
             release_outcome = self._release_after_host_pressure(
                 session, model, None, resource_observation=observation,
                 workload_evidence=evidence, trigger_correlation_id=correlation_id,

@@ -740,6 +740,87 @@ def test_selected_gaming_profile_releases_gpu_model_under_pressure_or_for_reside
         serving.close()
 
 
+@pytest.mark.parametrize(("cpu_percent", "expected_status"), [
+    (95.0, "worker_closed"),
+    (20.0, "skipped"),
+])
+def test_conservative_automatic_profile_releases_resident_model_only_under_host_pressure(
+        monkeypatch, tmp_path, cpu_percent, expected_status):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=cpu_percent)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+        ]), clock=lambda: now.isoformat())
+
+    class UnavailableGameDetector:
+        def observe(self, _process_names):
+            return ForegroundGameObservation("unavailable", None, None,
+                now.isoformat())
+
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, foreground_game_detector=UnavailableGameDetector(),
+        host_resource_observation_owner=host_owner, gpu_layers=24)
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+
+    result = bridge.reconcile_idle_game_resource_state()
+
+    assert result["status"] == expected_status
+    assert host_owner.collector_call_count == (4 if expected_status == "worker_closed" else 2)
+    if expected_status == "worker_closed":
+        assert model.closed is True
+        assert serving.current_session() is None
+        assert result["trigger_kind"] == (
+            "conservative_automatic_gaming_resource_reconciliation")
+        receipt_path = next((tmp_path / "state" / "installations" / "install-1" /
+            "state" / "local-model" / "serving" / "resource-release-receipts").glob("*.json"))
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        evidence = receipt["resource_observation"]
+        assert evidence["configured_mode"] == "automatic"
+        assert evidence["workload_mode"] == "gaming"
+        assert evidence["workload_mode_source"] == (
+            "foreground_observation_unavailable_conservative_gaming")
+        assert evidence["workload_observation_status"] == "unavailable"
+        assert "game_workload_message_id" not in evidence
+        assert receipt["inference_performed"] is False
+        assert receipt["host_mutation_performed"] is False
+        decisions = [json.loads(line) for line in
+            (tmp_path / "kernel-decisions.jsonl").read_text(
+                encoding="utf-8").splitlines()]
+        release = next(item for item in decisions
+            if item.get("action_kind") == "local_model_resource_release")
+        delegated = release["delegated_outcomes"]["runtime_governor"]
+        assert delegated["allowed"] is True
+        assert delegated["reason"] == "model_resource_release_fail_safe"
+        observed = delegated["evidence_refs"]["resource_observation_evidence"]
+        assert observed["status"] == "current"
+        assert observed["configured_mode"] == "automatic"
+        assert observed["workload_observation_status"] == "unavailable"
+    else:
+        assert model.closed is False
+        assert serving.current_session() == session
+        assert result["reason"] == "current_host_pressure_evidence_required"
+        receipt_dir = (tmp_path / "state" / "installations" / "install-1" /
+            "state" / "local-model" / "serving" / "resource-release-receipts")
+        assert list(receipt_dir.glob("*.json")) == []
+        serving.close()
+
+
 def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch, tmp_path):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")

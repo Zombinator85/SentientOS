@@ -431,6 +431,47 @@ def test_selected_gaming_profile_release_requires_current_observed_host_pressure
     assert decision.reason == "model_resource_release_pressure_evidence_required"
 
 
+@pytest.mark.no_legacy_skip
+def test_conservative_automatic_profile_release_requires_registered_host_evidence(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    trigger = "automatic-game-resource-reconcile-forged"
+    observation_id = "local-chat-reconciliation-" + hashlib.sha256(
+        trigger.encode("utf-8")).hexdigest()[:32]
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        ("conservative_automatic_gaming_resource_reconciliation:" + trigger)
+        .encode("utf-8")).hexdigest()[:24]
+    evidence = {
+        "schema_version": "sentientos.production_conservative_automatic_gaming_host_resource_release_evidence:v1",
+        "trigger_kind": "conservative_automatic_gaming_resource_reconciliation",
+        "trigger_correlation_id": trigger,
+        "observation_correlation_id": observation_id,
+        "host_report_id": "host-report-unobserved",
+        "host_report_digest": "c" * 64,
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "pressure_labels": ["cpu_pressure"],
+        "configured_mode": "automatic",
+        "workload_mode": "gaming",
+        "workload_mode_source": "foreground_observation_unavailable_conservative_gaming",
+        "workload_observation_status": "unavailable",
+    }
+    decision = governor._admit_local_model_resource_release(
+        actor="production_chat_workload_resource_governor",
+        subject="production_chat_workload_resource_governor",
+        correlation_id=release_correlation,
+        metadata={"purpose": "local_model_resource_release",
+            "reason_code": "conservative_automatic_profile_host_pressure",
+            "target_subsystem": "production_chat",
+            "model_identity_digest": "d" * 64,
+            "resource_observation": evidence})
+
+    assert decision.allowed is False
+    assert decision.reason == "model_resource_release_pressure_evidence_required"
+    assert decision.evidence_refs["resource_observation_evidence"]["status"] != "current"
+
+
 @pytest.mark.parametrize("mutation,expected", [
     ("none", True), ("wrong_mode", False), ("wrong_source", False),
     ("stale", False), ("zero_gpu_layers", False), ("empty_session", False),

@@ -1356,6 +1356,7 @@ class RuntimeGovernor:
                 "selected_gaming_profile_gpu_model_residency",
                 "verified_game_frame_pressure",
                 "selected_gaming_profile_host_pressure",
+                "conservative_automatic_profile_host_pressure",
                 "rootless_experimental_epistemic_complete",
                 "rootless_experimental_developmental_complete",
             }
@@ -1885,14 +1886,18 @@ class RuntimeGovernor:
                     if release_age_seconds is not None else None,
             } if evidence_valid and isinstance(observation_value, Mapping) else {
                 "status": "missing_stale_malformed_or_unverified_game_host_pressure"})
-        elif reason_code == "selected_gaming_profile_host_pressure":
+        elif reason_code in {"selected_gaming_profile_host_pressure",
+                "conservative_automatic_profile_host_pressure"}:
             observation_value = payload.get("resource_observation")
+            selected_profile = reason_code == "selected_gaming_profile_host_pressure"
             expected_fields = {
                 "schema_version", "trigger_kind", "trigger_correlation_id",
                 "observation_correlation_id", "host_report_id", "host_report_digest",
                 "observed_at", "pressure_labels", "workload_mode",
                 "workload_mode_source", "workload_observation_status",
             }
+            if not selected_profile:
+                expected_fields |= {"configured_mode"}
             evidence_valid = False
             profile_release_age_seconds: float | None = None
             profile_host_age: float | None = None
@@ -1939,10 +1944,19 @@ class RuntimeGovernor:
                             "idle-game-resource-reconcile-"),
                         "active_gaming_profile_resource_reconciliation": (
                             "active-gaming-profile-resource-reconcile-"),
+                        "conservative_automatic_gaming_resource_reconciliation": (
+                            "automatic-game-resource-reconcile-"),
                     }.get(raw_trigger)
+                conservative_source = observation_value.get("workload_mode_source")
+                expected_workload_source = (
+                    "operator_selected" if selected_profile else conservative_source)
+                expected_workload_status = "not_requested" if selected_profile else "unavailable"
+                expected_schema = (
+                    "sentientos.production_gaming_profile_host_resource_release_evidence:v1"
+                    if selected_profile else
+                    "sentientos.production_conservative_automatic_gaming_host_resource_release_evidence:v1")
                 evidence_valid = bool(
-                    observation_value.get("schema_version") ==
-                        "sentientos.production_gaming_profile_host_resource_release_evidence:v1"
+                    observation_value.get("schema_version") == expected_schema
                     and expected_source_prefix is not None
                     and isinstance(source, str)
                     and source.startswith(expected_source_prefix)
@@ -1952,8 +1966,13 @@ class RuntimeGovernor:
                     and actor == "production_chat_workload_resource_governor"
                     and subject == actor and payload.get("target_subsystem") == "production_chat"
                     and observation_value.get("workload_mode") == "gaming"
-                    and observation_value.get("workload_mode_source") == "operator_selected"
-                    and observation_value.get("workload_observation_status") == "not_requested"
+                    and observation_value.get("workload_mode_source") == expected_workload_source
+                    and observation_value.get("workload_observation_status") == expected_workload_status
+                    and (selected_profile or (
+                        observation_value.get("configured_mode") == "automatic"
+                        and conservative_source in {
+                            "foreground_observation_unavailable_conservative_gaming",
+                            "game_process_observation_unavailable_conservative_gaming"}))
                     and isinstance(raw_report_id, str)
                     and isinstance(raw_report_digest, str)
                     and re.fullmatch(r"[0-9a-f]{64}", raw_report_digest) is not None
@@ -1977,7 +1996,10 @@ class RuntimeGovernor:
                 "host_report_id": observation_value.get("host_report_id"),
                 "pressure_labels": observation_value.get("pressure_labels"),
                 "workload_mode": "gaming",
-                "workload_mode_source": "operator_selected",
+                "workload_mode_source": observation_value.get("workload_mode_source"),
+                "configured_mode": ("gaming" if selected_profile else "automatic"),
+                "workload_observation_status": observation_value.get(
+                    "workload_observation_status"),
                 "age_seconds": round(profile_release_age_seconds, 3)
                     if profile_release_age_seconds is not None else None,
             } if evidence_valid and isinstance(observation_value, Mapping) else {
@@ -2054,7 +2076,8 @@ class RuntimeGovernor:
                     if reason_code in {"vram_pressure_observed", "verified_game_gpu_pressure",
                         "verified_game_host_pressure",
                         "verified_game_frame_pressure",
-                        "selected_gaming_profile_host_pressure"} else
+                        "selected_gaming_profile_host_pressure",
+                        "conservative_automatic_profile_host_pressure"} else
                     "model_resource_release_request_invalid"),
             subject=subject, scope="local", origin=actor,
             pressure=self.sample_pressure(), metadata=payload,
