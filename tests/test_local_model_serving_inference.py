@@ -920,12 +920,18 @@ def test_conservative_automatic_profile_releases_resident_model_only_under_host_
         serving.close()
 
 
-@pytest.mark.parametrize(("gpu_percent", "vram_percent", "expected_status"), [
-    (94.0, 92.0, "worker_closed"),
-    (20.0, 30.0, "skipped"),
+@pytest.mark.parametrize(("gpu_percent", "vram_percent", "ram_percent",
+    "gpu_layers", "expected_status", "expected_trigger"), [
+    (94.0, 92.0, 40.0, 24, "worker_closed",
+        "idle_host_gpu_resource_reconciliation"),
+    (20.0, 30.0, 40.0, 24, "skipped", None),
+    (20.0, 30.0, 94.0, 0, "worker_closed",
+        "idle_host_memory_resource_reconciliation"),
+    (20.0, 30.0, 40.0, 0, "skipped", None),
 ])
-def test_normal_mode_releases_only_idle_gpu_residency_under_host_gpu_pressure(
-        monkeypatch, tmp_path, gpu_percent, vram_percent, expected_status):
+def test_normal_mode_releases_only_idle_residency_under_host_pressure(
+        monkeypatch, tmp_path, gpu_percent, vram_percent, ram_percent, gpu_layers,
+        expected_status, expected_trigger):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -944,7 +950,7 @@ def test_normal_mode_releases_only_idle_gpu_residency_under_host_gpu_pressure(
             HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
                 collector("cpu", utilization_percent=20.0)),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
-                collector("memory", used_percent=40.0)),
+                collector("memory", used_percent=ram_percent)),
             HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
                 collector("nvidia_gpu", device_count=1, devices=[{
                     "index": 0, "gpu_utilization_percent": gpu_percent,
@@ -952,7 +958,7 @@ def test_normal_mode_releases_only_idle_gpu_residency_under_host_gpu_pressure(
         ]), clock=lambda: now.isoformat())
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, host_resource_observation_owner=host_owner,
-        gpu_layers=24)
+        gpu_layers=gpu_layers)
     import asyncio
     from sentientos import chat_service
 
@@ -997,19 +1003,28 @@ def test_normal_mode_releases_only_idle_gpu_residency_under_host_gpu_pressure(
     result = reconciliations[0]
 
     assert scheduler_started is True
-    assert result["status"] == expected_status
+    assert result["status"] == expected_status, result
     assert host_owner.collector_call_count == (
         6 if expected_status == "worker_closed" else 3)
     if expected_status == "worker_closed":
         assert state_after_reconciliation == [(True, False)]
-        assert result["trigger_kind"] == "idle_host_gpu_resource_reconciliation"
+        assert result["trigger_kind"] == expected_trigger
         release_path = next((tmp_path / "state" / "installations" / "install-1" /
             "state" / "local-model" / "serving" /
             "resource-release-receipts").glob("*.json"))
         receipt = json.loads(release_path.read_text(encoding="utf-8"))
         evidence = receipt["resource_observation"]
-        assert evidence["pressure_labels"] == ["gpu_pressure"]
-        assert evidence["model_gpu_layers"] == 24
+        if expected_trigger == "idle_host_gpu_resource_reconciliation":
+            assert evidence["pressure_labels"] == ["gpu_pressure"]
+            assert evidence["model_gpu_layers"] == 24
+        else:
+            assert evidence["pressure_labels"] == ["memory_pressure"]
+            assert evidence["ram_utilization_percent"] == 94.0
+            assert evidence["model_gpu_layers"] == 0
+            comparison = receipt["resource_measurement_comparison"]
+            assert comparison["before"]["ram_utilization_percent"] == 94.0
+            assert comparison["after"]["ram_utilization_percent"] == 94.0
+            assert comparison["ram_utilization_delta_percentage_points"] == 0.0
         assert evidence["active_inference_preemption_requested"] is False
         assert receipt["inference_performed"] is False
         assert receipt["host_mutation_performed"] is False
@@ -1023,9 +1038,13 @@ def test_normal_mode_releases_only_idle_gpu_residency_under_host_gpu_pressure(
         assert delegated["reason"] == "model_resource_release_fail_safe"
         assert delegated["evidence_refs"]["resource_observation_evidence"][
             "status"] == "current"
+        if expected_trigger == "idle_host_memory_resource_reconciliation":
+            assert delegated["evidence_refs"]["resource_observation_evidence"][
+                "ram_utilization_percent"] == 94.0
     else:
         assert state_after_reconciliation == [(False, True)]
-        assert result["reason"] == "current_host_gpu_pressure_required"
+        assert result["reason"] == ("current_host_gpu_pressure_required"
+            if gpu_layers else "current_host_memory_pressure_required")
 
 
 def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch, tmp_path):

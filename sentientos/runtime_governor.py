@@ -1358,6 +1358,7 @@ class RuntimeGovernor:
                 "development_chat_shutdown",
                 "vram_pressure_observed",
                 "host_gpu_pressure_observed",
+                "host_memory_pressure_observed",
                 "verified_game_gpu_pressure",
                 "verified_game_host_pressure",
                 "verified_game_gpu_model_residency",
@@ -1571,6 +1572,116 @@ class RuntimeGovernor:
                     if host_gpu_release_age_seconds is not None else None,
             } if evidence_valid and isinstance(observation_value, Mapping) else {
                 "status": "missing_stale_malformed_or_unverified_host_gpu_pressure"})
+        elif reason_code == "host_memory_pressure_observed":
+            observation_value = payload.get("resource_observation")
+            expected_fields = {
+                "schema_version", "trigger_kind", "trigger_correlation_id",
+                "observation_correlation_id", "host_report_id", "host_report_digest",
+                "observed_at", "pressure_labels", "ram_utilization_percent",
+                "serving_session_id", "model_gpu_layers",
+                "active_inference_preemption_requested",
+            }
+            evidence_valid = False
+            memory_source_correlation = None
+            memory_observation_id = None
+            memory_report_id = None
+            ram_value = None
+            release_age = evidence_age = None
+            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+                raw_source = observation_value.get("trigger_correlation_id")
+                memory_source_correlation = raw_source if isinstance(raw_source, str) else None
+                raw_observation_id = observation_value.get("observation_correlation_id")
+                memory_observation_id = (raw_observation_id
+                    if isinstance(raw_observation_id, str) else None)
+                raw_report_id = observation_value.get("host_report_id")
+                memory_report_id = raw_report_id if isinstance(raw_report_id, str) else None
+                raw_observed_at = observation_value.get("observed_at")
+                raw_labels = observation_value.get("pressure_labels")
+                raw_ram = observation_value.get("ram_utilization_percent")
+                if (isinstance(raw_ram, (int, float)) and not isinstance(raw_ram, bool)
+                        and math.isfinite(float(raw_ram)) and 0 <= float(raw_ram) <= 100):
+                    ram_value = float(raw_ram)
+                expected_observation_id = ("local-chat-reconciliation-" +
+                    hashlib.sha256(memory_source_correlation.encode("utf-8")).hexdigest()[:32]
+                    if memory_source_correlation is not None else None)
+                expected_release_correlation = ("production-chat-resource-release-" +
+                    hashlib.sha256(("idle_host_memory_resource_reconciliation:" +
+                        memory_source_correlation).encode("utf-8")).hexdigest()[:24]
+                    if memory_source_correlation is not None else None)
+                try:
+                    parsed_at = datetime.fromisoformat(
+                        raw_observed_at if isinstance(raw_observed_at, str) else "")
+                    if parsed_at.tzinfo is not None:
+                        release_age = (datetime.now(timezone.utc) -
+                            parsed_at.astimezone(timezone.utc)).total_seconds()
+                except (TypeError, ValueError):
+                    pass
+                with self._resource_evidence_lock:
+                    host_evidence = (self._host_resource_evidence_by_correlation.get(
+                        memory_observation_id) if memory_observation_id is not None else None)
+                try:
+                    if host_evidence is not None:
+                        evidence_age = (datetime.now(timezone.utc) -
+                            datetime.fromisoformat(str(host_evidence["observed_at"])).astimezone(
+                                timezone.utc)).total_seconds()
+                except (KeyError, TypeError, ValueError):
+                    pass
+                raw_host_labels = (host_evidence.get("pressure_labels")
+                    if host_evidence is not None else None)
+                host_labels = (set(raw_host_labels)
+                    if isinstance(raw_host_labels, (tuple, list, set, frozenset))
+                    and all(isinstance(label, str) for label in raw_host_labels) else set())
+                raw_digest = observation_value.get("host_report_digest")
+                evidence_valid = bool(
+                    observation_value.get("schema_version") ==
+                        "sentientos.production_host_memory_pressure_release_evidence:v1"
+                    and observation_value.get("trigger_kind") ==
+                        "idle_host_memory_resource_reconciliation"
+                    and isinstance(memory_source_correlation, str)
+                    and memory_source_correlation.startswith((
+                        "idle-host-memory-resource-reconcile-",
+                        "idle-host-gpu-resource-reconcile-"))
+                    and 0 < len(memory_source_correlation) <= 256
+                    and memory_observation_id == expected_observation_id
+                    and correlation_id == expected_release_correlation
+                    and actor == "production_chat_host_resource_governor"
+                    and subject == actor
+                    and payload.get("target_subsystem") == "production_chat"
+                    and isinstance(memory_report_id, str) and bool(memory_report_id)
+                    and isinstance(raw_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", raw_digest) is not None
+                    and isinstance(raw_observed_at, str)
+                    and isinstance(raw_labels, (list, tuple))
+                    and all(isinstance(label, str) for label in raw_labels)
+                    and set(raw_labels) == host_labels
+                    and "memory_pressure" in host_labels
+                    and ram_value is not None and ram_value >= 90.0
+                    and type(observation_value.get(
+                        "active_inference_preemption_requested")) is bool
+                    and observation_value.get(
+                        "active_inference_preemption_requested") is False
+                    and type(observation_value.get("model_gpu_layers")) is int
+                    and 0 <= observation_value["model_gpu_layers"] <= 256
+                    and isinstance(observation_value.get("serving_session_id"), str)
+                    and bool(observation_value.get("serving_session_id"))
+                    and release_age is not None
+                    and 0 <= release_age <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS
+                    and evidence_age is not None
+                    and 0 <= evidence_age <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS
+                    and host_evidence is not None
+                    and host_evidence.get("observation_correlation_id") == memory_observation_id
+                    and host_evidence.get("report_id") == memory_report_id
+                    and host_evidence.get("report_digest") == raw_digest
+                    and host_evidence.get("observed_at") == raw_observed_at
+                    and host_evidence.get("ram_utilization_percent") == ram_value)
+            valid = valid and evidence_valid
+            evidence_ref = ({
+                "status": "current", "observation_correlation_id": memory_observation_id,
+                "host_report_id": memory_report_id, "pressure_labels": observation_value.get(
+                    "pressure_labels"), "ram_utilization_percent": ram_value,
+                "age_seconds": round(release_age, 3) if release_age is not None else None,
+            } if evidence_valid and isinstance(observation_value, Mapping) else {
+                "status": "missing_stale_malformed_or_unverified_host_memory_pressure"})
         elif reason_code == "verified_game_gpu_pressure":
             observation_value = payload.get("resource_observation")
             expected_fields = {
@@ -2220,6 +2331,7 @@ class RuntimeGovernor:
                         "selected_gaming_profile_gpu_model_residency"} else
                     "model_resource_release_pressure_evidence_required"
                     if reason_code in {"vram_pressure_observed", "host_gpu_pressure_observed",
+                        "host_memory_pressure_observed",
                         "verified_game_gpu_pressure",
                         "verified_game_host_pressure",
                         "verified_game_frame_pressure",
