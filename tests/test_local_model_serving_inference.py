@@ -1701,6 +1701,159 @@ def test_scheduled_reconciliation_restores_released_model_through_fresh_serving_
     serving.close()
 
 
+def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
+        monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    cpu = {"utilization_percent": 20.0}
+
+    def collector(collector_id, **values):
+        def collect(*, observed_at=None):
+            current = cpu if collector_id == "cpu" else values
+            return HostCollectorResult(collector_id, "available",
+                observed_at or now.isoformat(), "synthetic_test_fixture",
+                values=dict(current))
+        return collect
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu")),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=0, devices=[])),
+        ]), clock=lambda: now.isoformat())
+    admission_observations = []
+
+    def admission_context(correlation_id, activation_state):
+        observation_id = "local-chat-serving-" + hashlib.sha256(
+            correlation_id.encode("utf-8")).hexdigest()[:32]
+        evaluation = host_owner.run_cycle(correlation_id=observation_id)
+        assert evaluation is not None
+        from sentientos.host_resource_runtime import validate_evaluation
+        assert validate_evaluation(evaluation).ok, validate_evaluation(evaluation).findings
+        assert kernel.observe_host_resource_evaluation(evaluation) is True
+        admission_observations.append(evaluation.pressure_report.pressure_labels)
+        load_configuration = activation_state.get("load_configuration", {})
+        gpu_layers = load_configuration.get("n_gpu_layers")
+        return {"resource_governance_required": True,
+            "purpose": "local_model_serving",
+            "host_resource_observation_namespace": "local-chat-serving",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp",
+                "accelerator_route": "cpu" if gpu_layers == 0 else "gpu",
+                "gpu_layers": gpu_layers,
+                "configuration_digest": digest_payload(load_configuration)},
+            "workload_mode": "normal", "effective_workload_mode": "normal",
+            "serving_workload_evidence": {"configured_mode": "normal",
+                "mode_source": "operator_selected", "observation_status": "not_requested"}}
+
+    models = []
+
+    def model_factory(identity, initial_model):
+        def create(_config, _load):
+            model = initial_model if not models else Model(identity)
+            models.append(model)
+            return model
+        return create
+
+    _bridge, serving, first_session, first_model, _kernel, _ = setup(
+        monkeypatch, tmp_path, kernel_override=kernel,
+        host_resource_observation_owner=host_owner,
+        serving_admission_context_provider=admission_context,
+        model_factory=model_factory)
+    assert serving.release_current_session_after_resource_admission(
+        first_session, reason="governed_resource_pressure") is True
+    assert first_model.closed is True
+    cpu["utilization_percent"] = 95.0
+
+    from sentientos import chat_service
+    deferred = threading.Event()
+    restored = threading.Event()
+    recovery_results = []
+    wakeup_callbacks = []
+    service = SimpleNamespace(reconcile_workload_state=lambda: {"status": "observed"},
+        resource_reconciliation_interval_seconds=lambda: 60.0,
+        set_resource_reconciliation_wakeup=lambda callback: wakeup_callbacks.append(callback),
+        close_outputs=lambda: None)
+
+    class RecordingComposition(chat_service.ProductionChatComposition):
+        def reconcile_workload_state(self):
+            result = super().reconcile_workload_state()
+            recovery_results.append(result)
+            status = result.get("serving_recovery", {}).get("status")
+            if status == "deferred":
+                deferred.set()
+            elif status == "restored":
+                restored.set()
+            return result
+
+    composition = RecordingComposition(service, serving)
+    previous_composition = chat_service._PRODUCTION_COMPOSITION
+    previous_task = chat_service._RESOURCE_RECONCILIATION_TASK
+    chat_service._PRODUCTION_COMPOSITION = composition
+    chat_service._RESOURCE_RECONCILIATION_TASK = None
+
+    async def run_reconciliation_scheduler():
+        import asyncio
+
+        await chat_service._startup_event()
+        try:
+            if not await asyncio.to_thread(deferred.wait, 5):
+                raise AssertionError("scheduler did not defer recovery under host pressure")
+            assert serving.current_session() is None
+            assert serving.resource_recovery_pending() is True
+            assert len(models) == 1
+            cpu["utilization_percent"] = 20.0
+            callback = wakeup_callbacks[-1]
+            callback()
+            if not await asyncio.to_thread(restored.wait, 5):
+                raise AssertionError("scheduler did not recover after host pressure cleared")
+            decisions = [json.loads(line) for line in
+                (tmp_path / "kernel-decisions.jsonl").read_text(
+                    encoding="utf-8").splitlines()]
+            pressure_reasons = [item.get("delegated_outcomes", {}).get(
+                "runtime_governor", {}).get("reason") for item in decisions
+                if item.get("action_kind") ==
+                    "establish_exact_activated_model_serving_session"]
+            return (recovery_results[-1], admission_observations[:], pressure_reasons,
+                serving.current_session(), serving.resource_recovery_pending(),
+                models[1].closed)
+        finally:
+            await chat_service._shutdown_event()
+
+    try:
+        import asyncio
+
+        outcome = asyncio.run(run_reconciliation_scheduler())
+    finally:
+        chat_service._PRODUCTION_COMPOSITION = previous_composition
+        chat_service._RESOURCE_RECONCILIATION_TASK = previous_task
+
+    (result, observed_labels, pressure_reasons, restored_session, recovery_pending,
+        restored_model_closed) = outcome
+    assert result["serving_recovery"]["status"] == "restored"
+    assert any("cpu_pressure" in labels for labels in observed_labels)
+    assert observed_labels[-1] == ("nominal",)
+    assert "deferred_background_model_serving_under_host_pressure" in pressure_reasons
+    assert restored_session is not None and restored_session != first_session
+    assert restored_session.binding["serving_operation_id"] != first_session.binding[
+        "serving_operation_id"]
+    assert recovery_pending is False
+    assert len(models) == 2 and restored_model_closed is False
+    assert len(admission_observations) >= 3
+    composition.close()
+    serving.close()
+
+
 @pytest.mark.parametrize("gpu_layers,expected_detector_calls", [(0, 2), (24, 3)])
 def test_automatic_game_release_revalidates_game_before_release(
         monkeypatch, tmp_path, gpu_layers, expected_detector_calls):
