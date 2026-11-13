@@ -201,6 +201,7 @@ def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, o
 @pytest.mark.parametrize(("gpu_value", "game_active", "gpu_layers", "workload_mode",
                          "should_load", "expected_reason"), [
     (94.0, True, 16, "automatic", False, "deferred_local_model_serving_under_host_pressure_during_game"),
+    (94.0, False, 16, "automatic", False, "deferred_background_model_serving_under_host_pressure"),
     (20.0, True, 16, "automatic", False, "deferred_gpu_model_serving_while_game_active"),
     (20.0, False, 16, "automatic", True, "allowed"),
     (20.0, False, 16, "gaming", False, "deferred_gpu_model_serving_in_gaming_mode"),
