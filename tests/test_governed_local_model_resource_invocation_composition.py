@@ -55,7 +55,8 @@ class DenyingKernel:
     def admit(self, request):
         return SimpleNamespace(allowed=False, outcome=AdmissionOutcome.DENY, reason_codes=("test_denial",), admission_decision_ref=None, to_dict=lambda: {"outcome": "deny"})
 
-def setup(tmp_path: Path, *, calls=2, model=None, kernel=None, cpu_ceiling=None):
+def setup(tmp_path: Path, *, calls=2, model=None, kernel=None, cpu_ceiling=None,
+          max_input_chars=100):
     tmp_path.mkdir(parents=True, exist_ok=True)
     public = bytes(range(32)); key_id = "ed25519-sha256:" + hashlib.sha256(public).hexdigest(); issuer = "issuer"
     issuance = RootPrincipalIssuer(issuer_id=issuer, sponsorship_verifier=Sponsor(), provenance_signer=Signer(key_id)).mint_root_with_provenance(sponsorship_evidence={}, subject_binding_digest="sha256:" + "2" * 64, epoch=7, issued_at="2026-09-21T08:00:00Z", expires_at="2026-09-21T10:00:00Z", signed_at="2026-09-21T08:10:00Z")
@@ -65,7 +66,7 @@ def setup(tmp_path: Path, *, calls=2, model=None, kernel=None, cpu_ceiling=None)
     registry_body = {"schema": REGISTRY_SCHEMA, "registry_version": 1, "generated_at": "2026-09-21T08:00:00Z", "valid_until": "2026-09-21T09:30:00Z", "revoked_principals": []}
     rd = registry_digest_for(registry_body); rp = tmp_path / "registry.json"; rp.write_text(json.dumps({**registry_body, "registry_digest": rd}))
     current = PrincipalCurrentnessVerifier().verify(issuance.principal, auth, ReadOnlyPrincipalRevocationRegistry.load(rp, expected_registry_version=1, expected_registry_digest=rd), current_time=NOW)
-    bounds = GovernedLocalModelResourceBounds(100, 200, 20, 5.0, calls,
+    bounds = GovernedLocalModelResourceBounds(max_input_chars, 200, 20, 5.0, calls,
         cpu_ceiling)
     policy = GovernedLocalModelResourcePolicy.create(epoch=11, max_resource_specific_bounds=bounds, not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
     ledger = GovernedLocalModelResourceLedger(tmp_path / "ledger.json"); allocator = GovernedLocalModelResourceAllocator(policy=policy, ledger=ledger)

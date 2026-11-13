@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -21,6 +22,9 @@ from sentientos.local_model_production_serving import ProductionServingControlle
 from sentientos.local_model_serving_inference import (
     ProductionServingInferenceController,
     ProductionServingInferenceError,
+)
+from tests.test_governed_local_model_resource_invocation_composition import (
+    setup as resource_allocation_setup,
 )
 from sentientos.foreground_game_bridge import (
     BridgeForegroundGameDetector,
@@ -2275,6 +2279,8 @@ def test_game_priority_retains_timed_out_backend_for_later_preemption(
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
                 collector("memory", used_percent=40.0)),
         ]), clock=lambda: now.isoformat())
+    _, _, _, resource_context, resource_ledger = resource_allocation_setup(
+        tmp_path / "resource-allocation", calls=2, max_input_chars=8192)
     started = threading.Event()
     release_worker = threading.Event()
 
@@ -2313,13 +2319,16 @@ def test_game_priority_retains_timed_out_backend_for_later_preemption(
     model.cancel_pending_generation = cancel_pending_generation
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
 
-    timed_out = bridge.generate(prompt=("[SYSTEM_INSTRUCTION]\nRules.\n"
-        "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\n"
-        "USER_DATA: optional inference"), caller="chat_service",
+    timed_out = bridge.generate(prompt=("[SYSTEM_INSTRUCTION]\nX\n"
+        "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\nU"),
+        caller="chat_service",
         correlation_id="game-priority-timeout-lingering-worker",
-        budget=LocalModelInvocationBudget(timeout_seconds=0.02))
+        budget=LocalModelInvocationBudget(max_input_chars=8192,
+            max_output_chars=200, max_new_tokens=20, timeout_seconds=0.02,
+            max_calls_per_correlation=2),
+        resource_context=resource_context)
 
-    assert started.is_set()
+    assert started.is_set(), (timed_out.status, timed_out.reason_codes)
     assert timed_out.status == "timeout"
     assert cancellation_attempts == 1
     assert bridge.resource_reconciliation_interval_seconds() == 0.5
@@ -2331,14 +2340,22 @@ def test_game_priority_retains_timed_out_backend_for_later_preemption(
     assert bridge._active_invoker is not None
     assert bridge._active_invoker.backend_work_pending()
     lingering_invoker = bridge._active_invoker
-    overlapping_attempt = bridge.generate(prompt=("[SYSTEM_INSTRUCTION]\nRules.\n"
-        "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\n"
-        "USER_DATA: must not overlap lingering inference"), caller="chat_service",
+    overlapping_attempt = bridge.generate(prompt=("[SYSTEM_INSTRUCTION]\nX\n"
+        "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\nU"),
+        caller="chat_service",
         correlation_id="game-priority-no-overlapping-backend",
-        budget=LocalModelInvocationBudget(timeout_seconds=0.02))
+        budget=LocalModelInvocationBudget(max_input_chars=8192,
+            max_output_chars=200, max_new_tokens=20, timeout_seconds=0.02,
+            max_calls_per_correlation=2),
+        resource_context=replace(resource_context,
+            durable_attempt_nonce="nonce-second-request"))
     assert overlapping_attempt.status == "backend_failure"
     assert bridge._active_invoker is lingering_invoker
     assert model.calls == 1
+    assert len(resource_ledger._state["attempts"]) == 1
+    assert resource_ledger.remaining_calls(resource_context.allocation.allocation_id) == 1
+    assert [item["state"] for item in resource_ledger._state["receipts"]] == [
+        "attempt_begun", "measured_timeout", "reconciled"]
 
     preemption = bridge.reconcile_idle_game_resource_state()
 
@@ -2356,6 +2373,8 @@ def test_game_priority_retains_timed_out_backend_for_later_preemption(
         if item.get("action_kind") == "local_model_inference_preemption")
     assert decision["delegated_outcomes"]["runtime_governor"]["reason"] == (
         "allowed_verified_game_workload_inference_preemption")
+    assert len(resource_ledger._state["attempts"]) == 1
+    assert resource_ledger.remaining_calls(resource_context.allocation.allocation_id) == 1
     assert host_owner.collector_call_count == 4
     serving.close()
 
