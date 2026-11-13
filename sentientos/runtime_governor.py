@@ -2752,9 +2752,17 @@ class RuntimeGovernor:
         elif not foreground and gpu_telemetry_incomplete:
             reason, blocks = "deferred_gpu_offload_telemetry_incomplete", True
         elif not foreground and pressure_reasons:
-            reason, blocks = ("deferred_background_model_serving_under_host_pressure"
-                if operation_kind == "model_serving" else
-                "deferred_background_inference_under_host_pressure", True)
+            if operation_kind == "model_serving" and "memory_pressure" in pressure_reasons:
+                # Model loading has a large, persistent host-RAM footprint.
+                # Preserve the pressure dimension in the decision evidence so
+                # operators can distinguish this admission from GPU/CPU/thermal
+                # deferrals without attributing the pressure to another process.
+                reason = "deferred_background_model_serving_under_memory_pressure"
+            else:
+                reason = ("deferred_background_model_serving_under_host_pressure"
+                    if operation_kind == "model_serving" else
+                    "deferred_background_inference_under_host_pressure")
+            blocks = True
         elif not foreground and pressure.composite >= self._pressure_warn:
             reason, blocks = ("deferred_background_model_serving_under_runtime_pressure"
                 if operation_kind == "model_serving" else

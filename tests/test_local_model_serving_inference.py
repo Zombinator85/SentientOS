@@ -2179,6 +2179,8 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
     expected_deferred_serving_reason = (
         "deferred_local_model_serving_under_host_pressure_in_gaming_mode"
         if pressure_kind in {"cpu", "thermal"} else
+        "deferred_background_model_serving_under_memory_pressure"
+        if pressure_kind == "memory" else
         "deferred_background_model_serving_under_host_pressure")
     assert expected_deferred_serving_reason in pressure_reasons
     assert restored_session is not None and restored_session != first_session

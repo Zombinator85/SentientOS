@@ -365,9 +365,10 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
 
 @pytest.mark.parametrize(("pressure_kind", "expected_label"), [
     ("cpu", "cpu_pressure"),
+    ("memory", "memory_pressure"),
     ("thermal", "thermal_pressure"),
 ])
-def test_cpu_and_thermal_pressure_block_initial_model_load_before_factory(
+def test_host_pressure_blocks_initial_model_load_before_factory(
         monkeypatch, handle, pressure_kind, expected_label):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(handle.root / "governor"))
@@ -383,6 +384,9 @@ def test_cpu_and_thermal_pressure_block_initial_model_load_before_factory(
             if collector_id == "cpu":
                 current = {"utilization_percent": (
                     95.0 if pressure_kind == "cpu" else 20.0)}
+            elif collector_id == "memory":
+                current = {"used_percent": (
+                    95.0 if pressure_kind == "memory" else 40.0)}
             elif collector_id == "thermal_sensors":
                 current = {"zones": [{"id": "cpu",
                     "temperature_c": 92.0 if pressure_kind == "thermal" else 55.0,
@@ -400,7 +404,7 @@ def test_cpu_and_thermal_pressure_block_initial_model_load_before_factory(
             HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
                 collector("cpu")),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
-                collector("memory", used_percent=40.0)),
+                collector("memory")),
             HostObservationCollectorSpec("nvidia_gpu", False,
                 ("linux", "unknown"), 3, collector("nvidia_gpu",
                     device_count=1, devices=[{"index": 0,
@@ -448,7 +452,10 @@ def test_cpu_and_thermal_pressure_block_initial_model_load_before_factory(
             encoding="utf-8").splitlines()[-1])
     runtime = decision["delegated_outcomes"]["runtime_governor"]
     assert runtime["action_class"] == "local_model_serving"
-    assert runtime["reason"] == "deferred_background_model_serving_under_host_pressure"
+    assert runtime["reason"] == (
+        "deferred_background_model_serving_under_memory_pressure"
+        if pressure_kind == "memory" else
+        "deferred_background_model_serving_under_host_pressure")
     assert runtime["evidence_refs"]["host_resource_evidence"]["status"] == "current"
     assert runtime["evidence_refs"]["observed_pressure_labels"] == [expected_label]
 
