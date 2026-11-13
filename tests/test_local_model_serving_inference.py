@@ -579,10 +579,10 @@ def test_resource_reconciliation_accelerates_only_during_automatic_inference(
 
 
 @pytest.mark.parametrize(("mode", "expected_status", "expected_calls"), [
-    ("normal", "admitted_completed", 1),
+    ("normal", "deferred", 0),
     ("gaming", "deferred", 0),
 ])
-def test_selected_gaming_profile_reaches_inference_governor_under_host_pressure(
+def test_normal_and_gaming_profiles_defer_under_host_cpu_pressure(
         monkeypatch, tmp_path, mode, expected_status, expected_calls):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
@@ -635,7 +635,8 @@ def test_selected_gaming_profile_reaches_inference_governor_under_host_pressure(
         assert delegated["reason"] == (
             "deferred_local_model_inference_under_host_pressure_in_gaming_mode")
     else:
-        assert delegated["reason"] == "allowed"
+        assert delegated["reason"] == (
+            "deferred_local_model_inference_under_cpu_pressure")
     serving.close()
 
 
