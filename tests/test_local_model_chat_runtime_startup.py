@@ -164,6 +164,16 @@ def test_chat_cli_rejects_automatic_mode_without_installed_companion_authority()
             "--initial-workload-mode", "automatic", "--game-process-name", "Cronos.exe"])
 
 
+def test_chat_cli_requires_resource_provisioning_before_opening_process_custody(
+        monkeypatch) -> None:
+    monkeypatch.setattr(chat_service, "open_chat_process_handoff",
+        lambda **_kwargs: pytest.fail("process custody opened without governed allocation"))
+    with pytest.raises(SystemExit, match="2"):
+        chat_service.main(["--installation-identity", "install-1",
+            "--serving-operation-id", "serve-1", "--runtime-handoff-id", "a" * 32,
+            "--expected-software-generation-digest", "b" * 64])
+
+
 def test_supervised_companion_waits_for_first_authenticated_workload_sample() -> None:
     from types import SimpleNamespace
 

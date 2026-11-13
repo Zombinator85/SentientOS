@@ -6106,6 +6106,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args(argv)
+    if args.resource_provisioning_id is None:
+        parser.error("resource_provisioning_id_required_for_enabled_chat")
     if args.initial_workload_mode == "automatic" and not args.game_process_name:
         parser.error("automatic_workload_mode_requires_game_process_name")
     companion_arguments = (args.gaming_companion_manifest,
