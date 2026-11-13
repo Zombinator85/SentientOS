@@ -198,17 +198,20 @@ def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, o
     assert kernel.requests[0].authority_class is AuthorityClass.MODEL_SERVING
 
 
-@pytest.mark.parametrize(("gpu_value", "game_active", "gpu_layers", "should_load", "expected_reason"), [
-    (94.0, True, 16, False, "deferred_local_model_serving_under_host_pressure_during_game"),
-    (20.0, True, 16, False, "deferred_gpu_model_serving_while_game_active"),
-    (20.0, False, 16, True, "allowed"),
-    ((None, 20.0), False, 16, False, "deferred_gpu_offload_telemetry_incomplete"),
-    ((20.0, None), False, 16, False, "deferred_gpu_offload_telemetry_incomplete"),
-    (None, True, 16, False, "deferred_resource_telemetry_incomplete_during_game"),
-    (20.0, True, 0, True, "allowed"),
+@pytest.mark.parametrize(("gpu_value", "game_active", "gpu_layers", "workload_mode",
+                         "should_load", "expected_reason"), [
+    (94.0, True, 16, "automatic", False, "deferred_local_model_serving_under_host_pressure_during_game"),
+    (20.0, True, 16, "automatic", False, "deferred_gpu_model_serving_while_game_active"),
+    (20.0, False, 16, "automatic", True, "allowed"),
+    (20.0, False, 16, "gaming", False, "deferred_gpu_model_serving_in_gaming_mode"),
+    ((None, 20.0), False, 16, "automatic", False, "deferred_gpu_offload_telemetry_incomplete"),
+    ((20.0, None), False, 16, "automatic", False, "deferred_gpu_offload_telemetry_incomplete"),
+    (None, True, 16, "automatic", False, "deferred_resource_telemetry_incomplete_during_game"),
+    (20.0, True, 0, "automatic", True, "allowed"),
 ])
 def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
-        monkeypatch, handle, gpu_value, game_active, gpu_layers, should_load, expected_reason):
+        monkeypatch, handle, gpu_value, game_active, gpu_layers, workload_mode,
+        should_load, expected_reason):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(handle.root / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(handle.root))
@@ -271,12 +274,17 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
                 "gpu_layers": load_configuration["n_gpu_layers"],
                 "configuration_digest": semantic_digest(load_configuration),
             },
-            "workload_mode": "automatic",
+            "workload_mode": workload_mode,
             "serving_workload_evidence": {
-                "configured_mode": "automatic", "observation_status": "available",
+                "configured_mode": workload_mode,
+                "mode_source": ("operator_selected" if workload_mode == "gaming"
+                    else "bridge_observed"),
+                "observation_status": ("not_requested" if workload_mode == "gaming"
+                    else "available"),
                 "game_foreground": game_active,
                 "game_process_running": game_active,
-                "transport_provenance": {"message_id": "b" * 64},
+                "transport_provenance": (None if workload_mode == "gaming" else
+                    {"message_id": "b" * 64}),
             },
         }
 
@@ -295,7 +303,11 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
     assert runtime["action_class"] == "local_model_serving"
     assert runtime["reason"] == expected_reason
     assert runtime["evidence_refs"]["host_resource_evidence"]["status"] == "current"
-    assert runtime["evidence_refs"]["game_workload_evidence"]["message_id"] == "b" * 64
+    if workload_mode == "gaming":
+        assert runtime["evidence_refs"][
+            "optional_gpu_model_load_in_gaming_profile"] is True
+    else:
+        assert runtime["evidence_refs"]["game_workload_evidence"]["message_id"] == "b" * 64
 
 
 def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(

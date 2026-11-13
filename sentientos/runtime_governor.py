@@ -2339,6 +2339,12 @@ class RuntimeGovernor:
             and gpu_offload_requested
             and verified_game_active
         )
+        optional_gpu_model_load_in_gaming_profile = (
+            operation_kind == "model_serving"
+            and gpu_offload_requested
+            and (gaming_workload_profile_active
+                 or conservative_automatic_gaming_profile)
+        )
         automatic_serving_workload_unavailable = (
             operation_kind == "model_serving"
             and payload.get("workload_mode") == "automatic"
@@ -2432,6 +2438,14 @@ class RuntimeGovernor:
             # Preserve game priority by waiting until authenticated game
             # activity ends; this does not affect CPU-only serving.
             reason, blocks = "deferred_gpu_model_serving_while_game_active", True
+        elif optional_gpu_model_load_in_gaming_profile:
+            # The explicit and conservative gaming profiles prioritize the
+            # interactive workload over optional GPU residency, without
+            # claiming that a game process was independently observed.
+            reason = ("deferred_gpu_model_serving_in_conservative_automatic_mode"
+                if conservative_automatic_gaming_profile else
+                "deferred_gpu_model_serving_in_gaming_mode")
+            blocks = True
         elif not foreground and gpu_telemetry_incomplete:
             reason, blocks = "deferred_gpu_offload_telemetry_incomplete", True
         elif not foreground and pressure_reasons:
@@ -2464,6 +2478,8 @@ class RuntimeGovernor:
                 "model_gpu_layers": gpu_layers,
                 "model_accelerator_route": accelerator_route,
                 "model_configuration_digest": gpu_profile_digest,
+                "optional_gpu_model_load_in_gaming_profile": (
+                    optional_gpu_model_load_in_gaming_profile),
                 "gpu_telemetry_incomplete_for_model": gpu_telemetry_incomplete,
                 "game_performance_evidence": game_evidence_ref,
                 "game_workload_evidence": game_workload_ref,
@@ -2498,6 +2514,8 @@ class RuntimeGovernor:
         payload["game_performance_evidence"] = game_evidence_ref
         payload["game_workload_evidence"] = game_workload_ref
         payload["game_frame_pressure"] = game_pressure
+        payload["optional_gpu_model_load_in_gaming_profile"] = (
+            optional_gpu_model_load_in_gaming_profile)
         payload["host_pressure_during_verified_game"] = game_host_pressure
         payload["gaming_workload_profile_host_pressure"] = (
             gaming_workload_profile_host_pressure)
@@ -3176,6 +3194,7 @@ class RuntimeGovernor:
                 for key in ("host_resource_evidence", "observed_pressure_labels",
                             "game_performance_evidence", "game_workload_evidence",
                             "game_frame_pressure", "host_pressure_during_verified_game",
+                            "optional_gpu_model_load_in_gaming_profile",
                             "gaming_workload_profile_host_pressure",
                             "gaming_workload_profile_resource_telemetry_incomplete",
                             "gaming_workload_profile_evidence",
