@@ -292,8 +292,9 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
                 "gpu_layers": load_configuration["n_gpu_layers"],
                 "configuration_digest": semantic_digest(load_configuration),
             },
-            "workload_mode": ("normal" if unverified_automatic_normal
-                else configured_mode),
+            "workload_mode": (
+                "gaming" if unverified_automatic_gaming else
+                "normal" if unverified_automatic_normal else configured_mode),
             "effective_workload_mode": effective_mode,
             "serving_workload_evidence": {
                 "configured_mode": configured_mode,
