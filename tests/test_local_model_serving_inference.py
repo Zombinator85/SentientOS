@@ -339,6 +339,8 @@ def test_current_gpu_pressure_defers_only_gpu_backed_foreground_inference(
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, host_resource_observation_owner=host_owner,
         gpu_layers=gpu_layers)
+    _, _, _, resource_context, resource_ledger = resource_allocation_setup(
+        tmp_path / "resource-allocation", calls=2, max_input_chars=8192)
     monkeypatch.setattr(
         "sentientos.governed_local_model_invocation._verified_model_execution_profile",
         lambda *_: {
@@ -352,11 +354,17 @@ def test_current_gpu_pressure_defers_only_gpu_backed_foreground_inference(
         receipt = bridge.generate(
             prompt=("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
                 "[SESSION_HISTORY_DATA]\nUSER_DATA: optional request"),
-            caller="chat_service", correlation_id="foreground-gpu-pressure")
+            caller="chat_service", correlation_id="foreground-gpu-pressure",
+            budget=LocalModelInvocationBudget(8192, 200, 20, 5.0, 2),
+            resource_context=resource_context)
 
         assert receipt.status == expected_status
         assert model.calls == (0 if gpu_layers else 1)
         assert serving.current_session() == session
+        assert resource_ledger.remaining_calls(
+            resource_context.allocation.allocation_id) == (2 if gpu_layers else 1)
+        assert resource_ledger.snapshot_counts() == (
+            (1, 0, 0) if gpu_layers else (1, 1, 3))
         decisions = [json.loads(line) for line in
             (tmp_path / "kernel-decisions.jsonl").read_text(
                 encoding="utf-8").splitlines()]
