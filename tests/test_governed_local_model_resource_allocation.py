@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 from dataclasses import FrozenInstanceError, replace
 from pathlib import Path
 from typing import Any, cast
@@ -309,6 +310,8 @@ def test_policy_loader_is_exact_digest_bound_and_closed(tmp_path: Path) -> None:
     policy = GovernedLocalModelResourcePolicy.create(epoch=1, max_resource_specific_bounds=GovernedLocalModelResourceBounds(1, 1, 1, 1.0, 1),
         not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:00:00Z")
     path = tmp_path / "policy.json"; path.write_text(json.dumps(policy.to_dict()))
+    if os.name == "posix":
+        path.chmod(0o600)
     assert GovernedLocalModelResourcePolicy.load(path, expected_policy_digest=policy.policy_digest) == policy
     with pytest.raises(GovernedLocalModelResourceError, match="unexpected_policy_digest"):
         GovernedLocalModelResourcePolicy.load(path, expected_policy_digest="0" * 64)
