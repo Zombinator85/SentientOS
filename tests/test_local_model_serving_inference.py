@@ -337,7 +337,8 @@ class Model:
 def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generate=None,
           installation_identity="install-1", runtime_handoff_id=None, state_root=None,
           serving_operation_id="serve-1", foreground_game_detector=None,
-          kernel_override=None, host_resource_observation_owner=None, gpu_layers=0):
+          kernel_override=None, host_resource_observation_owner=None, gpu_layers=0,
+          serving_admission_context_provider=None, model_factory=None):
     tmp_path.mkdir(parents=True, exist_ok=True)
     artifact = tmp_path / "exact.gguf"; artifact.write_bytes(b"tiny-model")
     load = {"n_ctx": 512, "n_gpu_layers": gpu_layers}
@@ -367,10 +368,13 @@ def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generat
     monkeypatch.setattr("sentientos.local_model_production_serving.verify_current_activation", lambda *a, **k: current[0])
     handle = InstallationStateRegistry(state_root or (tmp_path / "state"), _test_only=True).open(
         InstallationIdentity.parse(installation_identity), create=True)
-    kernel, model = kernel_override or Kernel(inference), Model(identity, on_generate)
-    serving = ProductionServingController(handle, kernel, model_factory=lambda c, l: model)
+    kernel = kernel_override or Kernel(inference)
+    model = Model(identity, on_generate)
+    factory = model_factory(identity) if model_factory is not None else (lambda c, l: model)
+    serving = ProductionServingController(handle, kernel, model_factory=factory)
     monkeypatch.setattr(serving, "_commissioning_identity", lambda s: identity.to_dict())
-    session = serving.establish(operation_id=serving_operation_id)
+    session = serving.establish(operation_id=serving_operation_id,
+        admission_context_provider=serving_admission_context_provider)
     return ProductionServingInferenceController(
         serving, runtime_handoff_id=runtime_handoff_id,
         foreground_game_detector=foreground_game_detector,
@@ -1466,6 +1470,50 @@ def test_idle_reconciliation_keeps_serving_session_without_verified_game(monkeyp
     assert outcome["reason"] == "fresh_verified_game_evidence_required"
     assert model.calls == 0 and model.closed is False
     assert serving.current_session() == session
+
+
+def test_scheduled_reconciliation_restores_released_model_through_fresh_serving_admission(
+        monkeypatch, tmp_path):
+    admission_contexts = []
+    models = []
+
+    def admission_context(correlation_id, _activation_state):
+        admission_contexts.append(correlation_id)
+        return {}
+
+    def model_factory_factory(identity):
+        def create(_config, _load):
+            model = Model(identity)
+            models.append(model)
+            return model
+        return create
+
+    _bridge, serving, first_session, _first_model, kernel, _ = setup(
+        monkeypatch, tmp_path, serving_admission_context_provider=admission_context,
+        model_factory=model_factory_factory)
+    assert serving.release_current_session_after_resource_admission(
+        first_session, reason="governed_resource_pressure") is True
+    assert models[0].closed is True
+    assert serving.current_session() is None
+    assert serving.resource_recovery_pending() is True
+
+    from sentientos import chat_service
+    service = SimpleNamespace(reconcile_workload_state=lambda: {"status": "observed"},
+        close_outputs=lambda: None)
+    composition = chat_service.ProductionChatComposition(service, serving)
+    result = composition.reconcile_workload_state()
+
+    assert result["status"] == "observed"
+    assert result["serving_recovery"]["status"] == "restored", result["serving_recovery"]
+    restored = serving.current_session()
+    assert restored is not None and restored != first_session
+    assert restored.binding["serving_operation_id"] != first_session.binding["serving_operation_id"]
+    assert len(models) == 2 and models[1].closed is False
+    assert len(admission_contexts) == 4 and len(set(admission_contexts)) == 4
+    assert [request.authority_class for request in kernel.requests].count(
+        AuthorityClass.MODEL_SERVING) == 4
+    assert serving.resource_recovery_pending() is False
+    composition.close()
     serving.close()
 
 

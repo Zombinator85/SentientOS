@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import threading
+import uuid
 from datetime import datetime, timezone
 from dataclasses import dataclass, replace
 from types import MappingProxyType
@@ -464,6 +465,11 @@ class ProductionServingController:
         self._allow_synthetic = allow_synthetic_evidence_for_tests
         self._session: ServingSession | None = None
         self._model: Any | None = None
+        self._admission_context_provider: Callable[
+            [str, Mapping[str, Any]], Mapping[str, Any]
+        ] | None = None
+        self._resource_recovery_activation_digest: str | None = None
+        self._resource_recovery_pending = False
         self._lifecycle_lock = threading.RLock()
         for relative in ("local-model", "local-model/serving", "local-model/serving/receipts",
                 SERVING_ATTEMPT_ROOT):
@@ -535,6 +541,36 @@ class ProductionServingController:
         """Inspect readiness without invalidating, unloading, or exposing model custody."""
         return self.observed_current_session() is not None
 
+    def resource_recovery_pending(self) -> bool:
+        """Report whether a governed resource release left a recoverable serving lifetime."""
+        with self._lifecycle_lock:
+            return self._resource_recovery_pending
+
+    def recover_after_resource_release(self) -> dict[str, Any]:
+        """Attempt a fresh governed serving admission after an exact resource release."""
+        with self._lifecycle_lock:
+            if not self._resource_recovery_pending:
+                return {"status": "not_pending"}
+            if self._session is not None or self._model is not None:
+                return {"status": "skipped", "reason_code": "serving_session_already_current"}
+            provider = self._admission_context_provider
+            activation_digest = self._resource_recovery_activation_digest
+            if provider is None or activation_digest is None:
+                return {"status": "deferred",
+                    "reason_code": "fresh_serving_admission_context_unavailable"}
+            operation_id = "resource-recovery-" + uuid.uuid4().hex
+            try:
+                session = self._establish_locked(operation_id=operation_id,
+                    expected_activation_state_digest=activation_digest,
+                    admission_context_provider=provider)
+            except ProductionServingError as exc:
+                return {"status": "deferred", "reason_code": exc.code}
+            self._resource_recovery_pending = False
+            return {"status": "restored", "serving_operation_id": operation_id,
+                "serving_session_id": session.session_id,
+                "serving_operation_attempt_id": session.binding.get(
+                    "serving_operation_attempt_id")}
+
     def _current_inference_model(self, expected: ServingSession) -> Any:
         """Package-private handoff for the separately governed inference bridge."""
         with self._lifecycle_lock:
@@ -561,9 +597,14 @@ class ProductionServingController:
                   ] | None = None
                   ) -> ServingSession:
         with self._lifecycle_lock:
-            return self._establish_locked(operation_id=operation_id,
+            session = self._establish_locked(operation_id=operation_id,
                 expected_activation_state_digest=expected_activation_state_digest,
                 admission_context_provider=admission_context_provider)
+            self._admission_context_provider = admission_context_provider
+            self._resource_recovery_activation_digest = session.binding.get(
+                "activation_state_semantic_digest")
+            self._resource_recovery_pending = False
+            return session
 
     def _establish_locked(self, *, operation_id: str,
                   expected_activation_state_digest: str | None = None,
@@ -781,7 +822,14 @@ class ProductionServingController:
             if self._session != expected or self._model is None:
                 return False
             self._invalidate_locked(reason)
-            return self._session is None and self._model is None
+            released = self._session is None and self._model is None
+            if released and self._admission_context_provider is not None:
+                self._resource_recovery_pending = True
+            return released
 
     def close(self) -> None:
-        self._invalidate("controller_closed")
+        with self._lifecycle_lock:
+            self._invalidate_locked("controller_closed")
+            self._resource_recovery_pending = False
+            self._admission_context_provider = None
+            self._resource_recovery_activation_digest = None

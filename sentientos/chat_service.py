@@ -816,7 +816,14 @@ class ProductionChatComposition:
     def ready(self) -> bool:
         return self._serving.serving_is_current()
     def reconcile_workload_state(self) -> dict[str, Any]:
-        return self.service.reconcile_workload_state()
+        recovery_pending = self._serving.resource_recovery_pending()
+        result = self.service.reconcile_workload_state()
+        if recovery_pending:
+            # Give the ordinary workload/resource owner the first chance to observe
+            # current conditions. Recovery itself performs fresh MODEL_SERVING admission.
+            result = dict(result)
+            result["serving_recovery"] = self._serving.recover_after_resource_release()
+        return result
     def resource_reconciliation_interval_seconds(self) -> float:
         return self.service.resource_reconciliation_interval_seconds()
 
