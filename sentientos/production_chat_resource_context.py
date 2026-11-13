@@ -17,6 +17,7 @@ from .governed_local_model_resource_allocation import (
     GovernedLocalModelResourceError,
     GovernedLocalModelResourcePolicy,
 )
+from .installation_state import InstallationIdentity
 from .local_model_serving_inference import ProductionServingInferenceController
 
 
@@ -29,7 +30,8 @@ class ProductionChatResourceContextOwner:
 
     __slots__ = (
         "allocator", "allocation", "principal", "authenticated", "current",
-        "policy", "_nonce_source", "_clock", "_ledger_owner_lock",
+        "policy", "_installation_identity", "_provisioning_id", "_nonce_source",
+        "_clock", "_ledger_owner_lock",
     )
 
     def __init__(
@@ -41,6 +43,8 @@ class ProductionChatResourceContextOwner:
         authenticated: AuthenticatedRootPrincipalEvidence,
         current: CurrentAuthenticatedRootPrincipalEvidence,
         policy: GovernedLocalModelResourcePolicy,
+        installation_identity: str,
+        provisioning_id: str,
         nonce_source: Callable[[], str],
         clock: Callable[[], str],
         ledger_owner_lock: Any | None = None,
@@ -57,6 +61,14 @@ class ProductionChatResourceContextOwner:
             raise TypeError("exact_production_chat_resource_types_required")
         if not callable(nonce_source) or not callable(clock):
             raise TypeError("trusted_nonce_source_and_clock_required")
+        if not isinstance(provisioning_id, str) or not provisioning_id:
+            raise GovernedLocalModelResourceError("owner_provisioning_identity_required")
+        try:
+            selected_installation = InstallationIdentity.parse(
+                installation_identity).value
+        except (TypeError, ValueError) as exc:
+            raise GovernedLocalModelResourceError(
+                "owner_installation_identity_invalid") from exc
         if allocator.policy != policy:
             raise GovernedLocalModelResourceError("owner_allocator_policy_mismatch")
         if allocator.ledger.allocation(allocation.allocation_id) != allocation:
@@ -79,6 +91,8 @@ class ProductionChatResourceContextOwner:
         self.authenticated = authenticated
         self.current = current
         self.policy = policy
+        self._installation_identity = selected_installation
+        self._provisioning_id = provisioning_id
         self._nonce_source = nonce_source
         self._clock = clock
         self._ledger_owner_lock = ledger_owner_lock
@@ -86,6 +100,14 @@ class ProductionChatResourceContextOwner:
     @property
     def has_single_process_custody(self) -> bool:
         return self._ledger_owner_lock is not None
+
+    @property
+    def installation_identity(self) -> str:
+        return self._installation_identity
+
+    @property
+    def provisioning_id(self) -> str:
+        return self._provisioning_id
 
     def close(self) -> None:
         lock = self._ledger_owner_lock

@@ -156,7 +156,9 @@ there is no per-operation downgrade to the legacy path.
 
 Production chat no longer has a no-owner composition mode. It validates a supplied
 provisioning ID before opening process handoff custody, then loads the exact existing
-owner bundle; callers with an already-held owner must present its single-process
+owner bundle. The owner retains its installation and provisioning identities, and a
+caller-supplied owner must match the installation being opened before handoff custody
+is acquired. Callers with an already-held owner must also present its single-process
 custody. The composition still does not issue allocations or manufacture principal,
 authentication, currentness, or policy evidence. The remaining provisioning work is
 to establish an operational, governed path that issues and refreshes those existing

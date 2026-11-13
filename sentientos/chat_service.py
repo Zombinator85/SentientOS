@@ -3899,6 +3899,9 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             raise ValueError("avatar_output_session_and_state_path_mutually_exclusive")
         avatar_output_emitter = avatar_output_session.emitter
     identity = InstallationIdentity.parse(installation_identity)
+    if (resource_context_owner is not None
+            and resource_context_owner.installation_identity != identity.value):
+        raise ValueError("resource_context_owner_installation_identity_mismatch")
     if resource_provisioning_id is not None:
         from .production_chat_resource_provisioning import validate_resource_provisioning_id
 

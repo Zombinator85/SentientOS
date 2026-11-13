@@ -19,6 +19,7 @@ from sentientos.host_resource_runtime import (
     build_observation_plan,
 )
 from sentientos.canonical_memory import CanonicalMemoryStore
+import sentientos.chat_service as chat_service
 from sentientos.chat_service import PersistentConversationService
 from sentientos.conversation_session import ConversationSessionStore
 from sentientos.local_model_serving_inference import ProductionServingInferenceController
@@ -51,6 +52,8 @@ def owner(tmp_path, *, calls=2, nonces=None, clock=lambda: NOW):
         authenticated=context.authenticated,
         current=context.current,
         policy=context.policy,
+        installation_identity="test-install",
+        provisioning_id="test-resource.v1",
         nonce_source=lambda: next(values),
         clock=clock,
     )
@@ -78,6 +81,7 @@ def test_owner_rejects_substitutes_bad_nonce_and_cross_binding(tmp_path):
         ProductionChatResourceContextOwner(
             allocator=object(), allocation=custody.allocation, principal=custody.principal,
             authenticated=custody.authenticated, current=custody.current, policy=custody.policy,
+            installation_identity="test-install", provisioning_id="test-resource.v1",
             nonce_source=lambda: "n", clock=lambda: NOW)
     with pytest.raises(GovernedLocalModelResourceError, match="owner_allocation_not_exactly_stored"):
         ProductionChatResourceContextOwner(
@@ -85,10 +89,35 @@ def test_owner_rejects_substitutes_bad_nonce_and_cross_binding(tmp_path):
             allocation=replace(custody.allocation, principal_id="forged"),
             principal=custody.principal, authenticated=custody.authenticated,
             current=custody.current, policy=custody.policy,
+            installation_identity="test-install", provisioning_id="test-resource.v1",
             nonce_source=lambda: "n", clock=lambda: NOW)
     custody._nonce_source = lambda: ""  # type: ignore[attr-defined]
     with pytest.raises(GovernedLocalModelResourceError, match="invalid_durable_attempt_nonce"):
         custody.next_context()
+
+
+def test_production_chat_rejects_resource_owner_from_another_installation(
+        monkeypatch, tmp_path):
+    installation, artifacts = provisioning_inputs(tmp_path)
+    produce_production_chat_resource_provisioning_bundle(
+        installation, "chat-resource", **artifacts)
+    custody = load_production_chat_resource_context_owner(
+        installation, "chat-resource", clock=lambda: NOW,
+        nonce_source=lambda: "owner-nonce")
+    assert custody.installation_identity == installation.identity.value
+    assert custody.provisioning_id == "chat-resource"
+    monkeypatch.setattr(chat_service, "open_chat_process_handoff",
+        lambda **_kwargs: pytest.fail("process handoff opened for foreign resource owner"))
+    try:
+        with pytest.raises(ValueError,
+                           match="resource_context_owner_installation_identity_mismatch"):
+            chat_service.configure_production_chat(
+                installation_identity="other-installation",
+                serving_operation_id="serve-foreign-owner",
+                runtime_handoff_id="handoff-foreign-owner",
+                resource_context_owner=custody)
+    finally:
+        custody.close()
 
 
 def test_adapter_forwards_exact_context_and_ordinary_chat_arguments(monkeypatch, tmp_path):
