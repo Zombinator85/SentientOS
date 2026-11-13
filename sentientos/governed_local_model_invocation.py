@@ -804,6 +804,7 @@ class GovernedLocalModelInvoker:
                             active_release_event = self._active_release_event
                             if active_release_event is not None:
                                 self._active_cancel_reason = "workload_transition"
+                                self._active_cancel_admission_ref = decision.admission_decision_ref
                                 active_release_event.set()
                         cancel = getattr(self.model, "cancel_pending_generation", None)
                         if callable(cancel):

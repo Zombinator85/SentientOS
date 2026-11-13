@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -126,6 +127,31 @@ def test_pressure_release_defers_without_interrupting_active_inference(
     assert receipt.reason_codes == ("active_inference_in_progress",)
     assert model.resident is True
     assert model.release_calls == 0
+
+
+def test_admitted_release_cancellation_keeps_admission_for_invocation_receipt(
+        tmp_path: Path) -> None:
+    model, _, invoker = _configured(tmp_path, resident=True)
+    active_release_event = threading.Event()
+    assert invoker._active_invocation_lock.acquire(blocking=False)
+    invoker._active_release_event = active_release_event
+    model.cancel_pending_generation = lambda: True  # type: ignore[attr-defined]
+
+    def quiesce_after_cancellation() -> None:
+        assert active_release_event.wait(timeout=1.0)
+        invoker._active_invocation_lock.release()
+
+    worker = threading.Thread(target=quiesce_after_cancellation)
+    worker.start()
+    try:
+        receipt = invoker.release_model_residency()
+    finally:
+        worker.join(timeout=1.0)
+
+    assert not worker.is_alive()
+    assert receipt.status == "released"
+    assert invoker._active_cancel_reason == "workload_transition"
+    assert invoker._active_cancel_admission_ref == receipt.admission_decision_ref
 
 
 def test_unloaded_model_is_not_reloaded_by_release_transition(tmp_path: Path) -> None:
