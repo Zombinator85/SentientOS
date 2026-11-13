@@ -1936,7 +1936,7 @@ def test_scheduled_reconciliation_restores_released_model_through_fresh_serving_
     serving.close()
 
 
-@pytest.mark.parametrize("pressure_kind", ["gpu", "memory"])
+@pytest.mark.parametrize("pressure_kind", ["gpu", "memory", "cpu", "thermal"])
 def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
         monkeypatch, tmp_path, pressure_kind):
     now = datetime.now(timezone.utc)
@@ -1948,12 +1948,18 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
     gpu = {"gpu_utilization_percent": 20.0,
         "vram_utilization_percent": 30.0}
     memory = {"used_percent": 40.0}
+    cpu = {"utilization_percent": 20.0}
+    thermal = {"zones": [{"id": "cpu", "temperature_c": 55.0,
+        "telemetry_only": True, "control_available": False}]}
+    serving_mode = {"value": "normal"}
 
     def collector(collector_id, **values):
         def collect(*, observed_at=None):
             current = ({"device_count": 1, "devices": [{"index": 0, **gpu}]}
                 if collector_id == "nvidia_gpu" else
-                memory if collector_id == "memory" else values)
+                memory if collector_id == "memory" else
+                cpu if collector_id == "cpu" else
+                thermal if collector_id == "thermal_sensors" else values)
             return HostCollectorResult(collector_id, "available",
                 observed_at or now.isoformat(), "synthetic_test_fixture",
                 values=dict(current))
@@ -1963,11 +1969,13 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
         runtime_state_root=tmp_path / "host-resource",
         plan=build_observation_plan(specs=[
             HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
-                collector("cpu", utilization_percent=20.0)),
+                collector("cpu")),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
                 collector("memory")),
             HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
                 collector("nvidia_gpu")),
+            HostObservationCollectorSpec("thermal_sensors", False,
+                ("linux", "unknown"), 4, collector("thermal_sensors")),
         ]), clock=lambda: now.isoformat())
     admission_observations = []
 
@@ -1992,8 +2000,9 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
                 "accelerator_route": "cpu" if gpu_layers == 0 else "gpu",
                 "gpu_layers": gpu_layers,
                 "configuration_digest": digest_payload(load_configuration)},
-            "workload_mode": "normal", "effective_workload_mode": "normal",
-            "serving_workload_evidence": {"configured_mode": "normal",
+            "workload_mode": serving_mode["value"],
+            "effective_workload_mode": serving_mode["value"],
+            "serving_workload_evidence": {"configured_mode": serving_mode["value"],
                 "mode_source": "operator_selected", "observation_status": "not_requested"}}
 
     models = []
@@ -2013,13 +2022,22 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
         model_factory=model_factory)
     if pressure_kind == "gpu":
         gpu.update(gpu_utilization_percent=95.0, vram_utilization_percent=92.0)
-    else:
+    elif pressure_kind == "memory":
         memory.update(used_percent=95.0)
+    elif pressure_kind == "cpu":
+        cpu.update(utilization_percent=95.0)
+    else:
+        thermal["zones"][0]["temperature_c"] = 92.0
+    if pressure_kind in {"cpu", "thermal"}:
+        serving_mode["value"] = "gaming"
+        bridge.set_workload_mode("gaming")
     release = bridge.reconcile_idle_game_resource_state()
     assert release["status"] == "worker_closed"
-    assert release["trigger_kind"] == (
-        "idle_host_gpu_resource_reconciliation" if pressure_kind == "gpu" else
-        "idle_host_memory_resource_reconciliation")
+    expected_trigger = {"gpu": "idle_host_gpu_resource_reconciliation",
+        "memory": "idle_host_memory_resource_reconciliation",
+        "cpu": "gaming_profile_resource_reconciliation",
+        "thermal": "gaming_profile_resource_reconciliation"}[pressure_kind]
+    assert release["trigger_kind"] == expected_trigger
     assert first_model.closed is True
     assert serving.resource_recovery_pending() is True
 
@@ -2062,6 +2080,8 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
             assert len(models) == 1
             gpu.update(gpu_utilization_percent=20.0, vram_utilization_percent=30.0)
             memory.update(used_percent=40.0)
+            cpu.update(utilization_percent=20.0)
+            thermal["zones"][0]["temperature_c"] = 55.0
             callback = wakeup_callbacks[-1]
             callback()
             if not await asyncio.to_thread(restored.wait, 5):
@@ -2090,10 +2110,15 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
     (result, observed_labels, pressure_reasons, restored_session, recovery_pending,
         restored_model_closed) = outcome
     assert result["serving_recovery"]["status"] == "restored"
-    expected_pressure = "gpu_pressure" if pressure_kind == "gpu" else "memory_pressure"
+    expected_pressure = {"gpu": "gpu_pressure", "memory": "memory_pressure",
+        "cpu": "cpu_pressure", "thermal": "thermal_pressure"}[pressure_kind]
     assert any(expected_pressure in labels for labels in observed_labels)
     assert observed_labels[-1] == ("nominal",)
-    assert "deferred_background_model_serving_under_host_pressure" in pressure_reasons
+    expected_deferred_serving_reason = (
+        "deferred_local_model_serving_under_host_pressure_in_gaming_mode"
+        if pressure_kind in {"cpu", "thermal"} else
+        "deferred_background_model_serving_under_host_pressure")
+    assert expected_deferred_serving_reason in pressure_reasons
     assert restored_session is not None and restored_session != first_session
     assert restored_session.binding["serving_operation_id"] != first_session.binding[
         "serving_operation_id"]
