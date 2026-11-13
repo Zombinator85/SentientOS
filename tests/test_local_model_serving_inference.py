@@ -943,7 +943,7 @@ def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch
 
 
 def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
-        monkeypatch, tmp_path):
+        monkeypatch, tmp_path, request):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -976,11 +976,39 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
                     "vram_utilization_percent": 35.0}])),
         ]), clock=lambda: now.isoformat())
 
-    class UnavailableGameDetector:
-        def observe(self, _process_names):
-            return ForegroundGameObservation("unavailable", None, None,
-                now.isoformat())
+    source_key = b"automatic-recovery-game-source-key-material"
+    acknowledgment_key = b"automatic-recovery-core-acknowledgment-key"
+    source_id = "recovery-game-edge"
+    generation_id = "recovery-game-generation-1"
+    runtime = CompanionBridgeLoopbackRuntime(
+        receiver=CompanionBridgeReceiver(source_keys={source_id: source_key},
+            expected_generations={source_id: generation_id}),
+        acknowledgment_source_id="sentientos-core",
+        acknowledgment_generation_id="sentientos-core-generation-1",
+        acknowledgment_key=acknowledgment_key, queue_capacity=2)
+    port = runtime.start()
+    detector = BridgeForegroundGameDetector(runtime=runtime,
+        source_id=source_id, generation_id=generation_id,
+        max_observation_age_seconds=5)
+    request.addfinalizer(detector.close)
+    detector.set_game_workload_admission_owner(kernel)
+    bridge_client = CompanionBridgeLoopbackClient(port=port,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"sentientos-core": acknowledgment_key},
+            expected_generations={"sentientos-core": "sentientos-core-generation-1"}),
+        timeout_seconds=1.0)
 
+    class DesktopObservation:
+        def observe(self, _process_names):
+            return ForegroundGameObservation("available", False,
+                hashlib.sha256(b"desktop.exe").hexdigest(),
+                datetime.now(timezone.utc).isoformat(),
+                game_process_running=False, running_process_name_digests=())
+
+    publisher = WindowsForegroundBridgePublisher(detector=DesktopObservation(),
+        client=bridge_client, source_id=source_id,
+        session_id="automatic-recovery-session-1", generation_id=generation_id,
+        source_key=source_key)
     bridge_holder = {}
 
     def serving_resource_context(correlation_id, activation_state):
@@ -1045,7 +1073,7 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
         raise RuntimeError("fixture_generation_cancelled_for_conservative_automatic_pressure")
 
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
-        kernel_override=kernel, foreground_game_detector=UnavailableGameDetector(),
+        kernel_override=kernel, foreground_game_detector=detector,
         host_resource_observation_owner=host_owner, gpu_layers=24,
         on_generate=active_generation,
         serving_admission_context_provider=serving_resource_context,
@@ -1093,7 +1121,8 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
                 "request": getattr(inference_result.get("receipt"), "request", None),
                 "error": inference_result.get("error")}
             host_pressure[0] = True
-            assert await asyncio.to_thread(cancelled.wait, 5)
+            assert await asyncio.to_thread(cancelled.wait, 5), sorted({
+                item.get("reason") for item in reconciliations})
             assert bridge.resource_reconciliation_interval_seconds() == 0.5
             await asyncio.to_thread(invocation.join, 5)
             assert not invocation.is_alive()
@@ -1104,14 +1133,23 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
             assert serving.resource_recovery_pending() is True
 
             host_pressure[0] = False
-            bridge.set_workload_mode("gaming")
+            inactive_message = publisher.publish_once(("ExampleGame.exe",))
             restored = await asyncio.to_thread(composition.reconcile_workload_state)
-            recovery_results["gaming"] = restored["serving_recovery"]
+            recovery_results["automatic_restored"] = restored["serving_recovery"]
             recovered_session = serving.current_session()
-            assert recovery_results["gaming"]["status"] == "restored"
+            assert recovery_results["automatic_restored"]["status"] == "restored"
             assert recovered_session is not None and recovered_session != session
             recovery_results["model_is_current"] = models[1].closed is False
             recovery_results["pending_cleared"] = not serving.resource_recovery_pending()
+            receipt_path = (tmp_path / "state" / "installations" / "install-1" /
+                "state" / "local-model" / "serving" / "receipts" /
+                (recovered_session.binding["serving_receipt_id"] + ".json"))
+            recovered_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            recovery_results["admitted_workload_message_id"] = (
+                recovered_receipt["resource_admission_context"][
+                    "serving_workload_evidence"]["transport_provenance"]["message_id"])
+            recovery_results["published_inactive_message_id"] = (
+                inactive_message.payload["message_id"])
             return chat_service._RESOURCE_RECONCILIATION_TASK is not None
         finally:
             await chat_service._shutdown_event()
@@ -1150,9 +1188,11 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
         assert release["resource_observation"]["workload_observation_status"] == "unavailable"
         assert recovery_results["automatic"]["reason_code"] == (
             "model_serving_control_plane_not_allowed")
-        assert recovery_results["gaming"]["status"] == "restored"
+        assert recovery_results["automatic_restored"]["status"] == "restored"
         assert recovery_results["model_is_current"] is True
         assert recovery_results["pending_cleared"] is True
+        assert recovery_results["admitted_workload_message_id"] == (
+            recovery_results["published_inactive_message_id"])
         assert len(models) == 2
     finally:
         serving.close()

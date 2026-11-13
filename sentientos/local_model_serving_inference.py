@@ -58,6 +58,13 @@ from .host_resource_runtime import (
 )
 from .host_resource_governor import ACTIONABLE_RESOURCE_PRESSURE_LABELS
 
+_CONSERVATIVE_AUTOMATIC_GAME_OBSERVATION_FAILURES = frozenset({
+    "unavailable",
+    "bridge_observation_unavailable",
+    "bridge_observation_invalid",
+    "bridge_observation_expired",
+})
+
 
 class ProductionServingInferenceError(RuntimeError):
     def __init__(self, code: str):
@@ -420,7 +427,8 @@ class ProductionServingInferenceController:
                     or workload_evidence.get("mode_source") not in {
                         "foreground_observation_unavailable_conservative_gaming",
                         "game_process_observation_unavailable_conservative_gaming"}
-                    or workload_evidence.get("observation_status") != "unavailable"):
+                    or workload_evidence.get("observation_status") not in
+                        _CONSERVATIVE_AUTOMATIC_GAME_OBSERVATION_FAILURES):
                 return None
             game_message_id = None
         else:
@@ -656,7 +664,8 @@ class ProductionServingInferenceController:
                 and workload.get("mode_source") in {
                     "foreground_observation_unavailable_conservative_gaming",
                     "game_process_observation_unavailable_conservative_gaming"}
-                and workload.get("observation_status") == "unavailable")
+                and workload.get("observation_status") in
+                    _CONSERVATIVE_AUTOMATIC_GAME_OBSERVATION_FAILURES)
             if workload.get("configured_mode") != "automatic" and not selected_gaming_profile:
                 return {"status": "skipped", "reason": "gaming_workload_profile_required"}
             if not selected_gaming_profile and not conservative_automatic_profile:
@@ -844,7 +853,8 @@ class ProductionServingInferenceController:
                 and workload.get("mode_source") in {
                     "foreground_observation_unavailable_conservative_gaming",
                     "game_process_observation_unavailable_conservative_gaming"}
-                and workload.get("observation_status") == "unavailable")
+                and workload.get("observation_status") in
+                    _CONSERVATIVE_AUTOMATIC_GAME_OBSERVATION_FAILURES)
             if conservative_automatic_profile:
                 with self._active_invoker_lock:
                     active_invoker = self._active_invoker
@@ -886,7 +896,6 @@ class ProductionServingInferenceController:
                             "observation_correlation_id")}
                 workload = self.current_workload_state()
                 if (workload.get("configured_mode") != "automatic"
-                        or workload.get("observation_status") != "unavailable"
                         or workload.get("mode_source") not in {
                             "foreground_observation_unavailable_conservative_gaming",
                             "game_process_observation_unavailable_conservative_gaming"}):
