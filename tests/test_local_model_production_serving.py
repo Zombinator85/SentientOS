@@ -204,6 +204,8 @@ def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, o
     (20.0, True, 16, "automatic", False, "deferred_gpu_model_serving_while_game_active"),
     (20.0, False, 16, "automatic", True, "allowed"),
     (20.0, False, 16, "gaming", False, "deferred_gpu_model_serving_in_gaming_mode"),
+    (20.0, False, 16, "conservative_automatic", False,
+        "deferred_gpu_model_serving_in_conservative_automatic_mode"),
     ((None, 20.0), False, 16, "automatic", False, "deferred_gpu_offload_telemetry_incomplete"),
     ((20.0, None), False, 16, "automatic", False, "deferred_gpu_offload_telemetry_incomplete"),
     (None, True, 16, "automatic", False, "deferred_resource_telemetry_incomplete_during_game"),
@@ -262,6 +264,8 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
             correlation_id.encode("utf-8")).hexdigest()[:32]
         host_owner.run_cycle(correlation_id=observation_id)
         load_configuration = activation_state["load_configuration"]
+        conservative_automatic = workload_mode == "conservative_automatic"
+        effective_mode = "gaming" if conservative_automatic else workload_mode
         return {
             "resource_governance_required": True,
             "purpose": "local_model_serving",
@@ -274,17 +278,22 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
                 "gpu_layers": load_configuration["n_gpu_layers"],
                 "configuration_digest": semantic_digest(load_configuration),
             },
-            "workload_mode": workload_mode,
+            "workload_mode": effective_mode,
             "serving_workload_evidence": {
-                "configured_mode": workload_mode,
-                "mode_source": ("operator_selected" if workload_mode == "gaming"
+                "configured_mode": ("automatic" if conservative_automatic
+                    else workload_mode),
+                "mode_source": (
+                    "foreground_observation_unavailable_conservative_gaming"
+                    if conservative_automatic else
+                    "operator_selected" if workload_mode == "gaming"
                     else "bridge_observed"),
-                "observation_status": ("not_requested" if workload_mode == "gaming"
+                "observation_status": ("unavailable" if conservative_automatic
+                    else "not_requested" if workload_mode == "gaming"
                     else "available"),
                 "game_foreground": game_active,
                 "game_process_running": game_active,
-                "transport_provenance": (None if workload_mode == "gaming" else
-                    {"message_id": "b" * 64}),
+                "transport_provenance": (None if conservative_automatic
+                    or workload_mode == "gaming" else {"message_id": "b" * 64}),
             },
         }
 
@@ -303,9 +312,15 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
     assert runtime["action_class"] == "local_model_serving"
     assert runtime["reason"] == expected_reason
     assert runtime["evidence_refs"]["host_resource_evidence"]["status"] == "current"
-    if workload_mode == "gaming":
+    if workload_mode in {"gaming", "conservative_automatic"}:
         assert runtime["evidence_refs"][
             "optional_gpu_model_load_in_gaming_profile"] is True
+        expected_mode_source = (
+            "foreground_observation_unavailable_conservative_gaming"
+            if workload_mode == "conservative_automatic" else "operator_selected")
+        assert runtime["evidence_refs"][
+            "gaming_workload_profile_evidence"]["mode_source"] == (
+                expected_mode_source)
     else:
         assert runtime["evidence_refs"]["game_workload_evidence"]["message_id"] == "b" * 64
 

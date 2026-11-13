@@ -2300,6 +2300,8 @@ class RuntimeGovernor:
         )
         effective_gaming_mode = payload.get("workload_mode") == "gaming"
         workload_evidence = payload.get("workload_evidence")
+        if not isinstance(workload_evidence, Mapping):
+            workload_evidence = payload.get("serving_workload_evidence")
         workload_profile_ref = {
             "status": "current" if effective_gaming_mode else "not_selected",
             "mode": "gaming" if effective_gaming_mode else "normal",
