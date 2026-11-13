@@ -1620,6 +1620,8 @@ def test_scheduled_reconciliation_restores_released_model_through_fresh_serving_
         monkeypatch, tmp_path):
     admission_contexts = []
     models = []
+    restored = threading.Event()
+    recovered_results = []
 
     def admission_context(correlation_id, _activation_state):
         admission_contexts.append(correlation_id)
@@ -1648,20 +1650,53 @@ def test_scheduled_reconciliation_restores_released_model_through_fresh_serving_
 
     from sentientos import chat_service
     service = SimpleNamespace(reconcile_workload_state=lambda: {"status": "observed"},
+        resource_reconciliation_interval_seconds=lambda: 0.5,
+        set_resource_reconciliation_wakeup=lambda _callback: None,
         close_outputs=lambda: None)
-    composition = chat_service.ProductionChatComposition(service, serving)
-    result = composition.reconcile_workload_state()
+    class RecordingComposition(chat_service.ProductionChatComposition):
+        def reconcile_workload_state(self):
+            result = super().reconcile_workload_state()
+            recovered_results.append(result)
+            if result.get("serving_recovery", {}).get("status") == "restored":
+                restored.set()
+            return result
 
+    composition = RecordingComposition(service, serving)
+    previous_composition = chat_service._PRODUCTION_COMPOSITION
+    previous_task = chat_service._RESOURCE_RECONCILIATION_TASK
+    chat_service._PRODUCTION_COMPOSITION = composition
+    chat_service._RESOURCE_RECONCILIATION_TASK = None
+
+    async def run_reconciliation_scheduler():
+        import asyncio
+
+        await chat_service._startup_event()
+        try:
+            if not await asyncio.to_thread(restored.wait, 5):
+                raise AssertionError("scheduled resource recovery did not restore serving")
+            return (recovered_results[-1], serving.current_session(),
+                serving.resource_recovery_pending(), models[1].closed)
+        finally:
+            await chat_service._shutdown_event()
+
+    try:
+        import asyncio
+
+        result = asyncio.run(run_reconciliation_scheduler())
+    finally:
+        chat_service._PRODUCTION_COMPOSITION = previous_composition
+        chat_service._RESOURCE_RECONCILIATION_TASK = previous_task
+
+    result, restored_session, recovery_pending, restored_model_closed = result
     assert result["status"] == "observed"
     assert result["serving_recovery"]["status"] == "restored", result["serving_recovery"]
-    restored = serving.current_session()
-    assert restored is not None and restored != first_session
-    assert restored.binding["serving_operation_id"] != first_session.binding["serving_operation_id"]
-    assert len(models) == 2 and models[1].closed is False
+    assert restored_session is not None and restored_session != first_session
+    assert restored_session.binding["serving_operation_id"] != first_session.binding["serving_operation_id"]
+    assert len(models) == 2 and restored_model_closed is False
     assert len(admission_contexts) == 4 and len(set(admission_contexts)) == 4
     assert [request.authority_class for request in kernel.requests].count(
         AuthorityClass.MODEL_SERVING) == 4
-    assert serving.resource_recovery_pending() is False
+    assert recovery_pending is False
     composition.close()
     serving.close()
 
