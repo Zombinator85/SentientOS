@@ -68,6 +68,28 @@ class ProductionServingInferenceError(RuntimeError):
         super().__init__(code)
 
 
+def _bounded_thermal_zone_temperatures(snapshot: Any) -> dict[str, float]:
+    """Keep bounded, validated thermal measurements in durable decision evidence."""
+    values = (snapshot.get("thermal_zone_temperatures_c")
+        if isinstance(snapshot, Mapping)
+        else getattr(snapshot, "thermal_zone_temperatures_c", None))
+    if not isinstance(values, Mapping):
+        return {}
+    result: dict[str, float] = {}
+    for index, (key, raw_temperature) in enumerate(values.items()):
+        if index >= 128 or len(result) >= 32:
+            break
+        if (not isinstance(key, str)
+                or re.fullmatch(r"[A-Za-z0-9_.:/-]{1,128}", key) is None
+                or isinstance(raw_temperature, bool)
+                or not isinstance(raw_temperature, (int, float))
+                or not math.isfinite(float(raw_temperature))
+                or not 0 <= float(raw_temperature) <= 150):
+            continue
+        result[key] = float(raw_temperature)
+    return result
+
+
 class ForegroundGameObserver(Protocol):
     def observe(self, process_names: tuple[str, ...] | list[str]) -> ForegroundGameObservation: ...
 
@@ -200,6 +222,8 @@ class ProductionServingInferenceController:
             "semantic_digest": evaluation.semantic_digest,
             "observed_at": evaluation.epoch.observed_at,
             "pressure_labels": list(evaluation.pressure_report.pressure_labels),
+            "thermal_zone_temperatures_c": _bounded_thermal_zone_temperatures(
+                evaluation.snapshot),
             "cpu_utilization_percent": evaluation.snapshot.cpu_utilization_percent,
             "ram_utilization_percent": evaluation.snapshot.ram_utilization_percent,
             "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
@@ -243,6 +267,8 @@ class ProductionServingInferenceController:
             "report_digest": evaluation.policy_decision.report_digest,
             "observed_at": evaluation.epoch.observed_at,
             "pressure_labels": list(evaluation.pressure_report.pressure_labels),
+            "thermal_zone_temperatures_c": _bounded_thermal_zone_temperatures(
+                evaluation.snapshot),
             "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
             "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
             "gpu_telemetry_sources": [
@@ -642,6 +668,8 @@ class ProductionServingInferenceController:
                 "host_report_id": host_release_evidence["host_report_id"],
                 "host_report_digest": host_release_evidence["host_report_digest"],
                 "pressure_labels": list(labels),
+                "thermal_zone_temperatures_c": _bounded_thermal_zone_temperatures(
+                    resource_observation),
                 **({"workload_mode": "gaming",
                     "workload_mode_source": "operator_selected"}
                     if selected_gaming_profile else

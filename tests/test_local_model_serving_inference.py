@@ -3243,6 +3243,10 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             host_reference["report_id"])
         assert release["resource_observation"]["host_report_digest"] == (
             host_reference["report_digest"])
+        assert host_reference["thermal_zone_temperatures_c"] == {
+            "nvidia_gpu_0": 92.0}
+        assert release["resource_observation"]["thermal_zone_temperatures_c"] == {
+            "nvidia_gpu_0": 92.0}
     comparison = release["resource_measurement_comparison"]
     assert comparison["status"] == "comparable"
     assert comparison["before"]["gpu_telemetry_sources"] == [{
