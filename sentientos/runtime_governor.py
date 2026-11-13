@@ -2423,7 +2423,7 @@ class RuntimeGovernor:
             # was independently verified as active.
             reason, blocks = ("deferred_local_model_" + operation_label
                 + "_under_host_pressure_in_conservative_automatic_mode", True)
-        elif (operation_kind == "inference" and gpu_offload_requested
+        elif (operation_kind == "inference" and foreground and gpu_offload_requested
                 and "gpu_pressure" in pressure_reasons):
             # Foreground chat remains optional GPU work. A current device-wide
             # pressure signal is enough to defer this accelerator route even

@@ -793,6 +793,48 @@ def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing
     assert decision.evidence_refs["game_workload_evidence"]["game_active"] is True
 
 
+def test_background_gpu_inference_keeps_background_pressure_classification(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    correlation_id = "background-gpu-pressure-classification"
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        correlation_id.encode("utf-8")).hexdigest()[:32]
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "evaluation_id": "evaluation-background-gpu-pressure",
+        "epoch_id": "epoch-background-gpu-pressure",
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "snapshot_id": "snapshot-background-gpu-pressure",
+        "report_id": "report-background-gpu-pressure",
+        "report_digest": "a" * 64,
+        "pressure_labels": ("gpu_pressure",),
+        "cpu_utilization_percent": 10.0,
+        "ram_utilization_percent": 20.0,
+        "gpu_utilization_percent": 96.0,
+        "vram_utilization_percent": 91.0,
+        "gpu_telemetry_available": True,
+        "gpu_telemetry_complete": True,
+        "observation_correlation_id": observation_id,
+    }
+
+    decision = governor._admit_local_model_inference(
+        actor="background_model_worker", subject="maintenance",
+        correlation_id=correlation_id,
+        metadata={"purpose": "background_model_work",
+            "host_resource_observation_namespace": "local-chat-inference",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp", "accelerator_route": "gpu",
+                "gpu_layers": 16, "configuration_digest": "b" * 64,
+            }})
+
+    assert decision.allowed is False
+    assert decision.reason == "deferred_background_inference_under_host_pressure"
+    assert decision.evidence_refs["observed_pressure_labels"] == ["gpu_pressure"]
+
+
 @pytest.mark.parametrize("age_seconds,expected_status", [
     (14, "current"),
     (16, "stale_or_invalid"),
