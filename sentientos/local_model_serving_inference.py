@@ -405,8 +405,10 @@ class ProductionServingInferenceController:
             "gaming_profile_resource_reconciliation",
             "active_gaming_profile_resource_reconciliation",
         }
-        conservative_automatic_profile = (
-            trigger_kind == "conservative_automatic_gaming_resource_reconciliation")
+        conservative_automatic_profile = trigger_kind in {
+            "conservative_automatic_gaming_resource_reconciliation",
+            "active_conservative_automatic_gaming_resource_reconciliation",
+        }
         if selected_gaming_profile:
             if (workload_evidence.get("configured_mode") != "gaming"
                     or workload_evidence.get("mode_source") != "operator_selected"
@@ -828,6 +830,83 @@ class ProductionServingInferenceController:
                 if release is None:
                     return {"status": "skipped", "reason":
                         "gaming_profile_host_pressure_release_unavailable",
+                        "observation_correlation_id": observation.get(
+                            "observation_correlation_id")}
+                self._last_active_game_preemption_attempt = attempt_key
+                return {"status": release["status"],
+                    "release_receipt_id": release["receipt_id"],
+                    "trigger_kind": release["trigger_kind"],
+                    "serving_session_id": session.session_id,
+                    "active_inference_cancellation_confirmed": release[
+                        "active_inference_cancellation_confirmed"]}
+            conservative_automatic_profile = (
+                workload.get("configured_mode") == "automatic"
+                and workload.get("mode_source") in {
+                    "foreground_observation_unavailable_conservative_gaming",
+                    "game_process_observation_unavailable_conservative_gaming"}
+                and workload.get("observation_status") == "unavailable")
+            if conservative_automatic_profile:
+                with self._active_invoker_lock:
+                    active_invoker = self._active_invoker
+                if active_invoker is None:
+                    return {"status": "skipped", "reason": "active_inference_required"}
+                session = self._serving.current_session()
+                if session is None:
+                    return {"status": "skipped", "reason": "no_resident_serving_session"}
+                try:
+                    model = self._serving._current_inference_model(session)
+                except ProductionServingError:
+                    return {"status": "skipped", "reason": "current_serving_session_required"}
+                attempt_key = (session.session_id,
+                    "conservative-automatic:" + str(id(active_invoker)))
+                if attempt_key == self._last_active_game_preemption_attempt:
+                    return {"status": "skipped",
+                        "reason": "conservative_automatic_release_already_attempted_for_invocation"}
+                sample_started_at = time.monotonic()
+                previous_sample_at = self._last_active_host_resource_sample_at
+                if (previous_sample_at is not None
+                        and sample_started_at - previous_sample_at < 2.0):
+                    return {"status": "skipped",
+                        "reason": "active_conservative_automatic_host_pressure_observation_throttled"}
+                self._last_active_host_resource_sample_at = sample_started_at
+                observation_correlation = (
+                    "active-automatic-game-resource-reconcile-" + str(time.time_ns()))
+                observation = self._observe_host_resources(
+                    observation_correlation,
+                    observation_namespace="local-chat-reconciliation")
+                labels = observation.get("pressure_labels")
+                if (observation.get("status") != "current"
+                        or observation.get("no_effect_authority") is not True
+                        or not isinstance(labels, (tuple, list))
+                        or not all(isinstance(label, str) for label in labels)
+                        or not set(labels).intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS)):
+                    return {"status": "skipped",
+                        "reason": "current_host_pressure_evidence_required",
+                        "observation_correlation_id": observation.get(
+                            "observation_correlation_id")}
+                workload = self.current_workload_state()
+                if (workload.get("configured_mode") != "automatic"
+                        or workload.get("observation_status") != "unavailable"
+                        or workload.get("mode_source") not in {
+                            "foreground_observation_unavailable_conservative_gaming",
+                            "game_process_observation_unavailable_conservative_gaming"}):
+                    return {"status": "skipped",
+                        "reason": "conservative_automatic_gaming_profile_not_current",
+                        "observation_correlation_id": observation.get(
+                            "observation_correlation_id")}
+                workload_evidence = {key: workload.get(key) for key in (
+                    "configured_mode", "mode_source", "observation_status",
+                    "game_foreground", "process_name_digest", "game_process_running",
+                    "running_process_name_digests", "observed_at", "transport_provenance")}
+                release = self._release_after_host_pressure(
+                    session, model, None, resource_observation=observation,
+                    workload_evidence=workload_evidence,
+                    trigger_correlation_id=observation_correlation,
+                    trigger_kind="active_conservative_automatic_gaming_resource_reconciliation",
+                    preempt_active_generation=True)
+                if release is None:
+                    return {"status": "skipped",
+                        "reason": "conservative_automatic_host_pressure_release_unavailable",
                         "observation_correlation_id": observation.get(
                             "observation_correlation_id")}
                 self._last_active_game_preemption_attempt = attempt_key

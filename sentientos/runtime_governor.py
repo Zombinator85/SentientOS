@@ -1946,6 +1946,8 @@ class RuntimeGovernor:
                             "active-gaming-profile-resource-reconcile-"),
                         "conservative_automatic_gaming_resource_reconciliation": (
                             "automatic-game-resource-reconcile-"),
+                        "active_conservative_automatic_gaming_resource_reconciliation": (
+                            "active-automatic-game-resource-reconcile-"),
                     }.get(raw_trigger)
                 conservative_source = observation_value.get("workload_mode_source")
                 expected_workload_source = (
@@ -2319,8 +2321,12 @@ class RuntimeGovernor:
             operation_kind == "model_serving"
             and payload.get("workload_mode") == "automatic"
             and game_workload_ref.get("status") != "current")
+        conservative_automatic_profile_requires_gpu_telemetry = (
+            conservative_automatic_gaming_profile
+            and accelerator_route in {None, "unknown"})
         gpu_resource_evidence_incomplete = (
-            gpu_telemetry_required
+            (gpu_telemetry_required
+             or conservative_automatic_profile_requires_gpu_telemetry)
             and evidence_ref.get("status") == "current"
             and evidence is not None
             and evidence.get("gpu_telemetry_complete") is not True
@@ -2340,9 +2346,7 @@ class RuntimeGovernor:
         gaming_profile_resource_telemetry_incomplete = (
             (gaming_workload_profile_active
              or conservative_automatic_gaming_profile)
-            and (incomplete or gpu_resource_evidence_incomplete
-                 or (conservative_automatic_gaming_profile
-                     and accelerator_route in {None, "unknown"}))
+            and (incomplete or gpu_resource_evidence_incomplete)
         )
         game_resource_telemetry_incomplete = (
             verified_game_active
@@ -2433,6 +2437,8 @@ class RuntimeGovernor:
                 "blocking_pressure_labels": sorted(pressure_reasons),
                 "model_gpu_offload_requested": gpu_offload_requested,
                 "model_gpu_telemetry_required": gpu_telemetry_required,
+                "conservative_automatic_profile_requires_gpu_telemetry": (
+                    conservative_automatic_profile_requires_gpu_telemetry),
                 "model_gpu_layers": gpu_layers,
                 "model_accelerator_route": accelerator_route,
                 "model_configuration_digest": gpu_profile_digest,

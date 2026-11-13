@@ -937,6 +937,103 @@ def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch
         "active_inference_preemption_requested"] is True
 
 
+def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
+        monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    host_pressure = [False]
+
+    def collector(collector_id, **values):
+        def collect(*, observed_at=None):
+            collected_values = dict(values)
+            if collector_id == "cpu":
+                collected_values["utilization_percent"] = (
+                    95.0 if host_pressure[0] else 20.0)
+            return HostCollectorResult(collector_id, "available",
+                observed_at or now.isoformat(), "synthetic_test_fixture",
+                values=collected_values)
+        return collect
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1, devices=[{
+                    "index": 0, "gpu_utilization_percent": 20.0,
+                    "vram_utilization_percent": 35.0}])),
+        ]), clock=lambda: now.isoformat())
+
+    class UnavailableGameDetector:
+        def observe(self, _process_names):
+            return ForegroundGameObservation("unavailable", None, None,
+                now.isoformat())
+
+    started = threading.Event()
+    cancelled = threading.Event()
+
+    def active_generation():
+        started.set()
+        if not cancelled.wait(timeout=5):
+            raise AssertionError("conservative automatic host-pressure cancellation was not delivered")
+        raise RuntimeError("fixture_generation_cancelled_for_conservative_automatic_pressure")
+
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, foreground_game_detector=UnavailableGameDetector(),
+        host_resource_observation_owner=host_owner, gpu_layers=24,
+        on_generate=active_generation)
+    model.cancel_pending_generation = lambda: (cancelled.set() or True)
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+    inference_result = {}
+    def invoke_optional_work():
+        try:
+            inference_result["receipt"] = bridge.generate(
+                prompt=("[SYSTEM_INSTRUCTION]\nRules.\n"
+                    "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\nUSER_DATA: optional work"),
+                caller="operator",
+                correlation_id="conservative-automatic-active-inference")
+        except Exception as exc:
+            inference_result["error"] = f"{type(exc).__name__}:{exc}"
+
+    invocation = threading.Thread(target=invoke_optional_work)
+    invocation.start()
+    try:
+        assert started.wait(timeout=5), inference_result
+        host_pressure[0] = True
+        reconciliation = bridge.reconcile_idle_game_resource_state()
+        invocation.join(timeout=5)
+
+        assert not invocation.is_alive()
+        assert reconciliation["status"] == "worker_closed"
+        assert reconciliation["trigger_kind"] == (
+            "active_conservative_automatic_gaming_resource_reconciliation")
+        assert reconciliation["active_inference_cancellation_confirmed"] is True
+        assert inference_result["receipt"].status == "cancelled"
+        assert inference_result["receipt"].output_text is None
+        assert model.closed is True
+        assert model.calls == 1
+        assert serving.current_session() is None
+        release_path = next((tmp_path / "state" / "installations" / "install-1" /
+            "state" / "local-model" / "serving" / "resource-release-receipts").glob("*.json"))
+        release = json.loads(release_path.read_text(encoding="utf-8"))
+        assert release["active_inference_preemption_requested"] is True
+        assert release["active_inference_cancellation_confirmed"] is True
+        assert release["resource_observation"]["configured_mode"] == "automatic"
+        assert release["resource_observation"]["workload_observation_status"] == "unavailable"
+    finally:
+        if invocation.is_alive():
+            cancelled.set()
+            invocation.join(timeout=5)
+        serving.close()
+
+
 def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
         monkeypatch, tmp_path):
     now = datetime.now(timezone.utc)
