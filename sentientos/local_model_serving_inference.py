@@ -23,6 +23,7 @@ from .governed_local_model_invocation import (
     GovernedLocalModelInvoker,
     GovernedLocalModelResourceInvocationContext,
     LocalModelInvocationBudget,
+    LocalModelInvocationDeferred,
     LocalModelInvocationReceipt,
     MAX_INVOCATION_RECEIPT_BYTES,
     MAX_INVOCATION_RECEIPTS,
@@ -1727,6 +1728,32 @@ class ProductionServingInferenceController:
             if current_generation != software_generation_attribution:
                 raise ProductionServingInferenceError("chat_process_generation_changed_during_inference")
 
+        def pre_effect_current() -> None:
+            current()
+            initial_game_active = (
+                workload_state.get("mode") == "automatic"
+                and workload_state.get("observation_status") == "available"
+                and (workload_state.get("game_foreground") is True
+                    or workload_state.get("game_process_running") is True))
+            if workload_state.get("mode") != "automatic" or initial_game_active:
+                return
+            latest_workload = self.current_workload_state()
+            latest_game_active = (
+                latest_workload.get("mode") == "automatic"
+                and latest_workload.get("observation_status") == "available"
+                and (latest_workload.get("game_foreground") is True
+                    or latest_workload.get("game_process_running") is True))
+            if latest_game_active:
+                provenance = latest_workload.get("transport_provenance")
+                message_id = (provenance.get("message_id")
+                    if isinstance(provenance, Mapping) else None)
+                if not isinstance(message_id, str) or re.fullmatch(
+                        r"[0-9a-f]{64}", message_id) is None:
+                    return
+                raise LocalModelInvocationDeferred(
+                    "verified_game_workload_arrived_before_backend_entry:"
+                    + message_id)
+
         def current_after() -> None:
             try:
                 current()
@@ -1763,7 +1790,7 @@ class ProductionServingInferenceController:
             try:
                 receipt = invoker.invoke(
                     request,
-                    pre_effect_guard=current,
+                    pre_effect_guard=pre_effect_current,
                     post_effect_guard=current_after,
                     resource_context=resource_context,
                 )

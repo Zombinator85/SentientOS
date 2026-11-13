@@ -2564,6 +2564,132 @@ def test_game_priority_scheduler_retries_timed_out_allocated_backend(
         "allowed_verified_game_workload_inference_preemption")
 
 
+def test_game_arriving_after_inference_admission_defers_before_backend_entry(
+        monkeypatch, tmp_path, request):
+    from cryptography import x509
+    from cryptography.hazmat.primitives.serialization import Encoding
+    from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+    from tests.test_gaming_companion_tls_transport import _certificate_bundle
+
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    server_certificate = x509.load_pem_x509_certificate(
+        (tmp_path / "server.pem").read_bytes())
+    server_pin = hashlib.sha256(server_certificate.public_bytes(Encoding.DER)).hexdigest()
+    source_id, generation_id = "windows-edge", "edge-pre-effect-generation"
+    source_key = b"authenticated-pre-effect-game-source-key"
+    ack_key = b"authenticated-pre-effect-core-ack-key-32"
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1", port=0,
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=CompanionBridgeReceiver(source_keys={source_id: source_key},
+            expected_generations={source_id: generation_id}),
+        acknowledgment_source_id="wsl-core",
+        acknowledgment_generation_id="core-pre-effect-generation",
+        acknowledgment_key=ack_key)
+    port = runtime.start()
+    request.addfinalizer(runtime.close)
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-core": ack_key},
+            expected_generations={"wsl-core": "core-pre-effect-generation"}),
+        expected_server_certificate_sha256=server_pin)
+    game_active = [False]
+
+    class GamePresenceSample:
+        def observe(self, process_names):
+            assert tuple(name.casefold() for name in process_names) == (
+                "examplegame.exe",)
+            return ForegroundGameObservation("available", game_active[0],
+                hashlib.sha256((b"examplegame.exe" if game_active[0]
+                    else b"explorer.exe")).hexdigest(), now.isoformat(),
+                game_process_running=game_active[0],
+                running_process_name_digests=(
+                    (hashlib.sha256(b"examplegame.exe").hexdigest(),)
+                    if game_active[0] else ()))
+
+    publisher = WindowsForegroundBridgePublisher(detector=GamePresenceSample(),
+        client=client, source_id=source_id, session_id="pre-effect-game-session",
+        generation_id=generation_id, source_key=source_key)
+    publisher.publish_once(("ExampleGame.exe",))
+    detector = BridgeForegroundGameDetector(runtime=runtime, source_id=source_id,
+        generation_id=generation_id, clock=lambda: now)
+    detector.set_game_workload_admission_owner(kernel)
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+        ]), clock=lambda: now.isoformat())
+    _, _, _, resource_context, resource_ledger = resource_allocation_setup(
+        tmp_path / "resource-allocation", calls=2, max_input_chars=8192)
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner,
+        foreground_game_detector=detector)
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+    assert bridge.current_workload_state()["effective_mode"] == "normal"
+    original_final_gate = resource_context.allocator.final_gate
+    published_game_messages = []
+
+    def publish_game_after_allocation_gate(**kwargs):
+        attempt_id = original_final_gate(**kwargs)
+        game_active[0] = True
+        published_game_messages.append(
+            publisher.publish_once(("ExampleGame.exe",)))
+        return attempt_id
+
+    monkeypatch.setattr(resource_context.allocator, "final_gate",
+        publish_game_after_allocation_gate)
+    try:
+        receipt = bridge.generate(
+            prompt=("[SYSTEM_INSTRUCTION]\nX\n"
+                "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\nU"),
+            caller="chat_service", correlation_id="game-arrived-before-backend-entry",
+            budget=LocalModelInvocationBudget(max_input_chars=8192,
+                max_output_chars=200, max_new_tokens=20, timeout_seconds=1.0,
+                max_calls_per_correlation=2),
+            resource_context=resource_context)
+    finally:
+        session_preserved = serving.current_session() == session
+        observed_workload = bridge.current_workload_state()
+        serving.close()
+
+    assert receipt.status == "deferred"
+    game_message_id = published_game_messages[0].payload["message_id"]
+    assert ("verified_game_workload_arrived_before_backend_entry:"
+        + game_message_id) in receipt.reason_codes
+    assert receipt.effects["local_model_inference"] is False
+    assert model.calls == 0
+    assert session_preserved is True
+    assert published_game_messages
+    assert host_owner.collector_call_count == 2
+    assert resource_ledger.remaining_calls(resource_context.allocation.allocation_id) == 2
+    assert [item["state"] for item in resource_ledger._state["receipts"]] == [
+        "attempted_not_begun"]
+    decisions = [json.loads(line) for line in
+        (tmp_path / "kernel-decisions.jsonl").read_text(
+            encoding="utf-8").splitlines()]
+    inference_decision = next(item for item in decisions
+        if item.get("action_kind") == "local_model_inference")
+    assert inference_decision["outcome"] == "allow"
+    assert observed_workload["game_foreground"] is True
+    assert observed_workload["transport_provenance"]["message_id"] == (
+        published_game_messages[0].payload["message_id"])
+
+
 @pytest.mark.parametrize("trigger", ["deferred_inference", "idle_game_reconciliation",
     "idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
     "idle_game_gpu_residency", "deferred_thermal_pressure",
