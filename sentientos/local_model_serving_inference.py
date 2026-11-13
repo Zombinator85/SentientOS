@@ -1025,15 +1025,13 @@ class ProductionServingInferenceController:
                             "active-game-resource-reconcile-cached-" + str(time.time_ns()))
                         active_observation = cached_observation
                     labels = active_observation.get("pressure_labels")
-                    if (active_observation.get("status") != "current"
-                            or active_observation.get("no_effect_authority") is not True
-                            or not isinstance(labels, (tuple, list))
-                            or not all(isinstance(label, str) for label in labels)
-                            or not set(labels).intersection(ACTIONABLE_RESOURCE_PRESSURE_LABELS)):
-                        return {"status": "skipped",
-                            "reason": "current_host_pressure_evidence_required",
-                            "observation_correlation_id": active_observation.get(
-                                "observation_correlation_id")}
+                    has_host_pressure = False
+                    if (active_observation.get("status") == "current"
+                            and active_observation.get("no_effect_authority") is True
+                            and isinstance(labels, (tuple, list))
+                            and all(isinstance(label, str) for label in labels)):
+                        has_host_pressure = bool(set(labels).intersection(
+                            ACTIONABLE_RESOURCE_PRESSURE_LABELS))
                     # Collection is bounded but can outlast a foreground-game
                     # observation. Re-read the authenticated source before
                     # binding that evidence to the pressure-triggered release.
@@ -1054,6 +1052,16 @@ class ProductionServingInferenceController:
                     if workload_attempt_key == self._last_active_game_preemption_attempt:
                         return {"status": "skipped",
                             "reason": "game_resource_release_already_attempted_for_observation"}
+                    if not has_host_pressure:
+                        preemption = self._admit_active_game_inference_preemption(
+                            session, model, workload)
+                        if preemption is not None:
+                            self._last_active_game_preemption_attempt = workload_attempt_key
+                            return preemption
+                        return {"status": "skipped",
+                            "reason": "current_host_pressure_or_preemption_admission_required",
+                            "observation_correlation_id": active_observation.get(
+                                "observation_correlation_id")}
                     workload_evidence = {key: workload.get(key) for key in (
                         "configured_mode", "mode_source", "observation_status",
                         "game_foreground", "process_name_digest", "game_process_running",
@@ -1093,6 +1101,67 @@ class ProductionServingInferenceController:
                     "active_inference_cancellation_confirmed"]}
         finally:
             self._preemption_lock.release()
+
+    def _admit_active_game_inference_preemption(
+            self, session: ServingSession, model: Any,
+            workload: Mapping[str, Any]) -> dict[str, Any] | None:
+        """Govern cancellation of CPU-only optional inference on verified game presence."""
+        provenance = workload.get("transport_provenance")
+        message_id = provenance.get("message_id") if isinstance(provenance, Mapping) else None
+        if (workload.get("configured_mode") != "automatic"
+                or workload.get("observation_status") != "available"
+                or (workload.get("game_foreground") is not True
+                    and workload.get("game_process_running") is not True)
+                or not isinstance(message_id, str) or not message_id):
+            return None
+        identity = getattr(model, "active_identity", None)
+        if identity is None or not callable(getattr(identity, "to_dict", None)):
+            return None
+        correlation_id = "active-game-inference-preemption-" + hashlib.sha256(
+            (session.session_id + ":" + message_id).encode("utf-8")).hexdigest()[:24]
+        request = ControlActionRequest(
+            action_kind="local_model_inference_preemption",
+            authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+            actor="production_chat_game_workload_governor",
+            target_subsystem="governed_local_model_invocation",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={
+                "correlation_id": correlation_id,
+                "purpose": "local_user_chat",
+                "active_inference_preemption": {
+                    "schema_version": "sentientos.active_inference_preemption:v1",
+                    "workload_mode": "automatic",
+                    "serving_session_id": session.session_id,
+                    "model_identity_digest": digest_payload(identity.to_dict()),
+                    "game_workload_message_id": message_id,
+                },
+            })
+        decision = self._serving._kernel.admit(request)
+        governor = decision.delegated_outcomes.get("runtime_governor")
+        admitted = (decision.allowed
+            and decision.outcome == AdmissionOutcome.ALLOW
+            and decision.authority_class == AuthorityClass.LOCAL_MODEL_INFERENCE
+            and decision.action_kind == "local_model_inference_preemption"
+            and decision.actor == "production_chat_game_workload_governor"
+            and decision.target_subsystem == "governed_local_model_invocation"
+            and decision.correlation_id == correlation_id
+            and isinstance(governor, Mapping)
+            and governor.get("reason") ==
+                "allowed_verified_game_workload_inference_preemption")
+        if not admitted:
+            return {"status": "denied", "reason": "verified_game_preemption_admission_required",
+                "preemption_admission_decision_ref": decision.admission_decision_ref,
+                "trigger_kind": "verified_game_workload_active_inference_preemption",
+                "serving_session_id": session.session_id}
+        cancelled = self.cancel_pending_generation(reason="workload_transition")
+        return {"status": "preempted" if cancelled else "preemption_unconfirmed",
+            "reason": ("verified_game_workload_priority" if cancelled else
+                "active_inference_cancellation_unconfirmed"),
+            "preemption_admission_decision_ref": decision.admission_decision_ref,
+            "game_workload_message_id": message_id,
+            "trigger_kind": "verified_game_workload_active_inference_preemption",
+            "serving_session_id": session.session_id,
+            "active_inference_cancellation_confirmed": cancelled}
 
     def _release_after_game_frame_pressure(
             self, session: ServingSession, model: Any,

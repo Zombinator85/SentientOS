@@ -2465,6 +2465,30 @@ class RuntimeGovernor:
                 if operation_kind == "model_serving" else
                 "deferred_background_inference_under_runtime_pressure", True)
 
+        preemption = payload.get("active_inference_preemption")
+        preemption_requested = preemption is not None
+        preemption_valid = (
+            isinstance(preemption, Mapping)
+            and preemption.get("schema_version") ==
+                "sentientos.active_inference_preemption:v1"
+            and preemption.get("workload_mode") == "automatic"
+            and isinstance(preemption.get("serving_session_id"), str)
+            and bool(preemption.get("serving_session_id"))
+            and isinstance(preemption.get("model_identity_digest"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", str(
+                preemption.get("model_identity_digest"))) is not None
+            and game_workload_ref.get("status") == "current"
+            and game_workload_ref.get("game_active") is True
+            and isinstance(preemption.get("game_workload_message_id"), str)
+            and preemption.get("game_workload_message_id") ==
+                game_workload_ref.get("message_id")
+        )
+        if preemption_requested:
+            reason = ("allowed_verified_game_workload_inference_preemption"
+                if preemption_valid else
+                "deferred_active_inference_preemption_game_evidence_unavailable")
+            blocks = not preemption_valid
+
         posture_eval = PostureRuleEvaluation(
             dimension=("host_resource_model_serving_admission"
                 if operation_kind == "model_serving" else
@@ -2506,6 +2530,8 @@ class RuntimeGovernor:
                 "gaming_workload_profile_evidence": workload_profile_ref,
                 "host_resource_telemetry_incomplete_during_game": (
                     game_resource_telemetry_incomplete),
+                "active_inference_preemption_requested": preemption_requested,
+                "active_inference_preemption_admitted": preemption_valid,
             },
         )
         posture = self._compose_runtime_posture(
