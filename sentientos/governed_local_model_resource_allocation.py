@@ -301,7 +301,10 @@ def _valid_backend_resource_seconds(value: object) -> bool:
             and math.isfinite(float(value)) and 0 <= float(value) <= 3600))
     except (OverflowError, TypeError, ValueError):
         return False
-_STATES = {"attempted_not_begun", "attempt_begun", "measured_completed", "measured_timeout", "measured_backend_failure", "reconciled"}
+_MEASURED_STATES = frozenset({"measured_completed", "measured_timeout",
+    "measured_backend_failure", "measured_cancelled"})
+_STATES = {"attempted_not_begun", "attempt_begun", *_MEASURED_STATES,
+    "reconciled"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -511,8 +514,7 @@ class GovernedLocalModelResourceLedger:
             states = [receipt.state for receipt in history]
             attempt_begun = [receipt for receipt in history if receipt.state == "attempt_begun"]
             not_begun = [receipt for receipt in history if receipt.state == "attempted_not_begun"]
-            measured = [receipt for receipt in history if receipt.state in {
-                "measured_completed", "measured_timeout", "measured_backend_failure"}]
+            measured = [receipt for receipt in history if receipt.state in _MEASURED_STATES]
             reconciled = [receipt for receipt in history if receipt.state == "reconciled"]
             if len(attempt_begun) > 1 or len(not_begun) > 1 or len(measured) > 1 or len(reconciled) > 1:
                 raise GovernedLocalModelResourceError("attempt_receipt_transition_duplicate")
@@ -547,7 +549,7 @@ class GovernedLocalModelResourceLedger:
                 raise GovernedLocalModelResourceError("attempt_begun_measurement_invalid")
             if len(states) > 1:
                 expected_prefix.append(states[1])
-                if states[1] not in {"measured_completed", "measured_timeout", "measured_backend_failure"}:
+                if states[1] not in _MEASURED_STATES:
                     raise GovernedLocalModelResourceError("attempt_measurement_transition_invalid")
                 measured_receipt = history[1]
                 if (measured_receipt.effect_receipt_digest is not None
@@ -585,8 +587,7 @@ class GovernedLocalModelResourceLedger:
                 states_by_attempt.setdefault(str(item.get("attempt_id")), []).append(
                     str(item.get("state")))
         slots = 0
-        measured_states = {
-            "measured_completed", "measured_timeout", "measured_backend_failure"}
+        measured_states = _MEASURED_STATES
         for attempt_id, attempt in attempts.items():
             if not isinstance(attempt, Mapping):
                 continue

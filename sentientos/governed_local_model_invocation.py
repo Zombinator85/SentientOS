@@ -1363,7 +1363,9 @@ class GovernedLocalModelInvoker:
                     invocation_outcome=status,
                     backend_resource_observation=backend_resource_observation)
                 state = ("measured_timeout" if status == "timeout" else
-                    "measured_backend_failure" if status == "backend_failure" else "measured_completed")
+                    "measured_backend_failure" if status == "backend_failure" else
+                    "measured_cancelled" if status == "cancelled" else
+                    "measured_completed")
                 measured = resource_context.allocator.append_receipt(
                     resource_context.allocation, attempt_id, state=state,
                     observed_at=resource_context.clock(), measurement=measurement)

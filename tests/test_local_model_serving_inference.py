@@ -1869,7 +1869,17 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
     assert invocation_result["receipt"].output_text is None
     assert resource_ledger.remaining_calls(bundle.allocation_id) == 1
     assert len(resource_ledger._state["attempts"]) == 1
+    assert resource_ledger._state["receipts"][-2]["state"] == "measured_cancelled"
+    assert resource_ledger._state["receipts"][-2][
+        "resource_specific_measurement"]["invocation_outcome"] == "cancelled"
     assert resource_ledger._state["receipts"][-1]["state"] == "reconciled"
+    from sentientos.governed_local_model_resource_allocation import (
+        GovernedLocalModelResourceLedger,
+    )
+    recovered_ledger = GovernedLocalModelResourceLedger(resource_ledger.path)
+    assert recovered_ledger.remaining_calls(bundle.allocation_id) == 1
+    assert [item["state"] for item in recovered_ledger._state["receipts"][-3:]] == [
+        "attempt_begun", "measured_cancelled", "reconciled"]
     assert runtime_residency["model_closed"] is game_active
     assert runtime_residency["session_current"] is (not game_active)
 

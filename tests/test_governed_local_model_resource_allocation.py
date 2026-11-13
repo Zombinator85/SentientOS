@@ -87,6 +87,37 @@ def test_real_principal_durable_debit_receipt_chain_and_restart(tmp_path: Path) 
     assert set(reconciled.resource_specific_measurement) == {"generation_attempted", "call_units_consumed", "generated_output_size_bytes", "returned_output_size_bytes", "output_truncated", "latency_ms", "configured_bounds", "invocation_outcome", "actual_token_count"}
 
 
+def test_cancelled_measurement_recovers_and_reconciles_after_restart(
+        tmp_path: Path) -> None:
+    principal, authenticated, current, policy, ledger, allocator, allocation = context(
+        tmp_path)
+    attempt = allocator.final_gate(allocation=allocation, principal=principal,
+        authenticated=authenticated, current=current, policy=policy, current_time=NOW,
+        durable_attempt_nonce="cancelled-inference")
+    begun = allocator.record_backend_entry(allocation, attempt, observed_at=NOW)
+    measurement = allocator.measurement(allocation, generation_attempted=True,
+        call_units_consumed=1, latency_ms=12, invocation_outcome="cancelled")
+    cancelled = allocator.append_receipt(allocation, attempt,
+        state="measured_cancelled", observed_at="2026-09-21T08:30:01Z",
+        measurement=measurement)
+
+    recovered_ledger = GovernedLocalModelResourceLedger(ledger.path)
+    assert recovered_ledger.remaining_calls(allocation.allocation_id) == 1
+    assert recovered_ledger._unpublished_receipt_slots(recovered_ledger._state) == 1
+    recovered_allocator = GovernedLocalModelResourceAllocator(
+        policy=policy, ledger=recovered_ledger)
+    reconciled = recovered_allocator.append_receipt(allocation, attempt,
+        state="reconciled", observed_at="2026-09-21T08:30:02Z",
+        measurement=measurement, effect_receipt_digest="b" * 64)
+
+    restarted = GovernedLocalModelResourceLedger(ledger.path)
+    assert [receipt["state"] for receipt in restarted._state["receipts"]] == [
+        "attempt_begun", "measured_cancelled", "reconciled"]
+    assert cancelled.previous_receipt_digest == begun.receipt_digest
+    assert reconciled.previous_receipt_digest == cancelled.receipt_digest
+    assert restarted.remaining_calls(allocation.allocation_id) == 1
+
+
 def test_validated_backend_process_measurements_join_governed_resource_usage(tmp_path: Path) -> None:
     principal, authenticated, current, policy, ledger, allocator, allocation = context(tmp_path)
     attempt = allocator.final_gate(allocation=allocation, principal=principal,

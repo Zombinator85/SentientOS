@@ -74,7 +74,7 @@ Early allocation inspection may narrow or block, but never authorizes an effect.
 
 ## Consumption receipt
 
-The future specialized record contains `receipt_id`, `allocation_digest`, `principal_binding_digest`, `attempt_id`, `resource_specific_measurement`, `state`, `observed_at`, `previous_receipt_digest`, `effect_receipt_digest`, and `receipt_digest`. States are `attempted_not_begun`, `attempt_begun`, `measured_completed`, `measured_timeout`, `measured_backend_failure`, and `reconciled`. Corrections append; they never edit.
+The future specialized record contains `receipt_id`, `allocation_digest`, `principal_binding_digest`, `attempt_id`, `resource_specific_measurement`, `state`, `observed_at`, `previous_receipt_digest`, `effect_receipt_digest`, and `receipt_digest`. States are `attempted_not_begun`, `attempt_begun`, `measured_completed`, `measured_timeout`, `measured_backend_failure`, `measured_cancelled`, and `reconciled`. Corrections append; they never edit. A cancellation after backend entry is measured and consumes its call unit, while remaining distinguishable from completion.
 
 Truthful present measurements are generation-attempted status, generated/returned UTF-8 byte sizes when available, truncation, latency, configured ceilings, outcome, and admission reference. Exact token use is `null`/unavailable until trusted backend usage exists. CPU, GPU, RAM, energy, and proof that timed-out compute stopped are not claimed.
 
