@@ -3118,12 +3118,18 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             accepted[0].message_id)
         assert delegated["evidence_refs"]["host_resource_evidence"]["report_id"] == (
             receipt.request["linkage"]["host_resource_observation"]["report_id"])
-    expected_collector_count = (12
-        if trigger == "idle_game_frame_pressure_active_inference_scheduler" else
-        4 if trigger in {"idle_game_gpu_residency",
+    observed_collector_calls = host_resource_owner.collector_call_count
+    if trigger == "idle_game_frame_pressure_active_inference_scheduler":
+        # The scheduler can finish its initial idle tick before game pressure
+        # arrives, or begin after the wakeup and take the fast preemption path.
+        # Both paths perform the inference sample and post-release sample;
+        # only the former adds the optional idle-tick observation.
+        assert observed_collector_calls in {8, 12}
+    else:
+        expected_collector_count = (4 if trigger in {"idle_game_gpu_residency",
             "idle_game_frame_pressure_mismatched_process",
             "idle_game_frame_pressure_active_inference_unconfirmed"} else 8)
-    assert host_resource_owner.collector_call_count == expected_collector_count
+        assert observed_collector_calls == expected_collector_count
     release_receipts = list((tmp_path / "state" / "installations" / "install-1" /
         "state" / "local-model" / "serving" /
         "resource-release-receipts").glob("*.json"))
