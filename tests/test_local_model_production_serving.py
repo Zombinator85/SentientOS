@@ -265,7 +265,13 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
         host_owner.run_cycle(correlation_id=observation_id)
         load_configuration = activation_state["load_configuration"]
         conservative_automatic = workload_mode == "conservative_automatic"
-        effective_mode = "gaming" if conservative_automatic else workload_mode
+        effective_mode = (
+            "gaming" if conservative_automatic
+            or (workload_mode == "automatic" and game_active)
+            else "normal" if workload_mode == "automatic"
+            else workload_mode)
+        configured_mode = ("automatic" if workload_mode == "automatic"
+            or conservative_automatic else workload_mode)
         return {
             "resource_governance_required": True,
             "purpose": "local_model_serving",
@@ -280,11 +286,14 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
             },
             "workload_mode": effective_mode,
             "serving_workload_evidence": {
-                "configured_mode": ("automatic" if conservative_automatic
-                    else workload_mode),
+                "configured_mode": configured_mode,
                 "mode_source": (
                     "foreground_observation_unavailable_conservative_gaming"
                     if conservative_automatic else
+                    "foreground_allowlist_match" if workload_mode == "automatic"
+                    and game_active else
+                    "foreground_allowlist_no_match" if workload_mode == "automatic"
+                    else
                     "operator_selected" if workload_mode == "gaming"
                     else "bridge_observed"),
                 "observation_status": ("unavailable" if conservative_automatic
@@ -371,14 +380,13 @@ def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
     model = Model(identity())
     current = evidence(gpu_layers=16)
     latest_game = {"observation": idle_game}
-    latest_mode = {"mode": "automatic" if transition == "game_started" else "normal"}
+    latest_mode = {"mode": "normal"}
 
     def load_model(_chain, _load):
         if transition == "game_started":
             latest_game["observation"] = active_game
             assert kernel.observe_verified_game_workload(active_game)
-        else:
-            latest_mode["mode"] = "gaming"
+        latest_mode["mode"] = "gaming"
         return model
 
     ctl = controller(monkeypatch, handle, [current] * 4, kernel=kernel,
@@ -390,6 +398,7 @@ def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
         assert host_owner.run_cycle(correlation_id=observation_id) is not None
         game = latest_game["observation"]
         mode = latest_mode["mode"]
+        automatic_mode = transition == "game_started"
         load_configuration = activation_state["load_configuration"]
         return {
             "resource_governance_required": True,
@@ -404,18 +413,17 @@ def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
                 "configuration_digest": semantic_digest(load_configuration),
             },
             "serving_workload_evidence": {
-                "configured_mode": mode,
-                "mode_source": ("operator_selected" if mode == "gaming"
-                    else "bridge_observed" if mode == "automatic"
-                    else "operator_selected"),
-                "observation_status": ("not_requested" if mode == "gaming"
-                    else "available" if mode == "automatic" else "not_requested"),
-                "game_foreground": (game.game_foreground
-                    if mode == "automatic" else False),
+                "configured_mode": "automatic" if automatic_mode else mode,
+                "mode_source": (("foreground_allowlist_match"
+                    if game.game_foreground or game.game_process_running else
+                    "foreground_allowlist_no_match") if automatic_mode else
+                    "operator_selected"),
+                "observation_status": "available" if automatic_mode else "not_requested",
+                "game_foreground": (game.game_foreground if automatic_mode else False),
                 "game_process_running": (game.game_process_running
-                    if mode == "automatic" else False),
+                    if automatic_mode else False),
                 "transport_provenance": (game.transport_provenance
-                    if mode == "automatic" else None),
+                    if automatic_mode else None),
             },
         }
 
@@ -690,7 +698,8 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
-            "workload_mode": "automatic",
+            "workload_mode": ("gaming" if workload.game_foreground is True
+                or workload.game_process_running is True else "normal"),
             "model_execution_profile": {
                 "schema_version": "sentientos.model_execution_profile:v1",
                 "engine": "llama_cpp", "accelerator_route": "gpu",

@@ -136,7 +136,13 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
 
     class Serving:
         def __init__(self, _handle, _kernel): pass
-        def establish(self, **_kwargs): events.append("serving_established")
+        def establish(self, **kwargs):
+            events.append("serving_established")
+            context = kwargs["admission_context_provider"](
+                "fixture-serving-correlation", {
+                    "load_configuration": {"n_gpu_layers": 16}})
+            events.append(("serving_workload_mode", context["workload_mode"],
+                context["serving_workload_evidence"]))
         def close(self): events.append("serving_closed")
         def serving_is_current(self): return True
 
@@ -146,6 +152,12 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
                 "host_resource_observation_owner")
         def set_workload_mode(self, _mode, _game_process_names=()):
             events.append("workload_mode_initialized")
+        def current_workload_state(self):
+            return {"configured_mode": "automatic", "effective_mode": "gaming",
+                "mode_source": "foreground_observation_unavailable_conservative_gaming",
+                "observation_status": "unavailable", "game_foreground": None,
+                "game_process_running": None, "observed_at": None,
+                "transport_provenance": None}
 
     class AdmissionOwner:
         def observe_verified_game_performance(self, _observation): return True
@@ -162,6 +174,8 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
 
     monkeypatch.setattr(chat_service, "ProductionServingController", Serving)
     monkeypatch.setattr(chat_service, "ProductionServingInferenceController", InferenceBridge)
+    monkeypatch.setattr(HostResourceRuntimeCoordinator, "run_cycle",
+        lambda _owner, **_kwargs: None)
     monkeypatch.setattr(chat_service, "sentientos_data_dir", lambda: tmp_path / "data")
     monkeypatch.setattr(chat_service, "sentientos_memory_dir", lambda _root=None: tmp_path / "memory")
 
@@ -195,6 +209,12 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
         "cpu", "memory", "nvidia_gpu", "thermal_sensors"}
     assert resource_owner.plan.budget.max_collectors == 4
     assert resource_owner.plan.budget.max_workers == 4
+    serving_admission = next(item for item in events
+        if isinstance(item, tuple) and item[0] == "serving_workload_mode")
+    assert serving_admission[1] == "gaming"
+    assert serving_admission[2]["configured_mode"] == "automatic"
+    assert serving_admission[2]["mode_source"] == (
+        "foreground_observation_unavailable_conservative_gaming")
     chat_service.close_production_chat()
     assert events[-1] == "avatar_session_closed"
 

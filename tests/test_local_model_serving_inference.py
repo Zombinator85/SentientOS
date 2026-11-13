@@ -1030,7 +1030,8 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
         if "bridge" in bridge_holder:
             workload = bridge_holder["bridge"].current_workload_state()
         else:
-            workload = {"configured_mode": "normal", "mode_source": "operator_selected",
+            workload = {"configured_mode": "normal", "effective_mode": "normal",
+                "mode_source": "operator_selected",
                 "observation_status": "not_requested", "game_foreground": None,
                 "game_process_running": None, "observed_at": None,
                 "transport_provenance": None}
@@ -1054,7 +1055,7 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
             "model_execution_profile": model_execution_profile,
-            "workload_mode": workload.get("configured_mode"),
+            "workload_mode": workload.get("effective_mode"),
             "serving_workload_evidence": {key: workload.get(key) for key in (
                 "configured_mode", "mode_source", "observation_status",
                 "game_foreground", "game_process_running", "observed_at",
