@@ -977,6 +977,7 @@ class GovernedLocalModelInvoker:
                on_content_chunk: Callable[[str], None] | None = None) -> LocalModelInvocationReceipt:
         started = time.monotonic(); status = "blocked_invalid"; reasons: list[str] = [] ; output: str | None = None; admitted_ref = None; fallback = False; truncated = False; backend_completion: Mapping[str, Any] | None = None
         decision_payload: dict[str, Any] = {}; attempt_id: str | None = None; backend_entered = False
+        invocation_lock_acquired = False
         receipt_persistence_confirmed = False
         resource_linkage_persistence_confirmed: bool | None = (
             False if resource_context is not None else None)
@@ -1118,22 +1119,38 @@ class GovernedLocalModelInvoker:
             decision = self.kernel.admit(cp_req); decision_payload = decision.to_dict(); admitted_ref = decision.admission_decision_ref
             if not decision.allowed: reasons += list(decision.reason_codes); status = _status_for_denial(decision.outcome.value)
             else:
+                invocation_lock_acquired = self._active_invocation_lock.acquire(
+                    blocking=False)
+                if not invocation_lock_acquired:
+                    with self._active_state_lock:
+                        preload_in_progress = self._active_residency_preload_event is not None
+                    if preload_in_progress:
+                        invocation_lock_acquired = self._active_invocation_lock.acquire(
+                            timeout=min(10.0, request.budget.timeout_seconds))
+                if not invocation_lock_acquired:
+                    status = "backend_failure"
+                    reasons.append("backend_failure:RuntimeError")
                 if resource_context is not None:
-                    try:
-                        attempt_id = resource_context.allocator.final_gate(
-                            allocation=resource_context.allocation,
-                            principal=resource_context.principal,
-                            authenticated=resource_context.authenticated,
-                            current=resource_context.current,
-                            policy=resource_context.policy,
-                            current_time=resource_context.clock(),
-                            durable_attempt_nonce=resource_context.durable_attempt_nonce,
-                            requested_timeout_seconds=request.budget.timeout_seconds,
-                            max_backend_threads=(thread_limit
-                                if type(thread_limit) is int else None))
-                    except GovernedLocalModelResourceError as exc:
-                        status = "resource_denied"; reasons.append("resource_gate:" + str(exc).split(":", 1)[0])
-                if resource_context is None or attempt_id is not None:
+                    if invocation_lock_acquired:
+                        try:
+                            attempt_id = resource_context.allocator.final_gate(
+                                allocation=resource_context.allocation,
+                                principal=resource_context.principal,
+                                authenticated=resource_context.authenticated,
+                                current=resource_context.current,
+                                policy=resource_context.policy,
+                                current_time=resource_context.clock(),
+                                durable_attempt_nonce=resource_context.durable_attempt_nonce,
+                                requested_timeout_seconds=request.budget.timeout_seconds,
+                                max_backend_threads=(thread_limit
+                                    if type(thread_limit) is int else None))
+                        except GovernedLocalModelResourceError as exc:
+                            status = "resource_denied"; reasons.append("resource_gate:" + str(exc).split(":", 1)[0])
+                        except Exception:
+                            self._active_invocation_lock.release()
+                            invocation_lock_acquired = False
+                            raise
+                if invocation_lock_acquired and (resource_context is None or attempt_id is not None):
                     try:
                         self.invocation_counts[request.correlation_id] = self.invocation_counts.get(request.correlation_id, 0) + 1
                         generation: dict[str, Any] = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke", "resident_developmental_retrieval_cognition", INTERVENTION_PURPOSE, MODEL_REPLACEMENT_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None, "use_model_chat_template": request.purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE}
@@ -1150,22 +1167,22 @@ class GovernedLocalModelInvoker:
                                 if resource_context is not None and attempt_id is not None:
                                     resource_context.allocator.reconcile_not_begun(resource_context.allocation, attempt_id, observed_at=resource_context.clock())
                                 raise
-                        if resource_context is not None and attempt_id is not None:
-                            resource_context.allocator.record_backend_entry(resource_context.allocation, attempt_id, observed_at=resource_context.clock())
-                            backend_entered = True
-                        if not self._active_invocation_lock.acquire(blocking=False):
-                            with self._active_state_lock:
-                                preload_in_progress = self._active_residency_preload_event is not None
-                            if (not preload_in_progress
-                                    or not self._active_invocation_lock.acquire(
-                                        timeout=min(10.0, request.budget.timeout_seconds))):
-                                raise RuntimeError("model_invocation_already_active")
                         latest_identity = getattr(self.model, "active_identity", None)
                         if (identity is not None and
                                 (latest_identity is None
                                  or request.active_model_identity != latest_identity.to_dict())):
+                            if resource_context is not None and attempt_id is not None:
+                                resource_context.allocator.reconcile_not_begun(
+                                    resource_context.allocation, attempt_id,
+                                    observed_at=resource_context.clock())
                             self._active_invocation_lock.release()
+                            invocation_lock_acquired = False
                             raise RuntimeError("active_model_request_identity_mismatch")
+                        if resource_context is not None and attempt_id is not None:
+                            resource_context.allocator.record_backend_entry(
+                                resource_context.allocation, attempt_id,
+                                observed_at=resource_context.clock())
+                            backend_entered = True
                         active_release_event = threading.Event()
                         with self._active_state_lock:
                             self._active_release_event = active_release_event
@@ -1211,6 +1228,7 @@ class GovernedLocalModelInvoker:
                             future = executor.submit(_call_model)
                         except Exception:
                             _release_invocation_lock()
+                            invocation_lock_acquired = False
                             with self._active_state_lock:
                                 if self._active_release_event is active_release_event:
                                     self._active_release_event = None
@@ -1219,6 +1237,7 @@ class GovernedLocalModelInvoker:
                             _release_invocation_lock()
                             self._mark_backend_quiescent(active_release_event)
                         future.add_done_callback(_backend_future_done)
+                        invocation_lock_acquired = False
                         try:
                             output, backend_completion = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
                         except concurrent.futures.TimeoutError as exc:
@@ -1292,6 +1311,9 @@ class GovernedLocalModelInvoker:
                                 reasons.append(f"backend_failure:{diagnostic_code}")
                             else:
                                 reasons.append(f"backend_failure:{exc.__class__.__name__}")
+                if invocation_lock_acquired:
+                    self._active_invocation_lock.release()
+                    invocation_lock_acquired = False
         if status == "blocked_invalid" and not reasons: reasons.append("blocked_invalid")
         effect_occurred = inference_attempted.is_set()
         receipt_output = generated_output if generated_output is not None else output

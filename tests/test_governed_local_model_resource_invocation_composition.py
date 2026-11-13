@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import threading
 import time
 from dataclasses import FrozenInstanceError, replace
 from datetime import datetime, timezone
@@ -248,6 +249,44 @@ def test_timeout_and_backend_failure_consume_and_reconcile(tmp_path):
         assert model.calls == 1 and states(ledger) == ["attempt_begun", expected, "reconciled"]
         assert ledger.remaining_calls(context.allocation.allocation_id) == 1
         assert ledger._state["receipts"][-1]["effect_receipt_digest"] == receipt.receipt_digest
+
+def test_rejected_concurrent_invocation_does_not_consume_resource_entitlement(tmp_path):
+    started = threading.Event()
+    release = threading.Event()
+    model = Model()
+
+    def generate_while_blocked(_prompt, **_kwargs):
+        model.calls += 1
+        started.set()
+        if not release.wait(timeout=5):
+            raise AssertionError("fixture backend was not released")
+        return "first"
+
+    model.generate = generate_while_blocked
+    model.cancel_pending_generation = lambda: False
+    model, invoker, _, context, ledger = setup(tmp_path, calls=2, model=model)
+    first_request = invoker.build_request(purpose="local_user_chat", prompt="first",
+        caller="test", correlation_id="lingering-first",
+        budget=LocalModelInvocationBudget(100, 200, 20, 0.02, 2))
+    first = invoker.invoke(first_request, resource_context=context)
+
+    assert started.is_set()
+    assert first.status == "timeout"
+    assert len(ledger._state["attempts"]) == 1
+    assert ledger.remaining_calls(context.allocation.allocation_id) == 1
+
+    second_request = invoker.build_request(purpose="local_user_chat", prompt="second",
+        caller="test", correlation_id="lingering-second",
+        budget=LocalModelInvocationBudget(100, 200, 20, 0.02, 2))
+    second_context = replace(context, durable_attempt_nonce="nonce-second")
+    second = invoker.invoke(second_request, resource_context=second_context)
+
+    assert second.status == "backend_failure"
+    assert second.effects["local_model_inference"] is False
+    assert model.calls == 1
+    assert len(ledger._state["attempts"]) == 1
+    assert ledger.remaining_calls(context.allocation.allocation_id) == 1
+    release.set()
 
 def test_preflight_and_denied_admission_never_debit(tmp_path):
     model, invoker, request, context, ledger = setup(tmp_path / "wide")
