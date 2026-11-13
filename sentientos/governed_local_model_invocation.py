@@ -7,8 +7,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, cast
 
-from .control_plane_kernel import (AuthorityClass, ControlActionRequest,
-    ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel)
+from .control_plane_kernel import (AdmissionOutcome, AuthorityClass,
+    ControlActionDecision, ControlActionRequest, ControlPlaneKernel,
+    LifecyclePhase, get_control_plane_kernel)
 from .local_model_authority import (LocalModelAuthorityMap, LocalModelAuthorityRecord,
     ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE,
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES,
@@ -693,20 +694,45 @@ class GovernedLocalModelInvoker:
                 pass
 
     def cancel_pending_generation(self, *, reason: str = "client_disconnect",
-                                  cancellation_admission_decision_ref: str | None = None) -> bool:
+                                  cancellation_admission_decision: ControlActionDecision | None = None) -> bool:
         """Request cancellation and confirm the exact backend worker has stopped."""
         if reason not in {"client_disconnect", "workload_transition"}:
             raise ValueError("invocation_cancellation_reason_invalid")
-        if (cancellation_admission_decision_ref is not None
-                and (not isinstance(cancellation_admission_decision_ref, str)
-                     or not cancellation_admission_decision_ref)):
-            raise ValueError("invocation_cancellation_admission_reference_invalid")
+        admission_ref: str | None = None
+        if reason == "workload_transition" and cancellation_admission_decision is None:
+            raise ValueError("invocation_cancellation_admission_decision_required")
+        if cancellation_admission_decision is not None:
+            if (type(cancellation_admission_decision) is not ControlActionDecision
+                    or not self.kernel.owns_recorded_admitted_decision(
+                        cancellation_admission_decision)):
+                raise ValueError("invocation_cancellation_admission_decision_unverified")
+            decision = cancellation_admission_decision
+            inference_preemption = (
+                decision.outcome == AdmissionOutcome.ALLOW
+                and decision.authority_class == AuthorityClass.LOCAL_MODEL_INFERENCE
+                and decision.action_kind == "local_model_inference_preemption"
+                and decision.target_subsystem == "governed_local_model_invocation"
+                and decision.actor in {
+                    "production_chat_host_resource_governor",
+                    "production_chat_game_workload_governor"})
+            resource_release = (
+                decision.outcome == AdmissionOutcome.ALLOW
+                and decision.authority_class == AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
+                and decision.action_kind == "local_model_resource_release"
+                and decision.target_subsystem == "production_chat"
+                and decision.actor in {
+                    "production_chat_host_resource_governor",
+                    "production_chat_workload_resource_governor",
+                    "production_chat_game_resource_governor"})
+            if not (inference_preemption or resource_release):
+                raise ValueError("invocation_cancellation_admission_scope_invalid")
+            admission_ref = decision.admission_decision_ref
         with self._active_state_lock:
             event = self._active_release_event
             if event is None:
                 return False
             self._active_cancel_reason = reason
-            self._active_cancel_admission_ref = cancellation_admission_decision_ref
+            self._active_cancel_admission_ref = admission_ref
             event.set()
         cancel = getattr(self.model, "cancel_pending_generation", None)
         if not callable(cancel):

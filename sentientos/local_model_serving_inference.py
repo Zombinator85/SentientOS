@@ -16,6 +16,7 @@ from .chat_response_grounding import corrected_gaming_output
 from .control_plane_kernel import (
     AdmissionOutcome,
     AuthorityClass,
+    ControlActionDecision,
     ControlActionRequest,
     LifecyclePhase,
 )
@@ -144,16 +145,16 @@ class ProductionServingInferenceController:
         self._last_active_host_resource_sample_at: float | None = None
 
     def cancel_pending_generation(self, *, reason: str = "client_disconnect",
-                                 cancellation_admission_decision_ref: str | None = None) -> bool:
+                                 cancellation_admission_decision: ControlActionDecision | None = None) -> bool:
         """Forward cancellation to the exact governed invocation currently in flight."""
         with self._active_invoker_lock:
             invoker = self._active_invoker
         if invoker is None:
             return False
-        if cancellation_admission_decision_ref is None:
+        if cancellation_admission_decision is None:
             return invoker.cancel_pending_generation(reason=reason)
         return invoker.cancel_pending_generation(reason=reason,
-            cancellation_admission_decision_ref=cancellation_admission_decision_ref)
+            cancellation_admission_decision=cancellation_admission_decision)
 
     def resource_reconciliation_interval_seconds(self) -> float:
         """Poll resource governance faster while optional inference is active.
@@ -639,7 +640,7 @@ class ProductionServingInferenceController:
                 if preempt_active_generation:
                     active_inference_cancellation_confirmed = (
                         self.cancel_pending_generation(reason="workload_transition",
-                            cancellation_admission_decision_ref=decision.admission_decision_ref))
+                            cancellation_admission_decision=decision))
                     if not active_inference_cancellation_confirmed:
                         close_failure = "active_inference_cancellation_unconfirmed"
                 if (not preempt_active_generation
@@ -1116,7 +1117,7 @@ class ProductionServingInferenceController:
                     "observation_correlation_id": observation_id}
             cancelled = active_invoker.cancel_pending_generation(
                 reason="workload_transition",
-                cancellation_admission_decision_ref=admission.admission_decision_ref)
+                cancellation_admission_decision=admission)
             return {"status": "preempted" if cancelled else "preemption_unconfirmed",
                 "reason": ("host_resource_pressure_optional_inference_priority"
                     if cancelled else "active_inference_cancellation_unconfirmed"),
@@ -1508,7 +1509,7 @@ class ProductionServingInferenceController:
                 "trigger_kind": "verified_game_workload_active_inference_preemption",
                 "serving_session_id": session.session_id}
         cancelled = self.cancel_pending_generation(reason="workload_transition",
-            cancellation_admission_decision_ref=decision.admission_decision_ref)
+            cancellation_admission_decision=decision)
         return {"status": "preempted" if cancelled else "preemption_unconfirmed",
             "reason": ("verified_game_workload_priority" if cancelled else
                 "active_inference_cancellation_unconfirmed"),
@@ -1620,7 +1621,7 @@ class ProductionServingInferenceController:
                 if preempt_active_generation:
                     active_inference_cancellation_confirmed = (
                         self.cancel_pending_generation(reason="workload_transition",
-                            cancellation_admission_decision_ref=decision.admission_decision_ref))
+                            cancellation_admission_decision=decision))
                     if not active_inference_cancellation_confirmed:
                         close_failure = "active_inference_cancellation_unconfirmed"
                 if not preempt_active_generation or active_inference_cancellation_confirmed:
@@ -1840,7 +1841,7 @@ class ProductionServingInferenceController:
                 if preempt_active_generation:
                     active_inference_cancellation_confirmed = (
                         self.cancel_pending_generation(reason="workload_transition",
-                            cancellation_admission_decision_ref=decision.admission_decision_ref))
+                            cancellation_admission_decision=decision))
                     if not active_inference_cancellation_confirmed:
                         close_failure = "active_inference_cancellation_unconfirmed"
                 if (not preempt_active_generation

@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
+from threading import Lock
 from typing import TYPE_CHECKING, Any, Callable, Mapping
 
 from sentientos.authority_of_judgment_schema import build_authority_of_judgment
@@ -202,6 +203,9 @@ class ControlPlaneKernel:
         self._principal_currentness_verifier = principal_currentness_verifier
         self._principal_revocation_registry = principal_revocation_registry
         self._admission_history: OrderedDict[tuple[str, str], _AdmissionHistoryEntry] = OrderedDict()
+        self._recorded_admitted_decisions: OrderedDict[int, ControlActionDecision] = OrderedDict()
+        self._recorded_decision_lock = Lock()
+        self._recorded_decision_capacity = 512
 
     @property
     def phase(self) -> LifecyclePhase:
@@ -218,6 +222,13 @@ class ControlPlaneKernel:
             current_entries=len(self._admission_history),
             expires_at_by_key={key: entry.expires_at for key, entry in self._admission_history.items()},
         )
+
+    def owns_recorded_admitted_decision(self, decision: object) -> bool:
+        """Check that this exact allow decision was produced and recorded by this kernel."""
+        if type(decision) is not ControlActionDecision or not decision.allowed:
+            return False
+        with self._recorded_decision_lock:
+            return self._recorded_admitted_decisions.get(id(decision)) is decision
 
     def set_phase(self, phase: LifecyclePhase, *, actor: str = "control_plane_kernel") -> None:
         self._phase = phase
@@ -764,6 +775,13 @@ class ControlPlaneKernel:
                 "reason_codes": sorted(set(list(decision.reason_codes) + ["decision_log_write_failed"])),
                 "delegate_checks_consulted": sorted(set(decision_payload.get("delegate_checks_consulted", []) + ["decision_log"])),
             }
+        else:
+            if decision.allowed:
+                with self._recorded_decision_lock:
+                    self._recorded_admitted_decisions[id(decision)] = decision
+                    self._recorded_admitted_decisions.move_to_end(id(decision))
+                    while len(self._recorded_admitted_decisions) > self._recorded_decision_capacity:
+                        self._recorded_admitted_decisions.popitem(last=False)
         self._emit_decision_event(decision_payload, append_status=append_status)
         return decision
 

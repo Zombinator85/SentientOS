@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from threading import Event, Thread
 from time import monotonic
@@ -11,7 +12,10 @@ import pytest
 pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
-from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
+from sentientos.control_plane_kernel import (
+    AdmissionOutcome, AuthorityClass, ControlActionRequest,
+    ControlPlaneKernel, LifecyclePhase,
+)
 from sentientos.governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt,
     validate_llama_completion_observation,
@@ -272,7 +276,8 @@ def test_invocation_timeout_cancels_cooperative_model_worker(tmp_path: Path) -> 
 
 
 
-def test_governed_cancellation_admission_is_bound_to_receipt(tmp_path: Path) -> None:
+def test_governed_cancellation_admission_is_bound_to_receipt(
+        tmp_path: Path, monkeypatch) -> None:
     model_path = tmp_path / "m.gguf"
     model_path.write_bytes(b"bytes")
     config = ModelConfig(candidates=[ModelCandidate(
@@ -280,9 +285,10 @@ def test_governed_cancellation_admission_is_bound_to_receipt(tmp_path: Path) -> 
         generation=GenerationConfig(max_new_tokens=8))
     authority = build_local_model_authority_map(config, allowed_roots=[tmp_path])
     model = CancellableBlockingModel()
+    kernel = ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+        decisions_path=tmp_path / "decisions.jsonl")
     invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
-        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
-            decisions_path=tmp_path / "decisions.jsonl"),
+        kernel=kernel,
         runtime_root=tmp_path / "runtime")
     published_receipts = []
     invoker.register_evidence_sink(published_receipts.append)
@@ -296,22 +302,56 @@ def test_governed_cancellation_admission_is_bound_to_receipt(tmp_path: Path) -> 
     while model.calls == 0 and monotonic() < deadline:
         Event().wait(0.005)
     assert model.calls == 1
-    preemption_ref = "decision:governed-test-preemption"
+    # The invocation-owner unit test uses an allow object emitted by its kernel;
+    # serving integration tests cover the actual host and game admission paths.
+    decision = kernel._finalize(ControlActionRequest(
+        action_kind="local_model_inference_preemption",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="production_chat_game_workload_governor",
+        target_subsystem="governed_local_model_invocation",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"correlation_id": "governed-test-preemption"}),
+        AdmissionOutcome.ALLOW, ["admitted"], {})
+    with pytest.raises(ValueError, match="admission_decision_unverified"):
+        invoker.cancel_pending_generation(reason="workload_transition",
+            cancellation_admission_decision="kernel_decision:forged")
+    with pytest.raises(ValueError, match="admission_decision_unverified"):
+        invoker.cancel_pending_generation(reason="workload_transition",
+            cancellation_admission_decision=replace(decision))
+
+    def fail_decision_append(_payload):
+        raise OSError("synthetic_decision_log_failure")
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(kernel, "_append", fail_decision_append)
+        unpersisted_decision = kernel._finalize(ControlActionRequest(
+            action_kind="local_model_inference_preemption",
+            authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+            actor="production_chat_game_workload_governor",
+            target_subsystem="governed_local_model_invocation",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"correlation_id": "unpersisted-preemption"}),
+            AdmissionOutcome.ALLOW, ["admitted"], {})
+    with pytest.raises(ValueError, match="admission_decision_unverified"):
+        invoker.cancel_pending_generation(reason="workload_transition",
+            cancellation_admission_decision=unpersisted_decision)
     assert invoker.cancel_pending_generation(reason="workload_transition",
-        cancellation_admission_decision_ref=preemption_ref) is True
+        cancellation_admission_decision=decision) is True
     worker.join(1)
 
     assert not worker.is_alive()
     assert result[0].status == "cancelled"
     assert "cancelled_for_workload_transition" in result[0].reason_codes
-    assert result[0].cancellation_admission_decision_ref == preemption_ref
+    assert result[0].cancellation_admission_decision_ref == (
+        decision.admission_decision_ref)
     assert result[0].schema_version == "sentientos.local_model_invocation_receipt:v4"
     valid, reasons = validate_receipt(result[0].to_dict())
     assert valid, reasons
     persisted = json.loads((tmp_path / "runtime" / "receipts" /
         f"{result[0].receipt_id}.json").read_text(encoding="utf-8"))
     assert validate_receipt(persisted)[0]
-    assert persisted["cancellation_admission_decision_ref"] == preemption_ref
+    assert persisted["cancellation_admission_decision_ref"] == (
+        decision.admission_decision_ref)
     assert published_receipts[0]["receipt_digest"] == result[0].receipt_digest
     assert model.cancelled.is_set()
 
