@@ -358,6 +358,96 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
         assert runtime["evidence_refs"]["game_workload_evidence"]["message_id"] == "b" * 64
 
 
+@pytest.mark.parametrize(("pressure_kind", "expected_label"), [
+    ("cpu", "cpu_pressure"),
+    ("thermal", "thermal_pressure"),
+])
+def test_cpu_and_thermal_pressure_block_initial_model_load_before_factory(
+        monkeypatch, handle, pressure_kind, expected_label):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(handle.root / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(handle.root))
+    now = datetime.now(timezone.utc)
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=handle.root / "kernel-decisions.jsonl")
+    factory_calls = []
+
+    def collector(collector_id, **values):
+        def collect(*, observed_at=None):
+            if collector_id == "cpu":
+                current = {"utilization_percent": (
+                    95.0 if pressure_kind == "cpu" else 20.0)}
+            elif collector_id == "thermal_sensors":
+                current = {"zones": [{"id": "cpu",
+                    "temperature_c": 92.0 if pressure_kind == "thermal" else 55.0,
+                    "telemetry_only": True, "control_available": False}]}
+            else:
+                current = values
+            return HostCollectorResult(collector_id, "available",
+                observed_at or now.isoformat(), "synthetic_test_fixture",
+                values=current)
+        return collect
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=handle.root / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu")),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False,
+                ("linux", "unknown"), 3, collector("nvidia_gpu",
+                    device_count=1, devices=[{"index": 0,
+                        "gpu_utilization_percent": 20.0,
+                        "vram_utilization_percent": 30.0}])),
+            HostObservationCollectorSpec("thermal_sensors", False,
+                ("linux", "unknown"), 4, collector("thermal_sensors")),
+        ]), clock=lambda: now.isoformat())
+    ctl = controller(monkeypatch, handle, [evidence(gpu_layers=0)], kernel=kernel,
+        factory=lambda _chain, _load: factory_calls.append("loaded")
+            or Model(identity()))
+
+    def admission_context(correlation_id, activation_state):
+        observation_id = "local-chat-serving-" + hashlib.sha256(
+            correlation_id.encode("utf-8")).hexdigest()[:32]
+        evaluation = host_owner.run_cycle(correlation_id=observation_id)
+        assert evaluation is not None
+        assert kernel.observe_host_resource_evaluation(evaluation) is True
+        load_configuration = activation_state["load_configuration"]
+        return {
+            "resource_governance_required": True,
+            "purpose": "local_model_serving",
+            "host_resource_observation_namespace": "local-chat-serving",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp", "accelerator_route": "cpu",
+                "gpu_layers": 0,
+                "configuration_digest": semantic_digest(load_configuration),
+            },
+            "workload_mode": "normal", "effective_workload_mode": "normal",
+            "serving_workload_evidence": {"configured_mode": "normal",
+                "mode_source": "operator_selected", "observation_status": "not_requested"},
+        }
+
+    with pytest.raises(ProductionServingError,
+            match="control_plane_not_allowed"):
+        ctl.establish(operation_id="pressure-blocked-serving",
+            admission_context_provider=admission_context)
+
+    assert factory_calls == []
+    assert ctl.current_session() is None
+    decision = __import__("json").loads(
+        (handle.root / "kernel-decisions.jsonl").read_text(
+            encoding="utf-8").splitlines()[-1])
+    runtime = decision["delegated_outcomes"]["runtime_governor"]
+    assert runtime["action_class"] == "local_model_serving"
+    assert runtime["reason"] == "deferred_background_model_serving_under_host_pressure"
+    assert runtime["evidence_refs"]["host_resource_evidence"]["status"] == "current"
+    assert runtime["evidence_refs"]["observed_pressure_labels"] == [expected_label]
+
+
 @pytest.mark.parametrize(("transition", "expected_reason"), [
     ("game_started", "deferred_gpu_model_serving_while_game_active"),
     ("gaming_profile_selected", "deferred_gpu_model_serving_in_gaming_mode"),
