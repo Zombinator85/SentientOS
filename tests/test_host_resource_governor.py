@@ -211,6 +211,68 @@ def test_nvml_device_wide_samples_reach_pressure_using_worst_device() -> None:
     assert validate_host_resource_pressure_report(report, snapshot).ok
 
 
+def test_nvml_gpu_temperature_reaches_thermal_pressure_without_host_thermal_zones() -> None:
+    from sentientos.host_collectors import HostCollectorResult
+    from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results
+
+    gpu = HostCollectorResult(
+        collector_id="nvidia_gpu",
+        status="available",
+        observed_at="2026-11-02T00:00:00+00:00",
+        source="test:NVML",
+        values={
+            "device_count": 1,
+            "sample_scope": "device_wide",
+            "per_process_attribution_available": False,
+            "devices": [{
+                "index": 0,
+                "gpu_utilization_percent": 18.0,
+                "vram_utilization_percent": 25.0,
+                "temperature_c": 90.0,
+            }],
+        },
+    )
+    thermal = HostCollectorResult(
+        collector_id="thermal_sensors",
+        status="unavailable",
+        observed_at="2026-11-02T00:00:00+00:00",
+        source="test:unavailable",
+        warnings=("sensor_unavailable:thermal",),
+    )
+
+    snapshot = build_host_resource_telemetry_from_collector_results(
+        (gpu, thermal), snapshot_id="nvml-gpu-thermal")
+    report = evaluate_host_resource_pressure(snapshot)
+
+    assert snapshot.thermal_zone_temperatures_c == {"nvidia_gpu_0": 90.0}
+    assert "thermal_pressure" in report.pressure_labels
+    assert "sensor_unavailable" in report.pressure_labels
+    assert validate_host_resource_pressure_report(report, snapshot).ok
+
+
+def test_malformed_nvml_gpu_temperature_is_unavailable_not_thermal_pressure() -> None:
+    from sentientos.host_collectors import HostCollectorResult
+    from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results
+
+    gpu = HostCollectorResult(
+        collector_id="nvidia_gpu",
+        status="available",
+        observed_at="2026-11-02T00:00:00+00:00",
+        source="test:NVML",
+        values={"device_count": 1, "devices": [{
+            "index": 0, "temperature_c": 151.0,
+        }]},
+    )
+
+    snapshot = build_host_resource_telemetry_from_collector_results(
+        (gpu,), snapshot_id="nvml-gpu-temperature-invalid")
+    report = evaluate_host_resource_pressure(snapshot)
+
+    assert snapshot.thermal_zone_temperatures_c == {}
+    assert "nvidia_gpu_temperature_c_malformed:0" in snapshot.unavailable_sensor_labels
+    assert "thermal_pressure" not in report.pressure_labels
+
+
 def test_nvml_malformed_device_sample_is_unavailable_not_idle() -> None:
     from sentientos.host_collectors import HostCollectorResult
     from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results

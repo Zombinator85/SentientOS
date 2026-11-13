@@ -259,6 +259,87 @@ def test_nvml_gpu_pressure_reaches_background_inference_admission(monkeypatch, t
     assert resource_evidence["vram_utilization_percent"] == 92.0
 
 
+def test_nvml_gpu_thermal_pressure_reaches_verified_game_inference_admission(
+        monkeypatch, tmp_path):
+    """GPU temperature remains actionable when WSL host thermal zones are absent."""
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    kernel = ControlPlaneKernel(
+        runtime_governor=RuntimeGovernor(), phase=LifecyclePhase.MAINTENANCE,
+        decisions_path=tmp_path / "kernel.jsonl")
+
+    def observe(correlation_id: str, temperature_c: float):
+        plan = build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                lambda observed_at=None: _result("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                lambda observed_at=None: _result("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                lambda observed_at=None: _result("nvidia_gpu", device_count=1,
+                    sample_scope="device_wide", per_process_attribution_available=False,
+                    devices=[{"index": 0, "gpu_utilization_percent": 20.0,
+                              "vram_utilization_percent": 25.0,
+                              "temperature_c": temperature_c}])),
+            HostObservationCollectorSpec("thermal_sensors", False,
+                ("linux", "unknown"), 4, lambda observed_at=None: HostCollectorResult(
+                    "thermal_sensors", "unavailable", observed_at or
+                    "2026-11-13T00:00:00+00:00", "test:unavailable",
+                    warnings=("sensor_unavailable:thermal",))),
+        ])
+        evaluation = HostResourceRuntimeCoordinator(
+            kernel=kernel, runtime_state_root=tmp_path / correlation_id,
+            plan=plan).run_cycle(correlation_id=correlation_id)
+        assert evaluation is not None and validate_evaluation(evaluation).ok
+        return evaluation
+
+    hot_game_sample = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 1, "d" * 64, "e" * 64,
+        datetime.now(timezone.utc).isoformat(), "f" * 64, 16.7, 0, 20.0,
+        4096, "available")
+    assert kernel.observe_verified_game_performance(hot_game_sample)
+    hot = observe("gpu-thermal-hot", 90.0)
+    assert hot.snapshot.gpu_utilization_percent == 20.0
+    assert hot.snapshot.vram_utilization_percent == 25.0
+    assert hot.snapshot.thermal_zone_temperatures_c == {"nvidia_gpu_0": 90.0}
+    assert "thermal_pressure" in hot.pressure_report.pressure_labels
+    assert "sensor_unavailable" in hot.pressure_report.pressure_labels
+
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    hot_decision = kernel.admit(ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="user", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "local_user_chat", "correlation_id": "game-chat-hot-gpu"},
+    ))
+    assert hot_decision.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_local_model_inference_under_host_pressure_during_game" in hot_decision.reason_codes
+    hot_evidence = hot_decision.delegated_outcomes["runtime_governor"]["evidence_refs"]
+    assert hot_evidence["host_resource_evidence"]["evaluation_id"] == hot.evaluation_id
+    assert hot_evidence["host_pressure_during_verified_game"] is True
+
+    nominal_game_sample = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 2, "a" * 64, "b" * 64,
+        datetime.now(timezone.utc).isoformat(), "c" * 64, 16.7, 0, 20.0,
+        4096, "available")
+    assert kernel.observe_verified_game_performance(nominal_game_sample)
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
+    nominal = observe("gpu-thermal-nominal", 75.0)
+    assert "thermal_pressure" not in nominal.pressure_report.pressure_labels
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    nominal_decision = kernel.admit(ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="user", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "local_user_chat", "correlation_id": "game-chat-nominal-gpu"},
+    ))
+    assert nominal_decision.outcome == AdmissionOutcome.ALLOW
+
+
 def test_host_pressure_during_verified_game_defers_foreground_chat_and_recovers(
         monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")

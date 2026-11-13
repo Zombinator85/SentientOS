@@ -311,6 +311,7 @@ def build_host_resource_telemetry_from_collector_results(
     # for pressure admission so a busy/near-full accelerator cannot be hidden
     # by averaging it with an idle adapter. These values are not attributed to
     # the inference process and must not be described as per-process usage.
+    thermal_zone_temperatures_c: dict[str, float] = {}
     gpu_devices = gpu_values.get("devices")
     gpu_samples: list[float] = []
     vram_samples: list[float] = []
@@ -338,13 +339,30 @@ def build_host_resource_telemetry_from_collector_results(
                     unavailable.append(f"nvidia_gpu_{key}_malformed")
                     continue
                 samples.append(gpu_sample)
+            # NVML temperature is a real device thermal observation. Preserve
+            # its source in the key so it can contribute to the existing
+            # inspect-only thermal pressure signal even when the host thermal
+            # zone collector is unavailable (common in WSL).
+            raw_temperature = device.get("temperature_c")
+            if raw_temperature is not None:
+                if isinstance(raw_temperature, bool):
+                    unavailable.append(f"nvidia_gpu_temperature_c_malformed:{index}")
+                else:
+                    try:
+                        temperature = float(raw_temperature)
+                    except (TypeError, ValueError):
+                        unavailable.append(f"nvidia_gpu_temperature_c_malformed:{index}")
+                    else:
+                        if not 0.0 <= temperature <= 150.0:
+                            unavailable.append(f"nvidia_gpu_temperature_c_malformed:{index}")
+                        else:
+                            thermal_zone_temperatures_c[f"nvidia_gpu_{index}"] = temperature
     elif "nvidia_gpu" in by_id and gpu_values.get("device_count", 0):
         unavailable.append("nvidia_gpu_devices_malformed")
 
     gpu_utilization_percent = max(gpu_samples) if gpu_samples else None
     vram_utilization_percent = max(vram_samples) if vram_samples else None
 
-    thermal_zone_temperatures_c: dict[str, float] = {}
     for index, zone in enumerate(tuple(thermal_values.get("zones") or ())):
         if isinstance(zone, Mapping) and zone.get("temperature_c") is not None:
             try:
