@@ -310,8 +310,12 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
         assert runtime["evidence_refs"]["game_workload_evidence"]["message_id"] == "b" * 64
 
 
+@pytest.mark.parametrize(("transition", "expected_reason"), [
+    ("game_started", "deferred_gpu_model_serving_while_game_active"),
+    ("gaming_profile_selected", "deferred_gpu_model_serving_in_gaming_mode"),
+])
 def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
-        monkeypatch, handle):
+        monkeypatch, handle, transition, expected_reason):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(handle.root / "governor"))
     monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(handle.root / "federation"))
@@ -352,10 +356,14 @@ def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
     model = Model(identity())
     current = evidence(gpu_layers=16)
     latest_game = {"observation": idle_game}
+    latest_mode = {"mode": "automatic" if transition == "game_started" else "normal"}
 
     def load_model(_chain, _load):
-        latest_game["observation"] = active_game
-        assert kernel.observe_verified_game_workload(active_game)
+        if transition == "game_started":
+            latest_game["observation"] = active_game
+            assert kernel.observe_verified_game_workload(active_game)
+        else:
+            latest_mode["mode"] = "gaming"
         return model
 
     ctl = controller(monkeypatch, handle, [current] * 4, kernel=kernel,
@@ -366,13 +374,14 @@ def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
             correlation_id.encode("utf-8")).hexdigest()[:32]
         assert host_owner.run_cycle(correlation_id=observation_id) is not None
         game = latest_game["observation"]
+        mode = latest_mode["mode"]
         load_configuration = activation_state["load_configuration"]
         return {
             "resource_governance_required": True,
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
-            "workload_mode": "automatic",
+            "workload_mode": mode,
             "model_execution_profile": {
                 "schema_version": "sentientos.model_execution_profile:v1",
                 "engine": "llama_cpp", "accelerator_route": "gpu",
@@ -380,11 +389,18 @@ def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
                 "configuration_digest": semantic_digest(load_configuration),
             },
             "serving_workload_evidence": {
-                "configured_mode": "automatic",
-                "observation_status": game.status,
-                "game_foreground": game.game_foreground,
-                "game_process_running": game.game_process_running,
-                "transport_provenance": game.transport_provenance,
+                "configured_mode": mode,
+                "mode_source": ("operator_selected" if mode == "gaming"
+                    else "bridge_observed" if mode == "automatic"
+                    else "operator_selected"),
+                "observation_status": ("not_requested" if mode == "gaming"
+                    else "available" if mode == "automatic" else "not_requested"),
+                "game_foreground": (game.game_foreground
+                    if mode == "automatic" else False),
+                "game_process_running": (game.game_process_running
+                    if mode == "automatic" else False),
+                "transport_provenance": (game.transport_provenance
+                    if mode == "automatic" else None),
             },
         }
 
@@ -403,9 +419,14 @@ def test_runtime_governor_revalidates_game_priority_after_gpu_model_load(
     assert [item["final_disposition"] for item in serving_decisions] == ["allow", "defer"]
     assert serving_decisions[0]["correlation_id"] != serving_decisions[1]["correlation_id"]
     assert serving_decisions[1]["delegated_outcomes"]["runtime_governor"]["reason"] == (
-        "deferred_gpu_model_serving_while_game_active")
-    assert serving_decisions[1]["delegated_outcomes"]["runtime_governor"][
-        "evidence_refs"]["game_workload_evidence"]["message_id"] == "c" * 64
+        expected_reason)
+    runtime_evidence = serving_decisions[1]["delegated_outcomes"][
+        "runtime_governor"]["evidence_refs"]
+    if transition == "game_started":
+        assert runtime_evidence["game_workload_evidence"]["message_id"] == "c" * 64
+    else:
+        assert runtime_evidence[
+            "optional_gpu_model_load_in_gaming_profile"] is True
     assert host_owner.collector_call_count == 6
     from sentientos.local_model_production_serving import read_serving_operation_history
     assert read_serving_operation_history(handle)[0]["status"] == (
