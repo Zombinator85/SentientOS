@@ -2386,6 +2386,8 @@ def test_game_priority_scheduler_retries_timed_out_allocated_backend(
     from cryptography import x509
     from cryptography.hazmat.primitives.serialization import Encoding
     from sentientos import chat_service
+    from sentientos.canonical_memory import CanonicalMemoryStore
+    from sentientos.conversation_session import ConversationSessionStore
     from tests.test_gaming_companion_tls_transport import _certificate_bundle
 
     now = datetime.now(timezone.utc)
@@ -2489,14 +2491,18 @@ def test_game_priority_scheduler_retries_timed_out_allocated_backend(
         timeout_returned.set()
 
     invocation = threading.Thread(target=invoke_until_timeout)
-    service = SimpleNamespace(
-        reconcile_workload_state=lambda: (
-            reconciliations.append(bridge.reconcile_workload_state())
-            or reconciliations[-1]),
-        resource_reconciliation_interval_seconds=(
-            bridge.resource_reconciliation_interval_seconds),
-        set_resource_reconciliation_wakeup=bridge.set_resource_reconciliation_wakeup,
-        close_outputs=lambda: None)
+    service = chat_service.PersistentConversationService(
+        inference=bridge,
+        session_store=ConversationSessionStore(tmp_path / "conversation-sessions"),
+        memory_store=CanonicalMemoryStore(tmp_path / "canonical-memory"))
+    reconcile_workload_state = service.reconcile_workload_state
+
+    def record_scheduled_reconciliation():
+        result = reconcile_workload_state()
+        reconciliations.append(result)
+        return result
+
+    service.reconcile_workload_state = record_scheduled_reconciliation
     previous_composition = chat_service._PRODUCTION_COMPOSITION
     previous_task = chat_service._RESOURCE_RECONCILIATION_TASK
     chat_service._PRODUCTION_COMPOSITION = chat_service.ProductionChatComposition(
