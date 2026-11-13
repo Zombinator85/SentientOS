@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import threading
+import time
 from types import MappingProxyType, SimpleNamespace
 
 import pytest
@@ -1952,6 +1953,7 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
     thermal = {"zones": [{"id": "cpu", "temperature_c": 55.0,
         "telemetry_only": True, "control_available": False}]}
     serving_mode = {"value": "normal"}
+    recovery_game = {"active": False, "sequence": 0, "message_id": None}
 
     def collector(collector_id, **values):
         def collect(*, observed_at=None):
@@ -2001,9 +2003,40 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
                 "gpu_layers": gpu_layers,
                 "configuration_digest": digest_payload(load_configuration)},
             "workload_mode": serving_mode["value"],
-            "effective_workload_mode": serving_mode["value"],
-            "serving_workload_evidence": {"configured_mode": serving_mode["value"],
-                "mode_source": "operator_selected", "observation_status": "not_requested"}}
+            "effective_workload_mode": (
+                "gaming" if recovery_game["active"] else
+                "normal" if serving_mode["value"] == "automatic" else serving_mode["value"]),
+            "serving_workload_evidence": {
+                "configured_mode": serving_mode["value"],
+                "mode_source": "operator_selected",
+                "observation_status": "available" if serving_mode["value"] == "automatic"
+                    else "not_requested",
+                "game_foreground": (recovery_game["active"]
+                    if serving_mode["value"] == "automatic" else None),
+                "game_process_running": (recovery_game["active"]
+                    if serving_mode["value"] == "automatic" else None),
+                "transport_provenance": ({"message_id": recovery_game["message_id"]}
+                    if serving_mode["value"] == "automatic" else None),
+            }}
+
+    def publish_recovery_game(active):
+        recovery_game["sequence"] += 1
+        message_id = hashlib.sha256(
+            f"recovery-game-{pressure_kind}-{recovery_game['sequence']}-{active}".encode(
+                "utf-8")).hexdigest()
+        observation = ForegroundGameObservation(
+            "available", active, hashlib.sha256(b"examplegame.exe").hexdigest(),
+            now.isoformat(), transport_provenance={
+                "message_id": message_id, "source_id": "windows-edge",
+                "session_id": "recovery-game-session", "generation_id": "edge-generation",
+                "sequence": recovery_game["sequence"],
+                "envelope_created_at": now.isoformat()},
+            game_process_running=active,
+            running_process_name_digests=(
+                (hashlib.sha256(b"examplegame.exe").hexdigest(),) if active else ()))
+        assert kernel.observe_verified_game_workload(observation)
+        recovery_game["active"] = active
+        recovery_game["message_id"] = message_id
 
     models = []
 
@@ -2082,8 +2115,35 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
             memory.update(used_percent=40.0)
             cpu.update(utilization_percent=20.0)
             thermal["zones"][0]["temperature_c"] = 55.0
+            if pressure_kind == "gpu":
+                serving_mode["value"] = "automatic"
+                publish_recovery_game(True)
             callback = wakeup_callbacks[-1]
             callback()
+            if pressure_kind == "gpu":
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
+                    if (recovery_results and recovery_results[-1].get(
+                            "serving_recovery", {}).get("status") == "deferred"
+                            and len(models) == 1):
+                        decisions_now = [json.loads(line) for line in
+                            (tmp_path / "kernel-decisions.jsonl").read_text(
+                                encoding="utf-8").splitlines()]
+                        if any(item.get("action_kind") ==
+                                "establish_exact_activated_model_serving_session"
+                                and item.get("delegated_outcomes", {}).get(
+                                    "runtime_governor", {}).get("reason") ==
+                                    "deferred_gpu_model_serving_while_game_active"
+                                for item in decisions_now):
+                            break
+                    await asyncio.sleep(.01)
+                else:
+                    raise AssertionError(
+                        "recovery did not defer while the verified game remained active")
+                assert serving.current_session() is None
+                assert serving.resource_recovery_pending() is True
+                publish_recovery_game(False)
+                callback()
             if not await asyncio.to_thread(restored.wait, 5):
                 raise AssertionError("scheduler did not recover after host pressure cleared")
             decisions = [json.loads(line) for line in
