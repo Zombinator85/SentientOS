@@ -640,11 +640,43 @@ class GovernedLocalModelInvoker:
     CANCELLATION_QUIESCENCE_TIMEOUT_SECONDS = 0.5
 
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
-        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_cancel_reason: str | None = None; self._active_residency_preload_event: threading.Event | None = None
+        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_cancel_reason: str | None = None; self._active_residency_preload_event: threading.Event | None = None; self._backend_quiescence_callbacks: list[Callable[[], None]] = []
 
     def register_evidence_sink(self, sink: Callable[[Mapping[str, Any]], None] | None) -> None:
         """Install an explicit observational receipt sink owned by the runtime."""
         self._evidence_sink = sink
+
+    def backend_work_pending(self) -> bool:
+        """Return whether this invocation owner still has an active backend worker."""
+        with self._active_state_lock:
+            return self._active_release_event is not None
+
+    def on_backend_quiescence(self, callback: Callable[[], None]) -> None:
+        """Run callback once the current backend worker is known to have stopped."""
+        if not callable(callback):
+            raise TypeError("backend_quiescence_callback_required")
+        with self._active_state_lock:
+            run_now = self._active_release_event is None
+            if not run_now:
+                self._backend_quiescence_callbacks.append(callback)
+        if run_now:
+            callback()
+
+    def _mark_backend_quiescent(self, release_event: threading.Event) -> None:
+        callbacks: list[Callable[[], None]] = []
+        with self._active_state_lock:
+            if self._active_release_event is not release_event:
+                return
+            self._active_release_event = None
+            self._active_cancel_reason = None
+            callbacks = self._backend_quiescence_callbacks
+            self._backend_quiescence_callbacks = []
+        for callback in callbacks:
+            try:
+                callback()
+            except Exception:
+                # Lifecycle bookkeeping must not change the backend result.
+                pass
 
     def cancel_pending_generation(self, *, reason: str = "client_disconnect") -> bool:
         """Request cancellation and confirm the exact backend worker has stopped."""
@@ -1183,7 +1215,10 @@ class GovernedLocalModelInvoker:
                                 if self._active_release_event is active_release_event:
                                     self._active_release_event = None
                             raise
-                        future.add_done_callback(lambda _future: _release_invocation_lock())
+                        def _backend_future_done(_future: Any) -> None:
+                            _release_invocation_lock()
+                            self._mark_backend_quiescent(active_release_event)
+                        future.add_done_callback(_backend_future_done)
                         try:
                             output, backend_completion = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
                         except concurrent.futures.TimeoutError as exc:
@@ -1211,9 +1246,9 @@ class GovernedLocalModelInvoker:
                         finally:
                             if not shutdown_without_wait:
                                 executor.shutdown(wait=True, cancel_futures=True)
-                            with self._active_state_lock:
-                                if self._active_release_event is active_release_event:
-                                    self._active_release_event = None
+                                self._mark_backend_quiescent(active_release_event)
+                            elif future.done():
+                                self._mark_backend_quiescent(active_release_event)
                         if backend_completion is not None:
                             if not validate_backend_completion_observation(backend_completion):
                                 raise ValueError("backend_completion_observation_invalid")

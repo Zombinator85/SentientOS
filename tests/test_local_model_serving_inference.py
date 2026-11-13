@@ -13,6 +13,7 @@ from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import (
     AdmissionOutcome, AuthorityClass, ControlPlaneKernel,
 )
+from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_model_authority import build_local_model_authority_map, digest_payload
@@ -2235,6 +2236,118 @@ def test_verified_game_presence_preempts_each_new_inference_on_same_snapshot(
     assert len(preemptions) == 2
     assert len({item["correlation_id"] for item in preemptions}) == 2
     assert host_owner.collector_call_count == 4
+    serving.close()
+
+
+def test_game_priority_retains_timed_out_backend_for_later_preemption(
+        monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    message_id = hashlib.sha256(b"authenticated-game-during-timeout").hexdigest()
+    game_workload = ForegroundGameObservation("available", True,
+        hashlib.sha256(b"examplegame.exe").hexdigest(), now.isoformat(),
+        transport_provenance={"message_id": message_id, "source_id": "windows-edge",
+            "session_id": "game-session", "generation_id": "edge-generation",
+            "sequence": 1, "envelope_created_at": now.isoformat()},
+        game_process_running=True,
+        running_process_name_digests=(hashlib.sha256(
+            b"examplegame.exe").hexdigest(),))
+    assert kernel.observe_verified_game_workload(game_workload)
+
+    class VerifiedGameDetector:
+        def observe(self, _names):
+            return game_workload
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+        ]), clock=lambda: now.isoformat())
+    started = threading.Event()
+    release_worker = threading.Event()
+
+    def active_generation():
+        started.set()
+        if not release_worker.wait(timeout=5):
+            raise AssertionError("lingering inference was not preempted by game priority")
+        raise RuntimeError("fixture_stopped_after_game_preemption")
+
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner,
+        foreground_game_detector=VerifiedGameDetector(), gpu_layers=0,
+        on_generate=active_generation)
+    admission_inputs = []
+    original_preemption_admission = (
+        ProductionServingInferenceController._admit_active_game_inference_preemption)
+
+    def capture_preemption_admission(controller, serving_session, inference_model,
+            workload):
+        admission_inputs.append(dict(workload))
+        return original_preemption_admission(
+            controller, serving_session, inference_model, workload)
+
+    monkeypatch.setattr(ProductionServingInferenceController,
+        "_admit_active_game_inference_preemption", capture_preemption_admission)
+    cancellation_attempts = 0
+
+    def cancel_pending_generation():
+        nonlocal cancellation_attempts
+        cancellation_attempts += 1
+        if cancellation_attempts == 1:
+            return False
+        release_worker.set()
+        return True
+
+    model.cancel_pending_generation = cancel_pending_generation
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+
+    timed_out = bridge.generate(prompt=("[SYSTEM_INSTRUCTION]\nRules.\n"
+        "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\n"
+        "USER_DATA: optional inference"), caller="chat_service",
+        correlation_id="game-priority-timeout-lingering-worker",
+        budget=LocalModelInvocationBudget(timeout_seconds=0.02))
+
+    assert started.is_set()
+    assert timed_out.status == "timeout"
+    assert cancellation_attempts == 1
+    assert bridge.resource_reconciliation_interval_seconds() == 0.5
+    workload_after_timeout = bridge.current_workload_state()
+    assert workload_after_timeout["configured_mode"] == "automatic"
+    assert workload_after_timeout["observation_status"] == "available"
+    assert workload_after_timeout["game_process_running"] is True
+    assert isinstance(model.active_identity.to_dict(), Mapping)
+    assert bridge._active_invoker is not None
+    assert bridge._active_invoker.backend_work_pending()
+
+    preemption = bridge.reconcile_idle_game_resource_state()
+
+    assert admission_inputs, (preemption, workload_after_timeout)
+    assert preemption["status"] == "preempted", preemption
+    assert preemption["game_workload_message_id"] == message_id
+    assert preemption["active_inference_cancellation_confirmed"] is True
+    assert cancellation_attempts == 2
+    assert bridge.resource_reconciliation_interval_seconds() == 5.0
+    assert serving.current_session() == session
+    decisions = [json.loads(line) for line in
+        (tmp_path / "kernel-decisions.jsonl").read_text(
+            encoding="utf-8").splitlines()]
+    decision = next(item for item in decisions
+        if item.get("action_kind") == "local_model_inference_preemption")
+    assert decision["delegated_outcomes"]["runtime_governor"]["reason"] == (
+        "allowed_verified_game_workload_inference_preemption")
+    assert host_owner.collector_call_count == 2
     serving.close()
 
 

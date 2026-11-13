@@ -685,6 +685,29 @@ class ProductionServingInferenceController:
 
     def reconcile_idle_game_resource_state(self) -> dict[str, Any]:
         """Release optional residency under current gaming-priority evidence, without inference."""
+        # A bounded client timeout can finish while the backend worker ignores
+        # cancellation. The request then releases the receipt-capacity lock,
+        # but the invocation owner still holds the exact worker handle. Route
+        # that case through governed active-inference preemption before taking
+        # the ordinary idle-residency path.
+        with self._active_invoker_lock:
+            active_invoker = self._active_invoker
+        pending_backend = (active_invoker is not None
+            and active_invoker.backend_work_pending())
+        if pending_backend:
+            pending_workload = self.current_workload_state()
+            provenance = pending_workload.get("transport_provenance")
+            verified_active_game = (
+                pending_workload.get("configured_mode") == "automatic"
+                and pending_workload.get("observation_status") == "available"
+                and (pending_workload.get("game_foreground") is True
+                    or pending_workload.get("game_process_running") is True)
+                and isinstance(provenance, Mapping)
+                and isinstance(provenance.get("message_id"), str)
+                and bool(provenance.get("message_id")))
+            if (pending_workload.get("configured_mode") == "gaming"
+                    or verified_active_game):
+                return self._preempt_for_verified_game_workload()
         if not self._receipt_capacity_lock.acquire(blocking=False):
             return self._preempt_for_verified_game_workload()
         try:
@@ -1725,6 +1748,16 @@ class ProductionServingInferenceController:
                 raise ProductionServingInferenceError(
                     "invocation_receipt_capacity_exhausted")
             with self._active_invoker_lock:
+                previous_invoker = self._active_invoker
+                if (previous_invoker is not None
+                        and previous_invoker.backend_work_pending()):
+                    if previous_invoker.model is not model:
+                        raise ProductionServingInferenceError(
+                            "prior_serving_backend_worker_not_quiescent")
+                    # Reuse the owner that still holds the exact worker lock.
+                    # A new invoker would have a fresh lock and could overlap
+                    # a backend worker left running after a bounded timeout.
+                    invoker = previous_invoker
                 self._active_invoker = invoker
             self._notify_resource_reconciliation_wakeup()
             try:
@@ -1735,9 +1768,12 @@ class ProductionServingInferenceController:
                     resource_context=resource_context,
                 )
             finally:
-                with self._active_invoker_lock:
-                    if self._active_invoker is invoker:
-                        self._active_invoker = None
+                def clear_after_backend_quiescence() -> None:
+                    with self._active_invoker_lock:
+                        if self._active_invoker is invoker:
+                            self._active_invoker = None
+                    self._notify_resource_reconciliation_wakeup()
+                invoker.on_backend_quiescence(clear_after_backend_quiescence)
             if receipt.admission_decision_ref != binding["model_serving_admission_ref"]:
                 self._release_after_host_pressure(session, model, receipt)
         if receipt.admission_decision_ref == binding["model_serving_admission_ref"]:
