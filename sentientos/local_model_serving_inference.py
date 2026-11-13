@@ -269,6 +269,8 @@ class ProductionServingInferenceController:
             "pressure_labels": list(evaluation.pressure_report.pressure_labels),
             "thermal_zone_temperatures_c": _bounded_thermal_zone_temperatures(
                 evaluation.snapshot),
+            "cpu_utilization_percent": evaluation.snapshot.cpu_utilization_percent,
+            "ram_utilization_percent": evaluation.snapshot.ram_utilization_percent,
             "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
             "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
             "gpu_telemetry_sources": [
@@ -651,9 +653,11 @@ class ProductionServingInferenceController:
                     before_gpu = resource_observation.get("gpu_utilization_percent")
                     before_vram = resource_observation.get("vram_utilization_percent")
                     before_ram = resource_observation.get("ram_utilization_percent")
+                    before_cpu = resource_observation.get("cpu_utilization_percent")
                     after_gpu = post_release_observation.get("gpu_utilization_percent")
                     after_vram = post_release_observation.get("vram_utilization_percent")
                     after_ram = post_release_observation.get("ram_utilization_percent")
+                    after_cpu = post_release_observation.get("cpu_utilization_percent")
 
                     def finite_percent(value: object) -> float | None:
                         if (isinstance(value, (int, float)) and not isinstance(value, bool)
@@ -667,14 +671,19 @@ class ProductionServingInferenceController:
                     after_vram_value = finite_percent(after_vram)
                     before_ram_value = finite_percent(before_ram)
                     after_ram_value = finite_percent(after_ram)
+                    before_cpu_value = finite_percent(before_cpu)
+                    after_cpu_value = finite_percent(after_cpu)
                     gpu_delta = (after_gpu_value - before_gpu_value
                         if before_gpu_value is not None and after_gpu_value is not None else None)
                     vram_delta = (after_vram_value - before_vram_value
                         if before_vram_value is not None and after_vram_value is not None else None)
+                    cpu_delta = (after_cpu_value - before_cpu_value
+                        if before_cpu_value is not None and after_cpu_value is not None else None)
                     resource_measurement_comparison = {
                         "schema_version": "sentientos.resource_measurement_comparison:v1",
                         "status": ("comparable" if gpu_delta is not None or vram_delta is not None
                             or (before_ram_value is not None and after_ram_value is not None)
+                            or cpu_delta is not None
                             else "insufficient_gpu_measurements"),
                         "before": {
                             "host_report_id": host_release_evidence["host_report_id"],
@@ -682,6 +691,7 @@ class ProductionServingInferenceController:
                             "gpu_utilization_percent": before_gpu_value,
                             "vram_utilization_percent": before_vram_value,
                             "ram_utilization_percent": before_ram_value,
+                            "cpu_utilization_percent": before_cpu_value,
                             "gpu_telemetry_sources": resource_observation.get(
                                 "gpu_telemetry_sources", []),
                         },
@@ -691,6 +701,7 @@ class ProductionServingInferenceController:
                             "gpu_utilization_percent": after_gpu_value,
                             "vram_utilization_percent": after_vram_value,
                             "ram_utilization_percent": after_ram_value,
+                            "cpu_utilization_percent": after_cpu_value,
                             "gpu_telemetry_sources": post_release_observation.get(
                                 "gpu_telemetry_sources", []),
                         },
@@ -700,6 +711,7 @@ class ProductionServingInferenceController:
                             after_ram_value - before_ram_value
                             if before_ram_value is not None and after_ram_value is not None
                             else None),
+                        "cpu_utilization_delta_percentage_points": cpu_delta,
                         "interpretation": "sample_delta_only; telemetry_does_not_establish_causation",
                     }
             except Exception as exc:
@@ -727,6 +739,8 @@ class ProductionServingInferenceController:
                 "pressure_labels": list(labels),
                 "thermal_zone_temperatures_c": _bounded_thermal_zone_temperatures(
                     resource_observation),
+                "cpu_utilization_percent": resource_observation.get(
+                    "cpu_utilization_percent"),
                 **({"workload_mode": "gaming",
                     "workload_mode_source": "operator_selected"}
                     if selected_gaming_profile else
@@ -1500,7 +1514,8 @@ class ProductionServingInferenceController:
                             return None
                         return {key: sample.get(key) for key in (
                             "status", "report_id", "observed_at",
-                            "gpu_utilization_percent", "vram_utilization_percent",
+                            "cpu_utilization_percent", "gpu_utilization_percent",
+                            "vram_utilization_percent",
                             "gpu_telemetry_sources")}
 
                     def finite_percent(value: object) -> float | None:
@@ -1519,13 +1534,20 @@ class ProductionServingInferenceController:
                         "vram_utilization_percent") if before_sample else None)
                     after_vram = finite_percent(after_sample.get(
                         "vram_utilization_percent") if after_sample else None)
+                    before_cpu = finite_percent(before_sample.get(
+                        "cpu_utilization_percent") if before_sample else None)
+                    after_cpu = finite_percent(after_sample.get(
+                        "cpu_utilization_percent") if after_sample else None)
                     gpu_delta = (after_gpu - before_gpu
                         if before_gpu is not None and after_gpu is not None else None)
                     vram_delta = (after_vram - before_vram
                         if before_vram is not None and after_vram is not None else None)
+                    cpu_delta = (after_cpu - before_cpu
+                        if before_cpu is not None and after_cpu is not None else None)
                     resource_measurement_comparison = {
                         "schema_version": "sentientos.resource_measurement_comparison:v1",
                         "status": ("comparable" if gpu_delta is not None or vram_delta is not None
+                            or cpu_delta is not None
                             else "insufficient_gpu_measurements"),
                         "before": before_sample,
                         "before_sample_kind": ("recent_cached_observation"
@@ -1533,6 +1555,7 @@ class ProductionServingInferenceController:
                         "after": after_sample,
                         "gpu_utilization_delta_percentage_points": gpu_delta,
                         "vram_utilization_delta_percentage_points": vram_delta,
+                        "cpu_utilization_delta_percentage_points": cpu_delta,
                         "interpretation": (
                             "sample_delta_only; telemetry_does_not_establish_causation"),
                     }
@@ -1710,7 +1733,8 @@ class ProductionServingInferenceController:
                 return None
             return {key: value.get(key) for key in (
                 "status", "report_id", "observed_at", "pressure_labels",
-                "gpu_utilization_percent", "vram_utilization_percent",
+                "cpu_utilization_percent", "gpu_utilization_percent",
+                "vram_utilization_percent",
                 "gpu_telemetry_sources")}
 
         before_values = sample_fields(before_sample)
@@ -1725,6 +1749,11 @@ class ProductionServingInferenceController:
             if before_values is not None and after_values is not None
             and isinstance(before_values["vram_utilization_percent"], (int, float))
             and isinstance(after_values["vram_utilization_percent"], (int, float)) else None)
+        cpu_delta = (after_values["cpu_utilization_percent"]
+            - before_values["cpu_utilization_percent"]
+            if before_values is not None and after_values is not None
+            and isinstance(before_values["cpu_utilization_percent"], (int, float))
+            and isinstance(after_values["cpu_utilization_percent"], (int, float)) else None)
         outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v2",
             "status": "worker_closed" if closed else
                 "release_effect_unconfirmed" if decision_valid else "denied",
@@ -1747,11 +1776,14 @@ class ProductionServingInferenceController:
                 if selected_gaming_profile else {"game_workload_message_id": message_id,
                     "model_gpu_layers": gpu_layers, "host_telemetry_used_for_admission": False}),
             "resource_measurement_comparison": {
+                "status": ("comparable" if gpu_delta is not None or vram_delta is not None
+                    or cpu_delta is not None else "insufficient_gpu_measurements"),
                 "before": before_values, "after": after_values,
                 "before_sample_kind": ("recent_cached_observation"
                     if before_values is not None else "unavailable"),
                 "gpu_utilization_delta_percentage_points": gpu_delta,
                 "vram_utilization_delta_percentage_points": vram_delta,
+                "cpu_utilization_delta_percentage_points": cpu_delta,
                 "interpretation": "sample_delta_only; telemetry_does_not_establish_causation"},
             "active_inference_preemption_requested": preempt_active_generation,
             "active_inference_cancellation_confirmed":

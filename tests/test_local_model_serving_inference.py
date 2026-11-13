@@ -3271,6 +3271,12 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         else {"gpu": 94.0, "vram": 91.0})
     cpu_utilization = 95.0 if trigger in {
         "idle_cpu_pressure", "deferred_cpu_pressure"} else 20.0
+    cpu_metrics = {"value": cpu_utilization}
+
+    def collect_cpu(*, observed_at=None):
+        return HostCollectorResult("cpu", "available",
+            observed_at or now.isoformat(), "synthetic_test_fixture",
+            values={"utilization_percent": cpu_metrics["value"]})
 
     def collect_gpu(*, observed_at=None):
         values = {"device_count": 1, "devices": [{"index": 0,
@@ -3294,7 +3300,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
 
     host_plan = build_observation_plan(specs=[
         HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
-            collector("cpu", utilization_percent=cpu_utilization)),
+            collect_cpu),
         HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
             collector("memory", used_percent=40.0)),
         HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
@@ -3337,6 +3343,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
 
     def simulated_release() -> None:
         original_close()
+        if trigger in {"idle_cpu_pressure", "deferred_cpu_pressure"}:
+            cpu_metrics["value"] = 35.0
         gpu_metrics.update(gpu=12.0 if trigger in {
             "idle_game_frame_pressure", "idle_game_frame_pressure_active_inference",
             "idle_game_frame_pressure_active_inference_scheduler"}
@@ -3659,6 +3667,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert comparison["after"]["vram_utilization_percent"] == 47.0
         assert comparison["gpu_utilization_delta_percentage_points"] is None
         assert comparison["vram_utilization_delta_percentage_points"] is None
+        assert comparison["cpu_utilization_delta_percentage_points"] is None
         assert comparison["interpretation"] == (
             "sample_delta_only; telemetry_does_not_establish_causation")
         assert release["inference_performed"] is False
@@ -3704,6 +3713,9 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert comparison["before_sample_kind"] == "recent_cached_observation"
         assert comparison["gpu_utilization_delta_percentage_points"] == -10.0
         assert comparison["vram_utilization_delta_percentage_points"] == -7.0
+        assert comparison["before"]["cpu_utilization_percent"] == 20.0
+        assert comparison["after"]["cpu_utilization_percent"] == 20.0
+        assert comparison["cpu_utilization_delta_percentage_points"] == 0.0
         assert comparison["interpretation"] == (
             "sample_delta_only; telemetry_does_not_establish_causation")
         assert release["post_release_measurement_interpretation"] == (
@@ -3726,6 +3738,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "thermal_pressure"]}
     assert release["resource_observation"]["pressure_labels"] == (
         expected_release_pressure.get(trigger, ["gpu_pressure"]))
+    assert release["resource_observation"]["cpu_utilization_percent"] == cpu_utilization
     if trigger == "deferred_gpu_thermal_pressure":
         assert release["resource_observation"]["host_report_id"] == (
             host_reference["report_id"])
@@ -3748,6 +3761,12 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         else -44.0)
     assert comparison["gpu_utilization_delta_percentage_points"] == expected_delta
     assert comparison["vram_utilization_delta_percentage_points"] == expected_vram_delta
+    expected_cpu_delta = (-60.0 if trigger in {
+        "idle_cpu_pressure", "deferred_cpu_pressure"} else 0.0)
+    assert comparison["before"]["cpu_utilization_percent"] == cpu_utilization
+    assert comparison["after"]["cpu_utilization_percent"] == (
+        35.0 if expected_cpu_delta else cpu_utilization)
+    assert comparison["cpu_utilization_delta_percentage_points"] == expected_cpu_delta
     assert comparison["interpretation"] == (
         "sample_delta_only; telemetry_does_not_establish_causation")
     assert release["worker_exit_observed"] is None
