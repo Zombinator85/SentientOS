@@ -435,6 +435,68 @@ def test_selected_gaming_profile_release_requires_current_observed_host_pressure
     assert decision.reason == "model_resource_release_pressure_evidence_required"
 
 
+@pytest.mark.parametrize(("profile", "reason_code", "trigger_kind", "source",
+                          "workload_source", "observation_status"), [
+    ("selected", "selected_gaming_profile_host_pressure",
+     "gaming_profile_resource_reconciliation", "idle-game-resource-reconcile-stale-window",
+     "operator_selected", "not_requested"),
+    ("conservative", "conservative_automatic_profile_host_pressure",
+     "conservative_automatic_gaming_resource_reconciliation",
+     "automatic-game-resource-reconcile-stale-window",
+     "foreground_observation_unavailable_conservative_gaming", "unavailable"),
+])
+@pytest.mark.no_legacy_skip
+def test_gaming_profile_release_rejects_host_evidence_past_owner_freshness_window(
+        monkeypatch, tmp_path, profile, reason_code, trigger_kind, source,
+        workload_source, observation_status):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = (datetime.now(timezone.utc) - timedelta(seconds=16)).isoformat()
+    observation_id = "local-chat-reconciliation-" + hashlib.sha256(
+        source.encode("utf-8")).hexdigest()[:32]
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "observation_correlation_id": observation_id,
+        "observed_at": observed_at,
+        "report_id": "host-report-stale-window",
+        "report_digest": "a" * 64,
+        "pressure_labels": ("cpu_pressure",),
+    }
+    evidence = {
+        "schema_version": (
+            "sentientos.production_gaming_profile_host_resource_release_evidence:v1"
+            if profile == "selected" else
+            "sentientos.production_conservative_automatic_gaming_host_resource_release_evidence:v1"),
+        "trigger_kind": trigger_kind,
+        "trigger_correlation_id": source,
+        "observation_correlation_id": observation_id,
+        "host_report_id": "host-report-stale-window",
+        "host_report_digest": "a" * 64,
+        "observed_at": observed_at,
+        "pressure_labels": ["cpu_pressure"],
+        "workload_mode": "gaming",
+        "workload_mode_source": workload_source,
+        "workload_observation_status": observation_status,
+    }
+    if profile == "conservative":
+        evidence["configured_mode"] = "automatic"
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        (trigger_kind + ":" + source).encode("utf-8")).hexdigest()[:24]
+
+    decision = governor._admit_local_model_resource_release(
+        actor="production_chat_workload_resource_governor",
+        subject="production_chat_workload_resource_governor",
+        correlation_id=release_correlation,
+        metadata={"purpose": "local_model_resource_release",
+            "reason_code": reason_code,
+            "target_subsystem": "production_chat",
+            "model_identity_digest": "d" * 64,
+            "resource_observation": evidence})
+
+    assert decision.allowed is False
+    assert decision.reason == "model_resource_release_pressure_evidence_required"
+
+
 @pytest.mark.no_legacy_skip
 def test_conservative_automatic_profile_release_requires_registered_host_evidence(
         monkeypatch, tmp_path):
