@@ -307,6 +307,75 @@ def test_automatic_game_detection_unavailable_keeps_gpu_inference_deferred(
         serving.close()
 
 
+@pytest.mark.parametrize("gpu_layers,expected_status", [(24, "deferred"), (0, "admitted_completed")])
+def test_current_gpu_pressure_defers_only_gpu_backed_foreground_inference(
+        monkeypatch, tmp_path, gpu_layers, expected_status):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1, devices=[{
+                    "index": 0, "gpu_utilization_percent": 96.0,
+                    "vram_utilization_percent": 91.0}])),
+        ]), clock=lambda: now.isoformat())
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner,
+        gpu_layers=gpu_layers)
+    monkeypatch.setattr(
+        "sentientos.governed_local_model_invocation._verified_model_execution_profile",
+        lambda *_: {
+            "schema_version": "sentientos.model_execution_profile:v1",
+            "engine": "llama_cpp",
+            "accelerator_route": "gpu" if gpu_layers else "cpu",
+            "gpu_layers": gpu_layers,
+            "configuration_digest": "a" * 64,
+        })
+    try:
+        receipt = bridge.generate(
+            prompt=("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+                "[SESSION_HISTORY_DATA]\nUSER_DATA: optional request"),
+            caller="chat_service", correlation_id="foreground-gpu-pressure")
+
+        assert receipt.status == expected_status
+        assert model.calls == (0 if gpu_layers else 1)
+        assert serving.current_session() == session
+        decisions = [json.loads(line) for line in
+            (tmp_path / "kernel-decisions.jsonl").read_text(
+                encoding="utf-8").splitlines()]
+        inference_decision = next(item for item in decisions
+            if item.get("action_kind") == "local_model_inference")
+        delegated = inference_decision["delegated_outcomes"]["runtime_governor"]
+        assert delegated["evidence_refs"]["host_resource_evidence"]["status"] == "current"
+        assert delegated["evidence_refs"]["observed_pressure_labels"] == ["gpu_pressure"]
+        if gpu_layers:
+            assert delegated["reason"] == (
+                "deferred_gpu_backed_local_model_inference_under_gpu_pressure")
+            assert receipt.output_text is None
+        else:
+            assert delegated["reason"] == "allowed"
+            assert receipt.output_text == "answer"
+    finally:
+        serving.close()
+
+
 class Kernel:
     def __init__(self, inference=AdmissionOutcome.ALLOW):
         self.inference, self.requests = inference, []
@@ -928,7 +997,7 @@ def test_gaming_profile_switch_cancels_active_optional_gpu_inference(monkeypatch
         chat_service._RESOURCE_RECONCILIATION_TASK = previous_reconciliation_task
 
     assert not invocation.is_alive()
-    assert scheduler_started == (True, True, False)
+    assert scheduler_started == (True, False, True)
     assert any(item.get("trigger_kind") == "idle_gaming_profile_gpu_residency"
         for item in reconciliations)
     reconciliation = next(item for item in reconciliations
