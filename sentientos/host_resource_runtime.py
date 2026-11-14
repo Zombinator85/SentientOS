@@ -194,10 +194,64 @@ def validate_epoch(epoch: HostObservationEpoch) -> HostResourceRuntimeValidation
 
 def validate_evaluation(e: HostResourceRuntimeEvaluation) -> HostResourceRuntimeValidationResult:
     f=list(e.validation_findings)
+    plan_semantic = {"budget": e.plan.budget.to_dict(),
+        "collectors": [collector.to_dict() for collector in e.plan.collectors]}
+    if (e.plan.plan_id != _id("hop_", plan_semantic)
+            or e.plan.semantic_digest != _id("hops_", plan_semantic)
+            or e.plan.effect_authority
+            or e.plan.authority_class != AuthorityClass.OBSERVATION.value):
+        f.append("observation_plan_identity_or_authority_invalid")
+    collector_ids = [collector.collector_id for collector in e.epoch.results]
+    planned_collector_ids = [collector.collector_id for collector in e.plan.collectors]
+    if (e.epoch.plan_id != e.plan.plan_id
+            or len(collector_ids) != len(set(collector_ids))
+            or set(collector_ids) != set(planned_collector_ids)
+            or len(collector_ids) != len(planned_collector_ids)):
+        f.append("observation_epoch_collector_set_mismatch")
+    counts = {status: 0 for status in STATUSES}
+    for result in e.epoch.results:
+        counts[result.status if result.status in counts else "invalid"] += 1
+    if dict(e.epoch.status_counts) != counts:
+        f.append("observation_epoch_status_counts_mismatch")
+    epoch_semantic = {"correlation_id": e.epoch.correlation_id,
+        "plan": e.plan.semantic_digest,
+        "admission": e.epoch.admission_decision_ref,
+        "results": [{key: value for key, value in redact_value(result.to_dict()).items()
+            if key != "observed_at"} for result in e.epoch.results]}
+    if (e.epoch.epoch_id != _id("hoe_", epoch_semantic)
+            or e.epoch.semantic_digest != _id("hoes_", epoch_semantic)):
+        f.append("observation_epoch_semantic_identity_mismatch")
     f.extend(validate_epoch(e.epoch).findings)
     f.extend(validate_host_resource_pressure_report(e.pressure_report, e.snapshot).findings)
     f.extend(validate_host_resource_policy_decision(e.policy_decision).findings)
     for r in e.proposal_receipts: f.extend(validate_host_resource_proposal_receipt(r).findings)
+    try:
+        expected_snapshot_id = _id("hrs_", {"plan": e.plan.semantic_digest,
+            "results": [redact_value(result.to_dict()) for result in e.epoch.results]})
+        expected_snapshot = build_host_resource_telemetry_from_collector_results(
+            e.epoch.results, snapshot_id=expected_snapshot_id)
+        if e.snapshot != expected_snapshot:
+            f.append("host_resource_snapshot_not_derived_from_collector_results")
+        expected_pressure = evaluate_host_resource_pressure(expected_snapshot)
+        if e.pressure_report != expected_pressure:
+            f.append("host_resource_pressure_report_not_derived_from_snapshot")
+        expected_policy = evaluate_host_resource_policy(expected_pressure)
+        if e.policy_decision != expected_policy:
+            f.append("host_resource_policy_not_derived_from_pressure_report")
+        expected_receipts = build_host_resource_proposal_receipts(
+            expected_policy, created_at=e.epoch.observed_at)
+        if e.proposal_receipts != expected_receipts:
+            f.append("host_resource_proposal_receipts_not_derived_from_policy")
+        evaluation_semantic = {"epoch": e.epoch.semantic_digest,
+            "snapshot": expected_snapshot.snapshot_id,
+            "pressure": expected_pressure.report_id,
+            "policy": expected_policy.decision_id,
+            "receipts": [receipt.receipt_id for receipt in expected_receipts]}
+        if (e.evaluation_id != _id("hre_", evaluation_semantic)
+                or e.semantic_digest != _id("hres_", evaluation_semantic)):
+            f.append("host_resource_evaluation_semantic_identity_mismatch")
+    except (AttributeError, TypeError, ValueError, OverflowError):
+        f.append("host_resource_evaluation_derivation_invalid")
     if not e.no_effect_authority: f.append("effect_authority_true")
     return HostResourceRuntimeValidationResult(not f, tuple(sorted(set(f))))
 

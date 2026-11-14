@@ -1,9 +1,11 @@
 from __future__ import annotations
-import pytest
-pytestmark = pytest.mark.no_legacy_skip
+from dataclasses import replace
 from datetime import datetime, timezone
 import time
 from pathlib import Path
+
+import pytest
+pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
 from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass, ControlActionRequest
@@ -296,6 +298,46 @@ def test_nvml_gpu_pressure_reaches_background_inference_admission(monkeypatch, t
     resource_evidence = decision.delegated_outcomes["runtime_governor"]["evidence_refs"]["host_resource_evidence"]
     assert resource_evidence["gpu_utilization_percent"] == 95.0
     assert resource_evidence["vram_utilization_percent"] == 92.0
+
+
+def test_pressure_policy_projection_must_be_derived_from_collector_snapshot(tmp_path):
+    from sentientos.host_resource_governor import evaluate_host_resource_pressure
+    from sentientos.host_resource_policy import (
+        build_host_resource_proposal_receipts,
+        evaluate_host_resource_policy,
+    )
+
+    plan = build_observation_plan(specs=[
+        HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+            lambda observed_at=None: _result("cpu", utilization_percent=20.0)),
+        HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+            lambda observed_at=None: _result("memory", used_percent=40.0)),
+        HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3,
+            lambda observed_at=None: _result("disk", used_percent=30.0,
+                free_bytes=1000)),
+        HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 4,
+            lambda observed_at=None: _result("nvidia_gpu", device_count=1,
+                devices=[{"index": 0, "gpu_utilization_percent": 95.0,
+                    "vram_utilization_percent": 92.0}]))])
+    evaluation = HostResourceRuntimeCoordinator(
+        kernel=ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+            phase=LifecyclePhase.RUNTIME),
+        runtime_state_root=tmp_path, plan=plan).run_cycle(
+            correlation_id="derived-pressure-report")
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+
+    forged_pressure = evaluate_host_resource_pressure(
+        evaluation.snapshot, gpu_pressure_percent=100.0)
+    forged_policy = evaluate_host_resource_policy(forged_pressure)
+    forged_receipts = build_host_resource_proposal_receipts(
+        forged_policy, created_at=evaluation.epoch.observed_at)
+    substituted = replace(evaluation, pressure_report=forged_pressure,
+        policy_decision=forged_policy, proposal_receipts=forged_receipts)
+
+    validation = validate_evaluation(substituted)
+    assert not validation.ok
+    assert "host_resource_pressure_report_not_derived_from_snapshot" in (
+        validation.findings)
 
 
 def test_nvml_gpu_thermal_pressure_reaches_verified_game_inference_admission(
