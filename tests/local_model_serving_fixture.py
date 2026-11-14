@@ -1,6 +1,7 @@
 """Reusable serving fixture without a dependency on the pytest runtime."""
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
@@ -37,6 +38,12 @@ class FixturePatch:
 class Kernel:
     def __init__(self, inference: AdmissionOutcome = AdmissionOutcome.ALLOW) -> None:
         self.inference, self.requests = inference, []
+        self._recorded_decisions: dict[str, dict[str, object]] = {}
+
+    def recorded_decision_payload(self, decision: object) -> dict[str, object] | None:
+        reference = getattr(decision, "admission_decision_ref", None)
+        payload = self._recorded_decisions.get(reference)
+        return json.loads(json.dumps(payload)) if payload is not None else None
 
     def admit(self, request: object) -> object:
         self.requests.append(request)
@@ -71,7 +78,7 @@ class Kernel:
             "correlation_id": correlation_id,
             "admission_decision_ref": f"kernel_decision:{correlation_id}",
         }
-        return SimpleNamespace(
+        result = SimpleNamespace(
             outcome=outcome,
             allowed=outcome is AdmissionOutcome.ALLOW,
             authority_class=authority_class,
@@ -83,6 +90,8 @@ class Kernel:
             admission_decision_ref=decision["admission_decision_ref"],
             to_dict=lambda: decision,
         )
+        self._recorded_decisions[decision["admission_decision_ref"]] = decision
+        return result
 
 
 class Model:
