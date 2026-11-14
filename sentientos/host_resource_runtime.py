@@ -1009,7 +1009,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 host_binding_posture = "not_provided"
             if (not isinstance(admission_witness, Mapping)
                     or frozenset(admission_witness) not in {frozenset(witness_v1_fields),
-                        frozenset(witness_v2_fields)}
+                        frozenset(witness_v2_fields), frozenset(witness_v3_fields)}
                     or (witness_schema == "sentientos.resource_bound_inference_admission_witness:v1"
                         and isinstance(request_host_observation, Mapping)
                         and request_host_observation.get("status") == "current")
