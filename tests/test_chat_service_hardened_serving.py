@@ -285,6 +285,75 @@ def test_composition_stops_resource_admission_before_serving_close():
         "serving_closed", "resource_custody_released"]
 
 
+def test_setup_failure_stops_resource_admission_before_serving_close(
+        monkeypatch, tmp_path):
+    events = []
+
+    class Handle:
+        root = tmp_path / "installation"
+
+        def fixed_object(self, _name):
+            return SimpleNamespace(path=self.root / "chat" / "conversations")
+
+        def ensure_directory(self, _directory): events.append("conversation_root_ready")
+
+    class Serving:
+        def __init__(self, _handle, _kernel): pass
+
+        def establish(self, **kwargs):
+            kwargs["admission_context_provider"]("setup-correlation", {
+                "load_configuration": {"n_gpu_layers": 0}})
+            events.append("serving_established")
+
+        def close(self): events.append("serving_closed")
+
+    class InferenceBridge:
+        def __init__(self, *_args, **_kwargs):
+            self.host_resource_observation_owner = None
+
+        def set_workload_mode(self, *_args): pass
+
+        def current_workload_state(self):
+            return {"configured_mode": "gaming", "effective_mode": "gaming"}
+
+    class ResourceOwner:
+        def serving_admission_entitlement_binding(self):
+            return {"schema_version": "fixture", "allocation_id": "fixture"}
+
+        def begin_close(self): events.append("resource_admission_closed")
+
+        def close(self): events.append("resource_custody_released")
+
+    class ResourceBackedInference:
+        def __init__(self, *_args): pass
+
+    handle = Handle()
+    monkeypatch.setattr(chat_service, "open_chat_process_handoff",
+        lambda **_kwargs: (handle, {}))
+    monkeypatch.setattr(chat_service, "ProductionServingController", Serving)
+    monkeypatch.setattr(chat_service, "ProductionServingInferenceController",
+        InferenceBridge)
+    monkeypatch.setattr(chat_service, "ResourceBackedProductionChatInference",
+        ResourceBackedInference)
+    monkeypatch.setattr(chat_service, "sentientos_data_dir", lambda: tmp_path / "data")
+    monkeypatch.setattr(chat_service, "sentientos_memory_dir",
+        lambda _root=None: tmp_path / "memory")
+    monkeypatch.setattr(chat_service, "ConversationSessionStore",
+        lambda _root: (_ for _ in ()).throw(RuntimeError("fixture_setup_failure")))
+    monkeypatch.setattr(
+        "sentientos.production_chat_resource_provisioning.load_production_chat_resource_context_owner",
+        lambda *_args: ResourceOwner())
+    monkeypatch.setattr(HostResourceRuntimeCoordinator, "run_cycle",
+        lambda _owner, **_kwargs: None)
+    chat_service.close_production_chat()
+    with pytest.raises(RuntimeError, match="fixture_setup_failure"):
+        chat_service.configure_production_chat(
+            installation_identity="Install-1", serving_operation_id="serve-failure",
+            runtime_handoff_id="handoff-failure", resource_provisioning_id="fixture.v1")
+    assert events.index("resource_admission_closed") < events.index("serving_closed")
+    assert events.index("serving_closed") < events.index("resource_custody_released")
+
+
 def test_successful_turn_and_second_turn_have_distinct_inference_correlations(tmp_path):
     inference = Inference(); app = service(tmp_path, inference)
     first = app.chat("one")

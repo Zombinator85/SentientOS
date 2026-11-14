@@ -4042,28 +4042,32 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             renderer_report_capture_owner.start()
     except Exception:
         try:
-            if serving is not None:
-                serving.close()
+            if resource_context_owner is not None:
+                resource_context_owner.begin_close()
         finally:
             try:
-                if speech_output is not None:
-                    speech_output.close()
+                if serving is not None:
+                    serving.close()
             finally:
                 try:
-                    if resource_context_owner is not None:
-                        resource_context_owner.close()
+                    if speech_output is not None:
+                        speech_output.close()
                 finally:
                     try:
-                        if (foreground_game_detector is not None
-                                and not core_runtime_owns_foreground_detector):
-                            foreground_game_detector.close()
+                        if resource_context_owner is not None:
+                            resource_context_owner.close()
                     finally:
                         try:
-                            if renderer_report_capture_owner is not None:
-                                renderer_report_capture_owner.close()
+                            if (foreground_game_detector is not None
+                                    and not core_runtime_owns_foreground_detector):
+                                foreground_game_detector.close()
                         finally:
-                            if avatar_output_owner is not None:
-                                avatar_output_owner.close()
+                            try:
+                                if renderer_report_capture_owner is not None:
+                                    renderer_report_capture_owner.close()
+                            finally:
+                                if avatar_output_owner is not None:
+                                    avatar_output_owner.close()
         raise
     assert serving is not None
     close_production_chat()
