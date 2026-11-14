@@ -4212,8 +4212,12 @@ async def _startup_event() -> None:
                 operation = asyncio.create_task(asyncio.to_thread(
                     composition.reconcile_workload_state))
                 try:
-                    await operation
+                    await asyncio.shield(operation)
                 except asyncio.CancelledError:
+                    # Cancellation stops the scheduler, but reconciliation may
+                    # still be using serving and resource custody in its worker
+                    # thread. Wait for that exact operation before shutdown
+                    # closes the composition.
                     await operation
                     raise
                 except Exception as exc:

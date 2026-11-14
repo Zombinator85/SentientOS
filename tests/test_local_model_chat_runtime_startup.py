@@ -349,6 +349,54 @@ def test_production_startup_runs_and_shutdown_joins_idle_resource_reconciler(mon
         chat_service._RESOURCE_RECONCILIATION_TASK = old_task
 
 
+def test_production_shutdown_waits_for_inflight_reconciliation_before_close() -> None:
+    events: list[str] = []
+    reconciliation_started = threading.Event()
+    finish_reconciliation = threading.Event()
+
+    def reconcile() -> dict[str, str]:
+        events.append("reconcile_started")
+        reconciliation_started.set()
+        if not finish_reconciliation.wait(timeout=2):
+            raise AssertionError("test reconciliation was not released")
+        events.append("reconcile_finished")
+        return {"status": "skipped"}
+
+    service = SimpleNamespace(
+        reconcile_workload_state=reconcile,
+        resource_reconciliation_interval_seconds=lambda: 0.5,
+        set_resource_reconciliation_wakeup=lambda _callback: None,
+        close_outputs=lambda: events.append("service_close"),
+    )
+    serving = SimpleNamespace(close=lambda: events.append("serving_close"))
+    old_composition = chat_service._PRODUCTION_COMPOSITION
+    old_task = chat_service._RESOURCE_RECONCILIATION_TASK
+    chat_service._PRODUCTION_COMPOSITION = chat_service.ProductionChatComposition(
+        service, serving)
+    chat_service._RESOURCE_RECONCILIATION_TASK = None
+
+    async def exercise() -> None:
+        await chat_service._startup_event()
+        assert await asyncio.to_thread(reconciliation_started.wait, 1)
+        shutdown = asyncio.create_task(chat_service._shutdown_event())
+        try:
+            await asyncio.sleep(0.02)
+            assert not shutdown.done()
+        finally:
+            finish_reconciliation.set()
+        await shutdown
+
+    try:
+        asyncio.run(exercise())
+        assert events.index("reconcile_finished") < events.index("service_close")
+        assert events[-2:] == ["service_close", "serving_close"]
+        assert chat_service._RESOURCE_RECONCILIATION_TASK is None
+    finally:
+        finish_reconciliation.set()
+        chat_service._PRODUCTION_COMPOSITION = old_composition
+        chat_service._RESOURCE_RECONCILIATION_TASK = old_task
+
+
 def test_local_chat_never_restarts_while_other_on_failure_service_does(tmp_path: Path) -> None:
     starts = {"chat": 0, "other": 0}
     registry = ServiceRegistry()
