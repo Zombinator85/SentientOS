@@ -50,6 +50,7 @@ from .installation_state import (
 from .local_model_production_serving import (
     ProductionServingError, read_serving_operation_attempts, read_serving_operation_history,
 )
+from .local_model_authority import digest_payload
 from .production_chat_resource_provisioning import (
     _NAMES,
     _manifest,
@@ -309,7 +310,7 @@ class ProductionChatResourceObservationOwner:
             self, serving_operation_history: tuple[Mapping[str, Any], ...],
             invocation_receipts: tuple[Mapping[str, Any], ...]
             ) -> tuple[tuple[Mapping[str, Any], ...], str]:
-        serving_by_session: dict[str, tuple[str, str, str]] = {}
+        serving_by_session: dict[str, tuple[str, str, str, str | None]] = {}
         for history in serving_operation_history:
             serving_receipt = history.get("receipt")
             binding = (serving_receipt.get("binding")
@@ -320,12 +321,16 @@ class ProductionChatResourceObservationOwner:
             operation_id = binding.get("serving_operation_id")
             serving_receipt_id = serving_receipt.get("receipt_id")
             serving_receipt_digest = history.get("receipt_semantic_digest")
+            loaded_identity = binding.get("observed_loaded_model_identity")
+            loaded_identity_digest = (digest_payload(dict(loaded_identity))
+                if isinstance(loaded_identity, Mapping) else None)
             if (isinstance(session_id, str) and session_id
                     and isinstance(operation_id, str) and operation_id
                     and isinstance(serving_receipt_id, str) and serving_receipt_id
                     and isinstance(serving_receipt_digest, str)
                     and re.fullmatch(r"[0-9a-f]{64}", serving_receipt_digest)):
-                candidate = (operation_id, serving_receipt_id, serving_receipt_digest)
+                candidate = (operation_id, serving_receipt_id,
+                    serving_receipt_digest, loaded_identity_digest)
                 prior = serving_by_session.get(session_id)
                 if prior is not None and prior != candidate:
                     raise ProductionChatResourceObservationError(
@@ -544,6 +549,8 @@ class ProductionChatResourceObservationOwner:
                             or release_target.get("serving_session_id") != session_id
                             or release_target.get("model_identity_digest")
                                 != receipt_model_digest
+                            or release_target.get("model_identity_digest")
+                                != serving_binding[3]
                             or not isinstance(receipt_model_digest, str)
                             or re.fullmatch(r"[0-9a-f]{64}", receipt_model_digest) is None)):
                         raise ProductionChatResourceObservationError(
