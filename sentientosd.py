@@ -112,6 +112,10 @@ from sentientos.production_chat_resource_observation import (
     ProductionChatResourceObservationError,
     ProductionChatResourceObservationOwner,
 )
+from sentientos.production_chat_resource_provisioning import (
+    ProductionChatResourceProvisioningError,
+    validate_resource_provisioning_id,
+)
 from sentientos.host_privilege_review_runtime import HostPrivilegeReviewRuntimeCoordinator, HostPrivilegeReviewEvaluation, summary_for_evaluation as privilege_review_summary, world_state_records as privilege_review_world_state_records
 from sentientos.host_execution_readiness_runtime import HostExecutionReadinessRuntimeCoordinator, HostExecutionReadinessEvaluation, summary_for_evaluation as execution_readiness_summary, world_state_records as execution_readiness_world_state_records
 from sentientos.host_controlled_authorization_runtime import HostControlledAuthorizationRuntimeCoordinator, HostControlledAuthorizationEvaluation, summary_for_evaluation as controlled_authorization_summary, world_state_records as controlled_authorization_world_state_records
@@ -203,13 +207,21 @@ def _load_resource_observation_configuration(
             "read_only": True, "effect_authority": False,
         }
     try:
+        # Reject malformed provisioning selectors before opening any
+        # installation-scoped custody, even through a read-only handle.
+        provisioning_id = validate_resource_provisioning_id(provisioning_selector)
         identity = InstallationIdentity.parse(installation_selector)
         handle = InstallationStateRegistry.system().open_read_only(identity)
-        owner = ProductionChatResourceObservationOwner(handle, provisioning_selector)
+        owner = ProductionChatResourceObservationOwner(handle, provisioning_id)
         return owner, {
             "status": "degraded", "reason_code": "source_not_yet_observed",
             "installation_identity": handle.identity.value,
-            "provisioning_id": provisioning_selector,
+            "provisioning_id": provisioning_id,
+            "read_only": True, "effect_authority": False,
+        }
+    except ProductionChatResourceProvisioningError as exc:
+        return None, {
+            "status": "invalid", "reason_code": str(exc),
             "read_only": True, "effect_authority": False,
         }
     except InstallationStateError as exc:

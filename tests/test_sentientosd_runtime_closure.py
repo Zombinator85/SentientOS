@@ -110,6 +110,25 @@ def test_resource_observer_startup_is_explicit_read_only_and_unverified_until_re
         owner.observe()
 
 
+def test_invalid_resource_observation_provisioning_selector_does_not_open_installation_state(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos.installation_state import InstallationStateRegistry
+
+    def forbidden_system_registry(
+            _cls: type[InstallationStateRegistry]) -> InstallationStateRegistry:
+        raise AssertionError("invalid provisioning selector must not open installation state")
+
+    monkeypatch.setattr(InstallationStateRegistry, "system",
+        classmethod(forbidden_system_registry))
+    owner, status = sentientosd._load_resource_observation_configuration(
+        "production", "../outside")
+
+    assert owner is None
+    assert status == {"status": "invalid",
+        "reason_code": "invalid_resource_provisioning_id",
+        "read_only": True, "effect_authority": False}
+
+
 @dataclass
 class _GovernorDecisionStub:
     allowed: bool
