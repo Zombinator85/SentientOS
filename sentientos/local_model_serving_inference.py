@@ -291,6 +291,26 @@ class ProductionServingInferenceController:
             "no_effect_authority": True,
         }
 
+    def _host_observation_is_current_for_release(
+            self, observation: Mapping[str, Any]) -> bool:
+        """Bind deferred-request evidence to the exact fresh owner cache entry."""
+        owner = self._host_resource_observation_owner
+        if owner is None:
+            return False
+        evaluation = owner.latest_evaluation(
+            max_age_seconds=HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS)
+        if (evaluation is None or not validate_host_resource_evaluation(evaluation).ok
+                or not evaluation.no_effect_authority):
+            return False
+        expected = {
+            "evaluation_id": evaluation.evaluation_id,
+            "observation_correlation_id": evaluation.epoch.correlation_id,
+            "report_id": evaluation.pressure_report.report_id,
+            "report_digest": evaluation.policy_decision.report_digest,
+            "observed_at": evaluation.epoch.observed_at,
+        }
+        return all(observation.get(key) == value for key, value in expected.items())
+
     def set_workload_mode(self, mode: str,
                           game_process_names: tuple[str, ...] | list[str] = ()) -> WorkloadMode:
         """Set a process-local chat budget mode; this grants no host authority."""
@@ -525,6 +545,10 @@ class ProductionServingInferenceController:
                     or (workload_evidence.get("game_foreground") is not True
                         and workload_evidence.get("game_process_running") is not True)
                     or not isinstance(game_message_id, str)))):
+            return None
+        if (trigger_kind == "deferred_inference"
+                and not self._host_observation_is_current_for_release(
+                    resource_observation)):
             return None
         if not isinstance(trigger_correlation_id, str) or not trigger_correlation_id:
             return None

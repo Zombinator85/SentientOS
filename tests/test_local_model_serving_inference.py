@@ -3432,7 +3432,8 @@ def test_game_arriving_after_inference_admission_defers_before_backend_entry(
         published_game_messages[0].payload["message_id"])
 
 
-@pytest.mark.parametrize("trigger", ["deferred_inference", "idle_game_reconciliation",
+@pytest.mark.parametrize("trigger", ["deferred_inference", "deferred_stale_host_observation",
+    "idle_game_reconciliation",
     "idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
     "idle_game_gpu_residency", "deferred_thermal_pressure",
     "deferred_gpu_thermal_pressure",
@@ -3633,7 +3634,20 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     model.close = simulated_release
     bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
 
-    if trigger in {"deferred_inference", "deferred_cpu_pressure", "deferred_thermal_pressure",
+    if trigger == "deferred_stale_host_observation":
+        original_release = bridge._release_after_host_pressure
+
+        def advance_host_clock_before_release(*args, **kwargs):
+            host_resource_owner.clock = lambda: datetime.fromtimestamp(
+                now.timestamp() + 16, timezone.utc).isoformat()
+            return original_release(*args, **kwargs)
+
+        monkeypatch.setattr(type(bridge), "_release_after_host_pressure",
+            lambda self, *args, **kwargs: advance_host_clock_before_release(
+                *args, **kwargs))
+
+    if trigger in {"deferred_inference", "deferred_stale_host_observation",
+            "deferred_cpu_pressure", "deferred_thermal_pressure",
             "deferred_gpu_thermal_pressure"}:
         gaming_prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
             "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
@@ -3650,8 +3664,17 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "deferred_thermal_pressure": ["thermal_pressure"],
             "deferred_gpu_thermal_pressure": ["sensor_unavailable",
                 "thermal_pressure"],
-            "deferred_inference": ["gpu_pressure"]}[trigger]
+            "deferred_inference": ["gpu_pressure"],
+            "deferred_stale_host_observation": ["gpu_pressure"]}[trigger]
         assert host_reference["pressure_labels"] == expected_pressure
+        if trigger == "deferred_stale_host_observation":
+            assert model.closed is False
+            assert serving.current_session() is not None
+            release_directory = (tmp_path / "state" / "installations" / "install-1"
+                / "state" / "local-model" / "serving" / "resource-release-receipts")
+            assert not release_directory.exists() or not list(release_directory.glob("*.json"))
+            serving.close()
+            return
     elif trigger in {"idle_game_frame_pressure_active_inference",
             "idle_game_frame_pressure_active_inference_unconfirmed",
             "idle_game_frame_pressure_active_inference_scheduler"}:
