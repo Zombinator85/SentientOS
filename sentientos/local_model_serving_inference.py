@@ -697,8 +697,9 @@ class ProductionServingInferenceController:
             requested_phase=LifecyclePhase.RUNTIME,
             metadata=metadata,
         ))
-        kernel_recorded_decision = (
-            self._serving._kernel.owns_recorded_admitted_decision(decision))
+        admission_record = self._serving._kernel.recorded_decision_payload(
+            decision)
+        kernel_recorded_decision = admission_record is not None
         decision_valid = (
             decision.allowed
             and decision.outcome == AdmissionOutcome.ALLOW
@@ -808,7 +809,7 @@ class ProductionServingInferenceController:
             except Exception as exc:
                 close_failure = type(exc).__name__
         outcome = {
-            "schema_version": "sentientos.production_chat_resource_release_receipt:v4",
+            "schema_version": "sentientos.production_chat_resource_release_receipt:v5",
             "status": ("worker_closed" if close_completed else
                 "release_effect_unconfirmed" if decision_valid else
                 "admission_unrecorded" if decision.allowed
@@ -824,6 +825,8 @@ class ProductionServingInferenceController:
             "release_admission_decision_ref": decision.admission_decision_ref,
             "release_admission_outcome": decision.outcome.value,
             "release_admission_witness": _resource_release_admission_witness(decision),
+            "release_admission_record": dict(admission_record)
+                if admission_record is not None else None,
             "release_reason_codes": list(decision.reason_codes),
             "resource_observation": {
                 "observation_correlation_id": host_release_evidence[
@@ -1714,8 +1717,9 @@ class ProductionServingInferenceController:
                     if preempt_active_generation else {}),
                 "resource_observation": evidence},
         ))
-        kernel_recorded_decision = (
-            self._serving._kernel.owns_recorded_admitted_decision(decision))
+        admission_record = self._serving._kernel.recorded_decision_payload(
+            decision)
+        kernel_recorded_decision = admission_record is not None
         decision_valid = (decision.allowed
             and decision.outcome == AdmissionOutcome.ALLOW
             and decision.authority_class == AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
@@ -1807,7 +1811,7 @@ class ProductionServingInferenceController:
             except Exception as exc:
                 close_failure = type(exc).__name__
         outcome = {
-            "schema_version": "sentientos.production_chat_resource_release_receipt:v4",
+            "schema_version": "sentientos.production_chat_resource_release_receipt:v5",
             "status": "worker_closed" if closed else
                 "release_effect_unconfirmed" if decision_valid else
                 "admission_unrecorded" if decision.allowed
@@ -1821,6 +1825,8 @@ class ProductionServingInferenceController:
             "release_admission_decision_ref": decision.admission_decision_ref,
             "release_admission_outcome": decision.outcome.value,
             "release_admission_witness": _resource_release_admission_witness(decision),
+            "release_admission_record": dict(admission_record)
+                if admission_record is not None else None,
             "release_reason_codes": list(decision.reason_codes),
             "resource_observation": evidence,
             "before_release_observation": before_release_observation,
@@ -1959,8 +1965,9 @@ class ProductionServingInferenceController:
                     if preempt_active_generation else {}),
                 "resource_observation": evidence},
         ))
-        kernel_recorded_decision = (
-            self._serving._kernel.owns_recorded_admitted_decision(decision))
+        admission_record = self._serving._kernel.recorded_decision_payload(
+            decision)
+        kernel_recorded_decision = admission_record is not None
         decision_valid = (decision.allowed and decision.outcome == AdmissionOutcome.ALLOW
             and decision.authority_class == AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
             and decision.action_kind == "local_model_resource_release"
@@ -2018,7 +2025,7 @@ class ProductionServingInferenceController:
             if before_values is not None and after_values is not None
             and isinstance(before_values["cpu_utilization_percent"], (int, float))
             and isinstance(after_values["cpu_utilization_percent"], (int, float)) else None)
-        outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v4",
+        outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v5",
             "status": "worker_closed" if closed else
                 "release_effect_unconfirmed" if decision_valid else
                 "admission_unrecorded" if decision.allowed
@@ -2032,6 +2039,8 @@ class ProductionServingInferenceController:
             "release_admission_decision_ref": decision.admission_decision_ref,
             "release_admission_outcome": decision.outcome.value,
             "release_admission_witness": _resource_release_admission_witness(decision),
+            "release_admission_record": dict(admission_record)
+                if admission_record is not None else None,
             "release_reason_codes": list(decision.reason_codes),
             "worker_exit_observed": worker_exit_observed,
             "close_failure": close_failure,

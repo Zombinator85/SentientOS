@@ -40,6 +40,13 @@ def _resource_release_reason_codes_valid(value: object) -> bool:
         for reason in value)
 
 
+def _resource_release_checks_valid(value: object) -> bool:
+    return (isinstance(value, (list, tuple))
+        and len(value) <= 128
+        and all(isinstance(check, str) and check and len(check) <= 128
+            for check in value))
+
+
 _DIGEST_BOUND_INVOCATION_RECEIPT_SCHEMAS = frozenset({
     "sentientos.local_model_invocation_receipt:v2",
     "sentientos.local_model_invocation_receipt:v3",
@@ -520,7 +527,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     or release_receipt.get("schema_version") not in {
                         "sentientos.production_chat_resource_release_receipt:v2",
                         "sentientos.production_chat_resource_release_receipt:v3",
-                        "sentientos.production_chat_resource_release_receipt:v4"}):
+                        "sentientos.production_chat_resource_release_receipt:v4",
+                        "sentientos.production_chat_resource_release_receipt:v5"}):
                 raise ValueError("resource_release_receipt_invalid")
             receipt_id = release_receipt.get("receipt_id")
             receipt_digest = release_receipt.get("receipt_semantic_digest")
@@ -569,11 +577,13 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         "legacy_unlinked"}):
                 raise ValueError("resource_release_receipt_identity_invalid")
             if (release_receipt.get("status") == "admission_unrecorded"
-                    and release_receipt.get("schema_version") != (
-                        "sentientos.production_chat_resource_release_receipt:v4")):
+                    and release_receipt.get("schema_version") not in {
+                        "sentientos.production_chat_resource_release_receipt:v4",
+                        "sentientos.production_chat_resource_release_receipt:v5"}):
                 raise ValueError("resource_release_admission_witness_invalid")
-            if release_receipt.get("schema_version") == (
-                    "sentientos.production_chat_resource_release_receipt:v4"):
+            if release_receipt.get("schema_version") in {
+                    "sentientos.production_chat_resource_release_receipt:v4",
+                    "sentientos.production_chat_resource_release_receipt:v5"}:
                 witness = release_receipt.get("release_admission_witness")
                 witness_fields = {
                     "schema_version", "outcome", "reason_codes", "current_phase",
@@ -608,6 +618,57 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         or not _resource_release_reason_codes_valid(
                             witness.get("reason_codes"))):
                     raise ValueError("resource_release_admission_witness_invalid")
+            if release_receipt.get("schema_version") == (
+                    "sentientos.production_chat_resource_release_receipt:v5"):
+                witness = release_receipt.get("release_admission_witness")
+                if not isinstance(witness, Mapping):
+                    raise ValueError("resource_release_admission_witness_invalid")
+                admission_record = release_receipt.get("release_admission_record")
+                expected_record_fields = {
+                    "event_type", "timestamp", "final_disposition", "outcome",
+                    "reason_codes", "delegate_checks_consulted", "lifecycle_phase",
+                    "current_phase", "requested_phase", "authority_class", "action_kind",
+                    "actor_source", "actor", "execution_owner", "target_subsystem",
+                    "delegated_outcomes", "federation_context", "proof_budget_context",
+                    "protected_mutation_intent", "correlation_id", "admission_decision_ref"}
+                if admission_record is None:
+                    if release_receipt.get("status") in {
+                            "worker_closed", "release_effect_unconfirmed"}:
+                        raise ValueError("resource_release_admission_record_missing")
+                elif (not isinstance(admission_record, Mapping)
+                        or release_receipt.get("status") == "admission_unrecorded"
+                        or set(admission_record) != expected_record_fields
+                        or admission_record.get("event_type") != "control_plane_decision"
+                        or not isinstance(admission_record.get("timestamp"), str)
+                        or not admission_record.get("timestamp")
+                        or admission_record.get("final_disposition")
+                            != release_receipt.get("release_admission_outcome")
+                        or admission_record.get("outcome")
+                            != release_receipt.get("release_admission_outcome")
+                        or admission_record.get("reason_codes")
+                            != release_receipt.get("release_reason_codes")
+                        or admission_record.get("authority_class")
+                            != "local_model_resource_release"
+                        or admission_record.get("action_kind")
+                            != "local_model_resource_release"
+                        or admission_record.get("actor") != witness.get("actor")
+                        or admission_record.get("actor_source")
+                            != admission_record.get("actor")
+                        or admission_record.get("execution_owner")
+                            != admission_record.get("actor")
+                        or admission_record.get("target_subsystem")
+                            != "production_chat"
+                        or admission_record.get("current_phase")
+                            != witness.get("current_phase")
+                        or admission_record.get("lifecycle_phase")
+                            != admission_record.get("current_phase")
+                        or admission_record.get("requested_phase") != "runtime"
+                        or admission_record.get("correlation_id") != correlation
+                        or admission_record.get("admission_decision_ref") != decision_ref
+                        or not _resource_release_checks_valid(
+                            admission_record.get("delegate_checks_consulted"))
+                        or not isinstance(admission_record.get("delegated_outcomes"), Mapping)):
+                    raise ValueError("resource_release_admission_record_invalid")
             if release_receipt.get("invocation_linkage_posture") in {
                     "pending_invocation_receipt", "legacy_unlinked"}:
                 release_lineage_findings.append(
@@ -634,7 +695,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "invocation_linkage_posture", "cancelled_invocation_receipt_id",
                 "cancelled_invocation_receipt_digest",
                 "release_admission_decision_ref", "release_admission_outcome",
-                "release_admission_witness",
+                "release_admission_witness", "release_admission_record",
                 "active_inference_preemption_requested",
                 "active_inference_cancellation_confirmed", "worker_exit_observed",
                 "close_failure", "inference_performed", "host_mutation_performed")}

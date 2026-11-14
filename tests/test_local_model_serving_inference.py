@@ -3995,7 +3995,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     decoded_releases = [json.loads(path.read_text(encoding="utf-8"))
         for path in release_receipts]
     assert all(release["schema_version"] ==
-        "sentientos.production_chat_resource_release_receipt:v4"
+        "sentientos.production_chat_resource_release_receipt:v5"
         for release in decoded_releases)
     for release in decoded_releases:
         witness = release["release_admission_witness"]
@@ -4004,6 +4004,16 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert witness["correlation_id"] == release["release_correlation_id"]
         assert witness["authority_class"] == "local_model_resource_release"
         assert witness["target_subsystem"] == "production_chat"
+        if release["release_admission_record"] is not None:
+            kernel_rows = [json.loads(line) for line in
+                (tmp_path / "kernel-decisions.jsonl").read_text(
+                    encoding="utf-8").splitlines()]
+            kernel_record = next(row for row in kernel_rows
+                if row.get("admission_decision_ref")
+                    == release["release_admission_decision_ref"])
+            assert release["release_admission_record"] == kernel_record
+        else:
+            assert release["status"] == "admission_unrecorded"
     if trigger == "idle_game_frame_pressure_active_inference_unconfirmed":
         assert model.closed is False
         assert serving.current_session() is not None
@@ -4025,6 +4035,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert serving.current_session() is not None
         assert release["status"] == "admission_unrecorded"
         assert release["release_admission_outcome"] == "allow"
+        assert release["release_admission_record"] is None
         assert release["release_admission_witness"]["admission_decision_ref"] == (
             release["release_admission_decision_ref"])
         serving.close()

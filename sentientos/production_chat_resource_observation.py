@@ -72,6 +72,8 @@ _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3 = (
     "sentientos.production_chat_resource_release_receipt:v3")
 _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4 = (
     "sentientos.production_chat_resource_release_receipt:v4")
+_RESOURCE_RELEASE_RECEIPT_SCHEMA_V5 = (
+    "sentientos.production_chat_resource_release_receipt:v5")
 _RESOURCE_RELEASE_NAME = re.compile(
     r"serving-resource-release-[0-9a-f]{24}\.json\Z")
 _MAX_RESOURCE_RELEASE_RECEIPTS = 256
@@ -82,6 +84,13 @@ def _resource_release_reason_codes_valid(value: object) -> bool:
         return False
     return all(isinstance(reason, str) and reason and len(reason) <= 128
         for reason in value)
+
+
+def _resource_release_checks_valid(value: object) -> bool:
+    return (isinstance(value, (list, tuple))
+        and len(value) <= 128
+        and all(isinstance(check, str) and check and len(check) <= 128
+            for check in value))
 
 
 class ProductionChatResourceObservationError(ValueError):
@@ -358,10 +367,12 @@ class ProductionChatResourceObservationOwner:
                     or value.get("schema_version") not in {
                         _RESOURCE_RELEASE_RECEIPT_SCHEMA_V2,
                         _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3,
-                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4}
+                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,
+                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5}
                     or (value.get("status") == "admission_unrecorded"
                         and value.get("schema_version")
-                            != _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4)
+                            not in {_RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,
+                                _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5})
                     or semantic_digest != actual_semantic_digest
                     or receipt_id != actual_receipt_id
                     or value.get("status") not in {
@@ -397,7 +408,9 @@ class ProductionChatResourceObservationOwner:
                         and release_outcome not in {"deny", "defer", "quarantine"})):
                 raise ProductionChatResourceObservationError(
                     "resource_release_admission_outcome_status_mismatch")
-            if value.get("schema_version") == _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4:
+            if value.get("schema_version") in {
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5}:
                 witness = value.get("release_admission_witness")
                 witness_fields = {
                     "schema_version", "outcome", "reason_codes", "current_phase",
@@ -432,6 +445,60 @@ class ProductionChatResourceObservationOwner:
                             witness.get("reason_codes"))):
                     raise ProductionChatResourceObservationError(
                         "resource_release_admission_witness_invalid")
+            if value.get("schema_version") == _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5:
+                witness = value.get("release_admission_witness")
+                if not isinstance(witness, Mapping):
+                    raise ProductionChatResourceObservationError(
+                        "resource_release_admission_witness_invalid")
+                admission_record = value.get("release_admission_record")
+                expected_record_fields = {
+                    "event_type", "timestamp", "final_disposition", "outcome",
+                    "reason_codes", "delegate_checks_consulted", "lifecycle_phase",
+                    "current_phase", "requested_phase", "authority_class", "action_kind",
+                    "actor_source", "actor", "execution_owner", "target_subsystem",
+                    "delegated_outcomes", "federation_context", "proof_budget_context",
+                    "protected_mutation_intent", "correlation_id", "admission_decision_ref"}
+                if admission_record is None:
+                    if release_status in {"worker_closed", "release_effect_unconfirmed"}:
+                        raise ProductionChatResourceObservationError(
+                            "resource_release_admission_record_missing")
+                elif (not isinstance(admission_record, Mapping)
+                        or release_status == "admission_unrecorded"
+                        or set(admission_record) != expected_record_fields
+                        or admission_record.get("event_type") != "control_plane_decision"
+                        or not isinstance(admission_record.get("timestamp"), str)
+                        or not admission_record.get("timestamp")
+                        or admission_record.get("final_disposition")
+                            != value.get("release_admission_outcome")
+                        or admission_record.get("outcome")
+                            != value.get("release_admission_outcome")
+                        or admission_record.get("reason_codes")
+                            != value.get("release_reason_codes")
+                        or admission_record.get("authority_class")
+                            != "local_model_resource_release"
+                        or admission_record.get("action_kind")
+                            != "local_model_resource_release"
+                        or admission_record.get("actor")
+                            != witness.get("actor")
+                        or admission_record.get("actor_source")
+                            != admission_record.get("actor")
+                        or admission_record.get("execution_owner")
+                            != admission_record.get("actor")
+                        or admission_record.get("target_subsystem")
+                            != "production_chat"
+                        or admission_record.get("current_phase")
+                            != witness.get("current_phase")
+                        or admission_record.get("lifecycle_phase")
+                            != admission_record.get("current_phase")
+                        or admission_record.get("requested_phase") != "runtime"
+                        or admission_record.get("correlation_id") != release_correlation
+                        or admission_record.get("admission_decision_ref")
+                            != value.get("release_admission_decision_ref")
+                        or not _resource_release_checks_valid(
+                            admission_record.get("delegate_checks_consulted"))
+                        or not isinstance(admission_record.get("delegated_outcomes"), Mapping)):
+                    raise ProductionChatResourceObservationError(
+                        "resource_release_admission_record_invalid")
             seen_ids.add(receipt_id)
             verified_value = dict(value)
             verified_value["serving_receipt_linkage_posture"] = "verified"
@@ -439,7 +506,8 @@ class ProductionChatResourceObservationOwner:
             verified_value["serving_receipt_semantic_digest"] = serving_binding[2]
             if value.get("schema_version") in {
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3,
-                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4}:
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5}:
                 request_reference = value.get("active_inference_request_reference")
                 cancellation_confirmed = (
                     value.get("active_inference_cancellation_confirmed") is True)

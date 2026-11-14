@@ -38,7 +38,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     registry = InstallationStateRegistry(tmp_path / "state", _test_only=True)
     bundle = handle
     release_body = {
-        "schema_version": "sentientos.production_chat_resource_release_receipt:v4",
+        "schema_version": "sentientos.production_chat_resource_release_receipt:v5",
         "status": "worker_closed",
         "trigger_kind": "idle_game_gpu_residency",
         "trigger_correlation_id": "game-workload-observation",
@@ -56,6 +56,24 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             "action_kind": "local_model_resource_release",
             "actor": "production_chat_game_resource_governor",
             "target_subsystem": "production_chat",
+            "correlation_id": "release-correlation",
+            "admission_decision_ref": "kernel_decision:release-correlation",
+        },
+        "release_admission_record": {
+            "event_type": "control_plane_decision",
+            "timestamp": "2026-09-21T08:30:00+00:00",
+            "final_disposition": "allow", "outcome": "allow",
+            "reason_codes": [], "delegate_checks_consulted": [],
+            "lifecycle_phase": "runtime", "current_phase": "runtime",
+            "requested_phase": "runtime",
+            "authority_class": "local_model_resource_release",
+            "action_kind": "local_model_resource_release",
+            "actor_source": "production_chat_game_resource_governor",
+            "actor": "production_chat_game_resource_governor",
+            "execution_owner": "production_chat_game_resource_governor",
+            "target_subsystem": "production_chat", "delegated_outcomes": {},
+            "federation_context": None, "proof_budget_context": None,
+            "protected_mutation_intent": None,
             "correlation_id": "release-correlation",
             "admission_decision_ref": "kernel_decision:release-correlation",
         },
@@ -144,10 +162,32 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         observer.observe()
     forged_path.path.unlink()
 
+    forged_record_release = dict(release_body)
+    forged_record_release["release_admission_record"] = {
+        **release_body["release_admission_record"], "actor": "substituted_actor"}
+    forged_record_release.pop("receipt_id")
+    forged_record_release.pop("receipt_semantic_digest")
+    forged_record_id = "serving-resource-release-" + hashlib.sha256(json.dumps(
+        forged_record_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()[:24]
+    forged_record_release["receipt_id"] = forged_record_id
+    forged_record_release["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+        forged_record_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    forged_record_path = release_directory.child(forged_record_id + ".json")
+    handle.durable_create(forged_record_path,
+        (json.dumps(forged_record_release, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+    with pytest.raises(ProductionChatResourceObservationError,
+            match="resource_release_admission_record_invalid"):
+        observer.observe()
+    forged_record_path.path.unlink()
+
     first = observer.observe()
     second = observer.observe()
     unrecorded_body = dict(release_body)
     unrecorded_body["status"] = "admission_unrecorded"
+    unrecorded_body["release_admission_record"] = None
     unrecorded_body.pop("receipt_id")
     unrecorded_body.pop("receipt_semantic_digest")
     unrecorded_id = "serving-resource-release-" + hashlib.sha256(json.dumps(

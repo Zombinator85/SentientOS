@@ -204,6 +204,8 @@ class ControlPlaneKernel:
         self._principal_revocation_registry = principal_revocation_registry
         self._admission_history: OrderedDict[tuple[str, str], _AdmissionHistoryEntry] = OrderedDict()
         self._recorded_admitted_decisions: OrderedDict[int, ControlActionDecision] = OrderedDict()
+        self._recorded_decision_payloads: OrderedDict[
+            int, tuple[ControlActionDecision, dict[str, Any]]] = OrderedDict()
         self._recorded_decision_lock = Lock()
         self._recorded_decision_capacity = 512
 
@@ -229,6 +231,17 @@ class ControlPlaneKernel:
             return False
         with self._recorded_decision_lock:
             return self._recorded_admitted_decisions.get(id(decision)) is decision
+
+    def recorded_decision_payload(
+            self, decision: object) -> dict[str, Any] | None:
+        """Return the exact durable row for a decision produced by this kernel."""
+        if type(decision) is not ControlActionDecision:
+            return None
+        with self._recorded_decision_lock:
+            entry = self._recorded_decision_payloads.get(id(decision))
+            if entry is None or entry[0] is not decision:
+                return None
+            return json.loads(json.dumps(entry[1], sort_keys=True))
 
     def set_phase(self, phase: LifecyclePhase, *, actor: str = "control_plane_kernel") -> None:
         self._phase = phase
@@ -799,10 +812,16 @@ class ControlPlaneKernel:
                 "delegate_checks_consulted": sorted(set(decision_payload.get("delegate_checks_consulted", []) + ["decision_log"])),
             }
         else:
-            if decision.allowed:
-                with self._recorded_decision_lock:
-                    self._recorded_admitted_decisions[id(decision)] = decision
-                    self._recorded_admitted_decisions.move_to_end(id(decision))
+            with self._recorded_decision_lock:
+                decision_id = id(decision)
+                self._recorded_decision_payloads[decision_id] = (
+                    decision, json.loads(json.dumps(decision_payload, sort_keys=True)))
+                self._recorded_decision_payloads.move_to_end(decision_id)
+                while len(self._recorded_decision_payloads) > self._recorded_decision_capacity:
+                    self._recorded_decision_payloads.popitem(last=False)
+                if decision.allowed:
+                    self._recorded_admitted_decisions[decision_id] = decision
+                    self._recorded_admitted_decisions.move_to_end(decision_id)
                     while len(self._recorded_admitted_decisions) > self._recorded_decision_capacity:
                         self._recorded_admitted_decisions.popitem(last=False)
         self._emit_decision_event(decision_payload, append_status=append_status)
