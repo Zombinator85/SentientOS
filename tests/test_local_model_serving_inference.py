@@ -4377,6 +4377,12 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         comparison = release["resource_measurement_comparison"]
         assert comparison["status"] == "comparable"
         assert comparison["before_sample_kind"] == "recent_cached_observation"
+        assert comparison["before"]["host_report_id"] == beforeflight["report_id"]
+        assert comparison["before"]["host_report_digest"] == beforeflight[
+            "report_digest"]
+        assert comparison["after"]["host_report_id"] == postflight["report_id"]
+        assert comparison["after"]["host_report_digest"] == postflight[
+            "report_digest"]
         assert comparison["before"]["gpu_telemetry_available"] is True
         assert comparison["before"]["gpu_telemetry_complete"] is True
         assert comparison["before"]["gpu_telemetry_sources"] == [{

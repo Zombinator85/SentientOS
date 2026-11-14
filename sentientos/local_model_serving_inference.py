@@ -1838,12 +1838,16 @@ class ProductionServingInferenceController:
                     def sample_fields(sample: Mapping[str, Any] | None) -> dict[str, Any] | None:
                         if sample is None:
                             return None
-                        return {key: sample.get(key) for key in (
-                            "status", "report_id", "observed_at",
-                            "cpu_utilization_percent", "gpu_utilization_percent",
-                            "ram_utilization_percent", "vram_utilization_percent",
-                            "gpu_telemetry_available",
-                            "gpu_telemetry_complete", "gpu_telemetry_sources")}
+                        return {
+                            "status": sample.get("status"),
+                            "host_report_id": sample.get("report_id"),
+                            "host_report_digest": sample.get("report_digest"),
+                            **{key: sample.get(key) for key in (
+                                "observed_at", "cpu_utilization_percent",
+                                "gpu_utilization_percent", "ram_utilization_percent",
+                                "vram_utilization_percent", "gpu_telemetry_available",
+                                "gpu_telemetry_complete", "gpu_telemetry_sources")},
+                        }
 
                     def finite_percent(value: object) -> float | None:
                         if (isinstance(value, (int, float)) and not isinstance(value, bool)
