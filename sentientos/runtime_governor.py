@@ -1624,6 +1624,7 @@ class RuntimeGovernor:
                 "observation_correlation_id", "host_report_id", "host_report_digest",
                 "observed_at", "pressure_labels", "ram_utilization_percent",
                 "serving_session_id", "model_gpu_layers",
+                "active_inference_preemption_requested",
             }
             evidence_valid = False
             memory_source_correlation = None
