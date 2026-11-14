@@ -41,6 +41,24 @@ def test_pressure_classification_for_cpu_memory_gpu_disk_and_thermal() -> None:
     assert validate_host_resource_pressure_report(report, snapshot).ok
 
 
+def test_vram_pressure_has_a_separate_lower_threshold_than_gpu_compute() -> None:
+    snapshot = build_host_resource_telemetry_snapshot(
+        snapshot_id="snap-vram-pressure", observed_at="t",
+        cpu_utilization_percent=10, ram_utilization_percent=30,
+        disk_utilization_percent=20, gpu_utilization_percent=15,
+        vram_utilization_percent=86)
+    report = evaluate_host_resource_pressure(snapshot)
+
+    assert "gpu_pressure" in report.pressure_labels
+    assert validate_host_resource_pressure_report(report, snapshot).ok
+
+    below_threshold = replace(snapshot, snapshot_id="snap-vram-below",
+        vram_utilization_percent=84)
+    below_report = evaluate_host_resource_pressure(below_threshold)
+    assert "gpu_pressure" not in below_report.pressure_labels
+    assert validate_host_resource_pressure_report(below_report, below_threshold).ok
+
+
 def test_fan_rpm_observation_is_telemetry_only() -> None:
     snapshot, report = _report(cpu_utilization_percent=10, ram_utilization_percent=20, disk_utilization_percent=30, fan_rpm_observations={"fan0": 1200})
     assert "fan_signal_present" in report.pressure_labels

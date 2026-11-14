@@ -196,6 +196,7 @@ def evaluate_host_resource_pressure(
     cpu_pressure_percent: float = 90.0,
     ram_pressure_percent: float = 90.0,
     gpu_pressure_percent: float = 90.0,
+    vram_pressure_percent: float = 85.0,
     disk_pressure_percent: float = 90.0,
     thermal_pressure_c: float = 85.0,
     battery_low_percent: float = 15.0,
@@ -216,7 +217,10 @@ def evaluate_host_resource_pressure(
     if snapshot.ram_utilization_percent is not None and snapshot.ram_utilization_percent >= ram_pressure_percent:
         labels.add("memory_pressure")
         candidates.append(_candidate(snapshot.snapshot_id, "defer_heavy_task_candidate", ("memory_pressure",), "Memory pressure observed; future governance may defer heavy work."))
-    if (snapshot.gpu_utilization_percent is not None and snapshot.gpu_utilization_percent >= gpu_pressure_percent) or (snapshot.vram_utilization_percent is not None and snapshot.vram_utilization_percent >= gpu_pressure_percent):
+    if ((snapshot.gpu_utilization_percent is not None
+            and snapshot.gpu_utilization_percent >= gpu_pressure_percent)
+            or (snapshot.vram_utilization_percent is not None
+                and snapshot.vram_utilization_percent >= vram_pressure_percent)):
         labels.add("gpu_pressure")
         candidates.append(_candidate(snapshot.snapshot_id, "reduce_model_load_candidate", ("gpu_pressure",), "GPU/VRAM pressure observed; future governance may reduce model load."))
     if snapshot.disk_utilization_percent is not None and snapshot.disk_utilization_percent >= disk_pressure_percent:
