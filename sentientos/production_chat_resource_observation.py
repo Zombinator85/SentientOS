@@ -260,8 +260,12 @@ class ProductionChatResourceObservationOwner:
     def _resource_admission_witness(self, invocation: Mapping[str, Any],
                                     allocation: GovernedLocalModelResourceAllocation
                                     ) -> Mapping[str, Any]:
-        request = invocation.get("request")
-        request_id = request.get("request_id") if isinstance(request, Mapping) else None
+        raw_request = invocation.get("request")
+        if not isinstance(raw_request, Mapping):
+            raise ProductionChatResourceObservationError(
+                "resource_invocation_request_identity_invalid")
+        request = raw_request
+        request_id = request.get("request_id")
         if not isinstance(request_id, str) or _REQUEST_NAME.fullmatch(request_id) is None:
             raise ProductionChatResourceObservationError(
                 "resource_invocation_request_identity_invalid")
@@ -285,7 +289,7 @@ class ProductionChatResourceObservationOwner:
             "proof_budget_context", "protected_mutation_intent", "correlation_id",
             "admission_decision_ref",
         }
-        correlation_id = request.get("correlation_id") if isinstance(request, Mapping) else None
+        correlation_id = request.get("correlation_id")
         expected_binding = {
             "schema_version": _RESOURCE_ADMISSION_BINDING_SCHEMA,
             "allocation_id": allocation.allocation_id,

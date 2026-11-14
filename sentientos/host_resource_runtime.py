@@ -474,12 +474,12 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     linked_effect_receipts: dict[str, str] = {}
     for invocation in invocation_receipts[-max_invocation_receipts:]:
         if verified_inference_admission_decisions is not None and invocation.get("resource_allocation_digest") is not None:
-            witness = admission_by_receipt.get(str(invocation.get("receipt_id")))
-            if (witness is None
-                    or witness.get("invocation_receipt_digest") != invocation.get("receipt_digest")
-                    or witness.get("admission_decision_ref") is None
-                    or not isinstance(witness.get("resource_allocation_binding"), Mapping)
-                    or witness["resource_allocation_binding"].get("allocation_digest")
+            admission_witness = admission_by_receipt.get(str(invocation.get("receipt_id")))
+            if (admission_witness is None
+                    or admission_witness.get("invocation_receipt_digest") != invocation.get("receipt_digest")
+                    or admission_witness.get("admission_decision_ref") is None
+                    or not isinstance(admission_witness.get("resource_allocation_binding"), Mapping)
+                    or admission_witness["resource_allocation_binding"].get("allocation_digest")
                         != invocation.get("resource_allocation_digest")):
                 lineage_findings.append(
                     f"inference_admission_linkage_missing_or_mismatched:{invocation.get('receipt_id')}")
