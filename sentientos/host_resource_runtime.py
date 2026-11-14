@@ -1194,6 +1194,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             str(invocation.get("receipt_id")), {}).get("admission_decision_ref"),
         "cancellation_admission_decision_ref": invocation.get(
             "cancellation_admission_decision_ref"),
+        "cancellation_admission_decision": invocation.get(
+            "cancellation_admission_decision"),
+        "cancellation_admission_record": invocation.get(
+            "cancellation_admission_record"),
         "workload_preemption_admission_posture":
             workload_preemption_admission_posture_by_receipt.get(
                 str(invocation.get("receipt_id")), "not_required"),

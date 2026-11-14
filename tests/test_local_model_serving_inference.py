@@ -3871,6 +3871,12 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                 assert projected_resource["payload"]["invocation_receipts"][0][
                     "cancellation_admission_decision_ref"] == (
                         invocation_receipt.cancellation_admission_decision_ref)
+                assert projected_resource["payload"]["invocation_receipts"][0][
+                    "cancellation_admission_decision"] == (
+                        invocation_receipt.cancellation_admission_decision)
+                assert projected_resource["payload"]["invocation_receipts"][0][
+                    "cancellation_admission_record"] == (
+                        invocation_receipt.cancellation_admission_record)
             reconciliation = {"status": "worker_closed",
                 "trigger_kind": "idle_game_frame_pressure_reconciliation",
                 "active_inference_cancellation_confirmed": True}
