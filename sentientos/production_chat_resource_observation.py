@@ -77,6 +77,13 @@ _RESOURCE_RELEASE_NAME = re.compile(
 _MAX_RESOURCE_RELEASE_RECEIPTS = 256
 
 
+def _resource_release_reason_codes_valid(value: object) -> bool:
+    if not isinstance(value, (list, tuple)) or len(value) > 64:
+        return False
+    return all(isinstance(reason, str) and reason and len(reason) <= 128
+        for reason in value)
+
+
 class ProductionChatResourceObservationError(ValueError):
     """A selected installation source is absent or cannot be verified."""
 
@@ -415,11 +422,8 @@ class ProductionChatResourceObservationOwner:
                         or witness.get("current_phase") not in {
                             "bootstrap", "runtime", "maintenance", "shutdown"}
                         or witness.get("requested_phase") != "runtime"
-                        or not isinstance(witness.get("reason_codes"), (list, tuple))
-                        or len(witness["reason_codes"]) > 64
-                        or not all(isinstance(reason, str) and reason
-                            and len(reason) <= 128
-                            for reason in witness.get("reason_codes"))):
+                        or not _resource_release_reason_codes_valid(
+                            witness.get("reason_codes"))):
                     raise ProductionChatResourceObservationError(
                         "resource_release_admission_witness_invalid")
             seen_ids.add(receipt_id)

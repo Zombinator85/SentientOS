@@ -31,6 +31,15 @@ STATUSES = {"available", "partial", "unavailable", "error", "timeout", "invalid"
 FORBIDDEN_TEXT = re.compile(r"([A-Za-z]:\\\\|/home/|/tmp/|/workspace/|SENTIENTOS_|TOKEN|PASSWORD|SECRET|Traceback|cmdline|environ|[0-9a-f]{2}(:[0-9a-f]{2}){5})", re.I)
 MAX_RETAINED_OBSERVATION_EPOCHS = 128
 HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS = 15.0
+
+
+def _resource_release_reason_codes_valid(value: object) -> bool:
+    if not isinstance(value, (list, tuple)) or len(value) > 64:
+        return False
+    return all(isinstance(reason, str) and reason and len(reason) <= 128
+        for reason in value)
+
+
 _DIGEST_BOUND_INVOCATION_RECEIPT_SCHEMAS = frozenset({
     "sentientos.local_model_invocation_receipt:v2",
     "sentientos.local_model_invocation_receipt:v3",
@@ -590,11 +599,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         or witness.get("current_phase") not in {
                             "bootstrap", "runtime", "maintenance", "shutdown"}
                         or witness.get("requested_phase") != "runtime"
-                        or not isinstance(witness.get("reason_codes"), (list, tuple))
-                        or len(witness["reason_codes"]) > 64
-                        or not all(isinstance(reason, str) and reason
-                            and len(reason) <= 128
-                            for reason in witness.get("reason_codes"))):
+                        or not _resource_release_reason_codes_valid(
+                            witness.get("reason_codes"))):
                     raise ValueError("resource_release_admission_witness_invalid")
             if release_receipt.get("invocation_linkage_posture") in {
                     "pending_invocation_receipt", "legacy_unlinked"}:
