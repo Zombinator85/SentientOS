@@ -3488,6 +3488,40 @@ def test_game_arriving_after_inference_admission_defers_before_backend_entry(
         published_game_messages[0].payload["message_id"])
 
 
+def test_selected_gaming_profile_after_inference_admission_defers_before_effect(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel)
+    bridge.set_workload_mode("normal")
+    original_admit = kernel.admit
+
+    def select_gaming_after_inference_admission(control_request):
+        decision = original_admit(control_request)
+        if control_request.action_kind == "local_model_inference":
+            bridge.set_workload_mode("gaming")
+        return decision
+
+    kernel.admit = select_gaming_after_inference_admission
+    try:
+        receipt = bridge.generate(prompt="optional chat work",
+            caller="chat_service", correlation_id="gaming-profile-arrived-before-entry")
+    finally:
+        session_preserved = serving.current_session() == session
+        serving.close()
+
+    assert receipt.status == "deferred"
+    assert "operator_selected_gaming_profile_arrived_before_backend_entry" in (
+        receipt.reason_codes)
+    assert receipt.effects["local_model_inference"] is False
+    assert model.calls == 0
+    assert session_preserved is True
+
+
 @pytest.mark.parametrize("trigger", ["deferred_inference", "deferred_stale_host_observation",
     "idle_game_reconciliation",
     "idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",

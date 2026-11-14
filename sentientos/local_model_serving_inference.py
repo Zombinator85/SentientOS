@@ -2215,16 +2215,16 @@ class ProductionServingInferenceController:
 
         def pre_effect_current() -> None:
             current()
-            initial_game_active = (
-                workload_state.get("mode") == "automatic"
-                and workload_state.get("observation_status") == "available"
-                and (workload_state.get("game_foreground") is True
-                    or workload_state.get("game_process_running") is True))
-            if workload_state.get("mode") != "automatic" or initial_game_active:
+            # A selected or conservative gaming profile may arrive after the
+            # admission snapshot but before backend entry. Do not let a request
+            # whose budgets were derived in normal mode cross that boundary.
+            if workload_state.get("effective_mode") == "gaming":
                 return
             latest_workload = self.current_workload_state()
+            if latest_workload.get("effective_mode") != "gaming":
+                return
             latest_game_active = (
-                latest_workload.get("mode") == "automatic"
+                latest_workload.get("configured_mode") == "automatic"
                 and latest_workload.get("observation_status") == "available"
                 and (latest_workload.get("game_foreground") is True
                     or latest_workload.get("game_process_running") is True))
@@ -2238,6 +2238,12 @@ class ProductionServingInferenceController:
                 raise LocalModelInvocationDeferred(
                     "verified_game_workload_arrived_before_backend_entry:"
                     + message_id)
+            if (latest_workload.get("configured_mode") == "gaming"
+                    and latest_workload.get("mode_source") == "operator_selected"):
+                raise LocalModelInvocationDeferred(
+                    "operator_selected_gaming_profile_arrived_before_backend_entry")
+            raise LocalModelInvocationDeferred(
+                "conservative_gaming_profile_arrived_before_backend_entry")
 
         def current_after() -> None:
             try:
