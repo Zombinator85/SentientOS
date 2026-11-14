@@ -569,11 +569,17 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     for invocation in invocation_receipts:
         if not isinstance(invocation, Mapping):
             raise ValueError("resource_invocation_receipt_invalid")
-        if (invocation.get("schema_version") in {
-                "sentientos.local_model_invocation_receipt:v4",
-                "sentientos.local_model_invocation_receipt:v5"}
-                and isinstance(invocation.get("reason_codes"), (list, tuple))
-                and "cancelled_for_workload_transition" in invocation["reason_codes"]):
+        if "schema_version" in invocation:
+            if invocation.get("schema_version") not in {
+                    "sentientos.local_model_invocation_receipt:v2",
+                    "sentientos.local_model_invocation_receipt:v3",
+                    "sentientos.local_model_invocation_receipt:v4",
+                    "sentientos.local_model_invocation_receipt:v5"}:
+                raise ValueError("resource_invocation_receipt_schema_unsupported")
+            # Current receipts must prove their semantic digest and schema
+            # contract before any downstream resource lineage uses them. Keep
+            # schema-less historical recovery evidence compatible; it is not
+            # accepted as a current, typed invocation receipt.
             valid_invocation, invocation_findings = validate_receipt(invocation)
             if not valid_invocation:
                 raise ValueError("resource_invocation_receipt_invalid:"

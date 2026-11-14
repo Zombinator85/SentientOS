@@ -408,6 +408,20 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
     assert projected["payload"]["invocation_receipts"][0][
         "admission_decision_ref"] == receipt.admission_decision_ref
 
+    tampered_receipt = receipt.to_dict()
+    tampered_receipt["status"] = "cancelled"
+    with pytest.raises(ValueError,
+            match="resource_invocation_receipt_invalid:receipt_digest_mismatch"):
+        resource_consumption_world_state_records(
+            ledger=ledger, invocation_receipts=[tampered_receipt])
+    unknown_schema_receipt = receipt.to_dict()
+    unknown_schema_receipt["schema_version"] = (
+        "sentientos.local_model_invocation_receipt:v99")
+    with pytest.raises(ValueError,
+            match="resource_invocation_receipt_schema_unsupported"):
+        resource_consumption_world_state_records(
+            ledger=ledger, invocation_receipts=[unknown_schema_receipt])
+
     missing_admission = resource_consumption_world_state_records(
         ledger=ledger, invocation_receipts=[receipt.to_dict()],
         verified_inference_admission_decisions=[])[0]
@@ -441,13 +455,25 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
     assert any(finding.startswith("inference_admission_linkage_missing_or_mismatched:")
         for finding in substituted_projection["payload"]["lineage_findings"])
 
-    substituted = receipt.to_dict()
-    substituted["backend_completion"]["invocation_resources"][
-        "user_cpu_seconds"] = 0.15
+    substituted_completion = dict(receipt.backend_completion)
+    substituted_resources = dict(substituted_completion["invocation_resources"])
+    substituted_resources["user_cpu_seconds"] = 0.15
+    substituted_completion["invocation_resources"] = substituted_resources
+    substituted_receipt = replace(receipt,
+        backend_completion=substituted_completion)
+    substituted_receipt = replace(substituted_receipt,
+        resource_linkage_digest=digest_payload({
+            "receipt_digest": substituted_receipt.receipt_digest,
+            "allocation_digest": substituted_receipt.resource_allocation_digest,
+            "attempt_id": substituted_receipt.resource_attempt_id,
+            "consumption_receipt_digests": (
+                substituted_receipt.resource_consumption_receipt_digests),
+        }))
+    substituted = substituted_receipt.to_dict()
     degraded = resource_consumption_world_state_records(
         ledger=ledger, invocation_receipts=[substituted])[0]
     assert degraded["disposition"] == "degraded"
-    assert any(finding.startswith("backend_resource_observation_receipt_mismatch:")
+    assert any(finding.startswith("effect_receipt_mismatch:")
         for finding in degraded["payload"]["lineage_findings"])
 
 
