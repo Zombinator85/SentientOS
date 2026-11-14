@@ -252,7 +252,13 @@ class HostResourceRuntimeCoordinator:
     def _run_cycle(self, *, correlation_id: str, decision: ControlActionDecision | None = None) -> HostResourceRuntimeEvaluation | None:
         if correlation_id in self._epochs_by_correlation: return self._epochs_by_correlation[correlation_id]
         decision = decision or self.request_admission(correlation_id)
-        if not decision.allowed: return None
+        if (not self.kernel.owns_recorded_admitted_decision(decision)
+                or decision.authority_class != AuthorityClass.OBSERVATION
+                or decision.action_kind != "host_resource_observation_epoch"
+                or decision.actor != "sentientosd"
+                or decision.target_subsystem != "host_resource_observation_runtime"
+                or decision.correlation_id != correlation_id):
+            return None
         observed_at=self.clock(); results=[]; timeouts=[]; findings=[]; cycle_collectors_called=0; start=time.monotonic(); platform_label=os.name if os.name != "posix" else ("linux" if Path('/proc').exists() else "unknown")
         # Do not use the executor as a context manager here: its implicit
         # ``shutdown(wait=True)`` would make a timed-out collector hold the

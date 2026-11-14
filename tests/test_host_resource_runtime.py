@@ -39,6 +39,40 @@ def test_runtime_observation_is_read_only_and_quarantine_calls_no_collector(tmp_
     assert calls["n"] == 1
 
 
+def test_observation_rejects_admission_decision_from_another_kernel(tmp_path):
+    calls = {"n": 0}
+
+    def collector(*, observed_at=None):
+        calls["n"] += 1
+        return _result("memory", used_percent=20.0)
+
+    plan = build_observation_plan(specs=[HostObservationCollectorSpec(
+        "memory", True, ("linux", "unknown"), 1, collector)])
+    owner_kernel = ControlPlaneKernel(phase=LifecyclePhase.RUNTIME)
+    other_kernel = ControlPlaneKernel(phase=LifecyclePhase.RUNTIME)
+    coordinator = HostResourceRuntimeCoordinator(
+        kernel=owner_kernel, runtime_state_root=tmp_path, plan=plan)
+    foreign_decision = other_kernel.admit(ControlActionRequest(
+        action_kind="host_resource_observation_epoch",
+        authority_class=AuthorityClass.OBSERVATION,
+        actor="sentientosd",
+        target_subsystem="host_resource_observation_runtime",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"correlation_id": "foreign-observation", "no_effect_authority": True},
+    ))
+
+    assert foreign_decision.allowed
+    assert coordinator.run_cycle(
+        correlation_id="foreign-observation", decision=foreign_decision) is None
+    assert calls["n"] == 0
+
+    owned_decision = coordinator.request_admission("owned-observation")
+    evaluation = coordinator.run_cycle(
+        correlation_id="owned-observation", decision=owned_decision)
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+    assert calls["n"] == 1
+
+
 def test_duplicate_correlation_and_one_epoch_per_tick(tmp_path):
     calls = {"n": 0}
     def collector(*, observed_at=None): calls.__setitem__("n", calls["n"] + 1); return _result("x")
