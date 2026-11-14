@@ -1617,9 +1617,12 @@ class RuntimeGovernor:
                 "status": "current",
                 "observation_correlation_id": host_gpu_observation_id,
                 "host_report_id": host_gpu_report_id,
+                "host_report_digest": observation_value.get("host_report_digest"),
                 "pressure_labels": observation_value.get("pressure_labels"),
                 "gpu_utilization_percent": host_gpu_value,
                 "vram_utilization_percent": host_vram_value,
+                "active_inference_preemption_requested": observation_value.get(
+                    "active_inference_preemption_requested"),
                 "age_seconds": round(host_gpu_release_age_seconds, 3)
                     if host_gpu_release_age_seconds is not None else None,
             } if evidence_valid and isinstance(observation_value, Mapping) else {
@@ -1734,8 +1737,12 @@ class RuntimeGovernor:
             valid = valid and evidence_valid
             evidence_ref = ({
                 "status": "current", "observation_correlation_id": memory_observation_id,
-                "host_report_id": memory_report_id, "pressure_labels": observation_value.get(
-                    "pressure_labels"), "ram_utilization_percent": ram_value,
+                "host_report_id": memory_report_id,
+                "host_report_digest": observation_value.get("host_report_digest"),
+                "pressure_labels": observation_value.get("pressure_labels"),
+                "ram_utilization_percent": ram_value,
+                "active_inference_preemption_requested": observation_value.get(
+                    "active_inference_preemption_requested"),
                 "age_seconds": round(release_age, 3) if release_age is not None else None,
             } if evidence_valid and isinstance(observation_value, Mapping) else {
                 "status": "missing_stale_malformed_or_unverified_host_memory_pressure"})

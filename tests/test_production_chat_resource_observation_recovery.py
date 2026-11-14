@@ -253,6 +253,30 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     host_evidence_delegated["runtime_governor"] = host_evidence_governor
     host_evidence_record["delegated_outcomes"] = host_evidence_delegated
     host_evidence_release["release_admission_record"] = host_evidence_record
+    host_evidence_release["resource_observation"]["gpu_utilization_percent"] = 22.0
+    verified_host_release = dict(host_evidence_release)
+    verified_host_release.pop("receipt_id")
+    verified_host_release.pop("receipt_semantic_digest")
+    verified_host_id = "serving-resource-release-" + hashlib.sha256(json.dumps(
+        verified_host_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()[:24]
+    verified_host_release["receipt_id"] = verified_host_id
+    verified_host_release["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+        verified_host_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    verified_host_path = release_directory.child(verified_host_id + ".json")
+    handle.durable_create(verified_host_path, (json.dumps(
+        verified_host_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+    try:
+        verified_snapshot = observer.observe()
+        verified_projection = next(item for item in
+            verified_snapshot.verified_resource_release_receipts
+            if item.get("receipt_id") == verified_host_id)
+        assert verified_projection["host_measurement_binding_posture"] == "verified"
+    finally:
+        verified_host_path.path.unlink()
+
     host_evidence_release["resource_observation"]["gpu_utilization_percent"] = 23.0
     host_evidence_release.pop("receipt_id")
     host_evidence_release.pop("receipt_semantic_digest")
