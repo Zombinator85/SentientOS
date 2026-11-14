@@ -88,6 +88,7 @@ jobs:
             tests/test_resident_developmental_cognition.py \
             tests/test_developmental_model_replacement_experiment.py \
             tests/test_local_model_production_serving.py \
+            tests/test_local_model_serving_inference.py::test_game_arriving_after_inference_admission_defers_before_backend_entry \
             tests/test_local_model_serving_inference.py::test_selected_gaming_profile_after_inference_admission_defers_before_effect \
             tests/test_resident_epistemic_state_mutation.py \
             tests/test_local_model_catalog_deployment_capability_admission.py \
