@@ -3474,6 +3474,7 @@ def test_game_arriving_after_inference_admission_defers_before_backend_entry(
 @pytest.mark.parametrize("trigger", ["deferred_inference", "deferred_stale_host_observation",
     "idle_game_reconciliation",
     "idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
+    "deferred_vram_pressure",
     "idle_game_gpu_residency", "idle_game_gpu_residency_unrecorded_admission",
     "deferred_thermal_pressure",
     "deferred_gpu_thermal_pressure",
@@ -3577,7 +3578,9 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         return lambda *, observed_at=None: HostCollectorResult(
             collector_id, "available", observed_at or now.isoformat(),
             "synthetic_test_fixture", values=values)
-    gpu_metrics = ({"gpu": 22.0, "vram": 47.0}
+    gpu_metrics = ({"gpu": 22.0, "vram": 86.0}
+        if trigger == "deferred_vram_pressure" else
+        {"gpu": 22.0, "vram": 47.0}
         if trigger in {"idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
             "idle_game_gpu_residency", "idle_game_gpu_residency_unrecorded_admission",
             "deferred_thermal_pressure",
@@ -3698,7 +3701,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                 *args, **kwargs))
 
     if trigger in {"deferred_inference", "deferred_stale_host_observation",
-            "deferred_cpu_pressure", "deferred_thermal_pressure",
+            "deferred_cpu_pressure", "deferred_vram_pressure",
+            "deferred_thermal_pressure",
             "deferred_gpu_thermal_pressure"}:
         gaming_prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
             "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
@@ -3712,6 +3716,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert host_reference["status"] == "current"
         assert host_reference["no_effect_authority"] is True
         expected_pressure = {"deferred_cpu_pressure": ["cpu_pressure"],
+            "deferred_vram_pressure": ["gpu_pressure"],
             "deferred_thermal_pressure": ["thermal_pressure"],
             "deferred_gpu_thermal_pressure": ["sensor_unavailable",
                 "thermal_pressure"],
@@ -3965,7 +3970,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         "idle_game_frame_pressure_active_inference",
         "idle_game_frame_pressure_active_inference_scheduler",
         "idle_game_frame_pressure_active_inference_unconfirmed"} else 0)
-    if trigger in {"deferred_inference", "deferred_cpu_pressure", "deferred_thermal_pressure",
+    if trigger in {"deferred_inference", "deferred_cpu_pressure",
+            "deferred_vram_pressure", "deferred_thermal_pressure",
             "deferred_gpu_thermal_pressure"}:
         decisions = [json.loads(line) for line in (tmp_path / "kernel-decisions.jsonl").read_text(
             encoding="utf-8").splitlines()]
@@ -4149,17 +4155,26 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         return
     assert release["trigger_kind"] == (
         "deferred_inference" if trigger in {"deferred_inference", "deferred_cpu_pressure",
+            "deferred_vram_pressure",
             "deferred_thermal_pressure", "deferred_gpu_thermal_pressure"}
         else "idle_game_reconciliation")
     assert release["resource_observation"]["game_workload_message_id"] == "e" * 64
     expected_release_pressure = {"idle_cpu_pressure": ["cpu_pressure"],
         "deferred_cpu_pressure": ["cpu_pressure"],
+        "deferred_vram_pressure": ["gpu_pressure"],
         "deferred_thermal_pressure": ["thermal_pressure"],
         "deferred_gpu_thermal_pressure": ["sensor_unavailable",
             "thermal_pressure"]}
     assert release["resource_observation"]["pressure_labels"] == (
         expected_release_pressure.get(trigger, ["gpu_pressure"]))
     assert release["resource_observation"]["cpu_utilization_percent"] == cpu_utilization
+    if trigger == "deferred_vram_pressure":
+        assert release["resource_observation"]["gpu_utilization_percent"] == 22.0
+        assert release["resource_observation"]["vram_utilization_percent"] == 86.0
+        assert release["resource_observation"]["host_report_id"] == (
+            host_reference["report_id"])
+        assert release["resource_observation"]["host_report_digest"] == (
+            host_reference["report_digest"])
     if trigger == "deferred_gpu_thermal_pressure":
         assert release["resource_observation"]["host_report_id"] == (
             host_reference["report_id"])
@@ -4179,9 +4194,11 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     assert comparison["after"]["gpu_telemetry_available"] is True
     assert comparison["after"]["gpu_telemetry_complete"] is True
     expected_delta = (0.0 if trigger in {"idle_cpu_pressure", "deferred_cpu_pressure",
+            "deferred_vram_pressure",
             "deferred_thermal_pressure", "deferred_gpu_thermal_pressure"}
         else -72.0)
-    expected_vram_delta = (0.0 if trigger in {"idle_cpu_pressure", "deferred_cpu_pressure",
+    expected_vram_delta = (-39.0 if trigger == "deferred_vram_pressure" else
+        0.0 if trigger in {"idle_cpu_pressure", "deferred_cpu_pressure",
             "deferred_thermal_pressure", "deferred_gpu_thermal_pressure"}
         else -44.0)
     assert comparison["gpu_utilization_delta_percentage_points"] == expected_delta
