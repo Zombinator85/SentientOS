@@ -258,10 +258,13 @@ def test_host_pressure_defers_background_inference_and_recovers_without_reservin
         requested_phase=LifecyclePhase.RUNTIME,
         metadata={"purpose": "local_user_chat", "correlation_id": "foreground-pressure"},
     )
-    # Foreground chat is not mislabeled as background work when the collector
-    # reports pressure; its independent invocation limits still apply.
+    # Foreground chat has an independent reason from background work, but
+    # current host pressure still defers optional inference.
     assert kernel.observe_host_resource_evaluation(pressured)
-    assert kernel.admit(foreground).outcome == AdmissionOutcome.ALLOW
+    foreground_deferred = kernel.admit(foreground)
+    assert foreground_deferred.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_local_model_inference_under_cpu_pressure" in (
+        foreground_deferred.reason_codes)
 
 
 def test_nvml_gpu_pressure_reaches_background_inference_admission(monkeypatch, tmp_path):
@@ -441,10 +444,18 @@ def test_nvml_gpu_thermal_pressure_reaches_verified_game_inference_admission(
         requested_phase=LifecyclePhase.RUNTIME,
         metadata={"purpose": "local_user_chat", "correlation_id": "game-chat-nominal-gpu"},
     ))
-    assert nominal_decision.outcome == AdmissionOutcome.ALLOW
+    assert nominal_decision.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_local_model_inference_while_game_active" in (
+        nominal_decision.reason_codes)
+    nominal_evidence = nominal_decision.delegated_outcomes[
+        "runtime_governor"]["evidence_refs"]
+    assert nominal_evidence["host_resource_evidence"]["evaluation_id"] == (
+        nominal.evaluation_id)
+    assert "thermal_pressure" not in nominal_evidence[
+        "host_resource_evidence"]["pressure_labels"]
 
 
-def test_host_pressure_during_verified_game_defers_foreground_chat_and_recovers(
+def test_host_pressure_during_verified_game_defers_foreground_chat_after_pressure_clears(
         monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -504,9 +515,14 @@ def test_host_pressure_during_verified_game_defers_foreground_chat_and_recovers(
     assert nominal is not None and validate_evaluation(nominal).ok
     kernel.set_phase(LifecyclePhase.RUNTIME)
     recovered = kernel.admit(foreground)
-    assert recovered.outcome == AdmissionOutcome.ALLOW
-    assert recovered.delegated_outcomes["runtime_governor"]["evidence_refs"][
-        "host_resource_evidence"]["evaluation_id"] == nominal.evaluation_id
+    assert recovered.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_local_model_inference_while_game_active" in (
+        recovered.reason_codes)
+    recovered_evidence = recovered.delegated_outcomes[
+        "runtime_governor"]["evidence_refs"]
+    assert recovered_evidence["host_resource_evidence"]["evaluation_id"] == (
+        nominal.evaluation_id)
+    assert recovered_evidence["host_pressure_during_verified_game"] is False
 
 
 def test_gpu_offloaded_inference_requires_gpu_telemetry_and_recovers(monkeypatch, tmp_path):
