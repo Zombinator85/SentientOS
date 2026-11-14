@@ -2125,6 +2125,10 @@ class RuntimeGovernor:
                     return (value is None or (isinstance(value, (int, float))
                         and not isinstance(value, bool) and math.isfinite(float(value))
                         and 0 <= float(value) <= 100))
+                def reaches_pressure_threshold(value: object, threshold: float) -> bool:
+                    return (isinstance(value, (int, float))
+                        and not isinstance(value, bool) and math.isfinite(float(value))
+                        and float(value) >= threshold)
                 namespace = ("local-chat-inference" if raw_trigger_kind == "deferred_inference"
                     else "local-chat-reconciliation" if raw_trigger_kind == "idle_game_reconciliation"
                     else None)
@@ -2206,8 +2210,8 @@ class RuntimeGovernor:
                     and host_evidence.get("gpu_utilization_percent") == raw_gpu
                     and host_evidence.get("vram_utilization_percent") == raw_vram
                     and ("gpu_pressure" not in host_labels
-                        or (raw_gpu is not None and raw_gpu >= 90.0)
-                        or (raw_vram is not None and raw_vram >= 85.0))
+                        or reaches_pressure_threshold(raw_gpu, 90.0)
+                        or reaches_pressure_threshold(raw_vram, 85.0))
                     and host_age is not None and 0 <= host_age <=
                         host_freshness_limit_seconds
                     and game_evidence is not None
