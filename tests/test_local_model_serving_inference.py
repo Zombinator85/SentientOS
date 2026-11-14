@@ -3966,6 +3966,10 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                 assert projected_resource["payload"]["invocation_receipts"][0][
                     "cancellation_admission_record"] == (
                         invocation_receipt.cancellation_admission_record)
+                if invocation_receipt.cancellation_preemption_ref is not None:
+                    assert projected_resource["payload"]["invocation_receipts"][0][
+                        "cancellation_preemption_ref"] == (
+                            dict(invocation_receipt.cancellation_preemption_ref))
                 projected_evidence = projected_resource["payload"][
                     "invocation_receipts"][0]["cancellation_admission_decision"][
                         "delegated_outcomes"]["runtime_governor"]["evidence_refs"][

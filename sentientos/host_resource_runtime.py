@@ -1230,6 +1230,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "cancellation_admission_decision"),
         "cancellation_admission_record": invocation.get(
             "cancellation_admission_record"),
+        **({"cancellation_preemption_ref": dict(
+                invocation["cancellation_preemption_ref"])}
+            if isinstance(invocation.get("cancellation_preemption_ref"), Mapping)
+            else {}),
         "workload_preemption_admission_posture":
             workload_preemption_admission_posture_by_receipt.get(
                 str(invocation.get("receipt_id")), "not_required"),
