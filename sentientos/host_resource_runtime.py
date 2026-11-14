@@ -31,6 +31,21 @@ STATUSES = {"available", "partial", "unavailable", "error", "timeout", "invalid"
 FORBIDDEN_TEXT = re.compile(r"([A-Za-z]:\\\\|/home/|/tmp/|/workspace/|SENTIENTOS_|TOKEN|PASSWORD|SECRET|Traceback|cmdline|environ|[0-9a-f]{2}(:[0-9a-f]{2}){5})", re.I)
 MAX_RETAINED_OBSERVATION_EPOCHS = 128
 HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS = 15.0
+_DIGEST_BOUND_INVOCATION_RECEIPT_SCHEMAS = frozenset({
+    "sentientos.local_model_invocation_receipt:v2",
+    "sentientos.local_model_invocation_receipt:v3",
+    "sentientos.local_model_invocation_receipt:v4",
+    "sentientos.local_model_invocation_receipt:v5",
+})
+
+
+def _invocation_receipt_event_time_posture(invocation: Mapping[str, Any]) -> str:
+    observed_at = invocation.get("observed_at")
+    if not isinstance(observed_at, str):
+        return "historical_invocation_time_unknown"
+    if invocation.get("schema_version") in _DIGEST_BOUND_INVOCATION_RECEIPT_SCHEMAS:
+        return "invocation_receipt_created_at_semantic_digest_bound"
+    return "invocation_receipt_observed_at_unbound_metadata"
 
 @dataclass(frozen=True)
 class HostObservationBudget:
@@ -705,11 +720,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             # schema-v2 receipt paired with a ledger effect receipt must retain
             # its linkage fields. A crash between ledger reconciliation and
             # final receipt publication is incomplete custody, not legacy data.
-            if (invocation.get("schema_version") in {
-                    "sentientos.local_model_invocation_receipt:v2",
-                    "sentientos.local_model_invocation_receipt:v3",
-                    "sentientos.local_model_invocation_receipt:v4",
-                    "sentientos.local_model_invocation_receipt:v5"}
+            if (invocation.get("schema_version") in
+                    _DIGEST_BOUND_INVOCATION_RECEIPT_SCHEMAS
                     and any(isinstance(item, Mapping)
                         and item.get("state") == "reconciled"
                         and item.get("effect_receipt_digest") == invocation.get("receipt_digest")
@@ -1119,18 +1131,11 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 # retain the invocation, but do not claim the process served it.
                 software_serving_operation_binding_posture = "legacy_handoff_serving_operation_unknown"
         invocation_event_time = invocation.get("observed_at")
-        invocation_event_time = invocation_event_time if isinstance(invocation_event_time, str) else None
+        invocation_event_time = (invocation_event_time
+            if isinstance(invocation_event_time, str) else None)
         payload["event_time"] = invocation_event_time
         payload["event_time_posture"] = (
-            "invocation_receipt_created_at_semantic_digest_bound"
-            if invocation_event_time is not None
-                and invocation.get("schema_version") in {
-                    "sentientos.local_model_invocation_receipt:v2",
-                    "sentientos.local_model_invocation_receipt:v3",
-                    "sentientos.local_model_invocation_receipt:v4"}
-            else "invocation_receipt_observed_at_unbound_metadata"
-                if invocation_event_time is not None
-                else "historical_invocation_time_unknown")
+            _invocation_receipt_event_time_posture(invocation))
         payload["chat_model_serving_lineage"] = {
             "event_time": invocation_event_time,
             "event_time_posture": payload["event_time_posture"],

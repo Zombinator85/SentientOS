@@ -13,13 +13,28 @@ from sentientos.host_collectors import HostCollectorResult
 from sentientos.host_resource_runtime import (MAX_RETAINED_OBSERVATION_EPOCHS,
     HostObservationBudget, HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
     build_observation_plan, default_collector_specs, persist_evidence_bundle,
-    redact_value, validate_evaluation, world_state_records)
+    redact_value, validate_evaluation, world_state_records,
+    _invocation_receipt_event_time_posture)
 from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
 from sentientos.runtime_governor import RuntimeGovernor
 
 
 def _result(cid: str, status: str = "available", **values):
     return HostCollectorResult(cid, status, "2026-01-01T00:00:00+00:00", "test", values=values)
+
+
+def test_v5_invocation_event_time_remains_digest_bound_in_generation_projection():
+    observed_at = "2026-11-13T22:00:00+00:00"
+    assert _invocation_receipt_event_time_posture({
+        "schema_version": "sentientos.local_model_invocation_receipt:v5",
+        "observed_at": observed_at,
+    }) == "invocation_receipt_created_at_semantic_digest_bound"
+    assert _invocation_receipt_event_time_posture({
+        "schema_version": "sentientos.local_model_invocation_receipt:v1",
+        "observed_at": observed_at,
+    }) == "invocation_receipt_observed_at_unbound_metadata"
+    assert _invocation_receipt_event_time_posture({}) == (
+        "historical_invocation_time_unknown")
 
 
 def test_runtime_observation_is_read_only_and_quarantine_calls_no_collector(tmp_path):
