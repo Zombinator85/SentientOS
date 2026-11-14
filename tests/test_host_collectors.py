@@ -16,6 +16,7 @@ from sentientos.host_collectors import (
     collect_nvidia_gpu_observation,
     collect_network_interface_observation,
     collect_platform_observation,
+    collect_process_observation,
     collect_thermal_sensor_observation,
     validate_host_collector_result,
 )
@@ -31,6 +32,28 @@ def test_platform_collector_is_telemetry_only_and_non_mutating() -> None:
     assert result.host_mutation_performed is False
     assert result.network_performed is False
     assert result.privileged_action_performed is False
+    assert validate_host_collector_result(result).ok
+
+
+def test_windows_process_collector_keeps_only_aggregate_count() -> None:
+    result = collect_process_observation(system="windows",
+        windows_process_count_provider=lambda: 73, observed_at=STAMP)
+    assert result.status == "available"
+    assert result.source == "injected_windows_process_count"
+    assert result.values == {"process_count": 73}
+    assert "identifiers and command lines are not inspected" in result.privacy_notes[0]
+    assert result.host_mutation_performed is False
+    assert validate_host_collector_result(result).ok
+
+
+def test_windows_process_collector_fails_closed_when_count_is_unavailable() -> None:
+    def unavailable() -> int:
+        raise OSError("fixture")
+
+    result = collect_process_observation(system="windows",
+        windows_process_count_provider=unavailable, observed_at=STAMP)
+    assert result.status == "unavailable"
+    assert result.warnings == ("sensor_unavailable:process_count",)
     assert validate_host_collector_result(result).ok
 
 

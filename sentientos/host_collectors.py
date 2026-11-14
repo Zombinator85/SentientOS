@@ -579,14 +579,60 @@ def collect_process_observation(
     *,
     proc_path: str = "/proc",
     directory_lister: DirectoryLister | None = None,
+    system: str | None = None,
+    windows_process_count_provider: Callable[[], int] | None = None,
     observed_at: str | None = None,
 ) -> HostCollectorResult:
+    os_family = (system or platform.system() or "unknown").lower()
+    if os_family == "windows":
+        provider = windows_process_count_provider or _windows_process_count
+        try:
+            count = provider()
+            if type(count) is not int or count < 0:
+                raise ValueError("windows_process_count_invalid")
+        except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
+            return _result("process", "unavailable", observed_at=observed_at,
+                source="windows_api:psapi.EnumProcesses",
+                findings=(_finding("process_count_unavailable", "info"),),
+                warnings=("sensor_unavailable:process_count",),
+                privacy_notes=("Process identifiers and command lines are not retained.",))
+        return _result("process", "available", observed_at=observed_at,
+            source=("injected_windows_process_count" if windows_process_count_provider
+                is not None else "windows_api:psapi.EnumProcesses"),
+            values={"process_count": count},
+            privacy_notes=("Only the process count is retained; identifiers and command lines are not inspected.",))
+    if os_family != "linux":
+        return _result("process", "unavailable", observed_at=observed_at,
+            source=f"read_only:{os_family}:process_count",
+            findings=(_finding("process_count_platform_unsupported", "info", os_family),),
+            warnings=("sensor_unavailable:process_count",),
+            privacy_notes=("No process identifiers or command lines are inspected.",))
     entries = _safe_list(proc_path, directory_lister)
     if not entries:
         return _result("process", "unavailable", observed_at=observed_at, source="read_only:/proc directory names", findings=(_finding("process_count_unavailable", "info", "Process count unavailable without privileged or platform-specific probing."),), warnings=("sensor_unavailable:process_count",), privacy_notes=("No process command lines are inspected.",))
     count = sum(1 for entry in entries if str(entry).isdigit())
     status = "available" if count else "unavailable"
     return _result("process", status, observed_at=observed_at, source="read_only:/proc directory names", values={"process_count": count}, privacy_notes=("Only numeric process directory names are counted; command lines are not read.",))
+
+
+def _windows_process_count() -> int:
+    """Count Windows processes with the read-only PSAPI enumeration call."""
+    dword = ctypes.c_ulong
+    capacity = 4096
+    while capacity <= 1_048_576:
+        process_ids = (dword * capacity)()
+        bytes_returned = dword()
+        ok = ctypes.windll.psapi.EnumProcesses(  # type: ignore[attr-defined]
+            process_ids, ctypes.sizeof(process_ids), ctypes.byref(bytes_returned))
+        if not ok:
+            raise OSError("EnumProcesses_failed")
+        if bytes_returned.value % ctypes.sizeof(dword):
+            raise ValueError("EnumProcesses_byte_count_invalid")
+        count = bytes_returned.value // ctypes.sizeof(dword)
+        if count < capacity:
+            return count
+        capacity *= 2
+    raise ValueError("EnumProcesses_capacity_exceeded")
 
 
 def collect_network_interface_observation(

@@ -50,10 +50,36 @@ def test_runtime_observation_is_read_only_and_quarantine_calls_no_collector(tmp_
     assert evaluation.no_effect_authority is True
     assert c.collector_call_count == 1
     assert calls["n"] == 1
-    # Malformed duplicate/non-string metadata is not reachable through coordinator, but direct kernel quarantine also calls no collector.
+    # Malformed direct requests remain quarantined without calling a collector.
     q = c.kernel.admit(type("Bad", (), {"action_kind":"", "actor":"", "target_subsystem":"", "metadata": {}, "requested_phase": LifecyclePhase.MAINTENANCE, "authority_class": __import__("sentientos.control_plane_kernel", fromlist=["AuthorityClass"]).AuthorityClass.OBSERVATION})())
     assert q.outcome.value in {"quarantine", "defer", "deny"}
     assert calls["n"] == 1
+
+
+def test_windows_process_count_observation_flows_through_runtime_without_identity(
+        tmp_path, monkeypatch):
+    from sentientos.host_collectors import collect_process_observation
+
+    monkeypatch.setattr("sentientos.host_resource_runtime.platform.system",
+        lambda: "Windows")
+    default_process_spec = next(spec for spec in default_collector_specs()
+        if spec.collector_id == "process")
+    assert "windows" in default_process_spec.supported_platforms
+    spec = HostObservationCollectorSpec("process", False, ("windows",), 50,
+        lambda observed_at=None: collect_process_observation(system="windows",
+            windows_process_count_provider=lambda: 91, observed_at=observed_at))
+    coordinator = HostResourceRuntimeCoordinator(
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME),
+        runtime_state_root=tmp_path,
+        plan=build_observation_plan(specs=[spec]))
+    evaluation = coordinator.run_cycle(correlation_id="windows-process-count-fixture")
+
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+    assert evaluation.epoch.results[0].values == {"process_count": 91}
+    assert evaluation.snapshot.process_count == 91
+    assert evaluation.no_effect_authority is True
+    assert evaluation.epoch.effect_authority is False
+    assert evaluation.epoch.results[0].host_mutation_performed is False
 
 
 def test_observation_rejects_admission_decision_from_another_kernel(tmp_path):

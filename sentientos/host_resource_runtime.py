@@ -9,7 +9,7 @@ authority.
 from __future__ import annotations
 
 import concurrent.futures as cf
-import hashlib, json, math, os, re, tempfile, time
+import hashlib, json, math, os, platform, re, tempfile, time
 import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -164,7 +164,7 @@ def default_collector_specs() -> tuple[HostObservationCollectorSpec, ...]:
         HostObservationCollectorSpec("disk", True, allp, 20, collect_disk_observation),
         HostObservationCollectorSpec("memory", True, allp, 30, collect_memory_observation),
         HostObservationCollectorSpec("cpu", True, allp, 40, collect_cpu_observation),
-        HostObservationCollectorSpec("process", False, ("linux",), 50, collect_process_observation),
+        HostObservationCollectorSpec("process", False, allp, 50, collect_process_observation),
         HostObservationCollectorSpec("network_interfaces", False, ("linux",), 60, collect_network_interface_observation),
         HostObservationCollectorSpec("service_manager", False, allp, 70, collect_service_manager_observation),
         HostObservationCollectorSpec("nvidia_gpu", False, allp, 75, collect_nvidia_gpu_observation),
@@ -348,7 +348,9 @@ class HostResourceRuntimeCoordinator:
                 or decision.target_subsystem != "host_resource_observation_runtime"
                 or decision.correlation_id != correlation_id):
             return None
-        observed_at=self.clock(); results=[]; timeouts=[]; findings=[]; cycle_collectors_called=0; start=time.monotonic(); platform_label=os.name if os.name != "posix" else ("linux" if Path('/proc').exists() else "unknown")
+        observed_at=self.clock(); results=[]; timeouts=[]; findings=[]; cycle_collectors_called=0; start=time.monotonic()
+        platform_label = {"windows": "windows", "linux": "linux",
+            "darwin": "darwin"}.get(platform.system().lower(), "unknown")
         # Do not use the executor as a context manager here: its implicit
         # ``shutdown(wait=True)`` would make a timed-out collector hold the
         # maintenance tick open until the worker returns.  The observation
