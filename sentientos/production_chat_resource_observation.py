@@ -58,6 +58,11 @@ from .production_chat_resource_provisioning import (
 
 _RECEIPT_NAME = re.compile(r"lmrec-[0-9a-f]{24}\.json\Z")
 _RECEIPT_TEMP_NAME = re.compile(r"\.lmrec-[0-9a-f]{24}\.json\.[A-Za-z0-9_-]{1,64}\.tmp\Z")
+_REQUEST_NAME = re.compile(r"lmreq-[0-9a-f]{24}\Z")
+_RESOURCE_ADMISSION_BINDING_SCHEMA = (
+    "sentientos.governed_local_model_resource_allocation_admission_context:v1")
+_RESOURCE_ADMISSION_WITNESS_SCHEMA = (
+    "sentientos.resource_bound_inference_admission_witness:v1")
 
 
 class ProductionChatResourceObservationError(ValueError):
@@ -88,6 +93,8 @@ class ProductionChatResourceObservation:
     serving_operation_history: tuple[Mapping[str, Any], ...] = ()
     predecessor_invocation_receipts: tuple[Mapping[str, Any], ...] = ()
     predecessor_invocation_receipt_posture: str = "unknown"
+    verified_inference_admission_decisions: tuple[Mapping[str, Any], ...] = ()
+    inference_admission_decision_posture: str = "unknown"
 
 
 class ProductionChatResourceObservationOwner:
@@ -188,8 +195,9 @@ class ProductionChatResourceObservationOwner:
         except (TypeError, ValueError) as exc:
             raise ProductionChatResourceObservationError("historical_principal_binding_invalid") from exc
         (invocation_receipts, receipt_posture, generation_attributions,
-         predecessor_receipts, predecessor_receipt_posture) = self._invocation_receipts(
-            allocation.allocation_digest)
+         predecessor_receipts, predecessor_receipt_posture, admission_witnesses,
+         admission_posture) = self._invocation_receipts(
+            allocation)
         completed_invocations = tuple(item for item in invocation_receipts
             if item.get("status") == "admitted_completed"
             and isinstance(item.get("effects"), Mapping)
@@ -246,20 +254,97 @@ class ProductionChatResourceObservationOwner:
             generation_attributions, generation_posture, recovery_transitions, recovery_posture,
             runtime_observation, runtime_observation_posture,
             serving_attempts, serving_attempt_posture, serving_operation_history,
-            predecessor_receipts, predecessor_receipt_posture)
+            predecessor_receipts, predecessor_receipt_posture,
+            admission_witnesses, admission_posture)
 
-    def _invocation_receipts(self, allocation_digest: str
+    def _resource_admission_witness(self, invocation: Mapping[str, Any],
+                                    allocation: GovernedLocalModelResourceAllocation
+                                    ) -> Mapping[str, Any]:
+        request = invocation.get("request")
+        request_id = request.get("request_id") if isinstance(request, Mapping) else None
+        if not isinstance(request_id, str) or _REQUEST_NAME.fullmatch(request_id) is None:
+            raise ProductionChatResourceObservationError(
+                "resource_invocation_request_identity_invalid")
+        try:
+            raw = self._handle.read_regular_bounded(
+                f"local-model/inference/decisions/{request_id}.json",
+                max_bytes=262_144)
+        except InstallationStateError as exc:
+            raise ProductionChatResourceObservationError(
+                "resource_inference_admission_decision_unavailable") from exc
+        try:
+            decision = _mapping(raw, "resource_inference_admission_decision_json_invalid")
+        except ValueError as exc:
+            raise ProductionChatResourceObservationError(
+                "resource_inference_admission_decision_json_invalid") from exc
+        expected_decision_fields = {
+            "event_type", "timestamp", "final_disposition", "outcome", "reason_codes",
+            "delegate_checks_consulted", "lifecycle_phase", "current_phase",
+            "requested_phase", "authority_class", "action_kind", "actor_source", "actor",
+            "execution_owner", "target_subsystem", "delegated_outcomes", "federation_context",
+            "proof_budget_context", "protected_mutation_intent", "correlation_id",
+            "admission_decision_ref",
+        }
+        correlation_id = request.get("correlation_id") if isinstance(request, Mapping) else None
+        expected_binding = {
+            "schema_version": _RESOURCE_ADMISSION_BINDING_SCHEMA,
+            "allocation_id": allocation.allocation_id,
+            "allocation_digest": allocation.allocation_digest,
+            "allocator_id": allocation.allocator_id,
+            "resource_kind": allocation.resource_kind,
+            "policy_digest": allocation.policy_digest,
+            "policy_epoch": allocation.epoch,
+            "principal_binding_digest": allocation.principal_binding_digest,
+        }
+        delegated = decision.get("delegated_outcomes")
+        runtime = delegated.get("runtime_governor") if isinstance(delegated, Mapping) else None
+        evidence = runtime.get("evidence_refs") if isinstance(runtime, Mapping) else None
+        binding = evidence.get("resource_allocation_binding") if isinstance(evidence, Mapping) else None
+        if (set(decision) != expected_decision_fields
+                or decision.get("event_type") != "control_plane_decision"
+                or not isinstance(decision.get("timestamp"), str)
+                or decision.get("final_disposition") != "allow"
+                or decision.get("outcome") != "allow"
+                or decision.get("authority_class") != "local_model_inference"
+                or decision.get("action_kind") != "local_model_inference"
+                or decision.get("target_subsystem") != "governed_local_model_invocation"
+                or not isinstance(correlation_id, str)
+                or decision.get("correlation_id") != correlation_id
+                or decision.get("admission_decision_ref") != invocation.get(
+                    "admission_decision_ref")
+                or decision.get("admission_decision_ref") != f"kernel_decision:{correlation_id}"
+                or decision.get("actor") != request.get("caller")
+                or decision.get("actor_source") != request.get("caller")
+                or decision.get("execution_owner") != request.get("caller")
+                or not isinstance(binding, Mapping)
+                or dict(binding) != expected_binding):
+            raise ProductionChatResourceObservationError(
+                "resource_inference_admission_binding_invalid")
+        return {
+            "schema_version": _RESOURCE_ADMISSION_WITNESS_SCHEMA,
+            "invocation_receipt_id": invocation.get("receipt_id"),
+            "invocation_receipt_digest": invocation.get("receipt_digest"),
+            "request_id": request_id,
+            "request_digest": request.get("request_digest"),
+            "admission_decision_ref": decision["admission_decision_ref"],
+            "correlation_id": correlation_id,
+            "resource_allocation_binding": expected_binding,
+        }
+
+    def _invocation_receipts(self, allocation: GovernedLocalModelResourceAllocation
             ) -> tuple[tuple[Mapping[str, Any], ...], str, tuple[Mapping[str, Any], ...],
+                       tuple[Mapping[str, Any], ...], str,
                        tuple[Mapping[str, Any], ...], str]:
         try:
             names = self._handle.list_regular_names(
                 "local-model/inference/receipts", max_entries=MAX_INVOCATION_RECEIPTS)
         except InstallationStateError as exc:
             if exc.code == "state_directory_missing":
-                return (), "degraded_missing_receipt_directory", (), (), "degraded_missing_receipt_directory"
+                return (), "degraded_missing_receipt_directory", (), (), "degraded_missing_receipt_directory", (), "degraded_missing_admission_decisions"
             raise ProductionChatResourceObservationError("invocation_receipt_directory_invalid") from exc
         receipts: list[Mapping[str, Any]] = []
         generation_attributions: list[Mapping[str, Any]] = []
+        admission_witnesses: list[Mapping[str, Any]] = []
         verified_receipts_by_id: dict[str, Mapping[str, Any]] = {}
         for name in names:
             if _RECEIPT_TEMP_NAME.fullmatch(name) is not None:
@@ -319,8 +404,10 @@ class ProductionChatResourceObservationOwner:
                         raise ProductionChatResourceObservationError(
                             "invocation_software_generation_handoff_mismatch")
                     verified_software = dict(historical)
-            if value.get("resource_allocation_digest") == allocation_digest:
+            if value.get("resource_allocation_digest") == allocation.allocation_digest:
                 receipts.append(dict(value))
+                admission_witnesses.append(self._resource_admission_witness(
+                    value, allocation))
                 request = value.get("request")
                 effects = value.get("effects")
                 if (verified_software is not None
@@ -379,9 +466,15 @@ class ProductionChatResourceObservationOwner:
             predecessor_posture = "verified_direct_parent_receipts_present"
         else:
             predecessor_posture = "verified_no_direct_parent_reference"
+        admission_witnesses.sort(key=lambda item: (
+            str(item.get("invocation_receipt_id", "")),
+            str(item.get("invocation_receipt_digest", ""))))
         return (tuple(receipts),
             "verified" if receipts else "degraded_no_resource_invocation_receipts",
-            tuple(generation_attributions), predecessor_receipts, predecessor_posture)
+            tuple(generation_attributions), predecessor_receipts, predecessor_posture,
+            tuple(admission_witnesses),
+            "verified" if len(admission_witnesses) == len(receipts)
+            else "degraded_inference_admission_decision_linkage")
 
 
 __all__ = [

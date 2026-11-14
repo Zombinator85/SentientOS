@@ -176,9 +176,29 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
     from sentientos.host_resource_runtime import resource_consumption_world_state_records
 
     projected = resource_consumption_world_state_records(
-        ledger=ledger, invocation_receipts=[receipt.to_dict()])[0]
+        ledger=ledger, invocation_receipts=[receipt.to_dict()],
+        verified_inference_admission_decisions=[{
+            "schema_version": "sentientos.resource_bound_inference_admission_witness:v1",
+            "invocation_receipt_id": receipt.receipt_id,
+            "invocation_receipt_digest": receipt.receipt_digest,
+            "request_id": receipt.request.request_id,
+            "request_digest": receipt.request.request_digest,
+            "admission_decision_ref": receipt.admission_decision_ref,
+            "correlation_id": receipt.request.correlation_id,
+            "resource_allocation_binding": {
+                "allocation_digest": receipt.resource_allocation_digest},
+        }])[0]
     assert projected["disposition"] == "recorded"
     assert projected["payload"]["lineage_posture"] == "verified"
+    assert projected["payload"]["inference_admission_decision_posture"] == "verified"
+    assert projected["payload"]["invocation_receipts"][0][
+        "admission_decision_ref"] == receipt.admission_decision_ref
+
+    missing_admission = resource_consumption_world_state_records(
+        ledger=ledger, invocation_receipts=[receipt.to_dict()],
+        verified_inference_admission_decisions=[])[0]
+    assert missing_admission["disposition"] == "degraded"
+    assert missing_admission["payload"]["inference_admission_decision_posture"] == "degraded"
 
     substituted = receipt.to_dict()
     substituted["backend_completion"]["invocation_resources"][

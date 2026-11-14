@@ -342,7 +342,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                               verified_chat_process_recovery_transitions: Sequence[Mapping[str, Any]] = (),
                                               verified_chat_process_runtime_observation: Mapping[str, Any] | None = None,
                                               verified_serving_operation_attempts: Sequence[Mapping[str, Any]] = (),
-                                              verified_serving_operation_history: Sequence[Mapping[str, Any]] = ()) -> list[dict[str, Any]]:
+                                              verified_serving_operation_history: Sequence[Mapping[str, Any]] = (),
+                                              verified_inference_admission_decisions: Sequence[Mapping[str, Any]] | None = None) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
 
     The projection carries exact ledger identities and invocation linkage. It
@@ -376,6 +377,18 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         raise ValueError("chat_process_recovery_transition_bound_exceeded")
     if len(verified_serving_operation_attempts) > 256:
         raise ValueError("serving_operation_attempt_bound_exceeded")
+    if (verified_inference_admission_decisions is not None
+            and len(verified_inference_admission_decisions) > 256):
+        raise ValueError("inference_admission_decision_bound_exceeded")
+    admission_by_receipt: dict[str, Mapping[str, Any]] = {}
+    if verified_inference_admission_decisions is not None:
+        for witness in verified_inference_admission_decisions:
+            if not isinstance(witness, Mapping) or witness.get("schema_version") != "sentientos.resource_bound_inference_admission_witness:v1":
+                raise ValueError("inference_admission_decision_witness_invalid")
+            receipt_id = witness.get("invocation_receipt_id")
+            if not isinstance(receipt_id, str) or not receipt_id or receipt_id in admission_by_receipt:
+                raise ValueError("inference_admission_decision_identity_invalid")
+            admission_by_receipt[receipt_id] = witness
     invocation_by_id: dict[str, Mapping[str, Any]] = {}
     for invocation in invocation_receipts:
         if not isinstance(invocation, Mapping):
@@ -460,6 +473,16 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     lineage_findings: list[str] = []
     linked_effect_receipts: dict[str, str] = {}
     for invocation in invocation_receipts[-max_invocation_receipts:]:
+        if verified_inference_admission_decisions is not None and invocation.get("resource_allocation_digest") is not None:
+            witness = admission_by_receipt.get(str(invocation.get("receipt_id")))
+            if (witness is None
+                    or witness.get("invocation_receipt_digest") != invocation.get("receipt_digest")
+                    or witness.get("admission_decision_ref") is None
+                    or not isinstance(witness.get("resource_allocation_binding"), Mapping)
+                    or witness["resource_allocation_binding"].get("allocation_digest")
+                        != invocation.get("resource_allocation_digest")):
+                lineage_findings.append(
+                    f"inference_admission_linkage_missing_or_mismatched:{invocation.get('receipt_id')}")
         allocation_digest = invocation.get("resource_allocation_digest")
         attempt_id = invocation.get("resource_attempt_id")
         receipt_digests = tuple(invocation.get("resource_consumption_receipt_digests") or ())
@@ -631,6 +654,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         "resource_attempt_id": invocation.get("resource_attempt_id"),
         "resource_consumption_receipt_digests": invocation.get("resource_consumption_receipt_digests"),
         "resource_linkage_digest": invocation.get("resource_linkage_digest"),
+        "admission_decision_ref": admission_by_receipt.get(
+            str(invocation.get("receipt_id")), {}).get("admission_decision_ref"),
         "chat_process_handoff_digest": (
             generation_attribution_by_receipt.get(str(invocation.get("receipt_id")), {})
                 .get("chat_process_handoff", {}).get("handoff_digest")
@@ -657,6 +682,11 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "consumption_receipt_count": len(raw_receipts),
                "invocation_receipts": compact_invocations,
                "invocation_receipt_count": len(invocation_receipts),
+               "inference_admission_decision_count": len(admission_by_receipt),
+               "inference_admission_decision_posture": (
+                   "not_requested" if verified_inference_admission_decisions is None
+                   else "verified" if not any("inference_admission_linkage" in item for item in lineage_findings)
+                   else "degraded"),
                "verified_chat_process_generation_attributions": selected_generation_attributions,
                "chat_process_generation_posture": (
                    "unknown_no_completed_invocations" if not any(

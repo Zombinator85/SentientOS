@@ -2025,7 +2025,9 @@ class RuntimeMaintenanceSurfaces:
                     verified_serving_operation_attempts=(
                         observation.serving_operation_attempts),
                     verified_serving_operation_history=(
-                        observation.serving_operation_history))
+                        observation.serving_operation_history),
+                    verified_inference_admission_decisions=(
+                        observation.verified_inference_admission_decisions))
                 records.extend(resource_records)
                 degraded = (observation.invocation_receipt_posture != "verified"
                             or any(item.get("disposition") != "recorded" for item in resource_records)
@@ -4541,7 +4543,9 @@ def _compose_causal_introspection(
                 verified_serving_operation_attempts=(
                     observation.serving_operation_attempts),
                 verified_serving_operation_history=(
-                    observation.serving_operation_history))
+                    observation.serving_operation_history),
+                verified_inference_admission_decisions=(
+                    observation.verified_inference_admission_decisions))
             resource_record = next((item for item in records
                 if item.get("subject_kind") == "causal_resource_consumption"), None)
             if not isinstance(resource_record, Mapping) or not isinstance(resource_record.get("payload"), Mapping):
