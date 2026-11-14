@@ -814,17 +814,38 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         invocation_by_id[receipt_id] = invocation
     for release_receipt in release_receipt_summaries:
         if release_receipt.get("invocation_linkage_posture") != "verified":
+            release_receipt.pop("cancelled_invocation_preemption_ref", None)
             continue
         invocation_id = release_receipt.get("cancelled_invocation_receipt_id")
         invocation_digest = release_receipt.get("cancelled_invocation_receipt_digest")
         linked_invocation = invocation_by_id.get(str(invocation_id))
-        if (not isinstance(linked_invocation, Mapping)
-                or linked_invocation.get("receipt_digest") != invocation_digest
-                or linked_invocation.get("status") != "cancelled"
-                or linked_invocation.get("cancellation_admission_decision_ref")
-                    != release_receipt.get("release_admission_decision_ref")):
+        linkage_valid = (isinstance(linked_invocation, Mapping)
+                and linked_invocation.get("receipt_digest") == invocation_digest
+                and linked_invocation.get("status") == "cancelled"
+                and linked_invocation.get("cancellation_admission_decision_ref")
+                    == release_receipt.get("release_admission_decision_ref"))
+        if not linkage_valid:
+            release_receipt.pop("cancelled_invocation_preemption_ref", None)
             release_lineage_findings.append(
                 f"resource_release_invocation_linkage_missing_or_mismatched:{release_receipt.get('receipt_id')}")
+            continue
+        invocation_preemption_ref = linked_invocation.get(
+            "cancellation_preemption_ref")
+        release_preemption_ref = release_receipt.get(
+            "cancelled_invocation_preemption_ref")
+        if (linked_invocation.get("schema_version") ==
+                "sentientos.local_model_invocation_receipt:v10"):
+            if (not isinstance(invocation_preemption_ref, Mapping)
+                    or not isinstance(release_preemption_ref, Mapping)
+                    or dict(release_preemption_ref)
+                        != dict(invocation_preemption_ref)):
+                release_receipt.pop("cancelled_invocation_preemption_ref", None)
+                release_lineage_findings.append(
+                    f"resource_release_preemption_linkage_missing_or_mismatched:{release_receipt.get('receipt_id')}")
+        elif release_preemption_ref is not None:
+            release_receipt.pop("cancelled_invocation_preemption_ref", None)
+            release_lineage_findings.append(
+                f"resource_release_preemption_linkage_unexpected:{release_receipt.get('receipt_id')}")
     predecessor_invocation_by_id: dict[str, Mapping[str, Any]] = {}
     for predecessor in verified_predecessor_invocation_receipts:
         if not isinstance(predecessor, Mapping):

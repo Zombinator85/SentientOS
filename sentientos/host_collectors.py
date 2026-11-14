@@ -270,7 +270,7 @@ def collect_memory_observation(*, memory_provider: MemoryProvider | None = None,
         else:
             return _result("memory", "error", observed_at=observed_at, source=source, findings=(_finding("memory_provider_error", "warning", str(exc)),), warnings=("memory_unavailable",))
     values: dict[str, Any] = dict(supplied)
-    if not values and memory_provider is None and os_family == "windows":
+    if not values and os_family == "windows":
         windows_provider = windows_memory_provider or _windows_memory_status
         source = ("injected_windows_memory_provider" if windows_memory_provider
             is not None else "windows_api:GlobalMemoryStatusEx")

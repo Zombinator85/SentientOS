@@ -79,6 +79,7 @@ def test_windows_process_count_observation_flows_through_runtime_without_identit
                 observed_at=observed_at)),
         replace(defaults["memory"], function=lambda observed_at=None:
             collect_memory_observation(system="windows",
+                memory_provider=lambda: {},
                 windows_memory_provider=lambda: {"total_bytes": 1000,
                     "available_bytes": 400, "used_percent": 60.0},
                 observed_at=observed_at)),

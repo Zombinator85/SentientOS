@@ -565,8 +565,24 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         # integration test, not synthesized again in this projection fixture.
         invocation_receipts=(),
         verified_resource_release_receipts=v10_linked_releases)[0]
-    assert v10_linked_projection["payload"]["resource_release_receipts"][0][
-        "cancelled_invocation_preemption_ref"] == preemption_ref
+    projected_v10_release = v10_linked_projection["payload"][
+        "resource_release_receipts"][0]
+    assert "cancelled_invocation_preemption_ref" not in projected_v10_release
+    assert any("resource_release_invocation_linkage_missing_or_mismatched:" in item
+        for item in v10_linked_projection["payload"]["lineage_findings"])
+    forged_v10_release = {
+        **v10_linked_releases[0],
+        "cancelled_invocation_preemption_ref": {
+            **preemption_ref, "preemption_evidence_digest": "f" * 64},
+    }
+    forged_v10_projection = resource_consumption_world_state_records(
+        ledger=first.ledger,
+        invocation_receipts=(),
+        verified_resource_release_receipts=(forged_v10_release,))[0]
+    assert "cancelled_invocation_preemption_ref" not in forged_v10_projection[
+        "payload"]["resource_release_receipts"][0]
+    assert any("resource_release_invocation_linkage_missing_or_mismatched:" in item
+        for item in forged_v10_projection["payload"]["lineage_findings"])
     substituted_invocation = {
         **exact_linked_invocation,
         "cancellation_admission_record": {
