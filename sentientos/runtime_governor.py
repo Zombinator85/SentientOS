@@ -1640,8 +1640,7 @@ class RuntimeGovernor:
                     and 1 <= observation_value["model_gpu_layers"] <= 256
                     and isinstance(observation_value.get("serving_session_id"), str)
                     and bool(observation_value.get("serving_session_id"))
-                    and ((host_gpu_value is not None and host_gpu_value >= 90.0)
-                         or (host_vram_value is not None and host_vram_value >= 90.0))
+                    and (host_gpu_value is not None or host_vram_value is not None)
                     and host_gpu_release_age_seconds is not None
                     and 0 <= host_gpu_release_age_seconds <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS
                     and host_gpu_evidence_age is not None
@@ -1755,7 +1754,7 @@ class RuntimeGovernor:
                     and all(isinstance(label, str) for label in raw_labels)
                     and set(raw_labels) == host_labels
                     and "memory_pressure" in host_labels
-                    and ram_value is not None and ram_value >= 90.0
+                    and ram_value is not None
                     and type(observation_value.get(
                         "active_inference_preemption_requested")) is bool
                     and observation_value.get(
@@ -1909,8 +1908,7 @@ class RuntimeGovernor:
                     and host_evidence.get("observed_at") == raw_observed_at
                     and host_evidence.get("gpu_utilization_percent") == gpu_value
                     and host_evidence.get("vram_utilization_percent") == vram_value
-                    and ((gpu_value is not None and gpu_value >= 90.0)
-                         or (vram_value is not None and vram_value >= 90.0)))
+                    and (gpu_value is not None or vram_value is not None))
             valid = valid and evidence_valid
             if evidence_valid:
                 evidence_ref = {
