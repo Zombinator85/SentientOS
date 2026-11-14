@@ -62,6 +62,7 @@ from .local_model_production_serving import (
 from .host_resource_runtime import (
     HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS,
     HostResourceRuntimeCoordinator,
+    summarize_gpu_telemetry_source,
     validate_evaluation as validate_host_resource_evaluation,
 )
 from .host_resource_governor import ACTIONABLE_RESOURCE_PRESSURE_LABELS
@@ -281,8 +282,7 @@ class ProductionServingInferenceController:
             "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
             "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
             "gpu_telemetry_sources": [
-                {"collector_id": result.collector_id, "status": result.status,
-                 "source": result.source[:128]}
+                summarize_gpu_telemetry_source(result)
                 for result in evaluation.epoch.results
                 if result.collector_id == "nvidia_gpu"
             ],
@@ -333,8 +333,7 @@ class ProductionServingInferenceController:
             "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
             "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
             "gpu_telemetry_sources": [
-                {"collector_id": result.collector_id, "status": result.status,
-                 "source": result.source[:128]}
+                summarize_gpu_telemetry_source(result)
                 for result in evaluation.epoch.results
                 if result.collector_id == "nvidia_gpu"
             ],

@@ -76,6 +76,8 @@ _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA_V1 = (
     "sentientos.resource_admission_host_observation_binding:v1")
 _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA_V3 = (
     "sentientos.resource_admission_host_observation_binding:v3")
+_RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA_V4 = (
+    "sentientos.resource_admission_host_observation_binding:v4")
 _RESOURCE_RELEASE_RECEIPT_SCHEMA_V2 = (
     "sentientos.production_chat_resource_release_receipt:v2")
 _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3 = (
@@ -835,7 +837,14 @@ class ProductionChatResourceObservationOwner:
             host_fields = legacy_host_fields + (
                 policy_fields if policy_field_count else ()) + (
                 ("policy_decision",) if policy_artifact_present else ())
+            raw_source_summaries = host_observation.get("gpu_telemetry_sources")
+            attribution_scope_present = (isinstance(raw_source_summaries, (list, tuple))
+                and any(isinstance(source, Mapping)
+                    and "sample_scope" in source
+                    for source in raw_source_summaries))
             host_binding_schema = (
+                _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA_V4
+                if attribution_scope_present else
                 _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA_V3
                 if policy_artifact_present else
                 _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA
@@ -849,22 +858,37 @@ class ProductionChatResourceObservationOwner:
                         "resource_inference_host_observation_binding_invalid")
                 return tuple(sorted(set(value)))
 
-            def normalized_sources(value: object) -> tuple[Mapping[str, str], ...]:
+            def normalized_sources(value: object) -> tuple[Mapping[str, Any], ...]:
                 source_fields = {"collector_id", "status", "source"}
+                attribution_fields = source_fields | {"sample_scope",
+                    "per_process_attribution_available"}
                 if not isinstance(value, (list, tuple)):
                     raise ProductionChatResourceObservationError(
                         "resource_inference_host_observation_binding_invalid")
-                normalized: list[Mapping[str, str]] = []
+                normalized: list[Mapping[str, Any]] = []
                 for source in value:
                     if (not isinstance(source, Mapping)
-                            or set(source) != source_fields
+                            or frozenset(source) not in {frozenset(source_fields),
+                                frozenset(attribution_fields)}
                             or not all(isinstance(source.get(key), str)
                                 and source.get(key) and len(source[key]) <= 128
                                 for key in source_fields)):
                         raise ProductionChatResourceObservationError(
                             "resource_inference_host_observation_binding_invalid")
-                    normalized.append({key: source[key] for key in (
-                        "collector_id", "status", "source")})
+                    item = {key: source[key] for key in (
+                        "collector_id", "status", "source")}
+                    if set(source) == attribution_fields:
+                        attribution = source.get("per_process_attribution_available")
+                        if (not isinstance(source.get("sample_scope"), str)
+                                or not source["sample_scope"]
+                                or len(source["sample_scope"]) > 128
+                                or (attribution is not None
+                                    and type(attribution) is not bool)):
+                            raise ProductionChatResourceObservationError(
+                                "resource_inference_host_observation_binding_invalid")
+                        item.update({key: source[key] for key in (
+                            "sample_scope", "per_process_attribution_available")})
+                    normalized.append(item)
                 return tuple(normalized)
 
             host_values["pressure_labels"] = normalized_labels(

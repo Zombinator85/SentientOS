@@ -33,6 +33,20 @@ MAX_RETAINED_OBSERVATION_EPOCHS = 128
 HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS = 15.0
 
 
+def summarize_gpu_telemetry_source(result: HostCollectorResult) -> dict[str, Any]:
+    """Retain the collector's attribution scope without implying process control."""
+    values = result.values if isinstance(result.values, Mapping) else {}
+    sample_scope = values.get("sample_scope")
+    if not isinstance(sample_scope, str) or not sample_scope or len(sample_scope) > 128:
+        sample_scope = "unspecified"
+    attribution = values.get("per_process_attribution_available")
+    if type(attribution) is not bool:
+        attribution = None
+    return {"collector_id": result.collector_id, "status": result.status,
+        "source": result.source[:128], "sample_scope": sample_scope,
+        "per_process_attribution_available": attribution}
+
+
 def _resource_release_reason_codes_valid(value: object) -> bool:
     if not isinstance(value, (list, tuple)) or len(value) > 64:
         return False
@@ -517,13 +531,32 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     summary.pop(key)
             sources = summary.get("gpu_telemetry_sources")
             if isinstance(sources, (list, tuple)):
-                summary["gpu_telemetry_sources"] = tuple(
-                    {key: item[key] for key in ("collector_id", "status", "source")}
-                    for item in sources[:16]
-                    if isinstance(item, Mapping)
-                    and all(isinstance(item.get(key), str) and item.get(key)
-                        and len(item[key]) <= 128
-                        for key in ("collector_id", "status", "source")))
+                bounded_sources = []
+                for item in sources[:16]:
+                    if not isinstance(item, Mapping):
+                        continue
+                    base_fields = {"collector_id", "status", "source"}
+                    attribution_fields = base_fields | {"sample_scope",
+                        "per_process_attribution_available"}
+                    if (frozenset(item) not in {frozenset(base_fields),
+                            frozenset(attribution_fields)}
+                            or not all(isinstance(item.get(key), str)
+                                and item.get(key) and len(item[key]) <= 128
+                                for key in base_fields)):
+                        continue
+                    source = {key: item[key] for key in (
+                        "collector_id", "status", "source")}
+                    if set(item) == attribution_fields:
+                        attribution = item.get("per_process_attribution_available")
+                        if (not isinstance(item.get("sample_scope"), str)
+                                or not item["sample_scope"]
+                                or len(item["sample_scope"]) > 128
+                                or (attribution is not None and type(attribution) is not bool)):
+                            continue
+                        source.update({key: item[key] for key in (
+                            "sample_scope", "per_process_attribution_available")})
+                    bounded_sources.append(source)
+                summary["gpu_telemetry_sources"] = tuple(bounded_sources)
             elif "gpu_telemetry_sources" in summary:
                 summary.pop("gpu_telemetry_sources")
             return summary
@@ -1021,19 +1054,37 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         if not isinstance(raw_sources, (list, tuple)):
             return None
         sources = []
+        attribution_scope_present = False
         for source in raw_sources:
-            if (not isinstance(source, Mapping)
-                    or set(source) != {"collector_id", "status", "source"}
-                    or not all(isinstance(source.get(key), str) and source.get(key)
-                        and len(source[key]) <= 128
-                        for key in ("collector_id", "status", "source"))):
+            if not isinstance(source, Mapping):
                 return None
-            sources.append({key: source[key]
-                for key in ("collector_id", "status", "source")})
+            base_fields = {"collector_id", "status", "source"}
+            attribution_fields = base_fields | {"sample_scope",
+                "per_process_attribution_available"}
+            if (frozenset(source) not in {frozenset(base_fields),
+                    frozenset(attribution_fields)}
+                    or not all(isinstance(source.get(key), str) and source.get(key)
+                        and len(source[key]) <= 128 for key in base_fields)):
+                return None
+            normalized_source = {key: source[key]
+                for key in ("collector_id", "status", "source")}
+            if set(source) == attribution_fields:
+                attribution = source.get("per_process_attribution_available")
+                if (not isinstance(source.get("sample_scope"), str)
+                        or not source["sample_scope"]
+                        or len(source["sample_scope"]) > 128
+                        or (attribution is not None and type(attribution) is not bool)):
+                    return None
+                attribution_scope_present = True
+                normalized_source.update({key: source[key] for key in (
+                    "sample_scope", "per_process_attribution_available")})
+            sources.append(normalized_source)
         thermal = value.get("thermal_zone_temperatures_c")
         if not isinstance(thermal, Mapping):
             return None
         return {"schema_version": (
+                "sentientos.resource_admission_host_observation_binding:v4"
+                if attribution_scope_present else
                 "sentientos.resource_admission_host_observation_binding:v3"
                 if policy_artifact_present else
                 "sentientos.resource_admission_host_observation_binding:v2"

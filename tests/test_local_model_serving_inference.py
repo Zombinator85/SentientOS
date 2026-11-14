@@ -4369,7 +4369,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert comparison["before"]["gpu_telemetry_complete"] is True
         assert comparison["before"]["gpu_telemetry_sources"] == [{
             "collector_id": "nvidia_gpu", "status": "available",
-            "source": "synthetic_test_fixture"}]
+            "source": "synthetic_test_fixture", "sample_scope": "unspecified",
+            "per_process_attribution_available": None}]
         assert comparison["gpu_utilization_delta_percentage_points"] == -10.0
         assert comparison["vram_utilization_delta_percentage_points"] == -7.0
         assert comparison["before"]["cpu_utilization_percent"] == 20.0
@@ -4420,7 +4421,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     assert comparison["status"] == "comparable"
     assert comparison["before"]["gpu_telemetry_sources"] == [{
         "collector_id": "nvidia_gpu", "status": "available",
-        "source": "synthetic_test_fixture"}]
+        "source": "synthetic_test_fixture", "sample_scope": "unspecified",
+        "per_process_attribution_available": None}]
     assert comparison["before"]["gpu_telemetry_available"] is True
     assert comparison["before"]["gpu_telemetry_complete"] is True
     assert comparison["after"]["gpu_telemetry_available"] is True

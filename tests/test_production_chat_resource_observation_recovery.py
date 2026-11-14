@@ -739,6 +739,7 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
     from sentientos.host_resource_runtime import (
         HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
         build_observation_plan, resource_consumption_world_state_records,
+        summarize_gpu_telemetry_source,
     )
     from sentientos.production_chat_resource_provisioning import (
         load_production_chat_resource_context_owner,
@@ -778,7 +779,9 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
                 collector("memory", used_percent=40.0)),
             HostObservationCollectorSpec("nvidia_gpu", False,
                 ("linux", "unknown"), 3,
-                collector("nvidia_gpu", device_count=1, devices=[{
+                collector("nvidia_gpu", sample_scope="device_wide",
+                    per_process_attribution_available=False,
+                    device_count=1, devices=[{
                     "index": 0, "gpu_utilization_percent": 15.0,
                     "vram_utilization_percent": 30.0}])),
         ]), clock=lambda: now)
@@ -810,9 +813,7 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
         "ram_utilization_percent": evaluation.snapshot.ram_utilization_percent,
         "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
         "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
-        "gpu_telemetry_sources": [{
-            "collector_id": result.collector_id, "status": result.status,
-            "source": result.source[:128]}
+        "gpu_telemetry_sources": [summarize_gpu_telemetry_source(result)
             for result in evaluation.epoch.results
             if result.collector_id == "nvidia_gpu"],
         "gpu_telemetry_available": (
@@ -872,6 +873,12 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
             evaluation.policy_decision.decision_id)
         assert host_binding["policy_decision"]["proposal_only"] is True
         assert host_binding["policy_proposal_only"] is True
+        assert host_binding["schema_version"] == (
+            "sentientos.resource_admission_host_observation_binding:v4")
+        assert host_binding["gpu_telemetry_sources"] == ({
+            "collector_id": "nvidia_gpu", "status": "available",
+            "source": "synthetic_test_fixture", "sample_scope": "device_wide",
+            "per_process_attribution_available": False},)
         assert host_binding["semantic_digest"] == host_observation["semantic_digest"]
         assert receipt.admission_decision_record == json.loads(decision_bytes)
         projection = resource_consumption_world_state_records(

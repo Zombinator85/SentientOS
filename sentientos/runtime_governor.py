@@ -1156,7 +1156,10 @@ class RuntimeGovernor:
     def observe_host_resource_evaluation(self, evaluation: object) -> bool:
         """Accept only a valid proposal-only collector evaluation for scheduling."""
         try:
-            from sentientos.host_resource_runtime import HostResourceRuntimeEvaluation, validate_evaluation
+            from sentientos.host_resource_runtime import (
+                HostResourceRuntimeEvaluation, summarize_gpu_telemetry_source,
+                validate_evaluation,
+            )
             from sentientos.host_resource_policy import host_resource_policy_decision_digest
 
             if type(evaluation) is not HostResourceRuntimeEvaluation or not validate_evaluation(evaluation).ok:
@@ -1179,8 +1182,7 @@ class RuntimeGovernor:
                     evaluation.policy_decision.to_dict(), sort_keys=True)),
                 "policy_proposal_only": evaluation.policy_decision.proposal_only,
                 "gpu_telemetry_sources": [
-                    {"collector_id": result.collector_id, "status": result.status,
-                     "source": result.source[:128]}
+                    summarize_gpu_telemetry_source(result)
                     for result in evaluation.epoch.results
                     if result.collector_id == "nvidia_gpu"
                 ],

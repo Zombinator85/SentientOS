@@ -165,6 +165,10 @@ def test_windows_nvidia_smi_evidence_defers_optional_gpu_inference_for_game(
     assert evidence["host_resource_evidence"]["evaluation_id"] == evaluation.evaluation_id
     assert evidence["host_resource_evidence"]["gpu_telemetry_sources"][0][
         "source"] == "nvidia-smi:device-wide-query"
+    assert evidence["host_resource_evidence"]["gpu_telemetry_sources"][0][
+        "sample_scope"] == "device_wide"
+    assert evidence["host_resource_evidence"]["gpu_telemetry_sources"][0][
+        "per_process_attribution_available"] is False
     assert evidence["game_performance_evidence"]["status"] == "current"
 
 
