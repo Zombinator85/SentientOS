@@ -564,6 +564,13 @@ class ProductionChatResourceObservationOwner:
                             invocation.get("receipt_id"))
                         verified_value["cancelled_invocation_receipt_digest"] = (
                             invocation.get("receipt_digest"))
+                        if (invocation.get("schema_version") ==
+                                "sentientos.local_model_invocation_receipt:v10"
+                                and isinstance(invocation.get(
+                                    "cancellation_preemption_ref"), Mapping)):
+                            verified_value[
+                                "cancelled_invocation_preemption_ref"] = dict(
+                                    invocation["cancellation_preemption_ref"])
                 else:
                     verified_value["invocation_linkage_posture"] = "not_required"
             elif value.get("active_inference_cancellation_confirmed") is True:

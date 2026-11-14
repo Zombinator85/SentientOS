@@ -547,6 +547,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "serving_receipt_semantic_digest", "invocation_linkage_posture",
                 "cancelled_invocation_receipt_id",
                 "cancelled_invocation_receipt_digest",
+                "cancelled_invocation_preemption_ref",
             }
             release_body = {key: value for key, value in release_receipt.items()
                 if key not in enriched_fields and key != "receipt_semantic_digest"}
@@ -700,6 +701,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "serving_receipt_semantic_digest",
                 "invocation_linkage_posture", "cancelled_invocation_receipt_id",
                 "cancelled_invocation_receipt_digest",
+                "cancelled_invocation_preemption_ref",
                 "release_admission_decision_ref", "release_admission_outcome",
                 "release_admission_witness", "release_admission_record",
                 "active_inference_preemption_requested",

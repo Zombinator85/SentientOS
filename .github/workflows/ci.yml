@@ -78,6 +78,7 @@ jobs:
             tests/test_world_state_board.py \
             tests/test_world_state_sources.py \
             tests/test_resource_invocation_process_generation_integration.py \
+            tests/test_production_chat_resource_observation_recovery.py::test_reconstruction_is_read_only_stable_and_does_not_replenish \
             tests/test_local_model_chat_recovery.py \
             tests/test_local_model_chat_runtime_startup.py \
             tests/test_resident_epistemic_development.py \

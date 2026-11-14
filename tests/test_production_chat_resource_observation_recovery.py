@@ -322,6 +322,36 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         serving_history, (exact_linked_invocation,))
     assert exact_linked_posture == "verified"
     assert exact_linked_releases[0]["invocation_linkage_posture"] == "verified"
+    preemption_ref = {
+        "schema_version": "sentientos.local_model_cancellation_preemption_ref:v1",
+        "cancellation_admission_decision_ref": (
+            release_body["release_admission_decision_ref"]),
+        "active_inference_request_reference": {
+            key: linked_invocation["request"][key] for key in (
+                "request_id", "request_digest", "correlation_id")},
+        "preemption_evidence_kind": "runtime_governor_evidence_refs",
+        "preemption_evidence_digest": "e" * 64,
+    }
+    exact_linked_v10 = {
+        **exact_linked_invocation,
+        "schema_version": "sentientos.local_model_invocation_receipt:v10",
+        "effects": {"local_model_inference": True},
+        "cancellation_preemption_ref": preemption_ref,
+    }
+    v10_linked_releases, v10_linkage_posture = observer._resource_release_receipts(
+        serving_history, (exact_linked_v10,))
+    assert v10_linkage_posture == "verified"
+    assert v10_linked_releases[0]["cancelled_invocation_preemption_ref"] == (
+        preemption_ref)
+    v10_linked_projection = resource_consumption_world_state_records(
+        ledger=first.ledger,
+        # The fixture exercises the recovery owner's already-verified join;
+        # the full typed invocation custody contract is covered by the serving
+        # integration test, not synthesized again in this projection fixture.
+        invocation_receipts=(),
+        verified_resource_release_receipts=v10_linked_releases)[0]
+    assert v10_linked_projection["payload"]["resource_release_receipts"][0][
+        "cancelled_invocation_preemption_ref"] == preemption_ref
     substituted_invocation = {
         **exact_linked_invocation,
         "cancellation_admission_record": {
