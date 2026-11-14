@@ -617,6 +617,30 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "sample_delta_only; telemetry_does_not_establish_causation")
     assert projected["disposition"] == "degraded"
     assert projected["payload"]["resource_release_receipt_posture"] == "degraded"
+    from sentientos.local_runtime_provisioning import semantic_digest
+    projection_serving_receipt = {
+        "receipt_id": "serving-receipt-" + "a" * 24,
+        "receipt_semantic_digest": "b" * 64,
+        "session_id": "session-1",
+        "binding": {"installation_identity": str(identity),
+            "serving_operation_id": "serve-1",
+            "observed_loaded_model_identity": loaded_identity},
+    }
+    projection_history_body = {
+        "status": "legacy_receipt_without_reservation", "attempt": None,
+        "attempt_semantic_digest": None, "receipt": projection_serving_receipt,
+        "receipt_semantic_digest": "b" * 64,
+    }
+    projection_serving_history = ({**projection_history_body,
+        "history_semantic_digest": semantic_digest(projection_history_body)},)
+    serving_link_projection = resource_consumption_world_state_records(
+        ledger=first.ledger,
+        source_identity={"installation_identity": str(identity)},
+        verified_serving_operation_history=projection_serving_history,
+        verified_resource_release_receipts=first.verified_resource_release_receipts)[0]
+    assert not any(item.startswith(
+        "resource_release_serving_model_linkage_missing_or_mismatched:")
+        for item in serving_link_projection["payload"]["lineage_findings"])
     tampered_release = dict(first.verified_resource_release_receipts[0])
     tampered_release["status"] = "denied"
     with pytest.raises(ValueError,
@@ -624,6 +648,46 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         resource_consumption_world_state_records(
             ledger=first.ledger,
             verified_resource_release_receipts=(tampered_release,))
+
+    forged_release = dict(first.verified_resource_release_receipts[0])
+    forged_admission = dict(forged_release["release_admission_record"])
+    forged_delegated = dict(forged_admission["delegated_outcomes"])
+    forged_governor = dict(forged_delegated["runtime_governor"])
+    forged_evidence = dict(forged_governor["evidence_refs"])
+    forged_target = dict(forged_evidence["resource_release_target"])
+    forged_target["model_identity_digest"] = "e" * 64
+    forged_evidence["resource_release_target"] = forged_target
+    forged_governor["evidence_refs"] = forged_evidence
+    forged_delegated["runtime_governor"] = forged_governor
+    forged_admission["delegated_outcomes"] = forged_delegated
+    forged_release["release_admission_record"] = forged_admission
+    forged_release["model_identity_digest"] = "e" * 64
+    enriched_fields = {
+        "serving_receipt_linkage_posture", "serving_receipt_id",
+        "serving_receipt_semantic_digest", "invocation_linkage_posture",
+        "cancelled_invocation_receipt_id", "cancelled_invocation_receipt_digest",
+        "cancelled_invocation_preemption_ref", "host_measurement_binding_posture",
+    }
+    forged_body = {key: value for key, value in forged_release.items()
+        if key not in enriched_fields and key != "receipt_semantic_digest"}
+    forged_identity_body = dict(forged_body)
+    forged_identity_body.pop("receipt_id", None)
+    forged_release["receipt_id"] = "serving-resource-release-" + hashlib.sha256(
+        json.dumps(forged_identity_body, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()[:24]
+    forged_body["receipt_id"] = forged_release["receipt_id"]
+    forged_release["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+        forged_body, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    forged_projection = resource_consumption_world_state_records(
+        ledger=first.ledger,
+        source_identity={"installation_identity": str(identity)},
+        verified_serving_operation_history=projection_serving_history,
+        verified_resource_release_receipts=(forged_release,))[0]
+    assert any(item.startswith(
+        "resource_release_serving_model_linkage_missing_or_mismatched:")
+        for item in forged_projection["payload"]["lineage_findings"])
+    assert forged_projection["payload"]["resource_release_receipt_posture"] == "degraded"
 
     linked_invocation = {
         "receipt_id": "lmrec-" + "d" * 24,

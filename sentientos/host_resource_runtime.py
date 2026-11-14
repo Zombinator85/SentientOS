@@ -829,6 +829,62 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                 "gpu_telemetry_complete")}, post_release=True)
                 summary["resource_measurement_comparison"] = comparison_summary
             release_receipt_summaries.append(summary)
+    if verified_serving_operation_history and release_receipt_summaries:
+        from sentientos.local_model_authority import digest_payload
+        serving_release_bindings: dict[tuple[str, str], tuple[str, str, str]] = {}
+        for history in verified_serving_operation_history:
+            if not isinstance(history, Mapping):
+                continue
+            receipt = history.get("receipt")
+            if (history.get("status") not in {
+                    "serving_receipt_verified", "legacy_receipt_without_reservation"}
+                    or not isinstance(receipt, Mapping)):
+                continue
+            binding = receipt.get("binding")
+            session_id = receipt.get("session_id")
+            operation_id = (binding.get("serving_operation_id")
+                if isinstance(binding, Mapping) else None)
+            loaded_identity = (binding.get("observed_loaded_model_identity")
+                if isinstance(binding, Mapping) else None)
+            serving_receipt_id = receipt.get("receipt_id")
+            serving_receipt_digest = history.get("receipt_semantic_digest")
+            if (not isinstance(session_id, str) or not isinstance(operation_id, str)
+                    or not isinstance(loaded_identity, Mapping)
+                    or not isinstance(serving_receipt_id, str)
+                    or not isinstance(serving_receipt_digest, str)):
+                continue
+            serving_release_bindings[(session_id, operation_id)] = (
+                digest_payload(dict(loaded_identity)), serving_receipt_id,
+                serving_receipt_digest)
+        for release in release_receipt_summaries:
+            admission = release.get("release_admission_record")
+            delegated = (admission.get("delegated_outcomes")
+                if isinstance(admission, Mapping) else None)
+            governor = (delegated.get("runtime_governor")
+                if isinstance(delegated, Mapping) else None)
+            evidence_refs = (governor.get("evidence_refs")
+                if isinstance(governor, Mapping) else None)
+            target = (evidence_refs.get("resource_release_target")
+                if isinstance(evidence_refs, Mapping) else None)
+            if not isinstance(target, Mapping):
+                continue
+            binding = serving_release_bindings.get((
+                str(release.get("serving_session_id")),
+                str(release.get("serving_operation_id"))))
+            if binding is None:
+                release_lineage_findings.append(
+                    "resource_release_serving_model_linkage_missing_or_mismatched:"
+                    + str(release.get("receipt_id")))
+            elif (target.get("serving_session_id")
+                    != release.get("serving_session_id")
+                    or target.get("model_identity_digest") != binding[0]
+                    or release.get("model_identity_digest") not in {
+                        binding[0], "sha256:" + binding[0]}
+                    or release.get("serving_receipt_id") != binding[1]
+                    or release.get("serving_receipt_semantic_digest") != binding[2]):
+                release_lineage_findings.append(
+                    "resource_release_serving_model_linkage_missing_or_mismatched:"
+                    + str(release.get("receipt_id")))
     admission_by_receipt: dict[str, Mapping[str, Any]] = {}
     host_observation_binding_posture_by_receipt: dict[str, str] = {}
     workload_preemption_admission_posture_by_receipt: dict[str, str] = {}
