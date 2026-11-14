@@ -92,6 +92,7 @@ jobs:
             tests/test_developmental_model_replacement_experiment.py \
             tests/test_local_model_production_serving.py \
             tests/test_host_resource_runtime.py::test_windows_nvidia_smi_evidence_defers_optional_gpu_inference_for_game \
+            'tests/test_runtime_governor.py::test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence[target_session_mismatch-False]' \
             tests/test_local_model_serving_inference.py::test_game_arriving_after_inference_admission_defers_before_backend_entry \
             tests/test_local_model_serving_inference.py::test_selected_gaming_profile_after_inference_admission_defers_before_effect \
             tests/test_local_model_serving_inference.py::test_scheduled_reconciliation_restores_released_model_through_fresh_serving_admission \
