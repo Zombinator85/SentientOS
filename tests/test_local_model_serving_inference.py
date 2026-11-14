@@ -1012,6 +1012,8 @@ def test_conservative_automatic_profile_releases_resident_model_only_under_host_
     "gpu_layers", "expected_status", "expected_trigger"), [
     (94.0, 92.0, 40.0, 24, "worker_closed",
         "idle_host_gpu_resource_reconciliation"),
+    (20.0, 86.0, 40.0, 24, "worker_closed",
+        "idle_host_gpu_resource_reconciliation"),
     (20.0, 30.0, 40.0, 24, "skipped", None),
     (20.0, 30.0, 94.0, 0, "worker_closed",
         "idle_host_memory_resource_reconciliation"),
@@ -1105,6 +1107,7 @@ def test_normal_mode_releases_only_idle_residency_under_host_pressure(
         if expected_trigger == "idle_host_gpu_resource_reconciliation":
             assert evidence["pressure_labels"] == ["gpu_pressure"]
             assert evidence["model_gpu_layers"] == 24
+            assert evidence["vram_utilization_percent"] == vram_percent
         else:
             assert evidence["pressure_labels"] == ["memory_pressure"]
             assert evidence["ram_utilization_percent"] == 94.0

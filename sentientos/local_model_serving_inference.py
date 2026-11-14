@@ -1143,16 +1143,12 @@ class ProductionServingInferenceController:
             return {"status": "skipped", "reason": "normal_workload_mode_not_current",
                 "observation_correlation_id": observation.get(
                     "observation_correlation_id")}
-        def at_least_percent(value: object, threshold: float) -> bool:
-            return (isinstance(value, (int, float)) and not isinstance(value, bool)
-                and float(value) >= threshold)
-
         gpu_pressure = ("gpu_pressure" in labels
             and type(gpu_layers) is int and 1 <= gpu_layers <= 256
-            and any(at_least_percent(observation.get(key), 90.0)
-                for key in ("gpu_utilization_percent", "vram_utilization_percent")))
+            and observation.get("gpu_telemetry_available") is True)
         memory_pressure = ("memory_pressure" in labels
-            and at_least_percent(observation.get("ram_utilization_percent"), 90.0))
+            and isinstance(observation.get("ram_utilization_percent"), (int, float))
+            and not isinstance(observation.get("ram_utilization_percent"), bool))
         if not gpu_pressure and not memory_pressure:
             return {"status": "skipped",
                 "reason": ("current_host_gpu_pressure_required"
