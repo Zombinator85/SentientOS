@@ -265,6 +265,8 @@ class ProductionServingInferenceController:
             "policy_decision_status": evaluation.policy_decision.status,
             "policy_decision_digest": host_resource_policy_decision_digest(
                 evaluation.policy_decision),
+            "policy_decision": json.loads(json.dumps(
+                evaluation.policy_decision.to_dict(), sort_keys=True)),
             "policy_proposal_only": evaluation.policy_decision.proposal_only,
             "semantic_digest": evaluation.semantic_digest,
             "observed_at": evaluation.epoch.observed_at,
@@ -316,6 +318,8 @@ class ProductionServingInferenceController:
             "policy_decision_status": evaluation.policy_decision.status,
             "policy_decision_digest": host_resource_policy_decision_digest(
                 evaluation.policy_decision),
+            "policy_decision": json.loads(json.dumps(
+                evaluation.policy_decision.to_dict(), sort_keys=True)),
             "policy_proposal_only": evaluation.policy_decision.proposal_only,
             "observed_at": evaluation.epoch.observed_at,
             "pressure_labels": list(evaluation.pressure_report.pressure_labels),
@@ -360,6 +364,8 @@ class ProductionServingInferenceController:
             "policy_decision_status": evaluation.policy_decision.status,
             "policy_decision_digest": host_resource_policy_decision_digest(
                 evaluation.policy_decision),
+            "policy_decision": json.loads(json.dumps(
+                evaluation.policy_decision.to_dict(), sort_keys=True)),
             "policy_proposal_only": evaluation.policy_decision.proposal_only,
             "observed_at": evaluation.epoch.observed_at,
         }

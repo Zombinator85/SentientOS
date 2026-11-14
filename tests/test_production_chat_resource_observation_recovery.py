@@ -755,6 +755,7 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
         "policy_decision_status": evaluation.policy_decision.status,
         "policy_decision_digest": host_resource_policy_decision_digest(
             evaluation.policy_decision),
+        "policy_decision": evaluation.policy_decision.to_dict(),
         "policy_proposal_only": evaluation.policy_decision.proposal_only,
         "semantic_digest": evaluation.semantic_digest,
         "observed_at": evaluation.epoch.observed_at,
@@ -823,6 +824,9 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
             "policy_decision_status"]
         assert host_binding["policy_decision_digest"] == host_observation[
             "policy_decision_digest"]
+        assert host_binding["policy_decision"]["decision_id"] == (
+            evaluation.policy_decision.decision_id)
+        assert host_binding["policy_decision"]["proposal_only"] is True
         assert host_binding["policy_proposal_only"] is True
         assert host_binding["semantic_digest"] == host_observation["semantic_digest"]
         assert receipt.admission_decision_record == json.loads(decision_bytes)

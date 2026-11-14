@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field, fields as dataclass_fields, replace
 from typing import Any, Mapping, Sequence
 
 from sentientos.host_resource_governor import HostResourcePressureReport, host_resource_report_digest
@@ -388,6 +388,29 @@ def build_host_resource_proposal_receipts(
 
 def host_resource_policy_decision_digest(decision: HostResourcePolicyDecision) -> str:
     return hashlib.sha256(_canonical_json(decision.to_dict()).encode("utf-8")).hexdigest()
+
+
+def host_resource_policy_decision_from_dict(
+        value: Mapping[str, Any]) -> HostResourcePolicyDecision | None:
+    """Rebuild a typed policy decision from its durable JSON representation."""
+    if not isinstance(value, Mapping):
+        return None
+    decision_fields = dataclass_fields(HostResourcePolicyDecision)
+    if set(value) != {item.name for item in decision_fields}:
+        return None
+    normalized: dict[str, Any] = {}
+    for item in decision_fields:
+        field_value = value[item.name]
+        if isinstance(item.default, tuple):
+            if not isinstance(field_value, (list, tuple)):
+                return None
+            field_value = tuple(field_value)
+        normalized[item.name] = field_value
+    try:
+        decision = HostResourcePolicyDecision(**normalized)
+    except (TypeError, ValueError):
+        return None
+    return decision if validate_host_resource_policy_decision(decision).ok else None
 
 
 def host_resource_proposal_receipt_digest(receipt: HostResourceProposalReceipt) -> str:

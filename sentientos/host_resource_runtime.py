@@ -19,7 +19,7 @@ from typing import Any, Callable, Mapping, Sequence
 from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, ControlActionDecision, ControlPlaneKernel, get_control_plane_kernel
 from sentientos.host_collectors import HostCollectorResult, collect_cpu_observation, collect_disk_observation, collect_fan_pwm_observation, collect_memory_observation, collect_network_interface_observation, collect_nvidia_gpu_observation, collect_platform_observation, collect_process_observation, collect_service_manager_observation, collect_thermal_sensor_observation, validate_host_collector_result
 from sentientos.host_resource_governor import HostResourcePressureReport, HostResourceTelemetrySnapshot, build_host_resource_telemetry_from_collector_results, evaluate_host_resource_pressure, host_resource_report_digest, summarize_host_resource_pressure, validate_host_resource_pressure_report
-from sentientos.host_resource_policy import HostResourcePolicyDecision, HostResourceProposalReceipt, build_host_resource_proposal_receipts, evaluate_host_resource_policy, summarize_host_resource_policy_decision, summarize_host_resource_proposal_receipt, validate_host_resource_policy_decision, validate_host_resource_proposal_receipt
+from sentientos.host_resource_policy import HostResourcePolicyDecision, HostResourceProposalReceipt, build_host_resource_proposal_receipts, evaluate_host_resource_policy, host_resource_policy_decision_digest, host_resource_policy_decision_from_dict, summarize_host_resource_policy_decision, summarize_host_resource_proposal_receipt, validate_host_resource_policy_decision, validate_host_resource_proposal_receipt
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
 from sentientos.world_state_board import WorldStateSourceKind, digest, record_digest
 from sentientos.local_runtime_provisioning import semantic_digest
@@ -938,7 +938,22 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         policy_field_count = sum(key in value for key in policy_fields)
         if policy_field_count not in {0, len(policy_fields)}:
             return None
-        fields = legacy_fields + (policy_fields if policy_field_count else ())
+        policy_artifact_present = "policy_decision" in value
+        if policy_artifact_present != bool(policy_field_count):
+            return None
+        policy_artifact = value.get("policy_decision")
+        if policy_artifact_present:
+            policy_decision = (host_resource_policy_decision_from_dict(policy_artifact)
+                if isinstance(policy_artifact, Mapping) else None)
+            if (policy_decision is None
+                    or host_resource_policy_decision_digest(policy_decision)
+                        != value.get("policy_decision_digest")
+                    or policy_decision.decision_id != value.get("policy_decision_id")
+                    or policy_decision.status != value.get("policy_decision_status")
+                    or policy_decision.proposal_only is not True):
+                return None
+        fields = (legacy_fields + (policy_fields if policy_field_count else ())
+            + (("policy_decision",) if policy_artifact_present else ()))
         if not all(key in value for key in fields):
             return None
         if policy_field_count:
@@ -972,6 +987,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         if not isinstance(thermal, Mapping):
             return None
         return {"schema_version": (
+                "sentientos.resource_admission_host_observation_binding:v3"
+                if policy_artifact_present else
                 "sentientos.resource_admission_host_observation_binding:v2"
                 if policy_field_count else
                 "sentientos.resource_admission_host_observation_binding:v1"),

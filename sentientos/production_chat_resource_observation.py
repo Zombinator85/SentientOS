@@ -56,6 +56,10 @@ from .production_chat_resource_provisioning import (
     _mapping,
     validate_resource_provisioning_id,
 )
+from .host_resource_policy import (
+    host_resource_policy_decision_digest,
+    host_resource_policy_decision_from_dict,
+)
 
 _RECEIPT_NAME = re.compile(r"lmrec-[0-9a-f]{24}\.json\Z")
 _RECEIPT_TEMP_NAME = re.compile(r"\.lmrec-[0-9a-f]{24}\.json\.[A-Za-z0-9_-]{1,64}\.tmp\Z")
@@ -70,6 +74,8 @@ _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA = (
     "sentientos.resource_admission_host_observation_binding:v2")
 _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA_V1 = (
     "sentientos.resource_admission_host_observation_binding:v1")
+_RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA_V3 = (
+    "sentientos.resource_admission_host_observation_binding:v3")
 _RESOURCE_RELEASE_RECEIPT_SCHEMA_V2 = (
     "sentientos.production_chat_resource_release_receipt:v2")
 _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3 = (
@@ -770,9 +776,32 @@ class ProductionChatResourceObservationOwner:
             if policy_field_count not in {0, len(policy_fields)}:
                 raise ProductionChatResourceObservationError(
                     "resource_inference_host_observation_binding_invalid")
-            host_fields = legacy_host_fields + (policy_fields
-                if policy_field_count else ())
-            host_binding_schema = (_RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA
+            policy_artifact_present = "policy_decision" in host_observation
+            if policy_artifact_present != bool(policy_field_count):
+                raise ProductionChatResourceObservationError(
+                    "resource_inference_host_observation_binding_invalid")
+            policy_decision = None
+            if policy_artifact_present:
+                raw_policy_decision = host_observation.get("policy_decision")
+                policy_decision = host_resource_policy_decision_from_dict(
+                    raw_policy_decision) if isinstance(raw_policy_decision, Mapping) else None
+                if (policy_decision is None
+                        or host_resource_policy_decision_digest(policy_decision)
+                            != host_observation.get("policy_decision_digest")
+                        or policy_decision.decision_id
+                            != host_observation.get("policy_decision_id")
+                        or policy_decision.status
+                            != host_observation.get("policy_decision_status")
+                        or policy_decision.proposal_only is not True):
+                    raise ProductionChatResourceObservationError(
+                        "resource_inference_host_policy_decision_invalid")
+            host_fields = legacy_host_fields + (
+                policy_fields if policy_field_count else ()) + (
+                ("policy_decision",) if policy_artifact_present else ())
+            host_binding_schema = (
+                _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA_V3
+                if policy_artifact_present else
+                _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA
                 if policy_field_count else _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA_V1)
             host_values = {key: host_observation.get(key) for key in host_fields}
 

@@ -1142,6 +1142,8 @@ class RuntimeGovernor:
                 "policy_decision_status": evaluation.policy_decision.status,
                 "policy_decision_digest": host_resource_policy_decision_digest(
                     evaluation.policy_decision),
+                "policy_decision": json.loads(json.dumps(
+                    evaluation.policy_decision.to_dict(), sort_keys=True)),
                 "policy_proposal_only": evaluation.policy_decision.proposal_only,
                 "gpu_telemetry_sources": [
                     {"collector_id": result.collector_id, "status": result.status,
@@ -2561,6 +2563,7 @@ class RuntimeGovernor:
                             "policy_decision_status"),
                         "policy_decision_digest": evidence.get(
                             "policy_decision_digest"),
+                        "policy_decision": evidence.get("policy_decision"),
                         "policy_proposal_only": evidence.get(
                             "policy_proposal_only"),
                         "observation_correlation_id": evidence[
