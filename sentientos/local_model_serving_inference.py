@@ -260,6 +260,9 @@ class ProductionServingInferenceController:
             "epoch_id": evaluation.epoch.epoch_id, "snapshot_id": evaluation.snapshot.snapshot_id,
             "report_id": evaluation.pressure_report.report_id,
             "report_digest": evaluation.policy_decision.report_digest,
+            "policy_decision_id": evaluation.policy_decision.decision_id,
+            "policy_decision_status": evaluation.policy_decision.status,
+            "policy_proposal_only": evaluation.policy_decision.proposal_only,
             "semantic_digest": evaluation.semantic_digest,
             "observed_at": evaluation.epoch.observed_at,
             "pressure_labels": list(evaluation.pressure_report.pressure_labels),
@@ -306,6 +309,9 @@ class ProductionServingInferenceController:
             "observation_correlation_id": evaluation.epoch.correlation_id,
             "report_id": evaluation.pressure_report.report_id,
             "report_digest": evaluation.policy_decision.report_digest,
+            "policy_decision_id": evaluation.policy_decision.decision_id,
+            "policy_decision_status": evaluation.policy_decision.status,
+            "policy_proposal_only": evaluation.policy_decision.proposal_only,
             "observed_at": evaluation.epoch.observed_at,
             "pressure_labels": list(evaluation.pressure_report.pressure_labels),
             "thermal_zone_temperatures_c": _bounded_thermal_zone_temperatures(
@@ -345,6 +351,9 @@ class ProductionServingInferenceController:
             "observation_correlation_id": evaluation.epoch.correlation_id,
             "report_id": evaluation.pressure_report.report_id,
             "report_digest": evaluation.policy_decision.report_digest,
+            "policy_decision_id": evaluation.policy_decision.decision_id,
+            "policy_decision_status": evaluation.policy_decision.status,
+            "policy_proposal_only": evaluation.policy_decision.proposal_only,
             "observed_at": evaluation.epoch.observed_at,
         }
         return all(observation.get(key) == value for key, value in expected.items())

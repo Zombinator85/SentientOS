@@ -432,6 +432,9 @@ def test_nvml_gpu_pressure_reaches_background_inference_admission(monkeypatch, t
     resource_evidence = decision.delegated_outcomes["runtime_governor"]["evidence_refs"]["host_resource_evidence"]
     assert resource_evidence["gpu_utilization_percent"] == 95.0
     assert resource_evidence["vram_utilization_percent"] == 92.0
+    assert resource_evidence["policy_decision_id"] == evaluation.policy_decision.decision_id
+    assert resource_evidence["policy_decision_status"] == evaluation.policy_decision.status
+    assert resource_evidence["policy_proposal_only"] is True
 
 
 def test_vram_only_pressure_defers_optional_inference(monkeypatch, tmp_path):

@@ -399,7 +399,18 @@ def test_current_host_pressure_defers_optional_foreground_inference_by_resource_
         inference_decision = next(item for item in decisions
             if item.get("action_kind") == "local_model_inference")
         delegated = inference_decision["delegated_outcomes"]["runtime_governor"]
-        assert delegated["evidence_refs"]["host_resource_evidence"]["status"] == "current"
+        host_evidence = delegated["evidence_refs"]["host_resource_evidence"]
+        host_observation = receipt.request["linkage"]["host_resource_observation"]
+        assert host_evidence["status"] == "current"
+        assert host_observation["policy_decision_id"] == host_evidence[
+            "policy_decision_id"]
+        assert host_observation["policy_decision_status"] == host_evidence[
+            "policy_decision_status"]
+        assert host_observation["policy_proposal_only"] is True
+        assert host_evidence["policy_proposal_only"] is True
+        assert bridge._host_observation_is_current_for_release(host_observation)
+        assert not bridge._host_observation_is_current_for_release({
+            **host_observation, "policy_decision_id": "hrpd_tampered"})
         assert delegated["evidence_refs"]["resource_allocation_binding"] == {
             "schema_version": (
                 "sentientos.governed_local_model_resource_allocation_admission_context:v1"),

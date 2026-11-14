@@ -1137,6 +1137,9 @@ class RuntimeGovernor:
                 "snapshot_id": evaluation.snapshot.snapshot_id,
                 "report_id": evaluation.pressure_report.report_id,
                 "report_digest": evaluation.policy_decision.report_digest,
+                "policy_decision_id": evaluation.policy_decision.decision_id,
+                "policy_decision_status": evaluation.policy_decision.status,
+                "policy_proposal_only": evaluation.policy_decision.proposal_only,
                 "gpu_telemetry_sources": [
                     {"collector_id": result.collector_id, "status": result.status,
                      "source": result.source[:128]}
@@ -2550,6 +2553,11 @@ class RuntimeGovernor:
                         "snapshot_id": evidence["snapshot_id"],
                         "report_id": evidence["report_id"],
                         "report_digest": evidence["report_digest"],
+                        "policy_decision_id": evidence.get("policy_decision_id"),
+                        "policy_decision_status": evidence.get(
+                            "policy_decision_status"),
+                        "policy_proposal_only": evidence.get(
+                            "policy_proposal_only"),
                         "observation_correlation_id": evidence[
                             "observation_correlation_id"],
                         "observed_at": evidence.get("observed_at"),
