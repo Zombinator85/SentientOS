@@ -63,6 +63,8 @@ _REQUEST_NAME = re.compile(r"lmreq-[0-9a-f]{24}\Z")
 _RESOURCE_ADMISSION_BINDING_SCHEMA = (
     "sentientos.governed_local_model_resource_allocation_admission_context:v1")
 _RESOURCE_ADMISSION_WITNESS_SCHEMA = (
+    "sentientos.resource_bound_inference_admission_witness:v3")
+_RESOURCE_ADMISSION_WITNESS_SCHEMA_V2 = (
     "sentientos.resource_bound_inference_admission_witness:v2")
 _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA = (
     "sentientos.resource_admission_host_observation_binding:v1")
@@ -713,8 +715,16 @@ class ProductionChatResourceObservationOwner:
                 or dict(binding) != expected_binding):
             raise ProductionChatResourceObservationError(
                 "resource_inference_admission_binding_invalid")
+        if (invocation.get("schema_version") ==
+                "sentientos.local_model_invocation_receipt:v8"
+                and decision != invocation.get("admission_decision_record")):
+            raise ProductionChatResourceObservationError(
+                "resource_inference_admission_record_mismatch")
         return {
-            "schema_version": _RESOURCE_ADMISSION_WITNESS_SCHEMA,
+            "schema_version": (_RESOURCE_ADMISSION_WITNESS_SCHEMA
+                if invocation.get("schema_version") ==
+                    "sentientos.local_model_invocation_receipt:v8"
+                else _RESOURCE_ADMISSION_WITNESS_SCHEMA_V2),
             "invocation_receipt_id": invocation.get("receipt_id"),
             "invocation_receipt_digest": invocation.get("receipt_digest"),
             "request_id": request_id,
@@ -723,6 +733,9 @@ class ProductionChatResourceObservationOwner:
             "correlation_id": correlation_id,
             "resource_allocation_binding": expected_binding,
             "host_resource_observation_binding": host_observation_binding,
+            **({"admission_decision_record": dict(decision)}
+                if invocation.get("schema_version") ==
+                    "sentientos.local_model_invocation_receipt:v8" else {}),
         }
 
     def _invocation_receipts(self, allocation: GovernedLocalModelResourceAllocation

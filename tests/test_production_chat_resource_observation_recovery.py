@@ -515,11 +515,14 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
         observed = observer.observe()
         witness = observed.verified_inference_admission_decisions[0]
         assert witness["schema_version"] == (
-            "sentientos.resource_bound_inference_admission_witness:v2")
+            "sentientos.resource_bound_inference_admission_witness:v3")
+        assert witness["admission_decision_record"] == (
+            receipt.admission_decision_record)
         host_binding = witness["host_resource_observation_binding"]
         assert host_binding["status"] == "current"
         assert host_binding["report_digest"] == host_observation["report_digest"]
         assert host_binding["semantic_digest"] == host_observation["semantic_digest"]
+        assert receipt.admission_decision_record == json.loads(decision_bytes)
         projection = resource_consumption_world_state_records(
             ledger=observed.ledger,
             invocation_receipts=observed.invocation_receipts,
@@ -529,6 +532,8 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
             "verified_current_observation")
         assert projected_invocation["host_resource_observation_admission_binding"] == (
             host_binding)
+        assert projected_invocation["admission_decision_record"] == (
+            receipt.admission_decision_record)
 
         tampered_decision = json.loads(decision_bytes)
         tampered_decision["delegated_outcomes"]["runtime_governor"][

@@ -371,12 +371,18 @@ def test_governed_cancellation_admission_is_bound_to_receipt(
     assert "cancelled_for_workload_transition" in result[0].reason_codes
     assert result[0].cancellation_admission_decision_ref == (
         decision.admission_decision_ref)
-    assert result[0].schema_version == "sentientos.local_model_invocation_receipt:v7"
+    assert result[0].schema_version == "sentientos.local_model_invocation_receipt:v8"
     valid, reasons = validate_receipt(result[0].to_dict())
     assert valid, reasons
     persisted = json.loads((tmp_path / "runtime" / "receipts" /
         f"{result[0].receipt_id}.json").read_text(encoding="utf-8"))
     assert validate_receipt(persisted)[0]
+    inference_record = result[0].admission_decision_record
+    assert inference_record is not None
+    assert inference_record["action_kind"] == "local_model_inference"
+    assert inference_record["admission_decision_ref"] == (
+        result[0].admission_decision_ref)
+    assert persisted["admission_decision_record"] == inference_record
     assert persisted["cancellation_admission_decision_ref"] == (
         decision.admission_decision_ref)
     expected_kernel_record = kernel.recorded_decision_payload(decision)
@@ -387,8 +393,37 @@ def test_governed_cancellation_admission_is_bound_to_receipt(
         if json.loads(line).get("admission_decision_ref") ==
             decision.admission_decision_ref)
     assert result[0].cancellation_admission_record == logged_kernel_record
+    logged_inference_record = next(json.loads(line) for line in
+        (tmp_path / "decisions.jsonl").read_text(encoding="utf-8").splitlines()
+        if json.loads(line).get("admission_decision_ref") ==
+            result[0].admission_decision_ref)
+    assert inference_record == logged_inference_record
     assert published_receipts[0]["receipt_digest"] == result[0].receipt_digest
     assert model.cancelled.is_set()
+
+
+def test_unrecorded_inference_admission_never_enters_backend(
+        tmp_path: Path, monkeypatch) -> None:
+    model, invoker = _invoker(tmp_path)
+    request = invoker.build_request(purpose="local_user_chat", prompt="hello",
+        caller="test", correlation_id="unrecorded-inference-admission")
+
+    def fail_append(_payload):
+        raise OSError("synthetic_decision_log_failure")
+
+    monkeypatch.setattr(invoker.kernel, "_append", fail_append)
+    receipt = invoker.invoke(request)
+
+    assert receipt.status == "admission_unrecorded"
+    assert "admission_decision_not_recorded" in receipt.reason_codes
+    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v8"
+    assert receipt.admission_decision_record is None
+    assert receipt.effects["local_model_inference"] is False
+    assert model.calls == 0
+    valid, findings = validate_receipt(receipt.to_dict())
+    assert valid, findings
+    assert not (tmp_path / "runtime" / "decisions" /
+        f"{request.request_id}.json").exists()
 
 
 def test_unconfirmed_timeout_is_bounded_and_blocks_overlapping_generation(
@@ -440,7 +475,7 @@ def test_backend_reported_token_limit_is_bound_and_makes_output_unscoreable(tmp_
         caller="test", correlation_id="backend-token-limit",
         budget=LocalModelInvocationBudget(max_new_tokens=8))
     receipt = inv.invoke(request)
-    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v3"
+    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v8"
     assert receipt.output_truncated is True
     assert "backend_token_limit_reached" in receipt.reason_codes
     payload = receipt.to_dict()

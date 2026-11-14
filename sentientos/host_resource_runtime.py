@@ -54,6 +54,7 @@ _DIGEST_BOUND_INVOCATION_RECEIPT_SCHEMAS = frozenset({
     "sentientos.local_model_invocation_receipt:v5",
     "sentientos.local_model_invocation_receipt:v6",
     "sentientos.local_model_invocation_receipt:v7",
+    "sentientos.local_model_invocation_receipt:v8",
 })
 
 
@@ -744,18 +745,23 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         "request_id", "request_digest", "admission_decision_ref", "correlation_id",
         "resource_allocation_binding"}
     witness_v2_fields = witness_v1_fields | {"host_resource_observation_binding"}
+    witness_v3_fields = witness_v2_fields | {"admission_decision_record"}
     if verified_inference_admission_decisions is not None:
         for witness in verified_inference_admission_decisions:
             if (not isinstance(witness, Mapping)
                     or witness.get("schema_version") not in {
                         "sentientos.resource_bound_inference_admission_witness:v1",
-                        "sentientos.resource_bound_inference_admission_witness:v2"}
+                        "sentientos.resource_bound_inference_admission_witness:v2",
+                        "sentientos.resource_bound_inference_admission_witness:v3"}
                     or (witness.get("schema_version") ==
                         "sentientos.resource_bound_inference_admission_witness:v1"
                         and set(witness) != witness_v1_fields)
                     or (witness.get("schema_version") ==
                         "sentientos.resource_bound_inference_admission_witness:v2"
-                        and set(witness) != witness_v2_fields)):
+                        and set(witness) != witness_v2_fields)
+                    or (witness.get("schema_version") ==
+                        "sentientos.resource_bound_inference_admission_witness:v3"
+                        and set(witness) != witness_v3_fields)):
                 raise ValueError("inference_admission_decision_witness_invalid")
             receipt_id = witness.get("invocation_receipt_id")
             if not isinstance(receipt_id, str) or not receipt_id or receipt_id in admission_by_receipt:
@@ -776,7 +782,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     "sentientos.local_model_invocation_receipt:v4",
                     "sentientos.local_model_invocation_receipt:v5",
                     "sentientos.local_model_invocation_receipt:v6",
-                    "sentientos.local_model_invocation_receipt:v7"}:
+                    "sentientos.local_model_invocation_receipt:v7",
+                    "sentientos.local_model_invocation_receipt:v8"}:
                 raise ValueError("resource_invocation_receipt_schema_unsupported")
             # Current receipts must prove their semantic digest and schema
             # contract before any downstream resource lineage uses them. Keep
@@ -934,15 +941,17 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     invocation.get("receipt_id"))] = "missing_or_invalid_reference"
             elif (invocation.get("schema_version") in {
                     "sentientos.local_model_invocation_receipt:v6",
-                    "sentientos.local_model_invocation_receipt:v7"}
+                    "sentientos.local_model_invocation_receipt:v7",
+                    "sentientos.local_model_invocation_receipt:v8"}
                     and isinstance(invocation.get("cancellation_admission_decision"), Mapping)
                     and invocation["cancellation_admission_decision"].get(
                         "admission_decision_ref") == cancellation_ref):
                 workload_preemption_admission_posture_by_receipt[str(
                     invocation.get("receipt_id"))] = (
                         "verified_receipt_bound_kernel_record"
-                        if invocation.get("schema_version") ==
-                            "sentientos.local_model_invocation_receipt:v7"
+                        if invocation.get("schema_version") in {
+                            "sentientos.local_model_invocation_receipt:v7",
+                            "sentientos.local_model_invocation_receipt:v8"}
                         else "verified_receipt_bound_decision")
             else:
                 workload_preemption_admission_posture_by_receipt[str(
@@ -978,7 +987,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 if isinstance(request_linkage, Mapping) else None)
             host_binding = (admission_witness.get("host_resource_observation_binding")
                 if isinstance(admission_witness, Mapping)
-                and witness_schema == "sentientos.resource_bound_inference_admission_witness:v2"
+                and witness_schema in {
+                    "sentientos.resource_bound_inference_admission_witness:v2",
+                    "sentientos.resource_bound_inference_admission_witness:v3"}
                 else None)
             if isinstance(request_host_observation, Mapping):
                 if request_host_observation.get("status") == "current":
@@ -1008,10 +1019,18 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     or admission_witness.get("request_digest") != request_digest
                     or admission_witness.get("correlation_id") != correlation_id
                     or not isinstance(correlation_id, str)
+                    or (invocation.get("schema_version") ==
+                        "sentientos.local_model_invocation_receipt:v8"
+                        and witness_schema !=
+                            "sentientos.resource_bound_inference_admission_witness:v3")
                     or admission_witness.get("admission_decision_ref")
                         != invocation.get("admission_decision_ref")
                     or admission_witness.get("admission_decision_ref")
                         != f"kernel_decision:{correlation_id}"
+                    or (witness_schema ==
+                        "sentientos.resource_bound_inference_admission_witness:v3"
+                        and admission_witness.get("admission_decision_record")
+                            != invocation.get("admission_decision_record"))
                     or not isinstance(allocation_binding, Mapping)
                     or dict(allocation_binding) != expected_binding):
                 lineage_findings.append(
@@ -1192,6 +1211,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         "resource_linkage_digest": invocation.get("resource_linkage_digest"),
         "admission_decision_ref": admission_by_receipt.get(
             str(invocation.get("receipt_id")), {}).get("admission_decision_ref"),
+        "admission_decision_record": invocation.get("admission_decision_record"),
         "cancellation_admission_decision_ref": invocation.get(
             "cancellation_admission_decision_ref"),
         "cancellation_admission_decision": invocation.get(

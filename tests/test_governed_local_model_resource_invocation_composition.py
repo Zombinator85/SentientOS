@@ -203,7 +203,7 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(
     projected = resource_consumption_world_state_records(
         ledger=ledger, invocation_receipts=[receipt.to_dict()],
         verified_inference_admission_decisions=[{
-            "schema_version": "sentientos.resource_bound_inference_admission_witness:v1",
+            "schema_version": "sentientos.resource_bound_inference_admission_witness:v3",
             "invocation_receipt_id": receipt.receipt_id,
             "invocation_receipt_digest": receipt.receipt_digest,
             "request_id": receipt.request["request_id"],
@@ -221,6 +221,8 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(
                 "policy_epoch": context.allocation.epoch,
                 "principal_binding_digest": context.allocation.principal_binding_digest,
             },
+            "host_resource_observation_binding": None,
+            "admission_decision_record": receipt.admission_decision_record,
         }])[0]
     assert projected["disposition"] == "recorded"
     projected_invocation = projected["payload"]["invocation_receipts"][0]
@@ -282,9 +284,7 @@ def test_timed_out_worker_sample_reconciles_reserved_cpu_entitlement(
     receipt = invoker.invoke(request, resource_context=context)
 
     assert receipt.status == "timeout"
-    assert receipt.schema_version == (
-        "sentientos.local_model_invocation_receipt:v5" if cancellation_confirmed
-        else "sentientos.local_model_invocation_receipt:v2")
+    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v8"
     assert ledger._state["receipts"][-2]["state"] == "measured_timeout"
     measurement = ledger._state["receipts"][-2]["resource_specific_measurement"]
     if cancellation_confirmed:
@@ -331,6 +331,7 @@ def test_inference_admission_records_exact_preflighted_resource_allocation(
         encoding="utf-8").splitlines()]
     decision = next(item for item in decisions
         if item.get("action_kind") == "local_model_inference")
+    assert receipt.admission_decision_record == decision
     binding = decision["delegated_outcomes"]["runtime_governor"][
         "evidence_refs"]["resource_allocation_binding"]
     assert binding == {
@@ -398,7 +399,7 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
     projected = resource_consumption_world_state_records(
         ledger=ledger, invocation_receipts=[receipt.to_dict()],
         verified_inference_admission_decisions=[{
-            "schema_version": "sentientos.resource_bound_inference_admission_witness:v1",
+            "schema_version": "sentientos.resource_bound_inference_admission_witness:v3",
             "invocation_receipt_id": receipt.receipt_id,
             "invocation_receipt_digest": receipt.receipt_digest,
             "request_id": receipt.request["request_id"],
@@ -416,12 +417,16 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
                 "policy_epoch": context.allocation.epoch,
                 "principal_binding_digest": context.allocation.principal_binding_digest,
             },
+            "host_resource_observation_binding": None,
+            "admission_decision_record": receipt.admission_decision_record,
         }])[0]
     assert projected["disposition"] == "recorded"
     assert projected["payload"]["lineage_posture"] == "verified"
     assert projected["payload"]["inference_admission_decision_posture"] == "verified"
     assert projected["payload"]["invocation_receipts"][0][
         "admission_decision_ref"] == receipt.admission_decision_ref
+    assert projected["payload"]["invocation_receipts"][0][
+        "admission_decision_record"] == receipt.admission_decision_record
 
     tampered_receipt = receipt.to_dict()
     tampered_receipt["status"] = "cancelled"
@@ -444,7 +449,7 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
     assert missing_admission["payload"]["inference_admission_decision_posture"] == "degraded"
 
     substituted_admission = {
-        "schema_version": "sentientos.resource_bound_inference_admission_witness:v1",
+        "schema_version": "sentientos.resource_bound_inference_admission_witness:v3",
         "invocation_receipt_id": receipt.receipt_id,
         "invocation_receipt_digest": receipt.receipt_digest,
         "request_id": receipt.request["request_id"],
@@ -462,6 +467,8 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
             "policy_epoch": context.allocation.epoch,
             "principal_binding_digest": context.allocation.principal_binding_digest,
         },
+        "host_resource_observation_binding": None,
+        "admission_decision_record": receipt.admission_decision_record,
     }
     substituted_projection = resource_consumption_world_state_records(
         ledger=ledger, invocation_receipts=[receipt.to_dict()],
