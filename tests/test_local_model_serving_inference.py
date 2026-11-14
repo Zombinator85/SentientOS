@@ -1136,8 +1136,8 @@ def test_normal_mode_releases_only_idle_residency_under_host_pressure(
         if expected_trigger == "idle_host_memory_resource_reconciliation":
             assert release_evidence["ram_utilization_percent"] == 94.0
         else:
-            assert release_evidence["gpu_utilization_percent"] == 94.0
-            assert release_evidence["vram_utilization_percent"] == 92.0
+            assert release_evidence["gpu_utilization_percent"] == gpu_percent
+            assert release_evidence["vram_utilization_percent"] == vram_percent
     else:
         assert state_after_reconciliation == [(False, True)]
         assert result["reason"] == ("current_host_gpu_pressure_required"
