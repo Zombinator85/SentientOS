@@ -343,7 +343,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                               verified_chat_process_runtime_observation: Mapping[str, Any] | None = None,
                                               verified_serving_operation_attempts: Sequence[Mapping[str, Any]] = (),
                                               verified_serving_operation_history: Sequence[Mapping[str, Any]] = (),
-                                              verified_inference_admission_decisions: Sequence[Mapping[str, Any]] | None = None) -> list[dict[str, Any]]:
+                                              verified_inference_admission_decisions: Sequence[Mapping[str, Any]] | None = None,
+                                              verified_resource_release_receipts: Sequence[Mapping[str, Any]] | None = None) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
 
     The projection carries exact ledger identities and invocation linkage. It
@@ -380,6 +381,74 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     if (verified_inference_admission_decisions is not None
             and len(verified_inference_admission_decisions) > 256):
         raise ValueError("inference_admission_decision_bound_exceeded")
+    if (verified_resource_release_receipts is not None
+            and len(verified_resource_release_receipts) > 256):
+        raise ValueError("resource_release_receipt_bound_exceeded")
+    release_receipt_summaries: list[dict[str, Any]] = []
+    seen_release_receipt_ids: set[str] = set()
+    if verified_resource_release_receipts is not None:
+        def bounded_release_observation(value: Any, *, post_release: bool = False
+                ) -> dict[str, Any] | None:
+            if not isinstance(value, Mapping):
+                return None
+            allowed = ({"observation_correlation_id", "report_id", "report_digest",
+                "observed_at", "gpu_utilization_percent", "vram_utilization_percent",
+                "ram_utilization_percent", "cpu_utilization_percent"}
+                if post_release else {
+                "observation_correlation_id", "host_report_id", "host_report_digest",
+                "pressure_labels", "game_workload_message_id", "workload_mode",
+                "workload_mode_source", "workload_observation_status", "configured_mode",
+                "game_foreground", "game_process_running", "gpu_utilization_percent",
+                "vram_utilization_percent", "ram_utilization_percent",
+                "cpu_utilization_percent", "model_gpu_layers",
+                "host_telemetry_used_for_admission",
+                "active_inference_preemption_requested"})
+            summary = {key: value[key] for key in allowed if key in value}
+            labels = summary.get("pressure_labels")
+            if isinstance(labels, (list, tuple)):
+                summary["pressure_labels"] = tuple(
+                    item for item in labels[:16]
+                    if isinstance(item, str) and len(item) <= 128)
+            return summary
+
+        for release_receipt in verified_resource_release_receipts:
+            if (not isinstance(release_receipt, Mapping)
+                    or release_receipt.get("schema_version")
+                        != "sentientos.production_chat_resource_release_receipt:v2"):
+                raise ValueError("resource_release_receipt_invalid")
+            receipt_id = release_receipt.get("receipt_id")
+            receipt_digest = release_receipt.get("receipt_semantic_digest")
+            decision_ref = release_receipt.get("release_admission_decision_ref")
+            correlation = release_receipt.get("release_correlation_id")
+            if (not isinstance(receipt_id, str) or not receipt_id
+                    or receipt_id in seen_release_receipt_ids
+                    or not isinstance(receipt_digest, str) or not receipt_digest
+                    or not isinstance(correlation, str) or not correlation
+                    or decision_ref != f"kernel_decision:{correlation}"):
+                raise ValueError("resource_release_receipt_identity_invalid")
+            seen_release_receipt_ids.add(receipt_id)
+            summary = {key: release_receipt.get(key) for key in (
+                "receipt_id", "receipt_semantic_digest", "status", "trigger_kind",
+                "trigger_correlation_id", "release_correlation_id",
+                "serving_session_id", "serving_operation_id", "model_identity_digest",
+                "release_admission_decision_ref", "release_admission_outcome",
+                "active_inference_preemption_requested",
+                "active_inference_cancellation_confirmed", "worker_exit_observed",
+                "close_failure", "inference_performed", "host_mutation_performed")}
+            summary["resource_observation"] = bounded_release_observation(
+                release_receipt.get("resource_observation"))
+            summary["post_release_observation"] = bounded_release_observation(
+                release_receipt.get("post_release_observation"), post_release=True)
+            comparison = release_receipt.get("resource_measurement_comparison")
+            if isinstance(comparison, Mapping):
+                summary["resource_measurement_comparison"] = {
+                    key: comparison.get(key) for key in (
+                        "status", "gpu_utilization_delta_percentage_points",
+                        "vram_utilization_delta_percentage_points",
+                        "ram_utilization_delta_percentage_points",
+                        "cpu_utilization_delta_percentage_points", "interpretation")
+                    if key in comparison}
+            release_receipt_summaries.append(summary)
     admission_by_receipt: dict[str, Mapping[str, Any]] = {}
     if verified_inference_admission_decisions is not None:
         for witness in verified_inference_admission_decisions:
@@ -711,6 +780,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     retention_incomplete = (len(all_allocations) > 16 or len(all_attempts) > max_attempts
         or len(raw_receipts) > min(max_receipts, 16)
         or len(invocation_receipts) > min(max_invocation_receipts, 16)
+        or len(release_receipt_summaries) > 16
         or len(incomplete_attempt_ids) > 64 or len(set(lineage_findings)) > 64)
     bounded_lineage_findings = tuple(sorted(set(lineage_findings)))
     bounded_incomplete_attempt_ids = tuple(sorted(incomplete_attempt_ids))
@@ -724,6 +794,11 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "consumption_receipt_count": len(raw_receipts),
                "invocation_receipts": compact_invocations,
                "invocation_receipt_count": len(invocation_receipts),
+               "resource_release_receipts": tuple(release_receipt_summaries[-16:]),
+               "resource_release_receipt_count": len(release_receipt_summaries),
+               "resource_release_receipt_posture": (
+                   "not_requested" if verified_resource_release_receipts is None
+                   else "verified" if release_receipt_summaries else "verified_no_release_receipts"),
                "inference_admission_decision_count": len(admission_by_receipt),
                "inference_admission_decision_posture": (
                    "not_requested" if verified_inference_admission_decisions is None

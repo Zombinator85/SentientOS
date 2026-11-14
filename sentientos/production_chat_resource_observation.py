@@ -7,6 +7,7 @@ ledger image; it never constructs an allocator or ledger writer.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import json
 import os
 import re
@@ -63,6 +64,11 @@ _RESOURCE_ADMISSION_BINDING_SCHEMA = (
     "sentientos.governed_local_model_resource_allocation_admission_context:v1")
 _RESOURCE_ADMISSION_WITNESS_SCHEMA = (
     "sentientos.resource_bound_inference_admission_witness:v1")
+_RESOURCE_RELEASE_RECEIPT_SCHEMA = (
+    "sentientos.production_chat_resource_release_receipt:v2")
+_RESOURCE_RELEASE_NAME = re.compile(
+    r"serving-resource-release-[0-9a-f]{24}\.json\Z")
+_MAX_RESOURCE_RELEASE_RECEIPTS = 256
 
 
 class ProductionChatResourceObservationError(ValueError):
@@ -95,6 +101,8 @@ class ProductionChatResourceObservation:
     predecessor_invocation_receipt_posture: str = "unknown"
     verified_inference_admission_decisions: tuple[Mapping[str, Any], ...] = ()
     inference_admission_decision_posture: str = "unknown"
+    verified_resource_release_receipts: tuple[Mapping[str, Any], ...] = ()
+    resource_release_receipt_posture: str = "unknown"
 
 
 class ProductionChatResourceObservationOwner:
@@ -248,6 +256,8 @@ class ProductionChatResourceObservationOwner:
         except ProductionServingError as exc:
             raise ProductionChatResourceObservationError(
                 "serving_operation_history_invalid:" + str(exc)) from exc
+        resource_release_receipts, resource_release_posture = (
+            self._resource_release_receipts())
         return ProductionChatResourceObservation(
             self._handle.identity.value, self._provisioning_id,
             str(manifest["manifest_digest"]), ledger, invocation_receipts, receipt_posture,
@@ -255,7 +265,81 @@ class ProductionChatResourceObservationOwner:
             runtime_observation, runtime_observation_posture,
             serving_attempts, serving_attempt_posture, serving_operation_history,
             predecessor_receipts, predecessor_receipt_posture,
-            admission_witnesses, admission_posture)
+            admission_witnesses, admission_posture,
+            resource_release_receipts, resource_release_posture)
+
+    def _resource_release_receipts(
+            self) -> tuple[tuple[Mapping[str, Any], ...], str]:
+        try:
+            names = self._handle.list_regular_names(
+                "local-model/serving/resource-release-receipts",
+                max_entries=_MAX_RESOURCE_RELEASE_RECEIPTS)
+        except InstallationStateError as exc:
+            if exc.code == "state_directory_missing":
+                return (), "verified_no_release_receipts"
+            raise ProductionChatResourceObservationError(
+                "resource_release_receipt_directory_invalid") from exc
+        receipts: list[Mapping[str, Any]] = []
+        seen_ids: set[str] = set()
+        for name in names:
+            if _RESOURCE_RELEASE_NAME.fullmatch(name) is None:
+                raise ProductionChatResourceObservationError(
+                    "resource_release_receipt_name_invalid")
+            try:
+                raw = self._handle.read_regular_bounded(
+                    "local-model/serving/resource-release-receipts/" + name,
+                    max_bytes=262_144)
+            except InstallationStateError as exc:
+                raise ProductionChatResourceObservationError(
+                    "resource_release_receipt_read_invalid") from exc
+            try:
+                value = _mapping(raw, "resource_release_receipt_json_invalid")
+            except ValueError as exc:
+                raise ProductionChatResourceObservationError(
+                    "resource_release_receipt_json_invalid") from exc
+            receipt_id = value.get("receipt_id")
+            semantic_digest = value.get("receipt_semantic_digest")
+            body = dict(value)
+            body.pop("receipt_semantic_digest", None)
+            claimed_body = dict(body)
+            claimed_body.pop("receipt_id", None)
+            try:
+                actual_semantic_digest = hashlib.sha256(json.dumps(
+                    body, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+                actual_receipt_id = "serving-resource-release-" + hashlib.sha256(
+                    json.dumps(claimed_body, sort_keys=True, separators=(",", ":"),
+                        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()[:24]
+            except (TypeError, ValueError) as exc:
+                raise ProductionChatResourceObservationError(
+                    "resource_release_receipt_canonicalization_invalid") from exc
+            release_correlation = value.get("release_correlation_id")
+            resource_observation = value.get("resource_observation")
+            if (not isinstance(receipt_id, str) or receipt_id != name[:-5]
+                    or receipt_id in seen_ids
+                    or value.get("schema_version") != _RESOURCE_RELEASE_RECEIPT_SCHEMA
+                    or semantic_digest != actual_semantic_digest
+                    or receipt_id != actual_receipt_id
+                    or value.get("status") not in {
+                        "worker_closed", "release_effect_unconfirmed", "denied"}
+                    or not isinstance(value.get("trigger_kind"), str)
+                    or not value.get("trigger_kind")
+                    or not isinstance(release_correlation, str)
+                    or not release_correlation
+                    or value.get("release_admission_decision_ref")
+                        != f"kernel_decision:{release_correlation}"
+                    or not isinstance(value.get("serving_session_id"), str)
+                    or not isinstance(value.get("model_identity_digest"), str)
+                    or not isinstance(resource_observation, Mapping)
+                    or value.get("inference_performed") is not False
+                    or value.get("host_mutation_performed") is not False):
+                raise ProductionChatResourceObservationError(
+                    "resource_release_receipt_binding_invalid")
+            seen_ids.add(receipt_id)
+            receipts.append(dict(value))
+        receipts.sort(key=lambda item: str(item.get("receipt_id", "")))
+        return tuple(receipts), (
+            "verified" if receipts else "verified_no_release_receipts")
 
     def _resource_admission_witness(self, invocation: Mapping[str, Any],
                                     allocation: GovernedLocalModelResourceAllocation
