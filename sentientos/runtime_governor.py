@@ -2900,12 +2900,13 @@ class RuntimeGovernor:
             "serving_session_id", "model_identity_digest",
             "observation_correlation_id", "host_report_id", "host_report_digest",
             "pressure_labels", "observed_at",
+            "active_inference_request_reference",
         }
         host_pressure_preemption_valid = (
             isinstance(preemption, Mapping)
             and set(preemption) == host_pressure_preemption_fields
             and preemption.get("schema_version") ==
-                "sentientos.active_inference_preemption:v2"
+                "sentientos.active_inference_preemption:v3"
             and preemption.get("preemption_kind") == "host_resource_pressure"
             and preemption.get("workload_mode") == "normal"
             and actor == "production_chat_host_resource_governor"
@@ -2926,6 +2927,21 @@ class RuntimeGovernor:
             and isinstance(preemption.get("pressure_labels"), list)
             and preemption.get("pressure_labels") == sorted(pressure_reasons)
             and bool(pressure_reasons)
+            and isinstance(preemption.get(
+                "active_inference_request_reference"), Mapping)
+            and set(preemption["active_inference_request_reference"]) == {
+                "request_id", "request_digest", "correlation_id"}
+            and all(isinstance(preemption["active_inference_request_reference"].get(key), str)
+                and preemption["active_inference_request_reference"].get(key)
+                for key in ("request_id", "request_digest", "correlation_id"))
+            and preemption.get("active_inference_request_reference")
+                == payload.get("active_inference_request_reference")
+            and isinstance(correlation_id, str)
+            and correlation_id.startswith(
+                "active-inference-preemption:" + hashlib.sha256(json.dumps(
+                    dict(preemption["active_inference_request_reference"]),
+                    sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False).encode("utf-8")).hexdigest() + ":")
         )
         preemption_valid = game_preemption_valid or host_pressure_preemption_valid
         if preemption_requested:

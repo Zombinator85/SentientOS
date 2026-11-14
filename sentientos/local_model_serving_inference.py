@@ -1190,7 +1190,7 @@ class ProductionServingInferenceController:
                     "host_resource_observation_namespace": "local-chat-reconciliation",
                     "host_resource_observation_id": observation_id,
                     "active_inference_preemption": {
-                        "schema_version": "sentientos.active_inference_preemption:v2",
+                        "schema_version": "sentientos.active_inference_preemption:v3",
                         "preemption_kind": "host_resource_pressure",
                         "workload_mode": "normal",
                         "serving_session_id": session.session_id,
@@ -1200,7 +1200,11 @@ class ProductionServingInferenceController:
                         "host_report_digest": report_digest,
                         "pressure_labels": pressure_labels,
                         "observed_at": observed_at,
+                        "active_inference_request_reference": dict(
+                            active_request_reference),
                     },
+                    "active_inference_request_reference": dict(
+                        active_request_reference),
                 }))
             delegated = admission.delegated_outcomes.get("runtime_governor")
             allowed = (admission.allowed

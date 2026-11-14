@@ -853,6 +853,65 @@ def test_game_preemption_admission_binds_exact_active_invocation(
 
 
 @pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("include_reference", [True, False])
+def test_host_pressure_preemption_persists_exact_active_invocation(
+        monkeypatch, tmp_path, include_reference):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = datetime.now(timezone.utc).isoformat()
+    request_reference = {"request_id": "lmreq-" + "c" * 24,
+        "request_digest": "d" * 64,
+        "correlation_id": "active-host-pressure-request"}
+    request_digest = hashlib.sha256(json.dumps(request_reference,
+        sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+            "utf-8")).hexdigest()
+    correlation_id = "active-inference-preemption:" + request_digest + ":attempt-1"
+    observation_id = "local-chat-reconciliation-" + hashlib.sha256(
+        correlation_id.encode("utf-8")).hexdigest()[:32]
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "observed_at": observed_at, "evaluation_id": "evaluation-1",
+        "epoch_id": "epoch-1", "snapshot_id": "snapshot-1",
+        "report_id": "host-report-1", "report_digest": "e" * 64,
+        "pressure_labels": ("cpu_pressure",),
+        "cpu_utilization_percent": 96.0, "ram_utilization_percent": 50.0,
+        "gpu_utilization_percent": None, "vram_utilization_percent": None,
+        "gpu_telemetry_available": False,
+        "observation_correlation_id": observation_id,
+    }
+    preemption = {
+        "schema_version": "sentientos.active_inference_preemption:v3",
+        "preemption_kind": "host_resource_pressure", "workload_mode": "normal",
+        "serving_session_id": "serving-session-" + "f" * 24,
+        "model_identity_digest": "a" * 64,
+        "observation_correlation_id": observation_id,
+        "host_report_id": "host-report-1", "host_report_digest": "e" * 64,
+        "pressure_labels": ["cpu_pressure"], "observed_at": observed_at,
+        "active_inference_request_reference": dict(request_reference),
+    }
+    metadata = {
+        "purpose": "local_user_chat", "resource_governance_required": True,
+        "host_resource_observation_namespace": "local-chat-reconciliation",
+        "host_resource_observation_id": observation_id,
+        "active_inference_preemption": preemption,
+    }
+    if include_reference:
+        metadata["active_inference_request_reference"] = dict(request_reference)
+    decision = governor._admit_local_model_inference(
+        actor="production_chat_host_resource_governor",
+        subject="production_chat_host_resource_governor",
+        correlation_id=correlation_id, metadata=metadata)
+    assert decision.allowed is include_reference
+    if include_reference:
+        assert decision.reason == "allowed_host_resource_pressure_inference_preemption"
+        assert decision.evidence_refs["active_inference_request_reference"] == (
+            request_reference)
+    else:
+        assert decision.reason == (
+            "deferred_active_inference_preemption_game_evidence_unavailable")
+
+
+@pytest.mark.no_legacy_skip
 @pytest.mark.parametrize("accelerator_route,gpu_layers", [("gpu", 1), ("cpu", 0)])
 def test_active_verified_game_defers_new_inference_with_nominal_telemetry(
         monkeypatch, tmp_path, accelerator_route, gpu_layers):

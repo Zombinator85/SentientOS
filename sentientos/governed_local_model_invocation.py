@@ -273,6 +273,13 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
                         and evidence_refs.get("active_inference_request_reference")
                             != request_reference)):
                 return False
+        if (actor == "production_chat_host_resource_governor"
+                and value.get("schema_version") ==
+                    CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2):
+            if evidence_refs.get("active_inference_request_reference") != {
+                    key: request.get(key) for key in (
+                        "request_id", "request_digest", "correlation_id")}:
+                return False
         if (actor == "production_chat_game_resource_governor"
                 and not any(isinstance(evidence_refs.get(key), Mapping)
                     and evidence_refs[key].get("status") == "current"

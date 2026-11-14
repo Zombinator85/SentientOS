@@ -1681,6 +1681,13 @@ def test_normal_host_pressure_cancels_active_optional_inference(
         evidence = delegated["evidence_refs"]["host_resource_evidence"]
         assert evidence["status"] == "current"
         assert evidence["pressure_labels"] == ["cpu_pressure"]
+        request_reference = {key: result["receipt"].request[key] for key in (
+            "request_id", "request_digest", "correlation_id")}
+        assert delegated["evidence_refs"][
+            "active_inference_request_reference"] == request_reference
+        assert result["receipt"].cancellation_admission_decision[
+            "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+                "active_inference_request_reference"] == request_reference
     finally:
         if invocation.is_alive():
             model.cancel_pending_generation()
