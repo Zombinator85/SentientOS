@@ -794,6 +794,8 @@ class GovernedLocalModelInvoker:
         if reason not in {"client_disconnect", "workload_transition"}:
             raise ValueError("invocation_cancellation_reason_invalid")
         admission_ref: str | None = None
+        inference_preemption = False
+        resource_release = False
         if reason == "workload_transition" and cancellation_admission_decision is None:
             raise ValueError("invocation_cancellation_admission_decision_required")
         if cancellation_admission_decision is not None:
