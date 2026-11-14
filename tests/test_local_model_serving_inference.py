@@ -1473,8 +1473,9 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
         serving.close()
 
 
-def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
-        monkeypatch, tmp_path):
+@pytest.mark.parametrize("pressure_kind", ["cpu", "vram"])
+def test_selected_gaming_profile_cancels_active_inference_on_host_pressure(
+        monkeypatch, tmp_path, pressure_kind):
     now = datetime.now(timezone.utc)
     clock_now = [now]
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
@@ -1483,6 +1484,7 @@ def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
     kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
         decisions_path=tmp_path / "kernel-decisions.jsonl")
     cpu_pressure = [False]
+    vram_pressure = [False]
 
     def collector(collector_id, **values):
         def collect(*, observed_at=None):
@@ -1490,6 +1492,13 @@ def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
             if collector_id == "cpu":
                 collected_values["utilization_percent"] = (
                     95.0 if cpu_pressure[0] else 20.0)
+            if collector_id == "nvidia_gpu":
+                collected_values["devices"] = [{
+                    "index": 0,
+                    "gpu_utilization_percent": 15.0,
+                    "vram_utilization_percent": (
+                        86.0 if vram_pressure[0] else 30.0),
+                }]
             return HostCollectorResult(collector_id, "available",
                 observed_at or now.isoformat(), "synthetic_test_fixture",
                 values=collected_values)
@@ -1502,6 +1511,8 @@ def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
                 collector("cpu", utilization_percent=20.0)),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
                 collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1)),
         ]), clock=lambda: clock_now[0].isoformat())
     started = threading.Event()
     cancelled = threading.Event()
@@ -1526,12 +1537,17 @@ def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
     invocation.start()
     try:
         assert started.wait(timeout=5)
-        cpu_pressure[0] = True
+        if pressure_kind == "cpu":
+            cpu_pressure[0] = True
+            expected_pressure_labels = ("cpu_pressure",)
+        else:
+            vram_pressure[0] = True
+            expected_pressure_labels = ("gpu_pressure",)
         clock_now[0] = now
         reconciliation = bridge.reconcile_workload_state()
         latest = host_owner.latest_evaluation(max_age_seconds=10)
         assert latest is not None
-        assert latest.pressure_report.pressure_labels == ("cpu_pressure",)
+        assert latest.pressure_report.pressure_labels == expected_pressure_labels
         assert reconciliation["status"] == "worker_closed", reconciliation
         invocation.join(timeout=5)
 
@@ -1556,7 +1572,8 @@ def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
         assert release["resource_observation"]["workload_mode"] == "gaming"
         assert result["receipt"].cancellation_admission_decision_ref == (
             release["release_admission_decision_ref"])
-        assert release["resource_observation"]["pressure_labels"] == ["cpu_pressure"]
+        assert release["resource_observation"]["pressure_labels"] == list(
+            expected_pressure_labels)
         assert release["resource_observation"]["host_report_id"]
         assert release["host_mutation_performed"] is False
         release_decision = next(json.loads(line) for line in reversed(
@@ -1576,7 +1593,7 @@ def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
         assert delegated["allowed"] is True
         evidence = delegated["evidence_refs"]["resource_observation_evidence"]
         assert evidence["status"] == "current"
-        assert evidence["pressure_labels"] == ["cpu_pressure"]
+        assert evidence["pressure_labels"] == list(expected_pressure_labels)
     finally:
         if invocation.is_alive():
             model.cancel_pending_generation()
