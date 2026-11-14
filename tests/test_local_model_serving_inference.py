@@ -15,7 +15,9 @@ from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import (
     AdmissionOutcome, AuthorityClass, ControlPlaneKernel,
 )
-from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+from sentientos.governed_local_model_invocation import (
+    LocalModelInvocationBudget, validate_receipt,
+)
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_model_authority import build_local_model_authority_map, digest_payload
@@ -2764,6 +2766,22 @@ def test_verified_game_presence_preempts_active_cpu_inference_without_pressure(
             encoding="utf-8").splitlines()]
     decision = next(item for item in decisions
         if item.get("action_kind") == "local_model_inference_preemption")
+    persisted_receipt_path = (tmp_path / "state" / "installations" / "install-1" /
+        "state" / "local-model" / "inference" / "receipts" /
+        (results["receipt"].receipt_id + ".json"))
+    persisted_receipt = json.loads(persisted_receipt_path.read_text(encoding="utf-8"))
+    valid_receipt, receipt_findings = validate_receipt(persisted_receipt)
+    assert valid_receipt, receipt_findings
+    assert persisted_receipt["receipt_digest"] == results["receipt"].receipt_digest
+    assert persisted_receipt["cancellation_admission_decision_ref"] == (
+        decision["admission_decision_ref"])
+    tampered_receipt = dict(persisted_receipt)
+    tampered_receipt["cancellation_admission_decision_ref"] = (
+        "kernel_decision:active-inference-preemption:unrelated-request:other")
+    valid_tampered_receipt, tamper_findings = validate_receipt(tampered_receipt)
+    assert valid_tampered_receipt is False
+    assert "receipt_digest_mismatch" in tamper_findings
+    assert "cancellation_admission_request_binding_invalid" in tamper_findings
     receipt_request = results["receipt"].request
     active_request_reference = {key: receipt_request[key] for key in (
         "request_id", "request_digest", "correlation_id")}
