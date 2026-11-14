@@ -339,6 +339,14 @@ def test_pressure_policy_projection_must_be_derived_from_collector_snapshot(tmp_
     assert "host_resource_pressure_report_not_derived_from_snapshot" in (
         validation.findings)
 
+    shifted_epoch = replace(evaluation.epoch,
+        observed_at="2099-01-01T00:00:00+00:00")
+    shifted_timestamp = replace(evaluation, epoch=shifted_epoch)
+    timestamp_validation = validate_evaluation(shifted_timestamp)
+    assert not timestamp_validation.ok
+    assert "observation_epoch_semantic_identity_mismatch" in (
+        timestamp_validation.findings)
+
 
 def test_nvml_gpu_thermal_pressure_reaches_verified_game_inference_admission(
         monkeypatch, tmp_path):

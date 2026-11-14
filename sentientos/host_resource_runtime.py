@@ -216,6 +216,7 @@ def validate_evaluation(e: HostResourceRuntimeEvaluation) -> HostResourceRuntime
     epoch_semantic = {"correlation_id": e.epoch.correlation_id,
         "plan": e.plan.semantic_digest,
         "admission": e.epoch.admission_decision_ref,
+        "observed_at": e.epoch.observed_at,
         "results": [{key: value for key, value in redact_value(result.to_dict()).items()
             if key != "observed_at"} for result in e.epoch.results]}
     if (e.epoch.epoch_id != _id("hoe_", epoch_semantic)
@@ -346,7 +347,7 @@ class HostResourceRuntimeCoordinator:
             elif bad: optional_failed.append(r.collector_id)
         snapshot=build_host_resource_telemetry_from_collector_results(ordered_results, snapshot_id=_id("hrs_", {"plan": self.plan.semantic_digest, "results": [redact_value(r.to_dict()) for r in ordered_results]}))
         pressure=evaluate_host_resource_pressure(snapshot); decision2=evaluate_host_resource_policy(pressure); receipts=build_host_resource_proposal_receipts(decision2, created_at=observed_at)
-        epoch_sem={"correlation_id": correlation_id, "plan": self.plan.semantic_digest, "admission": decision.admission_decision_ref, "results": [{k:v for k,v in redact_value(r.to_dict()).items() if k not in {"observed_at"}} for r in ordered_results]}
+        epoch_sem={"correlation_id": correlation_id, "plan": self.plan.semantic_digest, "admission": decision.admission_decision_ref, "observed_at": observed_at, "results": [{k:v for k,v in redact_value(r.to_dict()).items() if k not in {"observed_at"}} for r in ordered_results]}
         epoch = HostObservationEpoch(
             epoch_id=_id("hoe_", epoch_sem),
             correlation_id=correlation_id,
