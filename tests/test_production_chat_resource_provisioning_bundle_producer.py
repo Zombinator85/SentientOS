@@ -6,6 +6,7 @@ import inspect
 import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event, current_thread
 from typing import cast
 
 import pytest
@@ -120,6 +121,64 @@ def test_serving_admission_entitlement_is_read_only_current_and_exhaustion_aware
                            match="policy_expired"):
             owner.serving_admission_entitlement_binding()
     finally:
+        owner.close()
+
+
+def test_serving_entitlement_snapshot_serializes_concurrent_call_debit(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    handle, kwargs = inputs(tmp_path, calls=1)
+    produce_production_chat_resource_provisioning_bundle(
+        handle, "serving-entitlement-race", **kwargs)
+    owner = load_production_chat_resource_context_owner(
+        handle, "serving-entitlement-race", clock=lambda: NOW,
+        nonce_source=lambda: "serving-entitlement-race-nonce")
+    snapshot_reading_calls = Event()
+    finish_snapshot = Event()
+    debit_validating = Event()
+    original_validate = owner.allocator.validate_current
+    original_remaining_calls = owner.allocator.ledger.remaining_calls
+
+    def observed_validation(**values):
+        if current_thread().name.endswith("_1"):
+            debit_validating.set()
+        return original_validate(**values)
+
+    def paused_remaining_calls(allocation_id: str) -> int:
+        if current_thread().name.endswith("_0"):
+            snapshot_reading_calls.set()
+            if not finish_snapshot.wait(timeout=5):
+                raise AssertionError("serving_entitlement_snapshot_not_released")
+        return original_remaining_calls(allocation_id)
+
+    monkeypatch.setattr(owner.allocator, "validate_current", observed_validation)
+    monkeypatch.setattr(owner.allocator.ledger, "remaining_calls",
+        paused_remaining_calls)
+    try:
+        with ThreadPoolExecutor(max_workers=2,
+                                thread_name_prefix="entitlement") as pool:
+            snapshot = pool.submit(owner.serving_admission_entitlement_binding)
+            assert snapshot_reading_calls.wait(timeout=5)
+
+            def debit_call() -> str:
+                return owner.allocator.final_gate(
+                    allocation=owner.allocation,
+                    principal=owner.principal,
+                    authenticated=owner.authenticated,
+                    current=owner.current,
+                    policy=owner.policy,
+                    current_time=NOW,
+                    durable_attempt_nonce="concurrent-serving-debit")
+
+            debit = pool.submit(debit_call)
+            assert debit_validating.wait(timeout=5)
+            finish_snapshot.set()
+            binding = snapshot.result(timeout=5)
+            assert debit.result(timeout=5)
+        assert binding["remaining_call_entitlement"] == 1
+        assert owner.allocator.ledger.remaining_calls(
+            owner.allocation.allocation_id) == 0
+    finally:
+        finish_snapshot.set()
         owner.close()
 
 def test_same_id_rerun_rejects_before_second_issue(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
