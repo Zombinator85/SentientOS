@@ -709,6 +709,7 @@ class ProductionServingInferenceController:
             "purpose": "local_model_resource_release",
             "reason_code": reason_code,
             "target_subsystem": "production_chat",
+            "serving_session_id": session.session_id,
             "model_identity_digest": digest_payload(loaded_identity.to_dict()),
             "resource_observation": host_release_evidence,
         }
@@ -1786,6 +1787,7 @@ class ProductionServingInferenceController:
                 "purpose": "local_model_resource_release",
                 "reason_code": "verified_game_frame_pressure",
                 "target_subsystem": "production_chat",
+                "serving_session_id": session.session_id,
                 "model_identity_digest": digest_payload(loaded_identity.to_dict()),
                 **({"active_inference_preemption_requested": True,
                     "active_inference_request_reference": (
@@ -2047,6 +2049,7 @@ class ProductionServingInferenceController:
                 "purpose": "local_model_resource_release",
                 "reason_code": reason_code,
                 "target_subsystem": "production_chat",
+                "serving_session_id": session.session_id,
                 "model_identity_digest": digest_payload(loaded_identity.to_dict()),
                 **({"active_inference_preemption_requested": True,
                     "active_inference_request_reference": (

@@ -2176,6 +2176,7 @@ def test_scheduled_reconciliation_restores_released_model_through_fresh_serving_
             "purpose": "local_model_resource_release",
             "reason_code": "gaming_mode_entered",
             "target_subsystem": "production_chat",
+            "serving_session_id": first_session.session_id,
             "model_identity_digest": digest_payload(
                 models[0].active_identity.to_dict())}))
     assert release_admission.allowed

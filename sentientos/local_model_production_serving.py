@@ -19,6 +19,7 @@ from .installation_state import (
 )
 from .local_model_production_activation import ProductionActivationError, verify_current_activation
 from .local_model_runtime_worker import ExactRuntimeLocalModel
+from .local_model_authority import digest_payload
 from .local_runtime_provisioning import semantic_digest
 
 PRINCIPAL = "deterministic_activated_model_serving_controller"
@@ -1044,7 +1045,8 @@ class ProductionServingController:
         self._session = replace(session, status="non_current_unloaded")
         self._session = None
 
-    def _owns_resource_release_admission(self, decision: object) -> bool:
+    def _owns_resource_release_admission(self, decision: object,
+            expected: ServingSession) -> bool:
         if (type(decision) is not ControlActionDecision
                 or not decision.allowed
                 or decision.authority_class != AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
@@ -1066,7 +1068,7 @@ class ProductionServingController:
             payload = payload_getter(decision)
         except Exception:
             return False
-        return (isinstance(payload, Mapping)
+        base_valid = (isinstance(payload, Mapping)
             and payload.get("event_type") == "control_plane_decision"
             and payload.get("outcome") == AdmissionOutcome.ALLOW.value
             and payload.get("authority_class") ==
@@ -1078,12 +1080,28 @@ class ProductionServingController:
             and payload.get("requested_phase") == LifecyclePhase.RUNTIME.value
             and payload.get("correlation_id") == decision.correlation_id
             and payload.get("admission_decision_ref") == decision.admission_decision_ref)
+        if not base_valid:
+            return False
+        delegated = payload.get("delegated_outcomes")
+        governor = delegated.get("runtime_governor") if isinstance(delegated, Mapping) else None
+        evidence_refs = governor.get("evidence_refs") if isinstance(governor, Mapping) else None
+        target = (evidence_refs.get("resource_release_target")
+            if isinstance(evidence_refs, Mapping) else None)
+        identity = expected.binding.get("observed_loaded_model_identity")
+        return (isinstance(target, Mapping)
+            and set(target) == {"schema_version", "serving_session_id",
+                "model_identity_digest"}
+            and target.get("schema_version") ==
+                "sentientos.production_chat_resource_release_target:v1"
+            and target.get("serving_session_id") == expected.session_id
+            and isinstance(identity, Mapping)
+            and target.get("model_identity_digest") == digest_payload(dict(identity)))
 
     def release_current_session_after_resource_admission(
             self, expected: ServingSession, *, reason: str,
             admission_decision: ControlActionDecision | None = None) -> bool:
         """Close this exact serving worker only for this kernel-owned release admission."""
-        if not self._owns_resource_release_admission(admission_decision):
+        if not self._owns_resource_release_admission(admission_decision, expected):
             raise ProductionServingError("resource_release_admission_not_owned")
         with self._lifecycle_lock:
             if self._session != expected or self._model is None:

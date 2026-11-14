@@ -359,7 +359,7 @@ def test_production_game_host_pressure_release_requires_exact_current_evidence(
     ("none", True), ("wrong_game", False), ("stale", False),
     ("no_active_game", False),
     ("zero_gpu_layers", False), ("empty_session", False),
-    ("invalid_preemption_flag", False),
+    ("invalid_preemption_flag", False), ("target_session_mismatch", False),
 ])
 @pytest.mark.no_legacy_skip
 def test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence(
@@ -379,7 +379,7 @@ def test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence(
     evidence = {"schema_version": "sentientos.production_game_gpu_residency_release_evidence:v1",
         "trigger_kind": "idle_game_gpu_residency", "trigger_correlation_id": trigger,
         "game_workload_message_id": game_message_id, "model_gpu_layers": 24,
-        "serving_session_id": "serving-session-1",
+        "serving_session_id": "serving-session-" + "a" * 24,
         "active_inference_preemption_requested": False, "observed_at": observed_at}
     if mutation == "wrong_game":
         evidence["game_workload_message_id"] = "c" * 64
@@ -391,6 +391,9 @@ def test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence(
         evidence["serving_session_id"] = ""
     elif mutation == "invalid_preemption_flag":
         evidence["active_inference_preemption_requested"] = "true"
+    target_session_id = ("serving-session-" + "b" * 24
+        if mutation == "target_session_mismatch"
+        else str(evidence["serving_session_id"]))
     release_correlation = "production-chat-resource-release-" + hashlib.sha256(
         ("idle_game_gpu_residency:" + trigger).encode("utf-8")).hexdigest()[:24]
     decision = governor._admit_local_model_resource_release(
@@ -400,6 +403,7 @@ def test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence(
         metadata={"purpose": "local_model_resource_release",
             "reason_code": "verified_game_gpu_model_residency",
             "target_subsystem": "production_chat", "model_identity_digest": "d" * 64,
+            "serving_session_id": target_session_id,
             "resource_observation": evidence})
     assert decision.allowed is expected
 
@@ -539,6 +543,7 @@ def test_conservative_automatic_profile_release_requires_registered_host_evidenc
             "reason_code": "conservative_automatic_profile_host_pressure",
             "target_subsystem": "production_chat",
             "model_identity_digest": "d" * 64,
+            "serving_session_id": "serving-session-" + "a" * 24,
             "resource_observation": evidence})
 
     assert decision.allowed is False
@@ -597,6 +602,7 @@ def test_conservative_automatic_release_retains_only_known_unavailable_statuses(
             "reason_code": "conservative_automatic_profile_host_pressure",
             "target_subsystem": "production_chat",
             "model_identity_digest": "d" * 64,
+            "serving_session_id": "serving-session-" + "a" * 24,
             "resource_observation": evidence})
 
     assert decision.allowed is expected
@@ -652,6 +658,7 @@ def test_selected_gaming_profile_gpu_residency_release_requires_exact_profile_ev
         metadata={"purpose": "local_model_resource_release",
             "reason_code": "selected_gaming_profile_gpu_model_residency",
             "target_subsystem": "production_chat", "model_identity_digest": "d" * 64,
+            "serving_session_id": "serving-session-" + "a" * 24,
             "resource_observation": evidence})
 
     assert decision.allowed is expected
@@ -703,6 +710,7 @@ def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
                 "reason_code": "verified_game_frame_pressure",
                 "target_subsystem": "production_chat",
                 "model_identity_digest": "d" * 64,
+                "serving_session_id": "serving-session-" + "1" * 24,
                 "resource_observation": evidence})
 
     accepted = request("idle-game-frame-pressure-reconcile-valid")

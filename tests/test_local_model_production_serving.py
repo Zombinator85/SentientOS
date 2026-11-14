@@ -20,6 +20,7 @@ from sentientos.local_model_production_serving import (
     read_serving_operation_history,
 )
 from sentientos.local_model_runtime_worker import ExactRuntimeLocalModel
+from sentientos.local_model_authority import digest_payload
 from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.foreground_game_detection import ForegroundGameObservation
 from sentientos.host_collectors import HostCollectorResult
@@ -37,12 +38,21 @@ class Kernel:
         self.outcome, self.requests, self._decisions = outcome, [], {}
     def admit(self, request):
         self.requests.append(request)
+        delegated_outcomes = {}
+        if request.action_kind == "local_model_resource_release":
+            delegated_outcomes = {"runtime_governor": {"evidence_refs": {
+                "resource_release_target": {
+                    "schema_version": "sentientos.production_chat_resource_release_target:v1",
+                    "serving_session_id": request.metadata.get("serving_session_id"),
+                    "model_identity_digest": request.metadata.get(
+                        "model_identity_digest"),
+                }}}}
         decision = ControlActionDecision(outcome=self.outcome, reason_codes=(),
             current_phase=request.requested_phase,
             requested_phase=request.requested_phase,
             authority_class=request.authority_class, action_kind=request.action_kind,
             actor=request.actor, target_subsystem=request.target_subsystem,
-            delegated_outcomes={},
+            delegated_outcomes=delegated_outcomes,
             correlation_id=request.metadata["correlation_id"])
         if decision.allowed:
             self._decisions[id(decision)] = decision
@@ -103,8 +113,11 @@ def controller(monkeypatch, handle, sequence, kernel=None, factory=None):
     return result
 
 
-def resource_release_admission(ctl, *, reason="verified_game_host_pressure",
-        actor="production_chat_game_resource_governor"):
+def resource_release_admission(ctl, session, *, reason="verified_game_host_pressure",
+        actor="production_chat_game_resource_governor", target_session_id=None,
+        target_model_identity_digest=None):
+    identity_digest = digest_payload(dict(
+        session.binding["observed_loaded_model_identity"]))
     return ctl._kernel.admit(ControlActionRequest(
         action_kind="local_model_resource_release",
         authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
@@ -115,7 +128,9 @@ def resource_release_admission(ctl, *, reason="verified_game_host_pressure",
                 + str(len(ctl._kernel.requests)),
             "purpose": "local_model_resource_release", "reason_code": reason,
             "target_subsystem": "production_chat",
-            "model_identity_digest": "a" * 64}))
+            "serving_session_id": target_session_id or session.session_id,
+            "model_identity_digest": (target_model_identity_digest
+                or identity_digest)}))
 
 
 @pytest.mark.parametrize("admission_kind", ["unowned", "unapproved_owner"])
@@ -128,7 +143,33 @@ def test_resource_release_rejects_unowned_admission_before_closing_worker(
     session = ctl.establish(operation_id="serve-operation-unowned-release")
 
     admission = (object() if admission_kind == "unowned" else
-        resource_release_admission(ctl, actor="unapproved_resource_owner"))
+        resource_release_admission(ctl, session,
+            actor="unapproved_resource_owner"))
+    with pytest.raises(ProductionServingError,
+            match="resource_release_admission_not_owned"):
+        ctl.release_current_session_after_resource_admission(
+            session, reason="verified_game_host_pressure",
+            admission_decision=admission)
+
+    assert ctl.current_session() == session
+    assert ctl._model is model
+    assert model.closed is False
+
+
+@pytest.mark.parametrize("target_mismatch", ["session", "model_identity"])
+def test_resource_release_rejects_admission_bound_to_another_target(
+        monkeypatch, handle, target_mismatch):
+    current = evidence()
+    model = Model(identity())
+    ctl = controller(monkeypatch, handle, [current] * 3,
+        factory=lambda _config, _load: model)
+    session = ctl.establish(operation_id="serve-operation-release-target-binding")
+    admission = resource_release_admission(ctl, session,
+        target_session_id=("serving-session-" + "f" * 24
+            if target_mismatch == "session" else None),
+        target_model_identity_digest=("b" * 64
+            if target_mismatch == "model_identity" else None))
+
     with pytest.raises(ProductionServingError,
             match="resource_release_admission_not_owned"):
         ctl.release_current_session_after_resource_admission(
@@ -169,7 +210,7 @@ def test_failed_worker_close_preserves_exact_session_for_release_retry(monkeypat
     model.close = close_once_fails
     ctl = controller(monkeypatch, handle, [current] * 3, factory=lambda c, l: model)
     session = ctl.establish(operation_id="serve-operation-retry-release")
-    admission = resource_release_admission(ctl)
+    admission = resource_release_admission(ctl, session)
 
     with pytest.raises(RuntimeError, match="worker_shutdown_unconfirmed"):
         ctl.release_current_session_after_resource_admission(
@@ -203,7 +244,7 @@ def test_resource_release_waits_for_exact_worker_exit_confirmation(monkeypatch, 
     model._process = SimpleNamespace(poll=lambda: next(poll_results))
     ctl = controller(monkeypatch, handle, [current] * 3, factory=lambda c, l: model)
     session = ctl.establish(operation_id="serve-operation-exit-confirmation")
-    admission = resource_release_admission(ctl)
+    admission = resource_release_admission(ctl, session)
 
     with pytest.raises(ProductionServingError,
                        match="exact_runtime_worker_exit_unconfirmed"):
@@ -242,7 +283,7 @@ def test_production_serving_release_closes_the_exact_runtime_process(monkeypatch
         ctl = controller(monkeypatch, handle, [evidence()] * 3,
                          factory=lambda _chain, _load: model)
         session = ctl.establish(operation_id="serve-operation-real-worker-release")
-        admission = resource_release_admission(ctl)
+        admission = resource_release_admission(ctl, session)
 
         assert process.poll() is None
         assert ctl.release_current_session_after_resource_admission(

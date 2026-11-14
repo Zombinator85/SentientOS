@@ -2504,6 +2504,30 @@ class RuntimeGovernor:
                 policy_binding = _host_resource_policy_binding(retained_host_evidence)
                 if policy_binding is not None:
                     evidence_ref["host_policy_binding"] = policy_binding
+        release_target = None
+        if actor in {
+                "production_chat_host_resource_governor",
+                "production_chat_game_resource_governor",
+                "production_chat_workload_resource_governor"}:
+            target_session_id = payload.get("serving_session_id")
+            observation_value = payload.get("resource_observation")
+            observation_session_id = (observation_value.get("serving_session_id")
+                if isinstance(observation_value, Mapping) else None)
+            if (not isinstance(target_session_id, str)
+                    or re.fullmatch(r"serving-session-[0-9a-f]{24}", target_session_id) is None
+                    or (observation_session_id is not None
+                        and observation_session_id != target_session_id)
+                    or not isinstance(identity_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", identity_digest) is None):
+                valid = False
+            elif valid:
+                release_target = {
+                    "schema_version": "sentientos.production_chat_resource_release_target:v1",
+                    "serving_session_id": target_session_id,
+                    "model_identity_digest": identity_digest,
+                }
+        if release_target is not None:
+            payload["resource_release_target"] = release_target
         payload["resource_observation_evidence"] = evidence_ref
         return self._decision(
             action_class="local_model_resource_release", allowed=valid,
@@ -3826,6 +3850,7 @@ class RuntimeGovernor:
                             "gaming_workload_profile_resource_telemetry_incomplete",
                             "gaming_workload_profile_evidence",
                             "resource_observation_evidence",
+                            "resource_release_target",
                             "resource_allocation_binding")
                 if metadata is not None and key in metadata
             },
