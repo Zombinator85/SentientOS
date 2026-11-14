@@ -112,7 +112,7 @@ def _valid_resource_serving_decision_record(binding: Mapping[str, Any], *,
         and isinstance(checks, (list, tuple))
         and all(isinstance(item, str) and item for item in checks)
         and isinstance(current_phase, str)
-        and current_phase in {phase.value for phase in LifecyclePhase}
+        and current_phase == LifecyclePhase.RUNTIME.value
         and record.get("lifecycle_phase") == current_phase
         and record.get("requested_phase") == LifecyclePhase.RUNTIME.value
         and record.get("authority_class") == AuthorityClass.MODEL_SERVING.value

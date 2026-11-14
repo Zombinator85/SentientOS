@@ -899,6 +899,15 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             "resource_admission_revalidation_decision"] = None
         assert not _valid_resource_admission_evidence_binding(
             incomplete_evidence_binding)
+        wrong_phase_binding = dict(session.binding)
+        wrong_phase_decision = dict(
+            wrong_phase_binding["model_serving_admission_decision_record"])
+        wrong_phase_decision["current_phase"] = "bootstrap"
+        wrong_phase_decision["lifecycle_phase"] = "bootstrap"
+        wrong_phase_binding[
+            "model_serving_admission_decision_record"] = wrong_phase_decision
+        assert not _valid_resource_admission_evidence_binding(
+            wrong_phase_binding)
         assert session.binding["resource_admission_revalidation_correlation_id"] == (
             serving_decisions[2]["correlation_id"])
         assert session.binding["resource_admission_revalidation_decision_ref"] == (
