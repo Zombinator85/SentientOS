@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
+import json
 import time
 from pathlib import Path
 
@@ -296,6 +297,10 @@ def test_evaluation_snapshot_policy_world_state_and_artifact_custody(tmp_path):
     assert validate_evaluation(e).ok
     receipt = persist_evidence_bundle(tmp_path, e, tick_id="tick:eval")
     assert Path(receipt.artifact_paths["summary"]).exists()
+    persisted_pressure = json.loads(Path(
+        receipt.artifact_paths["pressure_report"]).read_text(encoding="utf-8"))
+    assert persisted_pressure["threshold_policy"] == (
+        e.pressure_report.threshold_policy)
     records = world_state_records(e)
     assert {r["subject_id"] for r in records} >= {"host_resource_observation_epoch", "host_resource_pressure", "host_resource_policy"}
     assert all(r["effect_claimed"] is False and r["effect_proven"] is False for r in records)

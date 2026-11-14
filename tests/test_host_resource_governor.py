@@ -59,6 +59,32 @@ def test_vram_pressure_has_a_separate_lower_threshold_than_gpu_compute() -> None
     assert validate_host_resource_pressure_report(below_report, below_threshold).ok
 
 
+def test_pressure_report_binds_threshold_policy_into_its_identity() -> None:
+    snapshot = build_host_resource_telemetry_snapshot(
+        snapshot_id="snap-threshold-binding", observed_at="t",
+        cpu_utilization_percent=10, ram_utilization_percent=30,
+        disk_utilization_percent=20, gpu_utilization_percent=15,
+        vram_utilization_percent=86)
+    report = evaluate_host_resource_pressure(snapshot)
+    alternate = evaluate_host_resource_pressure(
+        snapshot, vram_pressure_percent=90.0)
+
+    assert report.threshold_policy["vram_pressure_percent"] == 85.0
+    assert alternate.threshold_policy["vram_pressure_percent"] == 90.0
+    assert report.pressure_labels != alternate.pressure_labels
+    assert report.report_id != alternate.report_id
+    assert validate_host_resource_pressure_report(report, snapshot).ok
+    assert validate_host_resource_pressure_report(alternate, snapshot).ok
+
+    substituted_policy = dict(report.threshold_policy)
+    substituted_policy["vram_pressure_percent"] = 90.0
+    substituted = replace(report, threshold_policy=substituted_policy)
+    validation = validate_host_resource_pressure_report(substituted, snapshot)
+    assert not validation.ok
+    assert "pressure_report_not_derived_from_threshold_policy" in (
+        validation.findings)
+
+
 def test_fan_rpm_observation_is_telemetry_only() -> None:
     snapshot, report = _report(cpu_utilization_percent=10, ram_utilization_percent=20, disk_utilization_percent=30, fan_rpm_observations={"fan0": 1200})
     assert "fan_signal_present" in report.pressure_labels

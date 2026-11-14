@@ -116,6 +116,7 @@ class HostResourcePressureReport:
     pressure_labels: tuple[str, ...]
     findings: tuple[str, ...]
     proposal_candidates: tuple[HostResourceProposalCandidate, ...]
+    threshold_policy: Mapping[str, Any] = field(default_factory=dict)
     metadata_only: bool = True
     observe_model_propose_only: bool = True
     no_host_actuation: bool = True
@@ -202,6 +203,17 @@ def evaluate_host_resource_pressure(
     battery_low_percent: float = 15.0,
     network_pressure_bytes_per_second: float | None = None,
 ) -> HostResourcePressureReport:
+    threshold_policy = {
+        "schema_version": "sentientos.host_resource_pressure_threshold_policy:v1",
+        "cpu_pressure_percent": cpu_pressure_percent,
+        "ram_pressure_percent": ram_pressure_percent,
+        "gpu_pressure_percent": gpu_pressure_percent,
+        "vram_pressure_percent": vram_pressure_percent,
+        "disk_pressure_percent": disk_pressure_percent,
+        "thermal_pressure_c": thermal_pressure_c,
+        "battery_low_percent": battery_low_percent,
+        "network_pressure_bytes_per_second": network_pressure_bytes_per_second,
+    }
     labels: set[str] = set()
     findings: list[str] = []
     candidates: list[HostResourceProposalCandidate] = []
@@ -249,13 +261,19 @@ def evaluate_host_resource_pressure(
         candidates.append(_candidate(snapshot.snapshot_id, "inspect_service_health_candidate", ("service_degraded",), "Service degradation label observed; inspect-only candidate."))
     if not labels:
         labels.add("nominal")
-    report_id = "hrr_" + hashlib.sha256(json.dumps({"snapshot_id": snapshot.snapshot_id, "labels": sorted(labels), "findings": sorted(findings)}, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:24]
+    report_id = "hrr_" + hashlib.sha256(json.dumps({
+        "snapshot_id": snapshot.snapshot_id,
+        "labels": sorted(labels),
+        "findings": sorted(findings),
+        "threshold_policy": threshold_policy,
+    }, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()[:24]
     return HostResourcePressureReport(
         report_id=report_id,
         snapshot_id=snapshot.snapshot_id,
         pressure_labels=tuple(sorted(labels)),
         findings=tuple(sorted(findings)),
         proposal_candidates=tuple(sorted(candidates, key=lambda candidate: candidate.candidate_id)),
+        threshold_policy=threshold_policy,
     )
 
 
@@ -437,6 +455,7 @@ def summarize_host_resource_pressure(report: HostResourcePressureReport) -> dict
         "report_id": report.report_id,
         "snapshot_id": report.snapshot_id,
         "pressure_labels": report.pressure_labels,
+        "threshold_policy": dict(report.threshold_policy),
         "finding_count": len(report.findings),
         "proposal_candidate_count": len(report.proposal_candidates),
         "candidate_kinds": tuple(sorted(candidate.kind for candidate in report.proposal_candidates)),
@@ -462,6 +481,27 @@ def validate_host_resource_pressure_report(
         findings.append("missing_snapshot_id")
     if report.snapshot_id != snapshot.snapshot_id:
         findings.append("report_snapshot_mismatch")
+    expected_threshold_fields = {
+        "schema_version", "cpu_pressure_percent", "ram_pressure_percent",
+        "gpu_pressure_percent", "vram_pressure_percent",
+        "disk_pressure_percent", "thermal_pressure_c", "battery_low_percent",
+        "network_pressure_bytes_per_second",
+    }
+    if (not isinstance(report.threshold_policy, Mapping)
+            or set(report.threshold_policy) != expected_threshold_fields
+            or report.threshold_policy.get("schema_version") !=
+                "sentientos.host_resource_pressure_threshold_policy:v1"):
+        findings.append("threshold_policy_shape_invalid")
+    else:
+        threshold_arguments = {key: value for key, value in
+            report.threshold_policy.items() if key != "schema_version"}
+        try:
+            expected_report = evaluate_host_resource_pressure(
+                snapshot, **threshold_arguments)
+            if report != expected_report:
+                findings.append("pressure_report_not_derived_from_threshold_policy")
+        except (TypeError, ValueError, OverflowError):
+            findings.append("threshold_policy_values_invalid")
     percentage_fields = {
         "cpu_utilization_percent": snapshot.cpu_utilization_percent,
         "ram_utilization_percent": snapshot.ram_utilization_percent,
