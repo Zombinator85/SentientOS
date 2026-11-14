@@ -39,6 +39,7 @@ from tests.test_production_chat_resource_provisioning_bundle_producer import (
 )
 from sentientos.runtime_governor import RuntimeGovernor
 from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
+from sentientos.foreground_game_detection import ForegroundGameObservation
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -311,8 +312,10 @@ def test_persistent_chat_two_turns_use_one_preissued_allocation_without_storage_
         not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
     artifacts["requested_bounds"] = bounds
     artifacts["resource_policy_artifact"] = encoded(policy.to_dict())
+    kernel = ControlPlaneKernel(decisions_path=tmp_path / "kernel-decisions.jsonl")
     serving_bridge, serving, _, model, _, _ = serving_setup(
-        monkeypatch, tmp_path, installation_identity="production")
+        monkeypatch, tmp_path, installation_identity="production",
+        kernel_override=kernel)
     bundle = produce_production_chat_resource_provisioning_bundle(
         installation, "chat-resource", **artifacts)
     custody = load_production_chat_resource_context_owner(
@@ -458,7 +461,8 @@ def test_game_frame_pressure_defers_production_chat_without_debit_then_recovers(
         installation, "chat-resource", **artifacts)
     custody = load_production_chat_resource_context_owner(
         installation, "chat-resource", clock=lambda: NOW,
-        nonce_source=iter(("frame-pressure-call", "frame-recovery-call")).__next__)
+        nonce_source=iter(("frame-pressure-call", "frame-recovery-call",
+            "game-exit-call")).__next__)
     adapter = ResourceBackedProductionChatInference(serving_bridge, custody)
     serving_bridge.set_workload_mode("gaming")
     prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
@@ -484,11 +488,22 @@ def test_game_frame_pressure_defers_production_chat_without_debit_then_recovers(
 
         assert kernel.observe_verified_game_performance(
             performance(2, "e", 16.7, 0))
+        # Better frame pacing does not mean optional inference may resume while
+        # authenticated evidence still says the game is running. A newer
+        # explicit game-exit observation from the same bridge generation does.
+        game_exit_at = datetime.now(timezone.utc).isoformat()
+        assert kernel.observe_verified_game_workload(ForegroundGameObservation(
+            "available", False, "a" * 64, game_exit_at,
+            game_process_running=False,
+            transport_provenance={"message_id": "f" * 64,
+                "source_id": "windows-edge", "session_id": "game-exit-session",
+                "generation_id": "windows-edge-generation-1", "sequence": 1,
+                "envelope_created_at": game_exit_at}))
         recovered = adapter.generate(prompt=prompt, caller="chat_service",
             correlation_id="game-frame-recovered", budget=LocalModelInvocationBudget(),
             caller_linkage={})
 
-        assert recovered.status == "admitted_completed"
+        assert recovered.status == "admitted_completed", recovered.reason_codes
         assert recovered.effects["local_model_inference"] is True
         assert backend.calls == 1
         assert custody.allocator.ledger.remaining_calls(issued.allocation_id) == 1

@@ -2,17 +2,21 @@
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 from pathlib import Path
 from runpy import run_path
 
 import pytest
 
-from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass
+from sentientos.control_plane_kernel import (
+    AdmissionOutcome, AuthorityClass, ControlPlaneKernel,
+)
 from sentientos.governed_local_model_invocation import (
     GovernedLocalModelInvoker,
     LocalModelInvocationBudget,
 )
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
+from sentientos.runtime_governor import RuntimeGovernor
 
 pytestmark = pytest.mark.no_legacy_skip
 BUDGET = LocalModelInvocationBudget(100, 200, 20, 5.0, 2)
@@ -21,8 +25,40 @@ resource_setup = run_path(str(TEST_ROOT / "test_governed_local_model_resource_in
 serving_setup = run_path(str(TEST_ROOT / "test_local_model_serving_inference.py"))["setup"]
 
 
+class RecordingKernel:
+    """Keep test request assertions while using real decision custody."""
+
+    def __init__(self, decisions_path: Path,
+                 inference: AdmissionOutcome = AdmissionOutcome.ALLOW):
+        governor = RuntimeGovernor()
+        if inference is not AdmissionOutcome.ALLOW:
+            original_admit = governor.admit_action
+
+            def controlled_admit(action_class, subject, correlation_id, *, metadata=None):
+                decision = original_admit(action_class, subject, correlation_id,
+                    metadata=metadata)
+                if action_class == "local_model_inference":
+                    return replace(decision, allowed=False, reason="test_denial")
+                return decision
+
+            governor.admit_action = controlled_admit
+        self._delegate = ControlPlaneKernel(runtime_governor=governor,
+            decisions_path=decisions_path)
+        self.requests = []
+
+    def admit(self, request):
+        self.requests.append(request)
+        return self._delegate.admit(request)
+
+    def __getattr__(self, name):
+        return getattr(self._delegate, name)
+
+
 def serving_at(monkeypatch, path, **kwargs):
     path.mkdir(parents=True, exist_ok=True)
+    inference = kwargs.pop("inference", AdmissionOutcome.ALLOW)
+    kwargs.setdefault("kernel_override", RecordingKernel(
+        path / "kernel-decisions.jsonl", inference=inference))
     return serving_setup(monkeypatch, path, **kwargs)
 
 

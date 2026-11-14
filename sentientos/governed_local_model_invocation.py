@@ -1589,8 +1589,12 @@ class GovernedLocalModelInvoker:
                post_effect_guard: Callable[[], None] | None = None,
                resource_context: GovernedLocalModelResourceInvocationContext | None = None,
                on_content_chunk: Callable[[str], None] | None = None) -> LocalModelInvocationReceipt:
+        # Treat caller-supplied shapes as untrusted until the preflight validates
+        # exact ownership. In particular, do not dereference lease attributes on
+        # a mapping or lookalike object before it can receive a fail-closed receipt.
         lease = (resource_context.custody_lease
-            if resource_context is not None else None)
+            if type(resource_context) is GovernedLocalModelResourceInvocationContext
+            else None)
         if lease is None:
             return self._invoke_with_custody_lease(request, persist=persist,
                 include_output_in_receipt=include_output_in_receipt,
