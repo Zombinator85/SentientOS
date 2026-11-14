@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
@@ -1559,7 +1560,7 @@ def test_selected_gaming_profile_cancels_active_inference_on_host_pressure(
         assert result["receipt"].status == "cancelled"
         assert result["receipt"].cancellation_admission_decision_ref
         assert result["receipt"].schema_version == (
-            "sentientos.local_model_invocation_receipt:v8")
+            "sentientos.local_model_invocation_receipt:v9")
         assert result["receipt"].effects["local_model_inference"] is True
         assert model.closed is True
         assert model.calls == 1
@@ -1915,7 +1916,7 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
     assert invocation_result["receipt"].status == "cancelled"
     assert invocation_result["receipt"].cancellation_admission_decision_ref
     assert invocation_result["receipt"].schema_version == (
-        "sentientos.local_model_invocation_receipt:v8")
+        "sentientos.local_model_invocation_receipt:v9")
     assert invocation_result["receipt"].output_text is None
     assert resource_ledger.remaining_calls(bundle.allocation_id) == 1
     assert len(resource_ledger._state["attempts"]) == 1
@@ -3933,6 +3934,13 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                 assert projected_resource["payload"]["invocation_receipts"][0][
                     "cancellation_admission_record"] == (
                         invocation_receipt.cancellation_admission_record)
+                projected_evidence = projected_resource["payload"][
+                    "invocation_receipts"][0]["cancellation_admission_decision"][
+                        "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+                            "resource_observation_evidence"]
+                assert projected_evidence == invocation_receipt.cancellation_admission_decision[
+                    "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+                        "resource_observation_evidence"]
             reconciliation = {"status": "worker_closed",
                 "trigger_kind": "idle_game_frame_pressure_reconciliation",
                 "active_inference_cancellation_confirmed": True}
@@ -3946,8 +3954,33 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             assert not invocation_thread.is_alive()
             assert reconciliation["status"] == "worker_closed"
             assert reconciliation["active_inference_cancellation_confirmed"] is True
-            assert invocation_results["receipt"].status == "cancelled"
-            assert invocation_results["receipt"].output_text is None
+            cancelled_receipt = invocation_results["receipt"]
+            assert cancelled_receipt.status == "cancelled"
+            assert cancelled_receipt.schema_version == (
+                "sentientos.local_model_invocation_receipt:v9")
+            assert cancelled_receipt.output_text is None
+            cancellation_governor = (
+                cancelled_receipt.cancellation_admission_decision[
+                    "delegated_outcomes"]["runtime_governor"])
+            cancellation_evidence = cancellation_governor["evidence_refs"]
+            frame_evidence = cancellation_evidence["resource_observation_evidence"]
+            assert frame_evidence["status"] == "current"
+            assert isinstance(frame_evidence["game_performance_message_id"], str)
+            assert frame_evidence["game_performance_message_id"]
+            from sentientos.governed_local_model_invocation import validate_receipt
+            valid_cancelled_receipt, cancelled_receipt_findings = validate_receipt(
+                cancelled_receipt.to_dict())
+            assert valid_cancelled_receipt, cancelled_receipt_findings
+            tampered_decision = deepcopy(
+                cancelled_receipt.cancellation_admission_decision)
+            tampered_decision["delegated_outcomes"]["runtime_governor"][
+                "evidence_refs"]["resource_observation_evidence"]["status"] = "stale"
+            tampered_receipt = replace(cancelled_receipt,
+                cancellation_admission_decision=tampered_decision)
+            tampered_valid, tampered_findings = validate_receipt(
+                tampered_receipt.to_dict())
+            assert not tampered_valid
+            assert "cancellation_admission_decision_invalid" in tampered_findings
             assert model.closed is True
             assert serving.current_session() is None
             if trigger == "idle_game_frame_pressure_active_inference_scheduler":

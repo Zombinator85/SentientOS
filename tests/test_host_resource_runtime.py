@@ -32,6 +32,10 @@ def test_v5_invocation_event_time_remains_digest_bound_in_generation_projection(
         "observed_at": observed_at,
     }) == "invocation_receipt_created_at_semantic_digest_bound"
     assert _invocation_receipt_event_time_posture({
+        "schema_version": "sentientos.local_model_invocation_receipt:v9",
+        "observed_at": observed_at,
+    }) == "invocation_receipt_created_at_semantic_digest_bound"
+    assert _invocation_receipt_event_time_posture({
         "schema_version": "sentientos.local_model_invocation_receipt:v1",
         "observed_at": observed_at,
     }) == "invocation_receipt_observed_at_unbound_metadata"

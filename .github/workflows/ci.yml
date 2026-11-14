@@ -90,6 +90,7 @@ jobs:
             tests/test_local_model_production_serving.py \
             tests/test_local_model_serving_inference.py::test_game_arriving_after_inference_admission_defers_before_backend_entry \
             tests/test_local_model_serving_inference.py::test_selected_gaming_profile_after_inference_admission_defers_before_effect \
+            'tests/test_local_model_serving_inference.py::test_verified_game_resource_governance_defers_or_releases_before_effect[idle_game_frame_pressure_active_inference_scheduler]' \
             tests/test_resident_epistemic_state_mutation.py \
             tests/test_local_model_catalog_deployment_capability_admission.py \
             tests/test_pytest_collection_reporter.py \

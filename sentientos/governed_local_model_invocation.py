@@ -40,6 +40,7 @@ INVOCATION_RECEIPT_SCHEMA_V5 = "sentientos.local_model_invocation_receipt:v5"
 INVOCATION_RECEIPT_SCHEMA_V6 = "sentientos.local_model_invocation_receipt:v6"
 INVOCATION_RECEIPT_SCHEMA_V7 = "sentientos.local_model_invocation_receipt:v7"
 INVOCATION_RECEIPT_SCHEMA_V8 = "sentientos.local_model_invocation_receipt:v8"
+INVOCATION_RECEIPT_SCHEMA_V9 = "sentientos.local_model_invocation_receipt:v9"
 CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA = (
     "sentientos.cancellation_admission_decision_witness:v1")
 LLAMA_COMPLETION_OBSERVATION_SCHEMA_V1 = "sentientos.llama_cpp_completion_observation:v1"
@@ -218,7 +219,7 @@ def _valid_cancellation_admission_request_binding(value: object,
 
 
 def _valid_cancellation_admission_decision(value: object, *, reference: object,
-        request: object) -> bool:
+        request: object, require_runtime_evidence: bool = False) -> bool:
     fields = {
         "schema_version", "event_type", "final_disposition", "outcome",
         "reason_codes", "delegate_checks_consulted", "lifecycle_phase",
@@ -248,20 +249,53 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
                 value["delegated_outcomes"])):
         return False
     governor = value["delegated_outcomes"].get("runtime_governor")
+    if require_runtime_evidence:
+        if (not isinstance(governor, Mapping) or governor.get("allowed") is not True
+                or not isinstance(governor.get("evidence_refs"), Mapping)):
+            return False
+        evidence_refs = governor["evidence_refs"]
+        actor = value.get("actor")
+        if actor == "production_chat_game_workload_governor":
+            game_evidence = evidence_refs.get("game_workload_evidence")
+            if (not isinstance(game_evidence, Mapping)
+                    or game_evidence.get("status") != "current"
+                    or game_evidence.get("game_active") is not True
+                    or not isinstance(game_evidence.get("message_id"), str)
+                    or not game_evidence.get("message_id")):
+                return False
+        if (actor == "production_chat_game_resource_governor"
+                and not any(isinstance(evidence_refs.get(key), Mapping)
+                    and evidence_refs[key].get("status") == "current"
+                    for key in ("game_workload_evidence", "game_performance_evidence",
+                        "resource_observation_evidence"))):
+            return False
+        if (actor == "production_chat_workload_resource_governor"
+                and not any(isinstance(evidence_refs.get(key), Mapping)
+                    and evidence_refs[key].get("status") == "current"
+                    for key in ("gaming_workload_profile_evidence",
+                        "resource_observation_evidence"))):
+            return False
+        if actor == "production_chat_host_resource_governor":
+            host_evidence = evidence_refs.get("host_resource_evidence")
+            resource_evidence = evidence_refs.get("resource_observation_evidence")
+            if not any(isinstance(item, Mapping)
+                    and item.get("status") == "current"
+                    for item in (host_evidence, resource_evidence)):
+                return False
     if (value.get("authority_class") == AuthorityClass.LOCAL_MODEL_INFERENCE.value
             and value.get("action_kind") == "local_model_inference_preemption"
             and value.get("target_subsystem") == "governed_local_model_invocation"
             and value.get("actor") in {
                 "production_chat_host_resource_governor",
                 "production_chat_game_workload_governor"}):
-        if governor is None:
+        if governor is None and not require_runtime_evidence:
             return True
         return (isinstance(governor, Mapping)
             and governor.get("allowed") is True
             and governor.get("reason") in {
                 "allowed_host_resource_pressure_inference_preemption",
                 "allowed_verified_game_workload_inference_preemption"})
-    return (value.get("authority_class") ==
+    release_scope_valid = (value.get("authority_class") ==
                 AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE.value
             and value.get("action_kind") == "local_model_resource_release"
             and value.get("target_subsystem") == "production_chat"
@@ -269,6 +303,13 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
                 "production_chat_host_resource_governor",
                 "production_chat_workload_resource_governor",
                 "production_chat_game_resource_governor"})
+    if not release_scope_valid:
+        return False
+    if require_runtime_evidence:
+        return (isinstance(governor, Mapping)
+            and governor.get("allowed") is True
+            and governor.get("reason") == "model_resource_release_fail_safe")
+    return True
 
 
 def _cancellation_admission_decision_witness(
@@ -565,27 +606,30 @@ class LocalModelInvocationReceipt:
                 if self.backend_completion is not None else None)
         if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V4,
                 INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6,
-                INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8}:
+                INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
+                INVOCATION_RECEIPT_SCHEMA_V9}:
             payload["backend_completion"] = (dict(self.backend_completion)
                 if self.backend_completion is not None else None)
             payload["cancellation_admission_decision_ref"] = self.cancellation_admission_decision_ref
         if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V5,
                 INVOCATION_RECEIPT_SCHEMA_V6, INVOCATION_RECEIPT_SCHEMA_V7,
-                INVOCATION_RECEIPT_SCHEMA_V8}:
+                INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9}:
             payload["cancellation_resource_observation"] = (
                 dict(self.cancellation_resource_observation)
                 if self.cancellation_resource_observation is not None else None)
         if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V6,
-                INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8}:
+                INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
+                INVOCATION_RECEIPT_SCHEMA_V9}:
             payload["cancellation_admission_decision"] = (
                 dict(self.cancellation_admission_decision)
                 if self.cancellation_admission_decision is not None else None)
         if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V7,
-                INVOCATION_RECEIPT_SCHEMA_V8}:
+                INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9}:
             payload["cancellation_admission_record"] = (
                 dict(self.cancellation_admission_record)
                 if self.cancellation_admission_record is not None else None)
-        if self.schema_version == INVOCATION_RECEIPT_SCHEMA_V8:
+        if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V8,
+                INVOCATION_RECEIPT_SCHEMA_V9}:
             payload["admission_decision_record"] = (
                 dict(self.admission_decision_record)
                 if self.admission_decision_record is not None else None)
@@ -687,17 +731,19 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
     elif schema in {INVOCATION_RECEIPT_SCHEMA, INVOCATION_RECEIPT_SCHEMA_V3,
                     INVOCATION_RECEIPT_SCHEMA_V4, INVOCATION_RECEIPT_SCHEMA_V5,
                     INVOCATION_RECEIPT_SCHEMA_V6, INVOCATION_RECEIPT_SCHEMA_V7,
-                    INVOCATION_RECEIPT_SCHEMA_V8}:
+                    INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9}:
         semantic = {key: payload.get(key) for key in (
             "schema_version", *legacy_semantic_keys, "observed_at")}
         if schema in {INVOCATION_RECEIPT_SCHEMA_V3, INVOCATION_RECEIPT_SCHEMA_V4,
                 INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6,
-                INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8}:
+                INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
+                INVOCATION_RECEIPT_SCHEMA_V9}:
             semantic["backend_completion"] = payload.get("backend_completion")
             completion = payload.get("backend_completion")
             if (completion is None and schema in {INVOCATION_RECEIPT_SCHEMA_V4,
                     INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6,
-                    INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8}):
+                    INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
+                    INVOCATION_RECEIPT_SCHEMA_V9}):
                 pass
             elif not validate_backend_completion_observation(completion):
                 reasons.append("backend_completion_observation_invalid")
@@ -735,7 +781,8 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
                         payload.get("request"))):
                 reasons.append("cancellation_admission_request_binding_invalid")
         if schema in {INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6,
-                INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8}:
+                INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
+                INVOCATION_RECEIPT_SCHEMA_V9}:
             observation = payload.get("cancellation_resource_observation")
             effects = payload.get("effects")
             if ((schema != INVOCATION_RECEIPT_SCHEMA_V8
@@ -764,17 +811,20 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
                         expected_source="parent_sampled_exact_runtime_worker")):
                 reasons.append("cancellation_resource_observation_invalid")
         if schema in {INVOCATION_RECEIPT_SCHEMA_V6, INVOCATION_RECEIPT_SCHEMA_V7,
-                INVOCATION_RECEIPT_SCHEMA_V8}:
+                INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9}:
             cancellation_decision = payload.get("cancellation_admission_decision")
             semantic["cancellation_admission_decision"] = cancellation_decision
             if cancellation_ref := semantic.get("cancellation_admission_decision_ref"):
                 if not _valid_cancellation_admission_decision(
                         cancellation_decision, reference=cancellation_ref,
-                        request=payload.get("request")):
+                        request=payload.get("request"),
+                        require_runtime_evidence=(
+                            schema == INVOCATION_RECEIPT_SCHEMA_V9)):
                     reasons.append("cancellation_admission_decision_invalid")
             elif cancellation_decision is not None:
                 reasons.append("cancellation_admission_decision_unreferenced")
-        if schema in {INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8}:
+        if schema in {INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
+                INVOCATION_RECEIPT_SCHEMA_V9}:
             record = payload.get("cancellation_admission_record")
             semantic["cancellation_admission_record"] = record
             if cancellation_ref := semantic.get("cancellation_admission_decision_ref"):
@@ -800,7 +850,7 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
                     reasons.append("cancellation_admission_record_invalid")
             elif record is not None:
                 reasons.append("cancellation_admission_record_unreferenced")
-        if schema == INVOCATION_RECEIPT_SCHEMA_V8:
+        if schema in {INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9}:
             admission_record = payload.get("admission_decision_record")
             semantic["admission_decision_record"] = admission_record
             if admission_record is None:
@@ -1766,7 +1816,18 @@ class GovernedLocalModelInvoker:
         receipt_output = generated_output if generated_output is not None else output
         actual_generation_parameters = ({key: value for key, value in gen_kwargs.items()
             if key not in {"on_content_chunk", "_cancel_event"}} if "gen_kwargs" in locals() else {})
-        receipt_schema = (INVOCATION_RECEIPT_SCHEMA_V8
+        cancellation_delegates = (cancellation_admission_decision.get(
+            "delegated_outcomes") if isinstance(cancellation_admission_decision, Mapping)
+            else None)
+        cancellation_governor = (cancellation_delegates.get("runtime_governor")
+            if isinstance(cancellation_delegates, Mapping) else None)
+        cancellation_has_governor_evidence = (
+            isinstance(cancellation_governor, Mapping)
+            and isinstance(cancellation_governor.get("evidence_refs"), Mapping))
+        receipt_schema = (INVOCATION_RECEIPT_SCHEMA_V9
+            if (status == "cancelled" and cancellation_admission_ref is not None
+                and cancellation_has_governor_evidence)
+            else INVOCATION_RECEIPT_SCHEMA_V8
             if admitted_ref is not None
             else INVOCATION_RECEIPT_SCHEMA_V7
                 if cancellation_admission_ref is not None
