@@ -1841,7 +1841,8 @@ class ProductionServingInferenceController:
                         return {key: sample.get(key) for key in (
                             "status", "report_id", "observed_at",
                             "cpu_utilization_percent", "gpu_utilization_percent",
-                            "vram_utilization_percent", "gpu_telemetry_available",
+                            "ram_utilization_percent", "vram_utilization_percent",
+                            "gpu_telemetry_available",
                             "gpu_telemetry_complete", "gpu_telemetry_sources")}
 
                     def finite_percent(value: object) -> float | None:
@@ -1864,16 +1865,22 @@ class ProductionServingInferenceController:
                         "cpu_utilization_percent") if before_sample else None)
                     after_cpu = finite_percent(after_sample.get(
                         "cpu_utilization_percent") if after_sample else None)
+                    before_ram = finite_percent(before_sample.get(
+                        "ram_utilization_percent") if before_sample else None)
+                    after_ram = finite_percent(after_sample.get(
+                        "ram_utilization_percent") if after_sample else None)
                     gpu_delta = (after_gpu - before_gpu
                         if before_gpu is not None and after_gpu is not None else None)
                     vram_delta = (after_vram - before_vram
                         if before_vram is not None and after_vram is not None else None)
                     cpu_delta = (after_cpu - before_cpu
                         if before_cpu is not None and after_cpu is not None else None)
+                    ram_delta = (after_ram - before_ram
+                        if before_ram is not None and after_ram is not None else None)
                     resource_measurement_comparison = {
                         "schema_version": "sentientos.resource_measurement_comparison:v1",
                         "status": ("comparable" if gpu_delta is not None or vram_delta is not None
-                            or cpu_delta is not None
+                            or cpu_delta is not None or ram_delta is not None
                             else "insufficient_gpu_measurements"),
                         "before": before_sample,
                         "before_sample_kind": ("recent_cached_observation"
@@ -1881,6 +1888,7 @@ class ProductionServingInferenceController:
                         "after": after_sample,
                         "gpu_utilization_delta_percentage_points": gpu_delta,
                         "vram_utilization_delta_percentage_points": vram_delta,
+                        "ram_utilization_delta_percentage_points": ram_delta,
                         "cpu_utilization_delta_percentage_points": cpu_delta,
                         "interpretation": (
                             "sample_delta_only; telemetry_does_not_establish_causation"),

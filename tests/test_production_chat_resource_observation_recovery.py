@@ -105,9 +105,11 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             "correlation_id": "invocation-correlation",
         },
         "resource_measurement_comparison": {
+            "status": "comparable",
             "before": {"host_report_id": "host-before",
                 "observed_at": "2026-09-21T08:30:00Z",
                 "gpu_utilization_percent": 74.0,
+                "ram_utilization_percent": 68.0,
                 "gpu_telemetry_sources": [{"collector_id": "nvidia_gpu",
                     "status": "available", "source": "synthetic_test_fixture",
                     "sample_scope": "device_wide",
@@ -115,10 +117,12 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             "after": {"host_report_id": "host-after",
                 "observed_at": "2026-09-21T08:30:05Z",
                 "gpu_utilization_percent": 20.0,
+                "ram_utilization_percent": 51.0,
                 "gpu_telemetry_sources": [{"collector_id": "nvidia_gpu",
                     "status": "available", "source": "synthetic_test_fixture",
                     "sample_scope": "device_wide",
                     "per_process_attribution_available": False}]},
+            "ram_utilization_delta_percentage_points": -17.0,
             "interpretation": "sample_delta_only; telemetry_does_not_establish_causation"},
         "inference_performed": False,
         "host_mutation_performed": False,
@@ -519,6 +523,9 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "per_process_attribution_available": False},)
     comparison = projected_release["resource_measurement_comparison"]
     assert comparison["before"]["gpu_utilization_percent"] == 74.0
+    assert comparison["before"]["ram_utilization_percent"] == 68.0
+    assert comparison["after"]["ram_utilization_percent"] == 51.0
+    assert comparison["ram_utilization_delta_percentage_points"] == -17.0
     assert comparison["before"]["gpu_telemetry_sources"] == ({
         "collector_id": "nvidia_gpu", "status": "available",
         "source": "synthetic_test_fixture", "sample_scope": "device_wide",

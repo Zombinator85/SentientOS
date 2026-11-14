@@ -3728,6 +3728,13 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         return lambda *, observed_at=None: HostCollectorResult(
             collector_id, "available", observed_at or now.isoformat(),
             "synthetic_test_fixture", values=values)
+    memory_metrics = {"used_percent": 40.0}
+
+    def collect_memory(*, observed_at=None):
+        return HostCollectorResult("memory", "available",
+            observed_at or now.isoformat(), "synthetic_test_fixture",
+            values=dict(memory_metrics))
+
     gpu_metrics = ({"gpu": 22.0, "vram": 86.0}
         if trigger == "deferred_vram_pressure" else
         {"gpu": 22.0, "vram": 47.0}
@@ -3773,7 +3780,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
             collect_cpu),
         HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
-            collector("memory", used_percent=40.0)),
+            collect_memory),
         HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
             collect_gpu),
         HostObservationCollectorSpec("thermal_sensors", False, ("linux", "unknown"), 4,
@@ -3824,6 +3831,10 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
 
     def simulated_release() -> None:
         original_close()
+        if trigger in {"idle_game_frame_pressure",
+                "idle_game_frame_pressure_active_inference",
+                "idle_game_frame_pressure_active_inference_scheduler"}:
+            memory_metrics["used_percent"] = 25.0
         if trigger in {"idle_cpu_pressure", "deferred_cpu_pressure"}:
             cpu_metrics["value"] = 35.0
         gpu_metrics.update(gpu=12.0 if trigger in {
@@ -4362,6 +4373,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert beforeflight["no_effect_authority"] is True
         assert beforeflight["gpu_utilization_percent"] == 22.0
         assert beforeflight["vram_utilization_percent"] == 47.0
+        assert beforeflight["ram_utilization_percent"] == 40.0
         comparison = release["resource_measurement_comparison"]
         assert comparison["status"] == "comparable"
         assert comparison["before_sample_kind"] == "recent_cached_observation"
@@ -4373,6 +4385,9 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "per_process_attribution_available": None}]
         assert comparison["gpu_utilization_delta_percentage_points"] == -10.0
         assert comparison["vram_utilization_delta_percentage_points"] == -7.0
+        assert comparison["before"]["ram_utilization_percent"] == 40.0
+        assert comparison["after"]["ram_utilization_percent"] == 25.0
+        assert comparison["ram_utilization_delta_percentage_points"] == -15.0
         assert comparison["before"]["cpu_utilization_percent"] == 20.0
         assert comparison["after"]["cpu_utilization_percent"] == 20.0
         assert comparison["cpu_utilization_delta_percentage_points"] == 0.0
