@@ -67,6 +67,8 @@ _RESOURCE_ADMISSION_WITNESS_SCHEMA = (
 _RESOURCE_ADMISSION_WITNESS_SCHEMA_V2 = (
     "sentientos.resource_bound_inference_admission_witness:v2")
 _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA = (
+    "sentientos.resource_admission_host_observation_binding:v2")
+_RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA_V1 = (
     "sentientos.resource_admission_host_observation_binding:v1")
 _RESOURCE_RELEASE_RECEIPT_SCHEMA_V2 = (
     "sentientos.production_chat_resource_release_receipt:v2")
@@ -753,7 +755,7 @@ class ProductionChatResourceObservationOwner:
             if isinstance(evidence, Mapping) else None)
         host_observation_binding = None
         if isinstance(host_observation, Mapping) and host_observation.get("status") == "current":
-            host_fields = (
+            legacy_host_fields = (
                 "evaluation_id", "semantic_digest", "epoch_id", "snapshot_id",
                 "report_id", "report_digest", "observation_correlation_id",
                 "observed_at", "pressure_labels", "cpu_utilization_percent",
@@ -761,6 +763,17 @@ class ProductionChatResourceObservationOwner:
                 "vram_utilization_percent", "thermal_zone_temperatures_c",
                 "gpu_telemetry_available", "gpu_telemetry_complete",
                 "gpu_telemetry_sources")
+            policy_fields = (
+                "policy_decision_id", "policy_decision_status",
+                "policy_decision_digest", "policy_proposal_only")
+            policy_field_count = sum(key in host_observation for key in policy_fields)
+            if policy_field_count not in {0, len(policy_fields)}:
+                raise ProductionChatResourceObservationError(
+                    "resource_inference_host_observation_binding_invalid")
+            host_fields = legacy_host_fields + (policy_fields
+                if policy_field_count else ())
+            host_binding_schema = (_RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA
+                if policy_field_count else _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA_V1)
             host_values = {key: host_observation.get(key) for key in host_fields}
 
             def normalized_labels(value: object) -> tuple[str, ...]:
@@ -807,7 +820,7 @@ class ProductionChatResourceObservationOwner:
                 raise ProductionChatResourceObservationError(
                     "resource_inference_host_observation_binding_mismatch")
             host_observation_binding = {
-                "schema_version": _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA,
+                "schema_version": host_binding_schema,
                 "status": "current",
                 **host_values,
             }

@@ -1124,6 +1124,7 @@ class RuntimeGovernor:
         """Accept only a valid proposal-only collector evaluation for scheduling."""
         try:
             from sentientos.host_resource_runtime import HostResourceRuntimeEvaluation, validate_evaluation
+            from sentientos.host_resource_policy import host_resource_policy_decision_digest
 
             if type(evaluation) is not HostResourceRuntimeEvaluation or not validate_evaluation(evaluation).ok:
                 return False
@@ -1139,6 +1140,8 @@ class RuntimeGovernor:
                 "report_digest": evaluation.policy_decision.report_digest,
                 "policy_decision_id": evaluation.policy_decision.decision_id,
                 "policy_decision_status": evaluation.policy_decision.status,
+                "policy_decision_digest": host_resource_policy_decision_digest(
+                    evaluation.policy_decision),
                 "policy_proposal_only": evaluation.policy_decision.proposal_only,
                 "gpu_telemetry_sources": [
                     {"collector_id": result.collector_id, "status": result.status,
@@ -2556,6 +2559,8 @@ class RuntimeGovernor:
                         "policy_decision_id": evidence.get("policy_decision_id"),
                         "policy_decision_status": evidence.get(
                             "policy_decision_status"),
+                        "policy_decision_digest": evidence.get(
+                            "policy_decision_digest"),
                         "policy_proposal_only": evidence.get(
                             "policy_proposal_only"),
                         "observation_correlation_id": evidence[

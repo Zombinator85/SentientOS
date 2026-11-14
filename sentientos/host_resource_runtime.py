@@ -924,7 +924,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     def normalized_host_observation_binding(value: Any) -> dict[str, Any] | None:
         if not isinstance(value, Mapping) or value.get("status") != "current":
             return None
-        fields = (
+        legacy_fields = (
             "evaluation_id", "semantic_digest", "epoch_id", "snapshot_id",
             "report_id", "report_digest", "observation_correlation_id",
             "observed_at", "pressure_labels", "cpu_utilization_percent",
@@ -932,8 +932,25 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "vram_utilization_percent", "thermal_zone_temperatures_c",
             "gpu_telemetry_available", "gpu_telemetry_complete",
             "gpu_telemetry_sources")
+        policy_fields = (
+            "policy_decision_id", "policy_decision_status",
+            "policy_decision_digest", "policy_proposal_only")
+        policy_field_count = sum(key in value for key in policy_fields)
+        if policy_field_count not in {0, len(policy_fields)}:
+            return None
+        fields = legacy_fields + (policy_fields if policy_field_count else ())
         if not all(key in value for key in fields):
             return None
+        if policy_field_count:
+            policy_digest = value.get("policy_decision_digest")
+            if (not isinstance(value.get("policy_decision_id"), str)
+                    or not value.get("policy_decision_id")
+                    or not isinstance(value.get("policy_decision_status"), str)
+                    or not value.get("policy_decision_status")
+                    or not isinstance(policy_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", policy_digest) is None
+                    or value.get("policy_proposal_only") is not True):
+                return None
         labels = value.get("pressure_labels")
         if (not isinstance(labels, (list, tuple))
                 or not all(isinstance(label, str) for label in labels)):
@@ -955,6 +972,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         if not isinstance(thermal, Mapping):
             return None
         return {"schema_version": (
+                "sentientos.resource_admission_host_observation_binding:v2"
+                if policy_field_count else
                 "sentientos.resource_admission_host_observation_binding:v1"),
             "status": "current",
             **{key: (tuple(sorted(set(labels))) if key == "pressure_labels"

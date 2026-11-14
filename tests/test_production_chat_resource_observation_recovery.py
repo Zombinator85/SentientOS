@@ -699,6 +699,7 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
     from sentientos.production_chat_resource_provisioning import (
         load_production_chat_resource_context_owner,
     )
+    from sentientos.host_resource_policy import host_resource_policy_decision_digest
     import sentientos.runtime_governor as runtime_governor_module
     from tests.test_governed_local_model_resource_invocation_composition import (
         setup as invocation_setup,
@@ -750,6 +751,11 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
         "snapshot_id": evaluation.snapshot.snapshot_id,
         "report_id": evaluation.pressure_report.report_id,
         "report_digest": evaluation.policy_decision.report_digest,
+        "policy_decision_id": evaluation.policy_decision.decision_id,
+        "policy_decision_status": evaluation.policy_decision.status,
+        "policy_decision_digest": host_resource_policy_decision_digest(
+            evaluation.policy_decision),
+        "policy_proposal_only": evaluation.policy_decision.proposal_only,
         "semantic_digest": evaluation.semantic_digest,
         "observed_at": evaluation.epoch.observed_at,
         "pressure_labels": list(evaluation.pressure_report.pressure_labels),
@@ -811,6 +817,13 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
         host_binding = witness["host_resource_observation_binding"]
         assert host_binding["status"] == "current"
         assert host_binding["report_digest"] == host_observation["report_digest"]
+        assert host_binding["policy_decision_id"] == host_observation[
+            "policy_decision_id"]
+        assert host_binding["policy_decision_status"] == host_observation[
+            "policy_decision_status"]
+        assert host_binding["policy_decision_digest"] == host_observation[
+            "policy_decision_digest"]
+        assert host_binding["policy_proposal_only"] is True
         assert host_binding["semantic_digest"] == host_observation["semantic_digest"]
         assert receipt.admission_decision_record == json.loads(decision_bytes)
         projection = resource_consumption_world_state_records(
@@ -824,6 +837,19 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
             host_binding)
         assert projected_invocation["admission_decision_record"] == (
             receipt.admission_decision_record)
+
+        tampered_policy_decision = json.loads(decision_bytes)
+        tampered_policy_decision["delegated_outcomes"]["runtime_governor"][
+            "evidence_refs"]["host_resource_evidence"][
+                "policy_decision_digest"] = "0" * 64
+        handle.durable_replace(decision_file,
+            (json.dumps(tampered_policy_decision, sort_keys=True,
+                separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+                + "\n").encode("utf-8"))
+        with pytest.raises(ProductionChatResourceObservationError,
+                match="resource_inference_host_observation_binding_mismatch"):
+            observer.observe()
+        handle.durable_replace(decision_file, decision_bytes)
 
         tampered_decision = json.loads(decision_bytes)
         tampered_decision["delegated_outcomes"]["runtime_governor"][

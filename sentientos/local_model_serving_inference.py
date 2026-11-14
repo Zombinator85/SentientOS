@@ -38,6 +38,7 @@ from .local_model_resource_profile import (
 )
 from .installation_state import InstallationStateError
 from .gaming_workload_policy import EffectiveWorkloadMode, GamingWorkloadPolicy, WorkloadMode
+from .host_resource_policy import host_resource_policy_decision_digest
 from .foreground_game_detection import (
     CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES,
     ForegroundGameDetector,
@@ -262,6 +263,8 @@ class ProductionServingInferenceController:
             "report_digest": evaluation.policy_decision.report_digest,
             "policy_decision_id": evaluation.policy_decision.decision_id,
             "policy_decision_status": evaluation.policy_decision.status,
+            "policy_decision_digest": host_resource_policy_decision_digest(
+                evaluation.policy_decision),
             "policy_proposal_only": evaluation.policy_decision.proposal_only,
             "semantic_digest": evaluation.semantic_digest,
             "observed_at": evaluation.epoch.observed_at,
@@ -311,6 +314,8 @@ class ProductionServingInferenceController:
             "report_digest": evaluation.policy_decision.report_digest,
             "policy_decision_id": evaluation.policy_decision.decision_id,
             "policy_decision_status": evaluation.policy_decision.status,
+            "policy_decision_digest": host_resource_policy_decision_digest(
+                evaluation.policy_decision),
             "policy_proposal_only": evaluation.policy_decision.proposal_only,
             "observed_at": evaluation.epoch.observed_at,
             "pressure_labels": list(evaluation.pressure_report.pressure_labels),
@@ -353,6 +358,8 @@ class ProductionServingInferenceController:
             "report_digest": evaluation.policy_decision.report_digest,
             "policy_decision_id": evaluation.policy_decision.decision_id,
             "policy_decision_status": evaluation.policy_decision.status,
+            "policy_decision_digest": host_resource_policy_decision_digest(
+                evaluation.policy_decision),
             "policy_proposal_only": evaluation.policy_decision.proposal_only,
             "observed_at": evaluation.epoch.observed_at,
         }
