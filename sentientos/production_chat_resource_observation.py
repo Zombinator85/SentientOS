@@ -371,6 +371,14 @@ class ProductionChatResourceObservationOwner:
                     or serving_binding[0] != operation_id):
                 raise ProductionChatResourceObservationError(
                     "resource_release_serving_operation_linkage_invalid")
+            release_outcome = value.get("release_admission_outcome")
+            release_status = value.get("status")
+            if ((release_status in {"worker_closed", "release_effect_unconfirmed"}
+                    and release_outcome != "allow")
+                    or (release_status == "denied"
+                        and release_outcome not in {"deny", "defer", "quarantine"})):
+                raise ProductionChatResourceObservationError(
+                    "resource_release_admission_outcome_status_mismatch")
             seen_ids.add(receipt_id)
             verified_value = dict(value)
             verified_value["serving_receipt_linkage_posture"] = "verified"

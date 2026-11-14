@@ -148,7 +148,11 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         ledger=first.ledger,
         invocation_receipts=(linked_invocation,),
         verified_resource_release_receipts=linked_releases)[0]
-    assert linked_projection["disposition"] == "recorded"
+    # Invocation linkage does not complete the separate provisional allocator
+    # attempt; recovery must continue to report the combined state degraded.
+    assert linked_projection["disposition"] == "degraded"
+    assert linked_projection["payload"]["recovery_posture"] == (
+        "incomplete_attempts_present")
     assert linked_projection["payload"]["resource_release_receipts"][0][
         "cancelled_invocation_receipt_digest"] == linked_invocation["receipt_digest"]
     serving_history = ({"status": "serving_receipt_verified",
@@ -171,6 +175,27 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             match="resource_release_receipt_binding_invalid"):
         observer.observe()
     release_path.write_bytes(original_release_bytes)
+    mismatched_release = dict(release_body)
+    mismatched_release.pop("receipt_id")
+    mismatched_release.pop("receipt_semantic_digest")
+    mismatched_release["release_admission_outcome"] = "deny"
+    mismatched_body = json.dumps(mismatched_release, sort_keys=True,
+        separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    mismatched_id = "serving-resource-release-" + hashlib.sha256(
+        mismatched_body).hexdigest()[:24]
+    mismatched_release["receipt_id"] = mismatched_id
+    mismatched_release["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+        mismatched_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    mismatched_path = release_directory.child(mismatched_id + ".json").path
+    mismatched_path.write_text(json.dumps(mismatched_release, sort_keys=True,
+        separators=(",", ":")), encoding="utf-8")
+    try:
+        with pytest.raises(ProductionChatResourceObservationError,
+                match="resource_release_admission_outcome_status_mismatch"):
+            observer.observe()
+    finally:
+        mismatched_path.unlink()
     assert ledger_path.read_bytes() == original
 
     reopened = ProductionChatResourceObservationOwner(
