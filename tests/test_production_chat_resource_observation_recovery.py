@@ -107,6 +107,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "resource_measurement_comparison": {
             "status": "comparable",
             "before": {"host_report_id": "host-before",
+                "host_report_digest": "c" * 64,
                 "observed_at": "2026-09-21T08:30:00Z",
                 "gpu_utilization_percent": 74.0,
                 "ram_utilization_percent": 68.0,
@@ -115,6 +116,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
                     "sample_scope": "device_wide",
                     "per_process_attribution_available": False}]},
             "after": {"host_report_id": "host-after",
+                "host_report_digest": "d" * 64,
                 "observed_at": "2026-09-21T08:30:05Z",
                 "gpu_utilization_percent": 20.0,
                 "ram_utilization_percent": 51.0,
@@ -535,6 +537,8 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "source": "synthetic_test_fixture", "sample_scope": "device_wide",
         "per_process_attribution_available": False},)
     assert comparison["after"]["report_id"] == "host-after"
+    assert comparison["before"]["report_digest"] == "c" * 64
+    assert comparison["after"]["report_digest"] == "d" * 64
     assert comparison["interpretation"] == (
         "sample_delta_only; telemetry_does_not_establish_causation")
     assert projected["disposition"] == "degraded"
