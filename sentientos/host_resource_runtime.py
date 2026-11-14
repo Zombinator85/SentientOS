@@ -853,9 +853,16 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     or not isinstance(serving_receipt_id, str)
                     or not isinstance(serving_receipt_digest, str)):
                 continue
-            serving_release_bindings[(session_id, operation_id)] = (
+            history_key = (session_id, operation_id)
+            candidate_binding = (
                 digest_payload(dict(loaded_identity)), serving_receipt_id,
                 serving_receipt_digest)
+            prior_binding = serving_release_bindings.get(history_key)
+            if prior_binding is not None and prior_binding != candidate_binding:
+                raise ValueError("resource_release_serving_history_collision")
+            if prior_binding is not None:
+                raise ValueError("resource_release_serving_history_duplicate")
+            serving_release_bindings[history_key] = candidate_binding
         for release in release_receipt_summaries:
             admission = release.get("release_admission_record")
             delegated = (admission.get("delegated_outcomes")

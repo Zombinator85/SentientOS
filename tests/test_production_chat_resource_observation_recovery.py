@@ -641,6 +641,26 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     assert not any(item.startswith(
         "resource_release_serving_model_linkage_missing_or_mismatched:")
         for item in serving_link_projection["payload"]["lineage_findings"])
+    conflicting_serving_receipt = dict(projection_serving_receipt)
+    conflicting_serving_receipt["receipt_id"] = "serving-receipt-" + "f" * 24
+    conflicting_binding = dict(conflicting_serving_receipt["binding"])
+    conflicting_binding["observed_loaded_model_identity"] = {
+        "model_id": "different-synthetic-model", "revision": "r1"}
+    conflicting_serving_receipt["binding"] = conflicting_binding
+    conflicting_serving_receipt["receipt_semantic_digest"] = "c" * 64
+    conflicting_history_body = {**projection_history_body,
+        "receipt": conflicting_serving_receipt,
+        "receipt_semantic_digest": "c" * 64}
+    conflicting_serving_history = (*projection_serving_history, {
+        **conflicting_history_body,
+        "history_semantic_digest": semantic_digest(conflicting_history_body)})
+    with pytest.raises(ValueError,
+            match="resource_release_serving_history_collision"):
+        resource_consumption_world_state_records(
+            ledger=first.ledger,
+            source_identity={"installation_identity": str(identity)},
+            verified_serving_operation_history=conflicting_serving_history,
+            verified_resource_release_receipts=first.verified_resource_release_receipts)
     tampered_release = dict(first.verified_resource_release_receipts[0])
     tampered_release["status"] = "denied"
     with pytest.raises(ValueError,
