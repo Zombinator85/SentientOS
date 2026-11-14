@@ -512,6 +512,32 @@ class ProductionChatResourceObservationOwner:
                         or not isinstance(admission_record.get("delegated_outcomes"), Mapping)):
                     raise ProductionChatResourceObservationError(
                         "resource_release_admission_record_invalid")
+                if (release_status in {"worker_closed", "release_effect_unconfirmed"}
+                        and isinstance(admission_record, Mapping)):
+                    delegated = admission_record.get("delegated_outcomes")
+                    runtime_governor = (delegated.get("runtime_governor")
+                        if isinstance(delegated, Mapping) else None)
+                    evidence_refs = (runtime_governor.get("evidence_refs")
+                        if isinstance(runtime_governor, Mapping) else None)
+                    release_target = (evidence_refs.get("resource_release_target")
+                        if isinstance(evidence_refs, Mapping) else None)
+                    receipt_model_digest = value.get("model_identity_digest")
+                    if (isinstance(receipt_model_digest, str)
+                            and receipt_model_digest.startswith("sha256:")):
+                        receipt_model_digest = receipt_model_digest[7:]
+                    if (not isinstance(release_target, Mapping)
+                            or set(release_target) != {
+                                "schema_version", "serving_session_id",
+                                "model_identity_digest"}
+                            or release_target.get("schema_version") !=
+                                "sentientos.production_chat_resource_release_target:v1"
+                            or release_target.get("serving_session_id") != session_id
+                            or release_target.get("model_identity_digest")
+                                != receipt_model_digest
+                            or not isinstance(receipt_model_digest, str)
+                            or re.fullmatch(r"[0-9a-f]{64}", receipt_model_digest) is None):
+                        raise ProductionChatResourceObservationError(
+                            "resource_release_target_binding_invalid")
                 receipt_observation = value.get("resource_observation")
                 if (isinstance(receipt_observation, Mapping)
                         and (receipt_observation.get(

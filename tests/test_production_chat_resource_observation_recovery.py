@@ -77,6 +77,10 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             "execution_owner": "production_chat_game_resource_governor",
             "target_subsystem": "production_chat", "delegated_outcomes": {
                 "runtime_governor": {"evidence_refs": {
+                    "resource_release_target": {
+                        "schema_version": "sentientos.production_chat_resource_release_target:v1",
+                        "serving_session_id": "session-1",
+                        "model_identity_digest": "1" * 64},
                     "active_inference_request_reference": {
                         "request_id": "lmreq-" + "c" * 24,
                         "request_digest": "c" * 64,
@@ -205,6 +209,36 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             match="resource_release_admission_record_invalid"):
         observer.observe()
     forged_record_path.path.unlink()
+
+    forged_target_release = dict(release_body)
+    target_record = dict(release_body["release_admission_record"])
+    target_delegated = dict(target_record["delegated_outcomes"])
+    target_governor = dict(target_delegated["runtime_governor"])
+    target_refs = dict(target_governor["evidence_refs"])
+    target_refs["resource_release_target"] = {
+        **target_refs["resource_release_target"],
+        "serving_session_id": "serving-session-" + "f" * 24}
+    target_governor["evidence_refs"] = target_refs
+    target_delegated["runtime_governor"] = target_governor
+    target_record["delegated_outcomes"] = target_delegated
+    forged_target_release["release_admission_record"] = target_record
+    forged_target_release.pop("receipt_id")
+    forged_target_release.pop("receipt_semantic_digest")
+    forged_target_id = "serving-resource-release-" + hashlib.sha256(json.dumps(
+        forged_target_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()[:24]
+    forged_target_release["receipt_id"] = forged_target_id
+    forged_target_release["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+        forged_target_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    forged_target_path = release_directory.child(forged_target_id + ".json")
+    handle.durable_create(forged_target_path,
+        (json.dumps(forged_target_release, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+    with pytest.raises(ProductionChatResourceObservationError,
+            match="resource_release_target_binding_invalid"):
+        observer.observe()
+    forged_target_path.path.unlink()
 
     forged_evidence_release = dict(release_body)
     forged_evidence_record = dict(release_body["release_admission_record"])
