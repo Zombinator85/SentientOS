@@ -549,8 +549,9 @@ class ProductionChatResourceObservationOwner:
                                     != value.get("release_admission_decision_ref")):
                             raise ProductionChatResourceObservationError(
                                 "resource_release_cancelled_invocation_binding_invalid")
-                        if (invocation.get("schema_version") ==
-                                "sentientos.local_model_invocation_receipt:v7"
+                        if (invocation.get("schema_version") in {
+                                "sentientos.local_model_invocation_receipt:v7",
+                                "sentientos.local_model_invocation_receipt:v8"}
                                 and (not isinstance(value.get("release_admission_record"), Mapping)
                                     or invocation.get("cancellation_admission_record")
                                         != value.get("release_admission_record"))):

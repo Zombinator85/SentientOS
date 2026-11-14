@@ -300,7 +300,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "cancelled_invocation_receipt_digest"] == linked_invocation["receipt_digest"]
     exact_linked_invocation = {
         **linked_invocation,
-        "schema_version": "sentientos.local_model_invocation_receipt:v7",
+        "schema_version": "sentientos.local_model_invocation_receipt:v8",
         "cancellation_admission_decision_ref": (
             release_body["release_admission_decision_ref"]),
         "cancellation_admission_record": dict(
