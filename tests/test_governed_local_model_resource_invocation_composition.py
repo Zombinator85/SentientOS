@@ -200,6 +200,62 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(tmp_path):
         for finding in incomplete_lineage["payload"]["lineage_findings"])
 
 
+def test_timed_out_worker_sample_reconciles_reserved_cpu_entitlement(tmp_path):
+    cancelled = threading.Event()
+
+    class SampledTimeoutModel(Model):
+        supports_per_invocation_thread_limit = True
+
+        def generate_governed_with_metadata(self, prompt, **kwargs):
+            if not cancelled.wait(2):
+                raise AssertionError("test timeout cancellation was not delivered")
+            raise RuntimeError("worker_terminated_for_timeout")
+
+        def cancel_pending_generation(self):
+            cancelled.set()
+            return True
+
+        def take_cancelled_generation_resource_observation(self):
+            return {
+                "schema_version": (
+                    "sentientos.governed_local_model_backend_resource_observation:v1"),
+                "backend": "llama_cpp",
+                "observation_source": "parent_sampled_exact_runtime_worker",
+                "user_cpu_seconds": 0.06,
+                "system_cpu_seconds": 0.01,
+                "wall_seconds": 0.07,
+                "process_peak_rss_bytes": None,
+            }
+
+    model, invoker, _, context, ledger = setup(tmp_path, model=SampledTimeoutModel(),
+        cpu_ceiling=20.0)
+    request = invoker.build_request(purpose="local_user_chat", prompt="wait",
+        caller="test", correlation_id="timeout-cpu-accounting",
+        budget=LocalModelInvocationBudget(100, 200, 20, 0.05, 2),
+        linkage={"max_backend_threads": 2})
+
+    receipt = invoker.invoke(request, resource_context=context)
+
+    assert receipt.status == "timeout"
+    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v5"
+    assert receipt.cancellation_resource_observation["user_cpu_seconds"] == 0.06
+    assert ledger._state["receipts"][-2]["state"] == "measured_timeout"
+    assert ledger._state["receipts"][-2]["resource_specific_measurement"][
+        "backend_resource_observation"] == receipt.cancellation_resource_observation
+    assert ledger.cpu_seconds_used(context.allocation.allocation_id) == pytest.approx(0.07)
+    assert GovernedLocalModelResourceLedger(ledger.path).cpu_seconds_used(
+        context.allocation.allocation_id) == pytest.approx(0.07)
+    from sentientos.governed_local_model_invocation import validate_receipt
+    assert validate_receipt(receipt.to_dict())[0]
+    from sentientos.host_resource_runtime import resource_consumption_world_state_records
+    projected = resource_consumption_world_state_records(
+        ledger=ledger, invocation_receipts=[receipt.to_dict()])[0]
+    assert projected["disposition"] == "recorded"
+    assert not any(finding.startswith(
+        "backend_resource_observation_receipt_mismatch:")
+        for finding in projected["payload"]["lineage_findings"])
+
+
 def test_inference_admission_records_exact_preflighted_resource_allocation(
         tmp_path, monkeypatch):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")

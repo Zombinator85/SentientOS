@@ -618,7 +618,7 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
                     or not semantic["cancellation_admission_decision_ref"]):
                 reasons.append("cancellation_admission_decision_ref_invalid")
         if schema == INVOCATION_RECEIPT_SCHEMA_V5:
-            if (payload.get("status") != "cancelled"
+            if (payload.get("status") not in {"cancelled", "timeout"}
                     or not isinstance(payload.get("effects"), Mapping)
                     or payload["effects"].get("local_model_inference") is not True):
                 reasons.append("cancellation_resource_observation_status_invalid")
@@ -1409,6 +1409,16 @@ class GovernedLocalModelInvoker:
                             if callable(cancel):
                                 try: requested = cancel() is True
                                 except Exception: pass
+                            observation_reader = getattr(self.model,
+                                "take_cancelled_generation_resource_observation", None)
+                            if callable(observation_reader):
+                                try:
+                                    sampled = observation_reader()
+                                except Exception:
+                                    sampled = None
+                                if _valid_backend_resource_observation(sampled,
+                                        expected_source="parent_sampled_exact_runtime_worker"):
+                                    cancellation_resource_observation = dict(sampled)
                             future.cancel()
                             try: future.result(timeout=0.5)
                             except concurrent.futures.CancelledError: pass
@@ -1485,7 +1495,7 @@ class GovernedLocalModelInvoker:
                     self._active_invocation_lock.release()
                     invocation_lock_acquired = False
         if status == "blocked_invalid" and not reasons: reasons.append("blocked_invalid")
-        if status != "cancelled":
+        if status not in {"cancelled", "timeout"}:
             cancellation_resource_observation = None
         effect_occurred = inference_attempted.is_set()
         receipt_output = generated_output if generated_output is not None else output
