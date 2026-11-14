@@ -129,10 +129,14 @@ def test_owner_close_waits_for_previously_issued_context_lease(tmp_path, monkeyp
     released = Event()
 
     class ProcessCustodyLock:
+        exit_calls = 0
+
         def __exit__(self, *_args):
+            self.exit_calls += 1
             released.set()
 
-    custody._ledger_owner_lock = ProcessCustodyLock()
+    process_lock = ProcessCustodyLock()
+    custody._ledger_owner_lock = process_lock
     context = custody.next_context()
     backend_started = Event()
     finish_backend = Event()
@@ -156,15 +160,30 @@ def test_owner_close_waits_for_previously_issued_context_lease(tmp_path, monkeyp
     invocation.start()
     assert backend_started.wait(timeout=2)
     close_finished = Event()
+    close_started = Event()
 
     def close_owner():
+        close_started.set()
         custody.close()
         close_finished.set()
 
     closer = Thread(target=close_owner)
+    close_finished_second = Event()
+    close_started_second = Event()
+
+    def close_owner_again():
+        close_started_second.set()
+        custody.close()
+        close_finished_second.set()
+
+    second_closer = Thread(target=close_owner_again)
     closer.start()
+    second_closer.start()
     try:
+        assert close_started.wait(timeout=2)
+        assert close_started_second.wait(timeout=2)
         assert not close_finished.wait(timeout=0.05)
+        assert not close_finished_second.wait(timeout=0.05)
         assert custody.has_single_process_custody
         assert not released.is_set()
     finally:
@@ -178,10 +197,14 @@ def test_owner_close_waits_for_previously_issued_context_lease(tmp_path, monkeyp
     assert [item["state"] for item in ledger._state["receipts"]] == [
         "attempt_begun", "measured_completed", "reconciled"]
     assert close_finished.wait(timeout=2)
+    assert close_finished_second.wait(timeout=2)
     closer.join(timeout=2)
+    second_closer.join(timeout=2)
     assert not closer.is_alive()
+    assert not second_closer.is_alive()
     assert not custody.has_single_process_custody
     assert released.is_set()
+    assert process_lock.exit_calls == 1
 
 
 def test_production_chat_rejects_resource_owner_from_another_installation(

@@ -1,6 +1,7 @@
 """Trusted process-local resource custody for persistent production chat."""
 from __future__ import annotations
 
+from threading import Lock
 from typing import Any, Callable, Mapping, cast
 
 from .causal_resource_principal import CausalResourcePrincipal
@@ -33,6 +34,7 @@ class ProductionChatResourceContextOwner:
         "allocator", "allocation", "principal", "authenticated", "current",
         "policy", "_installation_identity", "_provisioning_id", "_nonce_source",
         "_clock", "_ledger_owner_lock", "_closed", "_custody_lease",
+        "_close_lock",
     )
 
     def __init__(
@@ -99,6 +101,7 @@ class ProductionChatResourceContextOwner:
         self._ledger_owner_lock = ledger_owner_lock
         self._closed = False
         self._custody_lease = GovernedLocalModelResourceCustodyLease()
+        self._close_lock = Lock()
 
     @property
     def has_single_process_custody(self) -> bool:
@@ -113,14 +116,15 @@ class ProductionChatResourceContextOwner:
         return self._provisioning_id
 
     def close(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
-        self._custody_lease.close()
-        lock = self._ledger_owner_lock
-        self._ledger_owner_lock = None
-        if lock is not None:
-            lock.__exit__(None, None, None)
+        with self._close_lock:
+            if self._closed:
+                return
+            self._closed = True
+            self._custody_lease.close()
+            lock = self._ledger_owner_lock
+            self._ledger_owner_lock = None
+            if lock is not None:
+                lock.__exit__(None, None, None)
 
     def _require_open(self) -> None:
         if self._closed:
