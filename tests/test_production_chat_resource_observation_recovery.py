@@ -298,6 +298,29 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "incomplete_attempts_present")
     assert linked_projection["payload"]["resource_release_receipts"][0][
         "cancelled_invocation_receipt_digest"] == linked_invocation["receipt_digest"]
+    exact_linked_invocation = {
+        **linked_invocation,
+        "schema_version": "sentientos.local_model_invocation_receipt:v7",
+        "cancellation_admission_decision_ref": (
+            release_body["release_admission_decision_ref"]),
+        "cancellation_admission_record": dict(
+            release_body["release_admission_record"]),
+    }
+    exact_linked_releases, exact_linked_posture = observer._resource_release_receipts(
+        serving_history, (exact_linked_invocation,))
+    assert exact_linked_posture == "verified"
+    assert exact_linked_releases[0]["invocation_linkage_posture"] == "verified"
+    substituted_invocation = {
+        **exact_linked_invocation,
+        "cancellation_admission_record": {
+            **exact_linked_invocation["cancellation_admission_record"],
+            "actor": "substituted_actor",
+        },
+    }
+    with pytest.raises(ProductionChatResourceObservationError,
+            match="resource_release_cancelled_invocation_admission_record_mismatch"):
+        observer._resource_release_receipts(
+            serving_history, (substituted_invocation,))
     serving_history = ({"status": "serving_receipt_verified",
         "receipt": {**serving_receipt, "binding": {
             "serving_operation_id": "substituted-operation"}},
