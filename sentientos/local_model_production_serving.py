@@ -10,7 +10,8 @@ from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import Any, Callable, Mapping
 
-from .control_plane_kernel import (AdmissionOutcome, AuthorityClass, ControlActionRequest,
+from .control_plane_kernel import (AdmissionOutcome, AuthorityClass, ControlActionDecision,
+                                   ControlActionRequest,
                                    ControlPlaneKernel, LifecyclePhase)
 from .installation_state import (
     InstallationStateError, InstallationStateHandle,
@@ -626,6 +627,12 @@ class ServingSession:
 class ProductionServingController:
     """Owns at most one exact-runtime model and never exposes that model publicly."""
 
+    _RESOURCE_RELEASE_ACTORS = frozenset({
+        "production_chat_host_resource_governor",
+        "production_chat_game_resource_governor",
+        "production_chat_workload_resource_governor",
+    })
+
     def __init__(self, installation_handle: InstallationStateHandle, control_plane_kernel: ControlPlaneKernel,
                  *, model_factory: Callable[[Mapping[str, Any], Mapping[str, Any]], Any] = ExactRuntimeLocalModel,
                  allow_synthetic_evidence_for_tests: bool = False) -> None:
@@ -1037,9 +1044,47 @@ class ProductionServingController:
         self._session = replace(session, status="non_current_unloaded")
         self._session = None
 
+    def _owns_resource_release_admission(self, decision: object) -> bool:
+        if (type(decision) is not ControlActionDecision
+                or not decision.allowed
+                or decision.authority_class != AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
+                or decision.action_kind != "local_model_resource_release"
+                or decision.actor not in self._RESOURCE_RELEASE_ACTORS
+                or decision.target_subsystem != "production_chat"
+                or decision.current_phase != LifecyclePhase.RUNTIME
+                or decision.requested_phase != LifecyclePhase.RUNTIME
+                or not isinstance(decision.correlation_id, str)
+                or not decision.correlation_id or len(decision.correlation_id) > 256):
+            return False
+        owns = getattr(self._kernel, "owns_recorded_admitted_decision", None)
+        payload_getter = getattr(self._kernel, "recorded_decision_payload", None)
+        if not callable(owns) or not callable(payload_getter):
+            return False
+        try:
+            if not owns(decision):
+                return False
+            payload = payload_getter(decision)
+        except Exception:
+            return False
+        return (isinstance(payload, Mapping)
+            and payload.get("event_type") == "control_plane_decision"
+            and payload.get("outcome") == AdmissionOutcome.ALLOW.value
+            and payload.get("authority_class") ==
+                AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE.value
+            and payload.get("action_kind") == "local_model_resource_release"
+            and payload.get("actor") == decision.actor
+            and payload.get("target_subsystem") == "production_chat"
+            and payload.get("current_phase") == LifecyclePhase.RUNTIME.value
+            and payload.get("requested_phase") == LifecyclePhase.RUNTIME.value
+            and payload.get("correlation_id") == decision.correlation_id
+            and payload.get("admission_decision_ref") == decision.admission_decision_ref)
+
     def release_current_session_after_resource_admission(
-            self, expected: ServingSession, *, reason: str) -> bool:
-        """Close this exact serving worker only after its owner was admitted."""
+            self, expected: ServingSession, *, reason: str,
+            admission_decision: ControlActionDecision | None = None) -> bool:
+        """Close this exact serving worker only for this kernel-owned release admission."""
+        if not self._owns_resource_release_admission(admission_decision):
+            raise ProductionServingError("resource_release_admission_not_owned")
         with self._lifecycle_lock:
             if self._session != expected or self._model is None:
                 # A concurrent, already admitted release can win this race.

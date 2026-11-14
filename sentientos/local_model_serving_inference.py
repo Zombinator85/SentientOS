@@ -786,7 +786,7 @@ class ProductionServingInferenceController:
                 if (not preempt_active_generation
                         or active_inference_cancellation_confirmed):
                     close_completed = self._serving.release_current_session_after_resource_admission(
-                        session, reason=reason_code)
+                        session, reason=reason_code, admission_decision=decision)
                 worker = getattr(model, "_process", None)
                 poll = getattr(worker, "poll", None)
                 worker_exit_observed = (poll() is not None if callable(poll) else None)
@@ -1825,7 +1825,8 @@ class ProductionServingInferenceController:
                         close_failure = "active_inference_cancellation_unconfirmed"
                 if not preempt_active_generation or active_inference_cancellation_confirmed:
                     closed = self._serving.release_current_session_after_resource_admission(
-                        session, reason="verified_game_frame_pressure")
+                        session, reason="verified_game_frame_pressure",
+                        admission_decision=decision)
                 worker = getattr(model, "_process", None)
                 poll = getattr(worker, "poll", None)
                 worker_exit_observed = poll() is not None if callable(poll) else None
@@ -2079,7 +2080,7 @@ class ProductionServingInferenceController:
                 if (not preempt_active_generation
                         or active_inference_cancellation_confirmed):
                     closed = self._serving.release_current_session_after_resource_admission(
-                        session, reason=reason_code)
+                        session, reason=reason_code, admission_decision=decision)
                 worker = getattr(model, "_process", None)
                 poll = getattr(worker, "poll", None)
                 worker_exit_observed = poll() is not None if callable(poll) else None

@@ -8,7 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass, ControlPlaneKernel
+from sentientos.control_plane_kernel import (
+    AdmissionOutcome, AuthorityClass, ControlActionDecision, ControlActionRequest,
+    ControlPlaneKernel, LifecyclePhase,
+)
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_model_production_serving import (
@@ -30,12 +33,26 @@ pytestmark = pytest.mark.no_legacy_skip
 
 
 class Kernel:
-    def __init__(self, outcome=AdmissionOutcome.ALLOW): self.outcome, self.requests = outcome, []
+    def __init__(self, outcome=AdmissionOutcome.ALLOW):
+        self.outcome, self.requests, self._decisions = outcome, [], {}
     def admit(self, request):
         self.requests.append(request)
-        return SimpleNamespace(outcome=self.outcome, authority_class=request.authority_class, actor=request.actor,
-            action_kind=request.action_kind, target_subsystem=request.target_subsystem,
-            correlation_id=request.metadata["correlation_id"], admission_decision_ref="kernel_decision:" + request.metadata["correlation_id"])
+        decision = ControlActionDecision(outcome=self.outcome, reason_codes=(),
+            current_phase=request.requested_phase,
+            requested_phase=request.requested_phase,
+            authority_class=request.authority_class, action_kind=request.action_kind,
+            actor=request.actor, target_subsystem=request.target_subsystem,
+            delegated_outcomes={},
+            correlation_id=request.metadata["correlation_id"])
+        if decision.allowed:
+            self._decisions[id(decision)] = decision
+        return decision
+
+    def owns_recorded_admitted_decision(self, decision):
+        return self._decisions.get(id(decision)) is decision
+
+    def recorded_decision_payload(self, decision):
+        return decision.to_dict() if self.owns_recorded_admitted_decision(decision) else None
 
 
 class Model:
@@ -86,6 +103,43 @@ def controller(monkeypatch, handle, sequence, kernel=None, factory=None):
     return result
 
 
+def resource_release_admission(ctl, *, reason="verified_game_host_pressure",
+        actor="production_chat_game_resource_governor"):
+    return ctl._kernel.admit(ControlActionRequest(
+        action_kind="local_model_resource_release",
+        authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
+        actor=actor,
+        target_subsystem="production_chat",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"correlation_id": "test-resource-release-" + reason + "-"
+                + str(len(ctl._kernel.requests)),
+            "purpose": "local_model_resource_release", "reason_code": reason,
+            "target_subsystem": "production_chat",
+            "model_identity_digest": "a" * 64}))
+
+
+@pytest.mark.parametrize("admission_kind", ["unowned", "unapproved_owner"])
+def test_resource_release_rejects_unowned_admission_before_closing_worker(
+        monkeypatch, handle, admission_kind):
+    current = evidence()
+    model = Model(identity())
+    ctl = controller(monkeypatch, handle, [current] * 3,
+        factory=lambda _config, _load: model)
+    session = ctl.establish(operation_id="serve-operation-unowned-release")
+
+    admission = (object() if admission_kind == "unowned" else
+        resource_release_admission(ctl, actor="unapproved_resource_owner"))
+    with pytest.raises(ProductionServingError,
+            match="resource_release_admission_not_owned"):
+        ctl.release_current_session_after_resource_admission(
+            session, reason="verified_game_host_pressure",
+            admission_decision=admission)
+
+    assert ctl.current_session() == session
+    assert ctl._model is model
+    assert model.closed is False
+
+
 def test_success_loads_once_binds_receipt_and_performs_zero_inference(monkeypatch, handle):
     current = evidence(); made = []
     ctl = controller(monkeypatch, handle, [current, current, current], factory=lambda c, l: made.append(Model(identity())) or made[-1])
@@ -115,10 +169,12 @@ def test_failed_worker_close_preserves_exact_session_for_release_retry(monkeypat
     model.close = close_once_fails
     ctl = controller(monkeypatch, handle, [current] * 3, factory=lambda c, l: model)
     session = ctl.establish(operation_id="serve-operation-retry-release")
+    admission = resource_release_admission(ctl)
 
     with pytest.raises(RuntimeError, match="worker_shutdown_unconfirmed"):
         ctl.release_current_session_after_resource_admission(
-            session, reason="verified_game_host_pressure")
+            session, reason="verified_game_host_pressure",
+            admission_decision=admission)
 
     assert ctl._session == session
     assert ctl._model is model
@@ -126,14 +182,16 @@ def test_failed_worker_close_preserves_exact_session_for_release_retry(monkeypat
     assert not invalidation_directory.exists()
 
     assert ctl.release_current_session_after_resource_admission(
-        session, reason="verified_game_host_pressure") is True
+        session, reason="verified_game_host_pressure",
+        admission_decision=admission) is True
     assert model.closed is True
     assert ctl._session is None and ctl._model is None
     invalidations = handle.list_regular_names(
         handle.fixed_object("local-model/serving/invalidations"))
     assert len(invalidations) == 1
     assert ctl.release_current_session_after_resource_admission(
-        session, reason="verified_game_host_pressure") is True
+        session, reason="verified_game_host_pressure",
+        admission_decision=admission) is True
     assert handle.list_regular_names(
         handle.fixed_object("local-model/serving/invalidations")) == invalidations
 
@@ -145,17 +203,20 @@ def test_resource_release_waits_for_exact_worker_exit_confirmation(monkeypatch, 
     model._process = SimpleNamespace(poll=lambda: next(poll_results))
     ctl = controller(monkeypatch, handle, [current] * 3, factory=lambda c, l: model)
     session = ctl.establish(operation_id="serve-operation-exit-confirmation")
+    admission = resource_release_admission(ctl)
 
     with pytest.raises(ProductionServingError,
                        match="exact_runtime_worker_exit_unconfirmed"):
         ctl.release_current_session_after_resource_admission(
-            session, reason="verified_game_host_pressure")
+            session, reason="verified_game_host_pressure",
+            admission_decision=admission)
 
     assert ctl._session == session
     assert ctl._model is model
 
     assert ctl.release_current_session_after_resource_admission(
-        session, reason="verified_game_host_pressure") is True
+        session, reason="verified_game_host_pressure",
+        admission_decision=admission) is True
     assert ctl._session is None and ctl._model is None
     assert len(handle.list_regular_names(
         handle.fixed_object("local-model/serving/invalidations"))) == 1
@@ -181,10 +242,12 @@ def test_production_serving_release_closes_the_exact_runtime_process(monkeypatch
         ctl = controller(monkeypatch, handle, [evidence()] * 3,
                          factory=lambda _chain, _load: model)
         session = ctl.establish(operation_id="serve-operation-real-worker-release")
+        admission = resource_release_admission(ctl)
 
         assert process.poll() is None
         assert ctl.release_current_session_after_resource_admission(
-            session, reason="verified_game_host_pressure") is True
+            session, reason="verified_game_host_pressure",
+            admission_decision=admission) is True
 
         assert process.wait(timeout=2) == 0
         assert process.poll() == 0

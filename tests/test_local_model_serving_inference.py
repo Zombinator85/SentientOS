@@ -14,7 +14,8 @@ import pytest
 
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import (
-    AdmissionOutcome, AuthorityClass, ControlPlaneKernel,
+    AdmissionOutcome, AuthorityClass, ControlActionRequest, ControlPlaneKernel,
+    LifecyclePhase,
 )
 from sentientos.governed_local_model_invocation import (
     LocalModelInvocationBudget, validate_receipt,
@@ -2165,8 +2166,22 @@ def test_scheduled_reconciliation_restores_released_model_through_fresh_serving_
     _bridge, serving, first_session, _first_model, kernel, _ = setup(
         monkeypatch, tmp_path, serving_admission_context_provider=admission_context,
         model_factory=model_factory_factory)
+    release_admission = kernel.admit(ControlActionRequest(
+        action_kind="local_model_resource_release",
+        authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
+        actor="production_chat_workload_resource_governor",
+        target_subsystem="production_chat",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"correlation_id": "serving-recovery-release",
+            "purpose": "local_model_resource_release",
+            "reason_code": "gaming_mode_entered",
+            "target_subsystem": "production_chat",
+            "model_identity_digest": digest_payload(
+                models[0].active_identity.to_dict())}))
+    assert release_admission.allowed
     assert serving.release_current_session_after_resource_admission(
-        first_session, reason="governed_resource_pressure") is True
+        first_session, reason="gaming_mode_entered",
+        admission_decision=release_admission) is True
     assert models[0].closed is True
     assert serving.current_session() is None
     assert serving.resource_recovery_pending() is True
