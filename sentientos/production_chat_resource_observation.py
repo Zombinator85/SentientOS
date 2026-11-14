@@ -512,8 +512,9 @@ class ProductionChatResourceObservationOwner:
                         "resource_release_admission_record_invalid")
                 receipt_observation = value.get("resource_observation")
                 if (isinstance(receipt_observation, Mapping)
-                        and receipt_observation.get(
-                            "host_telemetry_used_for_admission") is True):
+                        and (receipt_observation.get(
+                            "host_telemetry_used_for_admission") is True
+                            or "host_policy_binding" in receipt_observation)):
                     delegated = (admission_record.get("delegated_outcomes")
                         if isinstance(admission_record, Mapping) else None)
                     runtime_governor = (delegated.get("runtime_governor")
@@ -539,6 +540,42 @@ class ProductionChatResourceObservationOwner:
                                     != receipt_observation.get("pressure_labels")):
                             raise ProductionChatResourceObservationError(
                                 "resource_release_host_observation_admission_mismatch")
+                        receipt_policy_binding = receipt_observation.get(
+                            "host_policy_binding")
+                        admission_policy_binding = evidence.get("host_policy_binding")
+                        if (receipt_policy_binding is not None
+                                or admission_policy_binding is not None):
+                            if (not isinstance(receipt_policy_binding, Mapping)
+                                    or not isinstance(admission_policy_binding, Mapping)
+                                    or dict(receipt_policy_binding)
+                                        != dict(admission_policy_binding)):
+                                raise ProductionChatResourceObservationError(
+                                    "resource_release_host_policy_binding_mismatch")
+                            policy_payload = receipt_policy_binding.get(
+                                "policy_decision")
+                            policy_decision = (
+                                host_resource_policy_decision_from_dict(policy_payload)
+                                if isinstance(policy_payload, Mapping) else None)
+                            if (receipt_policy_binding.get("schema_version") !=
+                                    "sentientos.host_resource_policy_admission_binding:v1"
+                                    or not isinstance(policy_payload, Mapping)
+                                    or policy_decision is None
+                                    or host_resource_policy_decision_digest(policy_decision)
+                                        != receipt_policy_binding.get(
+                                            "policy_decision_digest")
+                                    or policy_decision.decision_id
+                                        != receipt_policy_binding.get(
+                                            "policy_decision_id")
+                                    or policy_decision.status
+                                        != receipt_policy_binding.get(
+                                            "policy_decision_status")
+                                    or policy_decision.proposal_only is not True
+                                    or policy_payload.get("report_id")
+                                        != receipt_observation.get("host_report_id")
+                                    or policy_payload.get("report_digest")
+                                        != receipt_observation.get("host_report_digest")):
+                                raise ProductionChatResourceObservationError(
+                                    "resource_release_host_policy_binding_invalid")
                         evidence_digest = evidence.get("host_report_digest")
                         digest_bound = (isinstance(evidence_digest, str)
                             and re.fullmatch(r"[0-9a-f]{64}", evidence_digest) is not None

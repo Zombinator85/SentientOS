@@ -24,6 +24,10 @@ pytestmark = pytest.mark.no_legacy_skip
 
 def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from sentientos.host_resource_policy import (
+        HostResourcePolicyDecision, host_resource_policy_decision_digest,
+    )
+
     handle, values = inputs(tmp_path, calls=3)
     published = produce_production_chat_resource_provisioning_bundle(handle, "recovery", **values)
     writer = load_production_chat_resource_context_owner(
@@ -232,6 +236,20 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "vram_utilization_percent": 86.0,
         "host_telemetry_used_for_admission": True,
     }
+    policy_decision = HostResourcePolicyDecision(
+        decision_id="host-policy-decision-1", report_id="host-report-1",
+        report_digest="a" * 64)
+    host_policy_binding = {
+        "schema_version": "sentientos.host_resource_policy_admission_binding:v1",
+        "policy_decision_id": policy_decision.decision_id,
+        "policy_decision_status": policy_decision.status,
+        "policy_decision_digest": host_resource_policy_decision_digest(
+            policy_decision),
+        "policy_proposal_only": True,
+        "policy_decision": policy_decision.to_dict(),
+    }
+    host_evidence_release["resource_observation"][
+        "host_policy_binding"] = host_policy_binding
     host_evidence_record = dict(release_body["release_admission_record"])
     host_evidence_delegated = dict(host_evidence_record["delegated_outcomes"])
     host_evidence_governor = dict(host_evidence_delegated["runtime_governor"])
@@ -248,6 +266,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "gpu_utilization_percent": 22.0,
         "vram_utilization_percent": 86.0,
         "active_inference_preemption_requested": True,
+        "host_policy_binding": host_policy_binding,
     }
     host_evidence_governor["evidence_refs"] = host_evidence_refs
     host_evidence_delegated["runtime_governor"] = host_evidence_governor
@@ -274,8 +293,32 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             verified_snapshot.verified_resource_release_receipts
             if item.get("receipt_id") == verified_host_id)
         assert verified_projection["host_measurement_binding_posture"] == "verified"
+        assert verified_projection["resource_observation"][
+            "host_policy_binding"]["policy_decision_id"] == (
+                policy_decision.decision_id)
     finally:
         verified_host_path.path.unlink()
+
+    tampered_policy_release = json.loads(json.dumps(host_evidence_release))
+    tampered_policy_release["resource_observation"]["host_policy_binding"][
+        "policy_decision_digest"] = "0" * 64
+    tampered_policy_release.pop("receipt_id")
+    tampered_policy_release.pop("receipt_semantic_digest")
+    tampered_policy_id = "serving-resource-release-" + hashlib.sha256(json.dumps(
+        tampered_policy_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()[:24]
+    tampered_policy_release["receipt_id"] = tampered_policy_id
+    tampered_policy_release["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+        tampered_policy_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    tampered_policy_path = release_directory.child(tampered_policy_id + ".json")
+    handle.durable_create(tampered_policy_path, (json.dumps(
+        tampered_policy_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+    with pytest.raises(ProductionChatResourceObservationError,
+            match="resource_release_host_policy_binding_mismatch"):
+        observer.observe()
+    tampered_policy_path.path.unlink()
 
     host_evidence_release["resource_observation"]["gpu_utilization_percent"] = 23.0
     host_evidence_release.pop("receipt_id")
@@ -320,6 +363,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             "host_report_digest": "a" * 64,
             "pressure_labels": labels,
             "active_inference_preemption_requested": False,
+            "host_policy_binding": host_policy_binding,
             **measurements,
         }
         general_record = general_release["release_admission_record"]

@@ -10,7 +10,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Deque, Mapping
+from typing import Any, Deque, Mapping, cast
 
 from sentientos.audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
 from sentientos.federated_enforcement_policy import resolve_policy
@@ -24,6 +24,39 @@ from sentientos.trust_ledger import get_trust_ledger
 
 MAX_RETAINED_HOST_RESOURCE_EVIDENCE = 64
 MAX_RETAINED_GAME_WORKLOAD_EVIDENCE = 64
+
+
+def _host_resource_policy_binding(evidence: Mapping[str, object]
+        ) -> dict[str, object] | None:
+    """Return verified policy provenance for an owner-retained host sample."""
+    from sentientos.host_resource_policy import (
+        host_resource_policy_decision_digest,
+        host_resource_policy_decision_from_dict,
+    )
+
+    raw_decision = evidence.get("policy_decision")
+    decision = (host_resource_policy_decision_from_dict(raw_decision)
+        if isinstance(raw_decision, Mapping) else None)
+    digest = evidence.get("policy_decision_digest")
+    if (decision is None or not isinstance(digest, str)
+            or digest != host_resource_policy_decision_digest(decision)
+            or decision.decision_id != evidence.get("policy_decision_id")
+            or decision.status != evidence.get("policy_decision_status")
+            or decision.report_id != evidence.get("report_id")
+            or decision.report_digest != evidence.get("report_digest")
+            or decision.proposal_only is not True
+            or evidence.get("policy_proposal_only") is not True):
+        return None
+    raw_decision_mapping = cast(Mapping[str, object], raw_decision)
+    return {
+        "schema_version": "sentientos.host_resource_policy_admission_binding:v1",
+        "policy_decision_id": decision.decision_id,
+        "policy_decision_status": decision.status,
+        "policy_decision_digest": digest,
+        "policy_proposal_only": True,
+        "policy_decision": {key: raw_decision_mapping[key]
+            for key in raw_decision_mapping},
+    }
 
 
 def _expected_resource_release_correlation(trigger_kind: str,
@@ -2243,6 +2276,7 @@ class RuntimeGovernor:
                     "sentientos.production_game_host_resource_release_evidence:v2"),
                 "observation_correlation_id": observation_value.get("observation_correlation_id"),
                 "host_report_id": observation_value.get("host_report_id"),
+                "host_report_digest": observation_value.get("host_report_digest"),
                 "game_workload_message_id": observation_value.get("game_workload_message_id"),
                 "pressure_labels": observation_value.get("pressure_labels"),
                 "active_inference_preemption_requested": observation_value.get(
@@ -2375,6 +2409,7 @@ class RuntimeGovernor:
                 "status": "current",
                 "observation_correlation_id": observation_value.get("observation_correlation_id"),
                 "host_report_id": observation_value.get("host_report_id"),
+                "host_report_digest": observation_value.get("host_report_digest"),
                 "pressure_labels": observation_value.get("pressure_labels"),
                 "workload_mode": "gaming",
                 "workload_mode_source": observation_value.get("workload_mode_source"),
@@ -2452,6 +2487,21 @@ class RuntimeGovernor:
                     if profile_age_seconds is not None else None,
             } if evidence_valid and isinstance(observation_value, Mapping) else {
                 "status": "missing_stale_or_unverified_gaming_profile_gpu_residency"})
+        observation_correlation = evidence_ref.get("observation_correlation_id")
+        if isinstance(observation_correlation, str):
+            with self._resource_evidence_lock:
+                retained_host_evidence = self._host_resource_evidence_by_correlation.get(
+                    observation_correlation)
+                retained_host_evidence = (dict(retained_host_evidence)
+                    if retained_host_evidence is not None else None)
+            if (retained_host_evidence is not None
+                    and retained_host_evidence.get("report_id") == evidence_ref.get(
+                        "host_report_id")
+                    and retained_host_evidence.get("report_digest") == evidence_ref.get(
+                        "host_report_digest")):
+                policy_binding = _host_resource_policy_binding(retained_host_evidence)
+                if policy_binding is not None:
+                    evidence_ref["host_policy_binding"] = policy_binding
         payload["resource_observation_evidence"] = evidence_ref
         return self._decision(
             action_class="local_model_resource_release", allowed=valid,

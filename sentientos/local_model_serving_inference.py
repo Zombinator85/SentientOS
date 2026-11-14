@@ -38,7 +38,10 @@ from .local_model_resource_profile import (
 )
 from .installation_state import InstallationStateError
 from .gaming_workload_policy import EffectiveWorkloadMode, GamingWorkloadPolicy, WorkloadMode
-from .host_resource_policy import host_resource_policy_decision_digest
+from .host_resource_policy import (
+    host_resource_policy_decision_digest,
+    host_resource_policy_decision_from_dict,
+)
 from .foreground_game_detection import (
     CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES,
     ForegroundGameDetector,
@@ -725,6 +728,37 @@ class ProductionServingInferenceController:
         ))
         admission_record = self._serving._kernel.recorded_decision_payload(
             decision)
+        release_policy_binding = None
+        admission_delegated = (admission_record.get("delegated_outcomes")
+            if isinstance(admission_record, Mapping) else None)
+        admission_governor = (admission_delegated.get("runtime_governor")
+            if isinstance(admission_delegated, Mapping) else None)
+        admission_evidence_refs = (admission_governor.get("evidence_refs")
+            if isinstance(admission_governor, Mapping) else None)
+        release_evidence = (admission_evidence_refs.get(
+            "resource_observation_evidence")
+            if isinstance(admission_evidence_refs, Mapping) else None)
+        candidate_policy_binding = (release_evidence.get("host_policy_binding")
+            if isinstance(release_evidence, Mapping) else None)
+        if isinstance(candidate_policy_binding, Mapping):
+            candidate_policy = candidate_policy_binding.get("policy_decision")
+            parsed_policy = (host_resource_policy_decision_from_dict(candidate_policy)
+                if isinstance(candidate_policy, Mapping) else None)
+            if (parsed_policy is not None
+                    and candidate_policy_binding.get("schema_version") ==
+                        "sentientos.host_resource_policy_admission_binding:v1"
+                    and candidate_policy_binding.get("policy_decision_id") ==
+                        parsed_policy.decision_id
+                    and candidate_policy_binding.get("policy_decision_status") ==
+                        parsed_policy.status
+                    and candidate_policy_binding.get("policy_decision_digest") ==
+                        host_resource_policy_decision_digest(parsed_policy)
+                    and candidate_policy_binding.get("policy_proposal_only") is True
+                    and parsed_policy.report_id == host_release_evidence.get(
+                        "host_report_id")
+                    and parsed_policy.report_digest == host_release_evidence.get(
+                        "host_report_digest")):
+                release_policy_binding = dict(candidate_policy_binding)
         kernel_recorded_decision = admission_record is not None
         decision_valid = (
             decision.allowed
@@ -864,6 +898,8 @@ class ProductionServingInferenceController:
                     resource_observation),
                 "cpu_utilization_percent": resource_observation.get(
                     "cpu_utilization_percent"),
+                **({"host_policy_binding": release_policy_binding}
+                    if release_policy_binding is not None else {}),
                 **({"workload_mode": "gaming",
                     "workload_mode_source": "operator_selected"}
                     if selected_gaming_profile else

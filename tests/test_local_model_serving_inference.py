@@ -956,6 +956,12 @@ def test_conservative_automatic_profile_releases_resident_model_only_under_host_
             "foreground_observation_unavailable_conservative_gaming")
         assert evidence["workload_observation_status"] == "bridge_observation_unavailable"
         assert "game_workload_message_id" not in evidence
+        policy_binding = evidence["host_policy_binding"]
+        assert policy_binding["schema_version"] == (
+            "sentientos.host_resource_policy_admission_binding:v1")
+        assert policy_binding["policy_decision"]["proposal_only"] is True
+        assert policy_binding["policy_decision"]["decision_id"] == (
+            policy_binding["policy_decision_id"])
         assert receipt["inference_performed"] is False
         assert receipt["host_mutation_performed"] is False
         decisions = [json.loads(line) for line in
@@ -970,6 +976,7 @@ def test_conservative_automatic_profile_releases_resident_model_only_under_host_
         assert observed["status"] == "current"
         assert observed["configured_mode"] == "automatic"
         assert observed["workload_observation_status"] == "bridge_observation_unavailable"
+        assert observed["host_policy_binding"] == policy_binding
     else:
         assert model.closed is False
         assert serving.current_session() == session

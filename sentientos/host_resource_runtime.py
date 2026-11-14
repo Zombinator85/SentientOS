@@ -505,7 +505,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "cpu_utilization_percent", "model_gpu_layers",
                 "gpu_telemetry_available", "gpu_telemetry_complete",
                 "gpu_telemetry_sources", "host_telemetry_used_for_admission",
-                "active_inference_preemption_requested"})
+                "active_inference_preemption_requested", "host_policy_binding"})
             summary = {key: value[key] for key in allowed if key in value}
             labels = summary.get("pressure_labels")
             if isinstance(labels, (list, tuple)):
@@ -713,6 +713,53 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 release_receipt.get("resource_observation"))
             summary["post_release_observation"] = bounded_release_observation(
                 release_receipt.get("post_release_observation"), post_release=True)
+            resource_observation = release_receipt.get("resource_observation")
+            policy_binding = (resource_observation.get("host_policy_binding")
+                if isinstance(resource_observation, Mapping) else None)
+            if policy_binding is not None:
+                delegated = (admission_record.get("delegated_outcomes")
+                    if isinstance(admission_record, Mapping) else None)
+                governor = (delegated.get("runtime_governor")
+                    if isinstance(delegated, Mapping) else None)
+                evidence_refs = (governor.get("evidence_refs")
+                    if isinstance(governor, Mapping) else None)
+                admission_evidence = (evidence_refs.get(
+                    "resource_observation_evidence")
+                    if isinstance(evidence_refs, Mapping) else None)
+                evidence_binding = (admission_evidence.get("host_policy_binding")
+                    if isinstance(admission_evidence, Mapping) else None)
+                policy_payload = (policy_binding.get("policy_decision")
+                    if isinstance(policy_binding, Mapping) else None)
+                policy_decision = (host_resource_policy_decision_from_dict(
+                    policy_payload) if isinstance(policy_payload, Mapping) else None)
+                if (not isinstance(policy_binding, Mapping)
+                        or not isinstance(evidence_binding, Mapping)
+                        or dict(policy_binding) != dict(evidence_binding)
+                        or policy_binding.get("schema_version") !=
+                            "sentientos.host_resource_policy_admission_binding:v1"
+                        or set(policy_binding) != {
+                            "schema_version", "policy_decision_id",
+                            "policy_decision_status", "policy_decision_digest",
+                            "policy_proposal_only", "policy_decision"}
+                        or len(canonical_json(dict(policy_binding)).encode("utf-8"))
+                            > 16_384
+                        or policy_decision is None
+                        or host_resource_policy_decision_digest(policy_decision)
+                            != policy_binding.get("policy_decision_digest")
+                        or policy_binding.get("policy_decision_id")
+                            != policy_decision.decision_id
+                        or policy_binding.get("policy_decision_status")
+                            != policy_decision.status
+                        or policy_binding.get("policy_proposal_only") is not True
+                        or not isinstance(resource_observation, Mapping)
+                        or policy_decision.report_id != resource_observation.get(
+                            "host_report_id")
+                        or policy_decision.report_digest != resource_observation.get(
+                            "host_report_digest")):
+                    raise ValueError("resource_release_host_policy_binding_invalid")
+                summary["resource_observation"] = {
+                    **(summary["resource_observation"] or {}),
+                    "host_policy_binding": dict(policy_binding)}
             comparison = release_receipt.get("resource_measurement_comparison")
             if isinstance(comparison, Mapping):
                 comparison_summary = {
