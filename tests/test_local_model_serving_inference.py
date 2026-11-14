@@ -2736,10 +2736,14 @@ def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt
         serving.close()
 
 
+@pytest.mark.parametrize("governor_mode", ["enforce", "shadow", None])
 def test_verified_game_presence_preempts_active_cpu_inference_without_pressure(
-        monkeypatch, tmp_path):
+        monkeypatch, tmp_path, governor_mode):
     now = datetime.now(timezone.utc)
-    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    if governor_mode is None:
+        monkeypatch.delenv("SENTIENTOS_GOVERNOR_MODE", raising=False)
+    else:
+        monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", governor_mode)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
     kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
@@ -2861,9 +2865,15 @@ def test_verified_game_presence_preempts_active_cpu_inference_without_pressure(
     assert host_owner.collector_call_count == 2
     mismatched_workload = bridge.current_workload_state()
     mismatched_workload["transport_provenance"] = {"message_id": "f" * 64}
+    decisions_before_inactive_check = len(decisions)
     rejected = bridge._admit_active_game_inference_preemption(
         session, model, mismatched_workload)
-    assert rejected is not None and rejected["status"] == "denied"
+    assert rejected is None
+    persisted_decisions_after_inactive_check = [json.loads(line) for line in
+        (tmp_path / "kernel-decisions.jsonl").read_text(
+            encoding="utf-8").splitlines()]
+    assert len(persisted_decisions_after_inactive_check) == (
+        decisions_before_inactive_check)
     assert model.closed is False
     assert serving.current_session() == session
     serving.close()
