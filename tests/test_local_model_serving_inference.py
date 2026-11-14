@@ -4105,6 +4105,10 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     assert comparison["before"]["gpu_telemetry_sources"] == [{
         "collector_id": "nvidia_gpu", "status": "available",
         "source": "synthetic_test_fixture"}]
+    assert comparison["before"]["gpu_telemetry_available"] is True
+    assert comparison["before"]["gpu_telemetry_complete"] is True
+    assert comparison["after"]["gpu_telemetry_available"] is True
+    assert comparison["after"]["gpu_telemetry_complete"] is True
     expected_delta = (0.0 if trigger in {"idle_cpu_pressure", "deferred_cpu_pressure",
             "deferred_thermal_pressure", "deferred_gpu_thermal_pressure"}
         else -72.0)

@@ -49,7 +49,10 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "release_admission_outcome": "allow",
         "release_reason_codes": [],
         "resource_observation": {"workload_mode": "gaming",
-            "active_inference_preemption_requested": False},
+            "active_inference_preemption_requested": False,
+            "gpu_telemetry_available": True, "gpu_telemetry_complete": True,
+            "gpu_telemetry_sources": [{"collector_id": "nvidia_gpu",
+                "status": "available", "source": "synthetic_test_fixture"}]},
         "worker_exit_observed": True,
         "active_inference_preemption_requested": True,
         "active_inference_cancellation_confirmed": True,
@@ -59,6 +62,16 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             "correlation_id": "invocation-correlation",
         },
         "resource_measurement_comparison": {
+            "before": {"host_report_id": "host-before",
+                "observed_at": "2026-09-21T08:30:00Z",
+                "gpu_utilization_percent": 74.0,
+                "gpu_telemetry_sources": [{"collector_id": "nvidia_gpu",
+                    "status": "available", "source": "synthetic_test_fixture"}]},
+            "after": {"host_report_id": "host-after",
+                "observed_at": "2026-09-21T08:30:05Z",
+                "gpu_utilization_percent": 20.0,
+                "gpu_telemetry_sources": [{"collector_id": "nvidia_gpu",
+                    "status": "available", "source": "synthetic_test_fixture"}]},
             "interpretation": "sample_delta_only; telemetry_does_not_establish_causation"},
         "inference_performed": False,
         "host_mutation_performed": False,
@@ -120,9 +133,23 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         ledger=first.ledger,
         verified_resource_release_receipts=first.verified_resource_release_receipts)[0]
     assert projected["payload"]["resource_release_receipt_count"] == 1
-    assert projected["payload"]["resource_release_receipts"][0][
-        "release_admission_decision_ref"] == (
-            "kernel_decision:release-correlation")
+    projected_release = projected["payload"]["resource_release_receipts"][0]
+    assert projected_release["release_admission_decision_ref"] == (
+        "kernel_decision:release-correlation")
+    projected_observation = projected_release["resource_observation"]
+    assert projected_observation["gpu_telemetry_available"] is True
+    assert projected_observation["gpu_telemetry_complete"] is True
+    assert projected_observation["gpu_telemetry_sources"] == ({
+        "collector_id": "nvidia_gpu", "status": "available",
+        "source": "synthetic_test_fixture"},)
+    comparison = projected_release["resource_measurement_comparison"]
+    assert comparison["before"]["gpu_utilization_percent"] == 74.0
+    assert comparison["before"]["gpu_telemetry_sources"] == ({
+        "collector_id": "nvidia_gpu", "status": "available",
+        "source": "synthetic_test_fixture"},)
+    assert comparison["after"]["report_id"] == "host-after"
+    assert comparison["interpretation"] == (
+        "sample_delta_only; telemetry_does_not_establish_causation")
     assert projected["disposition"] == "degraded"
     assert projected["payload"]["resource_release_receipt_posture"] == "degraded"
     tampered_release = dict(first.verified_resource_release_receipts[0])

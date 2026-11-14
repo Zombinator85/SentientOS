@@ -748,6 +748,10 @@ class ProductionServingInferenceController:
                             "vram_utilization_percent": before_vram_value,
                             "ram_utilization_percent": before_ram_value,
                             "cpu_utilization_percent": before_cpu_value,
+                            "gpu_telemetry_available": resource_observation.get(
+                                "gpu_telemetry_available"),
+                            "gpu_telemetry_complete": resource_observation.get(
+                                "gpu_telemetry_complete"),
                             "gpu_telemetry_sources": resource_observation.get(
                                 "gpu_telemetry_sources", []),
                         },
@@ -758,6 +762,10 @@ class ProductionServingInferenceController:
                             "vram_utilization_percent": after_vram_value,
                             "ram_utilization_percent": after_ram_value,
                             "cpu_utilization_percent": after_cpu_value,
+                            "gpu_telemetry_available": post_release_observation.get(
+                                "gpu_telemetry_available"),
+                            "gpu_telemetry_complete": post_release_observation.get(
+                                "gpu_telemetry_complete"),
                             "gpu_telemetry_sources": post_release_observation.get(
                                 "gpu_telemetry_sources", []),
                         },
@@ -1719,8 +1727,8 @@ class ProductionServingInferenceController:
                         return {key: sample.get(key) for key in (
                             "status", "report_id", "observed_at",
                             "cpu_utilization_percent", "gpu_utilization_percent",
-                            "vram_utilization_percent",
-                            "gpu_telemetry_sources")}
+                            "vram_utilization_percent", "gpu_telemetry_available",
+                            "gpu_telemetry_complete", "gpu_telemetry_sources")}
 
                     def finite_percent(value: object) -> float | None:
                         if (isinstance(value, (int, float)) and not isinstance(value, bool)
@@ -1951,8 +1959,8 @@ class ProductionServingInferenceController:
             return {key: value.get(key) for key in (
                 "status", "report_id", "observed_at", "pressure_labels",
                 "cpu_utilization_percent", "gpu_utilization_percent",
-                "vram_utilization_percent",
-                "gpu_telemetry_sources")}
+                "vram_utilization_percent", "gpu_telemetry_available",
+                "gpu_telemetry_complete", "gpu_telemetry_sources")}
 
         before_values = sample_fields(before_sample)
         after_values = sample_fields(after_sample)

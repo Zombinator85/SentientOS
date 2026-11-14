@@ -470,7 +470,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 return None
             allowed = ({"observation_correlation_id", "report_id", "report_digest",
                 "observed_at", "gpu_utilization_percent", "vram_utilization_percent",
-                "ram_utilization_percent", "cpu_utilization_percent"}
+                "ram_utilization_percent", "cpu_utilization_percent",
+                "gpu_telemetry_available", "gpu_telemetry_complete",
+                "gpu_telemetry_sources"}
                 if post_release else {
                 "observation_correlation_id", "host_report_id", "host_report_digest",
                 "pressure_labels", "game_workload_message_id", "workload_mode",
@@ -478,7 +480,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "game_foreground", "game_process_running", "gpu_utilization_percent",
                 "vram_utilization_percent", "ram_utilization_percent",
                 "cpu_utilization_percent", "model_gpu_layers",
-                "host_telemetry_used_for_admission",
+                "gpu_telemetry_available", "gpu_telemetry_complete",
+                "gpu_telemetry_sources", "host_telemetry_used_for_admission",
                 "active_inference_preemption_requested"})
             summary = {key: value[key] for key in allowed if key in value}
             labels = summary.get("pressure_labels")
@@ -486,6 +489,20 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 summary["pressure_labels"] = tuple(
                     item for item in labels[:16]
                     if isinstance(item, str) and len(item) <= 128)
+            for key in ("gpu_telemetry_available", "gpu_telemetry_complete"):
+                if key in summary and type(summary[key]) is not bool:
+                    summary.pop(key)
+            sources = summary.get("gpu_telemetry_sources")
+            if isinstance(sources, (list, tuple)):
+                summary["gpu_telemetry_sources"] = tuple(
+                    {key: item[key] for key in ("collector_id", "status", "source")}
+                    for item in sources[:16]
+                    if isinstance(item, Mapping)
+                    and all(isinstance(item.get(key), str) and item.get(key)
+                        and len(item[key]) <= 128
+                        for key in ("collector_id", "status", "source")))
+            elif "gpu_telemetry_sources" in summary:
+                summary.pop("gpu_telemetry_sources")
             return summary
 
         for release_receipt in verified_resource_release_receipts:
@@ -572,13 +589,35 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 release_receipt.get("post_release_observation"), post_release=True)
             comparison = release_receipt.get("resource_measurement_comparison")
             if isinstance(comparison, Mapping):
-                summary["resource_measurement_comparison"] = {
+                comparison_summary = {
                     key: comparison.get(key) for key in (
                         "status", "gpu_utilization_delta_percentage_points",
                         "vram_utilization_delta_percentage_points",
                         "ram_utilization_delta_percentage_points",
                         "cpu_utilization_delta_percentage_points", "interpretation")
                     if key in comparison}
+                for side in ("before", "after"):
+                    observation = comparison.get(side)
+                    if isinstance(observation, Mapping):
+                        comparison_summary[side] = bounded_release_observation({
+                            "report_id": observation.get("host_report_id"),
+                            "report_digest": observation.get("host_report_digest"),
+                            "observed_at": observation.get("observed_at"),
+                            "gpu_utilization_percent": observation.get(
+                                "gpu_utilization_percent"),
+                            "vram_utilization_percent": observation.get(
+                                "vram_utilization_percent"),
+                            "ram_utilization_percent": observation.get(
+                                "ram_utilization_percent"),
+                            "cpu_utilization_percent": observation.get(
+                                "cpu_utilization_percent"),
+                            "gpu_telemetry_sources": observation.get(
+                                "gpu_telemetry_sources"),
+                            "gpu_telemetry_available": observation.get(
+                                "gpu_telemetry_available"),
+                            "gpu_telemetry_complete": observation.get(
+                                "gpu_telemetry_complete")}, post_release=True)
+                summary["resource_measurement_comparison"] = comparison_summary
             release_receipt_summaries.append(summary)
     admission_by_receipt: dict[str, Mapping[str, Any]] = {}
     if verified_inference_admission_decisions is not None:
