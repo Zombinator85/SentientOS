@@ -746,8 +746,9 @@ def test_new_operation_reestablishes_distinct_lifetime(monkeypatch, handle, caus
         (first.session_id, "serve-operation-1"), (second.session_id, "serve-operation-2")}
 
 
+@pytest.mark.parametrize("governor_mode", ["enforce", "shadow", None])
 def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
-        monkeypatch, handle, tmp_path):
+        monkeypatch, handle, tmp_path, governor_mode):
     """Authenticated game entry blocks the exact model factory until fresh idle evidence."""
     import json
     from cryptography import x509
@@ -764,7 +765,10 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
     from tests.test_gaming_companion_tls_transport import _certificate_bundle
 
     now = datetime.now(timezone.utc)
-    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    if governor_mode is None:
+        monkeypatch.delenv("SENTIENTOS_GOVERNOR_MODE", raising=False)
+    else:
+        monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", governor_mode)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(handle.root / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(handle.root))
     governor = RuntimeGovernor()
@@ -900,6 +904,10 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             "defer", "allow", "allow"]
         assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
             "reason"] == "deferred_gpu_model_serving_while_game_active"
+        assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
+            "allowed"] is False
+        assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
+            "evidence_refs"]["game_priority_block"] is True
         assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
             "evidence_refs"]["game_workload_evidence"]["message_id"] == (
                 active_message.payload["message_id"])
