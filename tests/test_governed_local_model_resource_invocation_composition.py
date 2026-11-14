@@ -186,7 +186,16 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
             "admission_decision_ref": receipt.admission_decision_ref,
             "correlation_id": receipt.request.correlation_id,
             "resource_allocation_binding": {
-                "allocation_digest": receipt.resource_allocation_digest},
+                "schema_version": (
+                    "sentientos.governed_local_model_resource_allocation_admission_context:v1"),
+                "allocation_id": context.allocation.allocation_id,
+                "allocation_digest": context.allocation.allocation_digest,
+                "allocator_id": context.allocation.allocator_id,
+                "resource_kind": context.allocation.resource_kind,
+                "policy_digest": context.allocation.policy_digest,
+                "policy_epoch": context.allocation.epoch,
+                "principal_binding_digest": context.allocation.principal_binding_digest,
+            },
         }])[0]
     assert projected["disposition"] == "recorded"
     assert projected["payload"]["lineage_posture"] == "verified"
@@ -199,6 +208,33 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
         verified_inference_admission_decisions=[])[0]
     assert missing_admission["disposition"] == "degraded"
     assert missing_admission["payload"]["inference_admission_decision_posture"] == "degraded"
+
+    substituted_admission = {
+        "schema_version": "sentientos.resource_bound_inference_admission_witness:v1",
+        "invocation_receipt_id": receipt.receipt_id,
+        "invocation_receipt_digest": receipt.receipt_digest,
+        "request_id": receipt.request.request_id,
+        "request_digest": receipt.request.request_digest,
+        "admission_decision_ref": receipt.admission_decision_ref,
+        "correlation_id": receipt.request.correlation_id,
+        "resource_allocation_binding": {
+            "schema_version": (
+                "sentientos.governed_local_model_resource_allocation_admission_context:v1"),
+            "allocation_id": "lmalloc-000000000000000000000000",
+            "allocation_digest": context.allocation.allocation_digest,
+            "allocator_id": context.allocation.allocator_id,
+            "resource_kind": context.allocation.resource_kind,
+            "policy_digest": context.allocation.policy_digest,
+            "policy_epoch": context.allocation.epoch,
+            "principal_binding_digest": context.allocation.principal_binding_digest,
+        },
+    }
+    substituted_projection = resource_consumption_world_state_records(
+        ledger=ledger, invocation_receipts=[receipt.to_dict()],
+        verified_inference_admission_decisions=[substituted_admission])[0]
+    assert substituted_projection["disposition"] == "degraded"
+    assert any(finding.startswith("inference_admission_linkage_missing_or_mismatched:")
+        for finding in substituted_projection["payload"]["lineage_findings"])
 
     substituted = receipt.to_dict()
     substituted["backend_completion"]["invocation_resources"][

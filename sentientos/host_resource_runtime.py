@@ -475,12 +475,43 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     for invocation in invocation_receipts[-max_invocation_receipts:]:
         if verified_inference_admission_decisions is not None and invocation.get("resource_allocation_digest") is not None:
             admission_witness = admission_by_receipt.get(str(invocation.get("receipt_id")))
-            if (admission_witness is None
+            request = invocation.get("request")
+            request_id = request.get("request_id") if isinstance(request, Mapping) else None
+            request_digest = request.get("request_digest") if isinstance(request, Mapping) else None
+            correlation_id = request.get("correlation_id") if isinstance(request, Mapping) else None
+            allocation = allocation_by_digest.get(str(
+                invocation.get("resource_allocation_digest")))
+            allocation_binding = (admission_witness.get("resource_allocation_binding")
+                if isinstance(admission_witness, Mapping) else None)
+            expected_binding = ({
+                "schema_version": (
+                    "sentientos.governed_local_model_resource_allocation_admission_context:v1"),
+                "allocation_id": allocation.get("allocation_id"),
+                "allocation_digest": allocation.get("allocation_digest"),
+                "allocator_id": allocation.get("allocator_id"),
+                "resource_kind": allocation.get("resource_kind"),
+                "policy_digest": allocation.get("policy_digest"),
+                "policy_epoch": allocation.get("epoch"),
+                "principal_binding_digest": allocation.get("principal_binding_digest"),
+            } if isinstance(allocation, Mapping) else None)
+            witness_fields = {
+                "schema_version", "invocation_receipt_id", "invocation_receipt_digest",
+                "request_id", "request_digest", "admission_decision_ref",
+                "correlation_id", "resource_allocation_binding"}
+            if (not isinstance(admission_witness, Mapping)
+                    or set(admission_witness) != witness_fields
+                    or admission_witness.get("invocation_receipt_id") != invocation.get("receipt_id")
                     or admission_witness.get("invocation_receipt_digest") != invocation.get("receipt_digest")
-                    or admission_witness.get("admission_decision_ref") is None
-                    or not isinstance(admission_witness.get("resource_allocation_binding"), Mapping)
-                    or admission_witness["resource_allocation_binding"].get("allocation_digest")
-                        != invocation.get("resource_allocation_digest")):
+                    or admission_witness.get("request_id") != request_id
+                    or admission_witness.get("request_digest") != request_digest
+                    or admission_witness.get("correlation_id") != correlation_id
+                    or not isinstance(correlation_id, str)
+                    or admission_witness.get("admission_decision_ref")
+                        != invocation.get("admission_decision_ref")
+                    or admission_witness.get("admission_decision_ref")
+                        != f"kernel_decision:{correlation_id}"
+                    or not isinstance(allocation_binding, Mapping)
+                    or dict(allocation_binding) != expected_binding):
                 lineage_findings.append(
                     f"inference_admission_linkage_missing_or_mismatched:{invocation.get('receipt_id')}")
         allocation_digest = invocation.get("resource_allocation_digest")
