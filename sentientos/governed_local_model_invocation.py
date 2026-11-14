@@ -253,7 +253,8 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
         return False
     governor = value["delegated_outcomes"].get("runtime_governor")
     if require_runtime_evidence:
-        if (not isinstance(governor, Mapping) or governor.get("allowed") is not True
+        if (not isinstance(request, Mapping)
+                or not isinstance(governor, Mapping) or governor.get("allowed") is not True
                 or not isinstance(governor.get("evidence_refs"), Mapping)):
             return False
         evidence_refs = governor["evidence_refs"]
