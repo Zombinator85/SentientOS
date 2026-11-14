@@ -4063,6 +4063,11 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         comparison = release["resource_measurement_comparison"]
         assert comparison["status"] == "comparable"
         assert comparison["before_sample_kind"] == "recent_cached_observation"
+        assert comparison["before"]["gpu_telemetry_available"] is True
+        assert comparison["before"]["gpu_telemetry_complete"] is True
+        assert comparison["before"]["gpu_telemetry_sources"] == [{
+            "collector_id": "nvidia_gpu", "status": "available",
+            "source": "synthetic_test_fixture"}]
         assert comparison["gpu_utilization_delta_percentage_points"] == -10.0
         assert comparison["vram_utilization_delta_percentage_points"] == -7.0
         assert comparison["before"]["cpu_utilization_percent"] == 20.0

@@ -302,6 +302,12 @@ class ProductionServingInferenceController:
                 for result in evaluation.epoch.results
                 if result.collector_id == "nvidia_gpu"
             ],
+            "gpu_telemetry_available": (
+                evaluation.snapshot.gpu_utilization_percent is not None
+                or evaluation.snapshot.vram_utilization_percent is not None),
+            "gpu_telemetry_complete": (
+                evaluation.snapshot.gpu_utilization_percent is not None
+                and evaluation.snapshot.vram_utilization_percent is not None),
             "no_effect_authority": True,
         }
 
