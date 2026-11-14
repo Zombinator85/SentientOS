@@ -2867,7 +2867,7 @@ class RuntimeGovernor:
         game_preemption_valid = (
             isinstance(preemption, Mapping)
             and preemption.get("schema_version") ==
-                "sentientos.active_inference_preemption:v1"
+                "sentientos.active_inference_preemption:v2"
             and preemption.get("workload_mode") == "automatic"
             and isinstance(preemption.get("serving_session_id"), str)
             and bool(preemption.get("serving_session_id"))
@@ -2879,6 +2879,21 @@ class RuntimeGovernor:
             and isinstance(preemption.get("game_workload_message_id"), str)
             and preemption.get("game_workload_message_id") ==
                 game_workload_ref.get("message_id")
+            and isinstance(preemption.get(
+                "active_inference_request_reference"), Mapping)
+            and set(preemption["active_inference_request_reference"]) == {
+                "request_id", "request_digest", "correlation_id"}
+            and all(isinstance(preemption["active_inference_request_reference"].get(key), str)
+                and preemption["active_inference_request_reference"].get(key)
+                for key in ("request_id", "request_digest", "correlation_id"))
+            and preemption.get("active_inference_request_reference")
+                == payload.get("active_inference_request_reference")
+            and isinstance(correlation_id, str)
+            and correlation_id.startswith(
+                "active-inference-preemption:" + hashlib.sha256(json.dumps(
+                    dict(preemption["active_inference_request_reference"]),
+                    sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False).encode("utf-8")).hexdigest() + ":")
         )
         host_pressure_preemption_fields = {
             "schema_version", "preemption_kind", "workload_mode",
@@ -3665,6 +3680,7 @@ class RuntimeGovernor:
                 key: metadata[key]
                 for key in ("host_resource_evidence", "observed_pressure_labels",
                             "game_performance_evidence", "game_workload_evidence",
+                            "active_inference_request_reference",
                             "game_frame_pressure", "host_pressure_during_verified_game",
                             "optional_model_load_in_gaming_profile",
                             "optional_gpu_model_load_in_gaming_profile",

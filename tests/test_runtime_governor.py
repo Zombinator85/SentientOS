@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import hashlib
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -791,6 +792,64 @@ def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing
     assert decision.allowed is False
     assert decision.reason == "deferred_resource_telemetry_incomplete_during_game"
     assert decision.evidence_refs["game_workload_evidence"]["game_active"] is True
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("mutation", ["none", "missing", "mismatched", "correlation"])
+def test_game_preemption_admission_binds_exact_active_invocation(
+        monkeypatch, tmp_path, mutation):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = datetime.now(timezone.utc).isoformat()
+    game_message_id = "b" * 64
+    workload = ForegroundGameObservation("available", True, "a" * 64,
+        observed_at, transport_provenance={"message_id": game_message_id,
+            "source_id": "windows-edge", "session_id": "game-session",
+            "generation_id": "edge-generation", "sequence": 1,
+            "envelope_created_at": observed_at})
+    assert governor.observe_verified_game_workload(workload)
+    request_reference = {"request_id": "lmreq-" + "c" * 24,
+        "request_digest": "d" * 64,
+        "correlation_id": "active-game-preemption-request"}
+    request_digest = hashlib.sha256(json.dumps(
+        request_reference, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False).encode("utf-8")).hexdigest()
+    correlation_id = ("active-inference-preemption:" + request_digest + ":attempt-1")
+    nested_reference = dict(request_reference)
+    top_level_reference = dict(request_reference)
+    if mutation == "missing":
+        top_level_reference = None
+    elif mutation == "mismatched":
+        top_level_reference["correlation_id"] = "other-request"
+    elif mutation == "correlation":
+        correlation_id = "active-inference-preemption:" + "e" * 64 + ":attempt-1"
+    metadata = {
+        "purpose": "local_user_chat",
+        "active_inference_preemption": {
+            "schema_version": "sentientos.active_inference_preemption:v2",
+            "workload_mode": "automatic",
+            "serving_session_id": "serving-session-" + "f" * 24,
+            "model_identity_digest": "a" * 64,
+            "game_workload_message_id": game_message_id,
+            "active_inference_request_reference": nested_reference,
+        },
+    }
+    if top_level_reference is not None:
+        metadata["active_inference_request_reference"] = top_level_reference
+    decision = governor._admit_local_model_inference(
+        actor="production_chat_game_workload_governor",
+        subject="production_chat_game_workload_governor",
+        correlation_id=correlation_id, metadata=metadata)
+    expected = mutation == "none"
+    assert decision.allowed is expected
+    if expected:
+        assert decision.reason == "allowed_verified_game_workload_inference_preemption"
+        assert decision.evidence_refs["active_inference_request_reference"] == (
+            request_reference)
+    else:
+        assert decision.reason == (
+            "deferred_active_inference_preemption_game_evidence_unavailable")
 
 
 @pytest.mark.no_legacy_skip

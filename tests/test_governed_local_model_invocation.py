@@ -18,6 +18,7 @@ from sentientos.control_plane_kernel import (
 )
 from sentientos.governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt,
+    _valid_cancellation_admission_decision,
     validate_llama_completion_observation,
     RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
     RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA, RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
@@ -27,6 +28,52 @@ from sentientos.governed_local_model_invocation import (
 )
 from sentientos.local_model_authority import build_local_model_authority_map, digest_payload
 from sentientos.local_model import ActiveModelIdentity, ModelLoadError
+
+
+def test_game_cancellation_admission_requires_exact_invocation_evidence() -> None:
+    request = {"request_id": "lmreq-" + "a" * 24,
+        "request_digest": "b" * 64, "correlation_id": "active-chat-request"}
+    request_digest = digest_payload(request)
+    correlation_id = "active-inference-preemption:" + request_digest + ":attempt-1"
+    reference = "kernel_decision:" + correlation_id
+    decision = {
+        "schema_version": "sentientos.cancellation_admission_decision_witness:v2",
+        "event_type": "control_plane_decision",
+        "final_disposition": "allow", "outcome": "allow",
+        "reason_codes": ["admitted"], "delegate_checks_consulted": ["runtime_governor"],
+        "lifecycle_phase": "runtime", "current_phase": "runtime",
+        "requested_phase": "runtime", "authority_class": "local_model_inference",
+        "action_kind": "local_model_inference_preemption",
+        "actor_source": "production_chat_game_workload_governor",
+        "actor": "production_chat_game_workload_governor",
+        "execution_owner": "production_chat_game_workload_governor",
+        "target_subsystem": "governed_local_model_invocation",
+        "delegated_outcomes": {"runtime_governor": {
+            "allowed": True,
+            "reason": "allowed_verified_game_workload_inference_preemption",
+            "evidence_refs": {
+                "game_workload_evidence": {"status": "current",
+                    "game_active": True, "message_id": "c" * 64},
+                "active_inference_request_reference": dict(request),
+            },
+        }},
+        "federation_context": {}, "proof_budget_context": {},
+        "protected_mutation_intent": None,
+        "correlation_id": correlation_id,
+        "admission_decision_ref": reference,
+    }
+    assert _valid_cancellation_admission_decision(decision, reference=reference,
+        request=request, require_runtime_evidence=True)
+    tampered = {**decision, "delegated_outcomes": {"runtime_governor": {
+        **decision["delegated_outcomes"]["runtime_governor"],
+        "evidence_refs": {
+            **decision["delegated_outcomes"]["runtime_governor"]["evidence_refs"],
+            "active_inference_request_reference": {**request,
+                "request_id": "lmreq-" + "d" * 24},
+        },
+    }}}
+    assert not _valid_cancellation_admission_decision(tampered,
+        reference=reference, request=request, require_runtime_evidence=True)
 
 class FakeModel:
     def __init__(self, text: str = "ok") -> None:

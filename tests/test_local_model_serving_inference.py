@@ -2820,6 +2820,11 @@ def test_verified_game_presence_preempts_active_cpu_inference_without_pressure(
         + digest_payload(active_request_reference) + ":")
     assert decision["delegated_outcomes"]["runtime_governor"]["reason"] == (
         "allowed_verified_game_workload_inference_preemption")
+    assert decision["delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+        "active_inference_request_reference"] == active_request_reference
+    assert persisted_receipt["cancellation_admission_decision"][
+        "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+            "active_inference_request_reference"] == active_request_reference
     assert host_owner.collector_call_count == 2
     mismatched_workload = bridge.current_workload_state()
     mismatched_workload["transport_provenance"] = {"message_id": "f" * 64}

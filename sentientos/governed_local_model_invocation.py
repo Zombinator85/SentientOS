@@ -43,6 +43,8 @@ INVOCATION_RECEIPT_SCHEMA_V8 = "sentientos.local_model_invocation_receipt:v8"
 INVOCATION_RECEIPT_SCHEMA_V9 = "sentientos.local_model_invocation_receipt:v9"
 CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA = (
     "sentientos.cancellation_admission_decision_witness:v1")
+CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2 = (
+    "sentientos.cancellation_admission_decision_witness:v2")
 LLAMA_COMPLETION_OBSERVATION_SCHEMA_V1 = "sentientos.llama_cpp_completion_observation:v1"
 LLAMA_COMPLETION_OBSERVATION_SCHEMA = "sentientos.llama_cpp_completion_observation:v2"
 LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3 = "sentientos.llama_cpp_completion_observation:v3"
@@ -229,8 +231,9 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
         "protected_mutation_intent", "correlation_id", "admission_decision_ref",
     }
     if (not isinstance(value, Mapping) or set(value) != fields
-            or value.get("schema_version") !=
-                CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA
+            or value.get("schema_version") not in {
+                CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA,
+                CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2}
             or value.get("event_type") != "control_plane_decision"
             or value.get("final_disposition") != AdmissionOutcome.ALLOW.value
             or value.get("outcome") != AdmissionOutcome.ALLOW.value
@@ -257,11 +260,17 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
         actor = value.get("actor")
         if actor == "production_chat_game_workload_governor":
             game_evidence = evidence_refs.get("game_workload_evidence")
+            request_reference = {key: request.get(key) for key in (
+                "request_id", "request_digest", "correlation_id")}
             if (not isinstance(game_evidence, Mapping)
                     or game_evidence.get("status") != "current"
                     or game_evidence.get("game_active") is not True
                     or not isinstance(game_evidence.get("message_id"), str)
-                    or not game_evidence.get("message_id")):
+                    or not game_evidence.get("message_id")
+                    or (value.get("schema_version") ==
+                        CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2
+                        and evidence_refs.get("active_inference_request_reference")
+                            != request_reference)):
                 return False
         if (actor == "production_chat_game_resource_governor"
                 and not any(isinstance(evidence_refs.get(key), Mapping)
@@ -318,7 +327,16 @@ def _cancellation_admission_decision_witness(
     # timestamp is minted by to_dict(). Keep the stable semantic decision facts
     # in the receipt and leave the event timestamp with the kernel's audit row.
     payload = decision.to_dict()
-    return {"schema_version": CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA,
+    delegated = decision.delegated_outcomes
+    runtime_governor = (delegated.get("runtime_governor")
+        if isinstance(delegated, Mapping) else None)
+    evidence_refs = (runtime_governor.get("evidence_refs")
+        if isinstance(runtime_governor, Mapping) else None)
+    schema_version = (CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2
+        if isinstance(evidence_refs, Mapping)
+            and isinstance(evidence_refs.get("active_inference_request_reference"), Mapping)
+        else CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA)
+    return {"schema_version": schema_version,
         **{key: value for key, value in payload.items() if key != "timestamp"}}
 RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
     "type": "object",

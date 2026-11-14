@@ -1569,6 +1569,13 @@ class ProductionServingInferenceController:
                 or not isinstance(message_id, str) or not message_id):
             return None
         active_request_reference = self._active_inference_request_reference()
+        if (not isinstance(active_request_reference, Mapping)
+                or set(active_request_reference) != {
+                    "request_id", "request_digest", "correlation_id"}
+                or not all(isinstance(active_request_reference.get(key), str)
+                    and active_request_reference.get(key)
+                    for key in ("request_id", "request_digest", "correlation_id"))):
+            return None
         identity = getattr(model, "active_identity", None)
         if identity is None or not callable(getattr(identity, "to_dict", None)):
             return None
@@ -1593,12 +1600,16 @@ class ProductionServingInferenceController:
                 "correlation_id": correlation_id,
                 "purpose": "local_user_chat",
                 "active_inference_preemption": {
-                    "schema_version": "sentientos.active_inference_preemption:v1",
+                    "schema_version": "sentientos.active_inference_preemption:v2",
                     "workload_mode": "automatic",
                     "serving_session_id": session.session_id,
                     "model_identity_digest": digest_payload(identity.to_dict()),
                     "game_workload_message_id": message_id,
+                    "active_inference_request_reference": dict(
+                        active_request_reference),
                 },
+                "active_inference_request_reference": dict(
+                    active_request_reference),
             })
         decision = self._serving._kernel.admit(request)
         governor = decision.delegated_outcomes.get("runtime_governor")
