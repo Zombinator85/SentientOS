@@ -91,7 +91,7 @@ jobs:
             tests/test_local_model_production_serving.py \
             tests/test_local_model_serving_inference.py::test_game_arriving_after_inference_admission_defers_before_backend_entry \
             tests/test_local_model_serving_inference.py::test_selected_gaming_profile_after_inference_admission_defers_before_effect \
-            tests/test_local_model_serving_inference.py::test_normal_mode_releases_only_idle_residency_under_host_pressure \
+            'tests/test_local_model_serving_inference.py::test_normal_mode_releases_only_idle_residency_under_host_pressure[20.0-86.0-40.0-24-worker_closed-idle_host_gpu_resource_reconciliation]' \
             'tests/test_local_model_serving_inference.py::test_verified_game_resource_governance_defers_or_releases_before_effect[idle_game_frame_pressure_active_inference_scheduler]' \
             tests/test_resident_epistemic_state_mutation.py \
             tests/test_local_model_catalog_deployment_capability_admission.py \
@@ -133,7 +133,7 @@ jobs:
               "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition",
               "tests/test_resident_developmental_cognition.py::test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them",
               "tests/test_developmental_model_replacement_experiment.py::test_serving_receipt_references_survive_controlled_run_recovery",
-              "tests/test_local_model_serving_inference.py::test_normal_mode_releases_only_idle_residency_under_host_pressure",
+              "tests/test_local_model_serving_inference.py::test_normal_mode_releases_only_idle_residency_under_host_pressure[20.0-86.0-40.0-24-worker_closed-idle_host_gpu_resource_reconciliation]",
           ]
           manifest = {
               "schema_version": "sentientos.task_acceptance:v1",
