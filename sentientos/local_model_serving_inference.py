@@ -156,6 +156,13 @@ class ProductionServingInferenceController:
         return invoker.cancel_pending_generation(reason=reason,
             cancellation_admission_decision=cancellation_admission_decision)
 
+    def _active_inference_request_reference(self) -> Mapping[str, str] | None:
+        with self._active_invoker_lock:
+            invoker = self._active_invoker
+        if invoker is None:
+            return None
+        return invoker.active_invocation_request_reference()
+
     def resource_reconciliation_interval_seconds(self) -> float:
         """Poll resource governance faster while optional inference is active.
 
@@ -635,9 +642,12 @@ class ProductionServingInferenceController:
         resource_measurement_comparison: dict[str, Any] | None = None
         worker_exit_observed: bool | None = None
         active_inference_cancellation_confirmed: bool | None = None
+        active_inference_request_reference: Mapping[str, str] | None = None
         if decision_valid:
             try:
                 if preempt_active_generation:
+                    active_inference_request_reference = (
+                        self._active_inference_request_reference())
                     active_inference_cancellation_confirmed = (
                         self.cancel_pending_generation(reason="workload_transition",
                             cancellation_admission_decision=decision))
@@ -720,7 +730,7 @@ class ProductionServingInferenceController:
             except Exception as exc:
                 close_failure = type(exc).__name__
         outcome = {
-            "schema_version": "sentientos.production_chat_resource_release_receipt:v2",
+            "schema_version": "sentientos.production_chat_resource_release_receipt:v3",
             "status": ("worker_closed" if close_completed else
                 "release_effect_unconfirmed" if decision_valid else "denied"),
             "trigger_kind": trigger_kind,
@@ -776,6 +786,9 @@ class ProductionServingInferenceController:
             "active_inference_preemption_requested": preempt_active_generation,
             "active_inference_cancellation_confirmed":
                 active_inference_cancellation_confirmed,
+            "active_inference_request_reference": (
+                dict(active_inference_request_reference)
+                if active_inference_request_reference is not None else None),
             "post_release_observation": post_release_observation,
             "resource_measurement_comparison": resource_measurement_comparison,
             "inference_performed": False,
@@ -1609,6 +1622,7 @@ class ProductionServingInferenceController:
         closed = False
         close_failure: str | None = None
         active_inference_cancellation_confirmed: bool | None = None
+        active_inference_request_reference: Mapping[str, str] | None = None
         worker_exit_observed: bool | None = None
         before_release_observation: dict[str, Any] | None = None
         post_release_observation: dict[str, Any] | None = None
@@ -1619,6 +1633,8 @@ class ProductionServingInferenceController:
                 # never waits for a collector and never affects release admission.
                 before_release_observation = self._latest_cached_host_resources()
                 if preempt_active_generation:
+                    active_inference_request_reference = (
+                        self._active_inference_request_reference())
                     active_inference_cancellation_confirmed = (
                         self.cancel_pending_generation(reason="workload_transition",
                             cancellation_admission_decision=decision))
@@ -1689,7 +1705,7 @@ class ProductionServingInferenceController:
             except Exception as exc:
                 close_failure = type(exc).__name__
         outcome = {
-            "schema_version": "sentientos.production_chat_resource_release_receipt:v2",
+            "schema_version": "sentientos.production_chat_resource_release_receipt:v3",
             "status": "worker_closed" if closed else
                 "release_effect_unconfirmed" if decision_valid else "denied",
             "trigger_kind": "idle_game_frame_pressure_reconciliation",
@@ -1713,6 +1729,9 @@ class ProductionServingInferenceController:
             "worker_exit_observed": worker_exit_observed,
             "active_inference_preemption_requested": preempt_active_generation,
             "active_inference_cancellation_confirmed": active_inference_cancellation_confirmed,
+            "active_inference_request_reference": (
+                dict(active_inference_request_reference)
+                if active_inference_request_reference is not None else None),
             "close_failure": close_failure,
             "inference_performed": False,
             "host_mutation_performed": False,
@@ -1836,9 +1855,12 @@ class ProductionServingInferenceController:
         close_failure: str | None = None
         worker_exit_observed: bool | None = None
         active_inference_cancellation_confirmed: bool | None = None
+        active_inference_request_reference: Mapping[str, str] | None = None
         if decision_valid:
             try:
                 if preempt_active_generation:
+                    active_inference_request_reference = (
+                        self._active_inference_request_reference())
                     active_inference_cancellation_confirmed = (
                         self.cancel_pending_generation(reason="workload_transition",
                             cancellation_admission_decision=decision))
@@ -1882,7 +1904,7 @@ class ProductionServingInferenceController:
             if before_values is not None and after_values is not None
             and isinstance(before_values["cpu_utilization_percent"], (int, float))
             and isinstance(after_values["cpu_utilization_percent"], (int, float)) else None)
-        outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v2",
+        outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v3",
             "status": "worker_closed" if closed else
                 "release_effect_unconfirmed" if decision_valid else "denied",
             "trigger_kind": trigger_kind,
@@ -1916,6 +1938,9 @@ class ProductionServingInferenceController:
             "active_inference_preemption_requested": preempt_active_generation,
             "active_inference_cancellation_confirmed":
                 active_inference_cancellation_confirmed,
+            "active_inference_request_reference": (
+                dict(active_inference_request_reference)
+                if active_inference_request_reference is not None else None),
             "inference_performed": False, "host_mutation_performed": False}
         if selected_gaming_profile:
             outcome.update({

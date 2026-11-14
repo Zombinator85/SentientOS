@@ -385,6 +385,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             and len(verified_resource_release_receipts) > 256):
         raise ValueError("resource_release_receipt_bound_exceeded")
     release_receipt_summaries: list[dict[str, Any]] = []
+    release_lineage_findings: list[str] = []
     seen_release_receipt_ids: set[str] = set()
     if verified_resource_release_receipts is not None:
         def bounded_release_observation(value: Any, *, post_release: bool = False
@@ -413,8 +414,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
 
         for release_receipt in verified_resource_release_receipts:
             if (not isinstance(release_receipt, Mapping)
-                    or release_receipt.get("schema_version")
-                        != "sentientos.production_chat_resource_release_receipt:v2"):
+                    or release_receipt.get("schema_version") not in {
+                        "sentientos.production_chat_resource_release_receipt:v2",
+                        "sentientos.production_chat_resource_release_receipt:v3"}):
                 raise ValueError("resource_release_receipt_invalid")
             receipt_id = release_receipt.get("receipt_id")
             receipt_digest = release_receipt.get("receipt_semantic_digest")
@@ -429,8 +431,24 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         != "verified"
                     or not isinstance(release_receipt.get("serving_receipt_id"), str)
                     or not isinstance(release_receipt.get(
-                        "serving_receipt_semantic_digest"), str)):
+                        "serving_receipt_semantic_digest"), str)
+                    or release_receipt.get("invocation_linkage_posture") not in {
+                        "verified", "not_required", "pending_invocation_receipt",
+                        "legacy_unlinked"}):
                 raise ValueError("resource_release_receipt_identity_invalid")
+            if release_receipt.get("invocation_linkage_posture") in {
+                    "pending_invocation_receipt", "legacy_unlinked"}:
+                release_lineage_findings.append(
+                    "resource_release_invocation_linkage_" + str(
+                        release_receipt.get("invocation_linkage_posture")) + ":" + receipt_id)
+            if release_receipt.get("invocation_linkage_posture") == "verified":
+                invocation_receipt_id = release_receipt.get(
+                    "cancelled_invocation_receipt_id")
+                invocation_receipt_digest = release_receipt.get(
+                    "cancelled_invocation_receipt_digest")
+                if (not isinstance(invocation_receipt_id, str)
+                        or not isinstance(invocation_receipt_digest, str)):
+                    raise ValueError("resource_release_invocation_linkage_invalid")
             seen_release_receipt_ids.add(receipt_id)
             summary = {key: release_receipt.get(key) for key in (
                 "receipt_id", "receipt_semantic_digest", "status", "trigger_kind",
@@ -438,6 +456,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "serving_session_id", "serving_operation_id", "model_identity_digest",
                 "serving_receipt_linkage_posture", "serving_receipt_id",
                 "serving_receipt_semantic_digest",
+                "invocation_linkage_posture", "cancelled_invocation_receipt_id",
+                "cancelled_invocation_receipt_digest",
                 "release_admission_decision_ref", "release_admission_outcome",
                 "active_inference_preemption_requested",
                 "active_inference_cancellation_confirmed", "worker_exit_observed",
@@ -478,6 +498,19 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 raise ValueError("resource_invocation_receipt_identity_conflict")
             raise ValueError("resource_invocation_receipt_duplicate")
         invocation_by_id[receipt_id] = invocation
+    for release_receipt in release_receipt_summaries:
+        if release_receipt.get("invocation_linkage_posture") != "verified":
+            continue
+        invocation_id = release_receipt.get("cancelled_invocation_receipt_id")
+        invocation_digest = release_receipt.get("cancelled_invocation_receipt_digest")
+        invocation = invocation_by_id.get(str(invocation_id))
+        if (not isinstance(invocation, Mapping)
+                or invocation.get("receipt_digest") != invocation_digest
+                or invocation.get("status") != "cancelled"
+                or invocation.get("cancellation_admission_decision_ref")
+                    != release_receipt.get("release_admission_decision_ref")):
+            lineage_findings.append(
+                f"resource_release_invocation_linkage_missing_or_mismatched:{release_receipt.get('receipt_id')}")
     predecessor_invocation_by_id: dict[str, Mapping[str, Any]] = {}
     for predecessor in verified_predecessor_invocation_receipts:
         if not isinstance(predecessor, Mapping):
@@ -547,6 +580,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     ledger_receipts = {str(item.get("receipt_digest")): item for item in raw_receipts if isinstance(item, Mapping)}
     attempt_by_id = {str(item.get("attempt_id")): item for item in attempt_rows if isinstance(item, Mapping)}
     lineage_findings: list[str] = []
+    lineage_findings.extend(release_lineage_findings)
     linked_effect_receipts: dict[str, str] = {}
     for invocation in invocation_receipts[-max_invocation_receipts:]:
         reason_codes = invocation.get("reason_codes")
@@ -805,7 +839,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "resource_release_receipt_count": len(release_receipt_summaries),
                "resource_release_receipt_posture": (
                    "not_requested" if verified_resource_release_receipts is None
-                   else "verified" if release_receipt_summaries else "verified_no_release_receipts"),
+                   else "degraded" if release_lineage_findings
+                   else "verified" if release_receipt_summaries
+                   else "verified_no_release_receipts"),
                "inference_admission_decision_count": len(admission_by_receipt),
                "inference_admission_decision_posture": (
                    "not_requested" if verified_inference_admission_decisions is None

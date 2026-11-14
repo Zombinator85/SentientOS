@@ -656,7 +656,7 @@ class GovernedLocalModelInvoker:
     CANCELLATION_QUIESCENCE_TIMEOUT_SECONDS = 0.5
 
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
-        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_cancel_reason: str | None = None; self._active_cancel_admission_ref: str | None = None; self._active_residency_preload_event: threading.Event | None = None; self._backend_quiescence_callbacks: list[Callable[[], None]] = []
+        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_invocation_request_reference: dict[str, str] | None = None; self._active_cancel_reason: str | None = None; self._active_cancel_admission_ref: str | None = None; self._active_residency_preload_event: threading.Event | None = None; self._backend_quiescence_callbacks: list[Callable[[], None]] = []
 
     def register_evidence_sink(self, sink: Callable[[Mapping[str, Any]], None] | None) -> None:
         """Install an explicit observational receipt sink owned by the runtime."""
@@ -666,6 +666,14 @@ class GovernedLocalModelInvoker:
         """Return whether this invocation owner still has an active backend worker."""
         with self._active_state_lock:
             return self._active_release_event is not None
+
+    def active_invocation_request_reference(self) -> Mapping[str, str] | None:
+        """Return the in-flight request identity while its backend cancellation gate is active."""
+        with self._active_state_lock:
+            if self._active_release_event is None:
+                return None
+            value = self._active_invocation_request_reference
+            return dict(value) if value is not None else None
 
     def on_backend_quiescence(self, callback: Callable[[], None]) -> None:
         """Run callback once the current backend worker is known to have stopped."""
@@ -684,6 +692,7 @@ class GovernedLocalModelInvoker:
             if self._active_release_event is not release_event:
                 return
             self._active_release_event = None
+            self._active_invocation_request_reference = None
             callbacks = self._backend_quiescence_callbacks
             self._backend_quiescence_callbacks = []
         for callback in callbacks:
@@ -1252,6 +1261,11 @@ class GovernedLocalModelInvoker:
                         active_release_event = threading.Event()
                         with self._active_state_lock:
                             self._active_release_event = active_release_event
+                            self._active_invocation_request_reference = {
+                                "request_id": request.request_id,
+                                "request_digest": request.request_digest,
+                                "correlation_id": request.correlation_id,
+                            }
                             self._active_cancel_reason = None
                             self._active_cancel_admission_ref = None
                         # Ollama supports an event check around connection setup, closing the

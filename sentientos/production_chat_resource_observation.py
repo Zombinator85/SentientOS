@@ -64,8 +64,10 @@ _RESOURCE_ADMISSION_BINDING_SCHEMA = (
     "sentientos.governed_local_model_resource_allocation_admission_context:v1")
 _RESOURCE_ADMISSION_WITNESS_SCHEMA = (
     "sentientos.resource_bound_inference_admission_witness:v1")
-_RESOURCE_RELEASE_RECEIPT_SCHEMA = (
+_RESOURCE_RELEASE_RECEIPT_SCHEMA_V2 = (
     "sentientos.production_chat_resource_release_receipt:v2")
+_RESOURCE_RELEASE_RECEIPT_SCHEMA_V3 = (
+    "sentientos.production_chat_resource_release_receipt:v3")
 _RESOURCE_RELEASE_NAME = re.compile(
     r"serving-resource-release-[0-9a-f]{24}\.json\Z")
 _MAX_RESOURCE_RELEASE_RECEIPTS = 256
@@ -257,7 +259,8 @@ class ProductionChatResourceObservationOwner:
             raise ProductionChatResourceObservationError(
                 "serving_operation_history_invalid:" + str(exc)) from exc
         resource_release_receipts, resource_release_posture = (
-            self._resource_release_receipts(serving_operation_history))
+            self._resource_release_receipts(serving_operation_history,
+                invocation_receipts))
         return ProductionChatResourceObservation(
             self._handle.identity.value, self._provisioning_id,
             str(manifest["manifest_digest"]), ledger, invocation_receipts, receipt_posture,
@@ -269,7 +272,8 @@ class ProductionChatResourceObservationOwner:
             resource_release_receipts, resource_release_posture)
 
     def _resource_release_receipts(
-            self, serving_operation_history: tuple[Mapping[str, Any], ...]
+            self, serving_operation_history: tuple[Mapping[str, Any], ...],
+            invocation_receipts: tuple[Mapping[str, Any], ...]
             ) -> tuple[tuple[Mapping[str, Any], ...], str]:
         serving_by_session: dict[str, tuple[str, str, str]] = {}
         for history in serving_operation_history:
@@ -340,7 +344,9 @@ class ProductionChatResourceObservationOwner:
             resource_observation = value.get("resource_observation")
             if (not isinstance(receipt_id, str) or receipt_id != name[:-5]
                     or receipt_id in seen_ids
-                    or value.get("schema_version") != _RESOURCE_RELEASE_RECEIPT_SCHEMA
+                    or value.get("schema_version") not in {
+                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V2,
+                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3}
                     or semantic_digest != actual_semantic_digest
                     or receipt_id != actual_receipt_id
                     or value.get("status") not in {
@@ -370,10 +376,70 @@ class ProductionChatResourceObservationOwner:
             verified_value["serving_receipt_linkage_posture"] = "verified"
             verified_value["serving_receipt_id"] = serving_binding[1]
             verified_value["serving_receipt_semantic_digest"] = serving_binding[2]
+            if value.get("schema_version") == _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3:
+                request_reference = value.get("active_inference_request_reference")
+                cancellation_confirmed = (
+                    value.get("active_inference_cancellation_confirmed") is True)
+                if cancellation_confirmed:
+                    if (not isinstance(request_reference, Mapping)
+                            or set(request_reference) != {
+                                "request_id", "request_digest", "correlation_id"}
+                            or not all(isinstance(request_reference.get(key), str)
+                                and request_reference.get(key)
+                                for key in ("request_id", "request_digest", "correlation_id"))):
+                        raise ProductionChatResourceObservationError(
+                            "resource_release_cancelled_invocation_reference_invalid")
+                    matched_invocations = []
+                    for invocation in invocation_receipts:
+                        request = invocation.get("request")
+                        if (isinstance(request, Mapping)
+                                and request.get("request_id")
+                                    == request_reference.get("request_id")
+                                and request.get("request_digest")
+                                    == request_reference.get("request_digest")
+                                and request.get("correlation_id")
+                                    == request_reference.get("correlation_id")):
+                            matched_invocations.append(invocation)
+                    if len(matched_invocations) > 1:
+                        raise ProductionChatResourceObservationError(
+                            "resource_release_invocation_identity_collision")
+                    if not matched_invocations:
+                        verified_value["invocation_linkage_posture"] = (
+                            "pending_invocation_receipt")
+                    else:
+                        invocation = matched_invocations[0]
+                        reasons = invocation.get("reason_codes")
+                        if (invocation.get("status") != "cancelled"
+                                or not isinstance(reasons, (list, tuple))
+                                or "cancelled_for_workload_transition" not in reasons
+                                or invocation.get("cancellation_admission_decision_ref")
+                                    != value.get("release_admission_decision_ref")):
+                            raise ProductionChatResourceObservationError(
+                                "resource_release_cancelled_invocation_binding_invalid")
+                        verified_value["invocation_linkage_posture"] = "verified"
+                        verified_value["cancelled_invocation_receipt_id"] = (
+                            invocation.get("receipt_id"))
+                        verified_value["cancelled_invocation_receipt_digest"] = (
+                            invocation.get("receipt_digest"))
+                else:
+                    verified_value["invocation_linkage_posture"] = "not_required"
+            elif value.get("active_inference_cancellation_confirmed") is True:
+                verified_value["invocation_linkage_posture"] = "legacy_unlinked"
+            else:
+                verified_value["invocation_linkage_posture"] = "not_required"
             receipts.append(verified_value)
         receipts.sort(key=lambda item: str(item.get("receipt_id", "")))
-        return tuple(receipts), (
-            "verified" if receipts else "verified_no_release_receipts")
+        if not receipts:
+            posture = "verified_no_release_receipts"
+        elif any(item.get("invocation_linkage_posture") ==
+                "pending_invocation_receipt" for item in receipts):
+            posture = "pending_invocation_receipts"
+        elif any(item.get("invocation_linkage_posture") == "legacy_unlinked"
+                for item in receipts):
+            posture = "partial_legacy_unlinked"
+        else:
+            posture = "verified"
+        return tuple(receipts), posture
 
     def _resource_admission_witness(self, invocation: Mapping[str, Any],
                                     allocation: GovernedLocalModelResourceAllocation

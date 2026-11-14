@@ -37,7 +37,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     registry = InstallationStateRegistry(tmp_path / "state", _test_only=True)
     bundle = handle
     release_body = {
-        "schema_version": "sentientos.production_chat_resource_release_receipt:v2",
+        "schema_version": "sentientos.production_chat_resource_release_receipt:v3",
         "status": "worker_closed",
         "trigger_kind": "idle_game_gpu_residency",
         "trigger_correlation_id": "game-workload-observation",
@@ -51,8 +51,13 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "resource_observation": {"workload_mode": "gaming",
             "active_inference_preemption_requested": False},
         "worker_exit_observed": True,
-        "active_inference_preemption_requested": False,
-        "active_inference_cancellation_confirmed": None,
+        "active_inference_preemption_requested": True,
+        "active_inference_cancellation_confirmed": True,
+        "active_inference_request_reference": {
+            "request_id": "lmreq-" + "c" * 24,
+            "request_digest": "c" * 64,
+            "correlation_id": "invocation-correlation",
+        },
         "resource_measurement_comparison": {
             "interpretation": "sample_delta_only; telemetry_does_not_establish_causation"},
         "inference_performed": False,
@@ -109,7 +114,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "serving_receipt_linkage_posture"] == "verified"
     assert first.verified_resource_release_receipts[0][
         "serving_receipt_semantic_digest"] == "b" * 64
-    assert first.resource_release_receipt_posture == "verified"
+    assert first.resource_release_receipt_posture == "pending_invocation_receipts"
     from sentientos.host_resource_runtime import resource_consumption_world_state_records
     projected = resource_consumption_world_state_records(
         ledger=first.ledger,
@@ -118,6 +123,34 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     assert projected["payload"]["resource_release_receipts"][0][
         "release_admission_decision_ref"] == (
             "kernel_decision:release-correlation")
+    assert projected["disposition"] == "degraded"
+    assert projected["payload"]["resource_release_receipt_posture"] == "degraded"
+
+    linked_invocation = {
+        "receipt_id": "lmrec-" + "d" * 24,
+        "receipt_digest": "d" * 64,
+        "status": "cancelled",
+        "reason_codes": ["cancelled_for_workload_transition"],
+        "cancellation_admission_decision_ref": "kernel_decision:release-correlation",
+        "request": {
+            "request_id": "lmreq-" + "c" * 24,
+            "request_digest": "c" * 64,
+            "correlation_id": "invocation-correlation",
+        },
+    }
+    linked_releases, linked_posture = observer._resource_release_receipts(
+        serving_history, (linked_invocation,))
+    assert linked_posture == "verified"
+    assert linked_releases[0]["invocation_linkage_posture"] == "verified"
+    assert linked_releases[0]["cancelled_invocation_receipt_id"] == (
+        linked_invocation["receipt_id"])
+    linked_projection = resource_consumption_world_state_records(
+        ledger=first.ledger,
+        invocation_receipts=(linked_invocation,),
+        verified_resource_release_receipts=linked_releases)[0]
+    assert linked_projection["disposition"] == "recorded"
+    assert linked_projection["payload"]["resource_release_receipts"][0][
+        "cancelled_invocation_receipt_digest"] == linked_invocation["receipt_digest"]
     serving_history = ({"status": "serving_receipt_verified",
         "receipt": {**serving_receipt, "binding": {
             "serving_operation_id": "substituted-operation"}},

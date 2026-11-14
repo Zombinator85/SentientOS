@@ -3984,6 +3984,14 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert release["active_inference_cancellation_confirmed"] is (
             True if trigger in {"idle_game_frame_pressure_active_inference",
                 "idle_game_frame_pressure_active_inference_scheduler"} else None)
+        if release["active_inference_cancellation_confirmed"] is True:
+            request_reference = release["active_inference_request_reference"]
+            cancelled_receipt = invocation_results["receipt"]
+            assert request_reference == {
+                "request_id": cancelled_receipt.request["request_id"],
+                "request_digest": cancelled_receipt.request["request_digest"],
+                "correlation_id": cancelled_receipt.request["correlation_id"],
+            }
         assert "host_report_id" not in release["resource_observation"]
         postflight = release["post_release_observation"]
         assert postflight["status"] == "current"
