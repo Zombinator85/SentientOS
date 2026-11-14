@@ -128,6 +128,41 @@ def _valid_resource_serving_decision_record(binding: Mapping[str, Any], *,
         and record.get("admission_decision_ref") == reference)
 
 
+def _valid_resource_admission_evidence_binding(binding: Mapping[str, Any]) -> bool:
+    schema = binding.get("resource_admission_evidence_schema")
+    specs = (
+        ("model_serving_admission_decision_record", "model_serving_admission_ref",
+         "control_plane_correlation_id"),
+        ("resource_admission_revalidation_decision",
+         "resource_admission_revalidation_decision_ref",
+         "resource_admission_revalidation_correlation_id"),
+    )
+    if schema is None:
+        return all(binding.get(record_key) is None or
+            _valid_resource_serving_decision_record(binding,
+                record_key=record_key, reference_key=reference_key,
+                correlation_key=correlation_key)
+            for record_key, reference_key, correlation_key in specs)
+    if schema != RESOURCE_ADMISSION_EVIDENCE_SCHEMA:
+        return False
+    initial_record, initial_reference, initial_correlation = specs[0]
+    if not all(key in binding for key in (
+            initial_record, initial_reference, initial_correlation)):
+        return False
+    if not _valid_resource_serving_decision_record(binding,
+            record_key=initial_record, reference_key=initial_reference,
+            correlation_key=initial_correlation):
+        return False
+    postload_record, postload_reference, postload_correlation = specs[1]
+    postload_keys = (postload_record, postload_reference, postload_correlation)
+    if not any(key in binding for key in postload_keys):
+        return True
+    return (all(key in binding for key in postload_keys)
+        and _valid_resource_serving_decision_record(binding,
+            record_key=postload_record, reference_key=postload_reference,
+            correlation_key=postload_correlation))
+
+
 def _admission_decision_payload(kernel: Any, decision: Any) -> Mapping[str, Any] | None:
     recorded_payload = getattr(kernel, "recorded_decision_payload", None)
     if callable(recorded_payload):
@@ -368,35 +403,9 @@ def read_serving_operation_history(handle: Any, *, maximum: int = MAX_SERVING_OP
                 raise ProductionServingError("serving_receipt_time_invalid") from exc
             if timestamp.tzinfo is None or timestamp.utcoffset() is None:
                 raise ProductionServingError("serving_receipt_time_invalid")
-        admission_evidence_schema = binding.get(
-            "resource_admission_evidence_schema")
-        if (admission_evidence_schema is not None
-                and admission_evidence_schema != RESOURCE_ADMISSION_EVIDENCE_SCHEMA):
+        if not _valid_resource_admission_evidence_binding(binding):
             raise ProductionServingError(
-                "serving_resource_admission_evidence_schema_invalid")
-        evidence_specs = (
-                ("model_serving_admission_decision_record",
-                 "model_serving_admission_ref", "control_plane_correlation_id",
-                 "serving_resource_admission_decision_invalid"),
-                ("resource_admission_revalidation_decision",
-                 "resource_admission_revalidation_decision_ref",
-                 "resource_admission_revalidation_correlation_id",
-                 "serving_resource_admission_revalidation_invalid"))
-        for record_key, reference_key, correlation_key, error_code in evidence_specs:
-            keys_present = tuple(key in binding for key in (
-                record_key, reference_key, correlation_key))
-            if (admission_evidence_schema == RESOURCE_ADMISSION_EVIDENCE_SCHEMA
-                    and record_key == "model_serving_admission_decision_record"
-                    and not all(keys_present)):
-                raise ProductionServingError(error_code)
-            if (admission_evidence_schema == RESOURCE_ADMISSION_EVIDENCE_SCHEMA
-                    and any(keys_present) and not all(keys_present)):
-                raise ProductionServingError(error_code)
-            if binding.get(record_key) is not None and not (
-                    _valid_resource_serving_decision_record(binding,
-                        record_key=record_key, reference_key=reference_key,
-                        correlation_key=correlation_key)):
-                raise ProductionServingError(error_code)
+                "serving_resource_admission_evidence_binding_invalid")
         receipts.append(receipt)
     by_receipt_operation: dict[str, dict[str, Any]] = {}
     for receipt in receipts:

@@ -13,6 +13,7 @@ from sentientos.installation_state import InstallationIdentity, InstallationStat
 from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_model_production_serving import (
     ProductionServingController, ProductionServingError,
+    _valid_resource_admission_evidence_binding,
     read_serving_operation_history,
 )
 from sentientos.local_model_runtime_worker import ExactRuntimeLocalModel
@@ -892,6 +893,12 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             serving_decisions[1])
         assert session.binding["resource_admission_evidence_schema"] == (
             "sentientos.local_model_serving_admission_evidence:v1")
+        assert _valid_resource_admission_evidence_binding(session.binding)
+        incomplete_evidence_binding = dict(session.binding)
+        incomplete_evidence_binding[
+            "resource_admission_revalidation_decision"] = None
+        assert not _valid_resource_admission_evidence_binding(
+            incomplete_evidence_binding)
         assert session.binding["resource_admission_revalidation_correlation_id"] == (
             serving_decisions[2]["correlation_id"])
         assert session.binding["resource_admission_revalidation_decision_ref"] == (
