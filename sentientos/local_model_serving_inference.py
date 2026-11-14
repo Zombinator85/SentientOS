@@ -105,6 +105,20 @@ def unavailable_chat_process_software_generation() -> dict[str, Any]:
     }
 
 
+def _resource_release_correlation(trigger_kind: str, trigger_correlation: str, *,
+        bind_active_invocation: bool = False,
+        active_invocation_reference: Mapping[str, str] | None = None) -> str:
+    context = (trigger_correlation if trigger_kind == "deferred_inference" else
+        trigger_kind + ":" + trigger_correlation)
+    suffix = hashlib.sha256(context.encode("utf-8")).hexdigest()[:24]
+    if not bind_active_invocation:
+        return "production-chat-resource-release-" + suffix
+    if not isinstance(active_invocation_reference, Mapping):
+        return "active-resource-release::" + suffix
+    return "active-resource-release:" + digest_payload(
+        dict(active_invocation_reference)) + ":" + suffix
+
+
 class ProductionServingInferenceController:
     """Narrow bridge; callers provide an operation, never a model or its custody."""
 
@@ -553,9 +567,12 @@ class ProductionServingInferenceController:
         if not isinstance(trigger_correlation_id, str) or not trigger_correlation_id:
             return None
         source_correlation = trigger_correlation_id
-        release_correlation = "production-chat-resource-release-" + hashlib.sha256(
-            (source_correlation if trigger_kind == "deferred_inference" else
-             trigger_kind + ":" + source_correlation).encode("utf-8")).hexdigest()[:24]
+        active_inference_request_reference = (
+            self._active_inference_request_reference()
+            if preempt_active_generation else None)
+        release_correlation = _resource_release_correlation(trigger_kind,
+            source_correlation, bind_active_invocation=preempt_active_generation,
+            active_invocation_reference=active_inference_request_reference)
         loaded_identity = getattr(model, "active_identity", None)
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
             return None
@@ -635,7 +652,7 @@ class ProductionServingInferenceController:
             if general_gpu_pressure or general_memory_pressure else
             "production_chat_workload_resource_governor" if profile_release
             else "production_chat_game_resource_governor")
-        metadata = {
+        metadata: dict[str, Any] = {
             "correlation_id": release_correlation,
             "purpose": "local_model_resource_release",
             "reason_code": reason_code,
@@ -643,6 +660,11 @@ class ProductionServingInferenceController:
             "model_identity_digest": digest_payload(loaded_identity.to_dict()),
             "resource_observation": host_release_evidence,
         }
+        if preempt_active_generation:
+            metadata["active_inference_preemption_requested"] = True
+            metadata["active_inference_request_reference"] = (
+                dict(active_inference_request_reference)
+                if isinstance(active_inference_request_reference, Mapping) else None)
         decision = self._serving._kernel.admit(ControlActionRequest(
             action_kind="local_model_resource_release",
             authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
@@ -666,12 +688,9 @@ class ProductionServingInferenceController:
         resource_measurement_comparison: dict[str, Any] | None = None
         worker_exit_observed: bool | None = None
         active_inference_cancellation_confirmed: bool | None = None
-        active_inference_request_reference: Mapping[str, str] | None = None
         if decision_valid:
             try:
                 if preempt_active_generation:
-                    active_inference_request_reference = (
-                        self._active_inference_request_reference())
                     active_inference_cancellation_confirmed = (
                         self.cancel_pending_generation(reason="workload_transition",
                             cancellation_admission_decision=decision))
@@ -1633,9 +1652,13 @@ class ProductionServingInferenceController:
         if not self._release_workload_evidence_is_current(
                 "idle_game_frame_pressure_reconciliation", str(configured_mode)):
             return None
-        release_correlation = "production-chat-resource-release-" + hashlib.sha256(
-            ("idle_game_frame_pressure_reconciliation:" + trigger_correlation)
-            .encode("utf-8")).hexdigest()[:24]
+        active_inference_request_reference = (
+            self._active_inference_request_reference()
+            if preempt_active_generation else None)
+        release_correlation = _resource_release_correlation(
+            "idle_game_frame_pressure_reconciliation", trigger_correlation,
+            bind_active_invocation=preempt_active_generation,
+            active_invocation_reference=active_inference_request_reference)
         decision = self._serving._kernel.admit(ControlActionRequest(
             action_kind="local_model_resource_release",
             authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
@@ -1646,6 +1669,11 @@ class ProductionServingInferenceController:
                 "reason_code": "verified_game_frame_pressure",
                 "target_subsystem": "production_chat",
                 "model_identity_digest": digest_payload(loaded_identity.to_dict()),
+                **({"active_inference_preemption_requested": True,
+                    "active_inference_request_reference": (
+                        dict(active_inference_request_reference)
+                        if isinstance(active_inference_request_reference, Mapping) else None)}
+                    if preempt_active_generation else {}),
                 "resource_observation": evidence},
         ))
         decision_valid = (decision.allowed
@@ -1658,7 +1686,6 @@ class ProductionServingInferenceController:
         closed = False
         close_failure: str | None = None
         active_inference_cancellation_confirmed: bool | None = None
-        active_inference_request_reference: Mapping[str, str] | None = None
         worker_exit_observed: bool | None = None
         before_release_observation: dict[str, Any] | None = None
         post_release_observation: dict[str, Any] | None = None
@@ -1669,8 +1696,6 @@ class ProductionServingInferenceController:
                 # never waits for a collector and never affects release admission.
                 before_release_observation = self._latest_cached_host_resources()
                 if preempt_active_generation:
-                    active_inference_request_reference = (
-                        self._active_inference_request_reference())
                     active_inference_cancellation_confirmed = (
                         self.cancel_pending_generation(reason="workload_transition",
                             cancellation_admission_decision=decision))
@@ -1839,8 +1864,12 @@ class ProductionServingInferenceController:
         # wait for a fresh collector cycle before freeing GPU-backed model
         # residency for a verified game workload or explicitly selected profile.
         before_sample = self._latest_cached_host_resources()
-        release_correlation = "production-chat-resource-release-" + hashlib.sha256(
-            (trigger_kind + ":" + trigger_correlation).encode("utf-8")).hexdigest()[:24]
+        active_inference_request_reference = (
+            self._active_inference_request_reference()
+            if preempt_active_generation else None)
+        release_correlation = _resource_release_correlation(trigger_kind,
+            trigger_correlation, bind_active_invocation=preempt_active_generation,
+            active_invocation_reference=active_inference_request_reference)
         if selected_gaming_profile:
             evidence = {
                 "schema_version": "sentientos.production_gaming_profile_gpu_residency_release_evidence:v1",
@@ -1879,6 +1908,11 @@ class ProductionServingInferenceController:
                 "reason_code": reason_code,
                 "target_subsystem": "production_chat",
                 "model_identity_digest": digest_payload(loaded_identity.to_dict()),
+                **({"active_inference_preemption_requested": True,
+                    "active_inference_request_reference": (
+                        dict(active_inference_request_reference)
+                        if isinstance(active_inference_request_reference, Mapping) else None)}
+                    if preempt_active_generation else {}),
                 "resource_observation": evidence},
         ))
         decision_valid = (decision.allowed and decision.outcome == AdmissionOutcome.ALLOW
@@ -1891,12 +1925,9 @@ class ProductionServingInferenceController:
         close_failure: str | None = None
         worker_exit_observed: bool | None = None
         active_inference_cancellation_confirmed: bool | None = None
-        active_inference_request_reference: Mapping[str, str] | None = None
         if decision_valid:
             try:
                 if preempt_active_generation:
-                    active_inference_request_reference = (
-                        self._active_inference_request_reference())
                     active_inference_cancellation_confirmed = (
                         self.cancel_pending_generation(reason="workload_transition",
                             cancellation_admission_decision=decision))

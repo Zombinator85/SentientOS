@@ -350,6 +350,18 @@ def test_governed_cancellation_admission_is_bound_to_receipt(
     assert invoker.cancel_pending_generation(reason="workload_transition",
         cancellation_admission_decision=mismatched_decision) is False
     assert model.cancelled.is_set() is False
+    mismatched_release_decision = kernel._finalize(ControlActionRequest(
+        action_kind="local_model_resource_release",
+        authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
+        actor="production_chat_game_resource_governor",
+        target_subsystem="production_chat",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"correlation_id": "active-resource-release:"
+            + digest_payload({**dict(active_reference), "request_id": "another-invocation"})
+            + ":governed-test"}), AdmissionOutcome.ALLOW, ["admitted"], {})
+    assert invoker.cancel_pending_generation(reason="workload_transition",
+        cancellation_admission_decision=mismatched_release_decision) is False
+    assert model.cancelled.is_set() is False
     assert invoker.cancel_pending_generation(reason="workload_transition",
         cancellation_admission_decision=decision) is True
     worker.join(1)

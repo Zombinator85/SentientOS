@@ -748,6 +748,18 @@ class GovernedLocalModelInvoker:
                             "active-inference-preemption:"
                             + digest_payload(dict(active_reference)) + ":")):
                     return False
+            production_resource_release = (resource_release and decision.actor in {
+                "production_chat_host_resource_governor",
+                "production_chat_workload_resource_governor",
+                "production_chat_game_resource_governor"})
+            if production_resource_release:
+                active_reference = self._active_invocation_request_reference
+                if (not isinstance(active_reference, Mapping)
+                        or decision.correlation_id is None
+                        or not decision.correlation_id.startswith(
+                            "active-resource-release:"
+                            + digest_payload(dict(active_reference)) + ":")):
+                    return False
             self._active_cancel_reason = reason
             self._active_cancel_admission_ref = admission_ref
             event.set()

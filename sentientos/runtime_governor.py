@@ -26,6 +26,44 @@ MAX_RETAINED_HOST_RESOURCE_EVIDENCE = 64
 MAX_RETAINED_GAME_WORKLOAD_EVIDENCE = 64
 
 
+def _expected_resource_release_correlation(trigger_kind: str,
+        trigger_correlation: str, *, active_invocation_reference: object = None,
+        bind_active_invocation: bool = False) -> str:
+    context = (trigger_correlation if trigger_kind == "deferred_inference" else
+        trigger_kind + ":" + trigger_correlation)
+    suffix = hashlib.sha256(context.encode("utf-8")).hexdigest()[:24]
+    if not bind_active_invocation:
+        return "production-chat-resource-release-" + suffix
+    if not isinstance(active_invocation_reference, Mapping):
+        return ""
+    expected_keys = {"request_id", "request_digest", "correlation_id"}
+    if (set(active_invocation_reference) != expected_keys
+            or any(not isinstance(active_invocation_reference.get(key), str)
+                or not active_invocation_reference.get(key)
+                for key in expected_keys)):
+        return ""
+    reference_digest = hashlib.sha256(json.dumps(dict(active_invocation_reference),
+        sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+    return "active-resource-release:" + reference_digest + ":" + suffix
+
+
+def _valid_active_invocation_release_binding(observation: Mapping[str, Any]) -> bool:
+    requested = observation.get("active_inference_preemption_requested")
+    reference = observation.get("active_inference_request_reference")
+    if requested is None and reference is None:
+        return True
+    if type(requested) is not bool:
+        return False
+    if not requested:
+        return reference is None
+    if not isinstance(reference, Mapping):
+        return False
+    required = {"request_id", "request_digest", "correlation_id"}
+    return (set(reference) == required and all(
+        isinstance(reference.get(key), str) and bool(reference.get(key))
+        for key in required))
+
+
 @dataclass(frozen=True)
 class PressureSnapshot:
     cpu: float
@@ -1460,7 +1498,8 @@ class RuntimeGovernor:
             host_gpu_source_correlation = None
             host_gpu_value = host_vram_value = None
             host_gpu_release_age_seconds = host_gpu_evidence_age = None
-            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+            if (isinstance(observation_value, Mapping)
+                    and set(observation_value) == expected_fields):
                 source_value = observation_value.get("trigger_correlation_id")
                 host_gpu_source_correlation = (source_value if isinstance(source_value, str)
                     else None)
@@ -1489,9 +1528,12 @@ class RuntimeGovernor:
                     hashlib.sha256(host_gpu_source_correlation.encode(
                         "utf-8")).hexdigest()[:32]
                     if host_gpu_source_correlation is not None else None)
-                expected_release_correlation = ("production-chat-resource-release-" +
-                    hashlib.sha256(("idle_host_gpu_resource_reconciliation:" +
-                        host_gpu_source_correlation).encode("utf-8")).hexdigest()[:24]
+                expected_release_correlation = (_expected_resource_release_correlation(
+                    "idle_host_gpu_resource_reconciliation", host_gpu_source_correlation,
+                    active_invocation_reference=payload.get(
+                        "active_inference_request_reference"),
+                    bind_active_invocation=payload.get(
+                        "active_inference_preemption_requested") is True)
                     if host_gpu_source_correlation is not None else None)
                 try:
                     parsed_at = datetime.fromisoformat(
@@ -1545,6 +1587,7 @@ class RuntimeGovernor:
                         "active_inference_preemption_requested")) is bool
                     and observation_value.get(
                         "active_inference_preemption_requested") is False
+                    and _valid_active_invocation_release_binding(payload)
                     and type(observation_value.get("model_gpu_layers")) is int
                     and 1 <= observation_value["model_gpu_layers"] <= 256
                     and isinstance(observation_value.get("serving_session_id"), str)
@@ -1581,7 +1624,6 @@ class RuntimeGovernor:
                 "observation_correlation_id", "host_report_id", "host_report_digest",
                 "observed_at", "pressure_labels", "ram_utilization_percent",
                 "serving_session_id", "model_gpu_layers",
-                "active_inference_preemption_requested",
             }
             evidence_valid = False
             memory_source_correlation = None
@@ -1589,7 +1631,8 @@ class RuntimeGovernor:
             memory_report_id = None
             ram_value = None
             release_age = evidence_age = None
-            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+            if (isinstance(observation_value, Mapping)
+                    and set(observation_value) == expected_fields):
                 raw_source = observation_value.get("trigger_correlation_id")
                 memory_source_correlation = raw_source if isinstance(raw_source, str) else None
                 raw_observation_id = observation_value.get("observation_correlation_id")
@@ -1606,9 +1649,12 @@ class RuntimeGovernor:
                 expected_observation_id = ("local-chat-reconciliation-" +
                     hashlib.sha256(memory_source_correlation.encode("utf-8")).hexdigest()[:32]
                     if memory_source_correlation is not None else None)
-                expected_release_correlation = ("production-chat-resource-release-" +
-                    hashlib.sha256(("idle_host_memory_resource_reconciliation:" +
-                        memory_source_correlation).encode("utf-8")).hexdigest()[:24]
+                expected_release_correlation = (_expected_resource_release_correlation(
+                    str(observation_value.get("trigger_kind")), memory_source_correlation,
+                    active_invocation_reference=payload.get(
+                        "active_inference_request_reference"),
+                    bind_active_invocation=payload.get(
+                        "active_inference_preemption_requested") is True)
                     if memory_source_correlation is not None else None)
                 try:
                     parsed_at = datetime.fromisoformat(
@@ -1662,6 +1708,7 @@ class RuntimeGovernor:
                         "active_inference_preemption_requested")) is bool
                     and observation_value.get(
                         "active_inference_preemption_requested") is False
+                    and _valid_active_invocation_release_binding(payload)
                     and type(observation_value.get("model_gpu_layers")) is int
                     and 0 <= observation_value["model_gpu_layers"] <= 256
                     and isinstance(observation_value.get("serving_session_id"), str)
@@ -1700,7 +1747,8 @@ class RuntimeGovernor:
             gpu_value: float | None = None
             vram_value: float | None = None
             release_age_seconds: float | None = None
-            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+            if (isinstance(observation_value, Mapping)
+                    and set(observation_value) == expected_fields):
                 raw_trigger_kind = observation_value.get("trigger_kind")
                 raw_source = observation_value.get("trigger_correlation_id")
                 raw_observation_id = observation_value.get("observation_correlation_id")
@@ -1729,9 +1777,12 @@ class RuntimeGovernor:
                 expected_id = (namespace + "-" + hashlib.sha256(
                     source_correlation.encode("utf-8")).hexdigest()[:32]
                     if source_correlation is not None and namespace is not None else None)
-                expected_release_correlation = ("production-chat-resource-release-" +
-                    hashlib.sha256((source_correlation if raw_trigger_kind == "deferred_inference"
-                        else str(raw_trigger_kind) + ":" + source_correlation).encode("utf-8")).hexdigest()[:24]
+                expected_release_correlation = (_expected_resource_release_correlation(
+                    str(raw_trigger_kind), source_correlation,
+                    active_invocation_reference=payload.get(
+                        "active_inference_request_reference"),
+                    bind_active_invocation=payload.get(
+                        "active_inference_preemption_requested") is True)
                     if source_correlation is not None else None)
                 try:
                     parsed_observed_at = datetime.fromisoformat(
@@ -1773,6 +1824,9 @@ class RuntimeGovernor:
                     and isinstance(source_correlation, str) and 0 < len(source_correlation) <= 256
                     and observation_id == expected_id
                     and correlation_id == expected_release_correlation
+                    and type(observation_value.get(
+                        "active_inference_preemption_requested")) is bool
+                    and _valid_active_invocation_release_binding(payload)
                     and actor == "production_chat_game_resource_governor"
                     and subject == actor
                     and payload.get("target_subsystem") == "production_chat"
@@ -1827,7 +1881,8 @@ class RuntimeGovernor:
             }
             evidence_valid = False
             frame_age_seconds: float | None = None
-            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+            if (isinstance(observation_value, Mapping)
+                    and set(observation_value) == expected_fields):
                 source = observation_value.get("trigger_correlation_id")
                 message_id = observation_value.get("game_performance_message_id")
                 payload_digest = observation_value.get("game_performance_payload_digest")
@@ -1898,9 +1953,12 @@ class RuntimeGovernor:
                         "idle_game_frame_pressure_reconciliation"
                     and isinstance(source, str)
                     and source.startswith("idle-game-frame-pressure-reconcile-")
-                    and correlation_id == "production-chat-resource-release-" +
-                        hashlib.sha256(("idle_game_frame_pressure_reconciliation:" +
-                            source).encode("utf-8")).hexdigest()[:24]
+                    and correlation_id == _expected_resource_release_correlation(
+                        "idle_game_frame_pressure_reconciliation", source,
+                        active_invocation_reference=payload.get(
+                            "active_inference_request_reference"),
+                        bind_active_invocation=payload.get(
+                            "active_inference_preemption_requested") is True)
                     and actor == "production_chat_game_resource_governor"
                     and subject == actor and payload.get("target_subsystem") == "production_chat"
                     and isinstance(session_id, str)
@@ -1966,14 +2024,19 @@ class RuntimeGovernor:
             }
             evidence_valid = False
             residency_age_seconds: float | None = None
-            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+            if (isinstance(observation_value, Mapping)
+                    and set(observation_value) == expected_fields):
                 raw_trigger = observation_value.get("trigger_correlation_id")
                 raw_game_id = observation_value.get("game_workload_message_id")
                 raw_observed_at = observation_value.get("observed_at")
                 raw_layers = observation_value.get("model_gpu_layers")
                 raw_session = observation_value.get("serving_session_id")
-                expected_release = ("production-chat-resource-release-" + hashlib.sha256(
-                    ("idle_game_gpu_residency:" + raw_trigger).encode("utf-8")).hexdigest()[:24]
+                expected_release = (_expected_resource_release_correlation(
+                    "idle_game_gpu_residency", raw_trigger,
+                    active_invocation_reference=payload.get(
+                        "active_inference_request_reference"),
+                    bind_active_invocation=payload.get(
+                        "active_inference_preemption_requested") is True)
                     if isinstance(raw_trigger, str) else None)
                 try:
                     parsed = datetime.fromisoformat(
@@ -1999,6 +2062,7 @@ class RuntimeGovernor:
                     and observation_value.get("trigger_kind") == "idle_game_gpu_residency"
                     and isinstance(raw_trigger, str) and 0 < len(raw_trigger) <= 256
                     and correlation_id == expected_release
+                    and _valid_active_invocation_release_binding(payload)
                     and actor == "production_chat_game_resource_governor"
                     and subject == actor and payload.get("target_subsystem") == "production_chat"
                     and type(raw_layers) is int and 1 <= raw_layers <= 256
@@ -2036,7 +2100,8 @@ class RuntimeGovernor:
             }
             evidence_valid = False
             release_age_seconds = None
-            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+            if (isinstance(observation_value, Mapping)
+                    and set(observation_value) == expected_fields):
                 raw_trigger_kind = observation_value.get("trigger_kind")
                 raw_source = observation_value.get("trigger_correlation_id")
                 raw_observation_id = observation_value.get("observation_correlation_id")
@@ -2060,9 +2125,12 @@ class RuntimeGovernor:
                 host_freshness_limit_seconds = (
                     2.0 if cached_inference_sample_id
                     else HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS)
-                expected_release_correlation = ("production-chat-resource-release-" +
-                    hashlib.sha256((source_correlation if raw_trigger_kind == "deferred_inference"
-                        else str(raw_trigger_kind) + ":" + source_correlation).encode("utf-8")).hexdigest()[:24]
+                expected_release_correlation = (_expected_resource_release_correlation(
+                    str(raw_trigger_kind), source_correlation,
+                    active_invocation_reference=payload.get(
+                        "active_inference_request_reference"),
+                    bind_active_invocation=payload.get(
+                        "active_inference_preemption_requested") is True)
                     if source_correlation is not None else None)
                 try:
                     parsed_observed_at = datetime.fromisoformat(
@@ -2100,6 +2168,7 @@ class RuntimeGovernor:
                     and isinstance(source_correlation, str) and 0 < len(source_correlation) <= 256
                     and (raw_observation_id == expected_id or cached_inference_sample_id)
                     and correlation_id == expected_release_correlation
+                    and _valid_active_invocation_release_binding(payload)
                     and actor == "production_chat_game_resource_governor"
                     and subject == actor and payload.get("target_subsystem") == "production_chat"
                     and isinstance(raw_report_id, str)
@@ -2154,7 +2223,8 @@ class RuntimeGovernor:
             evidence_valid = False
             profile_release_age_seconds: float | None = None
             profile_host_age: float | None = None
-            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+            if (isinstance(observation_value, Mapping)
+                    and set(observation_value) == expected_fields):
                 raw_trigger = observation_value.get("trigger_kind")
                 raw_source = observation_value.get("trigger_correlation_id")
                 raw_observation_id = observation_value.get("observation_correlation_id")
@@ -2165,8 +2235,12 @@ class RuntimeGovernor:
                 source = raw_source if isinstance(raw_source, str) else None
                 expected_observation_id = ("local-chat-reconciliation-" + hashlib.sha256(
                     source.encode("utf-8")).hexdigest()[:32] if source is not None else None)
-                expected_release_correlation = ("production-chat-resource-release-" +
-                    hashlib.sha256((str(raw_trigger) + ":" + source).encode("utf-8")).hexdigest()[:24]
+                expected_release_correlation = (_expected_resource_release_correlation(
+                    str(raw_trigger), source,
+                    active_invocation_reference=payload.get(
+                        "active_inference_request_reference"),
+                    bind_active_invocation=payload.get(
+                        "active_inference_preemption_requested") is True)
                     if source is not None else None)
                 try:
                     parsed_at = datetime.fromisoformat(
@@ -2219,6 +2293,7 @@ class RuntimeGovernor:
                     and 0 < len(source) <= 256
                     and raw_observation_id == expected_observation_id
                     and correlation_id == expected_release_correlation
+                    and _valid_active_invocation_release_binding(payload)
                     and actor == "production_chat_workload_resource_governor"
                     and subject == actor and payload.get("target_subsystem") == "production_chat"
                     and observation_value.get("workload_mode") == "gaming"
@@ -2273,14 +2348,19 @@ class RuntimeGovernor:
             }
             evidence_valid = False
             profile_age_seconds: float | None = None
-            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+            if (isinstance(observation_value, Mapping)
+                    and set(observation_value) == expected_fields):
                 raw_trigger = observation_value.get("trigger_correlation_id")
                 raw_observed_at = observation_value.get("observed_at")
                 raw_layers = observation_value.get("model_gpu_layers")
                 raw_session = observation_value.get("serving_session_id")
-                expected_correlation = ("production-chat-resource-release-" + hashlib.sha256(
-                    ("idle_gaming_profile_gpu_residency:" + raw_trigger).encode("utf-8")
-                    ).hexdigest()[:24] if isinstance(raw_trigger, str) else None)
+                expected_correlation = (_expected_resource_release_correlation(
+                    "idle_gaming_profile_gpu_residency", raw_trigger,
+                    active_invocation_reference=payload.get(
+                        "active_inference_request_reference"),
+                    bind_active_invocation=payload.get(
+                        "active_inference_preemption_requested") is True)
+                    if isinstance(raw_trigger, str) else None)
                 try:
                     parsed = datetime.fromisoformat(
                         raw_observed_at if isinstance(raw_observed_at, str) else "")
@@ -2298,6 +2378,7 @@ class RuntimeGovernor:
                     and raw_trigger.startswith("idle-gaming-profile-gpu-residency-")
                     and 0 < len(raw_trigger) <= 256
                     and correlation_id == expected_correlation
+                    and _valid_active_invocation_release_binding(payload)
                     and actor == "production_chat_workload_resource_governor"
                     and subject == actor and payload.get("target_subsystem") == "production_chat"
                     and type(raw_layers) is int and 1 <= raw_layers <= 256

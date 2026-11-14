@@ -1561,6 +1561,9 @@ def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
             (tmp_path / "kernel-decisions.jsonl").read_text(
                 encoding="utf-8").splitlines())
             if json.loads(line).get("action_kind") == "local_model_resource_release")
+        assert release_decision["correlation_id"].startswith(
+            "active-resource-release:"
+            + digest_payload(release["active_inference_request_reference"]) + ":")
         delegated = release_decision["delegated_outcomes"]["runtime_governor"]
         assert delegated["allowed"] is True
         evidence = delegated["evidence_refs"]["resource_observation_evidence"]
@@ -3804,8 +3807,9 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                 assert len(resource_ledger._state["attempts"]) == 1
                 invocation_receipt = invocation_results["receipt"]
                 resource_receipts = resource_ledger._state["receipts"][-3:]
+                assert invocation_receipt.status == "cancelled"
                 assert [item["state"] for item in resource_receipts] == [
-                    "attempt_begun", "measured_completed", "reconciled"]
+                    "attempt_begun", "measured_cancelled", "reconciled"]
                 assert resource_receipts[-1]["effect_receipt_digest"] == (
                     invocation_receipt.receipt_digest)
                 assert invocation_receipt.resource_allocation_digest == (
@@ -4021,6 +4025,12 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                 "request_digest": cancelled_receipt.request["request_digest"],
                 "correlation_id": cancelled_receipt.request["correlation_id"],
             }
+            release_decision = next(json.loads(line) for line in reversed(
+                (tmp_path / "kernel-decisions.jsonl").read_text(
+                    encoding="utf-8").splitlines())
+                if json.loads(line).get("action_kind") == "local_model_resource_release")
+            assert release_decision["correlation_id"].startswith(
+                "active-resource-release:" + digest_payload(request_reference) + ":")
         assert "host_report_id" not in release["resource_observation"]
         postflight = release["post_release_observation"]
         assert postflight["status"] == "current"
