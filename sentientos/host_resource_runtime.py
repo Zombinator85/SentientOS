@@ -424,13 +424,20 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     or receipt_id in seen_release_receipt_ids
                     or not isinstance(receipt_digest, str) or not receipt_digest
                     or not isinstance(correlation, str) or not correlation
-                    or decision_ref != f"kernel_decision:{correlation}"):
+                    or decision_ref != f"kernel_decision:{correlation}"
+                    or release_receipt.get("serving_receipt_linkage_posture")
+                        != "verified"
+                    or not isinstance(release_receipt.get("serving_receipt_id"), str)
+                    or not isinstance(release_receipt.get(
+                        "serving_receipt_semantic_digest"), str)):
                 raise ValueError("resource_release_receipt_identity_invalid")
             seen_release_receipt_ids.add(receipt_id)
             summary = {key: release_receipt.get(key) for key in (
                 "receipt_id", "receipt_semantic_digest", "status", "trigger_kind",
                 "trigger_correlation_id", "release_correlation_id",
                 "serving_session_id", "serving_operation_id", "model_identity_digest",
+                "serving_receipt_linkage_posture", "serving_receipt_id",
+                "serving_receipt_semantic_digest",
                 "release_admission_decision_ref", "release_admission_outcome",
                 "active_inference_preemption_requested",
                 "active_inference_cancellation_confirmed", "worker_exit_observed",

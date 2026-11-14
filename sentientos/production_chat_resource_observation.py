@@ -257,7 +257,7 @@ class ProductionChatResourceObservationOwner:
             raise ProductionChatResourceObservationError(
                 "serving_operation_history_invalid:" + str(exc)) from exc
         resource_release_receipts, resource_release_posture = (
-            self._resource_release_receipts())
+            self._resource_release_receipts(serving_operation_history))
         return ProductionChatResourceObservation(
             self._handle.identity.value, self._provisioning_id,
             str(manifest["manifest_digest"]), ledger, invocation_receipts, receipt_posture,
@@ -269,7 +269,30 @@ class ProductionChatResourceObservationOwner:
             resource_release_receipts, resource_release_posture)
 
     def _resource_release_receipts(
-            self) -> tuple[tuple[Mapping[str, Any], ...], str]:
+            self, serving_operation_history: tuple[Mapping[str, Any], ...]
+            ) -> tuple[tuple[Mapping[str, Any], ...], str]:
+        serving_by_session: dict[str, tuple[str, str, str]] = {}
+        for history in serving_operation_history:
+            serving_receipt = history.get("receipt")
+            binding = (serving_receipt.get("binding")
+                if isinstance(serving_receipt, Mapping) else None)
+            if not isinstance(serving_receipt, Mapping) or not isinstance(binding, Mapping):
+                continue
+            session_id = serving_receipt.get("session_id")
+            operation_id = binding.get("serving_operation_id")
+            serving_receipt_id = serving_receipt.get("receipt_id")
+            serving_receipt_digest = history.get("receipt_semantic_digest")
+            if (isinstance(session_id, str) and session_id
+                    and isinstance(operation_id, str) and operation_id
+                    and isinstance(serving_receipt_id, str) and serving_receipt_id
+                    and isinstance(serving_receipt_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", serving_receipt_digest)):
+                candidate = (operation_id, serving_receipt_id, serving_receipt_digest)
+                prior = serving_by_session.get(session_id)
+                if prior is not None and prior != candidate:
+                    raise ProductionChatResourceObservationError(
+                        "resource_release_serving_history_collision")
+                serving_by_session[session_id] = candidate
         try:
             names = self._handle.list_regular_names(
                 "local-model/serving/resource-release-receipts",
@@ -335,8 +358,19 @@ class ProductionChatResourceObservationOwner:
                     or value.get("host_mutation_performed") is not False):
                 raise ProductionChatResourceObservationError(
                     "resource_release_receipt_binding_invalid")
+            session_id = value.get("serving_session_id")
+            operation_id = value.get("serving_operation_id")
+            serving_binding = serving_by_session.get(str(session_id))
+            if (serving_binding is None
+                    or serving_binding[0] != operation_id):
+                raise ProductionChatResourceObservationError(
+                    "resource_release_serving_operation_linkage_invalid")
             seen_ids.add(receipt_id)
-            receipts.append(dict(value))
+            verified_value = dict(value)
+            verified_value["serving_receipt_linkage_posture"] = "verified"
+            verified_value["serving_receipt_id"] = serving_binding[1]
+            verified_value["serving_receipt_semantic_digest"] = serving_binding[2]
+            receipts.append(verified_value)
         receipts.sort(key=lambda item: str(item.get("receipt_id", "")))
         return tuple(receipts), (
             "verified" if receipts else "verified_no_release_receipts")

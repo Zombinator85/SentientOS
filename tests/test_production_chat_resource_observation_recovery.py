@@ -21,7 +21,8 @@ from tests.test_production_chat_resource_provisioning_bundle_producer import inp
 pytestmark = pytest.mark.no_legacy_skip
 
 
-def test_reconstruction_is_read_only_stable_and_does_not_replenish(tmp_path: Path) -> None:
+def test_reconstruction_is_read_only_stable_and_does_not_replenish(
+        tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     handle, values = inputs(tmp_path, calls=3)
     published = produce_production_chat_resource_provisioning_bundle(handle, "recovery", **values)
     writer = load_production_chat_resource_context_owner(
@@ -76,6 +77,19 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(tmp_path: Pat
     original = ledger_path.read_bytes()
     observer = ProductionChatResourceObservationOwner(
         registry.open_read_only(identity), "recovery")
+    serving_receipt = {
+        "receipt_id": "serving-receipt-" + "a" * 24,
+        "session_id": "session-1",
+        "binding": {"serving_operation_id": "serve-1"},
+    }
+    serving_history = ({
+        "status": "serving_receipt_verified",
+        "receipt": serving_receipt,
+        "receipt_semantic_digest": "b" * 64,
+    },)
+    monkeypatch.setattr(
+        "sentientos.production_chat_resource_observation.read_serving_operation_history",
+        lambda *args, **kwargs: serving_history)
 
     first = observer.observe()
     second = observer.observe()
@@ -89,7 +103,12 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(tmp_path: Pat
     assert first_snapshot["attempts"][0]["status"] == "provisional"
     assert first_snapshot["attempts"][0]["allocation_id"] == published.allocation_id
     assert first_snapshot["allocations"][0]["resource_specific_bounds"]["max_calls_per_correlation"] == 3
-    assert first.verified_resource_release_receipts == (release_body,)
+    assert len(first.verified_resource_release_receipts) == 1
+    assert first.verified_resource_release_receipts[0]["receipt_id"] == release_id
+    assert first.verified_resource_release_receipts[0][
+        "serving_receipt_linkage_posture"] == "verified"
+    assert first.verified_resource_release_receipts[0][
+        "serving_receipt_semantic_digest"] == "b" * 64
     assert first.resource_release_receipt_posture == "verified"
     from sentientos.host_resource_runtime import resource_consumption_world_state_records
     projected = resource_consumption_world_state_records(
@@ -99,6 +118,16 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(tmp_path: Pat
     assert projected["payload"]["resource_release_receipts"][0][
         "release_admission_decision_ref"] == (
             "kernel_decision:release-correlation")
+    serving_history = ({"status": "serving_receipt_verified",
+        "receipt": {**serving_receipt, "binding": {
+            "serving_operation_id": "substituted-operation"}},
+        "receipt_semantic_digest": "b" * 64},)
+    with pytest.raises(ProductionChatResourceObservationError,
+            match="resource_release_serving_operation_linkage_invalid"):
+        observer.observe()
+    serving_history = ({"status": "serving_receipt_verified",
+        "receipt": serving_receipt,
+        "receipt_semantic_digest": "b" * 64},)
     release_path = release_directory.child(release_id + ".json").path
     original_release_bytes = release_path.read_bytes()
     corrupted_release = dict(release_body)
