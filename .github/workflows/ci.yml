@@ -149,6 +149,7 @@ jobs:
               "tests/test_local_model_serving_inference.py::test_normal_mode_releases_only_idle_residency_under_host_pressure[20.0-86.0-40.0-24-worker_closed-idle_host_gpu_resource_reconciliation]",
               "tests/test_local_model_serving_inference.py::test_verified_game_resource_governance_defers_or_releases_before_effect[idle_game_gpu_residency]",
               "tests/test_local_model_serving_inference.py::test_verified_game_resource_governance_defers_or_releases_before_effect[idle_game_frame_pressure]",
+              "tests/test_local_model_serving_inference.py::test_verified_game_resource_governance_defers_or_releases_before_effect[idle_game_frame_pressure_active_inference_scheduler]",
           ]
           manifest = {
               "schema_version": "sentientos.task_acceptance:v1",
