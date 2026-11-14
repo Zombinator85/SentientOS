@@ -296,6 +296,57 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         observer.observe()
     host_evidence_path.path.unlink()
 
+    for release_kind, measurements, labels in (
+            ("gpu", {"gpu_utilization_percent": 94.0,
+                "vram_utilization_percent": 92.0}, ["gpu_pressure"]),
+            ("memory", {"ram_utilization_percent": 94.0}, ["memory_pressure"])):
+        general_release = json.loads(json.dumps(host_evidence_release))
+        general_observation = general_release["resource_observation"]
+        general_observation.pop("game_workload_message_id")
+        general_observation.pop("gpu_utilization_percent", None)
+        general_observation.pop("vram_utilization_percent", None)
+        general_observation.update({
+            "pressure_labels": labels,
+            "active_inference_preemption_requested": False,
+            "host_telemetry_used_for_admission": True,
+            **measurements,
+        })
+        general_release["active_inference_preemption_requested"] = False
+        general_release["active_inference_cancellation_confirmed"] = False
+        general_evidence = {
+            "status": "current",
+            "observation_correlation_id": "host-observation-correlation",
+            "host_report_id": "host-report-1",
+            "host_report_digest": "a" * 64,
+            "pressure_labels": labels,
+            "active_inference_preemption_requested": False,
+            **measurements,
+        }
+        general_record = general_release["release_admission_record"]
+        general_record["delegated_outcomes"]["runtime_governor"][
+            "evidence_refs"]["resource_observation_evidence"] = general_evidence
+        general_release.pop("receipt_id")
+        general_release.pop("receipt_semantic_digest")
+        general_id = "serving-resource-release-" + hashlib.sha256(json.dumps(
+            general_release, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()[:24]
+        general_release["receipt_id"] = general_id
+        general_release["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+            general_release, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+        general_path = release_directory.child(general_id + ".json")
+        handle.durable_create(general_path, (json.dumps(
+            general_release, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+        try:
+            general_snapshot = observer.observe()
+            general_projection = next(item for item in
+                general_snapshot.verified_resource_release_receipts
+                if item.get("receipt_id") == general_id)
+            assert general_projection["host_measurement_binding_posture"] == "verified"
+        finally:
+            general_path.path.unlink()
+
     legacy_host_release = dict(host_evidence_release)
     legacy_host_release["resource_observation"] = {
         **host_evidence_release["resource_observation"],

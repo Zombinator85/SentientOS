@@ -1085,11 +1085,17 @@ def test_normal_mode_releases_only_idle_residency_under_host_pressure(
         delegated = release["delegated_outcomes"]["runtime_governor"]
         assert delegated["allowed"] is True
         assert delegated["reason"] == "model_resource_release_fail_safe"
-        assert delegated["evidence_refs"]["resource_observation_evidence"][
-            "status"] == "current"
+        release_evidence = delegated["evidence_refs"][
+            "resource_observation_evidence"]
+        assert release_evidence["status"] == "current"
+        assert release_evidence["host_report_digest"] == evidence[
+            "host_report_digest"]
+        assert release_evidence["active_inference_preemption_requested"] is False
         if expected_trigger == "idle_host_memory_resource_reconciliation":
-            assert delegated["evidence_refs"]["resource_observation_evidence"][
-                "ram_utilization_percent"] == 94.0
+            assert release_evidence["ram_utilization_percent"] == 94.0
+        else:
+            assert release_evidence["gpu_utilization_percent"] == 94.0
+            assert release_evidence["vram_utilization_percent"] == 92.0
     else:
         assert state_after_reconciliation == [(False, True)]
         assert result["reason"] == ("current_host_gpu_pressure_required"
