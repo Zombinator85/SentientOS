@@ -890,6 +890,8 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
                 idle_message.payload["message_id"])
         assert session.binding["model_serving_admission_decision_record"] == (
             serving_decisions[1])
+        assert session.binding["resource_admission_evidence_schema"] == (
+            "sentientos.local_model_serving_admission_evidence:v1")
         assert session.binding["resource_admission_revalidation_correlation_id"] == (
             serving_decisions[2]["correlation_id"])
         assert session.binding["resource_admission_revalidation_decision_ref"] == (

@@ -25,6 +25,8 @@ CAPABILITY = "local_model_production_serving"
 TARGET_SUBSYSTEM = "local_model_chat"
 ACTION = "establish_exact_activated_model_serving_session"
 RECEIPT_SCHEMA = "sentientos.local_model_serving_session_receipt:v1"
+RESOURCE_ADMISSION_EVIDENCE_SCHEMA = (
+    "sentientos.local_model_serving_admission_evidence:v1")
 WITNESS_SCHEMA = "sentientos.privilege_witness:model_serving:v1"
 INVALIDATION_SCHEMA = "sentientos.local_model_serving_session_invalidation:v1"
 SERVING_ATTEMPT_SCHEMA = "sentientos.local_model_serving_operation_attempt:v1"
@@ -366,14 +368,30 @@ def read_serving_operation_history(handle: Any, *, maximum: int = MAX_SERVING_OP
                 raise ProductionServingError("serving_receipt_time_invalid") from exc
             if timestamp.tzinfo is None or timestamp.utcoffset() is None:
                 raise ProductionServingError("serving_receipt_time_invalid")
-        for record_key, reference_key, correlation_key, error_code in (
+        admission_evidence_schema = binding.get(
+            "resource_admission_evidence_schema")
+        if (admission_evidence_schema is not None
+                and admission_evidence_schema != RESOURCE_ADMISSION_EVIDENCE_SCHEMA):
+            raise ProductionServingError(
+                "serving_resource_admission_evidence_schema_invalid")
+        evidence_specs = (
                 ("model_serving_admission_decision_record",
                  "model_serving_admission_ref", "control_plane_correlation_id",
                  "serving_resource_admission_decision_invalid"),
                 ("resource_admission_revalidation_decision",
                  "resource_admission_revalidation_decision_ref",
                  "resource_admission_revalidation_correlation_id",
-                 "serving_resource_admission_revalidation_invalid")):
+                 "serving_resource_admission_revalidation_invalid"))
+        for record_key, reference_key, correlation_key, error_code in evidence_specs:
+            keys_present = tuple(key in binding for key in (
+                record_key, reference_key, correlation_key))
+            if (admission_evidence_schema == RESOURCE_ADMISSION_EVIDENCE_SCHEMA
+                    and record_key == "model_serving_admission_decision_record"
+                    and not all(keys_present)):
+                raise ProductionServingError(error_code)
+            if (admission_evidence_schema == RESOURCE_ADMISSION_EVIDENCE_SCHEMA
+                    and any(keys_present) and not all(keys_present)):
+                raise ProductionServingError(error_code)
             if binding.get(record_key) is not None and not (
                     _valid_resource_serving_decision_record(binding,
                         record_key=record_key, reference_key=reference_key,
@@ -847,6 +865,8 @@ class ProductionServingController:
             if admission_decision_record is not None:
                 binding["model_serving_admission_decision_record"] = dict(
                     admission_decision_record)
+                binding["resource_admission_evidence_schema"] = (
+                    RESOURCE_ADMISSION_EVIDENCE_SCHEMA)
             session_id = "serving-session-" + semantic_digest(binding)[:24]
             session = ServingSession(session_id, MappingProxyType(binding))
             receipt = {"schema_version": RECEIPT_SCHEMA, "status": "serving_session_bound", **session.to_dict(),
