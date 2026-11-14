@@ -667,9 +667,12 @@ class GovernedLocalModelResourceLedger:
         return GovernedLocalModelResourceAllocation.from_mapping(value)
 
     def remaining_calls(self, allocation_id: str) -> int:
-        allocation = self.allocation(allocation_id)
-        used = sum(1 for value in self._state["attempts"].values() if value["allocation_id"] == allocation_id and value["status"] in {"provisional", "begun"})
-        return allocation.resource_specific_bounds.max_calls_per_correlation - used
+        with self._lock:
+            allocation = self.allocation(allocation_id)
+            used = sum(1 for value in self._state["attempts"].values()
+                if value["allocation_id"] == allocation_id
+                and value["status"] in {"provisional", "begun"})
+            return allocation.resource_specific_bounds.max_calls_per_correlation - used
 
     def cpu_seconds_used(self, allocation_id: str) -> float:
         """Return measured CPU use plus reservations for unresolved attempts."""
@@ -771,6 +774,34 @@ class GovernedLocalModelResourceAllocator:
         if instant < _time(exact.not_before, "policy_not_before"): raise GovernedLocalModelResourceError("policy_not_yet_valid")
         if instant >= _time(exact.valid_until, "policy_valid_until"): raise GovernedLocalModelResourceError("policy_expired")
 
+    def validate_current(self, *, allocation: GovernedLocalModelResourceAllocation,
+                         principal: CausalResourcePrincipal,
+                         authenticated: AuthenticatedRootPrincipalEvidence,
+                         current: CurrentAuthenticatedRootPrincipalEvidence,
+                         policy: GovernedLocalModelResourcePolicy,
+                         current_time: str
+                         ) -> GovernedLocalModelResourceAllocation:
+        """Verify current entitlement custody without consuming a call unit."""
+        self._principal(principal, authenticated, current, current_time)
+        self._policy_current(policy, current_time)
+        exact = GovernedLocalModelResourceAllocation.from_mapping(allocation.to_dict())
+        now = _time(current_time, "current_time")
+        with self.ledger._lock:
+            if exact != self.ledger.allocation(exact.allocation_id):
+                raise GovernedLocalModelResourceError("allocation_substitution")
+            if (exact.principal_id, exact.principal_binding_digest,
+                    exact.principal_epoch) != (
+                    principal.principal_id, principal.binding_digest,
+                    principal.epoch):
+                raise GovernedLocalModelResourceError("allocation_principal_mismatch")
+            if (exact.policy_digest != policy.policy_digest
+                    or exact.epoch != policy.epoch):
+                raise GovernedLocalModelResourceError("allocation_policy_mismatch")
+            if (now < _time(exact.validity.not_before, "allocation_not_before")
+                    or now >= _time(exact.validity.not_after, "allocation_not_after")):
+                raise GovernedLocalModelResourceError("allocation_expired")
+        return exact
+
     def issue(self, *, principal: CausalResourcePrincipal, authenticated: AuthenticatedRootPrincipalEvidence,
               current: CurrentAuthenticatedRootPrincipalEvidence, requested_bounds: GovernedLocalModelResourceBounds,
               requested_not_before: str, requested_not_after: str, current_time: str) -> GovernedLocalModelResourceAllocation:
@@ -794,13 +825,10 @@ class GovernedLocalModelResourceAllocator:
                    policy: GovernedLocalModelResourcePolicy, current_time: str, durable_attempt_nonce: str,
                    requested_timeout_seconds: float | None = None,
                    max_backend_threads: int | None = None) -> str:
-        self._principal(principal, authenticated, current, current_time); self._policy_current(policy, current_time)
-        exact = GovernedLocalModelResourceAllocation.from_mapping(allocation.to_dict())
-        if exact != self.ledger.allocation(exact.allocation_id): raise GovernedLocalModelResourceError("allocation_substitution")
-        if (exact.principal_id, exact.principal_binding_digest, exact.principal_epoch) != (principal.principal_id, principal.binding_digest, principal.epoch): raise GovernedLocalModelResourceError("allocation_principal_mismatch")
-        if exact.policy_digest != policy.policy_digest or exact.epoch != policy.epoch: raise GovernedLocalModelResourceError("allocation_policy_mismatch")
+        exact = self.validate_current(allocation=allocation, principal=principal,
+            authenticated=authenticated, current=current, policy=policy,
+            current_time=current_time)
         now = _time(current_time, "current_time")
-        if now < _time(exact.validity.not_before, "allocation_not_before") or now >= _time(exact.validity.not_after, "allocation_not_after"): raise GovernedLocalModelResourceError("allocation_expired")
         if not isinstance(durable_attempt_nonce, str) or not durable_attempt_nonce: raise GovernedLocalModelResourceError("invalid_durable_attempt_nonce")
         attempt_id = "lmattempt-" + _digest({"allocation_digest": exact.allocation_digest, "durable_attempt_nonce": durable_attempt_nonce})[:32]
         cpu_reservation: float | None = None

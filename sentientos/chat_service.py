@@ -3955,6 +3955,10 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         def serving_resource_admission_context(
                 correlation_id: str, activation_state: Mapping[str, Any]
                 ) -> Mapping[str, Any]:
+            if resource_context_owner is None:
+                raise RuntimeError("production_resource_entitlement_owner_unavailable")
+            inference_entitlement_binding = (
+                resource_context_owner.serving_admission_entitlement_binding())
             observation_id = "local-chat-serving-" + hashlib.sha256(
                 correlation_id.encode("utf-8")).hexdigest()[:32]
             host_resource_observation_owner.run_cycle(correlation_id=observation_id)
@@ -3981,6 +3985,8 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                 "model_execution_profile": model_execution_profile,
                 "workload_mode": workload.get("configured_mode"),
                 "effective_workload_mode": workload.get("effective_mode"),
+                "governed_inference_entitlement_binding": dict(
+                    inference_entitlement_binding),
                 "serving_workload_evidence": {key: workload.get(key) for key in (
                     "configured_mode", "mode_source", "observation_status",
                     "game_foreground", "game_process_running", "observed_at",

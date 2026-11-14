@@ -144,7 +144,8 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
                     "load_configuration": {"n_gpu_layers": 16}})
             events.append(("serving_workload_mode", context["workload_mode"],
                 context["effective_workload_mode"],
-                context["serving_workload_evidence"]))
+                context["serving_workload_evidence"],
+                context["governed_inference_entitlement_binding"]))
         def close(self): events.append("serving_closed")
         def serving_is_current(self): return True
 
@@ -177,6 +178,10 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     monkeypatch.setattr(chat_service, "ProductionServingController", Serving)
     monkeypatch.setattr(chat_service, "ProductionServingInferenceController", InferenceBridge)
     class ResourceOwner:
+        def serving_admission_entitlement_binding(self):
+            events.append("serving_entitlement_checked")
+            return {"schema_version": "fixture", "allocation_id": "fixture-allocation"}
+
         def close(self): events.append("resource_owner_closed")
 
     class ResourceBackedInference:
@@ -244,6 +249,9 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     assert serving_admission[3]["configured_mode"] == "automatic"
     assert serving_admission[3]["mode_source"] == (
         "foreground_observation_unavailable_conservative_gaming")
+    assert "serving_entitlement_checked" in events
+    assert serving_admission[4] == {
+        "schema_version": "fixture", "allocation_id": "fixture-allocation"}
     chat_service.close_production_chat()
     assert events[-1] == "avatar_session_closed"
 

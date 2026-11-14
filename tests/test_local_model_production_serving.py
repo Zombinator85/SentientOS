@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import subprocess
 import sys
@@ -826,6 +826,7 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
     current = evidence(gpu_layers=16)
     ctl = controller(monkeypatch, handle, [current, current, current, current], kernel=kernel,
         factory=lambda _chain, _load: factory_calls.append("loaded") or model)
+    entitlement_checks = []
 
     def admission_context(correlation_id, activation_state):
         observation_id = "local-chat-serving-" + hashlib.sha256(
@@ -833,11 +834,30 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
         host_owner.run_cycle(correlation_id=observation_id)
         workload = detector.observe(("ExampleGame.exe",))
         load_configuration = activation_state["load_configuration"]
+        entitlement_binding = {
+            "schema_version": (
+                "sentientos.governed_local_model_serving_entitlement_binding:v1"),
+            "binding_scope": "inference_call_entitlement",
+            "allocation_id": "lmalloc-" + "a" * 24,
+            "allocation_digest": "a" * 64,
+            "allocator_id": "sentientos.governed_local_model_resource_allocator.v1",
+            "resource_kind": "governed_local_model_invocation_call_entitlement.v1",
+            "policy_digest": "c" * 64,
+            "policy_epoch": 1,
+            "principal_binding_digest": "sha256:" + "b" * 64,
+            "remaining_call_entitlement": (1 if correlation_id.endswith(
+                ":post-load-resource-revalidation") else 2),
+            "checked_at": (now + timedelta(seconds=1)).isoformat()
+                if correlation_id.endswith(":post-load-resource-revalidation")
+                else now.isoformat(),
+        }
+        entitlement_checks.append(entitlement_binding)
         return {
             "resource_governance_required": True,
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
+            "governed_inference_entitlement_binding": entitlement_binding,
             "workload_mode": "automatic",
             "effective_workload_mode": ("gaming" if workload.game_foreground is True
                 or workload.game_process_running is True else "normal"),
@@ -893,6 +913,10 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             serving_decisions[1])
         assert session.binding["resource_admission_evidence_schema"] == (
             "sentientos.local_model_serving_admission_evidence:v1")
+        assert session.binding["governed_inference_entitlement_binding"][
+            "allocation_id"] == "lmalloc-" + "a" * 24
+        assert [item["remaining_call_entitlement"] for item in entitlement_checks] == [
+            2, 2, 1]
         assert _valid_resource_admission_evidence_binding(session.binding)
         incomplete_evidence_binding = dict(session.binding)
         incomplete_evidence_binding[
@@ -923,6 +947,9 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             "model_serving_admission_decision_record"] == serving_decisions[1]
         assert recovered_receipt["binding"][
             "resource_admission_revalidation_decision"] == serving_decisions[2]
+        assert recovered_receipt["resource_admission_context"][
+            "governed_inference_entitlement_binding"] == recovered_receipt[
+                "binding"]["governed_inference_entitlement_binding"]
         assert recovered_receipt["binding"][
             "resource_admission_revalidation_decision"]["delegated_outcomes"][
                 "runtime_governor"]["evidence_refs"]["game_workload_evidence"][

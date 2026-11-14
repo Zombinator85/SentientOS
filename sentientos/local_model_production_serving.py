@@ -27,6 +27,8 @@ ACTION = "establish_exact_activated_model_serving_session"
 RECEIPT_SCHEMA = "sentientos.local_model_serving_session_receipt:v1"
 RESOURCE_ADMISSION_EVIDENCE_SCHEMA = (
     "sentientos.local_model_serving_admission_evidence:v1")
+SERVING_RESOURCE_ENTITLEMENT_SCHEMA = (
+    "sentientos.governed_local_model_serving_entitlement_binding:v1")
 WITNESS_SCHEMA = "sentientos.privilege_witness:model_serving:v1"
 INVALIDATION_SCHEMA = "sentientos.local_model_serving_session_invalidation:v1"
 SERVING_ATTEMPT_SCHEMA = "sentientos.local_model_serving_operation_attempt:v1"
@@ -161,6 +163,57 @@ def _valid_resource_admission_evidence_binding(binding: Mapping[str, Any]) -> bo
         and _valid_resource_serving_decision_record(binding,
             record_key=postload_record, reference_key=postload_reference,
             correlation_key=postload_correlation))
+
+
+def _valid_serving_resource_entitlement(value: object) -> bool:
+    fields = {
+        "schema_version", "binding_scope", "allocation_id", "allocation_digest",
+        "allocator_id", "resource_kind", "policy_digest", "policy_epoch",
+        "principal_binding_digest", "remaining_call_entitlement", "checked_at",
+    }
+    if not isinstance(value, Mapping) or set(value) != fields:
+        return False
+    checked_at = value.get("checked_at")
+    try:
+        timestamp = datetime.fromisoformat(
+            str(checked_at).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return False
+    return bool(
+        value.get("schema_version") == SERVING_RESOURCE_ENTITLEMENT_SCHEMA
+        and value.get("binding_scope") == "inference_call_entitlement"
+        and isinstance(value.get("allocation_id"), str)
+        and re.fullmatch(r"lmalloc-[0-9a-f]{24}", value["allocation_id"]) is not None
+        and isinstance(value.get("allocation_digest"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", value["allocation_digest"]) is not None
+        and value.get("allocator_id") ==
+            "sentientos.governed_local_model_resource_allocator.v1"
+        and value.get("resource_kind") ==
+            "governed_local_model_invocation_call_entitlement.v1"
+        and isinstance(value.get("policy_digest"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", value["policy_digest"]) is not None
+        and type(value.get("policy_epoch")) is int and value["policy_epoch"] >= 1
+        and isinstance(value.get("principal_binding_digest"), str)
+        and re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}",
+            value["principal_binding_digest"]) is not None
+        and type(value.get("remaining_call_entitlement")) is int
+        and value["remaining_call_entitlement"] > 0
+        and isinstance(checked_at, str) and bool(checked_at)
+        and timestamp.tzinfo is not None and timestamp.utcoffset() is not None)
+
+
+def _same_serving_resource_entitlement(left: object, right: object) -> bool:
+    """Compare the stable allocation identity across load revalidation."""
+    if (not _valid_serving_resource_entitlement(left)
+            or not _valid_serving_resource_entitlement(right)):
+        return False
+    identity_fields = (
+        "schema_version", "binding_scope", "allocation_id", "allocation_digest",
+        "allocator_id", "resource_kind", "policy_digest", "policy_epoch",
+        "principal_binding_digest",
+    )
+    assert isinstance(left, Mapping) and isinstance(right, Mapping)
+    return all(left.get(field) == right.get(field) for field in identity_fields)
 
 
 def _admission_decision_payload(kernel: Any, decision: Any) -> Mapping[str, Any] | None:
@@ -406,6 +459,20 @@ def read_serving_operation_history(handle: Any, *, maximum: int = MAX_SERVING_OP
         if not _valid_resource_admission_evidence_binding(binding):
             raise ProductionServingError(
                 "serving_resource_admission_evidence_binding_invalid")
+        resource_entitlement = binding.get(
+            "governed_inference_entitlement_binding")
+        resource_admission_context = receipt.get("resource_admission_context")
+        context_entitlement = (resource_admission_context.get(
+            "governed_inference_entitlement_binding")
+            if isinstance(resource_admission_context, Mapping) else None)
+        if (resource_entitlement is not None
+                and (not _valid_serving_resource_entitlement(resource_entitlement)
+                    or context_entitlement != resource_entitlement)):
+            raise ProductionServingError(
+                "serving_resource_entitlement_binding_invalid")
+        if context_entitlement is not None and resource_entitlement is None:
+            raise ProductionServingError(
+                "serving_resource_entitlement_binding_invalid")
         receipts.append(receipt)
     by_receipt_operation: dict[str, dict[str, Any]] = {}
     for receipt in receipts:
@@ -751,6 +818,13 @@ class ProductionServingController:
                 raise ProductionServingError("model_serving_resource_preflight_unavailable") from exc
             if not isinstance(admission_context, Mapping):
                 raise ProductionServingError("model_serving_resource_preflight_invalid")
+        resource_entitlement_binding = admission_context.get(
+            "governed_inference_entitlement_binding")
+        if (resource_entitlement_binding is not None
+                and not _valid_serving_resource_entitlement(
+                    resource_entitlement_binding)):
+            raise ProductionServingError(
+                "model_serving_resource_entitlement_binding_invalid")
         admission_metadata = {**dict(admission_context), **operation_intent,
             "correlation_id": correlation}
         decision = self._kernel.admit(ControlActionRequest(
@@ -813,6 +887,16 @@ class ProductionServingController:
                 if not isinstance(post_load_context, Mapping):
                     raise ProductionServingError(
                         "model_serving_resource_revalidation_invalid")
+                post_load_entitlement_binding = post_load_context.get(
+                    "governed_inference_entitlement_binding")
+                if ((resource_entitlement_binding is None)
+                        != (post_load_entitlement_binding is None)
+                        or (resource_entitlement_binding is not None
+                            and not _same_serving_resource_entitlement(
+                                resource_entitlement_binding,
+                                post_load_entitlement_binding))):
+                    raise ProductionServingError(
+                        "model_serving_resource_entitlement_changed_during_load")
                 post_load_metadata = {**dict(post_load_context), **operation_intent,
                     "correlation_id": resource_revalidation_correlation,
                     "resource_admission_phase": "post_load_revalidation",
@@ -871,6 +955,9 @@ class ProductionServingController:
                                                 "runtime_id", "interpreter_path", "load_configuration", "authority_map_digest")},
                        "observed_loaded_model_identity": observed,
                        "model_serving_admission_ref": decision.admission_decision_ref}
+            if resource_entitlement_binding is not None:
+                binding["governed_inference_entitlement_binding"] = dict(
+                    resource_entitlement_binding)
             if admission_decision_record is not None:
                 binding["model_serving_admission_decision_record"] = dict(
                     admission_decision_record)

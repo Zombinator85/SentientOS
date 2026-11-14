@@ -131,6 +131,42 @@ class ProductionChatResourceContextOwner:
             clock=self._clock,
         )
 
+    def serving_admission_entitlement_binding(self) -> Mapping[str, object]:
+        """Return a current call-entitlement reference without debiting a call.
+
+        This proves that the resident model is serving under a live governed
+        invocation entitlement. It does not reserve host memory or exercise
+        hardware-control authority.
+        """
+        current_time = self._clock()
+        if type(current_time) is not str or not current_time:
+            raise GovernedLocalModelResourceError("invalid_current_time")
+        allocation = self.allocator.validate_current(
+            allocation=self.allocation,
+            principal=self.principal,
+            authenticated=self.authenticated,
+            current=self.current,
+            policy=self.policy,
+            current_time=current_time)
+        remaining_calls = self.allocator.ledger.remaining_calls(
+            allocation.allocation_id)
+        if remaining_calls <= 0:
+            raise GovernedLocalModelResourceError("call_entitlement_exhausted")
+        return {
+            "schema_version": (
+                "sentientos.governed_local_model_serving_entitlement_binding:v1"),
+            "binding_scope": "inference_call_entitlement",
+            "allocation_id": allocation.allocation_id,
+            "allocation_digest": allocation.allocation_digest,
+            "allocator_id": allocation.allocator_id,
+            "resource_kind": allocation.resource_kind,
+            "policy_digest": allocation.policy_digest,
+            "policy_epoch": allocation.epoch,
+            "principal_binding_digest": allocation.principal_binding_digest,
+            "remaining_call_entitlement": remaining_calls,
+            "checked_at": current_time,
+        }
+
 
 class ResourceBackedProductionChatInference:
     """Adapt ordinary chat inference to mandatory trusted resource custody."""
