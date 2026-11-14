@@ -270,6 +270,7 @@ def test_production_game_gpu_release_requires_exact_current_evidence(
     "report_digest", "game_message_id", "pressure_labels", "stale_observation",
     "wrong_target", "wrong_correlation", "invalid_preemption_flag",
     "stale_cached_inference_sample", "owner_window_stale",
+    "gpu_measurement_mismatch",
 ])
 @pytest.mark.no_legacy_skip
 def test_production_game_host_pressure_release_requires_exact_current_evidence(
@@ -300,6 +301,8 @@ def test_production_game_host_pressure_release_requires_exact_current_evidence(
         "report_id": "host-report-1",
         "report_digest": "c" * 64,
         "pressure_labels": ("cpu_pressure",),
+        "gpu_utilization_percent": 22.0,
+        "vram_utilization_percent": 47.0,
     }
     workload = ForegroundGameObservation("available", True, "a" * 64,
         game_observed_at, transport_provenance={"message_id": game_message_id,
@@ -308,7 +311,7 @@ def test_production_game_host_pressure_release_requires_exact_current_evidence(
             "envelope_created_at": game_observed_at})
     assert governor.observe_verified_game_workload(workload)
     evidence = {
-        "schema_version": "sentientos.production_game_host_resource_release_evidence:v1",
+        "schema_version": "sentientos.production_game_host_resource_release_evidence:v2",
         "trigger_kind": trigger_kind,
         "trigger_correlation_id": source_correlation,
         "observation_correlation_id": observation_id,
@@ -318,6 +321,8 @@ def test_production_game_host_pressure_release_requires_exact_current_evidence(
         "pressure_labels": ["cpu_pressure"],
         "game_workload_message_id": game_message_id,
         "active_inference_preemption_requested": False,
+        "gpu_utilization_percent": 22.0,
+        "vram_utilization_percent": 47.0,
     }
     metadata = {
         "purpose": "local_model_resource_release",
@@ -338,6 +343,8 @@ def test_production_game_host_pressure_release_requires_exact_current_evidence(
         metadata["target_subsystem"] = "host"
     elif mutation == "invalid_preemption_flag":
         evidence["active_inference_preemption_requested"] = "true"
+    elif mutation == "gpu_measurement_mismatch":
+        evidence["gpu_utilization_percent"] = 23.0
 
     decision = governor._admit_local_model_resource_release(
         actor=actor, subject=actor,

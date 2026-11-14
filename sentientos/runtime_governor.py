@@ -2104,7 +2104,8 @@ class RuntimeGovernor:
                 "schema_version", "trigger_kind", "trigger_correlation_id",
                 "observation_correlation_id", "host_report_id", "host_report_digest",
                 "observed_at", "pressure_labels", "game_workload_message_id",
-                "active_inference_preemption_requested",
+                "active_inference_preemption_requested", "gpu_utilization_percent",
+                "vram_utilization_percent",
             }
             evidence_valid = False
             release_age_seconds = None
@@ -2118,6 +2119,12 @@ class RuntimeGovernor:
                 raw_observed_at = observation_value.get("observed_at")
                 raw_labels = observation_value.get("pressure_labels")
                 raw_game_id = observation_value.get("game_workload_message_id")
+                raw_gpu = observation_value.get("gpu_utilization_percent")
+                raw_vram = observation_value.get("vram_utilization_percent")
+                def valid_percent_or_none(value: object) -> bool:
+                    return (value is None or (isinstance(value, (int, float))
+                        and not isinstance(value, bool) and math.isfinite(float(value))
+                        and 0 <= float(value) <= 100))
                 namespace = ("local-chat-inference" if raw_trigger_kind == "deferred_inference"
                     else "local-chat-reconciliation" if raw_trigger_kind == "idle_game_reconciliation"
                     else None)
@@ -2171,7 +2178,7 @@ class RuntimeGovernor:
                     and all(isinstance(label, str) for label in raw_host_labels) else set())
                 evidence_valid = bool(
                     observation_value.get("schema_version") ==
-                        "sentientos.production_game_host_resource_release_evidence:v1"
+                        "sentientos.production_game_host_resource_release_evidence:v2"
                     and raw_trigger_kind in {"deferred_inference", "idle_game_reconciliation"}
                     and isinstance(source_correlation, str) and 0 < len(source_correlation) <= 256
                     and (raw_observation_id == expected_id or cached_inference_sample_id)
@@ -2194,6 +2201,13 @@ class RuntimeGovernor:
                     and host_evidence.get("report_id") == raw_report_id
                     and host_evidence.get("report_digest") == raw_report_digest
                     and host_evidence.get("observed_at") == raw_observed_at
+                    and valid_percent_or_none(raw_gpu)
+                    and valid_percent_or_none(raw_vram)
+                    and host_evidence.get("gpu_utilization_percent") == raw_gpu
+                    and host_evidence.get("vram_utilization_percent") == raw_vram
+                    and ("gpu_pressure" not in host_labels
+                        or (raw_gpu is not None and raw_gpu >= 90.0)
+                        or (raw_vram is not None and raw_vram >= 85.0))
                     and host_age is not None and 0 <= host_age <=
                         host_freshness_limit_seconds
                     and game_evidence is not None
@@ -2212,6 +2226,10 @@ class RuntimeGovernor:
                 "pressure_labels": observation_value.get("pressure_labels"),
                 "active_inference_preemption_requested": observation_value.get(
                     "active_inference_preemption_requested"),
+                "gpu_utilization_percent": observation_value.get(
+                    "gpu_utilization_percent"),
+                "vram_utilization_percent": observation_value.get(
+                    "vram_utilization_percent"),
                 "age_seconds": round(release_age_seconds, 3)
                     if release_age_seconds is not None else None,
             } if evidence_valid and isinstance(observation_value, Mapping) else {

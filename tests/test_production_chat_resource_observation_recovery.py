@@ -220,6 +220,56 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         observer.observe()
     forged_evidence_path.path.unlink()
 
+    host_evidence_release = dict(release_body)
+    host_evidence_release["resource_observation"] = {
+        **release_body["resource_observation"],
+        "observation_correlation_id": "host-observation-correlation",
+        "host_report_id": "host-report-1",
+        "host_report_digest": "a" * 64,
+        "pressure_labels": ["gpu_pressure"],
+        "game_workload_message_id": "b" * 64,
+        "gpu_utilization_percent": 22.0,
+        "vram_utilization_percent": 86.0,
+        "host_telemetry_used_for_admission": True,
+    }
+    host_evidence_record = dict(release_body["release_admission_record"])
+    host_evidence_delegated = dict(host_evidence_record["delegated_outcomes"])
+    host_evidence_governor = dict(host_evidence_delegated["runtime_governor"])
+    host_evidence_refs = dict(host_evidence_governor["evidence_refs"])
+    host_evidence_refs["resource_observation_evidence"] = {
+        "status": "current",
+        "observation_correlation_id": "host-observation-correlation",
+        "host_report_id": "host-report-1",
+        "host_report_digest": "a" * 64,
+        "pressure_labels": ["gpu_pressure"],
+        "game_workload_message_id": "b" * 64,
+        "gpu_utilization_percent": 22.0,
+        "vram_utilization_percent": 86.0,
+        "active_inference_preemption_requested": True,
+    }
+    host_evidence_governor["evidence_refs"] = host_evidence_refs
+    host_evidence_delegated["runtime_governor"] = host_evidence_governor
+    host_evidence_record["delegated_outcomes"] = host_evidence_delegated
+    host_evidence_release["release_admission_record"] = host_evidence_record
+    host_evidence_release["resource_observation"]["gpu_utilization_percent"] = 23.0
+    host_evidence_release.pop("receipt_id")
+    host_evidence_release.pop("receipt_semantic_digest")
+    host_evidence_id = "serving-resource-release-" + hashlib.sha256(json.dumps(
+        host_evidence_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()[:24]
+    host_evidence_release["receipt_id"] = host_evidence_id
+    host_evidence_release["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+        host_evidence_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    host_evidence_path = release_directory.child(host_evidence_id + ".json")
+    handle.durable_create(host_evidence_path,
+        (json.dumps(host_evidence_release, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+    with pytest.raises(ProductionChatResourceObservationError,
+            match="resource_release_host_observation_admission_mismatch"):
+        observer.observe()
+    host_evidence_path.path.unlink()
+
     first = observer.observe()
     second = observer.observe()
     unrecorded_body = dict(release_body)

@@ -613,7 +613,7 @@ class ProductionServingInferenceController:
                 if selected_gaming_profile else
                 "sentientos.production_conservative_automatic_gaming_host_resource_release_evidence:v1"
                 if conservative_automatic_profile else
-                "sentientos.production_game_host_resource_release_evidence:v1"),
+                "sentientos.production_game_host_resource_release_evidence:v2"),
             "trigger_kind": trigger_kind,
             "trigger_correlation_id": source_correlation,
             "observation_correlation_id": resource_observation.get(
@@ -665,6 +665,10 @@ class ProductionServingInferenceController:
             host_release_evidence.update({
                 "game_workload_message_id": game_message_id,
                 "active_inference_preemption_requested": preempt_active_generation,
+                "gpu_utilization_percent": resource_observation.get(
+                    "gpu_utilization_percent"),
+                "vram_utilization_percent": resource_observation.get(
+                    "vram_utilization_percent"),
             })
         reason_code = ("host_gpu_pressure_observed" if general_gpu_pressure else
             "host_memory_pressure_observed" if general_memory_pressure else
