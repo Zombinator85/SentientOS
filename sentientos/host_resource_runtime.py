@@ -620,9 +620,24 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 summary["resource_measurement_comparison"] = comparison_summary
             release_receipt_summaries.append(summary)
     admission_by_receipt: dict[str, Mapping[str, Any]] = {}
+    host_observation_binding_posture_by_receipt: dict[str, str] = {}
+    witness_v1_fields = {
+        "schema_version", "invocation_receipt_id", "invocation_receipt_digest",
+        "request_id", "request_digest", "admission_decision_ref", "correlation_id",
+        "resource_allocation_binding"}
+    witness_v2_fields = witness_v1_fields | {"host_resource_observation_binding"}
     if verified_inference_admission_decisions is not None:
         for witness in verified_inference_admission_decisions:
-            if not isinstance(witness, Mapping) or witness.get("schema_version") != "sentientos.resource_bound_inference_admission_witness:v1":
+            if (not isinstance(witness, Mapping)
+                    or witness.get("schema_version") not in {
+                        "sentientos.resource_bound_inference_admission_witness:v1",
+                        "sentientos.resource_bound_inference_admission_witness:v2"}
+                    or (witness.get("schema_version") ==
+                        "sentientos.resource_bound_inference_admission_witness:v1"
+                        and set(witness) != witness_v1_fields)
+                    or (witness.get("schema_version") ==
+                        "sentientos.resource_bound_inference_admission_witness:v2"
+                        and set(witness) != witness_v2_fields)):
                 raise ValueError("inference_admission_decision_witness_invalid")
             receipt_id = witness.get("invocation_receipt_id")
             if not isinstance(receipt_id, str) or not receipt_id or receipt_id in admission_by_receipt:
@@ -744,6 +759,47 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     lineage_findings: list[str] = []
     lineage_findings.extend(release_lineage_findings)
     linked_effect_receipts: dict[str, str] = {}
+    def normalized_host_observation_binding(value: Any) -> dict[str, Any] | None:
+        if not isinstance(value, Mapping) or value.get("status") != "current":
+            return None
+        fields = (
+            "evaluation_id", "semantic_digest", "epoch_id", "snapshot_id",
+            "report_id", "report_digest", "observation_correlation_id",
+            "observed_at", "pressure_labels", "cpu_utilization_percent",
+            "ram_utilization_percent", "gpu_utilization_percent",
+            "vram_utilization_percent", "thermal_zone_temperatures_c",
+            "gpu_telemetry_available", "gpu_telemetry_complete",
+            "gpu_telemetry_sources")
+        if not all(key in value for key in fields):
+            return None
+        labels = value.get("pressure_labels")
+        if (not isinstance(labels, (list, tuple))
+                or not all(isinstance(label, str) for label in labels)):
+            return None
+        raw_sources = value.get("gpu_telemetry_sources")
+        if not isinstance(raw_sources, (list, tuple)):
+            return None
+        sources = []
+        for source in raw_sources:
+            if (not isinstance(source, Mapping)
+                    or set(source) != {"collector_id", "status", "source"}
+                    or not all(isinstance(source.get(key), str) and source.get(key)
+                        and len(source[key]) <= 128
+                        for key in ("collector_id", "status", "source"))):
+                return None
+            sources.append({key: source[key]
+                for key in ("collector_id", "status", "source")})
+        thermal = value.get("thermal_zone_temperatures_c")
+        if not isinstance(thermal, Mapping):
+            return None
+        return {"schema_version": (
+                "sentientos.resource_admission_host_observation_binding:v1"),
+            "status": "current",
+            **{key: (tuple(sorted(set(labels))) if key == "pressure_labels"
+                else dict(thermal) if key == "thermal_zone_temperatures_c"
+                else tuple(sources) if key == "gpu_telemetry_sources"
+                else value[key]) for key in fields}}
+
     for invocation in invocation_receipts[-max_invocation_receipts:]:
         reason_codes = invocation.get("reason_codes")
         if (isinstance(reason_codes, (list, tuple))
@@ -775,12 +831,38 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "policy_epoch": allocation.get("epoch"),
                 "principal_binding_digest": allocation.get("principal_binding_digest"),
             } if isinstance(allocation, Mapping) else None)
-            witness_fields = {
-                "schema_version", "invocation_receipt_id", "invocation_receipt_digest",
-                "request_id", "request_digest", "admission_decision_ref",
-                "correlation_id", "resource_allocation_binding"}
+            host_binding_posture = "not_verified"
+            witness_schema = (admission_witness.get("schema_version")
+                if isinstance(admission_witness, Mapping) else None)
+            request_linkage = request.get("linkage") if isinstance(request, Mapping) else None
+            request_host_observation = (request_linkage.get("host_resource_observation")
+                if isinstance(request_linkage, Mapping) else None)
+            host_binding = (admission_witness.get("host_resource_observation_binding")
+                if isinstance(admission_witness, Mapping)
+                and witness_schema == "sentientos.resource_bound_inference_admission_witness:v2"
+                else None)
+            if isinstance(request_host_observation, Mapping):
+                if request_host_observation.get("status") == "current":
+                    expected_host_binding = normalized_host_observation_binding(
+                        request_host_observation)
+                    if (expected_host_binding is None
+                            or not isinstance(host_binding, Mapping)
+                            or dict(host_binding) != expected_host_binding):
+                        lineage_findings.append(
+                            f"inference_host_observation_linkage_missing_or_mismatched:{invocation.get('receipt_id')}")
+                        host_binding_posture = "degraded_current_observation_unbound"
+                    else:
+                        host_binding_posture = "verified_current_observation"
+                else:
+                    host_binding_posture = "not_current_observation"
+            else:
+                host_binding_posture = "not_provided"
             if (not isinstance(admission_witness, Mapping)
-                    or set(admission_witness) != witness_fields
+                    or frozenset(admission_witness) not in {frozenset(witness_v1_fields),
+                        frozenset(witness_v2_fields)}
+                    or (witness_schema == "sentientos.resource_bound_inference_admission_witness:v1"
+                        and isinstance(request_host_observation, Mapping)
+                        and request_host_observation.get("status") == "current")
                     or admission_witness.get("invocation_receipt_id") != invocation.get("receipt_id")
                     or admission_witness.get("invocation_receipt_digest") != invocation.get("receipt_digest")
                     or admission_witness.get("request_id") != request_id
@@ -795,6 +877,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     or dict(allocation_binding) != expected_binding):
                 lineage_findings.append(
                     f"inference_admission_linkage_missing_or_mismatched:{invocation.get('receipt_id')}")
+            host_observation_binding_posture_by_receipt[str(
+                invocation.get("receipt_id"))] = host_binding_posture
         allocation_digest = invocation.get("resource_allocation_digest")
         attempt_id = invocation.get("resource_attempt_id")
         receipt_digests = tuple(invocation.get("resource_consumption_receipt_digests") or ())
@@ -971,6 +1055,12 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             str(invocation.get("receipt_id")), {}).get("admission_decision_ref"),
         "cancellation_admission_decision_ref": invocation.get(
             "cancellation_admission_decision_ref"),
+        "host_resource_observation_binding_posture":
+            host_observation_binding_posture_by_receipt.get(
+                str(invocation.get("receipt_id")), "not_verified"),
+        "host_resource_observation_admission_binding": admission_by_receipt.get(
+            str(invocation.get("receipt_id")), {}).get(
+                "host_resource_observation_binding"),
         "chat_process_handoff_digest": (
             generation_attribution_by_receipt.get(str(invocation.get("receipt_id")), {})
                 .get("chat_process_handoff", {}).get("handoff_digest")

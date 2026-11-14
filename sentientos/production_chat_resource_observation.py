@@ -63,7 +63,9 @@ _REQUEST_NAME = re.compile(r"lmreq-[0-9a-f]{24}\Z")
 _RESOURCE_ADMISSION_BINDING_SCHEMA = (
     "sentientos.governed_local_model_resource_allocation_admission_context:v1")
 _RESOURCE_ADMISSION_WITNESS_SCHEMA = (
-    "sentientos.resource_bound_inference_admission_witness:v1")
+    "sentientos.resource_bound_inference_admission_witness:v2")
+_RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA = (
+    "sentientos.resource_admission_host_observation_binding:v1")
 _RESOURCE_RELEASE_RECEIPT_SCHEMA_V2 = (
     "sentientos.production_chat_resource_release_receipt:v2")
 _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3 = (
@@ -492,10 +494,75 @@ class ProductionChatResourceObservationOwner:
             "policy_epoch": allocation.epoch,
             "principal_binding_digest": allocation.principal_binding_digest,
         }
+        request_linkage = request.get("linkage")
+        host_observation = (request_linkage.get("host_resource_observation")
+            if isinstance(request_linkage, Mapping) else None)
         delegated = decision.get("delegated_outcomes")
         runtime = delegated.get("runtime_governor") if isinstance(delegated, Mapping) else None
         evidence = runtime.get("evidence_refs") if isinstance(runtime, Mapping) else None
         binding = evidence.get("resource_allocation_binding") if isinstance(evidence, Mapping) else None
+        host_evidence = (evidence.get("host_resource_evidence")
+            if isinstance(evidence, Mapping) else None)
+        host_observation_binding = None
+        if isinstance(host_observation, Mapping) and host_observation.get("status") == "current":
+            host_fields = (
+                "evaluation_id", "semantic_digest", "epoch_id", "snapshot_id",
+                "report_id", "report_digest", "observation_correlation_id",
+                "observed_at", "pressure_labels", "cpu_utilization_percent",
+                "ram_utilization_percent", "gpu_utilization_percent",
+                "vram_utilization_percent", "thermal_zone_temperatures_c",
+                "gpu_telemetry_available", "gpu_telemetry_complete",
+                "gpu_telemetry_sources")
+            host_values = {key: host_observation.get(key) for key in host_fields}
+
+            def normalized_labels(value: object) -> tuple[str, ...]:
+                if (not isinstance(value, (list, tuple))
+                        or not all(isinstance(label, str) for label in value)):
+                    raise ProductionChatResourceObservationError(
+                        "resource_inference_host_observation_binding_invalid")
+                return tuple(sorted(set(value)))
+
+            def normalized_sources(value: object) -> tuple[Mapping[str, str], ...]:
+                source_fields = {"collector_id", "status", "source"}
+                if not isinstance(value, (list, tuple)):
+                    raise ProductionChatResourceObservationError(
+                        "resource_inference_host_observation_binding_invalid")
+                normalized: list[Mapping[str, str]] = []
+                for source in value:
+                    if (not isinstance(source, Mapping)
+                            or set(source) != source_fields
+                            or not all(isinstance(source.get(key), str)
+                                and source.get(key) and len(source[key]) <= 128
+                                for key in source_fields)):
+                        raise ProductionChatResourceObservationError(
+                            "resource_inference_host_observation_binding_invalid")
+                    normalized.append({key: source[key] for key in (
+                        "collector_id", "status", "source")})
+                return tuple(normalized)
+
+            host_values["pressure_labels"] = normalized_labels(
+                host_values.get("pressure_labels"))
+            host_values["gpu_telemetry_sources"] = normalized_sources(
+                host_values.get("gpu_telemetry_sources"))
+            if (not isinstance(host_evidence, Mapping)
+                    or host_evidence.get("status") != "current"
+                    or host_observation.get("no_effect_authority") is not True
+                    or host_evidence.get("pressure_labels") is None):
+                raise ProductionChatResourceObservationError(
+                    "resource_inference_host_observation_binding_invalid")
+            evidence_values = {key: host_evidence.get(key) for key in host_fields}
+            evidence_values["pressure_labels"] = normalized_labels(
+                evidence_values.get("pressure_labels"))
+            evidence_values["gpu_telemetry_sources"] = normalized_sources(
+                evidence_values.get("gpu_telemetry_sources"))
+            if evidence_values != host_values:
+                raise ProductionChatResourceObservationError(
+                    "resource_inference_host_observation_binding_mismatch")
+            host_observation_binding = {
+                "schema_version": _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA,
+                "status": "current",
+                **host_values,
+            }
         if (set(decision) != expected_decision_fields
                 or decision.get("event_type") != "control_plane_decision"
                 or not isinstance(decision.get("timestamp"), str)
@@ -525,6 +592,7 @@ class ProductionChatResourceObservationOwner:
             "admission_decision_ref": decision["admission_decision_ref"],
             "correlation_id": correlation_id,
             "resource_allocation_binding": expected_binding,
+            "host_resource_observation_binding": host_observation_binding,
         }
 
     def _invocation_receipts(self, allocation: GovernedLocalModelResourceAllocation

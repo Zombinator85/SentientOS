@@ -1,6 +1,7 @@
 """Restart and corruption controls for immutable resource observation custody."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -264,3 +265,149 @@ def test_missing_or_corrupt_durable_ledger_stays_incomplete(tmp_path: Path) -> N
     assert len(recovered_snapshot["allocations"]) == 1
     assert recovered_snapshot["attempts"] == ()
     assert ledger_path.read_bytes() == original
+
+
+def test_resource_invocation_admission_recovery_binds_exact_host_observation(
+        tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
+    from sentientos.host_collectors import HostCollectorResult
+    from sentientos.host_resource_runtime import (
+        HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
+        build_observation_plan, resource_consumption_world_state_records,
+    )
+    from sentientos.production_chat_resource_provisioning import (
+        load_production_chat_resource_context_owner,
+    )
+    import sentientos.runtime_governor as runtime_governor_module
+    from tests.test_governed_local_model_resource_invocation_composition import (
+        setup as invocation_setup,
+    )
+
+    handle, values = inputs(tmp_path, calls=2)
+    produce_production_chat_resource_provisioning_bundle(
+        handle, "admission-link", **values)
+    now = "2026-09-21T08:30:00Z"
+    frozen_now = datetime(2026, 9, 21, 8, 30, tzinfo=timezone.utc)
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return frozen_now if tz is not None else frozen_now.replace(tzinfo=None)
+
+    monkeypatch.setattr(runtime_governor_module, "datetime", FrozenDateTime)
+    kernel = ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    def collector(collector_id: str, **metrics):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now,
+            "synthetic_test_fixture", values=metrics)
+
+    observation_owner = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "host-runtime",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False,
+                ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1, devices=[{
+                    "index": 0, "gpu_utilization_percent": 15.0,
+                    "vram_utilization_percent": 30.0}])),
+        ]), clock=lambda: now)
+    correlation_id = "resource-admission-host-observation-link"
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        correlation_id.encode("utf-8")).hexdigest()[:32]
+    evaluation = observation_owner.run_cycle(correlation_id=observation_id)
+    assert evaluation is not None
+    host_observation = {
+        "schema_version": "sentientos.production_chat_host_resource_observation:v1",
+        "status": "current", "evaluation_id": evaluation.evaluation_id,
+        "observation_correlation_id": evaluation.epoch.correlation_id,
+        "epoch_id": evaluation.epoch.epoch_id,
+        "snapshot_id": evaluation.snapshot.snapshot_id,
+        "report_id": evaluation.pressure_report.report_id,
+        "report_digest": evaluation.policy_decision.report_digest,
+        "semantic_digest": evaluation.semantic_digest,
+        "observed_at": evaluation.epoch.observed_at,
+        "pressure_labels": list(evaluation.pressure_report.pressure_labels),
+        "thermal_zone_temperatures_c": dict(
+            evaluation.snapshot.thermal_zone_temperatures_c),
+        "cpu_utilization_percent": evaluation.snapshot.cpu_utilization_percent,
+        "ram_utilization_percent": evaluation.snapshot.ram_utilization_percent,
+        "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
+        "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
+        "gpu_telemetry_sources": [{
+            "collector_id": result.collector_id, "status": result.status,
+            "source": result.source[:128]}
+            for result in evaluation.epoch.results
+            if result.collector_id == "nvidia_gpu"],
+        "gpu_telemetry_available": (
+            evaluation.snapshot.gpu_utilization_percent is not None
+            or evaluation.snapshot.vram_utilization_percent is not None),
+        "gpu_telemetry_complete": (
+            evaluation.snapshot.gpu_utilization_percent is not None
+            and evaluation.snapshot.vram_utilization_percent is not None),
+        "no_effect_authority": True,
+    }
+    backend, invoker, base_request, _unused_context, _unused_ledger = invocation_setup(
+        tmp_path / "model", kernel=kernel)
+    request = invoker.build_request(purpose="local_user_chat", prompt="hello",
+        caller="resource-observation-test", correlation_id=correlation_id,
+        budget=base_request.budget,
+        linkage={"host_resource_observation": host_observation})
+    resource_owner = load_production_chat_resource_context_owner(
+        handle, "admission-link", clock=lambda: now,
+        nonce_source=lambda: "admission-link-attempt")
+    try:
+        receipt = invoker.invoke(request, resource_context=resource_owner.next_context())
+        assert receipt.status == "admitted_completed", receipt.reason_codes
+        assert backend.calls == 1
+        decision_path = (tmp_path / "model" / "runtime" / "decisions"
+            / (request.request_id + ".json"))
+        decision_bytes = decision_path.read_bytes()
+        receipt_directory = handle.fixed_object("local-model/inference/receipts")
+        handle.ensure_directory(receipt_directory)
+        handle.durable_create(receipt_directory.child(receipt.receipt_id + ".json"),
+            (json.dumps(receipt.to_dict(), sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+        decision_directory = handle.fixed_object("local-model/inference/decisions")
+        handle.ensure_directory(decision_directory)
+        decision_file = decision_directory.child(request.request_id + ".json")
+        handle.durable_create(decision_file, decision_bytes)
+
+        identity = InstallationIdentity.parse("production")
+        readonly = InstallationStateRegistry(
+            tmp_path / "state", _test_only=True).open_read_only(identity)
+        observer = ProductionChatResourceObservationOwner(readonly, "admission-link")
+        observed = observer.observe()
+        witness = observed.verified_inference_admission_decisions[0]
+        assert witness["schema_version"] == (
+            "sentientos.resource_bound_inference_admission_witness:v2")
+        host_binding = witness["host_resource_observation_binding"]
+        assert host_binding["status"] == "current"
+        assert host_binding["report_digest"] == host_observation["report_digest"]
+        assert host_binding["semantic_digest"] == host_observation["semantic_digest"]
+        projection = resource_consumption_world_state_records(
+            ledger=observed.ledger,
+            invocation_receipts=observed.invocation_receipts,
+            verified_inference_admission_decisions=(witness,))[0]
+        projected_invocation = projection["payload"]["invocation_receipts"][0]
+        assert projected_invocation["host_resource_observation_binding_posture"] == (
+            "verified_current_observation")
+        assert projected_invocation["host_resource_observation_admission_binding"] == (
+            host_binding)
+
+        tampered_decision = json.loads(decision_bytes)
+        tampered_decision["delegated_outcomes"]["runtime_governor"][
+            "evidence_refs"]["host_resource_evidence"]["report_digest"] = "0" * 64
+        handle.durable_replace(decision_file,
+            (json.dumps(tampered_decision, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+        with pytest.raises(ProductionChatResourceObservationError,
+                match="resource_inference_host_observation_binding_mismatch"):
+            observer.observe()
+        handle.durable_replace(decision_file, decision_bytes)
+    finally:
+        resource_owner.close()

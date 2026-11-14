@@ -1131,11 +1131,18 @@ class RuntimeGovernor:
                 return False
             evidence: dict[str, object] = {
                 "evaluation_id": evaluation.evaluation_id,
+                "semantic_digest": evaluation.semantic_digest,
                 "epoch_id": evaluation.epoch.epoch_id,
                 "observed_at": evaluation.epoch.observed_at,
                 "snapshot_id": evaluation.snapshot.snapshot_id,
                 "report_id": evaluation.pressure_report.report_id,
                 "report_digest": evaluation.policy_decision.report_digest,
+                "gpu_telemetry_sources": [
+                    {"collector_id": result.collector_id, "status": result.status,
+                     "source": result.source[:128]}
+                    for result in evaluation.epoch.results
+                    if result.collector_id == "nvidia_gpu"
+                ],
                 "pressure_labels": tuple(evaluation.pressure_report.pressure_labels),
                 "cpu_utilization_percent": evaluation.snapshot.cpu_utilization_percent,
                 "ram_utilization_percent": evaluation.snapshot.ram_utilization_percent,
@@ -2507,6 +2514,7 @@ class RuntimeGovernor:
                     evidence_ref = {
                         "status": "current",
                         "evaluation_id": evidence["evaluation_id"],
+                        "semantic_digest": evidence.get("semantic_digest"),
                         "epoch_id": evidence["epoch_id"],
                         "snapshot_id": evidence["snapshot_id"],
                         "report_id": evidence["report_id"],
@@ -2522,6 +2530,7 @@ class RuntimeGovernor:
                         "thermal_zone_temperatures_c": thermal_temperatures,
                         "gpu_telemetry_available": evidence.get("gpu_telemetry_available"),
                         "gpu_telemetry_complete": evidence.get("gpu_telemetry_complete"),
+                        "gpu_telemetry_sources": evidence.get("gpu_telemetry_sources", []),
                         "age_seconds": round(evidence_age_seconds, 3),
                     }
                 else:
