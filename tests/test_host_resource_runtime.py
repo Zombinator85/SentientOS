@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime, timezone
+import hashlib
 import time
 from pathlib import Path
 
@@ -58,28 +59,107 @@ def test_runtime_observation_is_read_only_and_quarantine_calls_no_collector(tmp_
 
 def test_windows_process_count_observation_flows_through_runtime_without_identity(
         tmp_path, monkeypatch):
-    from sentientos.host_collectors import collect_process_observation
+    from sentientos.host_collectors import (collect_cpu_observation,
+        collect_memory_observation, collect_process_observation)
 
     monkeypatch.setattr("sentientos.host_resource_runtime.platform.system",
         lambda: "Windows")
-    default_process_spec = next(spec for spec in default_collector_specs()
-        if spec.collector_id == "process")
-    assert "windows" in default_process_spec.supported_platforms
-    spec = HostObservationCollectorSpec("process", False, ("windows",), 50,
+    defaults = {spec.collector_id: spec for spec in default_collector_specs()}
+    assert all("windows" in defaults[name].supported_platforms
+        for name in ("cpu", "memory", "process"))
+    specs = [
+        replace(defaults["cpu"], function=lambda observed_at=None:
+            collect_cpu_observation(system="windows",
+                windows_cpu_utilization_provider=lambda: 23.5,
+                observed_at=observed_at)),
+        replace(defaults["memory"], function=lambda observed_at=None:
+            collect_memory_observation(system="windows",
+                windows_memory_provider=lambda: {"total_bytes": 1000,
+                    "available_bytes": 400, "used_percent": 60.0},
+                observed_at=observed_at)),
+        HostObservationCollectorSpec("process", False, ("windows",), 50,
         lambda observed_at=None: collect_process_observation(system="windows",
-            windows_process_count_provider=lambda: 91, observed_at=observed_at))
+            windows_process_count_provider=lambda: 91, observed_at=observed_at)),
+    ]
     coordinator = HostResourceRuntimeCoordinator(
         kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME),
         runtime_state_root=tmp_path,
-        plan=build_observation_plan(specs=[spec]))
+        plan=build_observation_plan(specs=specs))
     evaluation = coordinator.run_cycle(correlation_id="windows-process-count-fixture")
 
     assert evaluation is not None and validate_evaluation(evaluation).ok
-    assert evaluation.epoch.results[0].values == {"process_count": 91}
+    assert evaluation.snapshot.cpu_utilization_percent == 23.5
+    assert evaluation.snapshot.ram_utilization_percent == 60.0
     assert evaluation.snapshot.process_count == 91
     assert evaluation.no_effect_authority is True
     assert evaluation.epoch.effect_authority is False
     assert evaluation.epoch.results[0].host_mutation_performed is False
+
+
+def test_windows_nvidia_smi_evidence_defers_optional_gpu_inference_for_game(
+        tmp_path, monkeypatch):
+    from sentientos.host_collectors import (collect_cpu_observation,
+        collect_memory_observation, collect_nvidia_gpu_observation)
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setattr("sentientos.host_resource_runtime.platform.system",
+        lambda: "Windows")
+    monkeypatch.setattr("sentientos.host_collectors.importlib.import_module",
+        lambda _name: (_ for _ in ()).throw(ImportError("fixture")))
+    specs = [
+        HostObservationCollectorSpec("cpu", True, ("windows",), 40,
+            lambda observed_at=None: collect_cpu_observation(system="windows",
+                windows_cpu_utilization_provider=lambda: 20.0,
+                observed_at=observed_at)),
+        HostObservationCollectorSpec("memory", True, ("windows",), 30,
+            lambda observed_at=None: collect_memory_observation(system="windows",
+                windows_memory_provider=lambda: {"total_bytes": 1000,
+                    "available_bytes": 500, "used_percent": 50.0},
+                observed_at=observed_at)),
+        HostObservationCollectorSpec("nvidia_gpu", False, ("windows",), 75,
+            lambda observed_at=None: collect_nvidia_gpu_observation(
+                nvidia_smi_query_provider=lambda:
+                    "0, 35, 25, 12000, 3000, 65, 90\n",
+                observed_at=observed_at)),
+    ]
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        phase=LifecyclePhase.RUNTIME, decisions_path=tmp_path / "kernel.jsonl")
+    correlation = "windows-game-priority-gpu-inference"
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        correlation.encode("utf-8")).hexdigest()[:32]
+    coordinator = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host", plan=build_observation_plan(specs=specs))
+    evaluation = coordinator.run_cycle(correlation_id=observation_id)
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+    assert evaluation.snapshot.gpu_utilization_percent == 35.0
+    assert evaluation.snapshot.vram_utilization_percent == 25.0
+
+    game = VerifiedGamePerformanceObservation("windows-fixture", "generation-1",
+        1, "d" * 64, "e" * 64, datetime.now(timezone.utc).isoformat(),
+        "f" * 64, 55.0, 1, 20.0, 4096, "available")
+    assert kernel.observe_verified_game_performance(game)
+    kernel_decision = kernel.admit(ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="user", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "local_user_chat", "correlation_id": correlation,
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp", "accelerator_route": "gpu", "gpu_layers": 32,
+                "configuration_digest": "a" * 64}}))
+
+    assert kernel_decision.outcome == AdmissionOutcome.DEFER
+    runtime = kernel_decision.delegated_outcomes["runtime_governor"]
+    assert ("runtime_governor:deferred_local_model_inference_for_game_frame_pressure"
+        in kernel_decision.reason_codes)
+    evidence = runtime["evidence_refs"]
+    assert evidence["host_resource_evidence"]["evaluation_id"] == evaluation.evaluation_id
+    assert evidence["host_resource_evidence"]["gpu_telemetry_sources"][0][
+        "source"] == "nvidia-smi:device-wide-query"
+    assert evidence["game_performance_evidence"]["status"] == "current"
 
 
 def test_observation_rejects_admission_decision_from_another_kernel(tmp_path):

@@ -19,6 +19,8 @@ from sentientos.host_collectors import (
     collect_process_observation,
     collect_thermal_sensor_observation,
     validate_host_collector_result,
+    _windows_cpu_utilization,
+    _run_nvidia_smi_query,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -100,7 +102,7 @@ def test_cpu_collector_uses_psutil_with_a_bounded_sample(monkeypatch: pytest.Mon
         "sentientos.host_collectors.importlib.import_module",
         lambda name: SimpleNamespace(cpu_percent=cpu_percent),
     )
-    result = collect_cpu_observation(observed_at=STAMP)
+    result = collect_cpu_observation(system="linux", observed_at=STAMP)
     assert calls == [0.1]
     assert result.values["utilization_percent"] == 31.5
     assert result.source == "psutil:cpu_percent(interval=0.1)"
@@ -111,7 +113,7 @@ def test_cpu_collector_degrades_when_psutil_is_missing(monkeypatch: pytest.Monke
         raise ImportError(name)
 
     monkeypatch.setattr("sentientos.host_collectors.importlib.import_module", missing)
-    result = collect_cpu_observation(observed_at=STAMP)
+    result = collect_cpu_observation(system="linux", observed_at=STAMP)
     assert result.values["utilization_percent"] is None
     assert result.source == "standard_library:os,platform"
     assert any(finding.code == "cpu_utilization_unavailable" for finding in result.findings)
@@ -151,7 +153,7 @@ def test_memory_collector_uses_psutil_when_available(monkeypatch: pytest.MonkeyP
         "sentientos.host_collectors.importlib.import_module",
         lambda name: SimpleNamespace(virtual_memory=lambda: memory),
     )
-    result = collect_memory_observation(observed_at=STAMP)
+    result = collect_memory_observation(system="linux", observed_at=STAMP)
     assert result.status == "available"
     assert result.source == "psutil:virtual_memory"
     assert result.values == {"total_bytes": 1000, "available_bytes": 250, "used_percent": 75.0}
@@ -162,10 +164,53 @@ def test_memory_collector_falls_back_when_psutil_is_missing(monkeypatch: pytest.
         raise ImportError(name)
 
     monkeypatch.setattr("sentientos.host_collectors.importlib.import_module", missing)
-    result = collect_memory_observation(observed_at=STAMP)
+    monkeypatch.setattr("sentientos.host_collectors.os.sysconf",
+        lambda name: {"SC_PAGE_SIZE": 4096, "SC_PHYS_PAGES": 1000}[name],
+        raising=False)
+    result = collect_memory_observation(system="linux", observed_at=STAMP)
     assert result.source == "standard_library:os.sysconf"
     assert result.status == "partial"
     assert result.values.get("usage_unavailable") is True
+
+
+def test_windows_memory_collector_uses_native_fallback_when_psutil_is_missing(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sentientos.host_collectors.importlib.import_module",
+        lambda name: (_ for _ in ()).throw(ImportError(name)))
+    result = collect_memory_observation(system="windows",
+        windows_memory_provider=lambda: {"total_bytes": 1000,
+            "available_bytes": 250, "used_percent": 75.0}, observed_at=STAMP)
+    assert result.status == "available"
+    assert result.source == "injected_windows_memory_provider"
+    assert result.values == {"total_bytes": 1000,
+        "available_bytes": 250, "used_percent": 75.0}
+    assert validate_host_collector_result(result).ok
+
+    unavailable = collect_memory_observation(system="windows",
+        windows_memory_provider=lambda: (_ for _ in ()).throw(OSError("fixture")),
+        observed_at=STAMP)
+    assert unavailable.status == "unavailable"
+    assert unavailable.source == "injected_windows_memory_provider"
+    assert validate_host_collector_result(unavailable).ok
+
+
+def test_windows_cpu_collector_uses_native_fallback_without_psutil(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sentientos.host_collectors.importlib.import_module",
+        lambda name: (_ for _ in ()).throw(ImportError(name)))
+    result = collect_cpu_observation(system="windows",
+        windows_cpu_utilization_provider=lambda: 28.5, observed_at=STAMP)
+    assert result.status == "available"
+    assert result.source == "injected_windows_cpu_utilization"
+    assert result.values["utilization_percent"] == 28.5
+    assert validate_host_collector_result(result).ok
+
+
+def test_windows_cpu_counter_delta_excludes_idle_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    samples = iter(((100, 200, 300), (110, 240, 320)))
+    monkeypatch.setattr("sentientos.host_collectors.time.sleep", lambda _: None)
+    utilization = _windows_cpu_utilization(system_times_provider=lambda: next(samples))
+    assert utilization == pytest.approx(83.3333333333)
 
 
 def test_linux_cpu_features_are_explicit_tri_state_facts() -> None:
@@ -320,7 +365,9 @@ def test_nvml_absence_and_initialization_failure_remain_unavailable(monkeypatch)
 
     monkeypatch.setattr(collectors.importlib, "import_module",
         lambda _name: (_ for _ in ()).throw(ImportError("not installed")))
-    absent = collect_nvidia_gpu_observation(observed_at=STAMP)
+    absent = collect_nvidia_gpu_observation(observed_at=STAMP,
+        nvidia_smi_query_provider=lambda: (_ for _ in ()).throw(
+            FileNotFoundError("fixture")))
 
     class FailedProvider(NvmlFixture):
         def nvmlInit(self): raise RuntimeError("fixture init failure")
@@ -331,6 +378,70 @@ def test_nvml_absence_and_initialization_failure_remain_unavailable(monkeypatch)
     assert any(f.code == "nvml_observation_failed" for f in failed.findings)
     assert validate_host_collector_result(absent).ok
     assert validate_host_collector_result(failed).ok
+
+
+def test_nvidia_smi_fallback_reports_bounded_device_wide_metrics(monkeypatch):
+    import sentientos.host_collectors as collectors
+
+    monkeypatch.setattr(collectors.importlib, "import_module",
+        lambda _name: (_ for _ in ()).throw(ImportError("not installed")))
+    timings = iter((10.0, 10.08))
+    result = collect_nvidia_gpu_observation(
+        nvidia_smi_query_provider=lambda: "0, 64, 50, 1000, 400, 72, 125.0\n",
+        observed_at=STAMP, monotonic=lambda: next(timings))
+
+    assert result.status == "available"
+    assert result.source == "nvidia-smi:device-wide-query"
+    assert result.values["sample_scope"] == "device_wide"
+    assert result.values["per_process_attribution_available"] is False
+    device = result.values["devices"][0]
+    assert device["gpu_utilization_percent"] == 64.0
+    assert device["vram_total_bytes"] == 1000 * 1024 * 1024
+    assert device["vram_used_bytes"] == 400 * 1024 * 1024
+    assert device["temperature_c"] == 72.0
+    assert device["power_watts"] == 125.0
+    assert result.network_performed is False
+    assert result.host_mutation_performed is False
+    assert validate_host_collector_result(result).ok
+
+
+def test_nvidia_smi_fallback_keeps_unavailable_metrics_explicit(monkeypatch):
+    import sentientos.host_collectors as collectors
+
+    monkeypatch.setattr(collectors.importlib, "import_module",
+        lambda _name: (_ for _ in ()).throw(ImportError("not installed")))
+    result = collect_nvidia_gpu_observation(
+        nvidia_smi_query_provider=lambda: "0, 10, 20, N/A, N/A, N/A, N/A\n",
+        observed_at=STAMP)
+    assert result.status == "partial"
+    device = result.values["devices"][0]
+    assert device["gpu_utilization_percent"] == 10.0
+    assert device["vram_utilization_percent"] is None
+    assert set(device["unavailable_measurements"]) == {"memory", "temperature", "power"}
+    assert validate_host_collector_result(result).ok
+
+
+def test_nvidia_smi_runner_uses_only_bounded_device_wide_query(monkeypatch):
+    import sentientos.host_collectors as collectors
+
+    calls = []
+    monkeypatch.setattr(collectors.shutil, "which", lambda name: "C:/nvidia-smi.exe")
+
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return SimpleNamespace(returncode=0,
+            stdout="0, 1, 2, 12288, 1164, 41, 11\n")
+
+    monkeypatch.setattr(collectors.subprocess, "run", run)
+    output = _run_nvidia_smi_query()
+    argv, kwargs = calls[0]
+    assert output.startswith("0, 1, 2")
+    assert argv == ["C:/nvidia-smi.exe",
+        "--query-gpu=index,utilization.gpu,utilization.memory,memory.total,memory.used,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"]
+    assert kwargs["shell"] is False
+    assert kwargs["timeout"] < 1.0
+    assert kwargs["capture_output"] is True
 
 
 def test_network_collector_reads_interfaces_without_connectivity_check() -> None:

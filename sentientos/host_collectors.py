@@ -9,12 +9,15 @@ controls.
 from __future__ import annotations
 
 import ctypes
+import csv
 import fnmatch
 import importlib
+import io
 import math
 import os
 import platform
 import shutil
+import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -220,17 +223,63 @@ def _psutil_memory_provider() -> Mapping[str, Any] | None:
     }
 
 
-def collect_memory_observation(*, memory_provider: MemoryProvider | None = None, observed_at: str | None = None) -> HostCollectorResult:
+def _windows_memory_status() -> Mapping[str, Any]:
+    """Read system-wide physical memory counters with GlobalMemoryStatusEx."""
+    from ctypes import wintypes
+
+    class MemoryStatusEx(ctypes.Structure):
+        _fields_ = [
+            ("dwLength", wintypes.DWORD),
+            ("dwMemoryLoad", wintypes.DWORD),
+            ("ullTotalPhys", ctypes.c_ulonglong),
+            ("ullAvailPhys", ctypes.c_ulonglong),
+            ("ullTotalPageFile", ctypes.c_ulonglong),
+            ("ullAvailPageFile", ctypes.c_ulonglong),
+            ("ullTotalVirtual", ctypes.c_ulonglong),
+            ("ullAvailVirtual", ctypes.c_ulonglong),
+            ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+        ]
+
+    status = MemoryStatusEx()
+    status.dwLength = ctypes.sizeof(status)
+    if not ctypes.windll.kernel32.GlobalMemoryStatusEx(  # type: ignore[attr-defined]
+            ctypes.byref(status)):
+        raise OSError("GlobalMemoryStatusEx_failed")
+    total = int(status.ullTotalPhys)
+    available = int(status.ullAvailPhys)
+    if total <= 0 or not 0 <= available <= total:
+        raise ValueError("GlobalMemoryStatusEx_values_invalid")
+    return {"total_bytes": total, "available_bytes": available,
+        "used_percent": round(100.0 * (total - available) / total, 6)}
+
+
+def collect_memory_observation(*, memory_provider: MemoryProvider | None = None,
+        system: str | None = None,
+        windows_memory_provider: MemoryProvider | None = None,
+        observed_at: str | None = None) -> HostCollectorResult:
     provider = memory_provider or _psutil_memory_provider
     source = "injected_memory_provider" if memory_provider is not None else "psutil:virtual_memory"
+    os_family = (system or platform.system() or "unknown").lower()
     try:
         supplied = dict(provider() or {})
     except Exception as exc:  # deterministic tests may inject failing providers
         if memory_provider is None and isinstance(exc, ImportError):
             supplied = {}
+        elif memory_provider is None and os_family == "windows":
+            supplied = {}
         else:
             return _result("memory", "error", observed_at=observed_at, source=source, findings=(_finding("memory_provider_error", "warning", str(exc)),), warnings=("memory_unavailable",))
     values: dict[str, Any] = dict(supplied)
+    if not values and memory_provider is None and os_family == "windows":
+        windows_provider = windows_memory_provider or _windows_memory_status
+        source = ("injected_windows_memory_provider" if windows_memory_provider
+            is not None else "windows_api:GlobalMemoryStatusEx")
+        try:
+            values = dict(windows_provider() or {})
+        except Exception as exc:
+            return _result("memory", "unavailable", observed_at=observed_at,
+                source=source, findings=(_finding("memory_details_unavailable", "info",
+                    type(exc).__name__),), warnings=("sensor_unavailable:memory",))
     if values:
         return _result(
             "memory",
@@ -263,20 +312,67 @@ def _psutil_cpu_utilization() -> float:
     return float(psutil.cpu_percent(interval=0.1))
 
 
+def _windows_system_times() -> tuple[int, int, int]:
+    """Return machine-wide idle, kernel, and user time counters in 100 ns units."""
+    from ctypes import wintypes
+
+    idle = wintypes.FILETIME()
+    kernel = wintypes.FILETIME()
+    user = wintypes.FILETIME()
+    if not ctypes.windll.kernel32.GetSystemTimes(  # type: ignore[attr-defined]
+            ctypes.byref(idle), ctypes.byref(kernel), ctypes.byref(user)):
+        raise OSError("GetSystemTimes_failed")
+
+    def ticks(value: Any) -> int:
+        return (int(value.dwHighDateTime) << 32) | int(value.dwLowDateTime)
+
+    return ticks(idle), ticks(kernel), ticks(user)
+
+
+def _windows_cpu_utilization(*, system_times_provider: Callable[[], tuple[int, int, int]] | None = None,
+        interval_seconds: float = 0.1) -> float:
+    """Compute host-wide busy percent from two read-only Windows API samples."""
+    provider = system_times_provider or _windows_system_times
+    before = provider()
+    time.sleep(interval_seconds)
+    after = provider()
+    idle_delta = after[0] - before[0]
+    kernel_delta = after[1] - before[1]
+    user_delta = after[2] - before[2]
+    total_delta = kernel_delta + user_delta
+    if (min(idle_delta, kernel_delta, user_delta) < 0 or total_delta <= 0
+            or idle_delta > total_delta):
+        raise ValueError("GetSystemTimes_delta_invalid")
+    return 100.0 * (total_delta - idle_delta) / total_delta
+
+
 def collect_cpu_observation(
-    *, cpu_utilization_provider: CPUUtilizationProvider | None = None, observed_at: str | None = None
+    *, cpu_utilization_provider: CPUUtilizationProvider | None = None,
+    system: str | None = None,
+    windows_cpu_utilization_provider: CPUUtilizationProvider | None = None,
+    observed_at: str | None = None
 ) -> HostCollectorResult:
     values: dict[str, Any] = {"cpu_count": os.cpu_count(), "processor": platform.processor() or "unknown", "utilization_percent": None}
     findings = []
     source = "standard_library:os,platform"
-    provider = cpu_utilization_provider or _psutil_cpu_utilization
+    os_family = (system or platform.system() or "unknown").lower()
+    if cpu_utilization_provider is not None:
+        provider = cpu_utilization_provider
+        provider_source = "injected_cpu_utilization_provider"
+    elif os_family == "windows":
+        provider = windows_cpu_utilization_provider or _windows_cpu_utilization
+        provider_source = ("injected_windows_cpu_utilization" if
+            windows_cpu_utilization_provider is not None else "windows_api:GetSystemTimes")
+    else:
+        provider = _psutil_cpu_utilization
+        provider_source = "psutil:cpu_percent(interval=0.1)"
     try:
         utilization = provider()
         if isinstance(utilization, (int, float)) and not isinstance(utilization, bool):
             utilization = float(utilization)
             if math.isfinite(utilization) and 0 <= utilization <= 100:
                 values["utilization_percent"] = round(utilization, 6)
-                source = "injected_cpu_utilization_provider" if cpu_utilization_provider is not None else "psutil:cpu_percent(interval=0.1)"
+                source = provider_source
             else:
                 findings.append(_finding("cpu_utilization_invalid", "warning", "CPU utilization sample was outside the finite 0–100 percent range."))
         elif utilization is not None:
@@ -437,9 +533,144 @@ def collect_accelerator_observation(
                    risks=("hardware_identity_is_not_runtime_availability",) if devices else ())
 
 
+_NVIDIA_SMI_QUERY = (
+    "index,utilization.gpu,utilization.memory,memory.total,memory.used,"
+    "temperature.gpu,power.draw")
+_NVIDIA_SMI_TIMEOUT_SECONDS = 0.75
+_NVIDIA_SMI_OUTPUT_LIMIT_BYTES = 65_536
+
+
+def _run_nvidia_smi_query() -> str:
+    """Run only a bounded device-wide nvidia-smi telemetry query."""
+    executable = shutil.which("nvidia-smi")
+    if not executable:
+        raise FileNotFoundError("nvidia_smi_not_found")
+    options: dict[str, Any] = {}
+    if os.name == "nt":
+        startup_info = subprocess.STARTUPINFO()  # type: ignore[attr-defined]
+        startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # type: ignore[attr-defined]
+        startup_info.wShowWindow = subprocess.SW_HIDE  # type: ignore[attr-defined]
+        options["startupinfo"] = startup_info
+        options["creationflags"] = subprocess.CREATE_NO_WINDOW  # type: ignore[attr-defined]
+    completed = subprocess.run(
+        [executable, f"--query-gpu={_NVIDIA_SMI_QUERY}",
+         "--format=csv,noheader,nounits"],
+        shell=False, capture_output=True, text=True, encoding="utf-8",
+        errors="replace", timeout=_NVIDIA_SMI_TIMEOUT_SECONDS, check=False,
+        **options,
+    )
+    if completed.returncode != 0:
+        raise OSError("nvidia_smi_query_failed")
+    if len(completed.stdout.encode("utf-8", "replace")) > _NVIDIA_SMI_OUTPUT_LIMIT_BYTES:
+        raise ValueError("nvidia_smi_output_oversized")
+    return completed.stdout
+
+
+def _nvidia_smi_observation(raw: str, *, observed_at: str | None,
+        elapsed: float | None) -> HostCollectorResult:
+    source = "nvidia-smi:device-wide-query"
+    if not isinstance(raw, str) or len(raw.encode("utf-8", "replace")) > _NVIDIA_SMI_OUTPUT_LIMIT_BYTES:
+        return _result("nvidia_gpu", "unavailable", observed_at=observed_at,
+            source=source, findings=(_finding("nvidia_smi_output_invalid", "warning"),),
+            warnings=("sensor_unavailable:nvidia_gpu",),
+            privacy_notes=("Samples are device-wide; no process list or process attribution is queried.",))
+    devices: list[dict[str, Any]] = []
+    findings: list[HostCollectorFinding] = []
+
+    def metric(raw_value: str, *, integer: bool = False) -> float | int | None:
+        value = raw_value.strip()
+        if not value or value.casefold() in {"n/a", "[n/a]", "not supported", "[not supported]"}:
+            return None
+        try:
+            number = float(value)
+        except ValueError:
+            return None
+        if not math.isfinite(number):
+            return None
+        return int(number) if integer and number.is_integer() else number
+
+    try:
+        rows = csv.reader(io.StringIO(raw, newline=""), strict=True)
+        for row in rows:
+            if not row or all(not value.strip() for value in row):
+                continue
+            if len(row) != 7 or len(devices) >= 32:
+                raise ValueError("nvidia_smi_row_shape_invalid")
+            index_value = metric(row[0], integer=True)
+            gpu_util = metric(row[1])
+            memory_util = metric(row[2])
+            total_mib = metric(row[3])
+            used_mib = metric(row[4])
+            temperature = metric(row[5])
+            power = metric(row[6])
+            if (index_value is None or isinstance(index_value, bool)
+                    or index_value < 0 or any(device["index"] == index_value
+                        for device in devices)):
+                raise ValueError("nvidia_smi_device_index_invalid")
+            missing: list[str] = []
+            if gpu_util is None or not 0 <= gpu_util <= 100:
+                gpu_util = None
+                missing.append("utilization")
+            if memory_util is None or not 0 <= memory_util <= 100:
+                memory_util = None
+                if "utilization" not in missing:
+                    missing.append("memory_utilization")
+            total_bytes = (int(total_mib * 1024 * 1024)
+                if total_mib is not None and total_mib > 0 else None)
+            used_bytes = (int(used_mib * 1024 * 1024)
+                if used_mib is not None and used_mib >= 0 else None)
+            if total_bytes is None or used_bytes is None or used_bytes > total_bytes:
+                total_bytes = used_bytes = None
+                missing.append("memory")
+            if temperature is None:
+                missing.append("temperature")
+            elif not 0 <= temperature <= 150:
+                temperature = None
+                missing.append("temperature")
+            if power is None:
+                missing.append("power")
+            elif power < 0:
+                power = None
+                missing.append("power")
+            if not isinstance(index_value, int):
+                raise ValueError("nvidia_smi_device_index_invalid")
+            device = {"index": index_value,
+                "gpu_utilization_percent": gpu_util,
+                "memory_utilization_percent": memory_util,
+                "vram_total_bytes": total_bytes,
+                "vram_used_bytes": used_bytes,
+                "vram_free_bytes": total_bytes - used_bytes
+                    if total_bytes is not None and used_bytes is not None else None,
+                "vram_utilization_percent": round(100.0 * used_bytes / total_bytes, 6)
+                    if total_bytes is not None and used_bytes is not None else None,
+                "temperature_c": temperature,
+                "power_watts": power,
+                "unavailable_measurements": missing}
+            devices.append(device)
+            findings.extend(_finding("nvidia_smi_measurement_unavailable", "info",
+                f"device:{index_value}:{name}") for name in missing)
+    except (csv.Error, TypeError, ValueError, OverflowError):
+        return _result("nvidia_gpu", "unavailable", observed_at=observed_at,
+            source=source, findings=(_finding("nvidia_smi_output_invalid", "warning"),),
+            warnings=("sensor_unavailable:nvidia_gpu",),
+            privacy_notes=("Samples are device-wide; no process list or process attribution is queried.",))
+    values = {"devices": devices, "device_count": len(devices),
+        "collector_overhead_seconds": elapsed, "sample_scope": "device_wide",
+        "per_process_attribution_available": False}
+    has_measurement = any(any(value is not None for key, value in device.items()
+        if key not in {"index", "unavailable_measurements"}) for device in devices)
+    status = "unavailable" if not devices else (
+        "partial" if findings or not has_measurement else "available")
+    warnings = (("sensor_unavailable:nvidia_gpu",) if status == "unavailable" else ())
+    return _result("nvidia_gpu", status, observed_at=observed_at,
+        source=source, values=values, findings=findings, warnings=warnings,
+        privacy_notes=("Samples are device-wide; no process list or process attribution is queried.",))
+
+
 def collect_nvidia_gpu_observation(
     *,
     nvml_provider: Any = None,
+    nvidia_smi_query_provider: Callable[[], str] | None = None,
     observed_at: str | None = None,
     monotonic: Callable[[], float] = time.perf_counter,
 ) -> HostCollectorResult:
@@ -454,13 +685,22 @@ def collect_nvidia_gpu_observation(
         try:
             nvml_provider = importlib.import_module("pynvml")
         except (ImportError, ModuleNotFoundError):
-            return _result(
-                "nvidia_gpu", "unavailable", observed_at=observed_at,
-                source="optional_python:nvidia-ml-py/NVML",
-                findings=(_finding("nvml_dependency_unavailable", "info"),),
-                warnings=("sensor_unavailable:nvidia_gpu",),
-                privacy_notes=("No network, device control, or per-process inspection is performed.",),
-            )
+            query_provider = nvidia_smi_query_provider or _run_nvidia_smi_query
+            try:
+                raw = query_provider()
+                fallback_elapsed = monotonic() - started
+            except Exception:
+                return _result(
+                    "nvidia_gpu", "unavailable", observed_at=observed_at,
+                    source="optional_python:nvidia-ml-py/NVML;nvidia-smi:unavailable",
+                    findings=(_finding("nvml_dependency_unavailable", "info"),
+                        _finding("nvidia_smi_observation_unavailable", "info")),
+                    warnings=("sensor_unavailable:nvidia_gpu",),
+                    privacy_notes=("No GPU control or per-process inspection is performed.",),
+                )
+            return _nvidia_smi_observation(raw, observed_at=observed_at,
+                elapsed=fallback_elapsed if math.isfinite(fallback_elapsed)
+                    and fallback_elapsed >= 0 else None)
 
     initialized = False
     devices: list[dict[str, Any]] = []
