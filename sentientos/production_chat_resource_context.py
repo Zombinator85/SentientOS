@@ -31,7 +31,7 @@ class ProductionChatResourceContextOwner:
     __slots__ = (
         "allocator", "allocation", "principal", "authenticated", "current",
         "policy", "_installation_identity", "_provisioning_id", "_nonce_source",
-        "_clock", "_ledger_owner_lock",
+        "_clock", "_ledger_owner_lock", "_closed",
     )
 
     def __init__(
@@ -96,6 +96,7 @@ class ProductionChatResourceContextOwner:
         self._nonce_source = nonce_source
         self._clock = clock
         self._ledger_owner_lock = ledger_owner_lock
+        self._closed = False
 
     @property
     def has_single_process_custody(self) -> bool:
@@ -110,13 +111,21 @@ class ProductionChatResourceContextOwner:
         return self._provisioning_id
 
     def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
         lock = self._ledger_owner_lock
         self._ledger_owner_lock = None
         if lock is not None:
             lock.__exit__(None, None, None)
 
+    def _require_open(self) -> None:
+        if self._closed:
+            raise GovernedLocalModelResourceError("resource_context_owner_closed")
+
     def next_context(self) -> GovernedLocalModelResourceInvocationContext:
         """Create one context from custody alone, with one fresh trusted nonce."""
+        self._require_open()
         nonce = self._nonce_source()
         if type(nonce) is not str or not nonce:
             raise GovernedLocalModelResourceError("invalid_durable_attempt_nonce")
@@ -138,6 +147,7 @@ class ProductionChatResourceContextOwner:
         invocation entitlement. It does not reserve host memory or exercise
         hardware-control authority.
         """
+        self._require_open()
         current_time = self._clock()
         if type(current_time) is not str or not current_time:
             raise GovernedLocalModelResourceError("invalid_current_time")

@@ -96,6 +96,25 @@ def test_owner_rejects_substitutes_bad_nonce_and_cross_binding(tmp_path):
         custody.next_context()
 
 
+def test_closed_owner_cannot_issue_context_or_serving_entitlement(tmp_path, monkeypatch):
+    # This test exercises only the owner's lifecycle guard. The repository's
+    # durable directory-fsync implementation is POSIX-only, so keep this small
+    # object-lifecycle fixture independent of host filesystem capabilities.
+    monkeypatch.setattr(
+        GovernedLocalModelResourceLedger, "_persist_candidate",
+        lambda self, candidate: setattr(self, "_state", candidate))
+    custody, *_ = owner(tmp_path)
+    custody.close()
+    assert not custody.has_single_process_custody
+    with pytest.raises(GovernedLocalModelResourceError,
+                       match="resource_context_owner_closed"):
+        custody.next_context()
+    with pytest.raises(GovernedLocalModelResourceError,
+                       match="resource_context_owner_closed"):
+        custody.serving_admission_entitlement_binding()
+    custody.close()
+
+
 def test_production_chat_rejects_resource_owner_from_another_installation(
         monkeypatch, tmp_path):
     installation, artifacts = provisioning_inputs(tmp_path)
