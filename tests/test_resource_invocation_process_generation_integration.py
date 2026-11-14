@@ -33,6 +33,7 @@ from sentientos.codex_task_authority_admission import (
 from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
 from sentientos.runtime_admission import RuntimeAdmissionVerifier
 from sentientos.host_resource_runtime import resource_consumption_world_state_records
+from sentientos.local_model_authority import digest_payload
 from sentientos.developmental_model_replacement_experiment import (
     CONDITION_ORDER, DevelopmentalModelReplacementError,
     DevelopmentalModelReplacementExperiment, FrozenCausalContext, _digest,
@@ -176,6 +177,13 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         linked_digests = tuple(linked_invocation["resource_consumption_receipt_digests"])
         assert len(linked_digests) == 2
         linked_invocation["resource_consumption_receipt_digests"] = linked_digests[:1]
+        linked_invocation["resource_linkage_digest"] = digest_payload({
+            "receipt_digest": linked_invocation["receipt_digest"],
+            "allocation_digest": linked_invocation["resource_allocation_digest"],
+            "attempt_id": linked_invocation["resource_attempt_id"],
+            "consumption_receipt_digests": tuple(
+                linked_invocation["resource_consumption_receipt_digests"]),
+        })
         incomplete_linkage = resource_consumption_world_state_records(
             ledger=observation.ledger,
             invocation_receipts=(linked_invocation,),
