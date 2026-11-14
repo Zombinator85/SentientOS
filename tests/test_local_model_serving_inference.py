@@ -4314,11 +4314,15 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         comparison = release["resource_measurement_comparison"]
         assert comparison["before"] is None
         assert comparison["before_sample_kind"] == "unavailable"
+        assert comparison["after"]["host_report_id"]
+        assert comparison["after"]["host_report_digest"]
         assert comparison["after"]["gpu_utilization_percent"] == 22.0
+        assert comparison["after"]["ram_utilization_percent"] == 40.0
         assert comparison["after"]["vram_utilization_percent"] == 47.0
         assert comparison["gpu_utilization_delta_percentage_points"] is None
         assert comparison["vram_utilization_delta_percentage_points"] is None
         assert comparison["cpu_utilization_delta_percentage_points"] is None
+        assert comparison["ram_utilization_delta_percentage_points"] is None
         assert comparison["interpretation"] == (
             "sample_delta_only; telemetry_does_not_establish_causation")
         assert release["inference_performed"] is False

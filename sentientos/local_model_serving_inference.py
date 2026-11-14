@@ -2092,13 +2092,24 @@ class ProductionServingInferenceController:
             if value is None:
                 return None
             return {key: value.get(key) for key in (
-                "status", "report_id", "observed_at", "pressure_labels",
+                "status", "report_id", "report_digest", "observed_at",
+                "pressure_labels",
                 "cpu_utilization_percent", "gpu_utilization_percent",
-                "vram_utilization_percent", "gpu_telemetry_available",
+                "ram_utilization_percent", "vram_utilization_percent",
+                "gpu_telemetry_available",
                 "gpu_telemetry_complete", "gpu_telemetry_sources")}
 
-        before_values = sample_fields(before_sample)
-        after_values = sample_fields(after_sample)
+        def release_sample(value: Mapping[str, Any] | None
+                ) -> dict[str, Any] | None:
+            if value is None:
+                return None
+            sample = dict(value)
+            sample["host_report_id"] = sample.pop("report_id")
+            sample["host_report_digest"] = sample.pop("report_digest")
+            return sample
+
+        before_values = release_sample(sample_fields(before_sample))
+        after_values = release_sample(sample_fields(after_sample))
         gpu_delta = (after_values["gpu_utilization_percent"]
             - before_values["gpu_utilization_percent"]
             if before_values is not None and after_values is not None
@@ -2114,6 +2125,18 @@ class ProductionServingInferenceController:
             if before_values is not None and after_values is not None
             and isinstance(before_values["cpu_utilization_percent"], (int, float))
             and isinstance(after_values["cpu_utilization_percent"], (int, float)) else None)
+        ram_delta = (after_values["ram_utilization_percent"]
+            - before_values["ram_utilization_percent"]
+            if before_values is not None and after_values is not None
+            and isinstance(before_values["ram_utilization_percent"], (int, float))
+            and not isinstance(before_values["ram_utilization_percent"], bool)
+            and isinstance(after_values["ram_utilization_percent"], (int, float))
+            and not isinstance(after_values["ram_utilization_percent"], bool)
+            and math.isfinite(float(before_values["ram_utilization_percent"]))
+            and math.isfinite(float(after_values["ram_utilization_percent"]))
+            and 0 <= float(before_values["ram_utilization_percent"]) <= 100
+            and 0 <= float(after_values["ram_utilization_percent"]) <= 100
+            else None)
         outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v5",
             "status": "worker_closed" if closed else
                 "release_effect_unconfirmed" if decision_valid else
@@ -2142,13 +2165,15 @@ class ProductionServingInferenceController:
                     "model_gpu_layers": gpu_layers, "host_telemetry_used_for_admission": False}),
             "resource_measurement_comparison": {
                 "status": ("comparable" if gpu_delta is not None or vram_delta is not None
-                    or cpu_delta is not None else "insufficient_gpu_measurements"),
+                    or cpu_delta is not None or ram_delta is not None
+                    else "insufficient_gpu_measurements"),
                 "before": before_values, "after": after_values,
                 "before_sample_kind": ("recent_cached_observation"
                     if before_values is not None else "unavailable"),
                 "gpu_utilization_delta_percentage_points": gpu_delta,
                 "vram_utilization_delta_percentage_points": vram_delta,
                 "cpu_utilization_delta_percentage_points": cpu_delta,
+                "ram_utilization_delta_percentage_points": ram_delta,
                 "interpretation": "sample_delta_only; telemetry_does_not_establish_causation"},
             "active_inference_preemption_requested": preempt_active_generation,
             "active_inference_cancellation_confirmed":
