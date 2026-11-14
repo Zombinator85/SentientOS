@@ -3961,6 +3961,17 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                 assert resource_ledger.remaining_calls(resource_allocation_id) == 1
                 assert len(resource_ledger._state["attempts"]) == 1
                 invocation_receipt = invocation_results["receipt"]
+                durable_receipt_path = (serving._handle.root
+                    / "local-model" / "inference" / "receipts"
+                    / f"{invocation_receipt.receipt_id}.json")
+                durable_invocation_receipt = json.loads(
+                    durable_receipt_path.read_text(encoding="utf-8"))
+                assert durable_invocation_receipt == invocation_receipt.to_dict()
+                durable_receipt_valid, durable_receipt_findings = validate_receipt(
+                    durable_invocation_receipt)
+                assert durable_receipt_valid, durable_receipt_findings
+                assert durable_invocation_receipt["cancellation_preemption_ref"] == (
+                    dict(invocation_receipt.cancellation_preemption_ref))
                 resource_receipts = resource_ledger._state["receipts"][-3:]
                 assert invocation_receipt.status == "cancelled"
                 assert [item["state"] for item in resource_receipts] == [
@@ -3979,7 +3990,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                 )
                 projected_resource = resource_consumption_world_state_records(
                     ledger=resource_ledger,
-                    invocation_receipts=[invocation_receipt.to_dict()])[0]
+                    invocation_receipts=[durable_invocation_receipt])[0]
                 assert projected_resource["disposition"] == "recorded"
                 assert projected_resource["payload"]["invocation_receipts"][0][
                     "cancellation_admission_decision_ref"] == (
@@ -4028,7 +4039,6 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             assert frame_evidence["status"] == "current"
             assert isinstance(frame_evidence["game_performance_message_id"], str)
             assert frame_evidence["game_performance_message_id"]
-            from sentientos.governed_local_model_invocation import validate_receipt
             valid_cancelled_receipt, cancelled_receipt_findings = validate_receipt(
                 cancelled_receipt.to_dict())
             assert valid_cancelled_receipt, cancelled_receipt_findings
