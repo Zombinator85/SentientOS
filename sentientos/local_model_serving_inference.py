@@ -1062,6 +1062,11 @@ class ProductionServingInferenceController:
                     return {"status": "skipped", "reason": "active_inference_changed"}
             if not active_invoker.backend_work_pending():
                 return {"status": "skipped", "reason": "active_backend_work_required"}
+            active_request_reference = (
+                active_invoker.active_invocation_request_reference())
+            if not isinstance(active_request_reference, Mapping):
+                return {"status": "skipped",
+                    "reason": "active_invocation_identity_required"}
             workload = self.current_workload_state()
             if workload.get("configured_mode") != "normal":
                 return {"status": "skipped", "reason": "normal_workload_mode_not_current"}
@@ -1072,7 +1077,9 @@ class ProductionServingInferenceController:
                 return {"status": "skipped",
                     "reason": "active_host_pressure_observation_throttled"}
             self._last_active_host_resource_sample_at = sample_started_at
-            correlation_id = "active-normal-host-resource-preemption-" + str(time.time_ns())
+            correlation_id = ("active-inference-preemption:"
+                + digest_payload(dict(active_request_reference)) + ":"
+                + str(time.time_ns()))
             observation = self._observe_host_resources(
                 correlation_id, observation_namespace="local-chat-reconciliation")
             labels = observation.get("pressure_labels")
@@ -1501,6 +1508,7 @@ class ProductionServingInferenceController:
                     and workload.get("game_process_running") is not True)
                 or not isinstance(message_id, str) or not message_id):
             return None
+        active_request_reference = self._active_inference_request_reference()
         identity = getattr(model, "active_identity", None)
         if identity is None or not callable(getattr(identity, "to_dict", None)):
             return None
@@ -1508,9 +1516,13 @@ class ProductionServingInferenceController:
         # correlation IDs, while an earlier cancellation attempt may have been
         # admitted but not confirmed by the invocation owner.
         attempt_nonce = str(time.time_ns())
-        correlation_id = "active-game-inference-preemption-" + hashlib.sha256(
-            (session.session_id + ":" + message_id + ":" + attempt_nonce)
-            .encode("utf-8")).hexdigest()[:24]
+        request_identity_digest = (digest_payload(dict(active_request_reference))
+            if isinstance(active_request_reference, Mapping) else
+            digest_payload({"active_invocation": "unavailable"}))
+        correlation_id = ("active-inference-preemption:"
+            + request_identity_digest + ":"
+            + hashlib.sha256((session.session_id + ":" + message_id + ":"
+                + attempt_nonce).encode("utf-8")).hexdigest()[:24])
         request = ControlActionRequest(
             action_kind="local_model_inference_preemption",
             authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,

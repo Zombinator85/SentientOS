@@ -25,7 +25,7 @@ from sentientos.governed_local_model_invocation import (
     RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA,
     RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA,
 )
-from sentientos.local_model_authority import build_local_model_authority_map
+from sentientos.local_model_authority import build_local_model_authority_map, digest_payload
 from sentientos.local_model import ActiveModelIdentity, ModelLoadError
 
 class FakeModel:
@@ -304,13 +304,16 @@ def test_governed_cancellation_admission_is_bound_to_receipt(
     assert model.calls == 1
     # The invocation-owner unit test uses an allow object emitted by its kernel;
     # serving integration tests cover the actual host and game admission paths.
+    active_reference = invoker.active_invocation_request_reference()
+    assert active_reference is not None
     decision = kernel._finalize(ControlActionRequest(
         action_kind="local_model_inference_preemption",
         authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
         actor="production_chat_game_workload_governor",
         target_subsystem="governed_local_model_invocation",
         requested_phase=LifecyclePhase.RUNTIME,
-        metadata={"correlation_id": "governed-test-preemption"}),
+        metadata={"correlation_id": "active-inference-preemption:"
+            + digest_payload(dict(active_reference)) + ":governed-test"}),
         AdmissionOutcome.ALLOW, ["admitted"], {})
     with pytest.raises(ValueError, match="admission_decision_unverified"):
         invoker.cancel_pending_generation(reason="workload_transition",
@@ -335,6 +338,18 @@ def test_governed_cancellation_admission_is_bound_to_receipt(
     with pytest.raises(ValueError, match="admission_decision_unverified"):
         invoker.cancel_pending_generation(reason="workload_transition",
             cancellation_admission_decision=unpersisted_decision)
+    mismatched_decision = kernel._finalize(ControlActionRequest(
+        action_kind="local_model_inference_preemption",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="production_chat_game_workload_governor",
+        target_subsystem="governed_local_model_invocation",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"correlation_id": "active-inference-preemption:"
+            + digest_payload({**dict(active_reference), "request_id": "another-invocation"})
+            + ":governed-test"}), AdmissionOutcome.ALLOW, ["admitted"], {})
+    assert invoker.cancel_pending_generation(reason="workload_transition",
+        cancellation_admission_decision=mismatched_decision) is False
+    assert model.cancelled.is_set() is False
     assert invoker.cancel_pending_generation(reason="workload_transition",
         cancellation_admission_decision=decision) is True
     worker.join(1)

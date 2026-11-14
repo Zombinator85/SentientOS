@@ -2761,6 +2761,12 @@ def test_verified_game_presence_preempts_active_cpu_inference_without_pressure(
             encoding="utf-8").splitlines()]
     decision = next(item for item in decisions
         if item.get("action_kind") == "local_model_inference_preemption")
+    receipt_request = results["receipt"].request
+    active_request_reference = {key: receipt_request[key] for key in (
+        "request_id", "request_digest", "correlation_id")}
+    assert decision["correlation_id"].startswith(
+        "active-inference-preemption:"
+        + digest_payload(active_request_reference) + ":")
     assert decision["delegated_outcomes"]["runtime_governor"]["reason"] == (
         "allowed_verified_game_workload_inference_preemption")
     assert host_owner.collector_call_count == 2

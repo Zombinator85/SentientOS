@@ -740,6 +740,14 @@ class GovernedLocalModelInvoker:
             event = self._active_release_event
             if event is None:
                 return False
+            if inference_preemption:
+                active_reference = self._active_invocation_request_reference
+                if (not isinstance(active_reference, Mapping)
+                        or decision.correlation_id is None
+                        or not decision.correlation_id.startswith(
+                            "active-inference-preemption:"
+                            + digest_payload(dict(active_reference)) + ":")):
+                    return False
             self._active_cancel_reason = reason
             self._active_cancel_admission_ref = admission_ref
             event.set()
