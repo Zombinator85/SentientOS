@@ -863,7 +863,12 @@ class ProductionServingInferenceController:
                      "active_inference_preemption_requested": False,
                      "host_telemetry_used_for_admission": True}
                     if general_memory_pressure else
-                    {"game_workload_message_id": game_message_id}),
+                    {"game_workload_message_id": game_message_id,
+                     "gpu_utilization_percent": resource_observation.get(
+                         "gpu_utilization_percent"),
+                     "vram_utilization_percent": resource_observation.get(
+                         "vram_utilization_percent"),
+                     "host_telemetry_used_for_admission": True}),
             },
             "worker_exit_observed": worker_exit_observed,
             "close_failure": close_failure,
