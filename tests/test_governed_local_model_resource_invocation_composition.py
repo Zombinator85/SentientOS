@@ -90,6 +90,44 @@ def test_resource_backed_completion_cross_links_exact_effect_receipt_and_survive
     assert GovernedLocalModelResourceLedger(ledger.path).remaining_calls(context.allocation.allocation_id) == 1
 
 
+def test_inference_admission_records_exact_preflighted_resource_allocation(
+        tmp_path, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    decisions_path = tmp_path / "kernel-decisions.jsonl"
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        phase=LifecyclePhase.RUNTIME, decisions_path=decisions_path)
+    _, invoker, request, context, ledger = setup(tmp_path / "resource",
+        kernel=kernel)
+
+    receipt = invoker.invoke(request, resource_context=context)
+
+    assert receipt.status == "admitted_completed"
+    assert receipt.resource_allocation_digest == context.allocation.allocation_digest
+    decisions = [json.loads(line) for line in decisions_path.read_text(
+        encoding="utf-8").splitlines()]
+    decision = next(item for item in decisions
+        if item.get("action_kind") == "local_model_inference")
+    binding = decision["delegated_outcomes"]["runtime_governor"][
+        "evidence_refs"]["resource_allocation_binding"]
+    assert binding == {
+        "schema_version": (
+            "sentientos.governed_local_model_resource_allocation_admission_context:v1"),
+        "allocation_id": context.allocation.allocation_id,
+        "allocation_digest": context.allocation.allocation_digest,
+        "allocator_id": context.allocation.allocator_id,
+        "resource_kind": context.allocation.resource_kind,
+        "policy_digest": context.allocation.policy_digest,
+        "policy_epoch": context.allocation.epoch,
+        "principal_binding_digest": context.allocation.principal_binding_digest,
+    }
+    assert ledger._state["receipts"][-1]["effect_receipt_digest"] == (
+        receipt.receipt_digest)
+
+
 def test_exact_backend_resource_observation_flows_into_governed_allocation_receipt(tmp_path):
     class MeasuredModel(Model):
         supports_per_invocation_thread_limit = True

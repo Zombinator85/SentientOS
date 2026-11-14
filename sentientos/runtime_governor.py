@@ -3580,7 +3580,8 @@ class RuntimeGovernor:
                             "gaming_workload_profile_host_pressure",
                             "gaming_workload_profile_resource_telemetry_incomplete",
                             "gaming_workload_profile_evidence",
-                            "resource_observation_evidence")
+                            "resource_observation_evidence",
+                            "resource_allocation_binding")
                 if metadata is not None and key in metadata
             },
         )

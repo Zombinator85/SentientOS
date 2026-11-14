@@ -397,6 +397,18 @@ def test_current_host_pressure_defers_optional_foreground_inference_by_resource_
             if item.get("action_kind") == "local_model_inference")
         delegated = inference_decision["delegated_outcomes"]["runtime_governor"]
         assert delegated["evidence_refs"]["host_resource_evidence"]["status"] == "current"
+        assert delegated["evidence_refs"]["resource_allocation_binding"] == {
+            "schema_version": (
+                "sentientos.governed_local_model_resource_allocation_admission_context:v1"),
+            "allocation_id": resource_context.allocation.allocation_id,
+            "allocation_digest": resource_context.allocation.allocation_digest,
+            "allocator_id": resource_context.allocation.allocator_id,
+            "resource_kind": resource_context.allocation.resource_kind,
+            "policy_digest": resource_context.allocation.policy_digest,
+            "policy_epoch": resource_context.allocation.epoch,
+            "principal_binding_digest": (
+                resource_context.allocation.principal_binding_digest),
+        }
         expected_label = f"{pressure_kind}_pressure"
         assert delegated["evidence_refs"]["observed_pressure_labels"] == [expected_label]
         assert delegated["reason"] == expected_reason

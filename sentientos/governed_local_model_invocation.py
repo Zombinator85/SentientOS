@@ -1030,6 +1030,7 @@ class GovernedLocalModelInvoker:
             False if resource_context is not None else None)
         generated_output: str | None = None
         cancellation_admission_ref: str | None = None
+        resource_allocation_binding: dict[str, Any] | None = None
         inference_attempted = threading.Event()
         active_release_event: threading.Event | None = None
         record = self._record_for(request.model_id)
@@ -1127,6 +1128,17 @@ class GovernedLocalModelInvoker:
                     raise GovernedLocalModelResourceError("allocation_substitution")
                 if resource_context.allocator.policy != resource_context.policy or allocation.policy_digest != resource_context.policy.policy_digest or allocation.epoch != resource_context.policy.epoch:
                     raise GovernedLocalModelResourceError("allocation_policy_mismatch")
+                resource_allocation_binding = {
+                    "schema_version": (
+                        "sentientos.governed_local_model_resource_allocation_admission_context:v1"),
+                    "allocation_id": allocation.allocation_id,
+                    "allocation_digest": allocation.allocation_digest,
+                    "allocator_id": allocation.allocator_id,
+                    "resource_kind": allocation.resource_kind,
+                    "policy_digest": allocation.policy_digest,
+                    "policy_epoch": allocation.epoch,
+                    "principal_binding_digest": allocation.principal_binding_digest,
+                }
                 if (allocation.resource_specific_bounds.max_cpu_seconds_per_allocation is not None
                         and (record is None or record.engine != "llama_cpp"
                             or type(thread_limit) is not int
@@ -1148,6 +1160,12 @@ class GovernedLocalModelInvoker:
                 "purpose": request.purpose,
                 "request_digest": request.request_digest,
             }
+            if resource_allocation_binding is not None:
+                # Record the exact preflighted entitlement as admission context.
+                # The allocator's final_gate below remains authoritative for
+                # currentness and durable debit; this binding grants no effect.
+                admission_metadata["resource_allocation_binding"] = dict(
+                    resource_allocation_binding)
             host_observation = request.linkage.get("host_resource_observation")
             if isinstance(host_observation, Mapping):
                 observation_correlation_id = host_observation.get(
