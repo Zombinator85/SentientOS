@@ -869,7 +869,7 @@ class ProductionServingInferenceController:
             except Exception as exc:
                 close_failure = type(exc).__name__
         outcome = {
-            "schema_version": "sentientos.production_chat_resource_release_receipt:v5",
+            "schema_version": "sentientos.production_chat_resource_release_receipt:v6",
             "status": ("worker_closed" if close_completed else
                 "release_effect_unconfirmed" if decision_valid else
                 "admission_unrecorded" if decision.allowed
@@ -1903,7 +1903,7 @@ class ProductionServingInferenceController:
             except Exception as exc:
                 close_failure = type(exc).__name__
         outcome = {
-            "schema_version": "sentientos.production_chat_resource_release_receipt:v5",
+            "schema_version": "sentientos.production_chat_resource_release_receipt:v6",
             "status": "worker_closed" if closed else
                 "release_effect_unconfirmed" if decision_valid else
                 "admission_unrecorded" if decision.allowed
@@ -2141,7 +2141,7 @@ class ProductionServingInferenceController:
             and 0 <= float(before_values["ram_utilization_percent"]) <= 100
             and 0 <= float(after_values["ram_utilization_percent"]) <= 100
             else None)
-        outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v5",
+        outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v6",
             "status": "worker_closed" if closed else
                 "release_effect_unconfirmed" if decision_valid else
                 "admission_unrecorded" if decision.allowed

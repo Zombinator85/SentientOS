@@ -86,6 +86,8 @@ _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4 = (
     "sentientos.production_chat_resource_release_receipt:v4")
 _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5 = (
     "sentientos.production_chat_resource_release_receipt:v5")
+_RESOURCE_RELEASE_RECEIPT_SCHEMA_V6 = (
+    "sentientos.production_chat_resource_release_receipt:v6")
 _RESOURCE_RELEASE_NAME = re.compile(
     r"serving-resource-release-[0-9a-f]{24}\.json\Z")
 _MAX_RESOURCE_RELEASE_RECEIPTS = 256
@@ -380,11 +382,13 @@ class ProductionChatResourceObservationOwner:
                         _RESOURCE_RELEASE_RECEIPT_SCHEMA_V2,
                         _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3,
                         _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,
-                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5}
+                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
+                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6}
                     or (value.get("status") == "admission_unrecorded"
                         and value.get("schema_version")
                             not in {_RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,
-                                _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5})
+                                _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
+                                _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6})
                     or semantic_digest != actual_semantic_digest
                     or receipt_id != actual_receipt_id
                     or value.get("status") not in {
@@ -422,7 +426,8 @@ class ProductionChatResourceObservationOwner:
                     "resource_release_admission_outcome_status_mismatch")
             if value.get("schema_version") in {
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,
-                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5}:
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6}:
                 witness = value.get("release_admission_witness")
                 witness_fields = {
                     "schema_version", "outcome", "reason_codes", "current_phase",
@@ -457,7 +462,9 @@ class ProductionChatResourceObservationOwner:
                             witness.get("reason_codes"))):
                     raise ProductionChatResourceObservationError(
                         "resource_release_admission_witness_invalid")
-            if value.get("schema_version") == _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5:
+            if value.get("schema_version") in {
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6}:
                 host_measurement_binding_posture: str | None = None
                 witness = value.get("release_admission_witness")
                 if not isinstance(witness, Mapping):
@@ -525,7 +532,10 @@ class ProductionChatResourceObservationOwner:
                     if (isinstance(receipt_model_digest, str)
                             and receipt_model_digest.startswith("sha256:")):
                         receipt_model_digest = receipt_model_digest[7:]
-                    if (not isinstance(release_target, Mapping)
+                    target_required = (value.get("schema_version") ==
+                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6)
+                    if ((target_required or release_target is not None)
+                            and (not isinstance(release_target, Mapping)
                             or set(release_target) != {
                                 "schema_version", "serving_session_id",
                                 "model_identity_digest"}
@@ -535,7 +545,7 @@ class ProductionChatResourceObservationOwner:
                             or release_target.get("model_identity_digest")
                                 != receipt_model_digest
                             or not isinstance(receipt_model_digest, str)
-                            or re.fullmatch(r"[0-9a-f]{64}", receipt_model_digest) is None):
+                            or re.fullmatch(r"[0-9a-f]{64}", receipt_model_digest) is None)):
                         raise ProductionChatResourceObservationError(
                             "resource_release_target_binding_invalid")
                 receipt_observation = value.get("resource_observation")
@@ -681,14 +691,17 @@ class ProductionChatResourceObservationOwner:
             verified_value["serving_receipt_linkage_posture"] = "verified"
             verified_value["serving_receipt_id"] = serving_binding[1]
             verified_value["serving_receipt_semantic_digest"] = serving_binding[2]
-            if (value.get("schema_version") == _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5
+            if (value.get("schema_version") in {
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6}
                     and host_measurement_binding_posture is not None):
                 verified_value["host_measurement_binding_posture"] = (
                     host_measurement_binding_posture)
             if value.get("schema_version") in {
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3,
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,
-                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5}:
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6}:
                 request_reference = value.get("active_inference_request_reference")
                 cancellation_confirmed = (
                     value.get("active_inference_cancellation_confirmed") is True)

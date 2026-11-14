@@ -567,7 +567,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         "sentientos.production_chat_resource_release_receipt:v2",
                         "sentientos.production_chat_resource_release_receipt:v3",
                         "sentientos.production_chat_resource_release_receipt:v4",
-                        "sentientos.production_chat_resource_release_receipt:v5"}):
+                        "sentientos.production_chat_resource_release_receipt:v5",
+                        "sentientos.production_chat_resource_release_receipt:v6"}):
                 raise ValueError("resource_release_receipt_invalid")
             receipt_id = release_receipt.get("receipt_id")
             receipt_digest = release_receipt.get("receipt_semantic_digest")
@@ -620,11 +621,13 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             if (release_receipt.get("status") == "admission_unrecorded"
                     and release_receipt.get("schema_version") not in {
                         "sentientos.production_chat_resource_release_receipt:v4",
-                        "sentientos.production_chat_resource_release_receipt:v5"}):
+                        "sentientos.production_chat_resource_release_receipt:v5",
+                        "sentientos.production_chat_resource_release_receipt:v6"}):
                 raise ValueError("resource_release_admission_witness_invalid")
             if release_receipt.get("schema_version") in {
                     "sentientos.production_chat_resource_release_receipt:v4",
-                    "sentientos.production_chat_resource_release_receipt:v5"}:
+                    "sentientos.production_chat_resource_release_receipt:v5",
+                    "sentientos.production_chat_resource_release_receipt:v6"}:
                 witness = release_receipt.get("release_admission_witness")
                 witness_fields = {
                     "schema_version", "outcome", "reason_codes", "current_phase",
@@ -659,12 +662,13 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         or not _resource_release_reason_codes_valid(
                             witness.get("reason_codes"))):
                     raise ValueError("resource_release_admission_witness_invalid")
-            if release_receipt.get("schema_version") == (
-                    "sentientos.production_chat_resource_release_receipt:v5"):
+            admission_record = release_receipt.get("release_admission_record")
+            if release_receipt.get("schema_version") in {
+                    "sentientos.production_chat_resource_release_receipt:v5",
+                    "sentientos.production_chat_resource_release_receipt:v6"}:
                 witness = release_receipt.get("release_admission_witness")
                 if not isinstance(witness, Mapping):
                     raise ValueError("resource_release_admission_witness_invalid")
-                admission_record = release_receipt.get("release_admission_record")
                 expected_record_fields = {
                     "event_type", "timestamp", "final_disposition", "outcome",
                     "reason_codes", "delegate_checks_consulted", "lifecycle_phase",

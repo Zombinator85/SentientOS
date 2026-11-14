@@ -4247,7 +4247,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     decoded_releases = [json.loads(path.read_text(encoding="utf-8"))
         for path in release_receipts]
     assert all(release["schema_version"] ==
-        "sentientos.production_chat_resource_release_receipt:v5"
+        "sentientos.production_chat_resource_release_receipt:v6"
         for release in decoded_releases)
     for release in decoded_releases:
         witness = release["release_admission_witness"]

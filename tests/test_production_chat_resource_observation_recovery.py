@@ -42,7 +42,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     registry = InstallationStateRegistry(tmp_path / "state", _test_only=True)
     bundle = handle
     release_body = {
-        "schema_version": "sentientos.production_chat_resource_release_receipt:v5",
+        "schema_version": "sentientos.production_chat_resource_release_receipt:v6",
         "status": "worker_closed",
         "trigger_kind": "idle_game_gpu_residency",
         "trigger_correlation_id": "game-workload-observation",
@@ -438,6 +438,8 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             general_path.path.unlink()
 
     legacy_host_release = dict(host_evidence_release)
+    legacy_host_release["schema_version"] = (
+        "sentientos.production_chat_resource_release_receipt:v5")
     legacy_host_release["resource_observation"] = {
         **host_evidence_release["resource_observation"],
         "gpu_utilization_percent": 22.0}
@@ -445,6 +447,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     legacy_delegated = dict(host_evidence_delegated)
     legacy_governor = dict(host_evidence_governor)
     legacy_refs = dict(host_evidence_refs)
+    legacy_refs.pop("resource_release_target")
     legacy_resource_evidence = dict(
         host_evidence_refs["resource_observation_evidence"])
     legacy_resource_evidence.pop("schema_version")
