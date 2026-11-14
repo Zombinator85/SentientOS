@@ -243,7 +243,9 @@ class ExactRuntimeLocalModel:
             import psutil
             times = psutil.Process(self._process.pid).cpu_times()
             return float(times.user), float(times.system)
-        except (ImportError, OSError, ValueError):
+        except Exception:
+            # Sampling is observational and must never block cancellation when
+            # the child exits between the liveness check and the CPU read.
             return None
 
     def generate_with_metadata(self, prompt: str, history: Sequence[str] | None = None,

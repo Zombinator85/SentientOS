@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import builtins
 import os
 from pathlib import Path
 import subprocess
@@ -74,6 +75,39 @@ def test_exact_runtime_worker_samples_cpu_before_cancellation(tmp_path, monkeypa
     assert observation["system_cpu_seconds"] == pytest.approx(0.15)
     assert observation["wall_seconds"] >= 0.8
     assert observation["process_peak_rss_bytes"] is None
+    assert model.take_cancelled_generation_resource_observation() is None
+
+
+def test_exact_runtime_worker_cancellation_survives_unavailable_cpu_sample(monkeypatch):
+    class Process:
+        returncode = None
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            self.returncode = -9
+
+        def wait(self, *, timeout):
+            assert timeout == 5
+            return self.returncode
+
+    model = object.__new__(ExactRuntimeLocalModel)
+    model._process = Process()
+    model._active_generation_started_at = time.monotonic() - 0.1
+    model._active_generation_cpu_baseline = (1.0, 0.2)
+    model._cancelled_generation_resources = None
+
+    original_import = builtins.__import__
+
+    def unavailable_import(name, *args, **kwargs):
+        if name == "psutil":
+            raise RuntimeError("worker exited before CPU sample")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", unavailable_import)
+
+    assert model.cancel_pending_generation() is True
     assert model.take_cancelled_generation_resource_observation() is None
 
 
