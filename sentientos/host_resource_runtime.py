@@ -473,6 +473,15 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     lineage_findings: list[str] = []
     linked_effect_receipts: dict[str, str] = {}
     for invocation in invocation_receipts[-max_invocation_receipts:]:
+        reason_codes = invocation.get("reason_codes")
+        if (isinstance(reason_codes, (list, tuple))
+                and "cancelled_for_workload_transition" in reason_codes):
+            cancellation_ref = invocation.get("cancellation_admission_decision_ref")
+            if (not isinstance(cancellation_ref, str)
+                    or not cancellation_ref.startswith("kernel_decision:")
+                    or len(cancellation_ref) <= len("kernel_decision:")):
+                lineage_findings.append(
+                    f"workload_preemption_admission_linkage_missing:{invocation.get('receipt_id')}")
         if verified_inference_admission_decisions is not None and invocation.get("resource_allocation_digest") is not None:
             admission_witness = admission_by_receipt.get(str(invocation.get("receipt_id")))
             request = invocation.get("request")
@@ -687,6 +696,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         "resource_linkage_digest": invocation.get("resource_linkage_digest"),
         "admission_decision_ref": admission_by_receipt.get(
             str(invocation.get("receipt_id")), {}).get("admission_decision_ref"),
+        "cancellation_admission_decision_ref": invocation.get(
+            "cancellation_admission_decision_ref"),
         "chat_process_handoff_digest": (
             generation_attribution_by_receipt.get(str(invocation.get("receipt_id")), {})
                 .get("chat_process_handoff", {}).get("handoff_digest")

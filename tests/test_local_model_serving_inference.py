@@ -3785,6 +3785,17 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                     "attempt_id"]
                 assert invocation_receipt.resource_consumption_receipt_digests == tuple(
                     item["receipt_digest"] for item in resource_receipts[-2:])
+                assert invocation_receipt.cancellation_admission_decision_ref
+                from sentientos.host_resource_runtime import (
+                    resource_consumption_world_state_records,
+                )
+                projected_resource = resource_consumption_world_state_records(
+                    ledger=resource_ledger,
+                    invocation_receipts=[invocation_receipt.to_dict()])[0]
+                assert projected_resource["disposition"] == "recorded"
+                assert projected_resource["payload"]["invocation_receipts"][0][
+                    "cancellation_admission_decision_ref"] == (
+                        invocation_receipt.cancellation_admission_decision_ref)
             reconciliation = {"status": "worker_closed",
                 "trigger_kind": "idle_game_frame_pressure_reconciliation",
                 "active_inference_cancellation_confirmed": True}
