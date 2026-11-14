@@ -1915,7 +1915,9 @@ class RuntimeGovernor:
             if evidence_valid:
                 evidence_ref = {
                     "status": "current", "observation_correlation_id": observation_id,
-                    "host_report_id": report_id, "game_workload_message_id": game_message_id,
+                    "host_report_id": report_id,
+                    "host_report_digest": raw_report_digest,
+                    "game_workload_message_id": game_message_id,
                     "gpu_utilization_percent": gpu_value,
                     "vram_utilization_percent": vram_value,
                     "age_seconds": (round(release_age_seconds, 3)

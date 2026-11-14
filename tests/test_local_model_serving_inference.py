@@ -4231,6 +4231,25 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         serving.close()
         return
     release = decoded_releases[0]
+    if trigger in {"deferred_inference", "deferred_vram_pressure",
+            "deferred_thermal_pressure", "deferred_gpu_thermal_pressure"}:
+        policy_binding = release["resource_observation"]["host_policy_binding"]
+        assert policy_binding["schema_version"] == (
+            "sentientos.host_resource_policy_admission_binding:v1")
+        assert policy_binding["policy_decision"]["proposal_only"] is True
+        assert policy_binding["policy_decision_id"] == (
+            policy_binding["policy_decision"]["decision_id"])
+        assert policy_binding["policy_decision"]["report_id"] == release[
+            "resource_observation"]["host_report_id"]
+        assert policy_binding["policy_decision"]["report_digest"] == release[
+            "resource_observation"]["host_report_digest"]
+        release_decision = next(json.loads(line) for line in reversed(
+            (tmp_path / "kernel-decisions.jsonl").read_text(
+                encoding="utf-8").splitlines())
+            if json.loads(line).get("action_kind") == "local_model_resource_release")
+        admission_evidence = release_decision["delegated_outcomes"][
+            "runtime_governor"]["evidence_refs"]["resource_observation_evidence"]
+        assert admission_evidence["host_policy_binding"] == policy_binding
     if trigger == "idle_game_gpu_residency_unrecorded_admission":
         assert model.closed is False
         assert serving.current_session() is not None
