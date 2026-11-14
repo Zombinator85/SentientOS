@@ -700,8 +700,15 @@ class GovernedLocalModelResourceCustodyLease:
                 self._condition.notify_all()
 
     def close(self) -> None:
+        self.stop_accepting()
+        self.wait_for_drain()
+
+    def stop_accepting(self) -> None:
         with self._condition:
             self._closed = True
+
+    def wait_for_drain(self) -> None:
+        with self._condition:
             while self._active:
                 self._condition.wait()
 

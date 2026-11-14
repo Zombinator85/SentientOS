@@ -794,6 +794,10 @@ class ProductionChatComposition:
         self._avatar_output_owner = avatar_output_owner
     def close(self) -> None:
         try:
+            if self._resource_owner is not None:
+                begin_close = getattr(self._resource_owner, "begin_close", None)
+                if callable(begin_close):
+                    begin_close()
             self.service.close_outputs()
         finally:
             try:

@@ -105,9 +105,17 @@ def test_closed_owner_cannot_issue_context_or_serving_entitlement(tmp_path, monk
         GovernedLocalModelResourceLedger, "_persist_candidate",
         lambda self, candidate: setattr(self, "_state", candidate))
     custody, model, invoker, request, _ = owner(tmp_path)
+    class ProcessCustodyLock:
+        released = False
+
+        def __exit__(self, *_args):
+            self.released = True
+
+    process_lock = ProcessCustodyLock()
+    custody._ledger_owner_lock = process_lock
     issued_context = custody.next_context()
-    custody.close()
-    assert not custody.has_single_process_custody
+    custody.begin_close()
+    assert custody.has_single_process_custody
     with pytest.raises(GovernedLocalModelResourceError,
                        match="resource_context_owner_closed"):
         custody.next_context()
@@ -119,6 +127,8 @@ def test_closed_owner_cannot_issue_context_or_serving_entitlement(tmp_path, monk
         invoker.invoke(request, resource_context=issued_context)
     assert model.calls == 0
     custody.close()
+    assert not custody.has_single_process_custody
+    assert process_lock.released
 
 
 def test_owner_close_waits_for_previously_issued_context_lease(tmp_path, monkeypatch):

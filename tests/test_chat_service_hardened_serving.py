@@ -182,6 +182,7 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
             events.append("serving_entitlement_checked")
             return {"schema_version": "fixture", "allocation_id": "fixture-allocation"}
 
+        def begin_close(self): events.append("resource_owner_admissions_closed")
         def close(self): events.append("resource_owner_closed")
 
     class ResourceBackedInference:
@@ -254,12 +255,34 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
         "schema_version": "fixture", "allocation_id": "fixture-allocation"}
     chat_service.close_production_chat()
     assert events[-1] == "avatar_session_closed"
+    assert events.index("resource_owner_admissions_closed") < events.index("serving_closed")
+    assert events.index("serving_closed") < events.index("resource_owner_closed")
 
 
 def test_invalid_installation_identity_fails_before_custody(monkeypatch):
     monkeypatch.setattr(chat_service.InstallationStateRegistry, "system", classmethod(lambda cls: pytest.fail("custody opened")))
     with pytest.raises(ValueError, match="invalid_installation_identity"):
         chat_service.configure_production_chat(installation_identity="../bad", serving_operation_id="serve-1")
+
+
+def test_composition_stops_resource_admission_before_serving_close():
+    events = []
+
+    class Service:
+        def close_outputs(self): events.append("outputs_closed")
+
+    class Serving:
+        def close(self): events.append("serving_closed")
+
+    class ResourceOwner:
+        def begin_close(self): events.append("resource_admission_closed")
+        def close(self): events.append("resource_custody_released")
+
+    composition = chat_service.ProductionChatComposition(
+        Service(), Serving(), ResourceOwner())
+    composition.close()
+    assert events == ["resource_admission_closed", "outputs_closed",
+        "serving_closed", "resource_custody_released"]
 
 
 def test_successful_turn_and_second_turn_have_distinct_inference_correlations(tmp_path):

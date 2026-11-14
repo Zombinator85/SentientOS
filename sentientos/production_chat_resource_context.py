@@ -33,7 +33,7 @@ class ProductionChatResourceContextOwner:
     __slots__ = (
         "allocator", "allocation", "principal", "authenticated", "current",
         "policy", "_installation_identity", "_provisioning_id", "_nonce_source",
-        "_clock", "_ledger_owner_lock", "_closed", "_custody_lease",
+        "_clock", "_ledger_owner_lock", "_closed", "_released", "_custody_lease",
         "_close_lock",
     )
 
@@ -100,6 +100,7 @@ class ProductionChatResourceContextOwner:
         self._clock = clock
         self._ledger_owner_lock = ledger_owner_lock
         self._closed = False
+        self._released = False
         self._custody_lease = GovernedLocalModelResourceCustodyLease()
         self._close_lock = Lock()
 
@@ -117,14 +118,26 @@ class ProductionChatResourceContextOwner:
 
     def close(self) -> None:
         with self._close_lock:
-            if self._closed:
+            if self._released:
                 return
-            self._closed = True
-            self._custody_lease.close()
+            self._begin_close_locked()
+            self._custody_lease.wait_for_drain()
             lock = self._ledger_owner_lock
             self._ledger_owner_lock = None
             if lock is not None:
                 lock.__exit__(None, None, None)
+            self._released = True
+
+    def begin_close(self) -> None:
+        """Reject new resource-backed work before serving shutdown begins."""
+        with self._close_lock:
+            if self._closed:
+                return
+            self._begin_close_locked()
+
+    def _begin_close_locked(self) -> None:
+        self._closed = True
+        self._custody_lease.stop_accepting()
 
     def _require_open(self) -> None:
         if self._closed:
