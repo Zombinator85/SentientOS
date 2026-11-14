@@ -802,6 +802,20 @@ class GovernedLocalModelResourceAllocator:
                 raise GovernedLocalModelResourceError("allocation_expired")
         return exact
 
+    def current_entitlement(self, *, allocation: GovernedLocalModelResourceAllocation,
+                            principal: CausalResourcePrincipal,
+                            authenticated: AuthenticatedRootPrincipalEvidence,
+                            current: CurrentAuthenticatedRootPrincipalEvidence,
+                            policy: GovernedLocalModelResourcePolicy,
+                            current_time: str
+                            ) -> tuple[GovernedLocalModelResourceAllocation, int]:
+        """Read exact current allocation and remaining calls as one ledger snapshot."""
+        with self.ledger._lock:
+            exact = self.validate_current(allocation=allocation,
+                principal=principal, authenticated=authenticated,
+                current=current, policy=policy, current_time=current_time)
+            return exact, self.ledger.remaining_calls(exact.allocation_id)
+
     def issue(self, *, principal: CausalResourcePrincipal, authenticated: AuthenticatedRootPrincipalEvidence,
               current: CurrentAuthenticatedRootPrincipalEvidence, requested_bounds: GovernedLocalModelResourceBounds,
               requested_not_before: str, requested_not_after: str, current_time: str) -> GovernedLocalModelResourceAllocation:

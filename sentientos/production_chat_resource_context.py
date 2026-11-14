@@ -141,15 +141,13 @@ class ProductionChatResourceContextOwner:
         current_time = self._clock()
         if type(current_time) is not str or not current_time:
             raise GovernedLocalModelResourceError("invalid_current_time")
-        allocation = self.allocator.validate_current(
+        allocation, remaining_calls = self.allocator.current_entitlement(
             allocation=self.allocation,
             principal=self.principal,
             authenticated=self.authenticated,
             current=self.current,
             policy=self.policy,
             current_time=current_time)
-        remaining_calls = self.allocator.ledger.remaining_calls(
-            allocation.allocation_id)
         if remaining_calls <= 0:
             raise GovernedLocalModelResourceError("call_entitlement_exhausted")
         return {
