@@ -803,9 +803,13 @@ def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing
 
 @pytest.mark.no_legacy_skip
 @pytest.mark.parametrize("mutation", ["none", "missing", "mismatched", "correlation"])
+@pytest.mark.parametrize("governor_mode", ["enforce", "shadow", None])
 def test_game_preemption_admission_binds_exact_active_invocation(
-        monkeypatch, tmp_path, mutation):
-    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+        monkeypatch, tmp_path, mutation, governor_mode):
+    if governor_mode is None:
+        monkeypatch.delenv("SENTIENTOS_GOVERNOR_MODE", raising=False)
+    else:
+        monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", governor_mode)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     governor = RuntimeGovernor()
     observed_at = datetime.now(timezone.utc).isoformat()
@@ -852,6 +856,7 @@ def test_game_preemption_admission_binds_exact_active_invocation(
     assert decision.allowed is expected
     if expected:
         assert decision.reason == "allowed_verified_game_workload_inference_preemption"
+        assert decision.evidence_refs["game_priority_block"] is False
         assert decision.evidence_refs["active_inference_request_reference"] == (
             request_reference)
         assert decision.evidence_refs["active_inference_preemption"] == (
