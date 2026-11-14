@@ -3697,6 +3697,7 @@ class RuntimeGovernor:
                 for key in ("host_resource_evidence", "observed_pressure_labels",
                             "game_performance_evidence", "game_workload_evidence",
                             "active_inference_request_reference",
+                            "active_inference_preemption",
                             "game_frame_pressure", "host_pressure_during_verified_game",
                             "optional_model_load_in_gaming_profile",
                             "optional_gpu_model_load_in_gaming_profile",

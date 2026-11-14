@@ -33,7 +33,13 @@ from sentientos.local_model import ActiveModelIdentity, ModelLoadError
 def test_game_cancellation_admission_requires_exact_invocation_evidence() -> None:
     request = {"request_id": "lmreq-" + "a" * 24,
         "request_digest": "b" * 64, "correlation_id": "active-chat-request"}
-    request_digest = digest_payload(request)
+    model_identity = {"provider": "fixture-model", "identity_digest": "c" * 64}
+    request["active_model_identity"] = model_identity
+    request["linkage"] = {"serving_session_id": "serving-session-" + "d" * 24,
+        "observed_loaded_model_identity": dict(model_identity)}
+    request_reference = {key: request[key] for key in (
+        "request_id", "request_digest", "correlation_id")}
+    request_digest = digest_payload(request_reference)
     correlation_id = "active-inference-preemption:" + request_digest + ":attempt-1"
     reference = "kernel_decision:" + correlation_id
     decision = {
@@ -54,7 +60,15 @@ def test_game_cancellation_admission_requires_exact_invocation_evidence() -> Non
             "evidence_refs": {
                 "game_workload_evidence": {"status": "current",
                     "game_active": True, "message_id": "c" * 64},
-                "active_inference_request_reference": dict(request),
+                "active_inference_request_reference": dict(request_reference),
+                "active_inference_preemption": {
+                    "schema_version": "sentientos.active_inference_preemption:v2",
+                    "workload_mode": "automatic",
+                    "serving_session_id": request["linkage"]["serving_session_id"],
+                    "model_identity_digest": digest_payload(model_identity),
+                    "game_workload_message_id": "c" * 64,
+                    "active_inference_request_reference": dict(request_reference),
+                },
             },
         }},
         "federation_context": {}, "proof_budget_context": {},
@@ -68,11 +82,25 @@ def test_game_cancellation_admission_requires_exact_invocation_evidence() -> Non
         **decision["delegated_outcomes"]["runtime_governor"],
         "evidence_refs": {
             **decision["delegated_outcomes"]["runtime_governor"]["evidence_refs"],
-            "active_inference_request_reference": {**request,
+            "active_inference_request_reference": {**request_reference,
                 "request_id": "lmreq-" + "d" * 24},
         },
     }}}
     assert not _valid_cancellation_admission_decision(tampered,
+        reference=reference, request=request, require_runtime_evidence=True)
+    tampered_evidence = {**decision, "delegated_outcomes": {
+        "runtime_governor": {**decision["delegated_outcomes"]["runtime_governor"],
+            "evidence_refs": {
+                **decision["delegated_outcomes"]["runtime_governor"]["evidence_refs"],
+                "active_inference_preemption": {
+                    **decision["delegated_outcomes"]["runtime_governor"][
+                        "evidence_refs"]["active_inference_preemption"],
+                    "serving_session_id": "serving-session-" + "e" * 24,
+                },
+            },
+        },
+    }}
+    assert not _valid_cancellation_admission_decision(tampered_evidence,
         reference=reference, request=request, require_runtime_evidence=True)
 
 class FakeModel:

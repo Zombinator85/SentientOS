@@ -1685,9 +1685,19 @@ def test_normal_host_pressure_cancels_active_optional_inference(
             "request_id", "request_digest", "correlation_id")}
         assert delegated["evidence_refs"][
             "active_inference_request_reference"] == request_reference
+        preemption_evidence = delegated["evidence_refs"][
+            "active_inference_preemption"]
+        assert preemption_evidence["serving_session_id"] == (
+            result["receipt"].request["linkage"]["serving_session_id"])
+        assert preemption_evidence["model_identity_digest"] == digest_payload(
+            result["receipt"].request["active_model_identity"])
+        assert preemption_evidence["host_report_id"] == evidence["report_id"]
         assert result["receipt"].cancellation_admission_decision[
             "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
                 "active_inference_request_reference"] == request_reference
+        assert result["receipt"].cancellation_admission_decision[
+            "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+                "active_inference_preemption"] == preemption_evidence
     finally:
         if invocation.is_alive():
             model.cancel_pending_generation()
@@ -2832,6 +2842,16 @@ def test_verified_game_presence_preempts_active_cpu_inference_without_pressure(
     assert persisted_receipt["cancellation_admission_decision"][
         "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
             "active_inference_request_reference"] == active_request_reference
+    preemption_evidence = decision["delegated_outcomes"]["runtime_governor"][
+        "evidence_refs"]["active_inference_preemption"]
+    assert preemption_evidence["game_workload_message_id"] == message_id
+    assert preemption_evidence["serving_session_id"] == (
+        receipt_request["linkage"]["serving_session_id"])
+    assert preemption_evidence["model_identity_digest"] == digest_payload(
+        receipt_request["active_model_identity"])
+    assert persisted_receipt["cancellation_admission_decision"][
+        "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+            "active_inference_preemption"] == preemption_evidence
     assert host_owner.collector_call_count == 2
     mismatched_workload = bridge.current_workload_state()
     mismatched_workload["transport_provenance"] = {"message_id": "f" * 64}

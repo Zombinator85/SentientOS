@@ -847,6 +847,8 @@ def test_game_preemption_admission_binds_exact_active_invocation(
         assert decision.reason == "allowed_verified_game_workload_inference_preemption"
         assert decision.evidence_refs["active_inference_request_reference"] == (
             request_reference)
+        assert decision.evidence_refs["active_inference_preemption"] == (
+            metadata["active_inference_preemption"])
     else:
         assert decision.reason == (
             "deferred_active_inference_preemption_game_evidence_unavailable")
@@ -906,6 +908,7 @@ def test_host_pressure_preemption_persists_exact_active_invocation(
         assert decision.reason == "allowed_host_resource_pressure_inference_preemption"
         assert decision.evidence_refs["active_inference_request_reference"] == (
             request_reference)
+        assert decision.evidence_refs["active_inference_preemption"] == preemption
     else:
         assert decision.reason == (
             "deferred_active_inference_preemption_game_evidence_unavailable")

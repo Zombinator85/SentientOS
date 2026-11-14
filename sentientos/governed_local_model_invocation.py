@@ -220,6 +220,21 @@ def _valid_cancellation_admission_request_binding(value: object,
     return False
 
 
+def _active_preemption_matches_invocation(preemption: object,
+        request: Mapping[str, Any]) -> bool:
+    if not isinstance(preemption, Mapping):
+        return False
+    linkage = request.get("linkage")
+    identity = request.get("active_model_identity")
+    return (isinstance(linkage, Mapping)
+        and isinstance(linkage.get("serving_session_id"), str)
+        and preemption.get("serving_session_id") == linkage.get("serving_session_id")
+        and isinstance(identity, Mapping)
+        and isinstance(linkage.get("observed_loaded_model_identity"), Mapping)
+        and dict(identity) == dict(linkage["observed_loaded_model_identity"])
+        and preemption.get("model_identity_digest") == digest_payload(dict(identity)))
+
+
 def _valid_cancellation_admission_decision(value: object, *, reference: object,
         request: object, require_runtime_evidence: bool = False) -> bool:
     fields = {
@@ -263,6 +278,7 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
             game_evidence = evidence_refs.get("game_workload_evidence")
             request_reference = {key: request.get(key) for key in (
                 "request_id", "request_digest", "correlation_id")}
+            preemption = evidence_refs.get("active_inference_preemption")
             if (not isinstance(game_evidence, Mapping)
                     or game_evidence.get("status") != "current"
                     or game_evidence.get("game_active") is not True
@@ -271,7 +287,22 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
                     or (value.get("schema_version") ==
                         CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2
                         and evidence_refs.get("active_inference_request_reference")
-                            != request_reference)):
+                            != request_reference)
+                    or (value.get("schema_version") ==
+                        CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2
+                        and (not isinstance(preemption, Mapping)
+                            or set(preemption) != {
+                                "schema_version", "workload_mode", "serving_session_id",
+                                "model_identity_digest", "game_workload_message_id",
+                                "active_inference_request_reference"}
+                            or preemption.get("schema_version") !=
+                                "sentientos.active_inference_preemption:v2"
+                            or preemption.get("active_inference_request_reference")
+                                != request_reference
+                            or preemption.get("game_workload_message_id")
+                                != game_evidence.get("message_id")
+                            or not _active_preemption_matches_invocation(
+                                preemption, request)))):
                 return False
         if (actor == "production_chat_host_resource_governor"
                 and value.get("schema_version") ==
@@ -280,6 +311,31 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
                     key: request.get(key) for key in (
                         "request_id", "request_digest", "correlation_id")}:
                 return False
+            if value.get("action_kind") == "local_model_inference_preemption":
+                preemption = evidence_refs.get("active_inference_preemption")
+                host_evidence = evidence_refs.get("host_resource_evidence")
+                if (not isinstance(preemption, Mapping)
+                        or set(preemption) != {
+                            "schema_version", "preemption_kind", "workload_mode",
+                            "serving_session_id", "model_identity_digest",
+                            "observation_correlation_id", "host_report_id",
+                            "host_report_digest", "pressure_labels", "observed_at",
+                            "active_inference_request_reference"}
+                        or not isinstance(host_evidence, Mapping)
+                        or preemption.get("schema_version") !=
+                            "sentientos.active_inference_preemption:v3"
+                        or preemption.get("active_inference_request_reference")
+                            != evidence_refs.get("active_inference_request_reference")
+                        or not _active_preemption_matches_invocation(preemption, request)
+                        or preemption.get("observation_correlation_id")
+                            != host_evidence.get("observation_correlation_id")
+                        or preemption.get("host_report_id") != host_evidence.get("report_id")
+                        or preemption.get("host_report_digest")
+                            != host_evidence.get("report_digest")
+                        or preemption.get("observed_at") != host_evidence.get("observed_at")
+                        or preemption.get("pressure_labels")
+                            != host_evidence.get("pressure_labels")):
+                    return False
         if (actor == "production_chat_game_resource_governor"
                 and not any(isinstance(evidence_refs.get(key), Mapping)
                     and evidence_refs[key].get("status") == "current"
