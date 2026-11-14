@@ -41,6 +41,7 @@ INVOCATION_RECEIPT_SCHEMA_V6 = "sentientos.local_model_invocation_receipt:v6"
 INVOCATION_RECEIPT_SCHEMA_V7 = "sentientos.local_model_invocation_receipt:v7"
 INVOCATION_RECEIPT_SCHEMA_V8 = "sentientos.local_model_invocation_receipt:v8"
 INVOCATION_RECEIPT_SCHEMA_V9 = "sentientos.local_model_invocation_receipt:v9"
+INVOCATION_RECEIPT_SCHEMA_V10 = "sentientos.local_model_invocation_receipt:v10"
 CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA = (
     "sentientos.cancellation_admission_decision_witness:v1")
 CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2 = (
@@ -385,6 +386,49 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
     return True
 
 
+def _cancellation_preemption_reference(decision: object, *,
+        admission_reference: object, request: object) -> dict[str, Any] | None:
+    if not isinstance(decision, Mapping):
+        return None
+    delegated = decision.get("delegated_outcomes")
+    governor = delegated.get("runtime_governor") if isinstance(delegated, Mapping) else None
+    evidence_refs = governor.get("evidence_refs") if isinstance(governor, Mapping) else None
+    preemption = evidence_refs.get("active_inference_preemption") if isinstance(
+        evidence_refs, Mapping) else None
+    if (not isinstance(evidence_refs, Mapping) or not isinstance(request, Mapping)
+            or not isinstance(admission_reference, str) or not admission_reference):
+        return None
+    request_reference = {key: request.get(key) for key in (
+        "request_id", "request_digest", "correlation_id")}
+    if not all(isinstance(value, str) and value for value in request_reference.values()):
+        return None
+    evidence_request_reference = evidence_refs.get(
+        "active_inference_request_reference")
+    if evidence_request_reference is not None and evidence_request_reference != request_reference:
+        return None
+    if isinstance(preemption, Mapping):
+        if preemption.get("active_inference_request_reference") != request_reference:
+            return None
+        evidence_kind = "active_inference_preemption"
+        evidence_digest = digest_payload(dict(preemption))
+    else:
+        current_evidence = any(isinstance(evidence_refs.get(key), Mapping)
+            and evidence_refs[key].get("status") == "current"
+            for key in ("game_workload_evidence", "game_performance_evidence",
+                "host_resource_evidence", "resource_observation_evidence"))
+        if not current_evidence:
+            return None
+        evidence_kind = "runtime_governor_evidence_refs"
+        evidence_digest = digest_payload(dict(evidence_refs))
+    return {
+        "schema_version": "sentientos.local_model_cancellation_preemption_ref:v1",
+        "cancellation_admission_decision_ref": admission_reference,
+        "active_inference_request_reference": request_reference,
+        "preemption_evidence_kind": evidence_kind,
+        "preemption_evidence_digest": evidence_digest,
+    }
+
+
 def _cancellation_admission_decision_witness(
         decision: ControlActionDecision) -> dict[str, Any]:
     # ControlActionDecision is the exact kernel-owned object, while its event
@@ -674,6 +718,7 @@ class LocalModelInvocationReceipt:
     cancellation_admission_decision: Mapping[str, Any] | None = None
     cancellation_admission_record: Mapping[str, Any] | None = None
     admission_decision_record: Mapping[str, Any] | None = None
+    cancellation_preemption_ref: Mapping[str, Any] | None = None
 
     def semantic_payload(self) -> dict[str, Any]:
         payload = {"schema_version": self.schema_version, "request": dict(self.request),
@@ -689,32 +734,38 @@ class LocalModelInvocationReceipt:
         if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V4,
                 INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6,
                 INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
-                INVOCATION_RECEIPT_SCHEMA_V9}:
+                INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
             payload["backend_completion"] = (dict(self.backend_completion)
                 if self.backend_completion is not None else None)
             payload["cancellation_admission_decision_ref"] = self.cancellation_admission_decision_ref
         if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V5,
                 INVOCATION_RECEIPT_SCHEMA_V6, INVOCATION_RECEIPT_SCHEMA_V7,
-                INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9}:
+                INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9,
+                INVOCATION_RECEIPT_SCHEMA_V10}:
             payload["cancellation_resource_observation"] = (
                 dict(self.cancellation_resource_observation)
                 if self.cancellation_resource_observation is not None else None)
         if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V6,
                 INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
-                INVOCATION_RECEIPT_SCHEMA_V9}:
+                INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
             payload["cancellation_admission_decision"] = (
                 dict(self.cancellation_admission_decision)
                 if self.cancellation_admission_decision is not None else None)
         if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V7,
-                INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9}:
+                INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9,
+                INVOCATION_RECEIPT_SCHEMA_V10}:
             payload["cancellation_admission_record"] = (
                 dict(self.cancellation_admission_record)
                 if self.cancellation_admission_record is not None else None)
         if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V8,
-                INVOCATION_RECEIPT_SCHEMA_V9}:
+                INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
             payload["admission_decision_record"] = (
                 dict(self.admission_decision_record)
                 if self.admission_decision_record is not None else None)
+        if self.schema_version == INVOCATION_RECEIPT_SCHEMA_V10:
+            payload["cancellation_preemption_ref"] = (
+                dict(self.cancellation_preemption_ref)
+                if self.cancellation_preemption_ref is not None else None)
         return payload
 
     @property
@@ -813,19 +864,20 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
     elif schema in {INVOCATION_RECEIPT_SCHEMA, INVOCATION_RECEIPT_SCHEMA_V3,
                     INVOCATION_RECEIPT_SCHEMA_V4, INVOCATION_RECEIPT_SCHEMA_V5,
                     INVOCATION_RECEIPT_SCHEMA_V6, INVOCATION_RECEIPT_SCHEMA_V7,
-                    INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9}:
+                    INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9,
+                    INVOCATION_RECEIPT_SCHEMA_V10}:
         semantic = {key: payload.get(key) for key in (
             "schema_version", *legacy_semantic_keys, "observed_at")}
         if schema in {INVOCATION_RECEIPT_SCHEMA_V3, INVOCATION_RECEIPT_SCHEMA_V4,
                 INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6,
                 INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
-                INVOCATION_RECEIPT_SCHEMA_V9}:
+                INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
             semantic["backend_completion"] = payload.get("backend_completion")
             completion = payload.get("backend_completion")
             if (completion is None and schema in {INVOCATION_RECEIPT_SCHEMA_V4,
                     INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6,
                     INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
-                    INVOCATION_RECEIPT_SCHEMA_V9}):
+                    INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}):
                 pass
             elif not validate_backend_completion_observation(completion):
                 reasons.append("backend_completion_observation_invalid")
@@ -864,7 +916,7 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
                 reasons.append("cancellation_admission_request_binding_invalid")
         if schema in {INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6,
                 INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
-                INVOCATION_RECEIPT_SCHEMA_V9}:
+                INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
             observation = payload.get("cancellation_resource_observation")
             effects = payload.get("effects")
             if ((schema != INVOCATION_RECEIPT_SCHEMA_V8
@@ -893,7 +945,8 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
                         expected_source="parent_sampled_exact_runtime_worker")):
                 reasons.append("cancellation_resource_observation_invalid")
         if schema in {INVOCATION_RECEIPT_SCHEMA_V6, INVOCATION_RECEIPT_SCHEMA_V7,
-                INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9}:
+                INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9,
+                INVOCATION_RECEIPT_SCHEMA_V10}:
             cancellation_decision = payload.get("cancellation_admission_decision")
             semantic["cancellation_admission_decision"] = cancellation_decision
             if cancellation_ref := semantic.get("cancellation_admission_decision_ref"):
@@ -901,12 +954,24 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
                         cancellation_decision, reference=cancellation_ref,
                         request=payload.get("request"),
                         require_runtime_evidence=(
-                            schema == INVOCATION_RECEIPT_SCHEMA_V9)):
+                            schema in {INVOCATION_RECEIPT_SCHEMA_V9,
+                                INVOCATION_RECEIPT_SCHEMA_V10})):
                     reasons.append("cancellation_admission_decision_invalid")
             elif cancellation_decision is not None:
                 reasons.append("cancellation_admission_decision_unreferenced")
+        if schema == INVOCATION_RECEIPT_SCHEMA_V10:
+            preemption_ref = payload.get("cancellation_preemption_ref")
+            semantic["cancellation_preemption_ref"] = preemption_ref
+            expected_preemption_ref = _cancellation_preemption_reference(
+                semantic.get("cancellation_admission_decision"),
+                admission_reference=semantic.get("cancellation_admission_decision_ref"),
+                request=payload.get("request"))
+            if (not isinstance(preemption_ref, Mapping)
+                    or dict(preemption_ref) != expected_preemption_ref
+                    or expected_preemption_ref is None):
+                reasons.append("cancellation_preemption_reference_invalid")
         if schema in {INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
-                INVOCATION_RECEIPT_SCHEMA_V9}:
+                INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
             record = payload.get("cancellation_admission_record")
             semantic["cancellation_admission_record"] = record
             if cancellation_ref := semantic.get("cancellation_admission_decision_ref"):
@@ -932,7 +997,7 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
                     reasons.append("cancellation_admission_record_invalid")
             elif record is not None:
                 reasons.append("cancellation_admission_record_unreferenced")
-        if schema in {INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9}:
+        if schema in {INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
             admission_record = payload.get("admission_decision_record")
             semantic["admission_decision_record"] = admission_record
             if admission_record is None:
@@ -1906,7 +1971,13 @@ class GovernedLocalModelInvoker:
         cancellation_has_governor_evidence = (
             isinstance(cancellation_governor, Mapping)
             and isinstance(cancellation_governor.get("evidence_refs"), Mapping))
-        receipt_schema = (INVOCATION_RECEIPT_SCHEMA_V9
+        cancellation_preemption_ref = _cancellation_preemption_reference(
+            cancellation_admission_decision,
+            admission_reference=cancellation_admission_ref,
+            request=request.to_receipt_request_dict())
+        receipt_schema = (INVOCATION_RECEIPT_SCHEMA_V10
+            if (status == "cancelled" and cancellation_preemption_ref is not None)
+            else INVOCATION_RECEIPT_SCHEMA_V9
             if (status == "cancelled" and cancellation_admission_ref is not None
                 and cancellation_has_governor_evidence)
             else INVOCATION_RECEIPT_SCHEMA_V8
@@ -1917,7 +1988,7 @@ class GovernedLocalModelInvoker:
                 if cancellation_resource_observation is not None
             else INVOCATION_RECEIPT_SCHEMA_V3 if backend_completion is not None
             else INVOCATION_RECEIPT_SCHEMA)
-        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": actual_generation_parameters}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=receipt_schema, backend_completion=backend_completion, cancellation_admission_decision_ref=cancellation_admission_ref, cancellation_resource_observation=cancellation_resource_observation, cancellation_admission_decision=cancellation_admission_decision, cancellation_admission_record=cancellation_admission_record, admission_decision_record=admission_decision_record)
+        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": actual_generation_parameters}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=receipt_schema, backend_completion=backend_completion, cancellation_admission_decision_ref=cancellation_admission_ref, cancellation_resource_observation=cancellation_resource_observation, cancellation_admission_decision=cancellation_admission_decision, cancellation_admission_record=cancellation_admission_record, admission_decision_record=admission_decision_record, cancellation_preemption_ref=cancellation_preemption_ref)
         if persist:
             try:
                 self._persist(request, receipt, decision_payload,

@@ -19,6 +19,7 @@ from sentientos.control_plane_kernel import (
 from sentientos.governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt,
     _valid_cancellation_admission_decision,
+    _cancellation_preemption_reference,
     validate_llama_completion_observation,
     RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
     RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA, RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
@@ -78,6 +79,33 @@ def test_game_cancellation_admission_requires_exact_invocation_evidence() -> Non
     }
     assert _valid_cancellation_admission_decision(decision, reference=reference,
         request=request, require_runtime_evidence=True)
+    preemption_ref = _cancellation_preemption_reference(decision,
+        admission_reference=reference, request=request)
+    assert preemption_ref == {
+        "schema_version": "sentientos.local_model_cancellation_preemption_ref:v1",
+        "cancellation_admission_decision_ref": reference,
+        "active_inference_request_reference": request_reference,
+        "preemption_evidence_kind": "active_inference_preemption",
+        "preemption_evidence_digest": digest_payload(
+            decision["delegated_outcomes"]["runtime_governor"]["evidence_refs"]
+                ["active_inference_preemption"]),
+    }
+    assert _cancellation_preemption_reference(decision,
+        admission_reference=reference,
+        request={**request, "request_id": "lmreq-" + "e" * 24}) is None
+    legacy_evidence_decision = {**decision, "delegated_outcomes": {
+        "runtime_governor": {**decision["delegated_outcomes"]["runtime_governor"],
+            "evidence_refs": {
+                key: value for key, value in decision["delegated_outcomes"]
+                    ["runtime_governor"]["evidence_refs"].items()
+                if key != "active_inference_preemption"}}}}
+    legacy_ref = _cancellation_preemption_reference(legacy_evidence_decision,
+        admission_reference=reference, request=request)
+    assert legacy_ref is not None
+    assert legacy_ref["preemption_evidence_kind"] == "runtime_governor_evidence_refs"
+    assert legacy_ref["preemption_evidence_digest"] == digest_payload(
+        legacy_evidence_decision["delegated_outcomes"]["runtime_governor"]
+            ["evidence_refs"])
     tampered = {**decision, "delegated_outcomes": {"runtime_governor": {
         **decision["delegated_outcomes"]["runtime_governor"],
         "evidence_refs": {

@@ -552,7 +552,8 @@ class ProductionChatResourceObservationOwner:
                         if (invocation.get("schema_version") in {
                                 "sentientos.local_model_invocation_receipt:v7",
                                 "sentientos.local_model_invocation_receipt:v8",
-                                "sentientos.local_model_invocation_receipt:v9"}
+                                "sentientos.local_model_invocation_receipt:v9",
+                                "sentientos.local_model_invocation_receipt:v10"}
                                 and (not isinstance(value.get("release_admission_record"), Mapping)
                                     or invocation.get("cancellation_admission_record")
                                         != value.get("release_admission_record"))):
@@ -719,7 +720,8 @@ class ProductionChatResourceObservationOwner:
                 "resource_inference_admission_binding_invalid")
         if (invocation.get("schema_version") in {
                 "sentientos.local_model_invocation_receipt:v8",
-                "sentientos.local_model_invocation_receipt:v9"}
+                "sentientos.local_model_invocation_receipt:v9",
+                "sentientos.local_model_invocation_receipt:v10"}
                 and decision != invocation.get("admission_decision_record")):
             raise ProductionChatResourceObservationError(
                 "resource_inference_admission_record_mismatch")
@@ -727,7 +729,8 @@ class ProductionChatResourceObservationOwner:
             "schema_version": (_RESOURCE_ADMISSION_WITNESS_SCHEMA
                 if invocation.get("schema_version") in {
                     "sentientos.local_model_invocation_receipt:v8",
-                    "sentientos.local_model_invocation_receipt:v9"}
+                    "sentientos.local_model_invocation_receipt:v9",
+                    "sentientos.local_model_invocation_receipt:v10"}
                 else _RESOURCE_ADMISSION_WITNESS_SCHEMA_V2),
             "invocation_receipt_id": invocation.get("receipt_id"),
             "invocation_receipt_digest": invocation.get("receipt_digest"),
@@ -740,7 +743,8 @@ class ProductionChatResourceObservationOwner:
             **({"admission_decision_record": dict(decision)}
                 if invocation.get("schema_version") in {
                     "sentientos.local_model_invocation_receipt:v8",
-                    "sentientos.local_model_invocation_receipt:v9"} else {}),
+                    "sentientos.local_model_invocation_receipt:v9",
+                    "sentientos.local_model_invocation_receipt:v10"} else {}),
         }
 
     def _invocation_receipts(self, allocation: GovernedLocalModelResourceAllocation

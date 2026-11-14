@@ -3989,7 +3989,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             cancelled_receipt = invocation_results["receipt"]
             assert cancelled_receipt.status == "cancelled"
             assert cancelled_receipt.schema_version == (
-                "sentientos.local_model_invocation_receipt:v9")
+                "sentientos.local_model_invocation_receipt:v10")
+            assert cancelled_receipt.cancellation_preemption_ref is not None
             assert cancelled_receipt.output_text is None
             cancellation_governor = (
                 cancelled_receipt.cancellation_admission_decision[
@@ -4003,6 +4004,22 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             valid_cancelled_receipt, cancelled_receipt_findings = validate_receipt(
                 cancelled_receipt.to_dict())
             assert valid_cancelled_receipt, cancelled_receipt_findings
+            preemption_ref = cancelled_receipt.cancellation_preemption_ref
+            assert preemption_ref is not None
+            assert preemption_ref["cancellation_admission_decision_ref"] == (
+                cancelled_receipt.cancellation_admission_decision_ref)
+            assert preemption_ref["active_inference_request_reference"] == {
+                key: cancelled_receipt.request[key] for key in (
+                    "request_id", "request_digest", "correlation_id")}
+            assert len(preemption_ref["preemption_evidence_digest"]) == 64
+            tampered_preemption_ref = replace(cancelled_receipt,
+                cancellation_preemption_ref={**preemption_ref,
+                    "preemption_evidence_digest": "0" * 64})
+            tampered_ref_valid, tampered_ref_findings = validate_receipt(
+                tampered_preemption_ref.to_dict())
+            assert not tampered_ref_valid
+            assert "cancellation_preemption_reference_invalid" in (
+                tampered_ref_findings)
             tampered_decision = deepcopy(
                 cancelled_receipt.cancellation_admission_decision)
             tampered_decision["delegated_outcomes"]["runtime_governor"][
