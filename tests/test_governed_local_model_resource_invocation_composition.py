@@ -189,6 +189,16 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(tmp_path):
         "backend_resource_observation_receipt_mismatch:")
         for finding in projected["payload"]["lineage_findings"])
 
+    unlinked_v5 = receipt.to_dict()
+    for field in ("resource_allocation_digest", "resource_attempt_id",
+            "resource_consumption_receipt_digests", "resource_linkage_digest"):
+        unlinked_v5.pop(field)
+    incomplete_lineage = resource_consumption_world_state_records(
+        ledger=ledger, invocation_receipts=[unlinked_v5])[0]
+    assert incomplete_lineage["disposition"] == "degraded"
+    assert any(finding.startswith("invocation_resource_linkage_missing:")
+        for finding in incomplete_lineage["payload"]["lineage_findings"])
+
 
 def test_inference_admission_records_exact_preflighted_resource_allocation(
         tmp_path, monkeypatch):

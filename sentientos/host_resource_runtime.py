@@ -708,7 +708,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             if (invocation.get("schema_version") in {
                     "sentientos.local_model_invocation_receipt:v2",
                     "sentientos.local_model_invocation_receipt:v3",
-                    "sentientos.local_model_invocation_receipt:v4"}
+                    "sentientos.local_model_invocation_receipt:v4",
+                    "sentientos.local_model_invocation_receipt:v5"}
                     and any(isinstance(item, Mapping)
                         and item.get("state") == "reconciled"
                         and item.get("effect_receipt_digest") == invocation.get("receipt_digest")
