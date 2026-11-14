@@ -819,8 +819,12 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         invocation_id = release_receipt.get("cancelled_invocation_receipt_id")
         invocation_digest = release_receipt.get("cancelled_invocation_receipt_digest")
         linked_invocation = invocation_by_id.get(str(invocation_id))
-        linkage_valid = (isinstance(linked_invocation, Mapping)
-                and linked_invocation.get("receipt_digest") == invocation_digest
+        if not isinstance(linked_invocation, Mapping):
+            release_receipt.pop("cancelled_invocation_preemption_ref", None)
+            release_lineage_findings.append(
+                f"resource_release_invocation_linkage_missing_or_mismatched:{release_receipt.get('receipt_id')}")
+            continue
+        linkage_valid = (linked_invocation.get("receipt_digest") == invocation_digest
                 and linked_invocation.get("status") == "cancelled"
                 and linked_invocation.get("cancellation_admission_decision_ref")
                     == release_receipt.get("release_admission_decision_ref"))
