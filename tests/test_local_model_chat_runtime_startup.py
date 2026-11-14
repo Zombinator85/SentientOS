@@ -5,6 +5,7 @@ import inspect
 import threading
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 
@@ -372,7 +373,7 @@ def test_production_shutdown_waits_for_inflight_reconciliation_before_close() ->
     old_composition = chat_service._PRODUCTION_COMPOSITION
     old_task = chat_service._RESOURCE_RECONCILIATION_TASK
     chat_service._PRODUCTION_COMPOSITION = chat_service.ProductionChatComposition(
-        service, serving)
+        cast(chat_service.PersistentConversationService, service), serving)
     chat_service._RESOURCE_RECONCILIATION_TASK = None
 
     async def exercise() -> None:
