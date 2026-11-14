@@ -568,6 +568,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         "verified", "not_required", "pending_invocation_receipt",
                         "legacy_unlinked"}):
                 raise ValueError("resource_release_receipt_identity_invalid")
+            if (release_receipt.get("status") == "admission_unrecorded"
+                    and release_receipt.get("schema_version") != (
+                        "sentientos.production_chat_resource_release_receipt:v4")):
+                raise ValueError("resource_release_admission_witness_invalid")
             if release_receipt.get("schema_version") == (
                     "sentientos.production_chat_resource_release_receipt:v4"):
                 witness = release_receipt.get("release_admission_witness")
@@ -581,6 +585,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                             != "sentientos.resource_release_admission_witness:v1"
                         or witness.get("outcome")
                             != release_receipt.get("release_admission_outcome")
+                        or (release_receipt.get("status") == "admission_unrecorded"
+                            and witness.get("outcome") != "allow")
                         or witness.get("outcome") not in {
                             "allow", "deny", "defer", "quarantine"}
                         or witness.get("reason_codes")
@@ -607,6 +613,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 release_lineage_findings.append(
                     "resource_release_invocation_linkage_" + str(
                         release_receipt.get("invocation_linkage_posture")) + ":" + receipt_id)
+            if release_receipt.get("status") == "admission_unrecorded":
+                release_lineage_findings.append(
+                    "resource_release_admission_unrecorded:" + receipt_id)
             if release_receipt.get("invocation_linkage_posture") == "verified":
                 invocation_receipt_id = release_receipt.get(
                     "cancelled_invocation_receipt_id")

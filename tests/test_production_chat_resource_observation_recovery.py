@@ -146,6 +146,38 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
 
     first = observer.observe()
     second = observer.observe()
+    unrecorded_body = dict(release_body)
+    unrecorded_body["status"] = "admission_unrecorded"
+    unrecorded_body.pop("receipt_id")
+    unrecorded_body.pop("receipt_semantic_digest")
+    unrecorded_id = "serving-resource-release-" + hashlib.sha256(json.dumps(
+        unrecorded_body, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()[:24]
+    unrecorded_body["receipt_id"] = unrecorded_id
+    unrecorded_body["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+        unrecorded_body, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    unrecorded_path = release_directory.child(unrecorded_id + ".json")
+    handle.durable_create(unrecorded_path,
+        (json.dumps(unrecorded_body, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+    try:
+        recovered_unrecorded = observer.observe()
+        assert recovered_unrecorded.resource_release_receipt_posture == (
+            "admission_unrecorded")
+        from sentientos.host_resource_runtime import (
+            resource_consumption_world_state_records,
+        )
+        unrecorded_projection = resource_consumption_world_state_records(
+            ledger=recovered_unrecorded.ledger,
+            verified_resource_release_receipts=(
+                recovered_unrecorded.verified_resource_release_receipts))[0]
+        assert unrecorded_projection["payload"][
+            "resource_release_receipt_posture"] == "degraded"
+        assert any(item.startswith("resource_release_admission_unrecorded:")
+            for item in unrecorded_projection["payload"]["lineage_findings"])
+    finally:
+        unrecorded_path.path.unlink()
     assert first.manifest_digest == second.manifest_digest
     first_snapshot = first.ledger.observation_snapshot()
     second_snapshot = second.ledger.observation_snapshot()

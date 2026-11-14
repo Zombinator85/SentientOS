@@ -697,6 +697,8 @@ class ProductionServingInferenceController:
             requested_phase=LifecyclePhase.RUNTIME,
             metadata=metadata,
         ))
+        kernel_recorded_decision = (
+            self._serving._kernel.owns_recorded_admitted_decision(decision))
         decision_valid = (
             decision.allowed
             and decision.outcome == AdmissionOutcome.ALLOW
@@ -705,6 +707,7 @@ class ProductionServingInferenceController:
             and decision.actor == actor
             and decision.target_subsystem == "production_chat"
             and decision.correlation_id == release_correlation
+            and kernel_recorded_decision
         )
         close_completed = False
         close_failure: str | None = None
@@ -807,7 +810,9 @@ class ProductionServingInferenceController:
         outcome = {
             "schema_version": "sentientos.production_chat_resource_release_receipt:v4",
             "status": ("worker_closed" if close_completed else
-                "release_effect_unconfirmed" if decision_valid else "denied"),
+                "release_effect_unconfirmed" if decision_valid else
+                "admission_unrecorded" if decision.allowed
+                    and not kernel_recorded_decision else "denied"),
             "trigger_kind": trigger_kind,
             "trigger_correlation_id": source_correlation,
             "source_inference_correlation_id": (source_correlation
@@ -1709,13 +1714,16 @@ class ProductionServingInferenceController:
                     if preempt_active_generation else {}),
                 "resource_observation": evidence},
         ))
+        kernel_recorded_decision = (
+            self._serving._kernel.owns_recorded_admitted_decision(decision))
         decision_valid = (decision.allowed
             and decision.outcome == AdmissionOutcome.ALLOW
             and decision.authority_class == AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
             and decision.action_kind == "local_model_resource_release"
             and decision.actor == "production_chat_game_resource_governor"
             and decision.target_subsystem == "production_chat"
-            and decision.correlation_id == release_correlation)
+            and decision.correlation_id == release_correlation
+            and kernel_recorded_decision)
         closed = False
         close_failure: str | None = None
         active_inference_cancellation_confirmed: bool | None = None
@@ -1801,7 +1809,9 @@ class ProductionServingInferenceController:
         outcome = {
             "schema_version": "sentientos.production_chat_resource_release_receipt:v4",
             "status": "worker_closed" if closed else
-                "release_effect_unconfirmed" if decision_valid else "denied",
+                "release_effect_unconfirmed" if decision_valid else
+                "admission_unrecorded" if decision.allowed
+                    and not kernel_recorded_decision else "denied",
             "trigger_kind": "idle_game_frame_pressure_reconciliation",
             "trigger_correlation_id": trigger_correlation,
             "release_correlation_id": release_correlation,
@@ -1949,12 +1959,15 @@ class ProductionServingInferenceController:
                     if preempt_active_generation else {}),
                 "resource_observation": evidence},
         ))
+        kernel_recorded_decision = (
+            self._serving._kernel.owns_recorded_admitted_decision(decision))
         decision_valid = (decision.allowed and decision.outcome == AdmissionOutcome.ALLOW
             and decision.authority_class == AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
             and decision.action_kind == "local_model_resource_release"
             and decision.actor == actor
             and decision.target_subsystem == "production_chat"
-            and decision.correlation_id == release_correlation)
+            and decision.correlation_id == release_correlation
+            and kernel_recorded_decision)
         closed = False
         close_failure: str | None = None
         worker_exit_observed: bool | None = None
@@ -2007,7 +2020,9 @@ class ProductionServingInferenceController:
             and isinstance(after_values["cpu_utilization_percent"], (int, float)) else None)
         outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v4",
             "status": "worker_closed" if closed else
-                "release_effect_unconfirmed" if decision_valid else "denied",
+                "release_effect_unconfirmed" if decision_valid else
+                "admission_unrecorded" if decision.allowed
+                    and not kernel_recorded_decision else "denied",
             "trigger_kind": trigger_kind,
             "trigger_correlation_id": trigger_correlation,
             "release_correlation_id": release_correlation,

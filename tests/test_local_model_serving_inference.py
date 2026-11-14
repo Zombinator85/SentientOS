@@ -3474,7 +3474,8 @@ def test_game_arriving_after_inference_admission_defers_before_backend_entry(
 @pytest.mark.parametrize("trigger", ["deferred_inference", "deferred_stale_host_observation",
     "idle_game_reconciliation",
     "idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
-    "idle_game_gpu_residency", "deferred_thermal_pressure",
+    "idle_game_gpu_residency", "idle_game_gpu_residency_unrecorded_admission",
+    "deferred_thermal_pressure",
     "deferred_gpu_thermal_pressure",
     "idle_game_frame_pressure", "idle_game_frame_pressure_mismatched_process",
     "idle_game_frame_pressure_active_inference",
@@ -3578,7 +3579,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "synthetic_test_fixture", values=values)
     gpu_metrics = ({"gpu": 22.0, "vram": 47.0}
         if trigger in {"idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
-            "idle_game_gpu_residency", "deferred_thermal_pressure",
+            "idle_game_gpu_residency", "idle_game_gpu_residency_unrecorded_admission",
+            "deferred_thermal_pressure",
             "deferred_gpu_thermal_pressure",
             "idle_game_frame_pressure", "idle_game_frame_pressure_mismatched_process",
             "idle_game_frame_pressure_active_inference",
@@ -3645,11 +3647,21 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         monkeypatch, tmp_path, kernel_override=kernel,
         host_resource_observation_owner=host_resource_owner,
         foreground_game_detector=VerifiedGameDetector(),
-        gpu_layers=24 if trigger == "idle_game_gpu_residency" else 0,
+        gpu_layers=24 if trigger in {"idle_game_gpu_residency",
+            "idle_game_gpu_residency_unrecorded_admission"} else 0,
         on_generate=active_generation
             if trigger in {"idle_game_frame_pressure_active_inference",
                 "idle_game_frame_pressure_active_inference_unconfirmed",
                 "idle_game_frame_pressure_active_inference_scheduler"} else None)
+    if trigger == "idle_game_gpu_residency_unrecorded_admission":
+        original_append = kernel._append
+
+        def fail_release_admission_append(payload):
+            if payload.get("action_kind") == "local_model_resource_release":
+                raise OSError("synthetic_decision_log_write_failure")
+            original_append(payload)
+
+        monkeypatch.setattr(kernel, "_append", fail_release_admission_append)
     if trigger in {"idle_game_frame_pressure_active_inference",
             "idle_game_frame_pressure_active_inference_scheduler"}:
         model.cancel_pending_generation = lambda: (active_cancelled.set() or True)
@@ -3933,7 +3945,9 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             assert serving.current_session() is not None
             serving.close()
             return
-        if trigger not in {"idle_game_gpu_residency", "idle_game_frame_pressure",
+        if trigger not in {"idle_game_gpu_residency",
+                "idle_game_gpu_residency_unrecorded_admission",
+                "idle_game_frame_pressure",
                 "idle_game_frame_pressure_mismatched_process"}:
             assert reconciliation["status"] == "worker_closed"
             assert isinstance(reconciliation["release_receipt_id"], str)
@@ -3966,7 +3980,9 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         # only the former adds the optional idle-tick observation.
         assert observed_collector_calls in {8, 12}
     else:
-        expected_collector_count = (4 if trigger in {"idle_game_gpu_residency",
+        expected_collector_count = (0 if trigger ==
+            "idle_game_gpu_residency_unrecorded_admission" else
+            4 if trigger in {"idle_game_gpu_residency",
             "idle_game_frame_pressure_mismatched_process",
             "idle_game_frame_pressure_active_inference_unconfirmed"} else 8)
         assert observed_collector_calls == expected_collector_count
@@ -4004,6 +4020,15 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         serving.close()
         return
     release = decoded_releases[0]
+    if trigger == "idle_game_gpu_residency_unrecorded_admission":
+        assert model.closed is False
+        assert serving.current_session() is not None
+        assert release["status"] == "admission_unrecorded"
+        assert release["release_admission_outcome"] == "allow"
+        assert release["release_admission_witness"]["admission_decision_ref"] == (
+            release["release_admission_decision_ref"])
+        serving.close()
+        return
     if trigger == "idle_game_frame_pressure_mismatched_process":
         assert model.closed is False
         assert serving.current_session() is not None

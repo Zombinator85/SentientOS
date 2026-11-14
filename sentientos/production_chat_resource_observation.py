@@ -359,10 +359,14 @@ class ProductionChatResourceObservationOwner:
                         _RESOURCE_RELEASE_RECEIPT_SCHEMA_V2,
                         _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3,
                         _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4}
+                    or (value.get("status") == "admission_unrecorded"
+                        and value.get("schema_version")
+                            != _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4)
                     or semantic_digest != actual_semantic_digest
                     or receipt_id != actual_receipt_id
                     or value.get("status") not in {
-                        "worker_closed", "release_effect_unconfirmed", "denied"}
+                        "worker_closed", "release_effect_unconfirmed", "denied",
+                        "admission_unrecorded"}
                     or not isinstance(value.get("trigger_kind"), str)
                     or not value.get("trigger_kind")
                     or not isinstance(release_correlation, str)
@@ -387,6 +391,8 @@ class ProductionChatResourceObservationOwner:
             release_status = value.get("status")
             if ((release_status in {"worker_closed", "release_effect_unconfirmed"}
                     and release_outcome != "allow")
+                    or (release_status == "admission_unrecorded"
+                        and release_outcome != "allow")
                     or (release_status == "denied"
                         and release_outcome not in {"deny", "defer", "quarantine"})):
                 raise ProductionChatResourceObservationError(
@@ -488,6 +494,8 @@ class ProductionChatResourceObservationOwner:
         receipts.sort(key=lambda item: str(item.get("receipt_id", "")))
         if not receipts:
             posture = "verified_no_release_receipts"
+        elif any(item.get("status") == "admission_unrecorded" for item in receipts):
+            posture = "admission_unrecorded"
         elif any(item.get("invocation_linkage_posture") ==
                 "pending_invocation_receipt" for item in receipts):
             posture = "pending_invocation_receipts"
