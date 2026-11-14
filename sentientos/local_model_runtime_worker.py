@@ -199,6 +199,8 @@ class ExactRuntimeLocalModel:
         self._active_generation_started_at: float | None = None
         self._active_generation_cpu_baseline: tuple[float, float] | None = None
         self._cancelled_generation_resources: dict[str, Any] | None = None
+        self._cancelled_generation_confirmation: threading.Event | None = None
+        self._cancelled_generation_confirmed = False
         ready = self._read()
         expected = {"type": "ready", "interpreter_path": str(interpreter),
                     "artifact_sha256": chain["artifact_sha256"],
@@ -262,6 +264,8 @@ class ExactRuntimeLocalModel:
             raise ModelLoadError("exact runtime worker request too large")
         with self._lock:
             self._cancelled_generation_resources = None
+            self._cancelled_generation_confirmation = None
+            self._cancelled_generation_confirmed = False
             self._active_generation_started_at = time.monotonic()
             self._active_generation_cpu_baseline = self._process_cpu_times()
             assert self._process.stdin is not None
@@ -336,6 +340,9 @@ class ExactRuntimeLocalModel:
         """Terminate the isolated worker and retain a bounded process CPU sample."""
         if self._process.poll() is not None:
             return False
+        confirmation = threading.Event()
+        self._cancelled_generation_confirmation = confirmation
+        self._cancelled_generation_confirmed = False
         started_at = getattr(self, "_active_generation_started_at", None)
         baseline = getattr(self, "_active_generation_cpu_baseline", None)
         sampled = self._process_cpu_times() if started_at is not None else None
@@ -351,13 +358,24 @@ class ExactRuntimeLocalModel:
                 "wall_seconds": max(0.0, time.monotonic() - started_at),
                 "process_peak_rss_bytes": rss_bytes,
             }
-        self._process.kill()
-        self._process.wait(timeout=5)
-        return self._process.poll() is not None
+        try:
+            self._process.kill()
+            self._process.wait(timeout=5)
+            self._cancelled_generation_confirmed = self._process.poll() is not None
+            return self._cancelled_generation_confirmed
+        finally:
+            # A reader awakened by process termination must wait until this
+            # owner has established whether the sampled interval is complete.
+            confirmation.set()
 
     def take_cancelled_generation_resource_observation(self) -> dict[str, Any] | None:
+        confirmation = getattr(self, "_cancelled_generation_confirmation", None)
+        if confirmation is not None and not confirmation.is_set():
+            confirmation.wait(timeout=5.1)
         observation = self._cancelled_generation_resources
         self._cancelled_generation_resources = None
+        if not getattr(self, "_cancelled_generation_confirmed", False):
+            return None
         return dict(observation) if observation is not None else None
 
     def close(self) -> None:

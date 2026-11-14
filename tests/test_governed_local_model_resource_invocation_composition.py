@@ -93,7 +93,11 @@ def test_resource_backed_completion_cross_links_exact_effect_receipt_and_survive
 
 
 
-def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(tmp_path):
+@pytest.mark.parametrize(("cancellation_confirmed", "expected_cpu_seconds"), [
+    (True, 0.75), (False, 10.0),
+])
+def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(
+        tmp_path, cancellation_confirmed, expected_cpu_seconds):
     started = threading.Event()
     cancelled = threading.Event()
 
@@ -108,7 +112,7 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(tmp_path):
 
         def cancel_pending_generation(self):
             cancelled.set()
-            return True
+            return cancellation_confirmed
 
         def take_cancelled_generation_resource_observation(self):
             return {
@@ -146,19 +150,28 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(tmp_path):
             + digest_payload(dict(active_reference)) + ":cancelled-cpu-test"}),
         AdmissionOutcome.ALLOW, ["admitted"], {})
     assert invoker.cancel_pending_generation(reason="workload_transition",
-        cancellation_admission_decision=decision) is True
+        cancellation_admission_decision=decision) is cancellation_confirmed
     worker.join(2)
 
     assert not worker.is_alive()
     receipt = result[0]
     assert receipt.status == "cancelled"
-    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v5"
-    assert receipt.cancellation_resource_observation["user_cpu_seconds"] == 0.6
-    assert ledger._state["receipts"][-2]["resource_specific_measurement"][
-        "backend_resource_observation"] == receipt.cancellation_resource_observation
-    assert ledger.cpu_seconds_used(context.allocation.allocation_id) == 0.75
+    assert receipt.schema_version == (
+        "sentientos.local_model_invocation_receipt:v5" if cancellation_confirmed
+        else "sentientos.local_model_invocation_receipt:v4")
+    measurement = ledger._state["receipts"][-2]["resource_specific_measurement"]
+    if cancellation_confirmed:
+        assert receipt.cancellation_resource_observation["user_cpu_seconds"] == 0.6
+        assert measurement["backend_resource_observation"] == (
+            receipt.cancellation_resource_observation)
+    else:
+        assert receipt.cancellation_resource_observation is None
+        assert "backend_resource_observation" not in measurement
+    assert ledger.cpu_seconds_used(context.allocation.allocation_id) == pytest.approx(
+        expected_cpu_seconds)
     recovered = GovernedLocalModelResourceLedger(ledger.path)
-    assert recovered.cpu_seconds_used(context.allocation.allocation_id) == 0.75
+    assert recovered.cpu_seconds_used(context.allocation.allocation_id) == pytest.approx(
+        expected_cpu_seconds)
     from sentientos.governed_local_model_invocation import validate_receipt
     assert validate_receipt(receipt.to_dict())[0]
     from sentientos.host_resource_runtime import resource_consumption_world_state_records
@@ -200,7 +213,11 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(tmp_path):
         for finding in incomplete_lineage["payload"]["lineage_findings"])
 
 
-def test_timed_out_worker_sample_reconciles_reserved_cpu_entitlement(tmp_path):
+@pytest.mark.parametrize(("cancellation_confirmed", "expected_cpu_seconds"), [
+    (True, 0.07), (False, 0.1),
+])
+def test_timed_out_worker_sample_reconciles_reserved_cpu_entitlement(
+        tmp_path, cancellation_confirmed, expected_cpu_seconds):
     cancelled = threading.Event()
 
     class SampledTimeoutModel(Model):
@@ -213,7 +230,7 @@ def test_timed_out_worker_sample_reconciles_reserved_cpu_entitlement(tmp_path):
 
         def cancel_pending_generation(self):
             cancelled.set()
-            return True
+            return cancellation_confirmed
 
         def take_cancelled_generation_resource_observation(self):
             return {
@@ -237,22 +254,31 @@ def test_timed_out_worker_sample_reconciles_reserved_cpu_entitlement(tmp_path):
     receipt = invoker.invoke(request, resource_context=context)
 
     assert receipt.status == "timeout"
-    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v5"
-    assert receipt.cancellation_resource_observation["user_cpu_seconds"] == 0.06
+    assert receipt.schema_version == (
+        "sentientos.local_model_invocation_receipt:v5" if cancellation_confirmed
+        else "sentientos.local_model_invocation_receipt:v2")
     assert ledger._state["receipts"][-2]["state"] == "measured_timeout"
-    assert ledger._state["receipts"][-2]["resource_specific_measurement"][
-        "backend_resource_observation"] == receipt.cancellation_resource_observation
-    assert ledger.cpu_seconds_used(context.allocation.allocation_id) == pytest.approx(0.07)
+    measurement = ledger._state["receipts"][-2]["resource_specific_measurement"]
+    if cancellation_confirmed:
+        assert receipt.cancellation_resource_observation["user_cpu_seconds"] == 0.06
+        assert measurement["backend_resource_observation"] == (
+            receipt.cancellation_resource_observation)
+    else:
+        assert receipt.cancellation_resource_observation is None
+        assert "backend_resource_observation" not in measurement
+    assert ledger.cpu_seconds_used(context.allocation.allocation_id) == pytest.approx(
+        expected_cpu_seconds)
     assert GovernedLocalModelResourceLedger(ledger.path).cpu_seconds_used(
-        context.allocation.allocation_id) == pytest.approx(0.07)
+        context.allocation.allocation_id) == pytest.approx(expected_cpu_seconds)
     from sentientos.governed_local_model_invocation import validate_receipt
     assert validate_receipt(receipt.to_dict())[0]
     from sentientos.host_resource_runtime import resource_consumption_world_state_records
     projected = resource_consumption_world_state_records(
         ledger=ledger, invocation_receipts=[receipt.to_dict()])[0]
     assert projected["disposition"] == "recorded"
-    assert not any(finding.startswith(
-        "backend_resource_observation_receipt_mismatch:")
+    assert not any(finding.startswith((
+        "backend_resource_observation_receipt_mismatch:",
+        "invocation_resource_linkage_missing:"))
         for finding in projected["payload"]["lineage_findings"])
 
 

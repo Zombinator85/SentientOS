@@ -713,7 +713,7 @@ class GovernedLocalModelInvoker:
     CANCELLATION_QUIESCENCE_TIMEOUT_SECONDS = 0.5
 
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
-        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_invocation_request_reference: dict[str, str] | None = None; self._active_cancel_reason: str | None = None; self._active_cancel_admission_ref: str | None = None; self._active_residency_preload_event: threading.Event | None = None; self._backend_quiescence_callbacks: list[Callable[[], None]] = []
+        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_invocation_request_reference: dict[str, str] | None = None; self._active_cancel_reason: str | None = None; self._active_cancel_admission_ref: str | None = None; self._active_cancel_confirmed = False; self._active_residency_preload_event: threading.Event | None = None; self._backend_quiescence_callbacks: list[Callable[[], None]] = []
 
     def register_evidence_sink(self, sink: Callable[[Mapping[str, Any]], None] | None) -> None:
         """Install an explicit observational receipt sink owned by the runtime."""
@@ -819,6 +819,7 @@ class GovernedLocalModelInvoker:
                     return False
             self._active_cancel_reason = reason
             self._active_cancel_admission_ref = admission_ref
+            self._active_cancel_confirmed = False
             event.set()
         cancel = getattr(self.model, "cancel_pending_generation", None)
         if not callable(cancel):
@@ -826,8 +827,13 @@ class GovernedLocalModelInvoker:
         try:
             requested = cancel() is True
         except Exception:
+            requested = False
+        with self._active_state_lock:
+            if self._active_release_event is event:
+                self._active_cancel_confirmed = requested
+        if not requested:
             return False
-        if not requested or not self._active_invocation_lock.acquire(
+        if not self._active_invocation_lock.acquire(
                 timeout=self.CANCELLATION_QUIESCENCE_TIMEOUT_SECONDS):
             return False
         self._active_invocation_lock.release()
@@ -891,13 +897,18 @@ class GovernedLocalModelInvoker:
                             if active_release_event is not None:
                                 self._active_cancel_reason = "workload_transition"
                                 self._active_cancel_admission_ref = decision.admission_decision_ref
+                                self._active_cancel_confirmed = False
                                 active_release_event.set()
                         cancel = getattr(self.model, "cancel_pending_generation", None)
+                        cancellation_confirmed = False
                         if callable(cancel):
                             try:
-                                cancel()
+                                cancellation_confirmed = cancel() is True
                             except Exception:
-                                pass
+                                cancellation_confirmed = False
+                        with self._active_state_lock:
+                            if self._active_release_event is active_release_event:
+                                self._active_cancel_confirmed = cancellation_confirmed
                         lock_acquired = self._active_invocation_lock.acquire(timeout=1.0)
                     if not lock_acquired:
                         status = "deferred"
@@ -1346,6 +1357,7 @@ class GovernedLocalModelInvoker:
                             }
                             self._active_cancel_reason = None
                             self._active_cancel_admission_ref = None
+                            self._active_cancel_confirmed = False
                         # Ollama supports an event check around connection setup, closing the
                         # race where disconnect lands just before the HTTP request is installed.
                         if getattr(identity, "engine", None) == "ollama":
@@ -1416,8 +1428,8 @@ class GovernedLocalModelInvoker:
                                     sampled = observation_reader()
                                 except Exception:
                                     sampled = None
-                                if _valid_backend_resource_observation(sampled,
-                                        expected_source="parent_sampled_exact_runtime_worker"):
+                                if (requested and _valid_backend_resource_observation(sampled,
+                                        expected_source="parent_sampled_exact_runtime_worker")):
                                     cancellation_resource_observation = dict(sampled)
                             future.cancel()
                             try: future.result(timeout=0.5)
@@ -1467,13 +1479,14 @@ class GovernedLocalModelInvoker:
                             with self._active_state_lock:
                                 cancel_reason = self._active_cancel_reason
                                 cancellation_admission_ref = self._active_cancel_admission_ref
+                                cancellation_confirmed = self._active_cancel_confirmed
                             reasons.append({"workload_transition": "cancelled_for_workload_transition",
                                 "client_disconnect": "cancelled_by_client_disconnect",
                                 "timeout": "cancelled_after_timeout"}.get(cancel_reason or "unknown",
                                     "cancelled_by_runtime"))
                             observation_reader = getattr(self.model,
                                 "take_cancelled_generation_resource_observation", None)
-                            if callable(observation_reader):
+                            if cancellation_confirmed and callable(observation_reader):
                                 try:
                                     sampled = observation_reader()
                                 except Exception:

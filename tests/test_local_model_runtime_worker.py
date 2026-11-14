@@ -111,6 +111,36 @@ def test_exact_runtime_worker_cancellation_survives_unavailable_cpu_sample(monke
     assert model.take_cancelled_generation_resource_observation() is None
 
 
+def test_exact_runtime_worker_discards_sample_when_process_stop_is_unconfirmed(monkeypatch):
+    class Process:
+        pid = 123
+
+        def poll(self):
+            return None
+
+        def kill(self):
+            pass
+
+        def wait(self, *, timeout):
+            assert timeout == 5
+            raise subprocess.TimeoutExpired("worker", timeout)
+
+    model = object.__new__(ExactRuntimeLocalModel)
+    model._process = Process()
+    model._active_generation_started_at = time.monotonic() - 0.2
+    model._active_generation_cpu_baseline = (1.0, 0.2)
+    model._cancelled_generation_resources = None
+    model._cancelled_generation_confirmation = None
+    model._cancelled_generation_confirmed = False
+    samples = iter(((1.3, 0.25),))
+    monkeypatch.setattr(ExactRuntimeLocalModel, "_process_cpu_times",
+        lambda self: next(samples))
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        model.cancel_pending_generation()
+    assert model.take_cancelled_generation_resource_observation() is None
+
+
 def test_exact_runtime_worker_close_waits_for_live_process_exit() -> None:
     process = subprocess.Popen(
         [sys.executable, "-u", "-c",
