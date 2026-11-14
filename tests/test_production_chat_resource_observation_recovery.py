@@ -93,7 +93,9 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             "active_inference_preemption_requested": False,
             "gpu_telemetry_available": True, "gpu_telemetry_complete": True,
             "gpu_telemetry_sources": [{"collector_id": "nvidia_gpu",
-                "status": "available", "source": "synthetic_test_fixture"}]},
+                "status": "available", "source": "synthetic_test_fixture",
+                "sample_scope": "device_wide",
+                "per_process_attribution_available": False}]},
         "worker_exit_observed": True,
         "active_inference_preemption_requested": True,
         "active_inference_cancellation_confirmed": True,
@@ -107,12 +109,16 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
                 "observed_at": "2026-09-21T08:30:00Z",
                 "gpu_utilization_percent": 74.0,
                 "gpu_telemetry_sources": [{"collector_id": "nvidia_gpu",
-                    "status": "available", "source": "synthetic_test_fixture"}]},
+                    "status": "available", "source": "synthetic_test_fixture",
+                    "sample_scope": "device_wide",
+                    "per_process_attribution_available": False}]},
             "after": {"host_report_id": "host-after",
                 "observed_at": "2026-09-21T08:30:05Z",
                 "gpu_utilization_percent": 20.0,
                 "gpu_telemetry_sources": [{"collector_id": "nvidia_gpu",
-                    "status": "available", "source": "synthetic_test_fixture"}]},
+                    "status": "available", "source": "synthetic_test_fixture",
+                    "sample_scope": "device_wide",
+                    "per_process_attribution_available": False}]},
             "interpretation": "sample_delta_only; telemetry_does_not_establish_causation"},
         "inference_performed": False,
         "host_mutation_performed": False,
@@ -509,12 +515,18 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     assert projected_observation["gpu_telemetry_complete"] is True
     assert projected_observation["gpu_telemetry_sources"] == ({
         "collector_id": "nvidia_gpu", "status": "available",
-        "source": "synthetic_test_fixture"},)
+        "source": "synthetic_test_fixture", "sample_scope": "device_wide",
+        "per_process_attribution_available": False},)
     comparison = projected_release["resource_measurement_comparison"]
     assert comparison["before"]["gpu_utilization_percent"] == 74.0
     assert comparison["before"]["gpu_telemetry_sources"] == ({
         "collector_id": "nvidia_gpu", "status": "available",
-        "source": "synthetic_test_fixture"},)
+        "source": "synthetic_test_fixture", "sample_scope": "device_wide",
+        "per_process_attribution_available": False},)
+    assert comparison["after"]["gpu_telemetry_sources"] == ({
+        "collector_id": "nvidia_gpu", "status": "available",
+        "source": "synthetic_test_fixture", "sample_scope": "device_wide",
+        "per_process_attribution_available": False},)
     assert comparison["after"]["report_id"] == "host-after"
     assert comparison["interpretation"] == (
         "sample_delta_only; telemetry_does_not_establish_causation")
