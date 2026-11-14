@@ -174,6 +174,15 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(
         expected_cpu_seconds)
     from sentientos.governed_local_model_invocation import validate_receipt
     assert validate_receipt(receipt.to_dict())[0]
+    if cancellation_confirmed:
+        substituted_reference = "kernel_decision:active-inference-preemption:" + \
+            digest_payload({**dict(active_reference), "request_id": "another-invocation"}) + \
+            ":cancelled-cpu-test"
+        substituted_receipt = replace(receipt,
+            cancellation_admission_decision_ref=substituted_reference)
+        valid, findings = validate_receipt(substituted_receipt.to_dict())
+        assert not valid
+        assert "cancellation_admission_request_binding_invalid" in findings
     from sentientos.host_resource_runtime import resource_consumption_world_state_records
     projected = resource_consumption_world_state_records(
         ledger=ledger, invocation_receipts=[receipt.to_dict()],

@@ -191,6 +191,25 @@ def validate_backend_completion_observation(value: object) -> bool:
         if item is not None and (type(item) is not int or not 0 <= item <= maximum):
             return False
     return True
+
+
+def _valid_cancellation_admission_request_binding(value: object,
+        request: object) -> bool:
+    if not isinstance(value, str) or not value.startswith("kernel_decision:"):
+        return False
+    if not isinstance(request, Mapping):
+        return False
+    request_reference = {key: request.get(key) for key in (
+        "request_id", "request_digest", "correlation_id")}
+    if not all(isinstance(item, str) and item for item in request_reference.values()):
+        return False
+    reference_digest = digest_payload(request_reference)
+    correlation = value[len("kernel_decision:"):]
+    for kind in ("inference-preemption", "resource-release"):
+        prefix = f"active-{kind}:{reference_digest}:"
+        if correlation.startswith(prefix) and correlation[len(prefix):]:
+            return True
+    return False
 RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
     "type": "object",
     "required": ["conclusion", "lesson_candidate"],
@@ -617,6 +636,11 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
             if (not isinstance(semantic["cancellation_admission_decision_ref"], str)
                     or not semantic["cancellation_admission_decision_ref"]):
                 reasons.append("cancellation_admission_decision_ref_invalid")
+            if ("cancelled_for_workload_transition" in payload.get("reason_codes", ())
+                    and not _valid_cancellation_admission_request_binding(
+                        semantic["cancellation_admission_decision_ref"],
+                        payload.get("request"))):
+                reasons.append("cancellation_admission_request_binding_invalid")
         if schema == INVOCATION_RECEIPT_SCHEMA_V5:
             if (payload.get("status") not in {"cancelled", "timeout"}
                     or not isinstance(payload.get("effects"), Mapping)
@@ -631,6 +655,11 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
             if ("cancelled_for_workload_transition" in payload.get("reason_codes", ())
                     and not semantic["cancellation_admission_decision_ref"]):
                 reasons.append("cancellation_admission_decision_ref_required")
+            if ("cancelled_for_workload_transition" in payload.get("reason_codes", ())
+                    and not _valid_cancellation_admission_request_binding(
+                        semantic["cancellation_admission_decision_ref"],
+                        payload.get("request"))):
+                reasons.append("cancellation_admission_request_binding_invalid")
             observation = payload.get("cancellation_resource_observation")
             semantic["cancellation_resource_observation"] = observation
             if not _valid_backend_resource_observation(observation,
