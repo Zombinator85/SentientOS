@@ -71,7 +71,14 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             "actor_source": "production_chat_game_resource_governor",
             "actor": "production_chat_game_resource_governor",
             "execution_owner": "production_chat_game_resource_governor",
-            "target_subsystem": "production_chat", "delegated_outcomes": {},
+            "target_subsystem": "production_chat", "delegated_outcomes": {
+                "runtime_governor": {"evidence_refs": {
+                    "active_inference_request_reference": {
+                        "request_id": "lmreq-" + "c" * 24,
+                        "request_digest": "c" * 64,
+                        "correlation_id": "invocation-correlation"},
+                    "resource_observation_evidence": {
+                        "active_inference_preemption_requested": True}}}},
             "federation_context": None, "proof_budget_context": None,
             "protected_mutation_intent": None,
             "correlation_id": "release-correlation",
@@ -182,6 +189,36 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             match="resource_release_admission_record_invalid"):
         observer.observe()
     forged_record_path.path.unlink()
+
+    forged_evidence_release = dict(release_body)
+    forged_evidence_record = dict(release_body["release_admission_record"])
+    forged_evidence_delegated = dict(forged_evidence_record["delegated_outcomes"])
+    forged_evidence_governor = dict(forged_evidence_delegated["runtime_governor"])
+    forged_evidence_refs = dict(forged_evidence_governor["evidence_refs"])
+    forged_evidence_refs["active_inference_request_reference"] = {
+        **release_body["active_inference_request_reference"],
+        "request_id": "lmreq-" + "d" * 24}
+    forged_evidence_governor["evidence_refs"] = forged_evidence_refs
+    forged_evidence_delegated["runtime_governor"] = forged_evidence_governor
+    forged_evidence_record["delegated_outcomes"] = forged_evidence_delegated
+    forged_evidence_release["release_admission_record"] = forged_evidence_record
+    forged_evidence_release.pop("receipt_id")
+    forged_evidence_release.pop("receipt_semantic_digest")
+    forged_evidence_id = "serving-resource-release-" + hashlib.sha256(json.dumps(
+        forged_evidence_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()[:24]
+    forged_evidence_release["receipt_id"] = forged_evidence_id
+    forged_evidence_release["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+        forged_evidence_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    forged_evidence_path = release_directory.child(forged_evidence_id + ".json")
+    handle.durable_create(forged_evidence_path,
+        (json.dumps(forged_evidence_release, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+    with pytest.raises(ProductionChatResourceObservationError,
+            match="resource_release_cancelled_invocation_admission_evidence_mismatch"):
+        observer.observe()
+    forged_evidence_path.path.unlink()
 
     first = observer.observe()
     second = observer.observe()

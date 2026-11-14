@@ -501,6 +501,26 @@ class ProductionChatResourceObservationOwner:
                         or not isinstance(admission_record.get("delegated_outcomes"), Mapping)):
                     raise ProductionChatResourceObservationError(
                         "resource_release_admission_record_invalid")
+                if (value.get("active_inference_cancellation_confirmed") is True
+                        and isinstance(admission_record, Mapping)):
+                    delegated = admission_record.get("delegated_outcomes")
+                    runtime_governor = (delegated.get("runtime_governor")
+                        if isinstance(delegated, Mapping) else None)
+                    evidence_refs = (runtime_governor.get("evidence_refs")
+                        if isinstance(runtime_governor, Mapping) else None)
+                    request_reference = value.get("active_inference_request_reference")
+                    resource_evidence = (evidence_refs.get(
+                        "resource_observation_evidence")
+                        if isinstance(evidence_refs, Mapping) else None)
+                    if (not isinstance(request_reference, Mapping)
+                            or not isinstance(evidence_refs, Mapping)
+                            or evidence_refs.get("active_inference_request_reference")
+                                != request_reference
+                            or not isinstance(resource_evidence, Mapping)
+                            or resource_evidence.get(
+                                "active_inference_preemption_requested") is not True):
+                        raise ProductionChatResourceObservationError(
+                            "resource_release_cancelled_invocation_admission_evidence_mismatch")
             seen_ids.add(receipt_id)
             verified_value = dict(value)
             verified_value["serving_receipt_linkage_posture"] = "verified"
