@@ -562,9 +562,22 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 raise ValueError("inference_admission_decision_identity_invalid")
             admission_by_receipt[receipt_id] = witness
     invocation_by_id: dict[str, Mapping[str, Any]] = {}
+    # Recovery callers may build this projection directly, outside the
+    # installation-state observation owner. Recheck the receipt's own custody
+    # contract here before allowing it to contribute invocation lineage.
+    from sentientos.governed_local_model_invocation import validate_receipt
     for invocation in invocation_receipts:
         if not isinstance(invocation, Mapping):
             raise ValueError("resource_invocation_receipt_invalid")
+        if (invocation.get("schema_version") in {
+                "sentientos.local_model_invocation_receipt:v4",
+                "sentientos.local_model_invocation_receipt:v5"}
+                and isinstance(invocation.get("reason_codes"), (list, tuple))
+                and "cancelled_for_workload_transition" in invocation["reason_codes"]):
+            valid_invocation, invocation_findings = validate_receipt(invocation)
+            if not valid_invocation:
+                raise ValueError("resource_invocation_receipt_invalid:"
+                    + invocation_findings[0])
         receipt_id = invocation.get("receipt_id")
         receipt_digest = invocation.get("receipt_digest")
         if not isinstance(receipt_id, str) or not receipt_id or not isinstance(receipt_digest, str) or not receipt_digest:

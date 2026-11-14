@@ -173,6 +173,7 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(
     assert recovered.cpu_seconds_used(context.allocation.allocation_id) == pytest.approx(
         expected_cpu_seconds)
     from sentientos.governed_local_model_invocation import validate_receipt
+    from sentientos.host_resource_runtime import resource_consumption_world_state_records
     assert validate_receipt(receipt.to_dict())[0]
     if cancellation_confirmed:
         substituted_reference = "kernel_decision:active-inference-preemption:" + \
@@ -183,7 +184,10 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(
         valid, findings = validate_receipt(substituted_receipt.to_dict())
         assert not valid
         assert "cancellation_admission_request_binding_invalid" in findings
-    from sentientos.host_resource_runtime import resource_consumption_world_state_records
+        with pytest.raises(ValueError,
+                match="resource_invocation_receipt_invalid:cancellation_admission_request_binding_invalid"):
+            resource_consumption_world_state_records(ledger=ledger,
+                invocation_receipts=[substituted_receipt.to_dict()])
     projected = resource_consumption_world_state_records(
         ledger=ledger, invocation_receipts=[receipt.to_dict()],
         verified_inference_admission_decisions=[{
