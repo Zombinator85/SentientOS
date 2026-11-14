@@ -443,17 +443,38 @@ def test_current_host_pressure_defers_optional_foreground_inference_by_resource_
 
 class Kernel:
     def __init__(self, inference=AdmissionOutcome.ALLOW):
+        governor = RuntimeGovernor()
+        original_admit = governor.admit_action
+
+        def controlled_admit(action_class, subject, correlation_id, *, metadata=None):
+            decision = original_admit(action_class, subject, correlation_id,
+                metadata=metadata)
+            allowed = (inference is AdmissionOutcome.ALLOW
+                if action_class == "local_model_inference" else True)
+            reason = ("test_allow" if allowed else
+                "deferred_test_fixture" if inference is AdmissionOutcome.DEFER
+                else "test_denial")
+            return replace(decision, allowed=allowed,
+                reason=reason)
+
+        governor.admit_action = controlled_admit
+        object.__setattr__(self, "_delegate", ControlPlaneKernel(
+            runtime_governor=governor))
         self.inference, self.requests = inference, []
+
+    def __getattr__(self, name):
+        return getattr(self._delegate, name)
+
+    def __setattr__(self, name, value):
+        if name.startswith("_") and name != "_delegate" and hasattr(
+                self, "_delegate") and hasattr(self._delegate, name):
+            setattr(self._delegate, name, value)
+            return
+        object.__setattr__(self, name, value)
 
     def admit(self, request):
         self.requests.append(request)
-        outcome = self.inference if request.authority_class is AuthorityClass.LOCAL_MODEL_INFERENCE else AdmissionOutcome.ALLOW
-        return SimpleNamespace(outcome=outcome, allowed=outcome is AdmissionOutcome.ALLOW,
-            authority_class=request.authority_class, actor=request.actor, action_kind=request.action_kind,
-            target_subsystem=request.target_subsystem, correlation_id=request.metadata["correlation_id"],
-            reason_codes=("test_denial",) if outcome is not AdmissionOutcome.ALLOW else (),
-            admission_decision_ref=f"{request.authority_class.value}:{request.metadata['correlation_id']}",
-            to_dict=lambda: {"outcome": outcome.value})
+        return self._delegate.admit(request)
 
 
 class Model:
