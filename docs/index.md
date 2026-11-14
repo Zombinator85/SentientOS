@@ -2,6 +2,7 @@
 
 ## Start with purpose, map, and status
 
+- [Current System Orientation](architecture/current_system_orientation.md) — source-oriented map of runtime owners, boundaries, current resource-governance work, and claim discipline.
 - [Current Architecture](architecture/public_technical_overview.md) — runtime anatomy, source scope, composition, and evidence boundaries.
 - [Current System Atlas](architecture/system_atlas_index.md) — pointer to the newest immutable SHA-bound census and preserved historical snapshots.
 - [Whole-System Maturity Report](architecture/whole_system_maturity_report.md) — lifecycle-by-lifecycle implementation, composition, production evidence, and projected closure at the selected source.
@@ -92,7 +93,7 @@ the next-tick World-State firewall.
 
 ## Cold-start current-state path
 
-Read, in order: the repository [README](https://github.com/Zombinator85/SentientOS/blob/main/README.md), [one-page thesis](https://github.com/Zombinator85/SentientOS/blob/main/one_pager.md),
+Read, in order: the repository [README](https://github.com/Zombinator85/SentientOS/blob/main/README.md), [current system orientation](architecture/current_system_orientation.md), [one-page thesis](https://github.com/Zombinator85/SentientOS/blob/main/one_pager.md),
 [public technical overview](architecture/public_technical_overview.md), [project
 thesis](architecture/sentientos_project_thesis.md), [whole-system maturity
 report](architecture/whole_system_maturity_report.md), [trajectory and open

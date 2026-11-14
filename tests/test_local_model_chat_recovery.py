@@ -27,6 +27,7 @@ from sentientos.runtime.local_model_chat_recovery import (
     build_recovery_intent,
     build_startup_snapshot,
     require_fresh_operation,
+    startup_configuration_digest,
     verify_approval,
     verified_serving_receipts,
     write_startup_snapshot,
@@ -75,7 +76,8 @@ def receipt(operation: str = "serve-1") -> dict:
 
 
 def snapshot() -> dict:
-    return build_startup_snapshot(LocalModelChatStartup(True, "install-1", "serve-1"), "generation-1")
+    return build_startup_snapshot(LocalModelChatStartup(True, "install-1", "serve-1",
+        resource_provisioning_id="production.v1"), "generation-1")
 
 
 class _ServingKernel:
@@ -147,7 +149,8 @@ while not Path(os.environ['TEST_RELEASE_CHILD']).exists() and time.monotonic() <
     time.sleep(.01)
 """, encoding="utf-8")
     adapter = LocalModelChatServiceAdapter(
-        LocalModelChatStartup(True, handle.identity.value, operation, port=5500),
+        LocalModelChatStartup(True, handle.identity.value, operation, port=5500,
+            resource_provisioning_id="production.v1"),
         probe=lambda _url: True, installation_handle=handle)
     adapter._root = root
     adapter._cwd = root
@@ -214,13 +217,16 @@ def test_activation_race_guard_fails_before_model_serving_admission(monkeypatch,
 
 
 def test_exact_restart_preserves_fixed_custody_and_passes_activation_guard(monkeypatch) -> None:
-    adapter = LocalModelChatServiceAdapter(LocalModelChatStartup(True, "install-1", "serve-1", port=5500))
+    adapter = LocalModelChatServiceAdapter(LocalModelChatStartup(True, "install-1", "serve-1",
+        port=5500, resource_provisioning_id="production.v1"))
     monkeypatch.setattr(adapter, "stop", lambda: None)
     monkeypatch.setattr("sentientos.runtime.services.ChildProcessServiceAdapter.start", lambda _self: None)
     adapter._restart_with_fresh_serving_operation(replacement_serving_operation_id="serve-2",
                                                    expected_activation_state_digest="a" * 64)
-    assert adapter.startup_configuration == LocalModelChatStartup(True, "install-1", "serve-2", port=5500)
-    assert adapter._argv[-2:] == ("--expected-activation-state-digest", "a" * 64)
+    assert adapter.startup_configuration == LocalModelChatStartup(True, "install-1", "serve-2",
+        port=5500, resource_provisioning_id="production.v1")
+    assert ("--expected-activation-state-digest", "a" * 64) in tuple(
+        zip(adapter._argv, adapter._argv[1:]))
     assert Path(adapter._argv[1]).name == "local_model_chat.py"
 
 
@@ -233,6 +239,53 @@ def test_restart_preserves_resource_provisioning_identity(monkeypatch) -> None:
                                                    expected_activation_state_digest="a" * 64)
     assert adapter.startup_configuration.resource_provisioning_id == "production.v1"
     assert adapter._argv[-2:] == ("--resource-provisioning-id", "production.v1")
+
+
+def test_restart_preserves_gaming_workload_policy(monkeypatch) -> None:
+    adapter = LocalModelChatServiceAdapter(LocalModelChatStartup(
+        True, "install-1", "serve-1", port=5500, initial_workload_mode="gaming",
+        resource_provisioning_id="production.v1"))
+    monkeypatch.setattr(adapter, "stop", lambda: None)
+    monkeypatch.setattr("sentientos.runtime.services.ChildProcessServiceAdapter.start", lambda _self: None)
+    adapter._restart_with_fresh_serving_operation(replacement_serving_operation_id="serve-2",
+        expected_activation_state_digest="a" * 64)
+    assert adapter.startup_configuration.initial_workload_mode == "gaming"
+    assert adapter._argv[-2:] == ("--initial-workload-mode", "gaming")
+
+
+def test_restart_preserves_authenticated_automatic_game_configuration(monkeypatch) -> None:
+    config = LocalModelChatStartup(True, "install-1", "serve-1", port=5500,
+        resource_provisioning_id="production.v1", initial_workload_mode="automatic",
+        gaming_companion_manifest_path="/etc/sentientos/companion/deployment.json",
+        gaming_companion_provider="sentientos_platform.wsl:build_runtime",
+        gaming_companion_launch_authorizer="sentientos_platform.authority:authorize_role",
+        game_process_names=("Cronos.exe",))
+    adapter = LocalModelChatServiceAdapter(config)
+    monkeypatch.setattr(adapter, "stop", lambda: None)
+    monkeypatch.setattr("sentientos.runtime.services.ChildProcessServiceAdapter.start",
+        lambda _self: None)
+    adapter._restart_with_fresh_serving_operation(replacement_serving_operation_id="serve-2",
+        expected_activation_state_digest="a" * 64)
+    replacement = adapter.startup_configuration
+    assert replacement.initial_workload_mode == "automatic"
+    assert replacement.gaming_companion_manifest_path == config.gaming_companion_manifest_path
+    assert replacement.gaming_companion_provider == config.gaming_companion_provider
+    assert replacement.gaming_companion_launch_authorizer == config.gaming_companion_launch_authorizer
+    assert replacement.game_process_names == ("Cronos.exe",)
+    assert adapter._argv[-2:] == ("--game-process-name", "Cronos.exe")
+
+
+def test_recovery_configuration_digest_binds_gaming_workload_policy() -> None:
+    normal = LocalModelChatStartup(True, "install-1", "serve-1",
+        resource_provisioning_id="production.v1")
+    gaming = LocalModelChatStartup(True, "install-1", "serve-1",
+        initial_workload_mode="gaming", resource_provisioning_id="production.v1")
+    allocated = LocalModelChatStartup(True, "install-1", "serve-1",
+        resource_provisioning_id="primary.v1")
+    other_allocation = LocalModelChatStartup(True, "install-1", "serve-1",
+        resource_provisioning_id="gaming.v1")
+    assert len({startup_configuration_digest(config)
+                for config in (normal, gaming, allocated, other_allocation)}) == 4
 
 
 def test_recovery_surface_has_no_generic_process_or_model_escape() -> None:

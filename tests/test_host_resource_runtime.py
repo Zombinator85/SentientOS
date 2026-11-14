@@ -1,18 +1,46 @@
 from __future__ import annotations
-import pytest
-pytestmark = pytest.mark.no_legacy_skip
+from dataclasses import replace
+from datetime import datetime, timezone
+import hashlib
+import json
 import time
 from pathlib import Path
+
+import pytest
+pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
 from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass, ControlActionRequest
 from sentientos.host_collectors import HostCollectorResult
-from sentientos.host_resource_runtime import HostObservationBudget, HostObservationCollectorSpec, HostResourceRuntimeCoordinator, build_observation_plan, default_collector_specs, persist_evidence_bundle, redact_value, validate_evaluation, world_state_records
+from sentientos.host_resource_runtime import (MAX_RETAINED_OBSERVATION_EPOCHS,
+    HostObservationBudget, HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
+    build_observation_plan, default_collector_specs, persist_evidence_bundle,
+    redact_value, validate_evaluation, world_state_records,
+    _invocation_receipt_event_time_posture)
+from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
 from sentientos.runtime_governor import RuntimeGovernor
 
 
 def _result(cid: str, status: str = "available", **values):
     return HostCollectorResult(cid, status, "2026-01-01T00:00:00+00:00", "test", values=values)
+
+
+def test_v5_invocation_event_time_remains_digest_bound_in_generation_projection():
+    observed_at = "2026-11-13T22:00:00+00:00"
+    assert _invocation_receipt_event_time_posture({
+        "schema_version": "sentientos.local_model_invocation_receipt:v5",
+        "observed_at": observed_at,
+    }) == "invocation_receipt_created_at_semantic_digest_bound"
+    assert _invocation_receipt_event_time_posture({
+        "schema_version": "sentientos.local_model_invocation_receipt:v9",
+        "observed_at": observed_at,
+    }) == "invocation_receipt_created_at_semantic_digest_bound"
+    assert _invocation_receipt_event_time_posture({
+        "schema_version": "sentientos.local_model_invocation_receipt:v1",
+        "observed_at": observed_at,
+    }) == "invocation_receipt_observed_at_unbound_metadata"
+    assert _invocation_receipt_event_time_posture({}) == (
+        "historical_invocation_time_unknown")
 
 
 def test_runtime_observation_is_read_only_and_quarantine_calls_no_collector(tmp_path):
@@ -28,10 +56,155 @@ def test_runtime_observation_is_read_only_and_quarantine_calls_no_collector(tmp_
     assert evaluation.no_effect_authority is True
     assert c.collector_call_count == 1
     assert calls["n"] == 1
-    # Malformed duplicate/non-string metadata is not reachable through coordinator, but direct kernel quarantine also calls no collector.
+    # Malformed direct requests remain quarantined without calling a collector.
     q = c.kernel.admit(type("Bad", (), {"action_kind":"", "actor":"", "target_subsystem":"", "metadata": {}, "requested_phase": LifecyclePhase.MAINTENANCE, "authority_class": __import__("sentientos.control_plane_kernel", fromlist=["AuthorityClass"]).AuthorityClass.OBSERVATION})())
     assert q.outcome.value in {"quarantine", "defer", "deny"}
     assert calls["n"] == 1
+
+
+def test_windows_process_count_observation_flows_through_runtime_without_identity(
+        tmp_path, monkeypatch):
+    from sentientos.host_collectors import (collect_cpu_observation,
+        collect_memory_observation, collect_process_observation)
+
+    monkeypatch.setattr("sentientos.host_resource_runtime.platform.system",
+        lambda: "Windows")
+    defaults = {spec.collector_id: spec for spec in default_collector_specs()}
+    assert all("windows" in defaults[name].supported_platforms
+        for name in ("cpu", "memory", "process"))
+    specs = [
+        replace(defaults["cpu"], function=lambda observed_at=None:
+            collect_cpu_observation(system="windows",
+                windows_cpu_utilization_provider=lambda: 23.5,
+                observed_at=observed_at)),
+        replace(defaults["memory"], function=lambda observed_at=None:
+            collect_memory_observation(system="windows",
+                memory_provider=lambda: {},
+                windows_memory_provider=lambda: {"total_bytes": 1000,
+                    "available_bytes": 400, "used_percent": 60.0},
+                observed_at=observed_at)),
+        HostObservationCollectorSpec("process", False, ("windows",), 50,
+        lambda observed_at=None: collect_process_observation(system="windows",
+            windows_process_count_provider=lambda: 91, observed_at=observed_at)),
+    ]
+    coordinator = HostResourceRuntimeCoordinator(
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME),
+        runtime_state_root=tmp_path,
+        plan=build_observation_plan(specs=specs))
+    evaluation = coordinator.run_cycle(correlation_id="windows-process-count-fixture")
+
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+    assert evaluation.snapshot.cpu_utilization_percent == 23.5
+    assert evaluation.snapshot.ram_utilization_percent == 60.0
+    assert evaluation.snapshot.process_count == 91
+    assert evaluation.no_effect_authority is True
+    assert evaluation.epoch.effect_authority is False
+    assert evaluation.epoch.results[0].host_mutation_performed is False
+
+
+def test_windows_nvidia_smi_evidence_defers_optional_gpu_inference_for_game(
+        tmp_path, monkeypatch):
+    from sentientos.host_collectors import (collect_cpu_observation,
+        collect_memory_observation, collect_nvidia_gpu_observation)
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setattr("sentientos.host_resource_runtime.platform.system",
+        lambda: "Windows")
+    monkeypatch.setattr("sentientos.host_collectors.importlib.import_module",
+        lambda _name: (_ for _ in ()).throw(ImportError("fixture")))
+    specs = [
+        HostObservationCollectorSpec("cpu", True, ("windows",), 40,
+            lambda observed_at=None: collect_cpu_observation(system="windows",
+                windows_cpu_utilization_provider=lambda: 20.0,
+                observed_at=observed_at)),
+        HostObservationCollectorSpec("memory", True, ("windows",), 30,
+            lambda observed_at=None: collect_memory_observation(system="windows",
+                windows_memory_provider=lambda: {"total_bytes": 1000,
+                    "available_bytes": 500, "used_percent": 50.0},
+                observed_at=observed_at)),
+        HostObservationCollectorSpec("nvidia_gpu", False, ("windows",), 75,
+            lambda observed_at=None: collect_nvidia_gpu_observation(
+                nvidia_smi_query_provider=lambda:
+                    "0, 35, 25, 12000, 3000, 65, 90\n",
+                observed_at=observed_at)),
+    ]
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        phase=LifecyclePhase.RUNTIME, decisions_path=tmp_path / "kernel.jsonl")
+    correlation = "windows-game-priority-gpu-inference"
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        correlation.encode("utf-8")).hexdigest()[:32]
+    coordinator = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host", plan=build_observation_plan(specs=specs))
+    evaluation = coordinator.run_cycle(correlation_id=observation_id)
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+    assert evaluation.snapshot.gpu_utilization_percent == 35.0
+    assert evaluation.snapshot.vram_utilization_percent == 25.0
+
+    game = VerifiedGamePerformanceObservation("windows-fixture", "generation-1",
+        1, "d" * 64, "e" * 64, datetime.now(timezone.utc).isoformat(),
+        "f" * 64, 55.0, 1, 20.0, 4096, "available")
+    assert kernel.observe_verified_game_performance(game)
+    kernel_decision = kernel.admit(ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="user", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "local_user_chat", "correlation_id": correlation,
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp", "accelerator_route": "gpu", "gpu_layers": 32,
+                "configuration_digest": "a" * 64}}))
+
+    assert kernel_decision.outcome == AdmissionOutcome.DEFER
+    runtime = kernel_decision.delegated_outcomes["runtime_governor"]
+    assert ("runtime_governor:deferred_local_model_inference_for_game_frame_pressure"
+        in kernel_decision.reason_codes)
+    evidence = runtime["evidence_refs"]
+    assert evidence["host_resource_evidence"]["evaluation_id"] == evaluation.evaluation_id
+    assert evidence["host_resource_evidence"]["gpu_telemetry_sources"][0][
+        "source"] == "nvidia-smi:device-wide-query"
+    assert evidence["game_performance_evidence"]["status"] == "current"
+
+
+def test_observation_rejects_admission_decision_from_another_kernel(tmp_path):
+    calls = {"n": 0}
+
+    def collector(*, observed_at=None):
+        calls["n"] += 1
+        return _result("memory", used_percent=20.0)
+
+    plan = build_observation_plan(specs=[HostObservationCollectorSpec(
+        "memory", True, ("linux", "unknown"), 1, collector)])
+    owner_kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        phase=LifecyclePhase.RUNTIME)
+    other_kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        phase=LifecyclePhase.RUNTIME)
+    coordinator = HostResourceRuntimeCoordinator(
+        kernel=owner_kernel, runtime_state_root=tmp_path, plan=plan)
+    foreign_decision = other_kernel.admit(ControlActionRequest(
+        action_kind="host_resource_observation_epoch",
+        authority_class=AuthorityClass.OBSERVATION,
+        actor="sentientosd",
+        target_subsystem="host_resource_observation_runtime",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"correlation_id": "foreign-observation", "no_effect_authority": True},
+    ))
+
+    assert foreign_decision.allowed
+    assert coordinator.run_cycle(
+        correlation_id="foreign-observation", decision=foreign_decision) is None
+    assert calls["n"] == 0
+
+    owned_decision = coordinator.request_admission("owned-observation")
+    evaluation = coordinator.run_cycle(
+        correlation_id="owned-observation", decision=owned_decision)
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+    assert calls["n"] == 1
+    assert owner_kernel._runtime_governor._host_resource_evidence is not None
+    assert other_kernel.observe_host_resource_evaluation(evaluation) is False
+    assert other_kernel._runtime_governor._host_resource_evidence is None
 
 
 def test_duplicate_correlation_and_one_epoch_per_tick(tmp_path):
@@ -42,6 +215,47 @@ def test_duplicate_correlation_and_one_epoch_per_tick(tmp_path):
     a = c.run_cycle(correlation_id="tick:1"); b = c.run_cycle(correlation_id="tick:1")
     assert a is b
     assert calls["n"] == 1
+
+
+def test_observation_owner_bounds_process_local_epoch_cache(tmp_path):
+    plan = build_observation_plan(specs=[HostObservationCollectorSpec(
+        "memory", True, ("linux", "unknown"), 1,
+        lambda observed_at=None: _result("memory", used_percent=20.0))])
+    kernel = ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+        decisions_path=tmp_path / "kernel.jsonl")
+    coordinator = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "resources", plan=plan)
+
+    for index in range(MAX_RETAINED_OBSERVATION_EPOCHS + 2):
+        assert coordinator.run_cycle(correlation_id=f"tick-{index}") is not None
+
+    assert len(coordinator._epochs_by_correlation) == MAX_RETAINED_OBSERVATION_EPOCHS
+    assert "tick-0" not in coordinator._epochs_by_correlation
+
+
+def test_latest_evaluation_is_fresh_cached_and_nonblocking(tmp_path):
+    now = [datetime(2026, 11, 12, tzinfo=timezone.utc)]
+    plan = build_observation_plan(specs=[HostObservationCollectorSpec(
+        "memory", True, ("linux", "unknown"), 1,
+        lambda observed_at=None: _result("memory", used_percent=20.0))])
+    coordinator = HostResourceRuntimeCoordinator(
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME),
+        runtime_state_root=tmp_path, plan=plan,
+        clock=lambda: now[0].isoformat())
+
+    assert coordinator.latest_evaluation() is None
+    completed = coordinator.run_cycle(correlation_id="before-frame-pressure")
+    assert completed is not None
+    assert coordinator.latest_evaluation() is completed
+
+    now[0] = now[0].replace(second=16)
+    assert coordinator.latest_evaluation() is None
+    now[0] = datetime(2026, 11, 12, tzinfo=timezone.utc)
+    assert coordinator._cycle_lock.acquire(blocking=False)
+    try:
+        assert coordinator.latest_evaluation() is None
+    finally:
+        coordinator._cycle_lock.release()
 
 
 def test_timeout_exception_partial_failure_and_late_discard(tmp_path):
@@ -88,6 +302,10 @@ def test_evaluation_snapshot_policy_world_state_and_artifact_custody(tmp_path):
     assert validate_evaluation(e).ok
     receipt = persist_evidence_bundle(tmp_path, e, tick_id="tick:eval")
     assert Path(receipt.artifact_paths["summary"]).exists()
+    persisted_pressure = json.loads(Path(
+        receipt.artifact_paths["pressure_report"]).read_text(encoding="utf-8"))
+    assert persisted_pressure["threshold_policy"] == (
+        e.pressure_report.threshold_policy)
     records = world_state_records(e)
     assert {r["subject_id"] for r in records} >= {"host_resource_observation_epoch", "host_resource_pressure", "host_resource_policy"}
     assert all(r["effect_claimed"] is False and r["effect_proven"] is False for r in records)
@@ -156,10 +374,13 @@ def test_host_pressure_defers_background_inference_and_recovers_without_reservin
         requested_phase=LifecyclePhase.RUNTIME,
         metadata={"purpose": "local_user_chat", "correlation_id": "foreground-pressure"},
     )
-    # Foreground chat is not mislabeled as background work when the collector
-    # reports pressure; its independent invocation limits still apply.
+    # Foreground chat has an independent reason from background work, but
+    # current host pressure still defers optional inference.
     assert kernel.observe_host_resource_evaluation(pressured)
-    assert kernel.admit(foreground).outcome == AdmissionOutcome.ALLOW
+    foreground_deferred = kernel.admit(foreground)
+    assert foreground_deferred.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_local_model_inference_under_cpu_pressure" in (
+        foreground_deferred.reason_codes)
 
 
 def test_nvml_gpu_pressure_reaches_background_inference_admission(monkeypatch, tmp_path):
@@ -211,6 +432,315 @@ def test_nvml_gpu_pressure_reaches_background_inference_admission(monkeypatch, t
     resource_evidence = decision.delegated_outcomes["runtime_governor"]["evidence_refs"]["host_resource_evidence"]
     assert resource_evidence["gpu_utilization_percent"] == 95.0
     assert resource_evidence["vram_utilization_percent"] == 92.0
+
+
+def test_vram_only_pressure_defers_optional_inference(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    kernel = ControlPlaneKernel(
+        runtime_governor=RuntimeGovernor(),
+        phase=LifecyclePhase.MAINTENANCE,
+        decisions_path=tmp_path / "kernel.jsonl")
+    plan = build_observation_plan(specs=[
+        HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+            lambda observed_at=None: _result("cpu", utilization_percent=20.0)),
+        HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+            lambda observed_at=None: _result("memory", used_percent=40.0)),
+        HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3,
+            lambda observed_at=None: _result("disk", used_percent=30.0,
+                free_bytes=1000)),
+        HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 4,
+            lambda observed_at=None: _result("nvidia_gpu", device_count=1,
+                devices=[{"index": 0, "gpu_utilization_percent": 15.0,
+                    "vram_utilization_percent": 86.0}]))])
+
+    evaluation = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "resources", plan=plan,
+    ).run_cycle(correlation_id="vram-only-pressure")
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+    assert evaluation.snapshot.gpu_utilization_percent == 15.0
+    assert evaluation.snapshot.vram_utilization_percent == 86.0
+    assert "gpu_pressure" in evaluation.pressure_report.pressure_labels
+    assert kernel.observe_host_resource_evaluation(evaluation)
+
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    decision = kernel.admit(ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="maintenance", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "maintenance_implementation",
+            "correlation_id": "vram-only-pressure-inference"}))
+    assert decision.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_background_inference_under_host_pressure" in (
+        decision.reason_codes)
+    evidence = decision.delegated_outcomes["runtime_governor"][
+        "evidence_refs"]["host_resource_evidence"]
+    assert evidence["gpu_utilization_percent"] == 15.0
+    assert evidence["vram_utilization_percent"] == 86.0
+
+
+def test_pressure_policy_projection_must_be_derived_from_collector_snapshot(tmp_path):
+    from sentientos.host_resource_governor import evaluate_host_resource_pressure
+    from sentientos.host_resource_policy import (
+        build_host_resource_proposal_receipts,
+        evaluate_host_resource_policy,
+    )
+
+    plan = build_observation_plan(specs=[
+        HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+            lambda observed_at=None: _result("cpu", utilization_percent=20.0)),
+        HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+            lambda observed_at=None: _result("memory", used_percent=40.0)),
+        HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3,
+            lambda observed_at=None: _result("disk", used_percent=30.0,
+                free_bytes=1000)),
+        HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 4,
+            lambda observed_at=None: _result("nvidia_gpu", device_count=1,
+                devices=[{"index": 0, "gpu_utilization_percent": 95.0,
+                    "vram_utilization_percent": 92.0}]))])
+    evaluation = HostResourceRuntimeCoordinator(
+        kernel=ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+            phase=LifecyclePhase.RUNTIME),
+        runtime_state_root=tmp_path, plan=plan).run_cycle(
+            correlation_id="derived-pressure-report")
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+
+    forged_pressure = evaluate_host_resource_pressure(
+        evaluation.snapshot, gpu_pressure_percent=100.0,
+        vram_pressure_percent=100.0)
+    forged_policy = evaluate_host_resource_policy(forged_pressure)
+    forged_receipts = build_host_resource_proposal_receipts(
+        forged_policy, created_at=evaluation.epoch.observed_at)
+    substituted = replace(evaluation, pressure_report=forged_pressure,
+        policy_decision=forged_policy, proposal_receipts=forged_receipts)
+
+    validation = validate_evaluation(substituted)
+    assert not validation.ok
+    assert "host_resource_pressure_report_not_derived_from_snapshot" in (
+        validation.findings)
+
+    shifted_epoch = replace(evaluation.epoch,
+        observed_at="2099-01-01T00:00:00+00:00")
+    shifted_timestamp = replace(evaluation, epoch=shifted_epoch)
+    timestamp_validation = validate_evaluation(shifted_timestamp)
+    assert not timestamp_validation.ok
+    assert "observation_epoch_semantic_identity_mismatch" in (
+        timestamp_validation.findings)
+
+
+def test_nvml_gpu_thermal_pressure_reaches_verified_game_inference_admission(
+        monkeypatch, tmp_path):
+    """GPU temperature remains actionable when WSL host thermal zones are absent."""
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    kernel = ControlPlaneKernel(
+        runtime_governor=RuntimeGovernor(), phase=LifecyclePhase.MAINTENANCE,
+        decisions_path=tmp_path / "kernel.jsonl")
+
+    def observe(correlation_id: str, temperature_c: float):
+        plan = build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                lambda observed_at=None: _result("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                lambda observed_at=None: _result("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                lambda observed_at=None: _result("nvidia_gpu", device_count=1,
+                    sample_scope="device_wide", per_process_attribution_available=False,
+                    devices=[{"index": 0, "gpu_utilization_percent": 20.0,
+                              "vram_utilization_percent": 25.0,
+                              "temperature_c": temperature_c}])),
+            HostObservationCollectorSpec("thermal_sensors", False,
+                ("linux", "unknown"), 4, lambda observed_at=None: HostCollectorResult(
+                    "thermal_sensors", "unavailable", observed_at or
+                    "2026-11-13T00:00:00+00:00", "test:unavailable",
+                    warnings=("sensor_unavailable:thermal",))),
+        ])
+        evaluation = HostResourceRuntimeCoordinator(
+            kernel=kernel, runtime_state_root=tmp_path / correlation_id,
+            plan=plan).run_cycle(correlation_id=correlation_id)
+        assert evaluation is not None and validate_evaluation(evaluation).ok
+        return evaluation
+
+    hot_game_sample = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 1, "d" * 64, "e" * 64,
+        datetime.now(timezone.utc).isoformat(), "f" * 64, 16.7, 0, 20.0,
+        4096, "available")
+    assert kernel.observe_verified_game_performance(hot_game_sample)
+    hot = observe("gpu-thermal-hot", 90.0)
+    assert hot.snapshot.gpu_utilization_percent == 20.0
+    assert hot.snapshot.vram_utilization_percent == 25.0
+    assert hot.snapshot.thermal_zone_temperatures_c == {"nvidia_gpu_0": 90.0}
+    assert "thermal_pressure" in hot.pressure_report.pressure_labels
+    assert "sensor_unavailable" in hot.pressure_report.pressure_labels
+
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    hot_decision = kernel.admit(ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="user", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "local_user_chat", "correlation_id": "game-chat-hot-gpu"},
+    ))
+    assert hot_decision.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_local_model_inference_under_host_pressure_during_game" in hot_decision.reason_codes
+    hot_evidence = hot_decision.delegated_outcomes["runtime_governor"]["evidence_refs"]
+    assert hot_evidence["host_resource_evidence"]["evaluation_id"] == hot.evaluation_id
+    assert hot_evidence["host_pressure_during_verified_game"] is True
+
+    nominal_game_sample = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 2, "a" * 64, "b" * 64,
+        datetime.now(timezone.utc).isoformat(), "c" * 64, 16.7, 0, 20.0,
+        4096, "available")
+    assert kernel.observe_verified_game_performance(nominal_game_sample)
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
+    nominal = observe("gpu-thermal-nominal", 75.0)
+    assert "thermal_pressure" not in nominal.pressure_report.pressure_labels
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    nominal_decision = kernel.admit(ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="user", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "local_user_chat", "correlation_id": "game-chat-nominal-gpu"},
+    ))
+    assert nominal_decision.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_local_model_inference_while_game_active" in (
+        nominal_decision.reason_codes)
+    nominal_evidence = nominal_decision.delegated_outcomes[
+        "runtime_governor"]["evidence_refs"]
+    assert nominal_evidence["host_resource_evidence"]["evaluation_id"] == (
+        nominal.evaluation_id)
+    assert "thermal_pressure" not in nominal_evidence[
+        "host_resource_evidence"]["pressure_labels"]
+
+
+def test_vram_pressure_during_verified_game_defers_optional_inference(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    kernel = ControlPlaneKernel(
+        runtime_governor=RuntimeGovernor(), phase=LifecyclePhase.MAINTENANCE,
+        decisions_path=tmp_path / "kernel.jsonl")
+    sample = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 1, "d" * 64, "e" * 64,
+        datetime.now(timezone.utc).isoformat(), "f" * 64, 16.7, 0, 20.0,
+        4096, "available")
+    assert kernel.observe_verified_game_performance(sample)
+    plan = build_observation_plan(specs=[
+        HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+            lambda observed_at=None: _result("cpu", utilization_percent=20.0)),
+        HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+            lambda observed_at=None: _result("memory", used_percent=40.0)),
+        HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+            lambda observed_at=None: _result("nvidia_gpu", device_count=1,
+                sample_scope="device_wide", per_process_attribution_available=False,
+                devices=[{"index": 0, "gpu_utilization_percent": 15.0,
+                    "vram_utilization_percent": 86.0}]))])
+    evaluation = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "resources", plan=plan,
+    ).run_cycle(correlation_id="game-vram-pressure")
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+    assert evaluation.snapshot.gpu_utilization_percent == 15.0
+    assert evaluation.snapshot.vram_utilization_percent == 86.0
+    assert "gpu_pressure" in evaluation.pressure_report.pressure_labels
+    assert kernel.observe_host_resource_evaluation(evaluation)
+
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    decision = kernel.admit(ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="user", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "local_user_chat",
+            "correlation_id": "game-vram-pressure-inference"}))
+    assert decision.outcome == AdmissionOutcome.DEFER
+    assert ("runtime_governor:deferred_local_model_inference_under_host_pressure_during_game"
+        in decision.reason_codes)
+    evidence = decision.delegated_outcomes["runtime_governor"][
+        "evidence_refs"]["host_resource_evidence"]
+    assert evidence["evaluation_id"] == evaluation.evaluation_id
+    assert evidence["gpu_utilization_percent"] == 15.0
+    assert evidence["vram_utilization_percent"] == 86.0
+
+
+def test_host_pressure_during_verified_game_defers_foreground_chat_after_pressure_clears(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(
+        runtime_governor=governor, phase=LifecyclePhase.MAINTENANCE,
+        decisions_path=tmp_path / "kernel.jsonl")
+
+    def resource_plan(gpu: float):
+        return build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                lambda observed_at=None: _result("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                lambda observed_at=None: _result("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3,
+                lambda observed_at=None: _result("disk", used_percent=30.0,
+                    free_bytes=1000)),
+            HostObservationCollectorSpec("nvidia_gpu", False,
+                ("linux", "unknown"), 4, lambda observed_at=None: _result(
+                    "nvidia_gpu", device_count=1,
+                    devices=[{"index": 0, "gpu_utilization_percent": gpu,
+                              "vram_utilization_percent": gpu}]))])
+
+    game_sample = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 1, "d" * 64, "e" * 64,
+        datetime.now(timezone.utc).isoformat(), "f" * 64, 16.7, 0, 20.0,
+        4096, "available")
+    assert governor.observe_verified_game_performance(game_sample)
+
+    pressured = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "pressure",
+        plan=resource_plan(95.0)).run_cycle(correlation_id="game-gpu-pressure")
+    assert pressured is not None and validate_evaluation(pressured).ok
+    assert "gpu_pressure" in pressured.pressure_report.pressure_labels
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    foreground = ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="user", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "local_user_chat", "correlation_id": "game-chat-pressure"})
+    deferred = kernel.admit(foreground)
+    assert deferred.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_local_model_inference_under_host_pressure_during_game" in deferred.reason_codes
+    runtime_evidence = deferred.delegated_outcomes["runtime_governor"]["evidence_refs"]
+    assert runtime_evidence["host_resource_evidence"]["evaluation_id"] == pressured.evaluation_id
+    assert runtime_evidence["game_performance_evidence"]["message_id"] == "d" * 64
+    assert runtime_evidence["host_pressure_during_verified_game"] is True
+
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
+    nominal = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "recovered",
+        plan=resource_plan(20.0)).run_cycle(correlation_id="game-gpu-recovered")
+    assert nominal is not None and validate_evaluation(nominal).ok
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    recovered = kernel.admit(foreground)
+    assert recovered.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_local_model_inference_while_game_active" in (
+        recovered.reason_codes)
+    recovered_evidence = recovered.delegated_outcomes[
+        "runtime_governor"]["evidence_refs"]
+    assert recovered_evidence["host_resource_evidence"]["evaluation_id"] == (
+        nominal.evaluation_id)
+    assert recovered_evidence["host_pressure_during_verified_game"] is False
 
 
 def test_gpu_offloaded_inference_requires_gpu_telemetry_and_recovers(monkeypatch, tmp_path):
@@ -293,4 +823,5 @@ def test_gpu_offloaded_inference_requires_gpu_telemetry_and_recovers(monkeypatch
     assert gpu_with_measurement.outcome == AdmissionOutcome.ALLOW
     evidence = gpu_with_measurement.delegated_outcomes["runtime_governor"]["evidence_refs"]["host_resource_evidence"]
     assert evidence["gpu_telemetry_available"] is True
+    assert evidence["gpu_telemetry_complete"] is True
     assert evidence["gpu_utilization_percent"] == 15.0

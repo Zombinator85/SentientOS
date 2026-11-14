@@ -165,6 +165,8 @@ def load_production_chat_resource_context_owner(
         allocator = GovernedLocalModelResourceAllocator(policy=policy, ledger=ledger)
         return ProductionChatResourceContextOwner(allocator=allocator, allocation=allocation, principal=principal,
             authenticated=authenticated, current=current, policy=policy, nonce_source=nonce_source, clock=clock,
+            installation_identity=installation_handle.identity.value,
+            provisioning_id=selected,
             ledger_owner_lock=owner_lock)
     except Exception:
         owner_lock.__exit__(None, None, None)

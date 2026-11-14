@@ -6,6 +6,7 @@ import inspect
 import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event, current_thread
 from typing import cast
 
 import pytest
@@ -16,7 +17,7 @@ from sentientos.causal_resource_principal_provenance_signer import CryptographyE
 from sentientos.causal_resource_principal_signer_custody import RootIssuerPrivateKeyBackend, RootIssuerPrivateKeyCustody, RootIssuerSigningKeyReference
 from sentientos.causal_resource_principal_trust_catalog import CATALOG_SCHEMA, catalog_digest_for
 from sentientos.causal_resource_principal_currentness import REGISTRY_SCHEMA, registry_digest_for
-from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceBounds, GovernedLocalModelResourceLedger, GovernedLocalModelResourcePolicy
+from sentientos.governed_local_model_resource_allocation import (GovernedLocalModelResourceBounds, GovernedLocalModelResourceError, GovernedLocalModelResourceLedger, GovernedLocalModelResourcePolicy)
 from sentientos.installation_state import InstallationIdentity, InstallationStateHandle, InstallationStateRegistry
 from sentientos.production_chat_resource_provisioning import load_production_chat_resource_context_owner
 from sentientos.production_chat_resource_provisioning_bundle_producer import ProductionChatResourceProvisioningBundleProducerError, produce_production_chat_resource_provisioning_bundle
@@ -71,7 +72,114 @@ def test_producer_publishes_manifest_last_and_existing_consumer_loads(tmp_path: 
     assert (owner.principal.principal_id, owner.allocation.allocation_id, owner.policy.policy_digest) == (result.principal_id, result.allocation_id, result.resource_policy_digest)
     assert owner.allocator.ledger.snapshot_counts() == (1, 0, 0)
     assert owner.allocator.ledger.remaining_calls(result.allocation_id) == 2
+    entitlement_binding = owner.serving_admission_entitlement_binding()
+    assert entitlement_binding == {
+        "schema_version": (
+            "sentientos.governed_local_model_serving_entitlement_binding:v1"),
+        "binding_scope": "inference_call_entitlement",
+        "allocation_id": result.allocation_id,
+        "allocation_digest": result.allocation_digest,
+        "allocator_id": "sentientos.governed_local_model_resource_allocator.v1",
+        "resource_kind": "governed_local_model_invocation_call_entitlement.v1",
+        "policy_digest": result.resource_policy_digest,
+        "policy_epoch": 1,
+        "principal_binding_digest": owner.principal.binding_digest,
+        "remaining_call_entitlement": 2,
+        "checked_at": NOW,
+    }
+    assert owner.allocator.ledger.snapshot_counts() == (1, 0, 0)
     assert issue_calls == 1
+
+
+def test_serving_admission_entitlement_is_read_only_current_and_exhaustion_aware(
+        tmp_path: Path) -> None:
+    handle, kwargs = inputs(tmp_path, calls=2)
+    produce_production_chat_resource_provisioning_bundle(
+        handle, "serving-entitlement", **kwargs)
+    now = {"value": NOW}
+    owner = load_production_chat_resource_context_owner(
+        handle, "serving-entitlement", clock=lambda: now["value"],
+        nonce_source=lambda: "serving-entitlement-nonce")
+    try:
+        assert owner.serving_admission_entitlement_binding()[
+            "remaining_call_entitlement"] == 2
+        assert owner.allocator.ledger.snapshot_counts() == (1, 0, 0)
+        for nonce in ("first", "second"):
+            owner.allocator.final_gate(
+                allocation=owner.allocation,
+                principal=owner.principal,
+                authenticated=owner.authenticated,
+                current=owner.current,
+                policy=owner.policy,
+                current_time=NOW,
+                durable_attempt_nonce=nonce)
+        with pytest.raises(GovernedLocalModelResourceError,
+                           match="call_entitlement_exhausted"):
+            owner.serving_admission_entitlement_binding()
+        now["value"] = "2026-09-21T09:15:00Z"
+        with pytest.raises(GovernedLocalModelResourceError,
+                           match="policy_expired"):
+            owner.serving_admission_entitlement_binding()
+    finally:
+        owner.close()
+
+
+def test_serving_entitlement_snapshot_serializes_concurrent_call_debit(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    handle, kwargs = inputs(tmp_path, calls=1)
+    produce_production_chat_resource_provisioning_bundle(
+        handle, "serving-entitlement-race", **kwargs)
+    owner = load_production_chat_resource_context_owner(
+        handle, "serving-entitlement-race", clock=lambda: NOW,
+        nonce_source=lambda: "serving-entitlement-race-nonce")
+    snapshot_reading_calls = Event()
+    finish_snapshot = Event()
+    debit_validating = Event()
+    original_validate = owner.allocator.validate_current
+    original_remaining_calls = owner.allocator.ledger.remaining_calls
+
+    def observed_validation(**values):
+        if current_thread().name.endswith("_1"):
+            debit_validating.set()
+        return original_validate(**values)
+
+    def paused_remaining_calls(allocation_id: str) -> int:
+        if current_thread().name.endswith("_0"):
+            snapshot_reading_calls.set()
+            if not finish_snapshot.wait(timeout=5):
+                raise AssertionError("serving_entitlement_snapshot_not_released")
+        return original_remaining_calls(allocation_id)
+
+    monkeypatch.setattr(owner.allocator, "validate_current", observed_validation)
+    monkeypatch.setattr(owner.allocator.ledger, "remaining_calls",
+        paused_remaining_calls)
+    try:
+        with ThreadPoolExecutor(max_workers=2,
+                                thread_name_prefix="entitlement") as pool:
+            snapshot = pool.submit(owner.serving_admission_entitlement_binding)
+            assert snapshot_reading_calls.wait(timeout=5)
+
+            def debit_call() -> str:
+                return owner.allocator.final_gate(
+                    allocation=owner.allocation,
+                    principal=owner.principal,
+                    authenticated=owner.authenticated,
+                    current=owner.current,
+                    policy=owner.policy,
+                    current_time=NOW,
+                    durable_attempt_nonce="concurrent-serving-debit")
+
+            debit = pool.submit(debit_call)
+            assert debit_validating.wait(timeout=5)
+            finish_snapshot.set()
+            binding = snapshot.result(timeout=5)
+            assert debit.result(timeout=5)
+        assert binding["remaining_call_entitlement"] == 1
+        assert owner.allocator.ledger.remaining_calls(
+            owner.allocation.allocation_id) == 0
+    finally:
+        finish_snapshot.set()
+        owner.close()
 
 def test_same_id_rerun_rejects_before_second_issue(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     handle, kwargs = inputs(tmp_path); result = produce_production_chat_resource_provisioning_bundle(handle, "once", **kwargs)

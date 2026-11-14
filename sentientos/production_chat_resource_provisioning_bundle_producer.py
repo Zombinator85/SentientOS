@@ -142,8 +142,7 @@ def produce_production_chat_resource_provisioning_bundle(
         before, after = _time(requested_not_before), _time(requested_not_after)
         if after <= before:
             raise ProductionChatResourceProvisioningBundleProducerError("invalid_provisioning_input")
-        if any(getattr(requested_bounds, field) > getattr(policy.max_resource_specific_bounds, field)
-               for field in GovernedLocalModelResourceBounds.__dataclass_fields__):
+        if not requested_bounds.is_within(policy.max_resource_specific_bounds):
             raise ProductionChatResourceProvisioningBundleProducerError("invalid_provisioning_input")
     except ProductionChatResourceProvisioningBundleProducerError:
         raise

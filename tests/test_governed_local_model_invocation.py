@@ -1,6 +1,8 @@
 # mypy: ignore-errors
 from __future__ import annotations
 
+import json
+from dataclasses import replace
 from pathlib import Path
 from threading import Event, Thread
 from time import monotonic
@@ -10,9 +12,14 @@ import pytest
 pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
-from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
+from sentientos.control_plane_kernel import (
+    AdmissionOutcome, AuthorityClass, ControlActionRequest,
+    ControlPlaneKernel, LifecyclePhase,
+)
 from sentientos.governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt,
+    _valid_cancellation_admission_decision,
+    _cancellation_preemption_reference,
     validate_llama_completion_observation,
     RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
     RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA, RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
@@ -20,8 +27,109 @@ from sentientos.governed_local_model_invocation import (
     RESIDENT_COMPANION_HISTORY_WITHHELD_OUTPUT_SCHEMA,
     RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA,
 )
-from sentientos.local_model_authority import build_local_model_authority_map
+from sentientos.local_model_authority import build_local_model_authority_map, digest_payload
 from sentientos.local_model import ActiveModelIdentity, ModelLoadError
+
+
+def test_game_cancellation_admission_requires_exact_invocation_evidence() -> None:
+    request = {"request_id": "lmreq-" + "a" * 24,
+        "request_digest": "b" * 64, "correlation_id": "active-chat-request"}
+    model_identity = {"provider": "fixture-model", "identity_digest": "c" * 64}
+    request["active_model_identity"] = model_identity
+    request["linkage"] = {"serving_session_id": "serving-session-" + "d" * 24,
+        "observed_loaded_model_identity": dict(model_identity)}
+    request_reference = {key: request[key] for key in (
+        "request_id", "request_digest", "correlation_id")}
+    request_digest = digest_payload(request_reference)
+    correlation_id = "active-inference-preemption:" + request_digest + ":attempt-1"
+    reference = "kernel_decision:" + correlation_id
+    decision = {
+        "schema_version": "sentientos.cancellation_admission_decision_witness:v2",
+        "event_type": "control_plane_decision",
+        "final_disposition": "allow", "outcome": "allow",
+        "reason_codes": ["admitted"], "delegate_checks_consulted": ["runtime_governor"],
+        "lifecycle_phase": "runtime", "current_phase": "runtime",
+        "requested_phase": "runtime", "authority_class": "local_model_inference",
+        "action_kind": "local_model_inference_preemption",
+        "actor_source": "production_chat_game_workload_governor",
+        "actor": "production_chat_game_workload_governor",
+        "execution_owner": "production_chat_game_workload_governor",
+        "target_subsystem": "governed_local_model_invocation",
+        "delegated_outcomes": {"runtime_governor": {
+            "allowed": True,
+            "reason": "allowed_verified_game_workload_inference_preemption",
+            "evidence_refs": {
+                "game_workload_evidence": {"status": "current",
+                    "game_active": True, "message_id": "c" * 64},
+                "active_inference_request_reference": dict(request_reference),
+                "active_inference_preemption": {
+                    "schema_version": "sentientos.active_inference_preemption:v2",
+                    "workload_mode": "automatic",
+                    "serving_session_id": request["linkage"]["serving_session_id"],
+                    "model_identity_digest": digest_payload(model_identity),
+                    "game_workload_message_id": "c" * 64,
+                    "active_inference_request_reference": dict(request_reference),
+                },
+            },
+        }},
+        "federation_context": {}, "proof_budget_context": {},
+        "protected_mutation_intent": None,
+        "correlation_id": correlation_id,
+        "admission_decision_ref": reference,
+    }
+    assert _valid_cancellation_admission_decision(decision, reference=reference,
+        request=request, require_runtime_evidence=True)
+    preemption_ref = _cancellation_preemption_reference(decision,
+        admission_reference=reference, request=request)
+    assert preemption_ref == {
+        "schema_version": "sentientos.local_model_cancellation_preemption_ref:v1",
+        "cancellation_admission_decision_ref": reference,
+        "active_inference_request_reference": request_reference,
+        "preemption_evidence_kind": "active_inference_preemption",
+        "preemption_evidence_digest": digest_payload(
+            decision["delegated_outcomes"]["runtime_governor"]["evidence_refs"]
+                ["active_inference_preemption"]),
+    }
+    assert _cancellation_preemption_reference(decision,
+        admission_reference=reference,
+        request={**request, "request_id": "lmreq-" + "e" * 24}) is None
+    legacy_evidence_decision = {**decision, "delegated_outcomes": {
+        "runtime_governor": {**decision["delegated_outcomes"]["runtime_governor"],
+            "evidence_refs": {
+                key: value for key, value in decision["delegated_outcomes"]
+                    ["runtime_governor"]["evidence_refs"].items()
+                if key != "active_inference_preemption"}}}}
+    legacy_ref = _cancellation_preemption_reference(legacy_evidence_decision,
+        admission_reference=reference, request=request)
+    assert legacy_ref is not None
+    assert legacy_ref["preemption_evidence_kind"] == "runtime_governor_evidence_refs"
+    assert legacy_ref["preemption_evidence_digest"] == digest_payload(
+        legacy_evidence_decision["delegated_outcomes"]["runtime_governor"]
+            ["evidence_refs"])
+    tampered = {**decision, "delegated_outcomes": {"runtime_governor": {
+        **decision["delegated_outcomes"]["runtime_governor"],
+        "evidence_refs": {
+            **decision["delegated_outcomes"]["runtime_governor"]["evidence_refs"],
+            "active_inference_request_reference": {**request_reference,
+                "request_id": "lmreq-" + "d" * 24},
+        },
+    }}}
+    assert not _valid_cancellation_admission_decision(tampered,
+        reference=reference, request=request, require_runtime_evidence=True)
+    tampered_evidence = {**decision, "delegated_outcomes": {
+        "runtime_governor": {**decision["delegated_outcomes"]["runtime_governor"],
+            "evidence_refs": {
+                **decision["delegated_outcomes"]["runtime_governor"]["evidence_refs"],
+                "active_inference_preemption": {
+                    **decision["delegated_outcomes"]["runtime_governor"][
+                        "evidence_refs"]["active_inference_preemption"],
+                    "serving_session_id": "serving-session-" + "e" * 24,
+                },
+            },
+        },
+    }}
+    assert not _valid_cancellation_admission_decision(tampered_evidence,
+        reference=reference, request=request, require_runtime_evidence=True)
 
 class FakeModel:
     def __init__(self, text: str = "ok") -> None:
@@ -271,7 +379,8 @@ def test_invocation_timeout_cancels_cooperative_model_worker(tmp_path: Path) -> 
 
 
 
-def test_client_disconnect_cancels_governed_generation(tmp_path: Path) -> None:
+def test_governed_cancellation_admission_is_bound_to_receipt(
+        tmp_path: Path, monkeypatch) -> None:
     model_path = tmp_path / "m.gguf"
     model_path.write_bytes(b"bytes")
     config = ModelConfig(candidates=[ModelCandidate(
@@ -279,10 +388,13 @@ def test_client_disconnect_cancels_governed_generation(tmp_path: Path) -> None:
         generation=GenerationConfig(max_new_tokens=8))
     authority = build_local_model_authority_map(config, allowed_roots=[tmp_path])
     model = CancellableBlockingModel()
+    kernel = ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+        decisions_path=tmp_path / "decisions.jsonl")
     invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
-        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
-            decisions_path=tmp_path / "decisions.jsonl"),
+        kernel=kernel,
         runtime_root=tmp_path / "runtime")
+    published_receipts = []
+    invoker.register_evidence_sink(published_receipts.append)
     request = invoker.build_request(purpose="local_user_chat", prompt="wait",
         caller="test", correlation_id="client-disconnect",
         budget=LocalModelInvocationBudget(timeout_seconds=2))
@@ -293,13 +405,128 @@ def test_client_disconnect_cancels_governed_generation(tmp_path: Path) -> None:
     while model.calls == 0 and monotonic() < deadline:
         Event().wait(0.005)
     assert model.calls == 1
-    assert invoker.cancel_pending_generation() is True
+    # The invocation-owner unit test uses an allow object emitted by its kernel;
+    # serving integration tests cover the actual host and game admission paths.
+    active_reference = invoker.active_invocation_request_reference()
+    assert active_reference is not None
+    decision = kernel._finalize(ControlActionRequest(
+        action_kind="local_model_inference_preemption",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="production_chat_game_workload_governor",
+        target_subsystem="governed_local_model_invocation",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"correlation_id": "active-inference-preemption:"
+            + digest_payload(dict(active_reference)) + ":governed-test"}),
+        AdmissionOutcome.ALLOW, ["admitted"], {})
+    with pytest.raises(ValueError, match="admission_decision_unverified"):
+        invoker.cancel_pending_generation(reason="workload_transition",
+            cancellation_admission_decision="kernel_decision:forged")
+    with pytest.raises(ValueError, match="admission_decision_unverified"):
+        invoker.cancel_pending_generation(reason="workload_transition",
+            cancellation_admission_decision=replace(decision))
+
+    def fail_decision_append(_payload):
+        raise OSError("synthetic_decision_log_failure")
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(kernel, "_append", fail_decision_append)
+        unpersisted_decision = kernel._finalize(ControlActionRequest(
+            action_kind="local_model_inference_preemption",
+            authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+            actor="production_chat_game_workload_governor",
+            target_subsystem="governed_local_model_invocation",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"correlation_id": "unpersisted-preemption"}),
+            AdmissionOutcome.ALLOW, ["admitted"], {})
+    with pytest.raises(ValueError, match="admission_decision_unverified"):
+        invoker.cancel_pending_generation(reason="workload_transition",
+            cancellation_admission_decision=unpersisted_decision)
+    mismatched_decision = kernel._finalize(ControlActionRequest(
+        action_kind="local_model_inference_preemption",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="production_chat_game_workload_governor",
+        target_subsystem="governed_local_model_invocation",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"correlation_id": "active-inference-preemption:"
+            + digest_payload({**dict(active_reference), "request_id": "another-invocation"})
+            + ":governed-test"}), AdmissionOutcome.ALLOW, ["admitted"], {})
+    assert invoker.cancel_pending_generation(reason="workload_transition",
+        cancellation_admission_decision=mismatched_decision) is False
+    assert model.cancelled.is_set() is False
+    mismatched_release_decision = kernel._finalize(ControlActionRequest(
+        action_kind="local_model_resource_release",
+        authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
+        actor="production_chat_game_resource_governor",
+        target_subsystem="production_chat",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"correlation_id": "active-resource-release:"
+            + digest_payload({**dict(active_reference), "request_id": "another-invocation"})
+            + ":governed-test"}), AdmissionOutcome.ALLOW, ["admitted"], {})
+    assert invoker.cancel_pending_generation(reason="workload_transition",
+        cancellation_admission_decision=mismatched_release_decision) is False
+    assert model.cancelled.is_set() is False
+    assert invoker.cancel_pending_generation(reason="workload_transition",
+        cancellation_admission_decision=decision) is True
     worker.join(1)
 
     assert not worker.is_alive()
     assert result[0].status == "cancelled"
-    assert "cancelled_by_client_disconnect" in result[0].reason_codes
+    assert "cancelled_for_workload_transition" in result[0].reason_codes
+    assert result[0].cancellation_admission_decision_ref == (
+        decision.admission_decision_ref)
+    assert result[0].schema_version == "sentientos.local_model_invocation_receipt:v8"
+    valid, reasons = validate_receipt(result[0].to_dict())
+    assert valid, reasons
+    persisted = json.loads((tmp_path / "runtime" / "receipts" /
+        f"{result[0].receipt_id}.json").read_text(encoding="utf-8"))
+    assert validate_receipt(persisted)[0]
+    inference_record = result[0].admission_decision_record
+    assert inference_record is not None
+    assert inference_record["action_kind"] == "local_model_inference"
+    assert inference_record["admission_decision_ref"] == (
+        result[0].admission_decision_ref)
+    assert persisted["admission_decision_record"] == inference_record
+    assert persisted["cancellation_admission_decision_ref"] == (
+        decision.admission_decision_ref)
+    expected_kernel_record = kernel.recorded_decision_payload(decision)
+    assert result[0].cancellation_admission_record == expected_kernel_record
+    assert persisted["cancellation_admission_record"] == expected_kernel_record
+    logged_kernel_record = next(json.loads(line) for line in
+        (tmp_path / "decisions.jsonl").read_text(encoding="utf-8").splitlines()
+        if json.loads(line).get("admission_decision_ref") ==
+            decision.admission_decision_ref)
+    assert result[0].cancellation_admission_record == logged_kernel_record
+    logged_inference_record = next(json.loads(line) for line in
+        (tmp_path / "decisions.jsonl").read_text(encoding="utf-8").splitlines()
+        if json.loads(line).get("admission_decision_ref") ==
+            result[0].admission_decision_ref)
+    assert inference_record == logged_inference_record
+    assert published_receipts[0]["receipt_digest"] == result[0].receipt_digest
     assert model.cancelled.is_set()
+
+
+def test_unrecorded_inference_admission_never_enters_backend(
+        tmp_path: Path, monkeypatch) -> None:
+    model, invoker = _invoker(tmp_path)
+    request = invoker.build_request(purpose="local_user_chat", prompt="hello",
+        caller="test", correlation_id="unrecorded-inference-admission")
+
+    def fail_append(_payload):
+        raise OSError("synthetic_decision_log_failure")
+
+    monkeypatch.setattr(invoker.kernel, "_append", fail_append)
+    receipt = invoker.invoke(request)
+
+    assert receipt.status == "admission_unrecorded"
+    assert "admission_decision_not_recorded" in receipt.reason_codes
+    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v8"
+    assert receipt.admission_decision_record is None
+    assert receipt.effects["local_model_inference"] is False
+    assert model.calls == 0
+    valid, findings = validate_receipt(receipt.to_dict())
+    assert valid, findings
+    assert not (tmp_path / "runtime" / "decisions" /
+        f"{request.request_id}.json").exists()
 
 
 def test_unconfirmed_timeout_is_bounded_and_blocks_overlapping_generation(
@@ -351,7 +578,7 @@ def test_backend_reported_token_limit_is_bound_and_makes_output_unscoreable(tmp_
         caller="test", correlation_id="backend-token-limit",
         budget=LocalModelInvocationBudget(max_new_tokens=8))
     receipt = inv.invoke(request)
-    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v3"
+    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v8"
     assert receipt.output_truncated is True
     assert "backend_token_limit_reached" in receipt.reason_codes
     payload = receipt.to_dict()
@@ -372,7 +599,7 @@ def test_worker_resource_measurements_are_bound_to_invocation_receipt(tmp_path: 
         generation=GenerationConfig(max_new_tokens=8))
     authority = build_local_model_authority_map(config, allowed_roots=[tmp_path])
     completion = {
-        "schema_version": "sentientos.llama_cpp_completion_observation:v2",
+        "schema_version": "sentientos.llama_cpp_completion_observation:v3",
         "backend": "llama_cpp",
         "finish_reason": "unknown",
         "completion_tokens": None,
@@ -385,21 +612,36 @@ def test_worker_resource_measurements_are_bound_to_invocation_receipt(tmp_path: 
             "wall_seconds": 0.18,
             "process_peak_rss_bytes": 7_340_032,
         },
+        "backend_thread_limit_control": {
+            "schema_version": "sentientos.llama_cpp_backend_thread_limit_control:v1",
+            "requested_ceiling": 2,
+            "setter_function": "llama_set_n_threads",
+            "n_threads_argument": 2,
+            "n_threads_batch_argument": 2,
+        },
     }
     model = BackendMetadataModel("answer", completion)
+    model.supports_per_invocation_thread_limit = True
     invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
         kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
             decisions_path=tmp_path / "decisions.jsonl"), runtime_root=tmp_path / "runtime")
     request = invoker.build_request(purpose="local_user_chat", prompt="hello",
-        caller="test", correlation_id="worker-resource-observation")
+        caller="test", correlation_id="worker-resource-observation",
+        linkage={"max_backend_threads": 2})
 
     receipt = invoker.invoke(request)
 
     assert receipt.status == "admitted_completed"
     payload = receipt.to_dict()
     assert payload["backend_completion"] == completion
+    assert payload["generation_config"]["actual_generation_parameters"][
+        "max_backend_threads"] == 2
     valid, reasons = validate_receipt(payload)
     assert valid, reasons
+    payload["request"]["linkage"]["max_backend_threads"] = 1
+    valid, reasons = validate_receipt(payload)
+    assert not valid and "backend_thread_limit_control_unbound" in reasons
+    payload["request"]["linkage"]["max_backend_threads"] = 2
     payload["backend_completion"]["invocation_resources"]["user_cpu_seconds"] = -1
     valid, reasons = validate_receipt(payload)
     assert not valid
@@ -431,6 +673,30 @@ def test_worker_resource_observation_rejects_invalid_measurements(field: str, va
         },
     }
     completion["invocation_resources"][field] = value
+
+    assert not validate_llama_completion_observation(completion)
+
+
+def test_backend_thread_limit_control_observation_is_bounded_and_exact() -> None:
+    completion = {
+        "schema_version": "sentientos.llama_cpp_completion_observation:v3",
+        "backend": "llama_cpp", "finish_reason": "unknown",
+        "completion_tokens": None, "prompt_tokens": None,
+        "token_limit_reached": None,
+        "invocation_resources": {
+            "schema_version": "sentientos.llama_cpp_invocation_resource_observation:v1",
+            "user_cpu_seconds": 0.1, "system_cpu_seconds": 0.01,
+            "wall_seconds": 0.11, "process_peak_rss_bytes": 8_388_608,
+        },
+        "backend_thread_limit_control": {
+            "schema_version": "sentientos.llama_cpp_backend_thread_limit_control:v1",
+            "requested_ceiling": 2, "setter_function": "llama_set_n_threads",
+            "n_threads_argument": 2, "n_threads_batch_argument": 2,
+        },
+    }
+    assert validate_llama_completion_observation(completion)
+
+    completion["backend_thread_limit_control"]["n_threads_argument"] = 3
 
     assert not validate_llama_completion_observation(completion)
 

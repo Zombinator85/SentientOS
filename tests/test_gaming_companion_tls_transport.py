@@ -18,6 +18,19 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from sentientos.gaming_companion_bridge import CompanionBridgeReceiver, encode_message
+from sentientos.control_plane_kernel import (
+    AdmissionOutcome,
+    AuthorityClass,
+    ControlActionRequest,
+    ControlPlaneKernel,
+    LifecyclePhase,
+)
+from sentientos.host_collectors import HostCollectorResult
+from sentientos.host_resource_runtime import (
+    HostObservationCollectorSpec,
+    HostResourceRuntimeCoordinator,
+    build_observation_plan,
+)
 from sentientos.avatar_renderer_report_ingress import RendererReportCaptureOwner
 from sentientos.avatar_renderer_report_relay import WindowsRendererReportRelay
 from sentientos.foreground_game_bridge import (
@@ -39,6 +52,7 @@ from sentientos.gaming_companion_tls_transport import (
     verify_generation_rotation,
     verify_generation_pair_rotation,
 )
+from sentientos.runtime_governor import PressureSnapshot, RuntimeGovernor
 from sentientos.windows_game_performance import WindowsGamePerformanceObserver
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -54,6 +68,12 @@ def _certificate_bundle(root: Path):
         .public_key(ca_key.public_key()).serial_number(x509.random_serial_number())
         .not_valid_before(now - timedelta(minutes=1)).not_valid_after(now + timedelta(days=1))
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .add_extension(x509.KeyUsage(digital_signature=False, content_commitment=False,
+            key_encipherment=False, data_encipherment=False, key_agreement=False,
+            key_cert_sign=True, crl_sign=True, encipher_only=None, decipher_only=None),
+            critical=True)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(ca_key.public_key()), critical=False)
+        .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False)
         .sign(ca_key, hashes.SHA256()))
     ca_path = root / "ca.pem"
     ca_path.write_bytes(ca_cert.public_bytes(serialization.Encoding.PEM))
@@ -64,6 +84,7 @@ def _certificate_bundle(root: Path):
         builder = (x509.CertificateBuilder().subject_name(subject).issuer_name(ca_name)
             .public_key(key.public_key()).serial_number(x509.random_serial_number())
             .not_valid_before(now - timedelta(minutes=1)).not_valid_after(now + timedelta(days=1))
+            .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False)
             .add_extension(x509.ExtendedKeyUsage([usage]), critical=False))
         if san is not None:
             builder = builder.add_extension(x509.SubjectAlternativeName([san]), critical=False)
@@ -244,6 +265,153 @@ def test_windows_foreground_publisher_and_core_detector_compose_over_mutual_tls(
         assert observation.transport_provenance is not None
         assert observation.transport_provenance["message_id"] == acknowledgment.payload["message_id"]
         assert runtime.status().accepted_messages == 1
+    finally:
+        core_detector.close()
+
+
+def test_production_game_evidence_schemas_share_one_ordered_mtls_session(
+        tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    source_key, ack_key = b"e" * 32, b"c" * 32
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1",
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=CompanionBridgeReceiver(source_keys={"windows-edge": source_key},
+            expected_generations={"windows-edge": "edge-generation-1"}),
+        acknowledgment_source_id="wsl-core",
+        acknowledgment_generation_id="core-generation-1", acknowledgment_key=ack_key)
+    port = runtime.start()
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(source_keys={"wsl-core": ack_key},
+            expected_generations={"wsl-core": "core-generation-1"}))
+    publication_lock = threading.Lock()
+    sequence = 0
+
+    def allocate_sequence() -> int:
+        nonlocal sequence
+        sequence += 1
+        return sequence
+
+    observer = WindowsGamePerformanceObserver(system_provider=lambda: "Windows",
+        process_provider=lambda _pid: {"cpu_percent": 33.0, "rss_bytes": 131072},
+        frame_provider=lambda _pid: ((16.7, 20.0), "f" * 64))
+    performance_publisher = WindowsGamePerformanceBridgePublisher(
+        observer=observer, client=client, source_id="windows-edge",
+        session_id="shared-game-evidence", generation_id="edge-generation-1",
+        source_key=source_key, process_id=456, sequence_allocator=allocate_sequence,
+        publication_lock=publication_lock)
+    foreground_publisher = WindowsForegroundBridgePublisher(
+        detector=ForegroundGameDetector(system_provider=lambda: "Windows",
+            process_name_provider=lambda: "game.exe"), client=client,
+        source_id="windows-edge", session_id="shared-game-evidence",
+        generation_id="edge-generation-1", source_key=source_key,
+        sequence_allocator=allocate_sequence, publication_lock=publication_lock)
+    core_detector = BridgeForegroundGameDetector(runtime=runtime,
+        source_id="windows-edge", generation_id="edge-generation-1")
+
+    governor = RuntimeGovernor()
+    monkeypatch.setattr(governor, "sample_pressure", lambda: PressureSnapshot(
+        0.0, 0.0, 0.0, 0.0, 0.0, datetime.now(timezone.utc).isoformat()))
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "control-plane" / "decisions.jsonl")
+    def collector(collector_id, **values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or datetime.now(timezone.utc).isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1, devices=[{
+                    "index": 0, "gpu_utilization_percent": 10.0,
+                    "vram_utilization_percent": 20.0}])),
+        ]))
+    core_detector.set_game_performance_admission_owner(kernel)
+    core_detector.set_game_workload_admission_owner(kernel)
+    try:
+        performance_ack = performance_publisher.publish_once()
+        foreground_ack = foreground_publisher.publish_once(["game.exe"])
+        assert performance_ack.sequence == 1
+        assert foreground_ack.sequence == 2
+        observation = core_detector.observe(["game.exe"])
+        assert observation.status == "available" and observation.game_foreground is True
+        performance_evidence = kernel.current_verified_game_performance_evidence()
+        assert performance_evidence is not None
+        assert performance_evidence["sequence"] == 1
+        assert governor._game_workload_evidence is not None
+        assert governor._game_workload_evidence["sequence"] == 2
+        assert runtime.status().accepted_messages == 2
+
+        def admit(observation, correlation_id):
+            observation_id = "local-chat-serving-" + hashlib.sha256(
+                correlation_id.encode("utf-8")).hexdigest()[:32]
+            evaluation = host_owner.run_cycle(correlation_id=observation_id)
+            assert evaluation is not None
+            return kernel.admit(ControlActionRequest(
+                action_kind="establish_exact_activated_model_serving_session",
+                authority_class=AuthorityClass.MODEL_SERVING,
+                actor="chat_service", target_subsystem="local_model_chat",
+                requested_phase=LifecyclePhase.RUNTIME,
+                metadata={
+                "resource_governance_required": True,
+                "purpose": "local_model_serving",
+                "host_resource_observation_namespace": "local-chat-serving",
+                "host_resource_observation_id": observation_id,
+                "correlation_id": correlation_id,
+                "workload_mode": "automatic",
+                "model_execution_profile": {
+                    "schema_version": "sentientos.model_execution_profile:v1",
+                    "engine": "llama_cpp", "accelerator_route": "gpu",
+                    "gpu_layers": 8, "configuration_digest": "d" * 64,
+                },
+                "serving_workload_evidence": {
+                    "transport_provenance": {
+                        "message_id": observation.transport_provenance["message_id"]}},
+                }))
+
+        decision = admit(observation, "mTLS-game-serving-active")
+        assert decision.outcome == AdmissionOutcome.DEFER
+        assert "runtime_governor:deferred_gpu_model_serving_while_game_active" in decision.reason_codes
+        runtime_decision = decision.delegated_outcomes["runtime_governor"]
+        assert runtime_decision["evidence_refs"]["host_resource_evidence"]["status"] == "current"
+        assert runtime_decision["evidence_refs"]["host_resource_evidence"][
+            "gpu_telemetry_complete"] is True
+
+        idle_foreground_publisher = WindowsForegroundBridgePublisher(
+            detector=ForegroundGameDetector(system_provider=lambda: "Windows",
+                process_name_provider=lambda: "explorer.exe",
+                running_process_names_provider=lambda: ()), client=client,
+            source_id="windows-edge", session_id="shared-game-evidence",
+            generation_id="edge-generation-1", source_key=source_key,
+            sequence_allocator=allocate_sequence, publication_lock=publication_lock)
+        idle_ack = idle_foreground_publisher.publish_once(["game.exe"])
+        assert idle_ack.sequence == 3
+        idle_observation = core_detector.observe(["game.exe"])
+        assert idle_observation.status == "available"
+        assert idle_observation.game_foreground is False
+        assert idle_observation.game_process_running is False
+        idle_decision = admit(idle_observation, "mTLS-game-serving-idle")
+        assert idle_decision.outcome == AdmissionOutcome.ALLOW
+
+        resumed_ack = foreground_publisher.publish_once(["game.exe"])
+        assert resumed_ack.sequence == 4
+        resumed_observation = core_detector.observe(["game.exe"])
+        assert resumed_observation.game_foreground is True
+        resumed_decision = admit(resumed_observation, "mTLS-game-serving-resumed")
+        assert resumed_decision.outcome == AdmissionOutcome.DEFER
+        assert "runtime_governor:deferred_gpu_model_serving_while_game_active" in resumed_decision.reason_codes
+        assert host_owner.collector_call_count == 9
+        assert runtime.status().accepted_messages == 4
     finally:
         core_detector.close()
 

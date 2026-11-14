@@ -111,12 +111,15 @@ class GamingCompanionProcessSupervisor:
                  authority_receipt_verifier: ReceiptVerifier,
                  launch_authorizer: LaunchAuthorizer,
                  health_probe: HealthProbe,
+                 expected_role: str | None = None,
                  force_stop_authorizer: ForceStopAuthorizer | None = None,
                  max_restarts: int = 3, poll_interval_seconds: float = 0.25,
                  spawner: ProcessSpawner = subprocess.Popen) -> None:
         if not all(callable(item) for item in
                    (process_factory, authority_receipt_verifier, launch_authorizer, health_probe, spawner)):
             raise CompanionBridgeError("companion_process_authority_callbacks_required")
+        if expected_role is not None and expected_role not in {"windows_edge", "wsl_core"}:
+            raise CompanionBridgeError("companion_process_role_invalid")
         if type(max_restarts) is not int or not 0 <= max_restarts <= 10:
             raise CompanionBridgeError("companion_process_restart_budget_invalid")
         if (isinstance(poll_interval_seconds, bool)
@@ -124,6 +127,7 @@ class GamingCompanionProcessSupervisor:
                 or not 0.01 <= poll_interval_seconds <= 30):
             raise CompanionBridgeError("companion_process_poll_interval_invalid")
         self._factory = process_factory
+        self._expected_role = expected_role
         self._verify = authority_receipt_verifier
         self._authorize = launch_authorizer
         self._probe = health_probe
@@ -146,7 +150,7 @@ class GamingCompanionProcessSupervisor:
         with self._lock:
             child, generation, spec = self._child, self._generation, self._spec
             return CompanionProcessSupervisorStatus(self._state,
-                spec.role if spec else None, child.pid if child else None,
+                spec.role if spec else self._expected_role, child.pid if child else None,
                 generation.source.generation_id if generation else None,
                 self._restart_count, self._last_failure)
 
@@ -187,6 +191,8 @@ class GamingCompanionProcessSupervisor:
     def _install(self, *, previous: BridgeGenerationPair | None) -> None:
         spec, generation = self._factory(previous)
         validate_launch_spec(spec)
+        if self._expected_role is not None and spec.role != self._expected_role:
+            raise CompanionBridgeError("companion_process_role_mismatch")
         verify_generation_pair_rotation(previous=previous, successor=generation,
                                         authority_receipt_verifier=self._verify)
         if self._authorize(spec.role, spec.command_digest, generation) is not True:

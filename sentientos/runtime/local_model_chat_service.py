@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import json
+import re
 import subprocess
 import sys
 import uuid
@@ -16,7 +17,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Callable, Literal, Mapping
 
 from sentientos.installation_state import InstallationIdentity, InstallationStateHandle
 from sentientos.local_model_production_serving import _operation_id
@@ -41,25 +42,57 @@ class LocalModelChatStartup:
     host: str = "127.0.0.1"
     port: int = 5000
     resource_provisioning_id: str | None = None
+    initial_workload_mode: Literal["normal", "gaming", "automatic"] = "normal"
+    gaming_companion_manifest_path: str | None = None
+    gaming_companion_provider: str | None = None
+    gaming_companion_launch_authorizer: str | None = None
+    game_process_names: tuple[str, ...] = ()
 
     def validate(self) -> None:
         if self.host != "127.0.0.1":
             raise ValueError("local_model_chat_host_must_be_loopback")
         if not 1024 <= self.port <= 65535:
             raise ValueError("local_model_chat_port_out_of_range")
+        if self.initial_workload_mode not in {"normal", "gaming", "automatic"}:
+            raise ValueError("supervised_runtime_workload_mode_invalid")
+        companion_fields = (self.gaming_companion_manifest_path,
+            self.gaming_companion_provider, self.gaming_companion_launch_authorizer)
         if not self.enabled:
             if self.resource_provisioning_id is not None:
                 raise ValueError("resource_provisioning_requires_enabled_chat")
+            if (self.initial_workload_mode != "normal"
+                    or any(value is not None for value in companion_fields)
+                    or self.game_process_names):
+                raise ValueError("chat_workload_configuration_requires_enabled_chat")
             return
+        if self.initial_workload_mode == "automatic":
+            if any(not isinstance(value, str) or not value.strip()
+                    for value in companion_fields):
+                raise ValueError("automatic_mode_requires_installed_companion_authority")
+            if not Path(self.gaming_companion_manifest_path or "").is_absolute():
+                raise ValueError("gaming_companion_manifest_path_must_be_absolute")
+            provider_reference = re.compile(
+                r"[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*\Z")
+            if any(provider_reference.fullmatch(str(value)) is None
+                    for value in companion_fields[1:]):
+                raise ValueError("gaming_companion_provider_reference_invalid")
+            from sentientos.foreground_game_detection import normalize_game_process_names
+            if not normalize_game_process_names(self.game_process_names):
+                raise ValueError("automatic_mode_requires_game_process_allowlist")
+        elif any(value is not None for value in companion_fields) or self.game_process_names:
+            raise ValueError("companion_configuration_requires_automatic_mode")
         if self.installation_identity is None:
             raise ValueError("installation_identity_required")
         if self.serving_operation_id is None:
             raise ValueError("serving_operation_id_required")
         InstallationIdentity.parse(self.installation_identity)
         _operation_id(self.serving_operation_id)
-        if self.resource_provisioning_id is not None:
-            from sentientos.production_chat_resource_provisioning import validate_resource_provisioning_id
-            validate_resource_provisioning_id(self.resource_provisioning_id)
+        # The supervised child must have a fixed entitlement from which it
+        # constructs the allocator context and debits each governed invocation.
+        if self.resource_provisioning_id is None:
+            raise ValueError("resource_provisioning_id_required_for_enabled_chat")
+        from sentientos.production_chat_resource_provisioning import validate_resource_provisioning_id
+        validate_resource_provisioning_id(self.resource_provisioning_id)
 
 
 class DisabledLocalModelChatAdapter:
@@ -148,6 +181,18 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
             argv += ("--expected-software-generation-digest", expected_source_generation_digest)
         if config.resource_provisioning_id is not None:
             argv += ("--resource-provisioning-id", config.resource_provisioning_id)
+        if config.initial_workload_mode != "normal":
+            argv += ("--initial-workload-mode", config.initial_workload_mode)
+        if config.initial_workload_mode == "automatic":
+            assert config.gaming_companion_manifest_path is not None
+            assert config.gaming_companion_provider is not None
+            assert config.gaming_companion_launch_authorizer is not None
+            argv += ("--gaming-companion-manifest", config.gaming_companion_manifest_path,
+                "--gaming-companion-provider", config.gaming_companion_provider,
+                "--gaming-companion-launch-authorizer",
+                config.gaming_companion_launch_authorizer)
+            for process_name in config.game_process_names:
+                argv += ("--game-process-name", process_name)
         return argv
 
     def _restart_with_fresh_serving_operation(
@@ -160,9 +205,16 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         self.stop()
         if self._process is not None and self._process.poll() is None:
             self.force_stop()
-        self._config = LocalModelChatStartup(True, self._config.installation_identity,
-                                             replacement, self._config.host, self._config.port,
-                                             self._config.resource_provisioning_id)
+        self._config = LocalModelChatStartup(
+            enabled=True, installation_identity=self._config.installation_identity,
+            serving_operation_id=replacement, host=self._config.host, port=self._config.port,
+            resource_provisioning_id=self._config.resource_provisioning_id,
+            initial_workload_mode=self._config.initial_workload_mode,
+            gaming_companion_manifest_path=self._config.gaming_companion_manifest_path,
+            gaming_companion_provider=self._config.gaming_companion_provider,
+            gaming_companion_launch_authorizer=(
+                self._config.gaming_companion_launch_authorizer),
+            game_process_names=self._config.game_process_names)
         self._handoff_id = uuid.uuid4().hex if self._installation_handle is not None else None
         self._published_handoff_record = None
         self._argv = self._launcher_argv(self._config, root=self._root,

@@ -516,6 +516,28 @@ selects normal mode. The digest avoids sending the raw basename, but it is not
 anonymization: a receiver can test candidate basenames against it. Treat this
 field as pseudonymous metadata.
 
+The canonical `RuntimeSupervisor` chat startup can now select `automatic`
+workload mode when the operator supplies the installed signed companion
+manifest, an installed WSL-core runtime provider, its role launch authorizer,
+and one or more allowlisted process names. These references and names are
+bound into the startup configuration digest and exact child-process handoff;
+they do not contain bridge keys. The supervised chat child composes and owns
+the existing WSL-core runtime, then waits up to ten seconds for a fresh
+authenticated observation that resolves the allowlisted workload before it
+requests model-serving admission. If the observation does not arrive, startup
+fails closed. The Windows-edge publisher remains separately installed and
+supervised; this mode owns the WSL-core role inside the chat child, so the same
+deployment must not also start a second WSL-core listener. Operators without a
+commissioned bridge can select the explicit lower-resource `gaming` profile.
+
+This source path reuses the existing role provider, launch-authorizer, bridge
+detector, and model-serving admission owners. It does not provision a companion
+catalog, trust anchors, custody references, generation receipts, certificates,
+keys, firewall rules, Windows-edge service, or platform startup persistence.
+The local tests cover authorized provider ordering, configuration and recovery
+identity, startup timeout behavior, and synthetic bridge observations; they do
+not establish Windows/WSL commissioning or gameplay improvement.
+
 `WindowsForegroundObservationPump` can run fresh samples at a bounded interval
 and reports attempt, acknowledgment, and transport-failure state without
 exposing keys. After a failed or indeterminate send it does not replay that
@@ -525,10 +547,35 @@ This wiring is tested with a deterministic Windows-observation fixture sent over
 actual authenticated local TCP and fed into the production serving controller's
 automatic-mode decision. It does not establish Windows API execution in this
 Linux workspace, target Windows-to-WSL reachability, or live GLORP responsiveness.
-The ordinary `sentientos-chat` CLI does not provision bridge keys or start the
-pump; an authorized deployment composition must supply the runtime and
-publisher components. The observer sees only which allowlisted executable is
+The standalone `sentientos-chat` CLI does not provision bridge keys or start the
+Windows pump. Canonical supervised automatic mode can start the WSL-core runtime
+through its installed provider, while the Windows publisher remains a separate
+installed component. The observer sees only which allowlisted executable is
 foreground, not game content or measured gameplay impact.
+
+When canonical chat owns the WSL-core runtime, the Windows edge can use the
+`sentientos-gaming-companion-edge-supervisor` foreground process. An installed
+platform provider can obtain a stopped edge-only
+`GamingCompanionProcessSupervisor` from
+`GamingCompanionPlatformPairProcessProvider.windows_edge_supervisor`. The
+entrypoint verifies the deployment launch record before provider composition;
+the process supervisor then verifies each fresh generation pair and exact
+Windows-edge command before spawn, monitors health, and applies the existing
+bounded recovery policy. It does not start a second WSL-core listener. A host
+service manager may own this foreground supervisor process, but this command
+does not install an OS service or startup persistence.
+
+```text
+sentientos-gaming-companion-edge-supervisor --manifest deployment.json \
+  --provider sentientos_platform.windows_pair:build_windows_edge_supervisor \
+  --launch-authorizer sentientos_platform.authority:verify_pair_launch
+```
+
+The `build_windows_edge_supervisor` callback is installation-supplied and must
+return the exact edge-only supervisor; it cannot mint generation records or
+authorize process launch. Target Windows service installation, ACL enforcement,
+DPAPI custody, and Windows-to-WSL network commissioning still require the
+installed platform.
 
 `sentientos.windows_game_performance.WindowsGamePerformanceObserver` is a
 separate read-only adapter for selected Windows process CPU/RSS and bounded

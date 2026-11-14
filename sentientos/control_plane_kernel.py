@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
+from threading import Lock
 from typing import TYPE_CHECKING, Any, Callable, Mapping
 
 from sentientos.authority_of_judgment_schema import build_authority_of_judgment
@@ -202,6 +203,11 @@ class ControlPlaneKernel:
         self._principal_currentness_verifier = principal_currentness_verifier
         self._principal_revocation_registry = principal_revocation_registry
         self._admission_history: OrderedDict[tuple[str, str], _AdmissionHistoryEntry] = OrderedDict()
+        self._recorded_admitted_decisions: OrderedDict[int, ControlActionDecision] = OrderedDict()
+        self._recorded_decision_payloads: OrderedDict[
+            int, tuple[ControlActionDecision, dict[str, Any]]] = OrderedDict()
+        self._recorded_decision_lock = Lock()
+        self._recorded_decision_capacity = 512
 
     @property
     def phase(self) -> LifecyclePhase:
@@ -219,6 +225,24 @@ class ControlPlaneKernel:
             expires_at_by_key={key: entry.expires_at for key, entry in self._admission_history.items()},
         )
 
+    def owns_recorded_admitted_decision(self, decision: object) -> bool:
+        """Check that this exact allow decision was produced and recorded by this kernel."""
+        if type(decision) is not ControlActionDecision or not decision.allowed:
+            return False
+        with self._recorded_decision_lock:
+            return self._recorded_admitted_decisions.get(id(decision)) is decision
+
+    def recorded_decision_payload(
+            self, decision: object) -> dict[str, Any] | None:
+        """Return the exact durable row for a decision produced by this kernel."""
+        if type(decision) is not ControlActionDecision:
+            return None
+        with self._recorded_decision_lock:
+            entry = self._recorded_decision_payloads.get(id(decision))
+            if entry is None or entry[0] is not decision:
+                return None
+            return json.loads(json.dumps(entry[1], sort_keys=True))
+
     def set_phase(self, phase: LifecyclePhase, *, actor: str = "control_plane_kernel") -> None:
         self._phase = phase
         self._append(
@@ -232,11 +256,68 @@ class ControlPlaneKernel:
 
     def observe_host_resource_evaluation(self, evaluation: object) -> bool:
         """Pass a validated, proposal-only observation to the runtime scheduler."""
+        try:
+            from sentientos.host_resource_runtime import HostResourceRuntimeEvaluation
+
+            if type(evaluation) is not HostResourceRuntimeEvaluation:
+                return False
+            epoch = evaluation.epoch
+            if (not isinstance(epoch.admission_decision_ref, str)
+                    or not epoch.admission_decision_ref
+                    or epoch.admission_outcome != AdmissionOutcome.ALLOW.value):
+                return False
+            with self._recorded_decision_lock:
+                admission_owned = any(
+                    decision.admission_decision_ref == epoch.admission_decision_ref
+                    and decision.authority_class == AuthorityClass.OBSERVATION
+                    and decision.action_kind == "host_resource_observation_epoch"
+                    and decision.actor == "sentientosd"
+                    and decision.target_subsystem == "host_resource_observation_runtime"
+                    and decision.correlation_id == epoch.correlation_id
+                    for decision in self._recorded_admitted_decisions.values())
+            if not admission_owned:
+                return False
+        except (ImportError, AttributeError, TypeError):
+            return False
         observer = getattr(self._runtime_governor, "observe_host_resource_evaluation", None)
         if not callable(observer):
             return False
         try:
             return bool(observer(evaluation))
+        except Exception:
+            return False
+
+    def observe_verified_game_performance(self, observation: object) -> bool:
+        """Pass authenticated, bounded game-performance evidence to scheduling."""
+        observer = getattr(self._runtime_governor,
+            "observe_verified_game_performance", None)
+        if not callable(observer):
+            return False
+        try:
+            return bool(observer(observation))
+        except Exception:
+            return False
+
+    def current_verified_game_performance_evidence(self) -> dict[str, object] | None:
+        """Read fresh authenticated game pacing from the existing governor owner."""
+        getter = getattr(self._runtime_governor,
+            "current_verified_game_performance_evidence", None)
+        if not callable(getter):
+            return None
+        try:
+            evidence = getter()
+        except Exception:
+            return None
+        return dict(evidence) if isinstance(evidence, dict) else None
+
+    def observe_verified_game_workload(self, observation: object) -> bool:
+        """Pass bridge-verified allowlisted game presence to runtime scheduling."""
+        observer = getattr(self._runtime_governor,
+            "observe_verified_game_workload", None)
+        if not callable(observer):
+            return False
+        try:
+            return bool(observer(observation))
         except Exception:
             return False
 
@@ -531,6 +612,7 @@ class ControlPlaneKernel:
             AuthorityClass.SPEC_AMENDMENT: "control_plane_task",
             AuthorityClass.PRIVILEGED_OPERATOR_CONTROL: "control_plane_task",
             AuthorityClass.LOCAL_MODEL_INFERENCE: "local_model_inference",
+            AuthorityClass.MODEL_SERVING: "local_model_serving",
             AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE: "local_model_resource_release",
         }
         action_class = action_map.get(request.authority_class)
@@ -729,6 +811,19 @@ class ControlPlaneKernel:
                 "reason_codes": sorted(set(list(decision.reason_codes) + ["decision_log_write_failed"])),
                 "delegate_checks_consulted": sorted(set(decision_payload.get("delegate_checks_consulted", []) + ["decision_log"])),
             }
+        else:
+            with self._recorded_decision_lock:
+                decision_id = id(decision)
+                self._recorded_decision_payloads[decision_id] = (
+                    decision, json.loads(json.dumps(decision_payload, sort_keys=True)))
+                self._recorded_decision_payloads.move_to_end(decision_id)
+                while len(self._recorded_decision_payloads) > self._recorded_decision_capacity:
+                    self._recorded_decision_payloads.popitem(last=False)
+                if decision.allowed:
+                    self._recorded_admitted_decisions[decision_id] = decision
+                    self._recorded_admitted_decisions.move_to_end(decision_id)
+                    while len(self._recorded_admitted_decisions) > self._recorded_decision_capacity:
+                        self._recorded_admitted_decisions.popitem(last=False)
         self._emit_decision_event(decision_payload, append_status=append_status)
         return decision
 

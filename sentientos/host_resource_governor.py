@@ -30,6 +30,9 @@ PRESSURE_LABELS = frozenset(
         "unknown",
     }
 )
+ACTIONABLE_RESOURCE_PRESSURE_LABELS = frozenset({
+    "cpu_pressure", "memory_pressure", "gpu_pressure", "thermal_pressure",
+})
 CANDIDATE_KINDS = frozenset(
     {
         "reduce_model_load_candidate",
@@ -113,6 +116,7 @@ class HostResourcePressureReport:
     pressure_labels: tuple[str, ...]
     findings: tuple[str, ...]
     proposal_candidates: tuple[HostResourceProposalCandidate, ...]
+    threshold_policy: Mapping[str, Any] = field(default_factory=dict)
     metadata_only: bool = True
     observe_model_propose_only: bool = True
     no_host_actuation: bool = True
@@ -193,11 +197,23 @@ def evaluate_host_resource_pressure(
     cpu_pressure_percent: float = 90.0,
     ram_pressure_percent: float = 90.0,
     gpu_pressure_percent: float = 90.0,
+    vram_pressure_percent: float = 85.0,
     disk_pressure_percent: float = 90.0,
     thermal_pressure_c: float = 85.0,
     battery_low_percent: float = 15.0,
     network_pressure_bytes_per_second: float | None = None,
 ) -> HostResourcePressureReport:
+    threshold_policy = {
+        "schema_version": "sentientos.host_resource_pressure_threshold_policy:v1",
+        "cpu_pressure_percent": cpu_pressure_percent,
+        "ram_pressure_percent": ram_pressure_percent,
+        "gpu_pressure_percent": gpu_pressure_percent,
+        "vram_pressure_percent": vram_pressure_percent,
+        "disk_pressure_percent": disk_pressure_percent,
+        "thermal_pressure_c": thermal_pressure_c,
+        "battery_low_percent": battery_low_percent,
+        "network_pressure_bytes_per_second": network_pressure_bytes_per_second,
+    }
     labels: set[str] = set()
     findings: list[str] = []
     candidates: list[HostResourceProposalCandidate] = []
@@ -213,7 +229,10 @@ def evaluate_host_resource_pressure(
     if snapshot.ram_utilization_percent is not None and snapshot.ram_utilization_percent >= ram_pressure_percent:
         labels.add("memory_pressure")
         candidates.append(_candidate(snapshot.snapshot_id, "defer_heavy_task_candidate", ("memory_pressure",), "Memory pressure observed; future governance may defer heavy work."))
-    if (snapshot.gpu_utilization_percent is not None and snapshot.gpu_utilization_percent >= gpu_pressure_percent) or (snapshot.vram_utilization_percent is not None and snapshot.vram_utilization_percent >= gpu_pressure_percent):
+    if ((snapshot.gpu_utilization_percent is not None
+            and snapshot.gpu_utilization_percent >= gpu_pressure_percent)
+            or (snapshot.vram_utilization_percent is not None
+                and snapshot.vram_utilization_percent >= vram_pressure_percent)):
         labels.add("gpu_pressure")
         candidates.append(_candidate(snapshot.snapshot_id, "reduce_model_load_candidate", ("gpu_pressure",), "GPU/VRAM pressure observed; future governance may reduce model load."))
     if snapshot.disk_utilization_percent is not None and snapshot.disk_utilization_percent >= disk_pressure_percent:
@@ -242,13 +261,19 @@ def evaluate_host_resource_pressure(
         candidates.append(_candidate(snapshot.snapshot_id, "inspect_service_health_candidate", ("service_degraded",), "Service degradation label observed; inspect-only candidate."))
     if not labels:
         labels.add("nominal")
-    report_id = "hrr_" + hashlib.sha256(json.dumps({"snapshot_id": snapshot.snapshot_id, "labels": sorted(labels), "findings": sorted(findings)}, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:24]
+    report_id = "hrr_" + hashlib.sha256(json.dumps({
+        "snapshot_id": snapshot.snapshot_id,
+        "labels": sorted(labels),
+        "findings": sorted(findings),
+        "threshold_policy": threshold_policy,
+    }, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()[:24]
     return HostResourcePressureReport(
         report_id=report_id,
         snapshot_id=snapshot.snapshot_id,
         pressure_labels=tuple(sorted(labels)),
         findings=tuple(sorted(findings)),
         proposal_candidates=tuple(sorted(candidates, key=lambda candidate: candidate.candidate_id)),
+        threshold_policy=threshold_policy,
     )
 
 
@@ -308,6 +333,7 @@ def build_host_resource_telemetry_from_collector_results(
     # for pressure admission so a busy/near-full accelerator cannot be hidden
     # by averaging it with an idle adapter. These values are not attributed to
     # the inference process and must not be described as per-process usage.
+    thermal_zone_temperatures_c: dict[str, float] = {}
     gpu_devices = gpu_values.get("devices")
     gpu_samples: list[float] = []
     vram_samples: list[float] = []
@@ -335,13 +361,30 @@ def build_host_resource_telemetry_from_collector_results(
                     unavailable.append(f"nvidia_gpu_{key}_malformed")
                     continue
                 samples.append(gpu_sample)
+            # NVML temperature is a real device thermal observation. Preserve
+            # its source in the key so it can contribute to the existing
+            # inspect-only thermal pressure signal even when the host thermal
+            # zone collector is unavailable (common in WSL).
+            raw_temperature = device.get("temperature_c")
+            if raw_temperature is not None:
+                if isinstance(raw_temperature, bool):
+                    unavailable.append(f"nvidia_gpu_temperature_c_malformed:{index}")
+                else:
+                    try:
+                        temperature = float(raw_temperature)
+                    except (TypeError, ValueError):
+                        unavailable.append(f"nvidia_gpu_temperature_c_malformed:{index}")
+                    else:
+                        if not 0.0 <= temperature <= 150.0:
+                            unavailable.append(f"nvidia_gpu_temperature_c_malformed:{index}")
+                        else:
+                            thermal_zone_temperatures_c[f"nvidia_gpu_{index}"] = temperature
     elif "nvidia_gpu" in by_id and gpu_values.get("device_count", 0):
         unavailable.append("nvidia_gpu_devices_malformed")
 
     gpu_utilization_percent = max(gpu_samples) if gpu_samples else None
     vram_utilization_percent = max(vram_samples) if vram_samples else None
 
-    thermal_zone_temperatures_c: dict[str, float] = {}
     for index, zone in enumerate(tuple(thermal_values.get("zones") or ())):
         if isinstance(zone, Mapping) and zone.get("temperature_c") is not None:
             try:
@@ -412,6 +455,7 @@ def summarize_host_resource_pressure(report: HostResourcePressureReport) -> dict
         "report_id": report.report_id,
         "snapshot_id": report.snapshot_id,
         "pressure_labels": report.pressure_labels,
+        "threshold_policy": dict(report.threshold_policy),
         "finding_count": len(report.findings),
         "proposal_candidate_count": len(report.proposal_candidates),
         "candidate_kinds": tuple(sorted(candidate.kind for candidate in report.proposal_candidates)),
@@ -437,6 +481,27 @@ def validate_host_resource_pressure_report(
         findings.append("missing_snapshot_id")
     if report.snapshot_id != snapshot.snapshot_id:
         findings.append("report_snapshot_mismatch")
+    expected_threshold_fields = {
+        "schema_version", "cpu_pressure_percent", "ram_pressure_percent",
+        "gpu_pressure_percent", "vram_pressure_percent",
+        "disk_pressure_percent", "thermal_pressure_c", "battery_low_percent",
+        "network_pressure_bytes_per_second",
+    }
+    if (not isinstance(report.threshold_policy, Mapping)
+            or set(report.threshold_policy) != expected_threshold_fields
+            or report.threshold_policy.get("schema_version") !=
+                "sentientos.host_resource_pressure_threshold_policy:v1"):
+        findings.append("threshold_policy_shape_invalid")
+    else:
+        threshold_arguments = {key: value for key, value in
+            report.threshold_policy.items() if key != "schema_version"}
+        try:
+            expected_report = evaluate_host_resource_pressure(
+                snapshot, **threshold_arguments)
+            if report != expected_report:
+                findings.append("pressure_report_not_derived_from_threshold_policy")
+        except (TypeError, ValueError, OverflowError):
+            findings.append("threshold_policy_values_invalid")
     percentage_fields = {
         "cpu_utilization_percent": snapshot.cpu_utilization_percent,
         "ram_utilization_percent": snapshot.ram_utilization_percent,

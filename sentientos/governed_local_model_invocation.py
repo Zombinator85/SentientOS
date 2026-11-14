@@ -7,8 +7,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, cast
 
-from .control_plane_kernel import (AuthorityClass, ControlActionRequest,
-    ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel)
+from .control_plane_kernel import (AdmissionOutcome, AuthorityClass,
+    ControlActionDecision, ControlActionRequest, ControlPlaneKernel,
+    LifecyclePhase, get_control_plane_kernel)
 from .local_model_authority import (LocalModelAuthorityMap, LocalModelAuthorityRecord,
     ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE,
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES,
@@ -34,10 +35,24 @@ SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "gen
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
 INVOCATION_RECEIPT_SCHEMA = "sentientos.local_model_invocation_receipt:v2"
 INVOCATION_RECEIPT_SCHEMA_V3 = "sentientos.local_model_invocation_receipt:v3"
+INVOCATION_RECEIPT_SCHEMA_V4 = "sentientos.local_model_invocation_receipt:v4"
+INVOCATION_RECEIPT_SCHEMA_V5 = "sentientos.local_model_invocation_receipt:v5"
+INVOCATION_RECEIPT_SCHEMA_V6 = "sentientos.local_model_invocation_receipt:v6"
+INVOCATION_RECEIPT_SCHEMA_V7 = "sentientos.local_model_invocation_receipt:v7"
+INVOCATION_RECEIPT_SCHEMA_V8 = "sentientos.local_model_invocation_receipt:v8"
+INVOCATION_RECEIPT_SCHEMA_V9 = "sentientos.local_model_invocation_receipt:v9"
+INVOCATION_RECEIPT_SCHEMA_V10 = "sentientos.local_model_invocation_receipt:v10"
+CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA = (
+    "sentientos.cancellation_admission_decision_witness:v1")
+CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2 = (
+    "sentientos.cancellation_admission_decision_witness:v2")
 LLAMA_COMPLETION_OBSERVATION_SCHEMA_V1 = "sentientos.llama_cpp_completion_observation:v1"
 LLAMA_COMPLETION_OBSERVATION_SCHEMA = "sentientos.llama_cpp_completion_observation:v2"
+LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3 = "sentientos.llama_cpp_completion_observation:v3"
 LLAMA_INVOCATION_RESOURCE_OBSERVATION_SCHEMA = (
     "sentientos.llama_cpp_invocation_resource_observation:v1")
+LLAMA_BACKEND_THREAD_LIMIT_CONTROL_SCHEMA = (
+    "sentientos.llama_cpp_backend_thread_limit_control:v1")
 MAX_INVOCATION_RECEIPT_BYTES = 256 * 1024
 MAX_INVOCATION_RECEIPTS = 256
 OLLAMA_BACKEND_DIAGNOSTICS = frozenset({
@@ -60,8 +75,12 @@ def validate_llama_completion_observation(value: object) -> bool:
     if schema == LLAMA_COMPLETION_OBSERVATION_SCHEMA_V1:
         if set(value) != common:
             return False
-    elif schema == LLAMA_COMPLETION_OBSERVATION_SCHEMA:
-        if set(value) != common | {"invocation_resources"}:
+    elif schema in {LLAMA_COMPLETION_OBSERVATION_SCHEMA,
+                    LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3}:
+        expected = common | {"invocation_resources"}
+        if schema == LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3:
+            expected.add("backend_thread_limit_control")
+        if set(value) != expected:
             return False
         metrics = value.get("invocation_resources")
         if (not isinstance(metrics, Mapping)
@@ -83,6 +102,26 @@ def validate_llama_completion_observation(value: object) -> bool:
         rss = metrics.get("process_peak_rss_bytes")
         if rss is not None and (type(rss) is not int or not 0 <= rss <= 1_099_511_627_776):
             return False
+        if schema == LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3:
+            control = value.get("backend_thread_limit_control")
+            if (not isinstance(control, Mapping)
+                    or set(control) != {"schema_version", "requested_ceiling",
+                        "setter_function", "n_threads_argument", "n_threads_batch_argument"}
+                    or control.get("schema_version") != LLAMA_BACKEND_THREAD_LIMIT_CONTROL_SCHEMA):
+                return False
+            requested = control.get("requested_ceiling")
+            setter = control.get("setter_function")
+            n_threads = control.get("n_threads_argument")
+            n_threads_batch = control.get("n_threads_batch_argument")
+            if requested is None:
+                if setter is not None or n_threads is not None or n_threads_batch is not None:
+                    return False
+            elif (type(requested) is not int or not 1 <= requested <= 256
+                    or setter != "llama_set_n_threads"
+                    or type(n_threads) is not int or not 1 <= n_threads <= requested
+                    or type(n_threads_batch) is not int
+                    or not 1 <= n_threads_batch <= requested):
+                return False
     else:
         return False
     if (value.get("backend") != "llama_cpp"
@@ -95,6 +134,35 @@ def validate_llama_completion_observation(value: object) -> bool:
                 False if value.get("finish_reason") == "stop" else None)):
         return False
     return True
+
+
+def _valid_backend_resource_observation(value: object, *,
+        expected_source: str | None = None) -> bool:
+    fields = {"schema_version", "backend", "observation_source",
+        "user_cpu_seconds", "system_cpu_seconds", "wall_seconds",
+        "process_peak_rss_bytes"}
+    if (not isinstance(value, Mapping) or set(value) != fields
+            or value.get("schema_version") !=
+                "sentientos.governed_local_model_backend_resource_observation:v1"
+            or value.get("backend") != "llama_cpp"
+            or (expected_source is not None
+                and value.get("observation_source") != expected_source)
+            or value.get("observation_source") not in {
+                "exact_runtime_worker_process",
+                "parent_sampled_exact_runtime_worker"}):
+        return False
+    for name in ("user_cpu_seconds", "system_cpu_seconds", "wall_seconds"):
+        metric = value.get(name)
+        if metric is None:
+            continue
+        try:
+            if (isinstance(metric, bool) or not isinstance(metric, (int, float))
+                    or not math.isfinite(float(metric)) or not 0 <= float(metric) <= 3600):
+                return False
+        except (OverflowError, TypeError, ValueError):
+            return False
+    rss = value.get("process_peak_rss_bytes")
+    return rss is None or (type(rss) is int and 0 <= rss <= 1_099_511_627_776)
 
 
 def validate_backend_completion_observation(value: object) -> bool:
@@ -132,6 +200,252 @@ def validate_backend_completion_observation(value: object) -> bool:
         if item is not None and (type(item) is not int or not 0 <= item <= maximum):
             return False
     return True
+
+
+def _valid_cancellation_admission_request_binding(value: object,
+        request: object) -> bool:
+    if not isinstance(value, str) or not value.startswith("kernel_decision:"):
+        return False
+    if not isinstance(request, Mapping):
+        return False
+    request_reference = {key: request.get(key) for key in (
+        "request_id", "request_digest", "correlation_id")}
+    if not all(isinstance(item, str) and item for item in request_reference.values()):
+        return False
+    reference_digest = digest_payload(request_reference)
+    correlation = value[len("kernel_decision:"):]
+    for kind in ("inference-preemption", "resource-release"):
+        prefix = f"active-{kind}:{reference_digest}:"
+        if correlation.startswith(prefix) and correlation[len(prefix):]:
+            return True
+    return False
+
+
+def _active_preemption_matches_invocation(preemption: object,
+        request: Mapping[str, Any]) -> bool:
+    if not isinstance(preemption, Mapping):
+        return False
+    linkage = request.get("linkage")
+    identity = request.get("active_model_identity")
+    return (isinstance(linkage, Mapping)
+        and isinstance(linkage.get("serving_session_id"), str)
+        and preemption.get("serving_session_id") == linkage.get("serving_session_id")
+        and isinstance(identity, Mapping)
+        and isinstance(linkage.get("observed_loaded_model_identity"), Mapping)
+        and dict(identity) == dict(linkage["observed_loaded_model_identity"])
+        and preemption.get("model_identity_digest") == digest_payload(dict(identity)))
+
+
+def _valid_cancellation_admission_decision(value: object, *, reference: object,
+        request: object, require_runtime_evidence: bool = False) -> bool:
+    fields = {
+        "schema_version", "event_type", "final_disposition", "outcome",
+        "reason_codes", "delegate_checks_consulted", "lifecycle_phase",
+        "current_phase", "requested_phase", "authority_class", "action_kind",
+        "actor_source", "actor", "execution_owner", "target_subsystem",
+        "delegated_outcomes", "federation_context", "proof_budget_context",
+        "protected_mutation_intent", "correlation_id", "admission_decision_ref",
+    }
+    if (not isinstance(value, Mapping) or set(value) != fields
+            or value.get("schema_version") not in {
+                CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA,
+                CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2}
+            or value.get("event_type") != "control_plane_decision"
+            or value.get("final_disposition") != AdmissionOutcome.ALLOW.value
+            or value.get("outcome") != AdmissionOutcome.ALLOW.value
+            or value.get("admission_decision_ref") != reference
+            or not _valid_cancellation_admission_request_binding(reference, request)
+            or not isinstance(value.get("correlation_id"), str)
+            or reference != "kernel_decision:" + value["correlation_id"]
+            or not isinstance(value.get("reason_codes"), list)
+            or not value.get("reason_codes")
+            or not all(isinstance(reason, str) for reason in value["reason_codes"])
+            or not isinstance(value.get("delegated_outcomes"), Mapping)
+            or not isinstance(value.get("actor"), str)
+            or value.get("actor_source") != value.get("actor")
+            or value.get("execution_owner") != value.get("actor")
+            or value.get("delegate_checks_consulted") != sorted(
+                value["delegated_outcomes"])):
+        return False
+    governor = value["delegated_outcomes"].get("runtime_governor")
+    if require_runtime_evidence:
+        if (not isinstance(request, Mapping)
+                or not isinstance(governor, Mapping) or governor.get("allowed") is not True
+                or not isinstance(governor.get("evidence_refs"), Mapping)):
+            return False
+        evidence_refs = governor["evidence_refs"]
+        actor = value.get("actor")
+        if actor == "production_chat_game_workload_governor":
+            game_evidence = evidence_refs.get("game_workload_evidence")
+            request_reference = {key: request.get(key) for key in (
+                "request_id", "request_digest", "correlation_id")}
+            preemption = evidence_refs.get("active_inference_preemption")
+            if (not isinstance(game_evidence, Mapping)
+                    or game_evidence.get("status") != "current"
+                    or game_evidence.get("game_active") is not True
+                    or not isinstance(game_evidence.get("message_id"), str)
+                    or not game_evidence.get("message_id")
+                    or (value.get("schema_version") ==
+                        CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2
+                        and evidence_refs.get("active_inference_request_reference")
+                            != request_reference)
+                    or (value.get("schema_version") ==
+                        CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2
+                        and (not isinstance(preemption, Mapping)
+                            or set(preemption) != {
+                                "schema_version", "workload_mode", "serving_session_id",
+                                "model_identity_digest", "game_workload_message_id",
+                                "active_inference_request_reference"}
+                            or preemption.get("schema_version") !=
+                                "sentientos.active_inference_preemption:v2"
+                            or preemption.get("active_inference_request_reference")
+                                != request_reference
+                            or preemption.get("game_workload_message_id")
+                                != game_evidence.get("message_id")
+                            or not _active_preemption_matches_invocation(
+                                preemption, request)))):
+                return False
+        if (actor == "production_chat_host_resource_governor"
+                and value.get("schema_version") ==
+                    CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2):
+            if evidence_refs.get("active_inference_request_reference") != {
+                    key: request.get(key) for key in (
+                        "request_id", "request_digest", "correlation_id")}:
+                return False
+            if value.get("action_kind") == "local_model_inference_preemption":
+                preemption = evidence_refs.get("active_inference_preemption")
+                host_evidence = evidence_refs.get("host_resource_evidence")
+                if (not isinstance(preemption, Mapping)
+                        or set(preemption) != {
+                            "schema_version", "preemption_kind", "workload_mode",
+                            "serving_session_id", "model_identity_digest",
+                            "observation_correlation_id", "host_report_id",
+                            "host_report_digest", "pressure_labels", "observed_at",
+                            "active_inference_request_reference"}
+                        or not isinstance(host_evidence, Mapping)
+                        or preemption.get("schema_version") !=
+                            "sentientos.active_inference_preemption:v3"
+                        or preemption.get("active_inference_request_reference")
+                            != evidence_refs.get("active_inference_request_reference")
+                        or not _active_preemption_matches_invocation(preemption, request)
+                        or preemption.get("observation_correlation_id")
+                            != host_evidence.get("observation_correlation_id")
+                        or preemption.get("host_report_id") != host_evidence.get("report_id")
+                        or preemption.get("host_report_digest")
+                            != host_evidence.get("report_digest")
+                        or preemption.get("observed_at") != host_evidence.get("observed_at")
+                        or preemption.get("pressure_labels")
+                            != host_evidence.get("pressure_labels")):
+                    return False
+        if (actor == "production_chat_game_resource_governor"
+                and not any(isinstance(evidence_refs.get(key), Mapping)
+                    and evidence_refs[key].get("status") == "current"
+                    for key in ("game_workload_evidence", "game_performance_evidence",
+                        "resource_observation_evidence"))):
+            return False
+        if (actor == "production_chat_workload_resource_governor"
+                and not any(isinstance(evidence_refs.get(key), Mapping)
+                    and evidence_refs[key].get("status") == "current"
+                    for key in ("gaming_workload_profile_evidence",
+                        "resource_observation_evidence"))):
+            return False
+        if actor == "production_chat_host_resource_governor":
+            host_evidence = evidence_refs.get("host_resource_evidence")
+            resource_evidence = evidence_refs.get("resource_observation_evidence")
+            if not any(isinstance(item, Mapping)
+                    and item.get("status") == "current"
+                    for item in (host_evidence, resource_evidence)):
+                return False
+    if (value.get("authority_class") == AuthorityClass.LOCAL_MODEL_INFERENCE.value
+            and value.get("action_kind") == "local_model_inference_preemption"
+            and value.get("target_subsystem") == "governed_local_model_invocation"
+            and value.get("actor") in {
+                "production_chat_host_resource_governor",
+                "production_chat_game_workload_governor"}):
+        if governor is None and not require_runtime_evidence:
+            return True
+        return (isinstance(governor, Mapping)
+            and governor.get("allowed") is True
+            and governor.get("reason") in {
+                "allowed_host_resource_pressure_inference_preemption",
+                "allowed_verified_game_workload_inference_preemption"})
+    release_scope_valid = (value.get("authority_class") ==
+                AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE.value
+            and value.get("action_kind") == "local_model_resource_release"
+            and value.get("target_subsystem") == "production_chat"
+            and value.get("actor") in {
+                "production_chat_host_resource_governor",
+                "production_chat_workload_resource_governor",
+                "production_chat_game_resource_governor"})
+    if not release_scope_valid:
+        return False
+    if require_runtime_evidence:
+        return (isinstance(governor, Mapping)
+            and governor.get("allowed") is True
+            and governor.get("reason") == "model_resource_release_fail_safe")
+    return True
+
+
+def _cancellation_preemption_reference(decision: object, *,
+        admission_reference: object, request: object) -> dict[str, Any] | None:
+    if not isinstance(decision, Mapping):
+        return None
+    delegated = decision.get("delegated_outcomes")
+    governor = delegated.get("runtime_governor") if isinstance(delegated, Mapping) else None
+    evidence_refs = governor.get("evidence_refs") if isinstance(governor, Mapping) else None
+    preemption = evidence_refs.get("active_inference_preemption") if isinstance(
+        evidence_refs, Mapping) else None
+    if (not isinstance(evidence_refs, Mapping) or not isinstance(request, Mapping)
+            or not isinstance(admission_reference, str) or not admission_reference):
+        return None
+    request_reference = {key: request.get(key) for key in (
+        "request_id", "request_digest", "correlation_id")}
+    if not all(isinstance(value, str) and value for value in request_reference.values()):
+        return None
+    evidence_request_reference = evidence_refs.get(
+        "active_inference_request_reference")
+    if evidence_request_reference is not None and evidence_request_reference != request_reference:
+        return None
+    if isinstance(preemption, Mapping):
+        if preemption.get("active_inference_request_reference") != request_reference:
+            return None
+        evidence_kind = "active_inference_preemption"
+        evidence_digest = digest_payload(dict(preemption))
+    else:
+        current_evidence = any(isinstance(evidence_refs.get(key), Mapping)
+            and evidence_refs[key].get("status") == "current"
+            for key in ("game_workload_evidence", "game_performance_evidence",
+                "host_resource_evidence", "resource_observation_evidence"))
+        if not current_evidence:
+            return None
+        evidence_kind = "runtime_governor_evidence_refs"
+        evidence_digest = digest_payload(dict(evidence_refs))
+    return {
+        "schema_version": "sentientos.local_model_cancellation_preemption_ref:v1",
+        "cancellation_admission_decision_ref": admission_reference,
+        "active_inference_request_reference": request_reference,
+        "preemption_evidence_kind": evidence_kind,
+        "preemption_evidence_digest": evidence_digest,
+    }
+
+
+def _cancellation_admission_decision_witness(
+        decision: ControlActionDecision) -> dict[str, Any]:
+    # ControlActionDecision is the exact kernel-owned object, while its event
+    # timestamp is minted by to_dict(). Keep the stable semantic decision facts
+    # in the receipt and leave the event timestamp with the kernel's audit row.
+    payload = decision.to_dict()
+    delegated = decision.delegated_outcomes
+    runtime_governor = (delegated.get("runtime_governor")
+        if isinstance(delegated, Mapping) else None)
+    evidence_refs = (runtime_governor.get("evidence_refs")
+        if isinstance(runtime_governor, Mapping) else None)
+    schema_version = (CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2
+        if isinstance(evidence_refs, Mapping)
+            and isinstance(evidence_refs.get("active_inference_request_reference"), Mapping)
+        else CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA)
+    return {"schema_version": schema_version,
+        **{key: value for key, value in payload.items() if key != "timestamp"}}
 RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
     "type": "object",
     "required": ["conclusion", "lesson_candidate"],
@@ -399,6 +713,12 @@ class LocalModelInvocationReceipt:
     resource_linkage_digest: str | None = None
     schema_version: str = INVOCATION_RECEIPT_SCHEMA
     backend_completion: Mapping[str, Any] | None = None
+    cancellation_admission_decision_ref: str | None = None
+    cancellation_resource_observation: Mapping[str, Any] | None = None
+    cancellation_admission_decision: Mapping[str, Any] | None = None
+    cancellation_admission_record: Mapping[str, Any] | None = None
+    admission_decision_record: Mapping[str, Any] | None = None
+    cancellation_preemption_ref: Mapping[str, Any] | None = None
 
     def semantic_payload(self) -> dict[str, Any]:
         payload = {"schema_version": self.schema_version, "request": dict(self.request),
@@ -411,6 +731,41 @@ class LocalModelInvocationReceipt:
         if self.schema_version == INVOCATION_RECEIPT_SCHEMA_V3:
             payload["backend_completion"] = (dict(self.backend_completion)
                 if self.backend_completion is not None else None)
+        if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V4,
+                INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6,
+                INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
+                INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
+            payload["backend_completion"] = (dict(self.backend_completion)
+                if self.backend_completion is not None else None)
+            payload["cancellation_admission_decision_ref"] = self.cancellation_admission_decision_ref
+        if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V5,
+                INVOCATION_RECEIPT_SCHEMA_V6, INVOCATION_RECEIPT_SCHEMA_V7,
+                INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9,
+                INVOCATION_RECEIPT_SCHEMA_V10}:
+            payload["cancellation_resource_observation"] = (
+                dict(self.cancellation_resource_observation)
+                if self.cancellation_resource_observation is not None else None)
+        if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V6,
+                INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
+                INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
+            payload["cancellation_admission_decision"] = (
+                dict(self.cancellation_admission_decision)
+                if self.cancellation_admission_decision is not None else None)
+        if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V7,
+                INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9,
+                INVOCATION_RECEIPT_SCHEMA_V10}:
+            payload["cancellation_admission_record"] = (
+                dict(self.cancellation_admission_record)
+                if self.cancellation_admission_record is not None else None)
+        if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V8,
+                INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
+            payload["admission_decision_record"] = (
+                dict(self.admission_decision_record)
+                if self.admission_decision_record is not None else None)
+        if self.schema_version == INVOCATION_RECEIPT_SCHEMA_V10:
+            payload["cancellation_preemption_ref"] = (
+                dict(self.cancellation_preemption_ref)
+                if self.cancellation_preemption_ref is not None else None)
         return payload
 
     @property
@@ -506,18 +861,198 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
         # Historical v1 receipts intentionally omit schema_version and bind
         # exactly the pre-v2 field set. An explicit null is not legacy.
         semantic = {key: payload.get(key) for key in legacy_semantic_keys}
-    elif schema in {INVOCATION_RECEIPT_SCHEMA, INVOCATION_RECEIPT_SCHEMA_V3}:
+    elif schema in {INVOCATION_RECEIPT_SCHEMA, INVOCATION_RECEIPT_SCHEMA_V3,
+                    INVOCATION_RECEIPT_SCHEMA_V4, INVOCATION_RECEIPT_SCHEMA_V5,
+                    INVOCATION_RECEIPT_SCHEMA_V6, INVOCATION_RECEIPT_SCHEMA_V7,
+                    INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9,
+                    INVOCATION_RECEIPT_SCHEMA_V10}:
         semantic = {key: payload.get(key) for key in (
             "schema_version", *legacy_semantic_keys, "observed_at")}
-        if schema == INVOCATION_RECEIPT_SCHEMA_V3:
+        if schema in {INVOCATION_RECEIPT_SCHEMA_V3, INVOCATION_RECEIPT_SCHEMA_V4,
+                INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6,
+                INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
+                INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
             semantic["backend_completion"] = payload.get("backend_completion")
             completion = payload.get("backend_completion")
-            if not validate_backend_completion_observation(completion):
+            if (completion is None and schema in {INVOCATION_RECEIPT_SCHEMA_V4,
+                    INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6,
+                    INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
+                    INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}):
+                pass
+            elif not validate_backend_completion_observation(completion):
                 reasons.append("backend_completion_observation_invalid")
             elif (isinstance(completion, Mapping)
+                    and completion.get("schema_version") ==
+                        LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3):
+                thread_control = completion.get("backend_thread_limit_control")
+                request_value = payload.get("request")
+                request_linkage = (request_value.get("linkage")
+                    if isinstance(request_value, Mapping) else None)
+                expected_thread_limit = (request_linkage.get("max_backend_threads")
+                    if isinstance(request_linkage, Mapping) else None)
+                generation_config = payload.get("generation_config")
+                actual_parameters = (generation_config.get("actual_generation_parameters")
+                    if isinstance(generation_config, Mapping) else None)
+                actual_thread_limit = (actual_parameters.get("max_backend_threads")
+                    if isinstance(actual_parameters, Mapping) else None)
+                if (not isinstance(thread_control, Mapping)
+                        or thread_control.get("requested_ceiling") != expected_thread_limit
+                        or actual_thread_limit != expected_thread_limit):
+                    reasons.append("backend_thread_limit_control_unbound")
+            if (isinstance(completion, Mapping)
                     and completion.get("finish_reason") == "length"
                     and payload.get("output_truncated") is not True):
                 reasons.append("backend_completion_truncation_mismatch")
+        if schema == INVOCATION_RECEIPT_SCHEMA_V4:
+            semantic["cancellation_admission_decision_ref"] = payload.get(
+                "cancellation_admission_decision_ref")
+            if (not isinstance(semantic["cancellation_admission_decision_ref"], str)
+                    or not semantic["cancellation_admission_decision_ref"]):
+                reasons.append("cancellation_admission_decision_ref_invalid")
+            if ("cancelled_for_workload_transition" in payload.get("reason_codes", ())
+                    and not _valid_cancellation_admission_request_binding(
+                        semantic["cancellation_admission_decision_ref"],
+                        payload.get("request"))):
+                reasons.append("cancellation_admission_request_binding_invalid")
+        if schema in {INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6,
+                INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
+                INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
+            observation = payload.get("cancellation_resource_observation")
+            effects = payload.get("effects")
+            if ((schema != INVOCATION_RECEIPT_SCHEMA_V8
+                    or observation is not None)
+                    and (payload.get("status") not in {"cancelled", "timeout"}
+                        or not isinstance(effects, Mapping)
+                        or effects.get("local_model_inference") is not True)):
+                reasons.append("cancellation_resource_observation_status_invalid")
+            semantic["cancellation_admission_decision_ref"] = payload.get(
+                "cancellation_admission_decision_ref")
+            if (semantic["cancellation_admission_decision_ref"] is not None
+                    and (not isinstance(semantic["cancellation_admission_decision_ref"], str)
+                         or not semantic["cancellation_admission_decision_ref"])):
+                reasons.append("cancellation_admission_decision_ref_invalid")
+            if ("cancelled_for_workload_transition" in payload.get("reason_codes", ())
+                    and not semantic["cancellation_admission_decision_ref"]):
+                reasons.append("cancellation_admission_decision_ref_required")
+            if ("cancelled_for_workload_transition" in payload.get("reason_codes", ())
+                    and not _valid_cancellation_admission_request_binding(
+                        semantic["cancellation_admission_decision_ref"],
+                        payload.get("request"))):
+                reasons.append("cancellation_admission_request_binding_invalid")
+            semantic["cancellation_resource_observation"] = observation
+            if ((schema == INVOCATION_RECEIPT_SCHEMA_V5 or observation is not None)
+                    and not _valid_backend_resource_observation(observation,
+                        expected_source="parent_sampled_exact_runtime_worker")):
+                reasons.append("cancellation_resource_observation_invalid")
+        if schema in {INVOCATION_RECEIPT_SCHEMA_V6, INVOCATION_RECEIPT_SCHEMA_V7,
+                INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9,
+                INVOCATION_RECEIPT_SCHEMA_V10}:
+            cancellation_decision = payload.get("cancellation_admission_decision")
+            semantic["cancellation_admission_decision"] = cancellation_decision
+            if cancellation_ref := semantic.get("cancellation_admission_decision_ref"):
+                if not _valid_cancellation_admission_decision(
+                        cancellation_decision, reference=cancellation_ref,
+                        request=payload.get("request"),
+                        require_runtime_evidence=(
+                            schema in {INVOCATION_RECEIPT_SCHEMA_V9,
+                                INVOCATION_RECEIPT_SCHEMA_V10})):
+                    reasons.append("cancellation_admission_decision_invalid")
+            elif cancellation_decision is not None:
+                reasons.append("cancellation_admission_decision_unreferenced")
+        if schema == INVOCATION_RECEIPT_SCHEMA_V10:
+            preemption_ref = payload.get("cancellation_preemption_ref")
+            semantic["cancellation_preemption_ref"] = preemption_ref
+            expected_preemption_ref = _cancellation_preemption_reference(
+                semantic.get("cancellation_admission_decision"),
+                admission_reference=semantic.get("cancellation_admission_decision_ref"),
+                request=payload.get("request"))
+            if (not isinstance(preemption_ref, Mapping)
+                    or dict(preemption_ref) != expected_preemption_ref
+                    or expected_preemption_ref is None):
+                reasons.append("cancellation_preemption_reference_invalid")
+        if schema in {INVOCATION_RECEIPT_SCHEMA_V7, INVOCATION_RECEIPT_SCHEMA_V8,
+                INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
+            record = payload.get("cancellation_admission_record")
+            semantic["cancellation_admission_record"] = record
+            if cancellation_ref := semantic.get("cancellation_admission_decision_ref"):
+                witness = semantic.get("cancellation_admission_decision")
+                record_timestamp = None
+                if isinstance(record, Mapping):
+                    try:
+                        record_timestamp = datetime.fromisoformat(
+                            str(record.get("timestamp")).replace("Z", "+00:00"))
+                    except ValueError:
+                        pass
+                if (not isinstance(record, Mapping)
+                        or record.get("event_type") != "control_plane_decision"
+                        or record_timestamp is None
+                        or record_timestamp.tzinfo is None
+                        or record_timestamp.utcoffset() is None
+                        or not isinstance(witness, Mapping)
+                        or {key: value for key, value in record.items()
+                            if key != "timestamp"} != {
+                                key: value for key, value in witness.items()
+                                if key != "schema_version"}
+                        or record.get("admission_decision_ref") != cancellation_ref):
+                    reasons.append("cancellation_admission_record_invalid")
+            elif record is not None:
+                reasons.append("cancellation_admission_record_unreferenced")
+        if schema in {INVOCATION_RECEIPT_SCHEMA_V8, INVOCATION_RECEIPT_SCHEMA_V9, INVOCATION_RECEIPT_SCHEMA_V10}:
+            admission_record = payload.get("admission_decision_record")
+            semantic["admission_decision_record"] = admission_record
+            if admission_record is None:
+                if (payload.get("status") != "admission_unrecorded"
+                        or not isinstance(payload.get("effects"), Mapping)
+                        or payload["effects"].get("local_model_inference") is not False):
+                    reasons.append("inference_admission_record_missing")
+            else:
+                request = payload.get("request")
+                timestamp = None
+                if isinstance(admission_record, Mapping):
+                    try:
+                        timestamp = datetime.fromisoformat(str(
+                            admission_record.get("timestamp")).replace("Z", "+00:00"))
+                    except ValueError:
+                        pass
+                expected_fields = {
+                    "event_type", "timestamp", "final_disposition", "outcome",
+                    "reason_codes", "delegate_checks_consulted", "lifecycle_phase",
+                    "current_phase", "requested_phase", "authority_class", "action_kind",
+                    "actor_source", "actor", "execution_owner", "target_subsystem",
+                    "delegated_outcomes", "federation_context", "proof_budget_context",
+                    "protected_mutation_intent", "correlation_id", "admission_decision_ref"}
+                decision_ref = payload.get("admission_decision_ref")
+                effects = payload.get("effects")
+                if (not isinstance(admission_record, Mapping)
+                        or set(admission_record) != expected_fields
+                        or admission_record.get("event_type") != "control_plane_decision"
+                        or timestamp is None or timestamp.tzinfo is None
+                        or timestamp.utcoffset() is None
+                        or admission_record.get("final_disposition")
+                            != admission_record.get("outcome")
+                        or admission_record.get("outcome") not in {
+                            "allow", "deny", "defer", "quarantine"}
+                        or admission_record.get("authority_class")
+                            != AuthorityClass.LOCAL_MODEL_INFERENCE.value
+                        or admission_record.get("action_kind") != "local_model_inference"
+                        or admission_record.get("target_subsystem")
+                            != "governed_local_model_invocation"
+                        or not isinstance(request, Mapping)
+                        or admission_record.get("actor") != request.get("caller")
+                        or admission_record.get("actor_source")
+                            != admission_record.get("actor")
+                        or admission_record.get("execution_owner")
+                            != admission_record.get("actor")
+                        or admission_record.get("correlation_id")
+                            != request.get("correlation_id")
+                        or decision_ref != "kernel_decision:" + str(
+                            admission_record.get("correlation_id"))
+                        or admission_record.get("admission_decision_ref") != decision_ref
+                        or not isinstance(effects, Mapping)
+                        or effects.get("local_model_inference") is True
+                            and admission_record.get("outcome") != "allow"
+                        or payload.get("status") == "admission_unrecorded"):
+                    reasons.append("inference_admission_record_invalid")
         observed_at = payload.get("observed_at")
         try:
             timestamp = datetime.fromisoformat(str(observed_at).replace("Z", "+00:00"))
@@ -581,48 +1116,176 @@ class LocalModelPostEffectCustodyError(RuntimeError):
         super().__init__("post_effect_custody_unconfirmed")
 
 
+class LocalModelInvocationDeferred(RuntimeError):
+    """A current runtime resource policy deferred inference before backend entry."""
+
+    def __init__(self, reason_code: str) -> None:
+        if not isinstance(reason_code, str) or not reason_code:
+            raise ValueError("invocation_defer_reason_required")
+        self.reason_code = reason_code
+        super().__init__("local_model_invocation_deferred")
+
+
 class GovernedLocalModelInvoker:
+    CANCELLATION_QUIESCENCE_TIMEOUT_SECONDS = 0.5
+
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
-        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_cancel_reason: str | None = None; self._active_residency_preload_event: threading.Event | None = None
+        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_invocation_request_reference: dict[str, str] | None = None; self._active_cancel_reason: str | None = None; self._active_cancel_admission_ref: str | None = None; self._active_cancel_admission_decision: dict[str, Any] | None = None; self._active_cancel_admission_record: dict[str, Any] | None = None; self._active_cancel_confirmed = False; self._active_residency_preload_event: threading.Event | None = None; self._backend_quiescence_callbacks: list[Callable[[], None]] = []
 
     def register_evidence_sink(self, sink: Callable[[Mapping[str, Any]], None] | None) -> None:
         """Install an explicit observational receipt sink owned by the runtime."""
         self._evidence_sink = sink
 
-    def cancel_pending_generation(self) -> bool:
-        """Cancel the active governed request after a client disconnect or timeout."""
+    def backend_work_pending(self) -> bool:
+        """Return whether this invocation owner still has an active backend worker."""
+        with self._active_state_lock:
+            return self._active_release_event is not None
+
+    def active_invocation_request_reference(self) -> Mapping[str, str] | None:
+        """Return the in-flight request identity while its backend cancellation gate is active."""
+        with self._active_state_lock:
+            if self._active_release_event is None:
+                return None
+            value = self._active_invocation_request_reference
+            return dict(value) if value is not None else None
+
+    def on_backend_quiescence(self, callback: Callable[[], None]) -> None:
+        """Run callback once the current backend worker is known to have stopped."""
+        if not callable(callback):
+            raise TypeError("backend_quiescence_callback_required")
+        with self._active_state_lock:
+            run_now = self._active_release_event is None
+            if not run_now:
+                self._backend_quiescence_callbacks.append(callback)
+        if run_now:
+            callback()
+
+    def _mark_backend_quiescent(self, release_event: threading.Event) -> None:
+        callbacks: list[Callable[[], None]] = []
+        with self._active_state_lock:
+            if self._active_release_event is not release_event:
+                return
+            self._active_release_event = None
+            self._active_invocation_request_reference = None
+            callbacks = self._backend_quiescence_callbacks
+            self._backend_quiescence_callbacks = []
+        for callback in callbacks:
+            try:
+                callback()
+            except Exception:
+                # Lifecycle bookkeeping must not change the backend result.
+                pass
+
+    def cancel_pending_generation(self, *, reason: str = "client_disconnect",
+                                  cancellation_admission_decision: ControlActionDecision | None = None) -> bool:
+        """Request cancellation and confirm the exact backend worker has stopped."""
+        if reason not in {"client_disconnect", "workload_transition"}:
+            raise ValueError("invocation_cancellation_reason_invalid")
+        admission_ref: str | None = None
+        inference_preemption = False
+        resource_release = False
+        if reason == "workload_transition" and cancellation_admission_decision is None:
+            raise ValueError("invocation_cancellation_admission_decision_required")
+        if cancellation_admission_decision is not None:
+            if (type(cancellation_admission_decision) is not ControlActionDecision
+                    or not self.kernel.owns_recorded_admitted_decision(
+                        cancellation_admission_decision)):
+                raise ValueError("invocation_cancellation_admission_decision_unverified")
+            decision = cancellation_admission_decision
+            inference_preemption = (
+                decision.outcome == AdmissionOutcome.ALLOW
+                and decision.authority_class == AuthorityClass.LOCAL_MODEL_INFERENCE
+                and decision.action_kind == "local_model_inference_preemption"
+                and decision.target_subsystem == "governed_local_model_invocation"
+                and decision.actor in {
+                    "production_chat_host_resource_governor",
+                    "production_chat_game_workload_governor"})
+            resource_release = (
+                decision.outcome == AdmissionOutcome.ALLOW
+                and decision.authority_class == AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE
+                and decision.action_kind == "local_model_resource_release"
+                and decision.target_subsystem == "production_chat"
+                and decision.actor in {
+                    "production_chat_host_resource_governor",
+                    "production_chat_workload_resource_governor",
+                    "production_chat_game_resource_governor"})
+            if not (inference_preemption or resource_release):
+                raise ValueError("invocation_cancellation_admission_scope_invalid")
+            admission_ref = decision.admission_decision_ref
         with self._active_state_lock:
             event = self._active_release_event
             if event is None:
                 return False
-            self._active_cancel_reason = "client_disconnect"
+            if inference_preemption:
+                active_reference = self._active_invocation_request_reference
+                if (not isinstance(active_reference, Mapping)
+                        or decision.correlation_id is None
+                        or not decision.correlation_id.startswith(
+                            "active-inference-preemption:"
+                            + digest_payload(dict(active_reference)) + ":")):
+                    return False
+            production_resource_release = (resource_release and decision.actor in {
+                "production_chat_host_resource_governor",
+                "production_chat_workload_resource_governor",
+                "production_chat_game_resource_governor"})
+            if production_resource_release:
+                active_reference = self._active_invocation_request_reference
+                if (not isinstance(active_reference, Mapping)
+                        or decision.correlation_id is None
+                        or not decision.correlation_id.startswith(
+                            "active-resource-release:"
+                            + digest_payload(dict(active_reference)) + ":")):
+                    return False
+            self._active_cancel_reason = reason
+            self._active_cancel_admission_ref = admission_ref
+            self._active_cancel_admission_decision = (
+                _cancellation_admission_decision_witness(decision)
+                if admission_ref is not None else None)
+            self._active_cancel_admission_record = (
+                self.kernel.recorded_decision_payload(decision)
+                if admission_ref is not None else None)
+            self._active_cancel_confirmed = False
             event.set()
         cancel = getattr(self.model, "cancel_pending_generation", None)
         if not callable(cancel):
             return False
         try:
-            return cancel() is True
+            requested = cancel() is True
         except Exception:
+            requested = False
+        with self._active_state_lock:
+            if self._active_release_event is event:
+                self._active_cancel_confirmed = requested
+        if not requested:
             return False
+        if not self._active_invocation_lock.acquire(
+                timeout=self.CANCELLATION_QUIESCENCE_TIMEOUT_SECONDS):
+            return False
+        self._active_invocation_lock.release()
+        return True
 
     def release_model_residency(self, *, reason_code: str = "gaming_mode_entered",
                                  correlation_id: str | None = None,
-                                 cancel_active: bool = True
+                                 cancel_active: bool = True,
+                                 resource_observation: Mapping[str, Any] | None = None
                                  ) -> LocalModelResidencyReleaseReceipt:
         """Admit and audit a local model release before asking Ollama to unload."""
         identity = getattr(self.model, "active_identity", None)
         identity_digest = digest_payload(identity.to_dict()) if identity is not None else "0" * 64
         correlation = correlation_id or f"gaming-release:{uuid.uuid4().hex}"
+        metadata: dict[str, Any] = {"correlation_id": correlation,
+            "purpose": "local_model_resource_release",
+            "model_identity_digest": identity_digest,
+            "reason_code": reason_code}
+        if resource_observation is not None:
+            metadata["resource_observation"] = dict(resource_observation)
         request = ControlActionRequest(
             action_kind="local_model_resource_release",
             authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
             actor="local_development_workload_controller",
             target_subsystem="local_model_residency",
             requested_phase=LifecyclePhase.RUNTIME,
-            metadata={"correlation_id": correlation,
-                "purpose": "local_model_resource_release",
-                "model_identity_digest": identity_digest,
-                "reason_code": reason_code})
+            metadata=metadata)
         decision = self.kernel.admit(request)
         status = "denied"
         reasons: list[str] = list(decision.reason_codes)
@@ -658,13 +1321,23 @@ class GovernedLocalModelInvoker:
                             active_release_event = self._active_release_event
                             if active_release_event is not None:
                                 self._active_cancel_reason = "workload_transition"
+                                self._active_cancel_admission_ref = decision.admission_decision_ref
+                                self._active_cancel_admission_decision = (
+                                    _cancellation_admission_decision_witness(decision))
+                                self._active_cancel_admission_record = (
+                                    self.kernel.recorded_decision_payload(decision))
+                                self._active_cancel_confirmed = False
                                 active_release_event.set()
                         cancel = getattr(self.model, "cancel_pending_generation", None)
+                        cancellation_confirmed = False
                         if callable(cancel):
                             try:
-                                cancel()
+                                cancellation_confirmed = cancel() is True
                             except Exception:
-                                pass
+                                cancellation_confirmed = False
+                        with self._active_state_lock:
+                            if self._active_release_event is active_release_event:
+                                self._active_cancel_confirmed = cancellation_confirmed
                         lock_acquired = self._active_invocation_lock.acquire(timeout=1.0)
                     if not lock_acquired:
                         status = "deferred"
@@ -676,6 +1349,16 @@ class GovernedLocalModelInvoker:
                         try:
                             backend_result = self.model.release_residency()
                             still_resident = self.model.is_resident()
+                            # Ollama acknowledges keep_alive=0 before its process
+                            # list consistently reflects the unload.  Confirm for
+                            # a short bounded window so the receipt records the
+                            # resulting state rather than a transient stale read.
+                            if (still_resident
+                                    and getattr(identity, "engine", None) == "ollama"):
+                                deadline = time.monotonic() + 10.0
+                                while still_resident and time.monotonic() < deadline:
+                                    time.sleep(0.25)
+                                    still_resident = self.model.is_resident()
                             if still_resident:
                                 status = "release_unconfirmed"
                                 reasons = ["model_remained_resident_after_release"]
@@ -866,11 +1549,18 @@ class GovernedLocalModelInvoker:
                resource_context: GovernedLocalModelResourceInvocationContext | None = None,
                on_content_chunk: Callable[[str], None] | None = None) -> LocalModelInvocationReceipt:
         started = time.monotonic(); status = "blocked_invalid"; reasons: list[str] = [] ; output: str | None = None; admitted_ref = None; fallback = False; truncated = False; backend_completion: Mapping[str, Any] | None = None
+        cancellation_resource_observation: Mapping[str, Any] | None = None
         decision_payload: dict[str, Any] = {}; attempt_id: str | None = None; backend_entered = False
+        admission_decision_record: Mapping[str, Any] | None = None
+        invocation_lock_acquired = False
         receipt_persistence_confirmed = False
         resource_linkage_persistence_confirmed: bool | None = (
             False if resource_context is not None else None)
         generated_output: str | None = None
+        cancellation_admission_ref: str | None = None
+        cancellation_admission_decision: Mapping[str, Any] | None = None
+        cancellation_admission_record: Mapping[str, Any] | None = None
+        resource_allocation_binding: dict[str, Any] | None = None
         inference_attempted = threading.Event()
         active_release_event: threading.Event | None = None
         record = self._record_for(request.model_id)
@@ -968,6 +1658,24 @@ class GovernedLocalModelInvoker:
                     raise GovernedLocalModelResourceError("allocation_substitution")
                 if resource_context.allocator.policy != resource_context.policy or allocation.policy_digest != resource_context.policy.policy_digest or allocation.epoch != resource_context.policy.epoch:
                     raise GovernedLocalModelResourceError("allocation_policy_mismatch")
+                resource_allocation_binding = {
+                    "schema_version": (
+                        "sentientos.governed_local_model_resource_allocation_admission_context:v1"),
+                    "allocation_id": allocation.allocation_id,
+                    "allocation_digest": allocation.allocation_digest,
+                    "allocator_id": allocation.allocator_id,
+                    "resource_kind": allocation.resource_kind,
+                    "policy_digest": allocation.policy_digest,
+                    "policy_epoch": allocation.epoch,
+                    "principal_binding_digest": allocation.principal_binding_digest,
+                }
+                if (allocation.resource_specific_bounds.max_cpu_seconds_per_allocation is not None
+                        and (record is None or record.engine != "llama_cpp"
+                            or type(thread_limit) is not int
+                            or getattr(self.model, "supports_per_invocation_thread_limit", False)
+                                is not True)):
+                    raise GovernedLocalModelResourceError(
+                        "cpu_budget_requires_verified_backend_thread_limit")
                 for dimension in LocalModelInvocationBudget.__dataclass_fields__:
                     if getattr(request.budget, dimension) > getattr(allocation.resource_specific_bounds, dimension):
                         raise GovernedLocalModelResourceError(f"request_budget_exceeds_allocation:{dimension}")
@@ -982,18 +1690,70 @@ class GovernedLocalModelInvoker:
                 "purpose": request.purpose,
                 "request_digest": request.request_digest,
             }
+            if resource_allocation_binding is not None:
+                # Record the exact preflighted entitlement as admission context.
+                # The allocator's final_gate below remains authoritative for
+                # currentness and durable debit; this binding grants no effect.
+                admission_metadata["resource_allocation_binding"] = dict(
+                    resource_allocation_binding)
+            host_observation = request.linkage.get("host_resource_observation")
+            if isinstance(host_observation, Mapping):
+                observation_correlation_id = host_observation.get(
+                    "observation_correlation_id")
+                if isinstance(observation_correlation_id, str):
+                    admission_metadata["host_resource_observation_id"] = (
+                        observation_correlation_id)
             if execution_profile is not None:
                 admission_metadata["model_execution_profile"] = execution_profile
+            workload_mode = request.linkage.get("workload_mode")
+            workload_evidence = request.linkage.get("workload_evidence")
+            if (workload_mode in {"normal", "gaming"}
+                    and isinstance(workload_evidence, Mapping)):
+                admission_metadata["workload_mode"] = workload_mode
+                admission_metadata["workload_evidence"] = dict(workload_evidence)
             cp_req = ControlActionRequest(action_kind="local_model_inference", authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE, actor=request.caller, target_subsystem="governed_local_model_invocation", requested_phase=phase, metadata=admission_metadata)
-            decision = self.kernel.admit(cp_req); decision_payload = decision.to_dict(); admitted_ref = decision.admission_decision_ref
-            if not decision.allowed: reasons += list(decision.reason_codes); status = _status_for_denial(decision.outcome.value)
+            decision = self.kernel.admit(cp_req)
+            admission_decision_record = self.kernel.recorded_decision_payload(decision)
+            decision_payload = (dict(admission_decision_record)
+                if admission_decision_record is not None else {})
+            admitted_ref = decision.admission_decision_ref
+            if admission_decision_record is None:
+                reasons += ["admission_decision_not_recorded", *list(decision.reason_codes)]
+                status = "admission_unrecorded"
+            elif not decision.allowed: reasons += list(decision.reason_codes); status = _status_for_denial(decision.outcome.value)
             else:
+                invocation_lock_acquired = self._active_invocation_lock.acquire(
+                    blocking=False)
+                if not invocation_lock_acquired:
+                    with self._active_state_lock:
+                        preload_in_progress = self._active_residency_preload_event is not None
+                    if preload_in_progress:
+                        invocation_lock_acquired = self._active_invocation_lock.acquire(
+                            timeout=min(10.0, request.budget.timeout_seconds))
+                if not invocation_lock_acquired:
+                    status = "backend_failure"
+                    reasons.append("backend_failure:RuntimeError")
                 if resource_context is not None:
-                    try:
-                        attempt_id = resource_context.allocator.final_gate(allocation=resource_context.allocation, principal=resource_context.principal, authenticated=resource_context.authenticated, current=resource_context.current, policy=resource_context.policy, current_time=resource_context.clock(), durable_attempt_nonce=resource_context.durable_attempt_nonce)
-                    except GovernedLocalModelResourceError as exc:
-                        status = "resource_denied"; reasons.append("resource_gate:" + str(exc).split(":", 1)[0])
-                if resource_context is None or attempt_id is not None:
+                    if invocation_lock_acquired:
+                        try:
+                            attempt_id = resource_context.allocator.final_gate(
+                                allocation=resource_context.allocation,
+                                principal=resource_context.principal,
+                                authenticated=resource_context.authenticated,
+                                current=resource_context.current,
+                                policy=resource_context.policy,
+                                current_time=resource_context.clock(),
+                                durable_attempt_nonce=resource_context.durable_attempt_nonce,
+                                requested_timeout_seconds=request.budget.timeout_seconds,
+                                max_backend_threads=(thread_limit
+                                    if type(thread_limit) is int else None))
+                        except GovernedLocalModelResourceError as exc:
+                            status = "resource_denied"; reasons.append("resource_gate:" + str(exc).split(":", 1)[0])
+                        except Exception:
+                            self._active_invocation_lock.release()
+                            invocation_lock_acquired = False
+                            raise
+                if invocation_lock_acquired and (resource_context is None or attempt_id is not None):
                     try:
                         self.invocation_counts[request.correlation_id] = self.invocation_counts.get(request.correlation_id, 0) + 1
                         generation: dict[str, Any] = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke", "resident_developmental_retrieval_cognition", INTERVENTION_PURPOSE, MODEL_REPLACEMENT_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None, "use_model_chat_template": request.purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE}
@@ -1010,26 +1770,35 @@ class GovernedLocalModelInvoker:
                                 if resource_context is not None and attempt_id is not None:
                                     resource_context.allocator.reconcile_not_begun(resource_context.allocation, attempt_id, observed_at=resource_context.clock())
                                 raise
-                        if resource_context is not None and attempt_id is not None:
-                            resource_context.allocator.record_backend_entry(resource_context.allocation, attempt_id, observed_at=resource_context.clock())
-                            backend_entered = True
-                        if not self._active_invocation_lock.acquire(blocking=False):
-                            with self._active_state_lock:
-                                preload_in_progress = self._active_residency_preload_event is not None
-                            if (not preload_in_progress
-                                    or not self._active_invocation_lock.acquire(
-                                        timeout=min(10.0, request.budget.timeout_seconds))):
-                                raise RuntimeError("model_invocation_already_active")
                         latest_identity = getattr(self.model, "active_identity", None)
                         if (identity is not None and
                                 (latest_identity is None
                                  or request.active_model_identity != latest_identity.to_dict())):
+                            if resource_context is not None and attempt_id is not None:
+                                resource_context.allocator.reconcile_not_begun(
+                                    resource_context.allocation, attempt_id,
+                                    observed_at=resource_context.clock())
                             self._active_invocation_lock.release()
+                            invocation_lock_acquired = False
                             raise RuntimeError("active_model_request_identity_mismatch")
+                        if resource_context is not None and attempt_id is not None:
+                            resource_context.allocator.record_backend_entry(
+                                resource_context.allocation, attempt_id,
+                                observed_at=resource_context.clock())
+                            backend_entered = True
                         active_release_event = threading.Event()
                         with self._active_state_lock:
                             self._active_release_event = active_release_event
+                            self._active_invocation_request_reference = {
+                                "request_id": request.request_id,
+                                "request_digest": request.request_digest,
+                                "correlation_id": request.correlation_id,
+                            }
                             self._active_cancel_reason = None
+                            self._active_cancel_admission_ref = None
+                            self._active_cancel_admission_decision = None
+                            self._active_cancel_admission_record = None
+                            self._active_cancel_confirmed = False
                         # Ollama supports an event check around connection setup, closing the
                         # race where disconnect lands just before the HTTP request is installed.
                         if getattr(identity, "engine", None) == "ollama":
@@ -1071,11 +1840,16 @@ class GovernedLocalModelInvoker:
                             future = executor.submit(_call_model)
                         except Exception:
                             _release_invocation_lock()
+                            invocation_lock_acquired = False
                             with self._active_state_lock:
                                 if self._active_release_event is active_release_event:
                                     self._active_release_event = None
                             raise
-                        future.add_done_callback(lambda _future: _release_invocation_lock())
+                        def _backend_future_done(_future: Any) -> None:
+                            _release_invocation_lock()
+                            self._mark_backend_quiescent(active_release_event)
+                        future.add_done_callback(_backend_future_done)
+                        invocation_lock_acquired = False
                         try:
                             output, backend_completion = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
                         except concurrent.futures.TimeoutError as exc:
@@ -1088,6 +1862,16 @@ class GovernedLocalModelInvoker:
                             if callable(cancel):
                                 try: requested = cancel() is True
                                 except Exception: pass
+                            observation_reader = getattr(self.model,
+                                "take_cancelled_generation_resource_observation", None)
+                            if callable(observation_reader):
+                                try:
+                                    sampled = observation_reader()
+                                except Exception:
+                                    sampled = None
+                                if (requested and _valid_backend_resource_observation(sampled,
+                                        expected_source="parent_sampled_exact_runtime_worker")):
+                                    cancellation_resource_observation = dict(sampled)
                             future.cancel()
                             try: future.result(timeout=0.5)
                             except concurrent.futures.CancelledError: pass
@@ -1103,9 +1887,9 @@ class GovernedLocalModelInvoker:
                         finally:
                             if not shutdown_without_wait:
                                 executor.shutdown(wait=True, cancel_futures=True)
-                            with self._active_state_lock:
-                                if self._active_release_event is active_release_event:
-                                    self._active_release_event = None
+                                self._mark_backend_quiescent(active_release_event)
+                            elif future.done():
+                                self._mark_backend_quiescent(active_release_event)
                         if backend_completion is not None:
                             if not validate_backend_completion_observation(backend_completion):
                                 raise ValueError("backend_completion_observation_invalid")
@@ -1124,6 +1908,10 @@ class GovernedLocalModelInvoker:
                         elif request.purpose == "genesis_proposal_advice" and not self._valid_genesis_advice(output): reasons.append("output_malformed"); status = "output_malformed"
                         elif request.purpose == "discernment_judgment" and not self._valid_discernment_judgment(output, request): reasons.append("output_malformed"); status = "output_malformed"
                         else: status = "admitted_simulation" if record and record.engine in {"null", "echo"} else "admitted_completed"
+                    except LocalModelInvocationDeferred as exc:
+                        status = "deferred"
+                        reasons.extend(["runtime_resource_admission_deferred",
+                            exc.reason_code])
                     except TimeoutError: status = "timeout"; reasons.append("timeout")
                     except GovernedLocalModelResourceError as exc: status = "resource_custody_failure"; reasons.append("resource_transition:" + str(exc).split(":", 1)[0])
                     except Exception as exc:
@@ -1131,10 +1919,30 @@ class GovernedLocalModelInvoker:
                             status = "cancelled"
                             with self._active_state_lock:
                                 cancel_reason = self._active_cancel_reason
+                                cancellation_admission_ref = self._active_cancel_admission_ref
+                                cancellation_admission_decision = (
+                                    dict(self._active_cancel_admission_decision)
+                                    if self._active_cancel_admission_decision is not None
+                                    else None)
+                                cancellation_admission_record = (
+                                    dict(self._active_cancel_admission_record)
+                                    if self._active_cancel_admission_record is not None
+                                    else None)
+                                cancellation_confirmed = self._active_cancel_confirmed
                             reasons.append({"workload_transition": "cancelled_for_workload_transition",
                                 "client_disconnect": "cancelled_by_client_disconnect",
                                 "timeout": "cancelled_after_timeout"}.get(cancel_reason or "unknown",
                                     "cancelled_by_runtime"))
+                            observation_reader = getattr(self.model,
+                                "take_cancelled_generation_resource_observation", None)
+                            if cancellation_confirmed and callable(observation_reader):
+                                try:
+                                    sampled = observation_reader()
+                                except Exception:
+                                    sampled = None
+                                if _valid_backend_resource_observation(sampled,
+                                        expected_source="parent_sampled_exact_runtime_worker"):
+                                    cancellation_resource_observation = dict(sampled)
                         elif str(exc) == "active_model_request_identity_mismatch":
                             status = "backend_failure"
                             reasons.append("active_model_request_identity_mismatch")
@@ -1145,12 +1953,42 @@ class GovernedLocalModelInvoker:
                                 reasons.append(f"backend_failure:{diagnostic_code}")
                             else:
                                 reasons.append(f"backend_failure:{exc.__class__.__name__}")
+                if invocation_lock_acquired:
+                    self._active_invocation_lock.release()
+                    invocation_lock_acquired = False
         if status == "blocked_invalid" and not reasons: reasons.append("blocked_invalid")
+        if status not in {"cancelled", "timeout"}:
+            cancellation_resource_observation = None
         effect_occurred = inference_attempted.is_set()
         receipt_output = generated_output if generated_output is not None else output
         actual_generation_parameters = ({key: value for key, value in gen_kwargs.items()
             if key not in {"on_content_chunk", "_cancel_event"}} if "gen_kwargs" in locals() else {})
-        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": actual_generation_parameters}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=INVOCATION_RECEIPT_SCHEMA_V3 if backend_completion is not None else INVOCATION_RECEIPT_SCHEMA, backend_completion=backend_completion)
+        cancellation_delegates = (cancellation_admission_decision.get(
+            "delegated_outcomes") if isinstance(cancellation_admission_decision, Mapping)
+            else None)
+        cancellation_governor = (cancellation_delegates.get("runtime_governor")
+            if isinstance(cancellation_delegates, Mapping) else None)
+        cancellation_has_governor_evidence = (
+            isinstance(cancellation_governor, Mapping)
+            and isinstance(cancellation_governor.get("evidence_refs"), Mapping))
+        cancellation_preemption_ref = _cancellation_preemption_reference(
+            cancellation_admission_decision,
+            admission_reference=cancellation_admission_ref,
+            request=request.to_receipt_request_dict())
+        receipt_schema = (INVOCATION_RECEIPT_SCHEMA_V10
+            if (status == "cancelled" and cancellation_preemption_ref is not None)
+            else INVOCATION_RECEIPT_SCHEMA_V9
+            if (status == "cancelled" and cancellation_admission_ref is not None
+                and cancellation_has_governor_evidence)
+            else INVOCATION_RECEIPT_SCHEMA_V8
+            if admitted_ref is not None
+            else INVOCATION_RECEIPT_SCHEMA_V7
+                if cancellation_admission_ref is not None
+            else INVOCATION_RECEIPT_SCHEMA_V5
+                if cancellation_resource_observation is not None
+            else INVOCATION_RECEIPT_SCHEMA_V3 if backend_completion is not None
+            else INVOCATION_RECEIPT_SCHEMA)
+        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": actual_generation_parameters}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=receipt_schema, backend_completion=backend_completion, cancellation_admission_decision_ref=cancellation_admission_ref, cancellation_resource_observation=cancellation_resource_observation, cancellation_admission_decision=cancellation_admission_decision, cancellation_admission_record=cancellation_admission_record, admission_decision_record=admission_decision_record, cancellation_preemption_ref=cancellation_preemption_ref)
         if persist:
             try:
                 self._persist(request, receipt, decision_payload,
@@ -1166,6 +2004,25 @@ class GovernedLocalModelInvoker:
                 raise
         if resource_context is not None and attempt_id is not None and backend_entered:
             try:
+                backend_resource_observation: Mapping[str, object] | None = (
+                    cancellation_resource_observation)
+                if (isinstance(backend_completion, Mapping)
+                        and backend_completion.get("schema_version") ==
+                            LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3
+                        and validate_backend_completion_observation(backend_completion)):
+                    backend_metrics = backend_completion.get("invocation_resources")
+                    if isinstance(backend_metrics, Mapping):
+                        backend_resource_observation = {
+                            "schema_version": (
+                                "sentientos.governed_local_model_backend_resource_observation:v1"),
+                            "backend": "llama_cpp",
+                            "observation_source": "exact_runtime_worker_process",
+                            "user_cpu_seconds": backend_metrics.get("user_cpu_seconds"),
+                            "system_cpu_seconds": backend_metrics.get("system_cpu_seconds"),
+                            "wall_seconds": backend_metrics.get("wall_seconds"),
+                            "process_peak_rss_bytes": backend_metrics.get(
+                                "process_peak_rss_bytes"),
+                        }
                 measurement = resource_context.allocator.measurement(
                     resource_context.allocation, generation_attempted=True, call_units_consumed=1,
                     generated_output_size_bytes=(len(generated_output.encode("utf-8"))
@@ -1173,9 +2030,12 @@ class GovernedLocalModelInvoker:
                     returned_output_size_bytes=(len(output.encode("utf-8"))
                         if output is not None else None),
                     output_truncated=truncated, latency_ms=receipt.latency_ms,
-                    invocation_outcome=status)
+                    invocation_outcome=status,
+                    backend_resource_observation=backend_resource_observation)
                 state = ("measured_timeout" if status == "timeout" else
-                    "measured_backend_failure" if status == "backend_failure" else "measured_completed")
+                    "measured_backend_failure" if status == "backend_failure" else
+                    "measured_cancelled" if status == "cancelled" else
+                    "measured_completed")
                 measured = resource_context.allocator.append_receipt(
                     resource_context.allocation, attempt_id, state=state,
                     observed_at=resource_context.clock(), measurement=measurement)

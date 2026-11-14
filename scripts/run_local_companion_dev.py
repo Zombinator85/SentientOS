@@ -24,6 +24,7 @@ import fcntl
 import hashlib
 import hmac
 import json
+import math
 import os
 import queue
 import re
@@ -391,6 +392,17 @@ _VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT = 85.0
 _VRAM_RESIDENCY_RECOVERY_THRESHOLD_PERCENT = 82.0
 _VRAM_RESIDENCY_PRELOAD_THRESHOLD_PERCENT = 75.0
 _VRAM_TELEMETRY_STALE_AFTER_SECONDS = 45.0
+_GAMING_HOST_PRESSURE_RECOVERY_PERCENT = 85.0
+
+
+def _finite_percent(value: object) -> float | None:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    try:
+        numeric = float(value)
+    except (OverflowError, ValueError):
+        return None
+    return numeric if math.isfinite(numeric) and 0.0 <= numeric <= 100.0 else None
 
 
 class _GamingResourcePressureGuard:
@@ -405,6 +417,8 @@ class _GamingResourcePressureGuard:
         self._lock = threading.Lock()
         self._blocked = True
         self._pressure_latched: bool | None = None
+        self._cpu_pressure_latched = False
+        self._memory_pressure_latched = False
         self._last_observed_monotonic: float | None = None
         self._last_observation: dict[str, Any] = {
             "admission_status": "deferred",
@@ -438,20 +452,18 @@ class _GamingResourcePressureGuard:
             return dict(self._last_observation)
 
     def observe(self, vram_utilization_percent: float | None,
-                observed_at: str | None) -> dict[str, Any]:
-        valid = (isinstance(vram_utilization_percent, (int, float))
-                 and not isinstance(vram_utilization_percent, bool)
-                 and 0.0 <= float(vram_utilization_percent) <= 100.0)
+                observed_at: str | None, *,
+                cpu_utilization_percent: float | None = None,
+                ram_utilization_percent: float | None = None,
+                pressure_labels: tuple[str, ...] = ()) -> dict[str, Any]:
+        utilization = _finite_percent(vram_utilization_percent)
+        valid = utilization is not None
         with self._lock:
-            if (not valid
-                    or not isinstance(vram_utilization_percent, (int, float))
-                    or isinstance(vram_utilization_percent, bool)):
+            if utilization is None:
                 self._blocked = True
                 reason = "vram_telemetry_unavailable"
-                utilization = None
             else:
                 self._last_observed_monotonic = time.monotonic()
-                utilization = float(vram_utilization_percent)
                 if self._pressure_latched is None:
                     self._pressure_latched = (
                         utilization >= _VRAM_RESIDENCY_RELEASE_THRESHOLD_PERCENT)
@@ -462,17 +474,45 @@ class _GamingResourcePressureGuard:
                 self._blocked = self._pressure_latched
                 reason = ("vram_pressure" if self._blocked
                           else "headroom_available")
+            cpu_value = _finite_percent(cpu_utilization_percent)
+            memory_value = _finite_percent(ram_utilization_percent)
+            if cpu_value is not None:
+                if "cpu_pressure" in pressure_labels:
+                    self._cpu_pressure_latched = True
+                elif cpu_value < _GAMING_HOST_PRESSURE_RECOVERY_PERCENT:
+                    self._cpu_pressure_latched = False
+            if memory_value is not None:
+                if "memory_pressure" in pressure_labels:
+                    self._memory_pressure_latched = True
+                elif memory_value < _GAMING_HOST_PRESSURE_RECOVERY_PERCENT:
+                    self._memory_pressure_latched = False
+            if valid and reason != "vram_pressure":
+                if self._cpu_pressure_latched and self._memory_pressure_latched:
+                    reason = "cpu_and_memory_pressure"
+                elif self._cpu_pressure_latched:
+                    reason = "cpu_pressure"
+                elif self._memory_pressure_latched:
+                    reason = "memory_pressure"
+            blocked = (self._blocked or self._cpu_pressure_latched
+                       or self._memory_pressure_latched)
             self._last_observation = {
-                "admission_status": "deferred" if self._blocked else "available",
+                "schema_version": (
+                    "sentientos.gaming_host_pressure_admission_evidence:v1"
+                    if reason in {"cpu_pressure", "memory_pressure",
+                                  "cpu_and_memory_pressure"}
+                    else "sentientos.gaming_vram_admission_evidence:v1"),
+                "admission_status": "deferred" if blocked else "available",
                 "reason_code": reason,
                 "preload_admission_status": (
-                    "available" if not self._blocked and utilization is not None
+                    "available" if not blocked and utilization is not None
                     and utilization < _VRAM_RESIDENCY_PRELOAD_THRESHOLD_PERCENT
                     else "deferred"),
                 "preload_reason_code": (
-                    "preload_headroom_available" if not self._blocked
+                    "preload_headroom_available" if not blocked
                     and utilization is not None
                     and utilization < _VRAM_RESIDENCY_PRELOAD_THRESHOLD_PERCENT
+                    else "preload_host_pressure" if reason in {
+                        "cpu_pressure", "memory_pressure", "cpu_and_memory_pressure"}
                     else "preload_vram_headroom_insufficient" if valid
                     else reason),
                 "preload_threshold_percent": _VRAM_RESIDENCY_PRELOAD_THRESHOLD_PERCENT,
@@ -482,6 +522,17 @@ class _GamingResourcePressureGuard:
                 "recovery_threshold_percent": _VRAM_RESIDENCY_RECOVERY_THRESHOLD_PERCENT,
                 "stale_after_seconds": _VRAM_TELEMETRY_STALE_AFTER_SECONDS,
             }
+            # Preserve the exact VRAM receipt shape when VRAM itself requests
+            # a residency release. CPU/RAM pressure only defers new inference.
+            if reason in {"cpu_pressure", "memory_pressure",
+                          "cpu_and_memory_pressure"}:
+                self._last_observation.update({
+                    "cpu_utilization_percent": cpu_value,
+                    "ram_utilization_percent": memory_value,
+                    "pressure_labels": [label for label in pressure_labels
+                        if label in {"cpu_pressure", "memory_pressure"}],
+                    "host_pressure_recovery_percent": _GAMING_HOST_PRESSURE_RECOVERY_PERCENT,
+                })
             return dict(self._last_observation)
 
 
@@ -490,10 +541,18 @@ def _apply_gaming_resource_observation(
         utilization_percent: float | None,
         observed_at: str | None,
         release: Callable[[str], Mapping[str, Any] | None] | None,
+        *, cpu_utilization_percent: float | None = None,
+        ram_utilization_percent: float | None = None,
+        pressure_labels: tuple[str, ...] = (),
         ) -> Mapping[str, Any]:
     """Update the gaming admission gate and release resident VRAM if blocked."""
-    state = guard.observe(utilization_percent, observed_at)
-    if state["admission_status"] == "deferred" and release is not None:
+    state = guard.observe(utilization_percent, observed_at,
+        cpu_utilization_percent=cpu_utilization_percent,
+        ram_utilization_percent=ram_utilization_percent,
+        pressure_labels=pressure_labels)
+    if (state["admission_status"] == "deferred" and release is not None
+            and state.get("reason_code") in {
+                "vram_pressure", "vram_telemetry_unavailable"}):
         reason = state["reason_code"]
         release_reason = ("vram_pressure_observed" if reason == "vram_pressure"
                           else "vram_telemetry_unavailable")
@@ -807,7 +866,9 @@ class _HostResourceSampler:
 
     def __init__(self, *, interval_seconds: float = 15.0,
                  on_vram_observation: Callable[
-                     [float | None, str | None], Mapping[str, Any] | None
+                     [float | None, str | None, float | None, float | None,
+                      tuple[str, ...]],
+                     Mapping[str, Any] | None
                  ] | None = None) -> None:
         from sentientos.control_plane_kernel import get_control_plane_kernel
         from sentientos.host_resource_runtime import (
@@ -845,7 +906,10 @@ class _HostResourceSampler:
                         if self._on_vram_observation is not None:
                             resource_state = self._on_vram_observation(
                                 evaluation.snapshot.vram_utilization_percent,
-                                evaluation.epoch.observed_at)
+                                evaluation.epoch.observed_at,
+                                evaluation.snapshot.cpu_utilization_percent,
+                                evaluation.snapshot.ram_utilization_percent,
+                                tuple(evaluation.pressure_report.pressure_labels))
                             if resource_state is not None:
                                 payload["gaming_resource_state"] = dict(resource_state)
                     except Exception as exc:
@@ -858,7 +922,8 @@ class _HostResourceSampler:
                     resource_state = None
                     if self._on_vram_observation is not None:
                         try:
-                            resource_state = self._on_vram_observation(None, None)
+                            resource_state = self._on_vram_observation(
+                                None, None, None, None, ())
                         except Exception as exc:
                             resource_state = {"status": "error",
                                 "error_type": type(exc).__name__}
@@ -869,7 +934,8 @@ class _HostResourceSampler:
                 resource_state = None
                 if self._on_vram_observation is not None:
                     try:
-                        resource_state = self._on_vram_observation(None, None)
+                        resource_state = self._on_vram_observation(
+                            None, None, None, None, ())
                     except Exception as state_exc:
                         resource_state = {"status": "error",
                             "error_type": type(state_exc).__name__}
@@ -905,7 +971,7 @@ class _TemporaryCompanionEdge:
                  adopted_body_pointer: Mapping[str, Any] | None = None) -> None:
         from scripts.gaming_companion_cross_host_smoke import (
             _addresses, _contexts, _test_identities, _win_path, _win_temp,
-            _secret_free_environment,
+            _secret_free_environment, _windows_clock_offset_seconds,
         )
         from sentientos.gaming_companion_avatar_output import (
             BridgeChatAvatarOutputEmitter, MutualTLSAvatarCommandSender,
@@ -914,6 +980,9 @@ class _TemporaryCompanionEdge:
         from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackRuntime
         from sentientos.foreground_game_bridge import BridgeForegroundGameDetector
         from sentientos.foreground_game_detection import normalize_game_process_names
+        from sentientos.game_performance_bridge import (
+            GamePerformanceAdmissionRuntime, GamePerformanceBridgeDetector,
+        )
         from sentientos.screen_observation_bridge import (
             BridgeScreenObservationProvider, RequestDrivenScreenObservation,
             ScreenCaptureRequestSender,
@@ -933,6 +1002,8 @@ class _TemporaryCompanionEdge:
         self._godot_pid: int | None = None
         self._sender: Any | None = None
         self._foreground_runtime: Any | None = None
+        self._game_performance_runtime: Any | None = None
+        self._game_performance_admission_runtime: Any | None = None
         self.foreground_game_detector: Any | None = None
         self._screen_runtime: Any | None = None
         self.screen_observer: Any | None = None
@@ -1013,6 +1084,48 @@ class _TemporaryCompanionEdge:
                     "source_generation_id": observer_source_generation,
                     "ack_source_id": observer_ack_id,
                     "ack_generation_id": observer_ack_generation,
+                    "process_names": list(game_process_names),
+                }
+                performance_source_key = secrets.token_bytes(32)
+                performance_ack_key = secrets.token_bytes(32)
+                performance_source_id = "windows-game-performance"
+                performance_source_generation = (
+                    "windows-game-performance-dev-" + uuid.uuid4().hex[:12])
+                performance_ack_id = "wsl-game-performance-ack"
+                performance_ack_generation = (
+                    "wsl-game-performance-ack-dev-" + uuid.uuid4().hex[:12])
+                performance_clock_offset = _windows_clock_offset_seconds()
+                self._game_performance_runtime = CompanionBridgeLoopbackRuntime(
+                    receiver=CompanionBridgeReceiver(
+                        source_keys={performance_source_id: performance_source_key},
+                        expected_generations={
+                            performance_source_id: performance_source_generation}),
+                    acknowledgment_source_id=performance_ack_id,
+                    acknowledgment_generation_id=performance_ack_generation,
+                    acknowledgment_key=performance_ack_key, queue_capacity=8,
+                    socket_timeout_seconds=1.5)
+                performance_port = self._game_performance_runtime.start()
+                performance_detector = GamePerformanceBridgeDetector(
+                    receiver=self._game_performance_runtime,
+                    source_id=performance_source_id,
+                    generation_provider=lambda: performance_source_generation,
+                    source_clock_offset_seconds=performance_clock_offset)
+                from sentientos.control_plane_kernel import get_control_plane_kernel
+                self._game_performance_admission_runtime = (
+                    GamePerformanceAdmissionRuntime(
+                        detector=performance_detector,
+                        admission_owner=get_control_plane_kernel()))
+                self._game_performance_admission_runtime.start()
+                config["game_performance"] = {
+                    "port": performance_port,
+                    "source_key": base64.b64encode(
+                        performance_source_key).decode("ascii"),
+                    "source_id": performance_source_id,
+                    "source_generation_id": performance_source_generation,
+                    "ack_key": base64.b64encode(
+                        performance_ack_key).decode("ascii"),
+                    "ack_source_id": performance_ack_id,
+                    "ack_generation_id": performance_ack_generation,
                     "process_names": list(game_process_names),
                 }
             if screen_observation_process_names:
@@ -1328,27 +1441,35 @@ class _TemporaryCompanionEdge:
         if godot_pid is not None:
             _kill_windows_process_tree(godot_pid)
         try:
-            if self.foreground_game_detector is not None:
-                self.foreground_game_detector.close()
-                self.foreground_game_detector = None
-            elif self._foreground_runtime is not None:
-                self._foreground_runtime.close()
-                self._foreground_runtime = None
+            if self._game_performance_admission_runtime is not None:
+                self._game_performance_admission_runtime.close()
+                self._game_performance_admission_runtime = None
         finally:
             try:
-                if self.screen_observer is not None:
-                    self.screen_observer.close()
-                    self.screen_observer = None
+                if self._game_performance_runtime is not None:
+                    self._game_performance_runtime.close()
+                    self._game_performance_runtime = None
+                if self.foreground_game_detector is not None:
+                    self.foreground_game_detector.close()
+                    self.foreground_game_detector = None
+                elif self._foreground_runtime is not None:
+                    self._foreground_runtime.close()
+                    self._foreground_runtime = None
             finally:
                 try:
-                    if self._screen_runtime is not None:
-                        self._screen_runtime.close()
-                        self._screen_runtime = None
-                    if self._avatar_consequence_runtime is not None:
-                        self._avatar_consequence_runtime.close()
-                        self._avatar_consequence_runtime = None
+                    if self.screen_observer is not None:
+                        self.screen_observer.close()
+                        self.screen_observer = None
                 finally:
-                    self._temporary.cleanup()
+                    try:
+                        if self._screen_runtime is not None:
+                            self._screen_runtime.close()
+                            self._screen_runtime = None
+                        if self._avatar_consequence_runtime is not None:
+                            self._avatar_consequence_runtime.close()
+                            self._avatar_consequence_runtime = None
+                    finally:
+                        self._temporary.cleanup()
 
 
 def main() -> int:
@@ -1797,15 +1918,25 @@ def main() -> int:
                 reason_code: str) -> Mapping[str, Any] | None:
             if not invoker.model.is_resident():
                 return None
+            observation = gaming_vram_guard.status()
             return cast(Mapping[str, Any], invoker.release_model_residency(
-                reason_code=reason_code, cancel_active=False).to_dict())
+                reason_code=reason_code, cancel_active=False,
+                resource_observation=(observation if reason_code == "vram_pressure_observed"
+                    else None)).to_dict())
 
         def observe_gaming_vram(
                 utilization_percent: float | None,
-                observed_at: str | None) -> Mapping[str, Any]:
+                observed_at: str | None,
+                cpu_utilization_percent: float | None = None,
+                ram_utilization_percent: float | None = None,
+                pressure_labels: tuple[str, ...] = ()
+                ) -> Mapping[str, Any]:
             resource_state = _apply_gaming_resource_observation(
                 gaming_vram_guard, utilization_percent, observed_at,
-                release_model_for_gaming_resource_pressure)
+                release_model_for_gaming_resource_pressure,
+                cpu_utilization_percent=cpu_utilization_percent,
+                ram_utilization_percent=ram_utilization_percent,
+                pressure_labels=pressure_labels)
             try:
                 workload_state = development_inference.reconcile_workload_state()
                 result = dict(resource_state)

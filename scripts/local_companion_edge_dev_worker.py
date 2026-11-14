@@ -23,6 +23,42 @@ from sentientos.gaming_companion_tls_transport import (
     MIN_TLS_VERSION, CompanionBridgeMutualTLSRuntime,
 )
 
+
+def _start_game_performance_pump(config):
+    """Publish read-only samples for an explicitly allowlisted running game."""
+    from sentientos.game_performance_bridge import (
+        WindowsGamePerformanceBridgePublisher,
+        WindowsGamePerformanceObservationPump,
+    )
+    from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackClient
+    from sentientos.windows_game_performance import WindowsGamePerformanceObserver
+
+    required = {"port", "source_key", "source_id", "source_generation_id",
+        "ack_key", "ack_source_id", "ack_generation_id", "process_names"}
+    if (not isinstance(config, dict) or set(config) != required
+            or type(config.get("port")) is not int
+            or not isinstance(config.get("process_names"), list)
+            or not config["process_names"]):
+        raise RuntimeError("game_performance_configuration_invalid")
+    source_key = base64.b64decode(config["source_key"], validate=True)
+    acknowledgment_key = base64.b64decode(config["ack_key"], validate=True)
+    acknowledgment_receiver = CompanionBridgeReceiver(
+        source_keys={config["ack_source_id"]: acknowledgment_key},
+        expected_generations={config["ack_source_id"]:
+            config["ack_generation_id"]})
+    client = CompanionBridgeLoopbackClient(port=config["port"],
+        acknowledgment_receiver=acknowledgment_receiver, timeout_seconds=1.5)
+    publisher = WindowsGamePerformanceBridgePublisher(
+        observer=WindowsGamePerformanceObserver(), client=client,
+        source_id=config["source_id"], session_id="windows-game-performance-dev",
+        generation_id=config["source_generation_id"], source_key=source_key,
+        process_id=1)
+    process_names = tuple(config["process_names"])
+    pump = WindowsGamePerformanceObservationPump(
+        publisher=publisher, process_names=process_names, interval_seconds=1.0)
+    pump.start()
+    return pump
+
 def _readline(stream, target):
     for line in stream:
         target.put(line.rstrip())
@@ -201,6 +237,7 @@ def main():
             if isinstance(screen_cfg,dict) else None),
         dispatch_outcome_observer=report_dispatch_outcome)
     godot=None;forwarder=None;foreground_pump=None
+    game_performance_pump=None
     try:
         print("EDGE_STARTUP phase=bridge_runtime",flush=True)
         port=runtime.start()
@@ -224,6 +261,9 @@ def main():
                 publisher=publisher,process_names=observer["process_names"],
                 interval_seconds=1.0)
             foreground_pump.start()
+        performance_cfg=cfg.get("game_performance")
+        if isinstance(performance_cfg,dict):
+            game_performance_pump=_start_game_performance_pump(performance_cfg)
         if isinstance(screen_cfg,dict):
             from sentientos.screen_observation_bridge import (
                 WindowsScreenObservationBridgePublisher,
@@ -382,6 +422,8 @@ def main():
                     "dispatch":dispatcher.status().__dict__ if hasattr(dispatcher.status(),"__dict__") else {
                         "accepted":dispatcher.status().accepted,
                         "rejected":dispatcher.status().rejected},
+                    "game_performance_pump": (game_performance_pump.status()
+                        if game_performance_pump is not None else None),
                     "state_file":str(state_path),"state_file_exists":state_path.is_file(),
                     "godot_running":godot.poll() is None}),flush=True)
     finally:
@@ -395,19 +437,23 @@ def main():
             report_socket.close()
             report_thread.join(timeout=1.0)
         try:
-            if foreground_pump is not None:
-                foreground_pump.close()
+            if game_performance_pump is not None:
+                game_performance_pump.close()
         finally:
             try:
-                dispatcher.close()
+                if foreground_pump is not None:
+                    foreground_pump.close()
             finally:
                 try:
-                    runtime.close()
+                    dispatcher.close()
                 finally:
-                    if godot is not None:
-                        system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
-                        terminate_owned_process_tree(
-                            godot, taskkill_executable=system_root / "System32" / "taskkill.exe")
+                    try:
+                        runtime.close()
+                    finally:
+                        if godot is not None:
+                            system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+                            terminate_owned_process_tree(
+                                godot, taskkill_executable=system_root / "System32" / "taskkill.exe")
     return 0
 
 if __name__=="__main__": raise SystemExit(main())

@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import hashlib
+import json
 import os
 from pathlib import Path
 import tempfile
 
 import pytest
 
+from sentientos.foreground_game_detection import ForegroundGameObservation
 from sentientos.runtime_governor import get_runtime_governor, reset_runtime_governor
+from sentientos.runtime_governor import RuntimeGovernor
 
 
 def test_governor_enforce_blocks_restart_budget(monkeypatch, tmp_path) -> None:
@@ -102,19 +106,66 @@ def test_local_model_resource_release_admits_only_explicit_safe_reasons(
     reset_runtime_governor()
     governor = get_runtime_governor()
 
+    metadata = {
+        "purpose": "local_model_resource_release",
+        "reason_code": reason_code,
+        "model_identity_digest": "a" * 64,
+    }
+    if reason_code == "vram_pressure_observed":
+        metadata["resource_observation"] = {
+            "schema_version": "sentientos.gaming_vram_admission_evidence:v1",
+            "admission_status": "deferred", "reason_code": "vram_pressure",
+            "preload_admission_status": "deferred",
+            "preload_reason_code": "preload_vram_headroom_insufficient",
+            "preload_threshold_percent": 75.0,
+            "vram_utilization_percent": 91.0, "release_threshold_percent": 90.0,
+            "recovery_threshold_percent": 80.0, "stale_after_seconds": 30.0,
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+        }
     decision = governor.admit_action(
         "local_model_resource_release",
         "development_chat",
         "test-release",
-        metadata={
-            "purpose": "local_model_resource_release",
-            "reason_code": reason_code,
-            "model_identity_digest": "a" * 64,
-        },
+        metadata=metadata,
     )
 
     assert decision.allowed is True
     assert decision.reason == "model_resource_release_fail_safe"
+
+
+@pytest.mark.parametrize("observation", [
+    None,
+    {"schema_version": "sentientos.gaming_vram_admission_evidence:v1",
+     "admission_status": "deferred", "reason_code": "vram_pressure",
+     "preload_admission_status": "deferred",
+     "preload_reason_code": "preload_vram_headroom_insufficient",
+     "preload_threshold_percent": 75.0,
+     "vram_utilization_percent": 84.9, "release_threshold_percent": 85.0,
+     "recovery_threshold_percent": 80.0, "stale_after_seconds": 30.0,
+     "observed_at": datetime.now(timezone.utc).isoformat()},
+    {"schema_version": "sentientos.gaming_vram_admission_evidence:v1",
+     "admission_status": "deferred", "reason_code": "vram_pressure",
+     "preload_admission_status": "deferred",
+     "preload_reason_code": "preload_vram_headroom_insufficient",
+     "preload_threshold_percent": 75.0,
+     "vram_utilization_percent": 90.0, "release_threshold_percent": 85.0,
+     "recovery_threshold_percent": 80.0, "stale_after_seconds": 1.0,
+     "observed_at": "2020-01-01T00:00:00+00:00"},
+])
+def test_vram_pressure_release_requires_fresh_threshold_crossing(
+        monkeypatch, tmp_path, observation) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    decision = governor.admit_action("local_model_resource_release", "development_chat",
+        "test-release", metadata={"purpose": "local_model_resource_release",
+            "reason_code": "vram_pressure_observed", "model_identity_digest": "a" * 64,
+            "resource_observation": observation})
+
+    assert decision.allowed is False
+    assert decision.reason == "model_resource_release_pressure_evidence_required"
 
 
 def test_local_model_resource_release_rejects_unknown_reason(
@@ -138,6 +189,877 @@ def test_local_model_resource_release_rejects_unknown_reason(
 
     assert decision.allowed is False
     assert decision.reason == "model_resource_release_request_invalid"
+
+
+@pytest.mark.parametrize("mutation", [
+    "report_digest", "game_message_id", "pressure_labels", "below_pressure_threshold",
+    "stale_observation", "owner_window_stale", "wrong_target",
+])
+def test_production_game_gpu_release_requires_exact_current_evidence(
+        monkeypatch, tmp_path, mutation):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    actor = "production_chat_game_resource_governor"
+    source_correlation = "production-release-evidence-source"
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        source_correlation.encode("utf-8")).hexdigest()[:32]
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        source_correlation.encode("utf-8")).hexdigest()[:24]
+    game_observed_at = datetime.now(timezone.utc).isoformat()
+    observed_at = (datetime.now(timezone.utc) - timedelta(seconds=16)).isoformat() \
+        if mutation == "owner_window_stale" else game_observed_at
+    game_message_id = "b" * 64
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "observation_correlation_id": observation_id,
+        "observed_at": observed_at,
+        "report_id": "host-report-1",
+        "report_digest": "c" * 64,
+        "pressure_labels": ("gpu_pressure",),
+        "gpu_utilization_percent": 95.0,
+        "vram_utilization_percent": 93.0,
+    }
+    workload = ForegroundGameObservation("available", True, "a" * 64,
+        game_observed_at, transport_provenance={"message_id": game_message_id,
+            "source_id": "windows-foreground", "session_id": "session-1",
+            "generation_id": "generation-1", "sequence": 1,
+            "envelope_created_at": game_observed_at})
+    assert governor.observe_verified_game_workload(workload)
+    evidence = {
+        "schema_version": "sentientos.production_game_gpu_resource_release_evidence:v1",
+        "source_inference_correlation_id": source_correlation,
+        "observation_correlation_id": observation_id,
+        "host_report_id": "host-report-1",
+        "host_report_digest": "c" * 64,
+        "observed_at": observed_at,
+        "pressure_labels": ["gpu_pressure"],
+        "gpu_utilization_percent": 95.0,
+        "vram_utilization_percent": 93.0,
+        "game_workload_message_id": game_message_id,
+    }
+    metadata = {
+        "purpose": "local_model_resource_release",
+        "reason_code": "verified_game_gpu_pressure",
+        "target_subsystem": "production_chat",
+        "model_identity_digest": "d" * 64,
+        "resource_observation": evidence,
+    }
+    if mutation == "report_digest":
+        evidence["host_report_digest"] = "e" * 64
+    elif mutation == "game_message_id":
+        evidence["game_workload_message_id"] = "f" * 64
+    elif mutation == "pressure_labels":
+        evidence["pressure_labels"] = ["cpu_pressure"]
+    elif mutation == "below_pressure_threshold":
+        evidence["gpu_utilization_percent"] = 89.0
+        evidence["vram_utilization_percent"] = 89.0
+    elif mutation == "stale_observation":
+        evidence["observed_at"] = "2020-01-01T00:00:00+00:00"
+    elif mutation == "wrong_target":
+        metadata["target_subsystem"] = "host"
+
+    decision = governor._admit_local_model_resource_release(
+        actor=actor, subject=actor, correlation_id=release_correlation,
+        metadata=metadata)
+
+    assert decision.allowed is False
+    assert decision.reason == "model_resource_release_pressure_evidence_required"
+
+
+@pytest.mark.parametrize("mutation", [
+    "report_digest", "game_message_id", "pressure_labels", "stale_observation",
+    "wrong_target", "wrong_correlation", "invalid_preemption_flag",
+    "stale_cached_inference_sample", "owner_window_stale",
+    "gpu_measurement_mismatch",
+])
+@pytest.mark.no_legacy_skip
+def test_production_game_host_pressure_release_requires_exact_current_evidence(
+        monkeypatch, tmp_path, mutation):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    actor = "production_chat_game_resource_governor"
+    source_correlation = "production-host-pressure-release-source"
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        source_correlation.encode("utf-8")).hexdigest()[:32]
+    trigger_kind = ("idle_game_reconciliation" if
+        mutation == "stale_cached_inference_sample" else "deferred_inference")
+    release_source = (source_correlation if trigger_kind == "deferred_inference" else
+        trigger_kind + ":" + source_correlation)
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        release_source.encode("utf-8")).hexdigest()[:24]
+    current_time = datetime.now(timezone.utc)
+    observed_at = ((current_time - timedelta(seconds=3)).isoformat()
+        if mutation == "stale_cached_inference_sample" else
+        (current_time - timedelta(seconds=16)).isoformat()
+        if mutation == "owner_window_stale" else current_time.isoformat())
+    game_observed_at = current_time.isoformat()
+    game_message_id = "b" * 64
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "observation_correlation_id": observation_id,
+        "observed_at": observed_at,
+        "report_id": "host-report-1",
+        "report_digest": "c" * 64,
+        "pressure_labels": ("cpu_pressure",),
+        "gpu_utilization_percent": 22.0,
+        "vram_utilization_percent": 47.0,
+    }
+    workload = ForegroundGameObservation("available", True, "a" * 64,
+        game_observed_at, transport_provenance={"message_id": game_message_id,
+            "source_id": "windows-foreground", "session_id": "session-1",
+            "generation_id": "generation-1", "sequence": 1,
+            "envelope_created_at": game_observed_at})
+    assert governor.observe_verified_game_workload(workload)
+    evidence = {
+        "schema_version": "sentientos.production_game_host_resource_release_evidence:v2",
+        "trigger_kind": trigger_kind,
+        "trigger_correlation_id": source_correlation,
+        "observation_correlation_id": observation_id,
+        "host_report_id": "host-report-1",
+        "host_report_digest": "c" * 64,
+        "observed_at": observed_at,
+        "pressure_labels": ["cpu_pressure"],
+        "game_workload_message_id": game_message_id,
+        "active_inference_preemption_requested": False,
+        "gpu_utilization_percent": 22.0,
+        "vram_utilization_percent": 47.0,
+    }
+    metadata = {
+        "purpose": "local_model_resource_release",
+        "reason_code": "verified_game_host_pressure",
+        "target_subsystem": "production_chat",
+        "model_identity_digest": "d" * 64,
+        "resource_observation": evidence,
+    }
+    if mutation == "report_digest":
+        evidence["host_report_digest"] = "e" * 64
+    elif mutation == "game_message_id":
+        evidence["game_workload_message_id"] = "f" * 64
+    elif mutation == "pressure_labels":
+        evidence["pressure_labels"] = ["sensor_unavailable"]
+    elif mutation == "stale_observation":
+        evidence["observed_at"] = "2020-01-01T00:00:00+00:00"
+    elif mutation == "wrong_target":
+        metadata["target_subsystem"] = "host"
+    elif mutation == "invalid_preemption_flag":
+        evidence["active_inference_preemption_requested"] = "true"
+    elif mutation == "gpu_measurement_mismatch":
+        evidence["gpu_utilization_percent"] = 23.0
+
+    decision = governor._admit_local_model_resource_release(
+        actor=actor, subject=actor,
+        correlation_id=(release_correlation + "-bad" if mutation == "wrong_correlation"
+            else release_correlation), metadata=metadata)
+
+    assert decision.allowed is False
+    assert decision.reason == "model_resource_release_pressure_evidence_required"
+
+
+@pytest.mark.parametrize("mutation,expected", [
+    ("none", True), ("wrong_game", False), ("stale", False),
+    ("no_active_game", False),
+    ("zero_gpu_layers", False), ("empty_session", False),
+    ("invalid_preemption_flag", False),
+])
+@pytest.mark.no_legacy_skip
+def test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence(
+        monkeypatch, tmp_path, mutation, expected):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = datetime.now(timezone.utc).isoformat()
+    game_message_id = "b" * 64
+    observation = ForegroundGameObservation("available",
+        mutation != "no_active_game", "a" * 64, observed_at,
+        transport_provenance={"message_id": game_message_id, "source_id": "windows-edge",
+            "session_id": "game-session", "generation_id": "edge-generation",
+            "sequence": 1, "envelope_created_at": observed_at})
+    assert governor.observe_verified_game_workload(observation)
+    trigger = "idle-game-gpu-residency-test"
+    evidence = {"schema_version": "sentientos.production_game_gpu_residency_release_evidence:v1",
+        "trigger_kind": "idle_game_gpu_residency", "trigger_correlation_id": trigger,
+        "game_workload_message_id": game_message_id, "model_gpu_layers": 24,
+        "serving_session_id": "serving-session-1",
+        "active_inference_preemption_requested": False, "observed_at": observed_at}
+    if mutation == "wrong_game":
+        evidence["game_workload_message_id"] = "c" * 64
+    elif mutation == "stale":
+        evidence["observed_at"] = "2020-01-01T00:00:00+00:00"
+    elif mutation == "zero_gpu_layers":
+        evidence["model_gpu_layers"] = 0
+    elif mutation == "empty_session":
+        evidence["serving_session_id"] = ""
+    elif mutation == "invalid_preemption_flag":
+        evidence["active_inference_preemption_requested"] = "true"
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        ("idle_game_gpu_residency:" + trigger).encode("utf-8")).hexdigest()[:24]
+    decision = governor._admit_local_model_resource_release(
+        actor="production_chat_game_resource_governor",
+        subject="production_chat_game_resource_governor",
+        correlation_id=release_correlation,
+        metadata={"purpose": "local_model_resource_release",
+            "reason_code": "verified_game_gpu_model_residency",
+            "target_subsystem": "production_chat", "model_identity_digest": "d" * 64,
+            "resource_observation": evidence})
+    assert decision.allowed is expected
+
+
+@pytest.mark.no_legacy_skip
+def test_selected_gaming_profile_release_requires_current_observed_host_pressure(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    trigger = "idle-game-resource-reconcile-forged"
+    observation_id = "local-chat-reconciliation-" + hashlib.sha256(
+        trigger.encode("utf-8")).hexdigest()[:32]
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        ("gaming_profile_resource_reconciliation:" + trigger).encode("utf-8")).hexdigest()[:24]
+    observed_at = datetime.now(timezone.utc).isoformat()
+    evidence = {
+        "schema_version": "sentientos.production_gaming_profile_host_resource_release_evidence:v1",
+        "trigger_kind": "gaming_profile_resource_reconciliation",
+        "trigger_correlation_id": trigger,
+        "observation_correlation_id": observation_id,
+        "host_report_id": "host-report-unobserved",
+        "host_report_digest": "c" * 64,
+        "observed_at": observed_at,
+        "pressure_labels": ["cpu_pressure"],
+        "workload_mode": "gaming",
+        "workload_mode_source": "operator_selected",
+        "workload_observation_status": "not_requested",
+    }
+    decision = governor._admit_local_model_resource_release(
+        actor="production_chat_workload_resource_governor",
+        subject="production_chat_workload_resource_governor",
+        correlation_id=release_correlation,
+        metadata={"purpose": "local_model_resource_release",
+            "reason_code": "selected_gaming_profile_host_pressure",
+            "target_subsystem": "production_chat",
+            "model_identity_digest": "d" * 64,
+            "resource_observation": evidence})
+
+    assert decision.allowed is False
+    assert decision.reason == "model_resource_release_pressure_evidence_required"
+
+
+@pytest.mark.parametrize(("profile", "reason_code", "trigger_kind", "source",
+                          "workload_source", "observation_status"), [
+    ("selected", "selected_gaming_profile_host_pressure",
+     "gaming_profile_resource_reconciliation", "idle-game-resource-reconcile-stale-window",
+     "operator_selected", "not_requested"),
+    ("conservative", "conservative_automatic_profile_host_pressure",
+     "conservative_automatic_gaming_resource_reconciliation",
+     "automatic-game-resource-reconcile-stale-window",
+     "foreground_observation_unavailable_conservative_gaming", "unavailable"),
+])
+@pytest.mark.no_legacy_skip
+def test_gaming_profile_release_rejects_host_evidence_past_owner_freshness_window(
+        monkeypatch, tmp_path, profile, reason_code, trigger_kind, source,
+        workload_source, observation_status):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = (datetime.now(timezone.utc) - timedelta(seconds=16)).isoformat()
+    observation_id = "local-chat-reconciliation-" + hashlib.sha256(
+        source.encode("utf-8")).hexdigest()[:32]
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "observation_correlation_id": observation_id,
+        "observed_at": observed_at,
+        "report_id": "host-report-stale-window",
+        "report_digest": "a" * 64,
+        "pressure_labels": ("cpu_pressure",),
+    }
+    evidence = {
+        "schema_version": (
+            "sentientos.production_gaming_profile_host_resource_release_evidence:v1"
+            if profile == "selected" else
+            "sentientos.production_conservative_automatic_gaming_host_resource_release_evidence:v1"),
+        "trigger_kind": trigger_kind,
+        "trigger_correlation_id": source,
+        "observation_correlation_id": observation_id,
+        "host_report_id": "host-report-stale-window",
+        "host_report_digest": "a" * 64,
+        "observed_at": observed_at,
+        "pressure_labels": ["cpu_pressure"],
+        "workload_mode": "gaming",
+        "workload_mode_source": workload_source,
+        "workload_observation_status": observation_status,
+    }
+    if profile == "conservative":
+        evidence["configured_mode"] = "automatic"
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        (trigger_kind + ":" + source).encode("utf-8")).hexdigest()[:24]
+
+    decision = governor._admit_local_model_resource_release(
+        actor="production_chat_workload_resource_governor",
+        subject="production_chat_workload_resource_governor",
+        correlation_id=release_correlation,
+        metadata={"purpose": "local_model_resource_release",
+            "reason_code": reason_code,
+            "target_subsystem": "production_chat",
+            "model_identity_digest": "d" * 64,
+            "resource_observation": evidence})
+
+    assert decision.allowed is False
+    assert decision.reason == "model_resource_release_pressure_evidence_required"
+
+
+@pytest.mark.no_legacy_skip
+def test_conservative_automatic_profile_release_requires_registered_host_evidence(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    trigger = "automatic-game-resource-reconcile-forged"
+    observation_id = "local-chat-reconciliation-" + hashlib.sha256(
+        trigger.encode("utf-8")).hexdigest()[:32]
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        ("conservative_automatic_gaming_resource_reconciliation:" + trigger)
+        .encode("utf-8")).hexdigest()[:24]
+    evidence = {
+        "schema_version": "sentientos.production_conservative_automatic_gaming_host_resource_release_evidence:v1",
+        "trigger_kind": "conservative_automatic_gaming_resource_reconciliation",
+        "trigger_correlation_id": trigger,
+        "observation_correlation_id": observation_id,
+        "host_report_id": "host-report-unobserved",
+        "host_report_digest": "c" * 64,
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "pressure_labels": ["cpu_pressure"],
+        "configured_mode": "automatic",
+        "workload_mode": "gaming",
+        "workload_mode_source": "foreground_observation_unavailable_conservative_gaming",
+        "workload_observation_status": "unavailable",
+    }
+    decision = governor._admit_local_model_resource_release(
+        actor="production_chat_workload_resource_governor",
+        subject="production_chat_workload_resource_governor",
+        correlation_id=release_correlation,
+        metadata={"purpose": "local_model_resource_release",
+            "reason_code": "conservative_automatic_profile_host_pressure",
+            "target_subsystem": "production_chat",
+            "model_identity_digest": "d" * 64,
+            "resource_observation": evidence})
+
+    assert decision.allowed is False
+    assert decision.reason == "model_resource_release_pressure_evidence_required"
+    assert decision.evidence_refs["resource_observation_evidence"]["status"] != "current"
+
+
+@pytest.mark.parametrize("observation_status,expected", [
+    ("unavailable", True),
+    ("bridge_observation_unavailable", True),
+    ("bridge_observation_invalid", True),
+    ("bridge_observation_expired", True),
+    ("unsupported_platform", False),
+])
+@pytest.mark.no_legacy_skip
+def test_conservative_automatic_release_retains_only_known_unavailable_statuses(
+        monkeypatch, tmp_path, observation_status, expected):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    trigger = "automatic-game-resource-reconcile-status-validation"
+    observation_id = "local-chat-reconciliation-" + hashlib.sha256(
+        trigger.encode("utf-8")).hexdigest()[:32]
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        ("conservative_automatic_gaming_resource_reconciliation:" + trigger)
+        .encode("utf-8")).hexdigest()[:24]
+    observed_at = datetime.now(timezone.utc).isoformat()
+    report_id = "host-report-status-validation"
+    report_digest = "a" * 64
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "observation_correlation_id": observation_id,
+        "observed_at": observed_at,
+        "report_id": report_id,
+        "report_digest": report_digest,
+        "pressure_labels": ("cpu_pressure",),
+    }
+    evidence = {
+        "schema_version": "sentientos.production_conservative_automatic_gaming_host_resource_release_evidence:v1",
+        "trigger_kind": "conservative_automatic_gaming_resource_reconciliation",
+        "trigger_correlation_id": trigger,
+        "observation_correlation_id": observation_id,
+        "host_report_id": report_id,
+        "host_report_digest": report_digest,
+        "observed_at": observed_at,
+        "pressure_labels": ["cpu_pressure"],
+        "configured_mode": "automatic",
+        "workload_mode": "gaming",
+        "workload_mode_source": "foreground_observation_unavailable_conservative_gaming",
+        "workload_observation_status": observation_status,
+    }
+    decision = governor._admit_local_model_resource_release(
+        actor="production_chat_workload_resource_governor",
+        subject="production_chat_workload_resource_governor",
+        correlation_id=release_correlation,
+        metadata={"purpose": "local_model_resource_release",
+            "reason_code": "conservative_automatic_profile_host_pressure",
+            "target_subsystem": "production_chat",
+            "model_identity_digest": "d" * 64,
+            "resource_observation": evidence})
+
+    assert decision.allowed is expected
+    if expected:
+        assert decision.evidence_refs["resource_observation_evidence"]["status"] == "current"
+    else:
+        assert decision.reason == "model_resource_release_pressure_evidence_required"
+
+
+@pytest.mark.parametrize("mutation,expected", [
+    ("none", True), ("wrong_mode", False), ("wrong_source", False),
+    ("stale", False), ("zero_gpu_layers", False), ("empty_session", False),
+    ("invalid_preemption", False),
+])
+@pytest.mark.no_legacy_skip
+def test_selected_gaming_profile_gpu_residency_release_requires_exact_profile_evidence(
+        monkeypatch, tmp_path, mutation, expected):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = datetime.now(timezone.utc).isoformat()
+    trigger = "idle-gaming-profile-gpu-residency-test"
+    evidence = {
+        "schema_version": "sentientos.production_gaming_profile_gpu_residency_release_evidence:v1",
+        "trigger_kind": "idle_gaming_profile_gpu_residency",
+        "trigger_correlation_id": trigger,
+        "model_gpu_layers": 24,
+        "serving_session_id": "serving-session-" + "a" * 24,
+        "workload_mode": "gaming",
+        "workload_mode_source": "operator_selected",
+        "workload_observation_status": "not_requested",
+        "active_inference_preemption_requested": False,
+        "observed_at": observed_at,
+    }
+    if mutation == "wrong_mode":
+        evidence["workload_mode"] = "normal"
+    elif mutation == "wrong_source":
+        evidence["workload_mode_source"] = "automatic"
+    elif mutation == "stale":
+        evidence["observed_at"] = "2020-01-01T00:00:00+00:00"
+    elif mutation == "zero_gpu_layers":
+        evidence["model_gpu_layers"] = 0
+    elif mutation == "empty_session":
+        evidence["serving_session_id"] = ""
+    elif mutation == "invalid_preemption":
+        evidence["active_inference_preemption_requested"] = "yes"
+    release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+        ("idle_gaming_profile_gpu_residency:" + trigger).encode("utf-8")).hexdigest()[:24]
+    decision = governor._admit_local_model_resource_release(
+        actor="production_chat_workload_resource_governor",
+        subject="production_chat_workload_resource_governor",
+        correlation_id=release_correlation,
+        metadata={"purpose": "local_model_resource_release",
+            "reason_code": "selected_gaming_profile_gpu_model_residency",
+            "target_subsystem": "production_chat", "model_identity_digest": "d" * 64,
+            "resource_observation": evidence})
+
+    assert decision.allowed is expected
+
+
+@pytest.mark.no_legacy_skip
+def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
+        monkeypatch, tmp_path):
+    from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = datetime.now(timezone.utc).isoformat()
+    performance = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 7, "a" * 64, "b" * 64,
+        observed_at, "c" * 64, 52.0, 1, 20.0, 4096, "available", observed_at,
+        "d" * 64)
+    assert governor.observe_verified_game_performance(performance)
+
+    def request(trigger, *, digest="b" * 64, process_digest="c" * 64,
+            process_name_digest="d" * 64):
+        evidence = {
+            "schema_version": "sentientos.production_game_frame_pressure_release_evidence:v3",
+            "trigger_kind": "idle_game_frame_pressure_reconciliation",
+            "trigger_correlation_id": trigger,
+            "serving_session_id": "serving-session-" + "1" * 24,
+            "game_performance_message_id": "a" * 64,
+            "game_performance_payload_digest": digest,
+            "game_performance_process_id_digest": process_digest,
+            "game_performance_process_name_digest": process_name_digest,
+            "game_performance_source_id": "windows-edge",
+            "game_performance_generation_id": "edge-generation-1",
+            "game_performance_sequence": 7,
+            "workload_mode": "gaming",
+            "game_workload_message_id": None,
+            "observed_at": observed_at,
+            "frame_time_p95_ms": 52.0,
+            "hitch_count_over_50ms": 1,
+        }
+        correlation = "production-chat-resource-release-" + hashlib.sha256(
+            ("idle_game_frame_pressure_reconciliation:" + trigger)
+            .encode("utf-8")).hexdigest()[:24]
+        return governor._admit_local_model_resource_release(
+            actor="production_chat_game_resource_governor",
+            subject="production_chat_game_resource_governor",
+            correlation_id=correlation,
+            metadata={"purpose": "local_model_resource_release",
+                "reason_code": "verified_game_frame_pressure",
+                "target_subsystem": "production_chat",
+                "model_identity_digest": "d" * 64,
+                "resource_observation": evidence})
+
+    accepted = request("idle-game-frame-pressure-reconcile-valid")
+    rejected = request("idle-game-frame-pressure-reconcile-forged", digest="e" * 64)
+    wrong_process = request("idle-game-frame-pressure-reconcile-wrong-process",
+        process_digest="f" * 64)
+    wrong_name = request("idle-game-frame-pressure-reconcile-wrong-name",
+        process_name_digest="e" * 64)
+
+    assert accepted.allowed is True
+    assert accepted.reason == "model_resource_release_fail_safe"
+    assert accepted.evidence_refs["resource_observation_evidence"]["status"] == "current"
+    assert rejected.allowed is False
+    assert rejected.reason == "model_resource_release_pressure_evidence_required"
+    assert wrong_process.allowed is False
+    assert wrong_process.reason == "model_resource_release_pressure_evidence_required"
+    assert wrong_name.allowed is False
+    assert wrong_name.reason == "model_resource_release_pressure_evidence_required"
+
+
+@pytest.mark.no_legacy_skip
+def test_game_performance_observation_rejects_source_clock_mismatch(
+        monkeypatch, tmp_path):
+    from datetime import timedelta
+    from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    now = datetime.now(timezone.utc)
+    observed_at = now.isoformat()
+    stale_source = (now - timedelta(minutes=1)).isoformat()
+    inconsistent = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 1, "a" * 64, "b" * 64,
+        observed_at, "c" * 64, 52.0, 1, 20.0, 4096, "available",
+        stale_source, "d" * 64)
+
+    assert governor.observe_verified_game_performance(inconsistent) is False
+    assert governor.current_verified_game_performance_evidence() is None
+
+    source_ahead = (now + timedelta(seconds=8)).isoformat()
+    valid = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 2, "e" * 64, "f" * 64,
+        observed_at, "c" * 64, 52.0, 1, 20.0, 4096, "available",
+        source_ahead, "d" * 64, 8.0)
+    assert governor.observe_verified_game_performance(valid) is True
+    retained = governor.current_verified_game_performance_evidence()
+    assert retained is not None
+    assert retained["source_observed_at"] == source_ahead
+    assert retained["source_clock_offset_seconds"] == 8.0
+
+    replay = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 1, "1" * 64, "2" * 64,
+        observed_at, "c" * 64, 16.7, 0, 20.0, 4096, "available",
+        source_ahead, "d" * 64, 8.0)
+    assert governor.observe_verified_game_performance(replay) is False
+    assert governor.current_verified_game_performance_evidence() == retained
+
+
+def test_active_verified_game_defers_gpu_inference_when_gpu_telemetry_is_missing(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    governor = RuntimeGovernor()
+    stamp = datetime.now(timezone.utc).isoformat()
+    observation = ForegroundGameObservation(
+        "available", True, "a" * 64, stamp,
+        transport_provenance={"message_id": "b" * 64, "source_id": "windows-edge",
+            "session_id": "game-session", "generation_id": "edge-generation",
+            "sequence": 1, "envelope_created_at": stamp})
+    assert governor.observe_verified_game_workload(observation)
+    governor._host_resource_evidence = {
+        "observed_at": stamp, "evaluation_id": "evaluation-1", "epoch_id": "epoch-1",
+        "snapshot_id": "snapshot-1", "report_id": "report-1",
+        "report_digest": "c" * 64, "pressure_labels": (),
+        "cpu_utilization_percent": 20.0, "ram_utilization_percent": 40.0,
+        "gpu_utilization_percent": None, "vram_utilization_percent": None,
+        "gpu_telemetry_available": False,
+        "observation_correlation_id": "local-chat-inference-"
+            + hashlib.sha256(b"game-no-gpu-sensor").hexdigest()[:32],
+    }
+
+    decision = governor._admit_local_model_inference(
+        actor="chat_service", subject="chat", correlation_id="game-no-gpu-sensor",
+        metadata={"purpose": "local_user_chat", "model_execution_profile": {
+            "schema_version": "sentientos.model_execution_profile:v1",
+            "engine": "llama_cpp", "accelerator_route": "gpu", "gpu_layers": 1,
+            "configuration_digest": "d" * 64,
+        }})
+
+    assert decision.allowed is False
+    assert decision.reason == "deferred_resource_telemetry_incomplete_during_game"
+    assert decision.evidence_refs["game_workload_evidence"]["game_active"] is True
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("mutation", ["none", "missing", "mismatched", "correlation"])
+def test_game_preemption_admission_binds_exact_active_invocation(
+        monkeypatch, tmp_path, mutation):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = datetime.now(timezone.utc).isoformat()
+    game_message_id = "b" * 64
+    workload = ForegroundGameObservation("available", True, "a" * 64,
+        observed_at, transport_provenance={"message_id": game_message_id,
+            "source_id": "windows-edge", "session_id": "game-session",
+            "generation_id": "edge-generation", "sequence": 1,
+            "envelope_created_at": observed_at})
+    assert governor.observe_verified_game_workload(workload)
+    request_reference = {"request_id": "lmreq-" + "c" * 24,
+        "request_digest": "d" * 64,
+        "correlation_id": "active-game-preemption-request"}
+    request_digest = hashlib.sha256(json.dumps(
+        request_reference, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False).encode("utf-8")).hexdigest()
+    correlation_id = ("active-inference-preemption:" + request_digest + ":attempt-1")
+    nested_reference = dict(request_reference)
+    top_level_reference = dict(request_reference)
+    if mutation == "missing":
+        top_level_reference = None
+    elif mutation == "mismatched":
+        top_level_reference["correlation_id"] = "other-request"
+    elif mutation == "correlation":
+        correlation_id = "active-inference-preemption:" + "e" * 64 + ":attempt-1"
+    metadata = {
+        "purpose": "local_user_chat",
+        "active_inference_preemption": {
+            "schema_version": "sentientos.active_inference_preemption:v2",
+            "workload_mode": "automatic",
+            "serving_session_id": "serving-session-" + "f" * 24,
+            "model_identity_digest": "a" * 64,
+            "game_workload_message_id": game_message_id,
+            "active_inference_request_reference": nested_reference,
+        },
+    }
+    if top_level_reference is not None:
+        metadata["active_inference_request_reference"] = top_level_reference
+    decision = governor._admit_local_model_inference(
+        actor="production_chat_game_workload_governor",
+        subject="production_chat_game_workload_governor",
+        correlation_id=correlation_id, metadata=metadata)
+    expected = mutation == "none"
+    assert decision.allowed is expected
+    if expected:
+        assert decision.reason == "allowed_verified_game_workload_inference_preemption"
+        assert decision.evidence_refs["active_inference_request_reference"] == (
+            request_reference)
+        assert decision.evidence_refs["active_inference_preemption"] == (
+            metadata["active_inference_preemption"])
+    else:
+        assert decision.reason == (
+            "deferred_active_inference_preemption_game_evidence_unavailable")
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("include_reference", [True, False])
+def test_host_pressure_preemption_persists_exact_active_invocation(
+        monkeypatch, tmp_path, include_reference):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = datetime.now(timezone.utc).isoformat()
+    request_reference = {"request_id": "lmreq-" + "c" * 24,
+        "request_digest": "d" * 64,
+        "correlation_id": "active-host-pressure-request"}
+    request_digest = hashlib.sha256(json.dumps(request_reference,
+        sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+            "utf-8")).hexdigest()
+    correlation_id = "active-inference-preemption:" + request_digest + ":attempt-1"
+    observation_id = "local-chat-reconciliation-" + hashlib.sha256(
+        correlation_id.encode("utf-8")).hexdigest()[:32]
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "observed_at": observed_at, "evaluation_id": "evaluation-1",
+        "epoch_id": "epoch-1", "snapshot_id": "snapshot-1",
+        "report_id": "host-report-1", "report_digest": "e" * 64,
+        "pressure_labels": ("cpu_pressure",),
+        "cpu_utilization_percent": 96.0, "ram_utilization_percent": 50.0,
+        "gpu_utilization_percent": None, "vram_utilization_percent": None,
+        "gpu_telemetry_available": False,
+        "observation_correlation_id": observation_id,
+    }
+    preemption = {
+        "schema_version": "sentientos.active_inference_preemption:v3",
+        "preemption_kind": "host_resource_pressure", "workload_mode": "normal",
+        "serving_session_id": "serving-session-" + "f" * 24,
+        "model_identity_digest": "a" * 64,
+        "observation_correlation_id": observation_id,
+        "host_report_id": "host-report-1", "host_report_digest": "e" * 64,
+        "pressure_labels": ["cpu_pressure"], "observed_at": observed_at,
+        "active_inference_request_reference": dict(request_reference),
+    }
+    metadata = {
+        "purpose": "local_user_chat", "resource_governance_required": True,
+        "host_resource_observation_namespace": "local-chat-reconciliation",
+        "host_resource_observation_id": observation_id,
+        "active_inference_preemption": preemption,
+    }
+    if include_reference:
+        metadata["active_inference_request_reference"] = dict(request_reference)
+    decision = governor._admit_local_model_inference(
+        actor="production_chat_host_resource_governor",
+        subject="production_chat_host_resource_governor",
+        correlation_id=correlation_id, metadata=metadata)
+    assert decision.allowed is include_reference
+    if include_reference:
+        assert decision.reason == "allowed_host_resource_pressure_inference_preemption"
+        assert decision.evidence_refs["active_inference_request_reference"] == (
+            request_reference)
+        assert decision.evidence_refs["active_inference_preemption"] == preemption
+    else:
+        assert decision.reason == (
+            "deferred_active_inference_preemption_game_evidence_unavailable")
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("accelerator_route,gpu_layers", [("gpu", 1), ("cpu", 0)])
+def test_active_verified_game_defers_new_inference_with_nominal_telemetry(
+        monkeypatch, tmp_path, accelerator_route, gpu_layers):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    governor = RuntimeGovernor()
+    stamp = datetime.now(timezone.utc).isoformat()
+    correlation_id = "game-active-nominal-gpu-inference"
+    observation = ForegroundGameObservation(
+        "available", True, "a" * 64, stamp,
+        transport_provenance={"message_id": "b" * 64, "source_id": "windows-edge",
+            "session_id": "game-session", "generation_id": "edge-generation",
+            "sequence": 1, "envelope_created_at": stamp})
+    assert governor.observe_verified_game_workload(observation)
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        correlation_id.encode("utf-8")).hexdigest()[:32]
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "observed_at": stamp, "evaluation_id": "evaluation-nominal-game",
+        "epoch_id": "epoch-nominal-game", "snapshot_id": "snapshot-nominal-game",
+        "report_id": "report-nominal-game", "report_digest": "c" * 64,
+        "pressure_labels": (), "cpu_utilization_percent": 20.0,
+        "ram_utilization_percent": 40.0, "gpu_utilization_percent": 12.0,
+        "vram_utilization_percent": 30.0, "gpu_telemetry_available": True,
+        "gpu_telemetry_complete": True,
+        "observation_correlation_id": observation_id,
+    }
+
+    decision = governor._admit_local_model_inference(
+        actor="chat_service", subject="chat", correlation_id=correlation_id,
+        metadata={"purpose": "local_user_chat",
+            "host_resource_observation_namespace": "local-chat-inference",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp", "accelerator_route": accelerator_route,
+                "gpu_layers": gpu_layers,
+                "configuration_digest": "d" * 64,
+            }})
+
+    assert decision.allowed is False
+    assert decision.reason == "deferred_local_model_inference_while_game_active"
+    assert decision.evidence_refs["observed_pressure_labels"] == []
+    assert decision.evidence_refs["game_workload_evidence"]["game_active"] is True
+
+
+def test_background_gpu_inference_keeps_background_pressure_classification(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    correlation_id = "background-gpu-pressure-classification"
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        correlation_id.encode("utf-8")).hexdigest()[:32]
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "evaluation_id": "evaluation-background-gpu-pressure",
+        "epoch_id": "epoch-background-gpu-pressure",
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "snapshot_id": "snapshot-background-gpu-pressure",
+        "report_id": "report-background-gpu-pressure",
+        "report_digest": "a" * 64,
+        "pressure_labels": ("gpu_pressure",),
+        "cpu_utilization_percent": 10.0,
+        "ram_utilization_percent": 20.0,
+        "gpu_utilization_percent": 96.0,
+        "vram_utilization_percent": 91.0,
+        "gpu_telemetry_available": True,
+        "gpu_telemetry_complete": True,
+        "observation_correlation_id": observation_id,
+    }
+
+    decision = governor._admit_local_model_inference(
+        actor="background_model_worker", subject="maintenance",
+        correlation_id=correlation_id,
+        metadata={"purpose": "background_model_work",
+            "host_resource_observation_namespace": "local-chat-inference",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp", "accelerator_route": "gpu",
+                "gpu_layers": 16, "configuration_digest": "b" * 64,
+            }})
+
+    assert decision.allowed is False
+    assert decision.reason == "deferred_background_inference_under_host_pressure"
+    assert decision.evidence_refs["observed_pressure_labels"] == ["gpu_pressure"]
+
+
+@pytest.mark.parametrize("age_seconds,expected_status", [
+    (14, "current"),
+    (16, "stale_or_invalid"),
+])
+@pytest.mark.no_legacy_skip
+def test_model_admission_uses_host_observation_owner_freshness_window(
+        monkeypatch, tmp_path, age_seconds, expected_status):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    governor = RuntimeGovernor()
+    correlation_id = "host-observation-freshness-contract"
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        correlation_id.encode("utf-8")).hexdigest()[:32]
+    observed_at = (datetime.now(timezone.utc)
+        - timedelta(seconds=age_seconds)).isoformat()
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "evaluation_id": "evaluation-freshness",
+        "epoch_id": "epoch-freshness",
+        "observed_at": observed_at,
+        "snapshot_id": "snapshot-freshness",
+        "report_id": "report-freshness",
+        "report_digest": "a" * 64,
+        "pressure_labels": (),
+        "cpu_utilization_percent": 10.0,
+        "ram_utilization_percent": 20.0,
+        "gpu_utilization_percent": 5.0,
+        "vram_utilization_percent": 10.0,
+        "gpu_telemetry_available": True,
+        "gpu_telemetry_complete": True,
+        "observation_correlation_id": observation_id,
+    }
+
+    decision = governor._admit_local_model_inference(
+        actor="chat_service", subject="chat", correlation_id=correlation_id,
+        metadata={"purpose": "background_model_work",
+            "host_resource_observation_namespace": "local-chat-inference",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp", "accelerator_route": "cpu",
+                "gpu_layers": 0, "configuration_digest": "b" * 64,
+            }})
+
+    assert decision.evidence_refs["host_resource_evidence"]["status"] == expected_status
+    assert decision.allowed is (expected_status == "current")
 
 
 def test_federated_control_blocked_by_critical_storm(monkeypatch, tmp_path) -> None:

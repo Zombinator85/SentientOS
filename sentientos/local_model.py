@@ -988,6 +988,14 @@ class LocalModel:
         cancel = getattr(self.backend, "cancel_pending_generation", None)
         return bool(cancel()) if callable(cancel) else False
 
+    def take_cancelled_generation_resource_observation(self) -> dict[str, Any] | None:
+        """Return a backend's one-shot measurement captured during cancellation."""
+        observer = getattr(self.backend, "take_cancelled_generation_resource_observation", None)
+        if not callable(observer):
+            return None
+        value = observer()
+        return dict(value) if isinstance(value, Mapping) else None
+
     def release_residency(self) -> dict[str, Any]:
         """Release backend memory; callers must first obtain governed admission."""
         release = getattr(self.backend, "release_residency", None)

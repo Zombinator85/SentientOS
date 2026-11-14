@@ -17,6 +17,7 @@ from .governed_local_model_resource_allocation import (
     GovernedLocalModelResourceError,
     GovernedLocalModelResourcePolicy,
 )
+from .installation_state import InstallationIdentity
 from .local_model_serving_inference import ProductionServingInferenceController
 
 
@@ -29,7 +30,8 @@ class ProductionChatResourceContextOwner:
 
     __slots__ = (
         "allocator", "allocation", "principal", "authenticated", "current",
-        "policy", "_nonce_source", "_clock", "_ledger_owner_lock",
+        "policy", "_installation_identity", "_provisioning_id", "_nonce_source",
+        "_clock", "_ledger_owner_lock",
     )
 
     def __init__(
@@ -41,6 +43,8 @@ class ProductionChatResourceContextOwner:
         authenticated: AuthenticatedRootPrincipalEvidence,
         current: CurrentAuthenticatedRootPrincipalEvidence,
         policy: GovernedLocalModelResourcePolicy,
+        installation_identity: str,
+        provisioning_id: str,
         nonce_source: Callable[[], str],
         clock: Callable[[], str],
         ledger_owner_lock: Any | None = None,
@@ -57,6 +61,14 @@ class ProductionChatResourceContextOwner:
             raise TypeError("exact_production_chat_resource_types_required")
         if not callable(nonce_source) or not callable(clock):
             raise TypeError("trusted_nonce_source_and_clock_required")
+        if not isinstance(provisioning_id, str) or not provisioning_id:
+            raise GovernedLocalModelResourceError("owner_provisioning_identity_required")
+        try:
+            selected_installation = InstallationIdentity.parse(
+                installation_identity).value
+        except (TypeError, ValueError) as exc:
+            raise GovernedLocalModelResourceError(
+                "owner_installation_identity_invalid") from exc
         if allocator.policy != policy:
             raise GovernedLocalModelResourceError("owner_allocator_policy_mismatch")
         if allocator.ledger.allocation(allocation.allocation_id) != allocation:
@@ -79,6 +91,8 @@ class ProductionChatResourceContextOwner:
         self.authenticated = authenticated
         self.current = current
         self.policy = policy
+        self._installation_identity = selected_installation
+        self._provisioning_id = provisioning_id
         self._nonce_source = nonce_source
         self._clock = clock
         self._ledger_owner_lock = ledger_owner_lock
@@ -86,6 +100,14 @@ class ProductionChatResourceContextOwner:
     @property
     def has_single_process_custody(self) -> bool:
         return self._ledger_owner_lock is not None
+
+    @property
+    def installation_identity(self) -> str:
+        return self._installation_identity
+
+    @property
+    def provisioning_id(self) -> str:
+        return self._provisioning_id
 
     def close(self) -> None:
         lock = self._ledger_owner_lock
@@ -108,6 +130,40 @@ class ProductionChatResourceContextOwner:
             durable_attempt_nonce=nonce,
             clock=self._clock,
         )
+
+    def serving_admission_entitlement_binding(self) -> Mapping[str, object]:
+        """Return a current call-entitlement reference without debiting a call.
+
+        This proves that the resident model is serving under a live governed
+        invocation entitlement. It does not reserve host memory or exercise
+        hardware-control authority.
+        """
+        current_time = self._clock()
+        if type(current_time) is not str or not current_time:
+            raise GovernedLocalModelResourceError("invalid_current_time")
+        allocation, remaining_calls = self.allocator.current_entitlement(
+            allocation=self.allocation,
+            principal=self.principal,
+            authenticated=self.authenticated,
+            current=self.current,
+            policy=self.policy,
+            current_time=current_time)
+        if remaining_calls <= 0:
+            raise GovernedLocalModelResourceError("call_entitlement_exhausted")
+        return {
+            "schema_version": (
+                "sentientos.governed_local_model_serving_entitlement_binding:v1"),
+            "binding_scope": "inference_call_entitlement",
+            "allocation_id": allocation.allocation_id,
+            "allocation_digest": allocation.allocation_digest,
+            "allocator_id": allocation.allocator_id,
+            "resource_kind": allocation.resource_kind,
+            "policy_digest": allocation.policy_digest,
+            "policy_epoch": allocation.epoch,
+            "principal_binding_digest": allocation.principal_binding_digest,
+            "remaining_call_entitlement": remaining_calls,
+            "checked_at": current_time,
+        }
 
 
 class ResourceBackedProductionChatInference:
@@ -136,6 +192,18 @@ class ResourceBackedProductionChatInference:
 
     def current_workload_state(self) -> Mapping[str, Any]:
         return self._delegate.current_workload_state()
+
+    def reconcile_workload_state(self) -> Mapping[str, Any]:
+        return self._delegate.reconcile_idle_game_resource_state()
+
+    def resource_reconciliation_interval_seconds(self) -> float:
+        return self._delegate.resource_reconciliation_interval_seconds()
+
+    def set_resource_reconciliation_wakeup(self, callback: Any | None) -> None:
+        self._delegate.set_resource_reconciliation_wakeup(callback)
+
+    def cancel_pending_generation(self, *, reason: str = "client_disconnect") -> bool:
+        return self._delegate.cancel_pending_generation(reason=reason)
 
     def verify_stored_chat_invocation(self, *, receipt_id: str, receipt_digest: str,
                                      session_id: str, user_turn_id: str,

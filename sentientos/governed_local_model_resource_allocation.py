@@ -138,6 +138,7 @@ class GovernedLocalModelResourceBounds:
     max_new_tokens: int
     timeout_seconds: float
     max_calls_per_correlation: int
+    max_cpu_seconds_per_allocation: float | None = None
 
     def __post_init__(self) -> None:
         for name in ("max_input_chars", "max_output_chars", "max_new_tokens", "max_calls_per_correlation"):
@@ -146,14 +147,33 @@ class GovernedLocalModelResourceBounds:
                 raise GovernedLocalModelResourceError(f"invalid_{name}")
         if type(self.timeout_seconds) not in (int, float) or isinstance(self.timeout_seconds, bool) or not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
             raise GovernedLocalModelResourceError("invalid_timeout_seconds")
+        if (self.max_cpu_seconds_per_allocation is not None
+                and (type(self.max_cpu_seconds_per_allocation) not in (int, float)
+                    or isinstance(self.max_cpu_seconds_per_allocation, bool)
+                    or not math.isfinite(self.max_cpu_seconds_per_allocation)
+                    or self.max_cpu_seconds_per_allocation <= 0)):
+            raise GovernedLocalModelResourceError("invalid_max_cpu_seconds_per_allocation")
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, object]) -> "GovernedLocalModelResourceBounds":
-        _closed(value, set(cls.__dataclass_fields__), "bounds")
+        required = set(cls.__dataclass_fields__) - {"max_cpu_seconds_per_allocation"}
+        if frozenset(value) not in {frozenset(required), frozenset(cls.__dataclass_fields__)}:
+            raise GovernedLocalModelResourceError("bounds_fields_not_exact")
         return cls(**dict(value))  # type: ignore[arg-type]
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        result = asdict(self)
+        if self.max_cpu_seconds_per_allocation is None:
+            result.pop("max_cpu_seconds_per_allocation")
+        return result
+
+    def is_within(self, maximum: "GovernedLocalModelResourceBounds") -> bool:
+        for name in self.__dataclass_fields__:
+            requested = getattr(self, name)
+            limit = getattr(maximum, name)
+            if limit is not None and (requested is None or requested > limit):
+                return False
+        return True
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,12 +279,32 @@ class GovernedLocalModelResourceAllocation:
                    validity=GovernedLocalModelAllocationValidity.from_mapping(validity), allocator_id=ALLOCATOR_ID,
                    epoch=value["epoch"], policy_digest=_sha(value["policy_digest"], "policy_digest"), allocation_digest=claimed)
 
-    def to_dict(self) -> dict[str, object]: return asdict(self)
+    def to_dict(self) -> dict[str, object]:
+        result = asdict(self)
+        result["resource_specific_bounds"] = self.resource_specific_bounds.to_dict()
+        return result
 
 
 _MEASUREMENT_FIELDS = {"generation_attempted", "call_units_consumed", "generated_output_size_bytes",
  "returned_output_size_bytes", "output_truncated", "latency_ms", "configured_bounds", "invocation_outcome", "actual_token_count"}
-_STATES = {"attempted_not_begun", "attempt_begun", "measured_completed", "measured_timeout", "measured_backend_failure", "reconciled"}
+_BACKEND_RESOURCE_OBSERVATION_SCHEMA = (
+    "sentientos.governed_local_model_backend_resource_observation:v1")
+_BACKEND_RESOURCE_OBSERVATION_FIELDS = {
+    "schema_version", "backend", "observation_source", "user_cpu_seconds",
+    "system_cpu_seconds", "wall_seconds", "process_peak_rss_bytes"}
+
+
+def _valid_backend_resource_seconds(value: object) -> bool:
+    try:
+        return (value is None or (not isinstance(value, bool)
+            and isinstance(value, (int, float))
+            and math.isfinite(float(value)) and 0 <= float(value) <= 3600))
+    except (OverflowError, TypeError, ValueError):
+        return False
+_MEASURED_STATES = frozenset({"measured_completed", "measured_timeout",
+    "measured_backend_failure", "measured_cancelled"})
+_STATES = {"attempted_not_begun", "attempt_begun", *_MEASURED_STATES,
+    "reconciled"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,13 +325,36 @@ class GovernedLocalModelResourceConsumptionReceipt:
         _closed(value, set(cls.__dataclass_fields__), "receipt")
         measurement = value["resource_specific_measurement"]
         if not isinstance(measurement, Mapping): raise GovernedLocalModelResourceError("malformed_measurement")
-        _closed(measurement, _MEASUREMENT_FIELDS, "measurement")
+        measurement_fields = frozenset(measurement)
+        if measurement_fields not in {
+                frozenset(_MEASUREMENT_FIELDS),
+                frozenset(_MEASUREMENT_FIELDS | {"backend_resource_observation"})}:
+            raise GovernedLocalModelResourceError("measurement_fields_not_exact")
         if measurement["actual_token_count"] is not None: raise GovernedLocalModelResourceError("actual_token_count_untrusted")
         if type(measurement["generation_attempted"]) is not bool or type(measurement["call_units_consumed"]) is not int or measurement["call_units_consumed"] not in (0, 1):
             raise GovernedLocalModelResourceError("invalid_measurement")
         configured = measurement["configured_bounds"]
         if not isinstance(configured, Mapping): raise GovernedLocalModelResourceError("invalid_configured_bounds")
         GovernedLocalModelResourceBounds.from_mapping(configured)
+        backend_observation = measurement.get("backend_resource_observation")
+        if backend_observation is not None:
+            if (not isinstance(backend_observation, Mapping)
+                    or set(backend_observation) != _BACKEND_RESOURCE_OBSERVATION_FIELDS
+                    or backend_observation.get("schema_version") !=
+                        _BACKEND_RESOURCE_OBSERVATION_SCHEMA
+                    or backend_observation.get("backend") != "llama_cpp"
+                    or backend_observation.get("observation_source") not in {
+                        "exact_runtime_worker_process",
+                        "parent_sampled_exact_runtime_worker"}):
+                raise GovernedLocalModelResourceError("backend_resource_observation_invalid")
+            for name in ("user_cpu_seconds", "system_cpu_seconds", "wall_seconds"):
+                metric = backend_observation.get(name)
+                if not _valid_backend_resource_seconds(metric):
+                    raise GovernedLocalModelResourceError("backend_resource_observation_invalid")
+            rss = backend_observation.get("process_peak_rss_bytes")
+            if rss is not None and (type(rss) is not int
+                    or not 0 <= rss <= 1_099_511_627_776):
+                raise GovernedLocalModelResourceError("backend_resource_observation_invalid")
         if value["state"] not in _STATES: raise GovernedLocalModelResourceError("invalid_receipt_state")
         _time(value["observed_at"], "observed_at")
         for field in ("allocation_digest", "receipt_digest"):
@@ -414,10 +477,16 @@ class GovernedLocalModelResourceLedger:
         for attempt_id, attempt in attempts.items():
             if (not isinstance(attempt_id, str) or not attempt_id.startswith("lmattempt-")
                     or not isinstance(attempt, dict)
-                    or set(attempt) != {"allocation_id", "status"}
+                    or set(attempt) not in ({"allocation_id", "status"},
+                        {"allocation_id", "status", "cpu_budget_reservation_seconds"})
                     or attempt.get("allocation_id") not in allocation_values
                     or attempt.get("status") not in {"provisional", "begun", "restored"}):
                 raise GovernedLocalModelResourceError("malformed_ledger_attempt")
+            reservation = attempt.get("cpu_budget_reservation_seconds")
+            if (reservation is not None and (type(reservation) not in (int, float)
+                    or isinstance(reservation, bool) or not math.isfinite(reservation)
+                    or reservation <= 0)):
+                raise GovernedLocalModelResourceError("malformed_ledger_cpu_reservation")
             attempt_allocations[attempt_id] = allocation_values[attempt["allocation_id"]]
 
         seen: dict[str, str] = {}
@@ -446,8 +515,7 @@ class GovernedLocalModelResourceLedger:
             states = [receipt.state for receipt in history]
             attempt_begun = [receipt for receipt in history if receipt.state == "attempt_begun"]
             not_begun = [receipt for receipt in history if receipt.state == "attempted_not_begun"]
-            measured = [receipt for receipt in history if receipt.state in {
-                "measured_completed", "measured_timeout", "measured_backend_failure"}]
+            measured = [receipt for receipt in history if receipt.state in _MEASURED_STATES]
             reconciled = [receipt for receipt in history if receipt.state == "reconciled"]
             if len(attempt_begun) > 1 or len(not_begun) > 1 or len(measured) > 1 or len(reconciled) > 1:
                 raise GovernedLocalModelResourceError("attempt_receipt_transition_duplicate")
@@ -482,7 +550,7 @@ class GovernedLocalModelResourceLedger:
                 raise GovernedLocalModelResourceError("attempt_begun_measurement_invalid")
             if len(states) > 1:
                 expected_prefix.append(states[1])
-                if states[1] not in {"measured_completed", "measured_timeout", "measured_backend_failure"}:
+                if states[1] not in _MEASURED_STATES:
                     raise GovernedLocalModelResourceError("attempt_measurement_transition_invalid")
                 measured_receipt = history[1]
                 if (measured_receipt.effect_receipt_digest is not None
@@ -520,8 +588,7 @@ class GovernedLocalModelResourceLedger:
                 states_by_attempt.setdefault(str(item.get("attempt_id")), []).append(
                     str(item.get("state")))
         slots = 0
-        measured_states = {
-            "measured_completed", "measured_timeout", "measured_backend_failure"}
+        measured_states = _MEASURED_STATES
         for attempt_id, attempt in attempts.items():
             if not isinstance(attempt, Mapping):
                 continue
@@ -600,9 +667,62 @@ class GovernedLocalModelResourceLedger:
         return GovernedLocalModelResourceAllocation.from_mapping(value)
 
     def remaining_calls(self, allocation_id: str) -> int:
+        with self._lock:
+            allocation = self.allocation(allocation_id)
+            used = sum(1 for value in self._state["attempts"].values()
+                if value["allocation_id"] == allocation_id
+                and value["status"] in {"provisional", "begun"})
+            return allocation.resource_specific_bounds.max_calls_per_correlation - used
+
+    def cpu_seconds_used(self, allocation_id: str) -> float:
+        """Return measured CPU use plus reservations for unresolved attempts."""
+        with self._lock:
+            return self._cpu_seconds_used_locked(allocation_id)
+
+    def _cpu_seconds_used_locked(self, allocation_id: str) -> float:
         allocation = self.allocation(allocation_id)
-        used = sum(1 for value in self._state["attempts"].values() if value["allocation_id"] == allocation_id and value["status"] in {"provisional", "begun"})
-        return allocation.resource_specific_bounds.max_calls_per_correlation - used
+        ceiling = allocation.resource_specific_bounds.max_cpu_seconds_per_allocation
+        if ceiling is None:
+            return 0.0
+        attempts = self._state["attempts"]
+        receipts = self._state["receipts"]
+        assert isinstance(attempts, Mapping) and isinstance(receipts, list)
+        total = 0.0
+        for attempt_id, attempt in attempts.items():
+            if (not isinstance(attempt, Mapping)
+                    or attempt.get("allocation_id") != allocation_id
+                    or attempt.get("status") == "restored"):
+                continue
+            history = [receipt for receipt in receipts
+                if isinstance(receipt, Mapping)
+                and receipt.get("attempt_id") == attempt_id]
+            measured = next((receipt for receipt in reversed(history)
+                if receipt.get("state") == "reconciled"), None)
+            measurement = (measured.get("resource_specific_measurement")
+                if isinstance(measured, Mapping) else None)
+            observation = (measurement.get("backend_resource_observation")
+                if isinstance(measurement, Mapping) else None)
+            if isinstance(observation, Mapping):
+                user_cpu = observation.get("user_cpu_seconds")
+                system_cpu = observation.get("system_cpu_seconds")
+                if (isinstance(user_cpu, (int, float)) and not isinstance(user_cpu, bool)
+                        and isinstance(system_cpu, (int, float))
+                        and not isinstance(system_cpu, bool)):
+                    total += float(user_cpu) + float(system_cpu)
+                    continue
+            reservation = attempt.get("cpu_budget_reservation_seconds")
+            # Old or incomplete durable attempts cannot release capacity based
+            # on an absent measurement; consume the full remaining ceiling.
+            total += float(reservation) if reservation is not None else ceiling
+        return total
+
+    def remaining_cpu_seconds(self, allocation_id: str) -> float | None:
+        """Return policy-bounded CPU capacity, or None when no ceiling exists."""
+        with self._lock:
+            ceiling = self.allocation(allocation_id).resource_specific_bounds.max_cpu_seconds_per_allocation
+            if ceiling is None:
+                return None
+            return max(0.0, ceiling - self._cpu_seconds_used_locked(allocation_id))
 
     def snapshot_counts(self) -> tuple[int, int, int]:
         """Return non-mutating allocation, attempt, and receipt counts."""
@@ -654,12 +774,54 @@ class GovernedLocalModelResourceAllocator:
         if instant < _time(exact.not_before, "policy_not_before"): raise GovernedLocalModelResourceError("policy_not_yet_valid")
         if instant >= _time(exact.valid_until, "policy_valid_until"): raise GovernedLocalModelResourceError("policy_expired")
 
+    def validate_current(self, *, allocation: GovernedLocalModelResourceAllocation,
+                         principal: CausalResourcePrincipal,
+                         authenticated: AuthenticatedRootPrincipalEvidence,
+                         current: CurrentAuthenticatedRootPrincipalEvidence,
+                         policy: GovernedLocalModelResourcePolicy,
+                         current_time: str
+                         ) -> GovernedLocalModelResourceAllocation:
+        """Verify current entitlement custody without consuming a call unit."""
+        self._principal(principal, authenticated, current, current_time)
+        self._policy_current(policy, current_time)
+        exact = GovernedLocalModelResourceAllocation.from_mapping(allocation.to_dict())
+        now = _time(current_time, "current_time")
+        with self.ledger._lock:
+            if exact != self.ledger.allocation(exact.allocation_id):
+                raise GovernedLocalModelResourceError("allocation_substitution")
+            if (exact.principal_id, exact.principal_binding_digest,
+                    exact.principal_epoch) != (
+                    principal.principal_id, principal.binding_digest,
+                    principal.epoch):
+                raise GovernedLocalModelResourceError("allocation_principal_mismatch")
+            if (exact.policy_digest != policy.policy_digest
+                    or exact.epoch != policy.epoch):
+                raise GovernedLocalModelResourceError("allocation_policy_mismatch")
+            if (now < _time(exact.validity.not_before, "allocation_not_before")
+                    or now >= _time(exact.validity.not_after, "allocation_not_after")):
+                raise GovernedLocalModelResourceError("allocation_expired")
+        return exact
+
+    def current_entitlement(self, *, allocation: GovernedLocalModelResourceAllocation,
+                            principal: CausalResourcePrincipal,
+                            authenticated: AuthenticatedRootPrincipalEvidence,
+                            current: CurrentAuthenticatedRootPrincipalEvidence,
+                            policy: GovernedLocalModelResourcePolicy,
+                            current_time: str
+                            ) -> tuple[GovernedLocalModelResourceAllocation, int]:
+        """Read exact current allocation and remaining calls as one ledger snapshot."""
+        with self.ledger._lock:
+            exact = self.validate_current(allocation=allocation,
+                principal=principal, authenticated=authenticated,
+                current=current, policy=policy, current_time=current_time)
+            return exact, self.ledger.remaining_calls(exact.allocation_id)
+
     def issue(self, *, principal: CausalResourcePrincipal, authenticated: AuthenticatedRootPrincipalEvidence,
               current: CurrentAuthenticatedRootPrincipalEvidence, requested_bounds: GovernedLocalModelResourceBounds,
               requested_not_before: str, requested_not_after: str, current_time: str) -> GovernedLocalModelResourceAllocation:
         self._principal(principal, authenticated, current, current_time); self._policy_current(self.policy, current_time)
-        for name in GovernedLocalModelResourceBounds.__dataclass_fields__:
-            if getattr(requested_bounds, name) > getattr(self.policy.max_resource_specific_bounds, name): raise GovernedLocalModelResourceError("requested_bounds_exceed_policy")
+        if not requested_bounds.is_within(self.policy.max_resource_specific_bounds):
+            raise GovernedLocalModelResourceError("requested_bounds_exceed_policy")
         before = max(_time(requested_not_before, "requested_not_before"), _time(principal.issued_at, "issued_at"), _time(self.policy.not_before, "policy_not_before"))
         after = min(_time(requested_not_after, "requested_not_after"), _time(principal.expires_at, "expires_at"), _time(current.registry_valid_until, "registry_valid_until"), _time(self.policy.valid_until, "policy_valid_until"))
         now = _time(current_time, "current_time")
@@ -674,22 +836,41 @@ class GovernedLocalModelResourceAllocator:
 
     def final_gate(self, *, allocation: GovernedLocalModelResourceAllocation, principal: CausalResourcePrincipal,
                    authenticated: AuthenticatedRootPrincipalEvidence, current: CurrentAuthenticatedRootPrincipalEvidence,
-                   policy: GovernedLocalModelResourcePolicy, current_time: str, durable_attempt_nonce: str) -> str:
-        self._principal(principal, authenticated, current, current_time); self._policy_current(policy, current_time)
-        exact = GovernedLocalModelResourceAllocation.from_mapping(allocation.to_dict())
-        if exact != self.ledger.allocation(exact.allocation_id): raise GovernedLocalModelResourceError("allocation_substitution")
-        if (exact.principal_id, exact.principal_binding_digest, exact.principal_epoch) != (principal.principal_id, principal.binding_digest, principal.epoch): raise GovernedLocalModelResourceError("allocation_principal_mismatch")
-        if exact.policy_digest != policy.policy_digest or exact.epoch != policy.epoch: raise GovernedLocalModelResourceError("allocation_policy_mismatch")
+                   policy: GovernedLocalModelResourcePolicy, current_time: str, durable_attempt_nonce: str,
+                   requested_timeout_seconds: float | None = None,
+                   max_backend_threads: int | None = None) -> str:
+        exact = self.validate_current(allocation=allocation, principal=principal,
+            authenticated=authenticated, current=current, policy=policy,
+            current_time=current_time)
         now = _time(current_time, "current_time")
-        if now < _time(exact.validity.not_before, "allocation_not_before") or now >= _time(exact.validity.not_after, "allocation_not_after"): raise GovernedLocalModelResourceError("allocation_expired")
         if not isinstance(durable_attempt_nonce, str) or not durable_attempt_nonce: raise GovernedLocalModelResourceError("invalid_durable_attempt_nonce")
         attempt_id = "lmattempt-" + _digest({"allocation_digest": exact.allocation_digest, "durable_attempt_nonce": durable_attempt_nonce})[:32]
+        cpu_reservation: float | None = None
+        cpu_ceiling = exact.resource_specific_bounds.max_cpu_seconds_per_allocation
+        if cpu_ceiling is not None:
+            if (not isinstance(requested_timeout_seconds, (int, float))
+                    or isinstance(requested_timeout_seconds, bool)
+                    or not math.isfinite(requested_timeout_seconds)
+                    or requested_timeout_seconds <= 0
+                    or requested_timeout_seconds > exact.resource_specific_bounds.timeout_seconds
+                    or not isinstance(max_backend_threads, int)
+                    or isinstance(max_backend_threads, bool)
+                    or not 1 <= max_backend_threads <= 256):
+                raise GovernedLocalModelResourceError("cpu_budget_reservation_evidence_required")
+            cpu_reservation = float(requested_timeout_seconds) * max_backend_threads
         with self.ledger._lock:
             if attempt_id in self.ledger._state["attempts"]: raise GovernedLocalModelResourceError("duplicate_attempt_id")
             if self.ledger.remaining_calls(exact.allocation_id) <= 0: raise GovernedLocalModelResourceError("call_entitlement_exhausted")
+            if (cpu_reservation is not None and cpu_ceiling is not None
+                    and self.ledger.cpu_seconds_used(exact.allocation_id) + cpu_reservation
+                        > cpu_ceiling):
+                raise GovernedLocalModelResourceError("cpu_seconds_entitlement_exhausted")
             candidate = self.ledger._candidate()
-            candidate["attempts"][attempt_id] = {
+            attempt: dict[str, object] = {
                 "allocation_id": exact.allocation_id, "status": "provisional"}
+            if cpu_reservation is not None:
+                attempt["cpu_budget_reservation_seconds"] = cpu_reservation
+            candidate["attempts"][attempt_id] = attempt
             self.ledger._persist_candidate(candidate)
         return attempt_id
 
@@ -739,12 +920,18 @@ class GovernedLocalModelResourceAllocator:
     def measurement(allocation: GovernedLocalModelResourceAllocation, *, generation_attempted: bool,
                     call_units_consumed: int, generated_output_size_bytes: int | None = None,
                     returned_output_size_bytes: int | None = None, output_truncated: bool = False,
-                    latency_ms: int | None = None, invocation_outcome: str) -> Mapping[str, object]:
-        return {"generation_attempted": generation_attempted, "call_units_consumed": call_units_consumed,
+                    latency_ms: int | None = None, invocation_outcome: str,
+                    backend_resource_observation: Mapping[str, object] | None = None
+                    ) -> Mapping[str, object]:
+        measurement: dict[str, object] = {
+                "generation_attempted": generation_attempted, "call_units_consumed": call_units_consumed,
                 "generated_output_size_bytes": generated_output_size_bytes, "returned_output_size_bytes": returned_output_size_bytes,
                 "output_truncated": output_truncated, "latency_ms": latency_ms,
                 "configured_bounds": allocation.resource_specific_bounds.to_dict(), "invocation_outcome": invocation_outcome,
                 "actual_token_count": None}
+        if backend_resource_observation is not None:
+            measurement["backend_resource_observation"] = dict(backend_resource_observation)
+        return measurement
 
     def record_backend_entry(self, allocation: GovernedLocalModelResourceAllocation,
                              attempt_id: str, *, observed_at: str

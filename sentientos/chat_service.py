@@ -34,12 +34,17 @@ from .avatar_renderer_report_ingress import RendererReportCaptureOwner
 from .foreground_game_detection import normalize_game_process_names
 from .governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget,
-    LocalModelInvocationReceipt, LocalModelPostEffectCustodyError,
+    LocalModelInvocationDeferred, LocalModelInvocationReceipt,
+    LocalModelPostEffectCustodyError,
 )
 from .installation_state import InstallationIdentity, InstallationStateRegistry
 from .control_plane_kernel import ControlPlaneKernel
 from .local_model_production_serving import ProductionServingController
 from .local_model_serving_inference import ProductionServingInferenceController
+from .host_resource_runtime import (
+    HostObservationBudget, HostResourceRuntimeCoordinator,
+    build_observation_plan, default_collector_specs,
+)
 from .chat_process_generation import open_chat_process_handoff
 from .production_chat_resource_context import (
     ProductionChatResourceContextOwner,
@@ -340,6 +345,7 @@ def _is_social_checkin_continuation(message: str) -> bool:
 APP = FastAPI(title="SentientOS Chat", version="1.0")
 _CONVERSATION_SERVICE: "PersistentConversationService | None" = None
 _PRODUCTION_COMPOSITION: "ProductionChatComposition | None" = None
+_RESOURCE_RECONCILIATION_TASK: asyncio.Task[None] | None = None
 try:
     _CHANGE_NARRATOR: ChangeNarrator | None = build_default_change_narrator()
 except Exception:  # pragma: no cover - defensive initialization
@@ -682,6 +688,27 @@ class DevelopmentLocalChatInference:
                 response_style=str(response_style or "default"))
             linkage = {**dict(caller_linkage), "workload_mode": mode,
                 "workload_evidence": workload_state["workload_evidence"]}
+            if (mode == "gaming"
+                    and self._gaming_resource_status_provider is not None):
+                resource_state = workload_state.get("gaming_resource_status")
+                if not isinstance(resource_state, Mapping):
+                    resource_state = {
+                        "admission_status": "deferred",
+                        "reason_code": "gaming_resource_observation_unavailable",
+                    }
+                resource_fields = (
+                    "admission_status", "reason_code", "vram_utilization_percent",
+                    "observed_at", "release_threshold_percent",
+                    "recovery_threshold_percent", "stale_after_seconds",
+                    "cpu_utilization_percent", "ram_utilization_percent",
+                    "pressure_labels",
+                    "host_pressure_recovery_percent",
+                )
+                linkage["gaming_resource_admission_evidence"] = {
+                    "schema_version": "sentientos.gaming_resource_admission_evidence:v1",
+                    **{key: resource_state[key] for key in resource_fields
+                        if key in resource_state},
+                }
             identity = getattr(self._delegate.model, "active_identity", None)
             if mode == "gaming" and getattr(identity, "engine", None) == "ollama":
                 linkage["ollama_keep_alive"] = self._gaming_keep_alive
@@ -693,11 +720,28 @@ class DevelopmentLocalChatInference:
             request = self._delegate.build_request(purpose="local_user_chat",
                 prompt=effective_prompt, caller=caller, correlation_id=correlation_id,
                 budget=effective_budget, linkage=linkage)
+        invoke_options: dict[str, Any] = {}
+        resource_status_provider = self._gaming_resource_status_provider
+        if mode == "gaming" and resource_status_provider is not None:
+            def require_gaming_resource_admission() -> None:
+                try:
+                    resource_state = resource_status_provider()
+                except Exception:
+                    resource_state = None
+                if (not isinstance(resource_state, Mapping)
+                        or resource_state.get("admission_status") != "available"):
+                    reason = (resource_state.get("reason_code")
+                        if isinstance(resource_state, Mapping) else None)
+                    if not isinstance(reason, str) or not reason:
+                        reason = "gaming_resource_observation_unavailable"
+                    raise LocalModelInvocationDeferred(reason)
+            invoke_options["pre_effect_guard"] = require_gaming_resource_admission
         if on_content_chunk is None:
-            return self._delegate.invoke(request)
+            return self._delegate.invoke(request, **invoke_options)
         if getattr(identity, "engine", None) != "ollama":
             raise RuntimeError("local_streaming_backend_unsupported")
-        return self._delegate.invoke(request, on_content_chunk=on_content_chunk)
+        return self._delegate.invoke(request, on_content_chunk=on_content_chunk,
+            **invoke_options)
 
     def generate_streaming(self, **kwargs: Any) -> LocalModelInvocationReceipt:
         return self.generate(**kwargs)
@@ -771,6 +815,22 @@ class ProductionChatComposition:
                                 self._avatar_output_owner.close()
     def ready(self) -> bool:
         return self._serving.serving_is_current()
+    def reconcile_workload_state(self) -> dict[str, Any]:
+        recovery_pending = getattr(self._serving,
+            "resource_recovery_pending", lambda: False)()
+        result = self.service.reconcile_workload_state()
+        if recovery_pending:
+            # Give the ordinary workload/resource owner the first chance to observe
+            # current conditions. Recovery itself performs fresh MODEL_SERVING admission.
+            result = dict(result)
+            result["serving_recovery"] = self._serving.recover_after_resource_release()
+        return result
+    def resource_reconciliation_interval_seconds(self) -> float:
+        return self.service.resource_reconciliation_interval_seconds()
+
+    def set_resource_reconciliation_wakeup(
+            self, callback: Callable[[], None] | None) -> None:
+        self.service.set_resource_reconciliation_wakeup(callback)
 
 class HistoryInterventionRequest(BaseModel):
     session_id: str
@@ -1410,6 +1470,23 @@ class PersistentConversationService:
             return dict(reconciler())
         return self.current_workload_state()
 
+    def resource_reconciliation_interval_seconds(self) -> float:
+        interval_provider = getattr(
+            self._inference, "resource_reconciliation_interval_seconds", None)
+        if not callable(interval_provider):
+            return 5.0
+        interval = interval_provider()
+        if (isinstance(interval, bool) or not isinstance(interval, (int, float))
+                or not math.isfinite(float(interval)) or not 0.1 <= interval <= 60.0):
+            raise RuntimeError("resource_reconciliation_interval_invalid")
+        return float(interval)
+
+    def set_resource_reconciliation_wakeup(
+            self, callback: Callable[[], None] | None) -> None:
+        setter = getattr(self._inference, "set_resource_reconciliation_wakeup", None)
+        if callable(setter):
+            setter(callback)
+
     def screen_observation_configured(self) -> bool:
         return self._screen_observer is not None
 
@@ -1474,9 +1551,16 @@ class PersistentConversationService:
                     key: resource_status[key] for key in (
                         "admission_status", "reason_code",
                         "vram_utilization_percent", "observed_at",
-                        "release_threshold_percent", "recovery_threshold_percent")
-                    if key in resource_status and isinstance(
-                        resource_status[key], (str, int, float, type(None)))
+                        "release_threshold_percent", "recovery_threshold_percent",
+                        "cpu_utilization_percent", "ram_utilization_percent",
+                        "pressure_labels",
+                        "host_pressure_recovery_percent")
+                    if key in resource_status and (
+                        isinstance(resource_status[key], (str, int, float, type(None)))
+                        or (key == "pressure_labels"
+                            and isinstance(resource_status[key], (tuple, list))
+                            and all(isinstance(label, str)
+                                for label in resource_status[key])))
                 }
         except Exception:
             workload_context = {"availability": "unavailable"}
@@ -1926,7 +2010,8 @@ class PersistentConversationService:
             response_text: str, correction: Mapping[str, str],
             runtime_context: Mapping[str, Any], history: Any,
             memory: Mapping[str, Any], on_content_chunk: Callable[[str], None] | None,
-            screen_observation_provenance: Mapping[str, Any] | None = None
+            screen_observation_provenance: Mapping[str, Any] | None = None,
+            governed_resource_admission_evidence: Mapping[str, Any] | None = None
             ) -> ChatResponse:
         """Persist a verified policy answer without invoking the language model."""
         workload = runtime_context.get("workload")
@@ -1956,6 +2041,9 @@ class PersistentConversationService:
             screen_observation_provenance)
         if bounded_screen_provenance is not None:
             evidence["screen_observation_provenance"] = bounded_screen_provenance
+        if governed_resource_admission_evidence is not None:
+            evidence["governed_resource_admission"] = dict(
+                governed_resource_admission_evidence)
         decision_payload = {
             "schema": "sentientos.deterministic_grounding_policy_decision:v1",
             "session_id": session_id,
@@ -3088,6 +3176,24 @@ class PersistentConversationService:
                     "SentientOS is still monitoring the system; ask again when memory headroom "
                     "recovers."
                 )
+            elif reason == "cpu_pressure":
+                response_text = (
+                    "I’m pausing model inference while the game is active because host CPU "
+                    "pressure is high. Your message is saved, but I haven’t queued a model reply. "
+                    "SentientOS will resume after CPU headroom returns."
+                )
+            elif reason == "memory_pressure":
+                response_text = (
+                    "I’m pausing model inference while the game is active because host memory "
+                    "pressure is high. Your message is saved, but I haven’t queued a model reply. "
+                    "SentientOS will resume after memory headroom returns."
+                )
+            elif reason == "cpu_and_memory_pressure":
+                response_text = (
+                    "I’m pausing model inference while the game is active because host CPU and "
+                    "memory pressure are high. Your message is saved, but I haven’t queued a model "
+                    "reply. SentientOS will resume after host headroom returns."
+                )
             elif reason == "vram_telemetry_stale":
                 response_text = (
                     "I’m pausing model inference while the game is active because the GPU "
@@ -3106,7 +3212,8 @@ class PersistentConversationService:
                 "policy_id": "gaming_resource_pressure_policy:v1",
                 "reason_code": (reason if reason in {
                     "vram_pressure", "vram_telemetry_unavailable",
-                    "vram_telemetry_not_observed", "vram_telemetry_stale"}
+                    "vram_telemetry_not_observed", "vram_telemetry_stale",
+                    "cpu_pressure", "memory_pressure", "cpu_and_memory_pressure"}
                     else "vram_telemetry_unavailable"),
             }
             return self._complete_deterministic_grounding_response(
@@ -3283,6 +3390,113 @@ class PersistentConversationService:
                 on_content_chunk=streamed_model_chunks.append,
             )
         inference_completed_ns = time.monotonic_ns()
+        receipt_effects = getattr(receipt, "effects", None)
+        denial_reasons = getattr(receipt, "reason_codes", ())
+        no_model_effect = (
+            isinstance(receipt_effects, Mapping)
+            and receipt_effects.get("local_model_inference") is False)
+        cpu_budget_exhausted = (
+            receipt.status == "resource_denied"
+            and no_model_effect
+            and isinstance(denial_reasons, (tuple, list))
+            and any(isinstance(reason, str)
+                and reason.endswith("cpu_seconds_entitlement_exhausted")
+                for reason in denial_reasons))
+        game_pressure_reason_codes = (
+            "deferred_local_model_inference_under_host_pressure_during_game",
+            "deferred_local_model_inference_under_host_pressure_in_gaming_mode",
+        )
+        game_pressure_reason = None
+        if isinstance(denial_reasons, (tuple, list)):
+            game_pressure_reason = next((reason_code for reason_code in
+                game_pressure_reason_codes if any(isinstance(reason, str)
+                    and reason.endswith(reason_code) for reason in denial_reasons)), None)
+        game_host_pressure_deferred = (
+            receipt.status == "deferred"
+            and no_model_effect
+            and game_pressure_reason is not None)
+        if cpu_budget_exhausted or game_host_pressure_deferred:
+            allocation_digest = getattr(receipt, "resource_allocation_digest", None)
+            if (not isinstance(allocation_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", allocation_digest) is None):
+                allocation_digest = None
+            receipt_digest = getattr(receipt, "receipt_digest", None)
+            if (not isinstance(receipt_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", receipt_digest) is None):
+                receipt_digest = None
+            receipt_id = getattr(receipt, "receipt_id", None)
+            if not isinstance(receipt_id, str) or not receipt_id:
+                receipt_id = None
+            attempt_id = getattr(receipt, "resource_attempt_id", None)
+            if not isinstance(attempt_id, str) or not attempt_id:
+                attempt_id = None
+            if game_host_pressure_deferred:
+                resource_reason = str(game_pressure_reason)
+                if resource_reason.endswith("_during_game"):
+                    response_text = (
+                        "I’m pausing optional model inference because the active game and current "
+                        "host resource evidence show pressure. Your message is saved, but no model "
+                        "reply was generated. Ask again after resource headroom recovers.")
+                else:
+                    response_text = (
+                        "I’m pausing optional model inference because the selected gaming "
+                        "workload profile and current host resource evidence show pressure. Your "
+                        "message is saved, but no model reply was generated. Ask again after "
+                        "resource headroom recovers.")
+                request_linkage = receipt.request.get("linkage")
+                request_linkage = (request_linkage if isinstance(request_linkage, Mapping)
+                    else {})
+                observation = request_linkage.get("host_resource_observation")
+                observation_evidence: dict[str, Any] | None = None
+                if isinstance(observation, Mapping):
+                    observation_evidence = {
+                        key: observation[key] for key in (
+                            "status", "observation_correlation_id", "report_id",
+                            "report_digest", "observed_at", "pressure_labels",
+                            "cpu_utilization_percent", "ram_utilization_percent",
+                            "gpu_utilization_percent", "vram_utilization_percent",
+                            "no_effect_authority") if key in observation}
+                    labels = observation_evidence.get("pressure_labels")
+                    if (not isinstance(labels, (tuple, list))
+                            or not all(isinstance(label, str) for label in labels)):
+                        observation_evidence.pop("pressure_labels", None)
+                resource_evidence: dict[str, Any] = {
+                    "schema_version": "sentientos.governed_model_resource_denial:v1",
+                    "status": "deferred_before_model_effect",
+                    "reason_code": resource_reason,
+                    "resource_allocation_digest": allocation_digest,
+                    "resource_attempt_id": attempt_id,
+                    "invocation_receipt_id": receipt_id,
+                    "invocation_receipt_digest": receipt_digest,
+                    "model_inference_performed": False,
+                }
+                if observation_evidence is not None:
+                    resource_evidence["host_resource_observation"] = observation_evidence
+            else:
+                resource_reason = "cpu_seconds_entitlement_exhausted"
+                response_text = (
+                    "This chat allocation has reached its governed CPU-seconds budget. "
+                    "Your message is saved, but no model reply was generated. A model reply "
+                    "requires a newly authorized resource allocation.")
+                resource_evidence = {
+                    "schema_version": "sentientos.governed_model_resource_denial:v1",
+                    "status": "denied_before_model_effect",
+                    "reason_code": resource_reason,
+                    "resource_allocation_digest": allocation_digest,
+                    "resource_attempt_id": attempt_id,
+                    "invocation_receipt_id": receipt_id,
+                    "invocation_receipt_digest": receipt_digest,
+                    "model_inference_performed": False,
+                }
+            return self._complete_deterministic_grounding_response(
+                session_id=session["session_id"], user_turn=user_turn,
+                response_text=response_text,
+                correction={"policy_id": "governed_model_resource_policy:v1",
+                    "reason_code": resource_reason},
+                runtime_context=runtime_context, history=history, memory=memory,
+                on_content_chunk=on_content_chunk,
+                screen_observation_provenance=screen_observation,
+                governed_resource_admission_evidence=resource_evidence)
         accepted_statuses = {"admitted_completed"}
         if isinstance(self._inference, DevelopmentLocalChatInference):
             accepted_statuses.add("admitted_simulation")
@@ -3631,6 +3845,8 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                               expected_activation_state_digest: str | None = None,
                               control_plane_kernel: ControlPlaneKernel | None = None,
                               foreground_game_detector: BridgeForegroundGameDetector | None = None,
+                              initial_workload_mode: WorkloadMode = "normal",
+                              game_process_names: tuple[str, ...] | list[str] = (),
                               renderer_report_capture_owner: RendererReportCaptureOwner | None = None,
                               resource_context_owner: ProductionChatResourceContextOwner | None = None,
                               resource_provisioning_id: str | None = None,
@@ -3683,6 +3899,16 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             raise ValueError("avatar_output_session_and_state_path_mutually_exclusive")
         avatar_output_emitter = avatar_output_session.emitter
     identity = InstallationIdentity.parse(installation_identity)
+    if (resource_context_owner is not None
+            and resource_context_owner.installation_identity != identity.value):
+        raise ValueError("resource_context_owner_installation_identity_mismatch")
+    if resource_provisioning_id is not None:
+        from .production_chat_resource_provisioning import validate_resource_provisioning_id
+
+        resource_provisioning_id = validate_resource_provisioning_id(
+            resource_provisioning_id)
+    if resource_context_owner is None and resource_provisioning_id is None:
+        raise ValueError("resource_provisioning_context_required_for_production_chat")
     if runtime_handoff_id is None:
         raise RuntimeError("chat_process_generation_handoff_required")
     try:
@@ -3706,14 +3932,72 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         if (_storage_roots_overlap(memory_root, handle.root)
                 or _storage_roots_overlap(memory_root, conversation_root.path)):
             raise ValueError("user_memory_root_overlaps_installation_transcript_custody")
-        serving = ProductionServingController(handle, control_plane_kernel or ControlPlaneKernel())
-        establish_arguments = {"operation_id": serving_operation_id}
-        if expected_activation_state_digest is not None:
-            establish_arguments["expected_activation_state_digest"] = expected_activation_state_digest
-        serving.establish(**establish_arguments)
+        serving_kernel = control_plane_kernel or ControlPlaneKernel()
+        if foreground_game_detector is not None:
+            foreground_game_detector.set_game_performance_admission_owner(serving_kernel)
+            foreground_game_detector.set_game_workload_admission_owner(serving_kernel)
+        serving = ProductionServingController(handle, serving_kernel)
+        resource_collectors = tuple(spec for spec in default_collector_specs()
+            if spec.collector_id in {"cpu", "memory", "nvidia_gpu", "thermal_sensors"})
+        resource_observation_plan = build_observation_plan(
+            budget=HostObservationBudget(max_collectors=4,
+                per_collector_timeout_seconds=0.5, total_deadline_seconds=1.5,
+                max_workers=4),
+            specs=resource_collectors)
+        host_resource_observation_owner = HostResourceRuntimeCoordinator(
+            kernel=serving_kernel, plan=resource_observation_plan)
         inference_bridge = ProductionServingInferenceController(
             serving, runtime_handoff_id=runtime_handoff_id,
-            foreground_game_detector=foreground_game_detector)
+            foreground_game_detector=foreground_game_detector,
+            host_resource_observation_owner=host_resource_observation_owner)
+        inference_bridge.set_workload_mode(initial_workload_mode, game_process_names)
+
+        def serving_resource_admission_context(
+                correlation_id: str, activation_state: Mapping[str, Any]
+                ) -> Mapping[str, Any]:
+            if resource_context_owner is None:
+                raise RuntimeError("production_resource_entitlement_owner_unavailable")
+            inference_entitlement_binding = (
+                resource_context_owner.serving_admission_entitlement_binding())
+            observation_id = "local-chat-serving-" + hashlib.sha256(
+                correlation_id.encode("utf-8")).hexdigest()[:32]
+            host_resource_observation_owner.run_cycle(correlation_id=observation_id)
+            workload = inference_bridge.current_workload_state()
+            load_configuration = activation_state.get("load_configuration")
+            gpu_layers = (load_configuration.get("n_gpu_layers")
+                if isinstance(load_configuration, Mapping) else None)
+            profile_layers = (gpu_layers if type(gpu_layers) is int
+                and 0 <= gpu_layers <= 256 else None)
+            model_execution_profile = {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp",
+                "accelerator_route": ("gpu" if profile_layers else
+                    "cpu" if profile_layers == 0 else "unknown"),
+                "gpu_layers": profile_layers,
+                "configuration_digest": digest_payload(
+                    dict(load_configuration) if isinstance(load_configuration, Mapping) else {}),
+            }
+            return {
+                "resource_governance_required": True,
+                "purpose": "local_model_serving",
+                "host_resource_observation_namespace": "local-chat-serving",
+                "host_resource_observation_id": observation_id,
+                "model_execution_profile": model_execution_profile,
+                "workload_mode": workload.get("configured_mode"),
+                "effective_workload_mode": workload.get("effective_mode"),
+                "governed_inference_entitlement_binding": dict(
+                    inference_entitlement_binding),
+                "serving_workload_evidence": {key: workload.get(key) for key in (
+                    "configured_mode", "mode_source", "observation_status",
+                    "game_foreground", "game_process_running", "observed_at",
+                    "transport_provenance")},
+            }
+
+        establish_arguments: dict[str, Any] = {"operation_id": serving_operation_id}
+        if expected_activation_state_digest is not None:
+            establish_arguments["expected_activation_state_digest"] = expected_activation_state_digest
+        establish_arguments["admission_context_provider"] = serving_resource_admission_context
+        serving.establish(**establish_arguments)
         inference: ChatInference = (
             inference_bridge if resource_context_owner is None
             else ResourceBackedProductionChatInference(inference_bridge, resource_context_owner)
@@ -3903,11 +4187,52 @@ class BootEvent(BaseModel):
 
 @APP.on_event("startup")
 async def _startup_event() -> None:
+    global _RESOURCE_RECONCILIATION_TASK
     LOGGER.info("Chat interface ready")
+    composition = _PRODUCTION_COMPOSITION
+    if composition is not None and _RESOURCE_RECONCILIATION_TASK is None:
+        loop = asyncio.get_running_loop()
+        reconciliation_wakeup = asyncio.Event()
+
+        def notify_reconciliation_wakeup() -> None:
+            loop.call_soon_threadsafe(reconciliation_wakeup.set)
+
+        composition.set_resource_reconciliation_wakeup(notify_reconciliation_wakeup)
+        async def reconcile_resources() -> None:
+            while True:
+                reconciliation_wakeup.clear()
+                operation = asyncio.create_task(asyncio.to_thread(
+                    composition.reconcile_workload_state))
+                try:
+                    await operation
+                except asyncio.CancelledError:
+                    await operation
+                    raise
+                except Exception as exc:
+                    LOGGER.warning("Idle workload resource reconciliation failed: %s",
+                        type(exc).__name__)
+                try:
+                    timeout = composition.resource_reconciliation_interval_seconds()
+                    await asyncio.wait_for(reconciliation_wakeup.wait(), timeout=timeout)
+                except asyncio.TimeoutError:
+                    pass
+        _RESOURCE_RECONCILIATION_TASK = asyncio.create_task(reconcile_resources())
 
 
 @APP.on_event("shutdown")
 async def _shutdown_event() -> None:
+    global _RESOURCE_RECONCILIATION_TASK
+    composition = _PRODUCTION_COMPOSITION
+    if composition is not None:
+        composition.set_resource_reconciliation_wakeup(None)
+    task = _RESOURCE_RECONCILIATION_TASK
+    _RESOURCE_RECONCILIATION_TASK = None
+    if task is not None:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
     close_production_chat()
 
 
@@ -5774,6 +6099,17 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--resource-provisioning-id")
     parser.add_argument("--runtime-handoff-id", required=True)
     parser.add_argument("--expected-software-generation-digest", required=True)
+    parser.add_argument("--initial-workload-mode", choices=("normal", "gaming", "automatic"),
+                        default="normal",
+                        help="Set the production workload policy before model-serving admission")
+    parser.add_argument("--game-process-name", action="append", default=[], metavar="GAME.exe",
+                        help="Allowlist an executable for automatic game-aware model-serving admission; repeat as needed")
+    parser.add_argument("--gaming-companion-manifest",
+                        help="Installed signed WSL companion deployment manifest")
+    parser.add_argument("--gaming-companion-provider",
+                        help="Installed platform runtime provider as package.module:factory")
+    parser.add_argument("--gaming-companion-launch-authorizer",
+                        help="Installed role launch authorizer as package.module:callable")
     parser.add_argument("--avatar-state-path", type=Path,
                         help="Opt in to a local visual-only avatar output state file")
     parser.add_argument("--local-speech-output", action="store_true",
@@ -5786,6 +6122,17 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args(argv)
+    if args.resource_provisioning_id is None:
+        parser.error("resource_provisioning_id_required_for_enabled_chat")
+    if args.initial_workload_mode == "automatic" and not args.game_process_name:
+        parser.error("automatic_workload_mode_requires_game_process_name")
+    companion_arguments = (args.gaming_companion_manifest,
+        args.gaming_companion_provider, args.gaming_companion_launch_authorizer)
+    if args.initial_workload_mode == "automatic":
+        if any(value is None for value in companion_arguments):
+            parser.error("automatic_workload_mode_requires_installed_companion_authority")
+    elif any(value is not None for value in companion_arguments) or args.game_process_name:
+        parser.error("gaming_companion_configuration_requires_automatic_workload_mode")
     try:
         screen_observer = _build_cli_screen_observer(
             args.screen_observation_process, args.screen_observation_consent_minutes)
@@ -5808,15 +6155,30 @@ def main(argv: list[str] | None = None) -> None:
         process_lock = handle.fixed_object(
             "local-model/chat/runtime-handoffs/active-chat-process.lock")
         with handle.exclusive_lock(process_lock, blocking=False):
-            configure_production_chat(installation_identity=args.installation_identity,
-                serving_operation_id=args.serving_operation_id,
-                expected_activation_state_digest=args.expected_activation_state_digest,
-                resource_provisioning_id=args.resource_provisioning_id,
-                runtime_handoff_id=args.runtime_handoff_id,
-                avatar_state_path=args.avatar_state_path,
-                local_speech_output=args.local_speech_output,
-                screen_observer=screen_observer)
-            run(host=args.host, port=args.port)
+            gaming_companion_runtime = None
+            try:
+                if args.initial_workload_mode == "automatic":
+                    gaming_companion_runtime = _build_supervised_gaming_companion_runtime(
+                        manifest_path=args.gaming_companion_manifest,
+                        provider_reference=args.gaming_companion_provider,
+                        launch_authorizer_reference=args.gaming_companion_launch_authorizer,
+                        game_process_names=args.game_process_name)
+                configure_production_chat(installation_identity=args.installation_identity,
+                    serving_operation_id=args.serving_operation_id,
+                    expected_activation_state_digest=args.expected_activation_state_digest,
+                    resource_provisioning_id=args.resource_provisioning_id,
+                    runtime_handoff_id=args.runtime_handoff_id,
+                    initial_workload_mode=args.initial_workload_mode,
+                    game_process_names=args.game_process_name,
+                    gaming_companion_runtime=gaming_companion_runtime,
+                    avatar_state_path=args.avatar_state_path,
+                    local_speech_output=args.local_speech_output,
+                    screen_observer=screen_observer)
+                gaming_companion_runtime = None  # production composition owns it now
+                run(host=args.host, port=args.port)
+            finally:
+                if gaming_companion_runtime is not None:
+                    gaming_companion_runtime.close()
     except Exception as exc:
         raise RuntimeError("supervised_chat_process_lifetime_unavailable") from exc
 
@@ -5845,6 +6207,67 @@ def _is_loopback_host(host: str) -> bool:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return False
+
+
+def _build_supervised_gaming_companion_runtime(*, manifest_path: str,
+        provider_reference: str, launch_authorizer_reference: str,
+        game_process_names: tuple[str, ...] | list[str]) -> Any:
+    """Compose the existing authorized WSL companion owner for supervised chat."""
+    from .gaming_companion_core_runtime import WSLCoreGamingCompanionRuntime
+    from .gaming_companion_role_entrypoint import (
+        compose_authorized_runtime, load_role_manifest, resolve_provider)
+
+    manifest = load_role_manifest(manifest_path)
+    runtime = compose_authorized_runtime(role="wsl_core", manifest=manifest,
+        runtime_provider=lambda role, config: resolve_provider(provider_reference)(role, config),
+        launch_authorizer=lambda role, config: resolve_provider(
+            launch_authorizer_reference)(role, config) is True)
+    if type(runtime) is not WSLCoreGamingCompanionRuntime:
+        raise RuntimeError("wsl_core_gaming_companion_runtime_required")
+    try:
+        runtime.start()
+        if runtime.status().get("state") != "running":
+            raise RuntimeError("wsl_core_gaming_companion_runtime_start_failed")
+        _await_authenticated_game_observation(
+            runtime.foreground_game_detector, game_process_names)
+        return runtime
+    except Exception:
+        runtime.close()
+        raise
+
+
+def _await_authenticated_game_observation(detector: Any,
+        game_process_names: tuple[str, ...] | list[str], *,
+        timeout_seconds: float = 10.0,
+        monotonic: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep) -> None:
+    """Wait a bounded startup interval for verified game state before serving admission."""
+    if (isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float))
+            or not math.isfinite(float(timeout_seconds))
+            or not 0.1 <= float(timeout_seconds) <= 30.0):
+        raise ValueError("gaming_companion_observation_timeout_invalid")
+    observe = getattr(detector, "observe", None)
+    if not callable(observe):
+        raise RuntimeError("gaming_companion_observation_owner_invalid")
+    deadline = monotonic() + float(timeout_seconds)
+    while True:
+        try:
+            observation = observe(game_process_names)
+        except Exception:
+            observation = None
+        provenance = getattr(observation, "transport_provenance", None)
+        workload_is_resolved = (
+            getattr(observation, "game_foreground", None) is True
+            or type(getattr(observation, "game_process_running", None)) is bool)
+        if (getattr(observation, "status", None) == "available"
+                and workload_is_resolved and isinstance(provenance, Mapping)
+                and isinstance(provenance.get("message_id"), str)
+                and provenance.get("message_id")):
+            return
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise RuntimeError("initial_game_workload_observation_unavailable")
+        sleep(min(0.1, remaining))
 
 
 

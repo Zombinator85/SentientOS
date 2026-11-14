@@ -6,6 +6,7 @@ import math
 import os
 import subprocess
 import threading
+import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence, cast
 
@@ -126,7 +127,12 @@ try:
     restore_threads[0](restore_threads[1],restore_threads[2],restore_threads[3])
   if len(output)>32768: raise RuntimeError("response_too_large")
   emit({"type":"generated","output":output,**resources(),
-   "invocation_resources":generation_resources(resource_before,generation_started)})
+   "invocation_resources":generation_resources(resource_before,generation_started),
+   "backend_thread_limit_control":{"schema_version":"sentientos.llama_cpp_backend_thread_limit_control:v1",
+    "requested_ceiling":thread_ceiling if has_thread_ceiling else None,
+    "setter_function":"llama_set_n_threads" if has_thread_ceiling else None,
+    "n_threads_argument":effective_threads,
+    "n_threads_batch_argument":effective_threads}})
 except Exception as exc:
  emit({"type":"error","error_type":type(exc).__name__,"diagnostic":str(exc)[:512]})
  sys.exit(70)
@@ -190,6 +196,11 @@ class ExactRuntimeLocalModel:
             bufsize=1, env=_environment(), cwd=str(Path(str(chain["artifact_path"])).parent),
         )
         self._lock = threading.Lock()
+        self._active_generation_started_at: float | None = None
+        self._active_generation_cpu_baseline: tuple[float, float] | None = None
+        self._cancelled_generation_resources: dict[str, Any] | None = None
+        self._cancelled_generation_confirmation: threading.Event | None = None
+        self._cancelled_generation_confirmed = False
         ready = self._read()
         expected = {"type": "ready", "interpreter_path": str(interpreter),
                     "artifact_sha256": chain["artifact_sha256"],
@@ -229,6 +240,16 @@ class ExactRuntimeLocalModel:
     def generate(self, prompt: str, history: Sequence[str] | None = None, **generation: Any) -> str:
         return self.generate_with_metadata(prompt, history, **generation)[0]
 
+    def _process_cpu_times(self) -> tuple[float, float] | None:
+        try:
+            import psutil
+            times = psutil.Process(self._process.pid).cpu_times()
+            return float(times.user), float(times.system)
+        except Exception:
+            # Sampling is observational and must never block cancellation when
+            # the child exits between the liveness check and the CPU read.
+            return None
+
     def generate_with_metadata(self, prompt: str, history: Sequence[str] | None = None,
                                **generation: Any) -> tuple[str, dict[str, Any]]:
         if self._process.poll() is not None:
@@ -242,13 +263,39 @@ class ExactRuntimeLocalModel:
         if len(data.encode()) > MAX_PROTOCOL_BYTES:
             raise ModelLoadError("exact runtime worker request too large")
         with self._lock:
+            self._cancelled_generation_resources = None
+            self._cancelled_generation_confirmation = None
+            self._cancelled_generation_confirmed = False
+            self._active_generation_started_at = time.monotonic()
+            self._active_generation_cpu_baseline = self._process_cpu_times()
             assert self._process.stdin is not None
             self._process.stdin.write(data + "\n"); self._process.stdin.flush()
             response = self._read()
+            self._active_generation_started_at = None
+            self._active_generation_cpu_baseline = None
         if (set(response) != {"type", "output", "peak_rss_kib", "user_cpu_seconds",
-                              "system_cpu_seconds", "invocation_resources"}
+                              "system_cpu_seconds", "invocation_resources",
+                              "backend_thread_limit_control"}
                 or response["type"] != "generated" or not isinstance(response["output"], str)):
             raise ModelLoadError("exact runtime worker malformed response")
+        thread_control = response["backend_thread_limit_control"]
+        requested_ceiling = generation.get("max_backend_threads")
+        if (not isinstance(thread_control, Mapping)
+                or set(thread_control) != {"schema_version", "requested_ceiling",
+                    "setter_function", "n_threads_argument", "n_threads_batch_argument"}
+                or thread_control.get("schema_version") != (
+                    "sentientos.llama_cpp_backend_thread_limit_control:v1")
+                or thread_control.get("requested_ceiling") != requested_ceiling):
+            raise ModelLoadError("exact runtime worker thread control malformed")
+        if requested_ceiling is None:
+            if any(thread_control.get(key) is not None for key in (
+                    "setter_function", "n_threads_argument", "n_threads_batch_argument")):
+                raise ModelLoadError("exact runtime worker thread control malformed")
+        elif (thread_control.get("setter_function") != "llama_set_n_threads"
+                or any(type(thread_control.get(key)) is not int
+                    or not 1 <= thread_control[key] <= requested_ceiling
+                    for key in ("n_threads_argument", "n_threads_batch_argument"))):
+            raise ModelLoadError("exact runtime worker thread control malformed")
         resources = response["invocation_resources"]
         if not isinstance(resources, Mapping) or set(resources) != {
                 "schema_version", "user_cpu_seconds", "system_cpu_seconds", "wall_seconds",
@@ -266,13 +313,14 @@ class ExactRuntimeLocalModel:
         self.user_cpu_seconds = response["user_cpu_seconds"]
         self.system_cpu_seconds = response["system_cpu_seconds"]
         completion = {
-            "schema_version": "sentientos.llama_cpp_completion_observation:v2",
+            "schema_version": "sentientos.llama_cpp_completion_observation:v3",
             "backend": "llama_cpp",
             "finish_reason": "unknown",
             "completion_tokens": None,
             "prompt_tokens": None,
             "token_limit_reached": None,
             "invocation_resources": dict(resources),
+            "backend_thread_limit_control": dict(thread_control),
         }
         return response["output"], completion
 
@@ -288,11 +336,47 @@ class ExactRuntimeLocalModel:
     def describe(self) -> str:
         return "llama_cpp exact-runtime worker (" + str(self.active_identity.resolved_artifact_path) + ")"
 
-    def cancel_pending_generation(self) -> None:
-        """Terminate the isolated runtime process so invocation deadlines can hold."""
-        if self._process.poll() is None:
+    def cancel_pending_generation(self) -> bool:
+        """Terminate the isolated worker and retain a bounded process CPU sample."""
+        if self._process.poll() is not None:
+            return False
+        confirmation = threading.Event()
+        self._cancelled_generation_confirmation = confirmation
+        self._cancelled_generation_confirmed = False
+        started_at = getattr(self, "_active_generation_started_at", None)
+        baseline = getattr(self, "_active_generation_cpu_baseline", None)
+        sampled = self._process_cpu_times() if started_at is not None else None
+        if started_at is not None and baseline is not None and sampled is not None:
+            rss_bytes = None
+            self._cancelled_generation_resources = {
+                "schema_version": (
+                    "sentientos.governed_local_model_backend_resource_observation:v1"),
+                "backend": "llama_cpp",
+                "observation_source": "parent_sampled_exact_runtime_worker",
+                "user_cpu_seconds": max(0.0, sampled[0] - baseline[0]),
+                "system_cpu_seconds": max(0.0, sampled[1] - baseline[1]),
+                "wall_seconds": max(0.0, time.monotonic() - started_at),
+                "process_peak_rss_bytes": rss_bytes,
+            }
+        try:
             self._process.kill()
             self._process.wait(timeout=5)
+            self._cancelled_generation_confirmed = self._process.poll() is not None
+            return self._cancelled_generation_confirmed
+        finally:
+            # A reader awakened by process termination must wait until this
+            # owner has established whether the sampled interval is complete.
+            confirmation.set()
+
+    def take_cancelled_generation_resource_observation(self) -> dict[str, Any] | None:
+        confirmation = getattr(self, "_cancelled_generation_confirmation", None)
+        if confirmation is not None and not confirmation.is_set():
+            confirmation.wait(timeout=5.1)
+        observation = self._cancelled_generation_resources
+        self._cancelled_generation_resources = None
+        if not getattr(self, "_cancelled_generation_confirmed", False):
+            return None
+        return dict(observation) if observation is not None else None
 
     def close(self) -> None:
         if self._process.poll() is None:
