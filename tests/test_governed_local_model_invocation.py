@@ -371,7 +371,7 @@ def test_governed_cancellation_admission_is_bound_to_receipt(
     assert "cancelled_for_workload_transition" in result[0].reason_codes
     assert result[0].cancellation_admission_decision_ref == (
         decision.admission_decision_ref)
-    assert result[0].schema_version == "sentientos.local_model_invocation_receipt:v6"
+    assert result[0].schema_version == "sentientos.local_model_invocation_receipt:v7"
     valid, reasons = validate_receipt(result[0].to_dict())
     assert valid, reasons
     persisted = json.loads((tmp_path / "runtime" / "receipts" /
@@ -379,6 +379,14 @@ def test_governed_cancellation_admission_is_bound_to_receipt(
     assert validate_receipt(persisted)[0]
     assert persisted["cancellation_admission_decision_ref"] == (
         decision.admission_decision_ref)
+    expected_kernel_record = kernel.recorded_decision_payload(decision)
+    assert result[0].cancellation_admission_record == expected_kernel_record
+    assert persisted["cancellation_admission_record"] == expected_kernel_record
+    logged_kernel_record = next(json.loads(line) for line in
+        (tmp_path / "decisions.jsonl").read_text(encoding="utf-8").splitlines()
+        if json.loads(line).get("admission_decision_ref") ==
+            decision.admission_decision_ref)
+    assert result[0].cancellation_admission_record == logged_kernel_record
     assert published_receipts[0]["receipt_digest"] == result[0].receipt_digest
     assert model.cancelled.is_set()
 

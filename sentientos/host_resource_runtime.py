@@ -53,6 +53,7 @@ _DIGEST_BOUND_INVOCATION_RECEIPT_SCHEMAS = frozenset({
     "sentientos.local_model_invocation_receipt:v4",
     "sentientos.local_model_invocation_receipt:v5",
     "sentientos.local_model_invocation_receipt:v6",
+    "sentientos.local_model_invocation_receipt:v7",
 })
 
 
@@ -774,7 +775,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     "sentientos.local_model_invocation_receipt:v3",
                     "sentientos.local_model_invocation_receipt:v4",
                     "sentientos.local_model_invocation_receipt:v5",
-                    "sentientos.local_model_invocation_receipt:v6"}:
+                    "sentientos.local_model_invocation_receipt:v6",
+                    "sentientos.local_model_invocation_receipt:v7"}:
                 raise ValueError("resource_invocation_receipt_schema_unsupported")
             # Current receipts must prove their semantic digest and schema
             # contract before any downstream resource lineage uses them. Keep
@@ -930,13 +932,18 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     f"workload_preemption_admission_linkage_missing:{invocation.get('receipt_id')}")
                 workload_preemption_admission_posture_by_receipt[str(
                     invocation.get("receipt_id"))] = "missing_or_invalid_reference"
-            elif (invocation.get("schema_version") ==
-                    "sentientos.local_model_invocation_receipt:v6"
+            elif (invocation.get("schema_version") in {
+                    "sentientos.local_model_invocation_receipt:v6",
+                    "sentientos.local_model_invocation_receipt:v7"}
                     and isinstance(invocation.get("cancellation_admission_decision"), Mapping)
                     and invocation["cancellation_admission_decision"].get(
                         "admission_decision_ref") == cancellation_ref):
                 workload_preemption_admission_posture_by_receipt[str(
-                    invocation.get("receipt_id"))] = "verified_receipt_bound_decision"
+                    invocation.get("receipt_id"))] = (
+                        "verified_receipt_bound_kernel_record"
+                        if invocation.get("schema_version") ==
+                            "sentientos.local_model_invocation_receipt:v7"
+                        else "verified_receipt_bound_decision")
             else:
                 workload_preemption_admission_posture_by_receipt[str(
                     invocation.get("receipt_id"))] = "legacy_reference_only"
