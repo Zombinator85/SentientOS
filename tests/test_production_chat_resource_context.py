@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime, timezone
+from threading import Event, Thread
 
 import pytest
 
@@ -103,7 +104,8 @@ def test_closed_owner_cannot_issue_context_or_serving_entitlement(tmp_path, monk
     monkeypatch.setattr(
         GovernedLocalModelResourceLedger, "_persist_candidate",
         lambda self, candidate: setattr(self, "_state", candidate))
-    custody, *_ = owner(tmp_path)
+    custody, model, invoker, request, _ = owner(tmp_path)
+    issued_context = custody.next_context()
     custody.close()
     assert not custody.has_single_process_custody
     with pytest.raises(GovernedLocalModelResourceError,
@@ -112,7 +114,74 @@ def test_closed_owner_cannot_issue_context_or_serving_entitlement(tmp_path, monk
     with pytest.raises(GovernedLocalModelResourceError,
                        match="resource_context_owner_closed"):
         custody.serving_admission_entitlement_binding()
+    with pytest.raises(GovernedLocalModelResourceError,
+                       match="resource_context_owner_closed"):
+        invoker.invoke(request, resource_context=issued_context)
+    assert model.calls == 0
     custody.close()
+
+
+def test_owner_close_waits_for_previously_issued_context_lease(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        GovernedLocalModelResourceLedger, "_persist_candidate",
+        lambda self, candidate: setattr(self, "_state", candidate))
+    custody, model, invoker, request, ledger = owner(tmp_path)
+    released = Event()
+
+    class ProcessCustodyLock:
+        def __exit__(self, *_args):
+            released.set()
+
+    custody._ledger_owner_lock = ProcessCustodyLock()
+    context = custody.next_context()
+    backend_started = Event()
+    finish_backend = Event()
+    invocation_finished = Event()
+    result = {}
+
+    def blocked_generation(*_args, **_kwargs):
+        model.calls += 1
+        backend_started.set()
+        if not finish_backend.wait(timeout=5):
+            raise AssertionError("fixture_backend_not_released")
+        return "answer"
+
+    model.generate = blocked_generation
+
+    def invoke():
+        result["receipt"] = invoker.invoke(request, resource_context=context)
+        invocation_finished.set()
+
+    invocation = Thread(target=invoke)
+    invocation.start()
+    assert backend_started.wait(timeout=2)
+    close_finished = Event()
+
+    def close_owner():
+        custody.close()
+        close_finished.set()
+
+    closer = Thread(target=close_owner)
+    closer.start()
+    try:
+        assert not close_finished.wait(timeout=0.05)
+        assert custody.has_single_process_custody
+        assert not released.is_set()
+    finally:
+        finish_backend.set()
+    assert invocation_finished.wait(timeout=2)
+    invocation.join(timeout=2)
+    assert not invocation.is_alive()
+    receipt = result["receipt"]
+    assert receipt.status == "admitted_completed"
+    assert model.calls == 1
+    assert [item["state"] for item in ledger._state["receipts"]] == [
+        "attempt_begun", "measured_completed", "reconciled"]
+    assert close_finished.wait(timeout=2)
+    closer.join(timeout=2)
+    assert not closer.is_alive()
+    assert not custody.has_single_process_custody
+    assert released.is_set()
 
 
 def test_production_chat_rejects_resource_owner_from_another_installation(

@@ -674,6 +674,38 @@ class LocalModelInvocationDecision:
     control_plane: Mapping[str, Any]
 
 
+class GovernedLocalModelResourceCustodyLease:
+    """Keep production resource custody live for complete governed calls."""
+
+    __slots__ = ("_condition", "_active", "_closed")
+
+    def __init__(self) -> None:
+        self._condition = threading.Condition()
+        self._active = 0
+        self._closed = False
+
+    def acquire(self) -> None:
+        with self._condition:
+            if self._closed:
+                raise GovernedLocalModelResourceError(
+                    "resource_context_owner_closed")
+            self._active += 1
+
+    def release(self) -> None:
+        with self._condition:
+            if self._active <= 0:
+                raise RuntimeError("resource_custody_lease_not_acquired")
+            self._active -= 1
+            if self._active == 0:
+                self._condition.notify_all()
+
+    def close(self) -> None:
+        with self._condition:
+            self._closed = True
+            while self._active:
+                self._condition.wait()
+
+
 @dataclass(frozen=True, slots=True)
 class GovernedLocalModelResourceInvocationContext:
     """Trusted, process-local inputs for an explicitly resource-backed call.
@@ -690,6 +722,7 @@ class GovernedLocalModelResourceInvocationContext:
     policy: GovernedLocalModelResourcePolicy
     durable_attempt_nonce: str
     clock: Callable[[], str]
+    custody_lease: GovernedLocalModelResourceCustodyLease | None = None
 
 @dataclass(frozen=True)
 class LocalModelInvocationReceipt:
@@ -1543,11 +1576,40 @@ class GovernedLocalModelInvoker:
                 raise ValueError("structured_output_schema_not_canonical")
         return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=deepcopy(dict(structured_output_schema)) if structured_output_schema is not None else None)
 
-    def invoke(self, request: LocalModelInvocationRequest, *, persist: bool = True, include_output_in_receipt: bool = False,
+    def invoke(self, request: LocalModelInvocationRequest, *, persist: bool = True,
+               include_output_in_receipt: bool = False,
                pre_effect_guard: Callable[[], None] | None = None,
                post_effect_guard: Callable[[], None] | None = None,
                resource_context: GovernedLocalModelResourceInvocationContext | None = None,
                on_content_chunk: Callable[[str], None] | None = None) -> LocalModelInvocationReceipt:
+        lease = (resource_context.custody_lease
+            if resource_context is not None else None)
+        if lease is None:
+            return self._invoke_with_custody_lease(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                pre_effect_guard=pre_effect_guard,
+                post_effect_guard=post_effect_guard,
+                resource_context=resource_context,
+                on_content_chunk=on_content_chunk)
+        lease.acquire()
+        try:
+            return self._invoke_with_custody_lease(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                pre_effect_guard=pre_effect_guard,
+                post_effect_guard=post_effect_guard,
+                resource_context=resource_context,
+                on_content_chunk=on_content_chunk)
+        finally:
+            lease.release()
+
+    def _invoke_with_custody_lease(
+            self, request: LocalModelInvocationRequest, *, persist: bool = True,
+            include_output_in_receipt: bool = False,
+            pre_effect_guard: Callable[[], None] | None = None,
+            post_effect_guard: Callable[[], None] | None = None,
+            resource_context: GovernedLocalModelResourceInvocationContext | None = None,
+            on_content_chunk: Callable[[str], None] | None = None
+            ) -> LocalModelInvocationReceipt:
         started = time.monotonic(); status = "blocked_invalid"; reasons: list[str] = [] ; output: str | None = None; admitted_ref = None; fallback = False; truncated = False; backend_completion: Mapping[str, Any] | None = None
         cancellation_resource_observation: Mapping[str, Any] | None = None
         decision_payload: dict[str, Any] = {}; attempt_id: str | None = None; backend_entered = False

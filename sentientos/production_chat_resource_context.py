@@ -7,6 +7,7 @@ from .causal_resource_principal import CausalResourcePrincipal
 from .causal_resource_principal_authentication import AuthenticatedRootPrincipalEvidence
 from .causal_resource_principal_currentness import CurrentAuthenticatedRootPrincipalEvidence
 from .governed_local_model_invocation import (
+    GovernedLocalModelResourceCustodyLease,
     GovernedLocalModelResourceInvocationContext,
     LocalModelInvocationBudget,
     LocalModelInvocationReceipt,
@@ -31,7 +32,7 @@ class ProductionChatResourceContextOwner:
     __slots__ = (
         "allocator", "allocation", "principal", "authenticated", "current",
         "policy", "_installation_identity", "_provisioning_id", "_nonce_source",
-        "_clock", "_ledger_owner_lock", "_closed",
+        "_clock", "_ledger_owner_lock", "_closed", "_custody_lease",
     )
 
     def __init__(
@@ -97,6 +98,7 @@ class ProductionChatResourceContextOwner:
         self._clock = clock
         self._ledger_owner_lock = ledger_owner_lock
         self._closed = False
+        self._custody_lease = GovernedLocalModelResourceCustodyLease()
 
     @property
     def has_single_process_custody(self) -> bool:
@@ -114,6 +116,7 @@ class ProductionChatResourceContextOwner:
         if self._closed:
             return
         self._closed = True
+        self._custody_lease.close()
         lock = self._ledger_owner_lock
         self._ledger_owner_lock = None
         if lock is not None:
@@ -138,6 +141,7 @@ class ProductionChatResourceContextOwner:
             policy=self.policy,
             durable_attempt_nonce=nonce,
             clock=self._clock,
+            custody_lease=self._custody_lease,
         )
 
     def serving_admission_entitlement_binding(self) -> Mapping[str, object]:
@@ -148,6 +152,13 @@ class ProductionChatResourceContextOwner:
         hardware-control authority.
         """
         self._require_open()
+        self._custody_lease.acquire()
+        try:
+            return self._serving_admission_entitlement_binding()
+        finally:
+            self._custody_lease.release()
+
+    def _serving_admission_entitlement_binding(self) -> Mapping[str, object]:
         current_time = self._clock()
         if type(current_time) is not str or not current_time:
             raise GovernedLocalModelResourceError("invalid_current_time")
