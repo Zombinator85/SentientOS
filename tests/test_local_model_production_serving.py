@@ -11,7 +11,10 @@ import pytest
 from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass, ControlPlaneKernel
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.local_model import ActiveModelIdentity
-from sentientos.local_model_production_serving import ProductionServingController, ProductionServingError
+from sentientos.local_model_production_serving import (
+    ProductionServingController, ProductionServingError,
+    read_serving_operation_history,
+)
 from sentientos.local_model_runtime_worker import ExactRuntimeLocalModel
 from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.foreground_game_detection import ForegroundGameObservation
@@ -885,10 +888,27 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
         assert serving_decisions[2]["delegated_outcomes"]["runtime_governor"][
             "evidence_refs"]["game_workload_evidence"]["message_id"] == (
                 idle_message.payload["message_id"])
+        assert session.binding["model_serving_admission_decision_record"] == (
+            serving_decisions[1])
         assert session.binding["resource_admission_revalidation_correlation_id"] == (
             serving_decisions[2]["correlation_id"])
         assert session.binding["resource_admission_revalidation_decision_ref"] == (
             serving_decisions[2]["admission_decision_ref"])
+        assert session.binding["resource_admission_revalidation_decision"] == (
+            serving_decisions[2])
+        recovered_history = read_serving_operation_history(handle)
+        recovered_receipt = next(item["receipt"] for item in recovered_history
+            if item["receipt"] is not None
+            and item["receipt"].get("binding", {}).get("serving_operation_id")
+                == "serving-game-idle")
+        assert recovered_receipt["binding"][
+            "model_serving_admission_decision_record"] == serving_decisions[1]
+        assert recovered_receipt["binding"][
+            "resource_admission_revalidation_decision"] == serving_decisions[2]
+        assert recovered_receipt["binding"][
+            "resource_admission_revalidation_decision"]["delegated_outcomes"][
+                "runtime_governor"]["evidence_refs"]["game_workload_evidence"][
+                    "message_id"] == idle_message.payload["message_id"]
         assert host_owner.collector_call_count == 9
     finally:
         ctl.close()

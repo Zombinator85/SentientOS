@@ -81,6 +81,63 @@ def _semantic_digest(value: str) -> str:
     return value
 
 
+def _valid_resource_serving_decision_record(binding: Mapping[str, Any], *,
+        record_key: str, reference_key: str, correlation_key: str) -> bool:
+    record = binding.get(record_key)
+    fields = {
+        "event_type", "timestamp", "final_disposition", "outcome",
+        "reason_codes", "delegate_checks_consulted", "lifecycle_phase",
+        "current_phase", "requested_phase", "authority_class", "action_kind",
+        "actor_source", "actor", "execution_owner", "target_subsystem",
+        "delegated_outcomes", "federation_context", "proof_budget_context",
+        "protected_mutation_intent", "correlation_id", "admission_decision_ref",
+    }
+    reasons = record.get("reason_codes") if isinstance(record, Mapping) else None
+    checks = (record.get("delegate_checks_consulted")
+        if isinstance(record, Mapping) else None)
+    correlation = binding.get(correlation_key)
+    reference = binding.get(reference_key)
+    current_phase = record.get("current_phase") if isinstance(record, Mapping) else None
+    return bool(
+        isinstance(record, Mapping)
+        and set(record) == fields
+        and record.get("event_type") == "control_plane_decision"
+        and isinstance(record.get("timestamp"), str) and record.get("timestamp")
+        and record.get("final_disposition") == "allow"
+        and record.get("outcome") == "allow"
+        and isinstance(reasons, (list, tuple))
+        and all(isinstance(item, str) and item for item in reasons)
+        and isinstance(checks, (list, tuple))
+        and all(isinstance(item, str) and item for item in checks)
+        and isinstance(current_phase, str)
+        and current_phase in {phase.value for phase in LifecyclePhase}
+        and record.get("lifecycle_phase") == current_phase
+        and record.get("requested_phase") == LifecyclePhase.RUNTIME.value
+        and record.get("authority_class") == AuthorityClass.MODEL_SERVING.value
+        and record.get("action_kind") == ACTION
+        and record.get("actor_source") == PRINCIPAL
+        and record.get("actor") == PRINCIPAL
+        and record.get("execution_owner") == PRINCIPAL
+        and record.get("target_subsystem") == TARGET_SUBSYSTEM
+        and isinstance(record.get("delegated_outcomes"), Mapping)
+        and isinstance(correlation, str) and bool(correlation)
+        and record.get("correlation_id") == correlation
+        and isinstance(reference, str) and bool(reference)
+        and record.get("admission_decision_ref") == reference)
+
+
+def _admission_decision_payload(kernel: Any, decision: Any) -> Mapping[str, Any] | None:
+    recorded_payload = getattr(kernel, "recorded_decision_payload", None)
+    if callable(recorded_payload):
+        payload = recorded_payload(decision)
+        return payload if isinstance(payload, Mapping) else None
+    to_dict = getattr(decision, "to_dict", None)
+    if callable(to_dict):
+        payload = to_dict()
+        return payload if isinstance(payload, Mapping) else None
+    return None
+
+
 def _verified(handle: InstallationStateHandle, allow_synthetic: bool) -> dict[str, Any]:
     try:
         verified = verify_current_activation(handle, allow_synthetic_evidence_for_tests=allow_synthetic)
@@ -309,6 +366,19 @@ def read_serving_operation_history(handle: Any, *, maximum: int = MAX_SERVING_OP
                 raise ProductionServingError("serving_receipt_time_invalid") from exc
             if timestamp.tzinfo is None or timestamp.utcoffset() is None:
                 raise ProductionServingError("serving_receipt_time_invalid")
+        for record_key, reference_key, correlation_key, error_code in (
+                ("model_serving_admission_decision_record",
+                 "model_serving_admission_ref", "control_plane_correlation_id",
+                 "serving_resource_admission_decision_invalid"),
+                ("resource_admission_revalidation_decision",
+                 "resource_admission_revalidation_decision_ref",
+                 "resource_admission_revalidation_correlation_id",
+                 "serving_resource_admission_revalidation_invalid")):
+            if binding.get(record_key) is not None and not (
+                    _valid_resource_serving_decision_record(binding,
+                        record_key=record_key, reference_key=reference_key,
+                        correlation_key=correlation_key)):
+                raise ProductionServingError(error_code)
         receipts.append(receipt)
     by_receipt_operation: dict[str, dict[str, Any]] = {}
     for receipt in receipts:
@@ -664,6 +734,14 @@ class ProductionServingController:
                 or decision.actor != PRINCIPAL or decision.action_kind != ACTION
                 or decision.target_subsystem != TARGET_SUBSYSTEM or decision.correlation_id != correlation):
             raise ProductionServingError("model_serving_control_plane_not_allowed")
+        admission_decision_record = _admission_decision_payload(self._kernel, decision)
+        if (callable(getattr(self._kernel, "recorded_decision_payload", None))
+                and (not isinstance(admission_decision_record, Mapping)
+                    or admission_decision_record.get("admission_decision_ref")
+                        != decision.admission_decision_ref
+                    or admission_decision_record.get("correlation_id") != correlation
+                    or admission_decision_record.get("outcome") != AdmissionOutcome.ALLOW.value)):
+            raise ProductionServingError("model_serving_admission_record_unavailable")
         serving_attempt = _reserve_serving_operation_attempt(
             self._handle, operation_intent=operation_intent,
             admission_decision_ref=decision.admission_decision_ref)
@@ -691,6 +769,7 @@ class ProductionServingController:
                 raise ProductionServingError("activation_changed_during_load")
             resource_revalidation_decision_ref: str | None = None
             resource_revalidation_correlation: str | None = None
+            resource_revalidation_decision_record: Mapping[str, Any] | None = None
             if admission_context_provider is not None:
                 # The first resource admission authorizes beginning the exact
                 # load. Game presence and host pressure can change while a GPU
@@ -731,13 +810,27 @@ class ProductionServingController:
                         "model_serving_resource_policy_changed_during_load")
                 resource_revalidation_decision_ref = (
                     post_load_decision.admission_decision_ref)
+                decision_payload = _admission_decision_payload(
+                    self._kernel, post_load_decision)
+                if (not isinstance(decision_payload, Mapping)
+                        or decision_payload.get("admission_decision_ref")
+                            != resource_revalidation_decision_ref
+                        or decision_payload.get("correlation_id")
+                            != resource_revalidation_correlation
+                        or decision_payload.get("outcome") != AdmissionOutcome.ALLOW.value):
+                    raise ProductionServingError(
+                        "model_serving_resource_revalidation_record_unavailable")
+                resource_revalidation_decision_record = dict(decision_payload)
             resource_revalidation_binding = (
                 {"resource_admission_revalidation_decision_ref":
                     resource_revalidation_decision_ref,
                  "resource_admission_revalidation_correlation_id":
-                    resource_revalidation_correlation}
+                    resource_revalidation_correlation,
+                 "resource_admission_revalidation_decision":
+                    dict(resource_revalidation_decision_record)}
                 if resource_revalidation_decision_ref is not None
-                and resource_revalidation_correlation is not None else {})
+                and resource_revalidation_correlation is not None
+                and resource_revalidation_decision_record is not None else {})
             binding = {**operation_intent,
                        "serving_operation_attempt_id": serving_attempt["attempt_id"],
                        "serving_operation_attempt_semantic_digest": serving_attempt["attempt_semantic_digest"],
@@ -751,6 +844,9 @@ class ProductionServingController:
                                                 "runtime_id", "interpreter_path", "load_configuration", "authority_map_digest")},
                        "observed_loaded_model_identity": observed,
                        "model_serving_admission_ref": decision.admission_decision_ref}
+            if admission_decision_record is not None:
+                binding["model_serving_admission_decision_record"] = dict(
+                    admission_decision_record)
             session_id = "serving-session-" + semantic_digest(binding)[:24]
             session = ServingSession(session_id, MappingProxyType(binding))
             receipt = {"schema_version": RECEIPT_SCHEMA, "status": "serving_session_bound", **session.to_dict(),
