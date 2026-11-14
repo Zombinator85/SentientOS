@@ -2972,10 +2972,11 @@ def test_verified_game_presence_retries_unconfirmed_cpu_inference_cancellation(
     serving.close()
 
 
+@pytest.mark.parametrize("governor_mode", ["enforce", "advisory", "shadow"])
 def test_verified_game_presence_defers_each_new_inference_on_same_snapshot(
-        monkeypatch, tmp_path):
+        monkeypatch, tmp_path, governor_mode):
     now = datetime.now(timezone.utc)
-    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", governor_mode)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
     kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
@@ -3061,6 +3062,10 @@ def test_verified_game_presence_defers_each_new_inference_on_same_snapshot(
     assert len(inference_decisions) == 3
     assert all(item["delegated_outcomes"]["runtime_governor"]["reason"] ==
         "deferred_local_model_inference_while_game_active"
+        for item in inference_decisions[:2])
+    assert all(item["delegated_outcomes"]["runtime_governor"]["allowed"] is False
+        and item["delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+            "game_priority_block"] is True
         for item in inference_decisions[:2])
     assert inference_decisions[2]["delegated_outcomes"]["runtime_governor"][
         "allowed"] is True

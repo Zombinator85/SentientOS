@@ -923,9 +923,12 @@ def test_host_pressure_preemption_persists_exact_active_invocation(
 
 @pytest.mark.no_legacy_skip
 @pytest.mark.parametrize("accelerator_route,gpu_layers", [("gpu", 1), ("cpu", 0)])
-def test_active_verified_game_defers_new_inference_with_nominal_telemetry(
-        monkeypatch, tmp_path, accelerator_route, gpu_layers):
-    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+@pytest.mark.parametrize("governor_mode", ["enforce", "advisory", "shadow"])
+@pytest.mark.parametrize("operation_kind", ["inference", "model_serving"])
+def test_active_verified_game_defers_optional_model_work_with_nominal_telemetry(
+        monkeypatch, tmp_path, accelerator_route, gpu_layers, governor_mode,
+        operation_kind):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", governor_mode)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
@@ -962,17 +965,25 @@ def test_active_verified_game_defers_new_inference_with_nominal_telemetry(
                 "engine": "llama_cpp", "accelerator_route": accelerator_route,
                 "gpu_layers": gpu_layers,
                 "configuration_digest": "d" * 64,
-            }})
+            }}, operation_kind=operation_kind)
 
     assert decision.allowed is False
-    assert decision.reason == "deferred_local_model_inference_while_game_active"
+    expected_reason = ("deferred_local_model_inference_while_game_active"
+        if operation_kind == "inference" else
+        "deferred_gpu_model_serving_while_game_active"
+        if gpu_layers else "deferred_cpu_model_serving_while_game_active")
+    assert decision.reason == expected_reason
     assert decision.evidence_refs["observed_pressure_labels"] == []
     assert decision.evidence_refs["game_workload_evidence"]["game_active"] is True
+    assert decision.evidence_refs["game_priority_block"] is True
 
 
+@pytest.mark.parametrize("governor_mode,expected_allowed", [
+    ("enforce", False), ("shadow", True),
+])
 def test_background_gpu_inference_keeps_background_pressure_classification(
-        monkeypatch, tmp_path):
-    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+        monkeypatch, tmp_path, governor_mode, expected_allowed):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", governor_mode)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     governor = RuntimeGovernor()
     correlation_id = "background-gpu-pressure-classification"
@@ -1007,9 +1018,10 @@ def test_background_gpu_inference_keeps_background_pressure_classification(
                 "gpu_layers": 16, "configuration_digest": "b" * 64,
             }})
 
-    assert decision.allowed is False
+    assert decision.allowed is expected_allowed
     assert decision.reason == "deferred_background_inference_under_host_pressure"
     assert decision.evidence_refs["observed_pressure_labels"] == ["gpu_pressure"]
+    assert decision.evidence_refs["game_priority_block"] is False
 
 
 @pytest.mark.parametrize("age_seconds,expected_status", [

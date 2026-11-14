@@ -2983,6 +2983,24 @@ class RuntimeGovernor:
                 "deferred_active_inference_preemption_game_evidence_unavailable")
             blocks = not preemption_valid
 
+        # Gaming priority is a narrow runtime contract for optional model work,
+        # not a promotion of every shadow/advisory governor decision. Keep this
+        # admission enforced when current game evidence or a gaming-specific
+        # policy block says inference/model residency must yield. Valid
+        # preemption decisions above remain admitted because they release inference.
+        game_priority_block = blocks and (
+            automatic_serving_workload_unavailable
+            or game_pressure
+            or game_host_pressure
+            or gaming_workload_profile_host_pressure
+            or conservative_automatic_profile_host_pressure
+            or optional_inference_during_game
+            or optional_model_load_during_game
+            or optional_model_load_in_gaming_profile
+            or game_resource_telemetry_incomplete
+            or gaming_profile_resource_telemetry_incomplete
+        )
+
         posture_eval = PostureRuleEvaluation(
             dimension=("host_resource_model_serving_admission"
                 if operation_kind == "model_serving" else
@@ -3026,6 +3044,7 @@ class RuntimeGovernor:
                 "gaming_workload_profile_evidence": workload_profile_ref,
                 "host_resource_telemetry_incomplete_during_game": (
                     game_resource_telemetry_incomplete),
+                "game_priority_block": game_priority_block,
                 "active_inference_preemption_requested": preemption_requested,
                 "active_inference_preemption_admitted": preemption_valid,
                 "active_host_pressure_preemption_admitted":
@@ -3040,7 +3059,8 @@ class RuntimeGovernor:
             now=now,
             evaluations=[posture_eval],
         )
-        allowed = not blocks or self._mode != "enforce"
+        allowed = not blocks or (
+            self._mode != "enforce" and not game_priority_block)
         payload["host_resource_evidence"] = evidence_ref
         payload["observed_pressure_labels"] = sorted(labels)
         payload["game_performance_evidence"] = game_evidence_ref
@@ -3058,6 +3078,7 @@ class RuntimeGovernor:
         payload["gaming_workload_profile_evidence"] = workload_profile_ref
         payload["host_resource_telemetry_incomplete_during_game"] = (
             game_resource_telemetry_incomplete)
+        payload["game_priority_block"] = game_priority_block
         decision = self._decision(
             action_class=("local_model_serving" if operation_kind == "model_serving"
                 else "local_model_inference"),
@@ -3732,6 +3753,7 @@ class RuntimeGovernor:
                             "game_frame_pressure", "host_pressure_during_verified_game",
                             "optional_model_load_in_gaming_profile",
                             "optional_gpu_model_load_in_gaming_profile",
+                            "game_priority_block",
                             "gaming_workload_profile_host_pressure",
                             "gaming_workload_profile_resource_telemetry_incomplete",
                             "gaming_workload_profile_evidence",
