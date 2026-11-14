@@ -503,13 +503,13 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             continue
         invocation_id = release_receipt.get("cancelled_invocation_receipt_id")
         invocation_digest = release_receipt.get("cancelled_invocation_receipt_digest")
-        invocation = invocation_by_id.get(str(invocation_id))
-        if (not isinstance(invocation, Mapping)
-                or invocation.get("receipt_digest") != invocation_digest
-                or invocation.get("status") != "cancelled"
-                or invocation.get("cancellation_admission_decision_ref")
+        linked_invocation = invocation_by_id.get(str(invocation_id))
+        if (not isinstance(linked_invocation, Mapping)
+                or linked_invocation.get("receipt_digest") != invocation_digest
+                or linked_invocation.get("status") != "cancelled"
+                or linked_invocation.get("cancellation_admission_decision_ref")
                     != release_receipt.get("release_admission_decision_ref")):
-            lineage_findings.append(
+            release_lineage_findings.append(
                 f"resource_release_invocation_linkage_missing_or_mismatched:{release_receipt.get('receipt_id')}")
     predecessor_invocation_by_id: dict[str, Mapping[str, Any]] = {}
     for predecessor in verified_predecessor_invocation_receipts:
