@@ -70,6 +70,8 @@ _RESOURCE_RELEASE_RECEIPT_SCHEMA_V2 = (
     "sentientos.production_chat_resource_release_receipt:v2")
 _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3 = (
     "sentientos.production_chat_resource_release_receipt:v3")
+_RESOURCE_RELEASE_RECEIPT_SCHEMA_V4 = (
+    "sentientos.production_chat_resource_release_receipt:v4")
 _RESOURCE_RELEASE_NAME = re.compile(
     r"serving-resource-release-[0-9a-f]{24}\.json\Z")
 _MAX_RESOURCE_RELEASE_RECEIPTS = 256
@@ -348,7 +350,8 @@ class ProductionChatResourceObservationOwner:
                     or receipt_id in seen_ids
                     or value.get("schema_version") not in {
                         _RESOURCE_RELEASE_RECEIPT_SCHEMA_V2,
-                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3}
+                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3,
+                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4}
                     or semantic_digest != actual_semantic_digest
                     or receipt_id != actual_receipt_id
                     or value.get("status") not in {
@@ -381,12 +384,52 @@ class ProductionChatResourceObservationOwner:
                         and release_outcome not in {"deny", "defer", "quarantine"})):
                 raise ProductionChatResourceObservationError(
                     "resource_release_admission_outcome_status_mismatch")
+            if value.get("schema_version") == _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4:
+                witness = value.get("release_admission_witness")
+                witness_fields = {
+                    "schema_version", "outcome", "reason_codes", "current_phase",
+                    "requested_phase", "authority_class", "action_kind", "actor",
+                    "target_subsystem", "correlation_id", "admission_decision_ref"}
+                if (not isinstance(witness, Mapping)
+                        or set(witness) != witness_fields
+                        or witness.get("schema_version")
+                            != "sentientos.resource_release_admission_witness:v1"
+                        or witness.get("outcome") != value.get("release_admission_outcome")
+                        or witness.get("outcome") not in {
+                            "allow", "deny", "defer", "quarantine"}
+                        or witness.get("reason_codes") != value.get("release_reason_codes")
+                        or witness.get("authority_class") != "local_model_resource_release"
+                        or witness.get("action_kind") != "local_model_resource_release"
+                        or witness.get("actor") not in {
+                            "production_chat_host_resource_governor",
+                            "production_chat_workload_resource_governor",
+                            "production_chat_game_resource_governor"}
+                        or witness.get("target_subsystem") != "production_chat"
+                        or witness.get("correlation_id") != release_correlation
+                        or not isinstance(witness.get("correlation_id"), str)
+                        or len(witness["correlation_id"]) > 256
+                        or witness.get("admission_decision_ref")
+                            != value.get("release_admission_decision_ref")
+                        or witness.get("admission_decision_ref")
+                            != f"kernel_decision:{release_correlation}"
+                        or witness.get("current_phase") not in {
+                            "bootstrap", "runtime", "maintenance", "shutdown"}
+                        or witness.get("requested_phase") != "runtime"
+                        or not isinstance(witness.get("reason_codes"), (list, tuple))
+                        or len(witness["reason_codes"]) > 64
+                        or not all(isinstance(reason, str) and reason
+                            and len(reason) <= 128
+                            for reason in witness.get("reason_codes"))):
+                    raise ProductionChatResourceObservationError(
+                        "resource_release_admission_witness_invalid")
             seen_ids.add(receipt_id)
             verified_value = dict(value)
             verified_value["serving_receipt_linkage_posture"] = "verified"
             verified_value["serving_receipt_id"] = serving_binding[1]
             verified_value["serving_receipt_semantic_digest"] = serving_binding[2]
-            if value.get("schema_version") == _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3:
+            if value.get("schema_version") in {
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3,
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4}:
                 request_reference = value.get("active_inference_request_reference")
                 cancellation_confirmed = (
                     value.get("active_inference_cancellation_confirmed") is True)

@@ -69,6 +69,24 @@ class ProductionServingInferenceError(RuntimeError):
         super().__init__(code)
 
 
+def _resource_release_admission_witness(
+        decision: ControlActionDecision) -> dict[str, Any]:
+    """Bind release custody to the exact kernel decision facts used by runtime."""
+    return {
+        "schema_version": "sentientos.resource_release_admission_witness:v1",
+        "outcome": decision.outcome.value,
+        "reason_codes": list(decision.reason_codes),
+        "current_phase": decision.current_phase.value,
+        "requested_phase": decision.requested_phase.value,
+        "authority_class": decision.authority_class.value,
+        "action_kind": decision.action_kind,
+        "actor": decision.actor,
+        "target_subsystem": decision.target_subsystem,
+        "correlation_id": decision.correlation_id,
+        "admission_decision_ref": decision.admission_decision_ref,
+    }
+
+
 def _bounded_thermal_zone_temperatures(snapshot: Any) -> dict[str, float]:
     """Keep bounded, validated thermal measurements in durable decision evidence."""
     values = (snapshot.get("thermal_zone_temperatures_c")
@@ -787,7 +805,7 @@ class ProductionServingInferenceController:
             except Exception as exc:
                 close_failure = type(exc).__name__
         outcome = {
-            "schema_version": "sentientos.production_chat_resource_release_receipt:v3",
+            "schema_version": "sentientos.production_chat_resource_release_receipt:v4",
             "status": ("worker_closed" if close_completed else
                 "release_effect_unconfirmed" if decision_valid else "denied"),
             "trigger_kind": trigger_kind,
@@ -800,6 +818,7 @@ class ProductionServingInferenceController:
             "model_identity_digest": metadata["model_identity_digest"],
             "release_admission_decision_ref": decision.admission_decision_ref,
             "release_admission_outcome": decision.outcome.value,
+            "release_admission_witness": _resource_release_admission_witness(decision),
             "release_reason_codes": list(decision.reason_codes),
             "resource_observation": {
                 "observation_correlation_id": host_release_evidence[
@@ -1780,7 +1799,7 @@ class ProductionServingInferenceController:
             except Exception as exc:
                 close_failure = type(exc).__name__
         outcome = {
-            "schema_version": "sentientos.production_chat_resource_release_receipt:v3",
+            "schema_version": "sentientos.production_chat_resource_release_receipt:v4",
             "status": "worker_closed" if closed else
                 "release_effect_unconfirmed" if decision_valid else "denied",
             "trigger_kind": "idle_game_frame_pressure_reconciliation",
@@ -1791,6 +1810,7 @@ class ProductionServingInferenceController:
             "model_identity_digest": digest_payload(loaded_identity.to_dict()),
             "release_admission_decision_ref": decision.admission_decision_ref,
             "release_admission_outcome": decision.outcome.value,
+            "release_admission_witness": _resource_release_admission_witness(decision),
             "release_reason_codes": list(decision.reason_codes),
             "resource_observation": evidence,
             "before_release_observation": before_release_observation,
@@ -1985,7 +2005,7 @@ class ProductionServingInferenceController:
             if before_values is not None and after_values is not None
             and isinstance(before_values["cpu_utilization_percent"], (int, float))
             and isinstance(after_values["cpu_utilization_percent"], (int, float)) else None)
-        outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v3",
+        outcome = {"schema_version": "sentientos.production_chat_resource_release_receipt:v4",
             "status": "worker_closed" if closed else
                 "release_effect_unconfirmed" if decision_valid else "denied",
             "trigger_kind": trigger_kind,
@@ -1996,6 +2016,7 @@ class ProductionServingInferenceController:
             "model_identity_digest": digest_payload(loaded_identity.to_dict()),
             "release_admission_decision_ref": decision.admission_decision_ref,
             "release_admission_outcome": decision.outcome.value,
+            "release_admission_witness": _resource_release_admission_witness(decision),
             "release_reason_codes": list(decision.reason_codes),
             "worker_exit_observed": worker_exit_observed,
             "close_failure": close_failure,

@@ -510,7 +510,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             if (not isinstance(release_receipt, Mapping)
                     or release_receipt.get("schema_version") not in {
                         "sentientos.production_chat_resource_release_receipt:v2",
-                        "sentientos.production_chat_resource_release_receipt:v3"}):
+                        "sentientos.production_chat_resource_release_receipt:v3",
+                        "sentientos.production_chat_resource_release_receipt:v4"}):
                 raise ValueError("resource_release_receipt_invalid")
             receipt_id = release_receipt.get("receipt_id")
             receipt_digest = release_receipt.get("receipt_semantic_digest")
@@ -558,6 +559,43 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         "verified", "not_required", "pending_invocation_receipt",
                         "legacy_unlinked"}):
                 raise ValueError("resource_release_receipt_identity_invalid")
+            if release_receipt.get("schema_version") == (
+                    "sentientos.production_chat_resource_release_receipt:v4"):
+                witness = release_receipt.get("release_admission_witness")
+                witness_fields = {
+                    "schema_version", "outcome", "reason_codes", "current_phase",
+                    "requested_phase", "authority_class", "action_kind", "actor",
+                    "target_subsystem", "correlation_id", "admission_decision_ref"}
+                if (not isinstance(witness, Mapping)
+                        or set(witness) != witness_fields
+                        or witness.get("schema_version")
+                            != "sentientos.resource_release_admission_witness:v1"
+                        or witness.get("outcome")
+                            != release_receipt.get("release_admission_outcome")
+                        or witness.get("outcome") not in {
+                            "allow", "deny", "defer", "quarantine"}
+                        or witness.get("reason_codes")
+                            != release_receipt.get("release_reason_codes")
+                        or witness.get("authority_class") != "local_model_resource_release"
+                        or witness.get("action_kind") != "local_model_resource_release"
+                        or witness.get("actor") not in {
+                            "production_chat_host_resource_governor",
+                            "production_chat_workload_resource_governor",
+                            "production_chat_game_resource_governor"}
+                        or witness.get("target_subsystem") != "production_chat"
+                        or witness.get("correlation_id") != correlation
+                        or not isinstance(witness.get("correlation_id"), str)
+                        or len(witness["correlation_id"]) > 256
+                        or witness.get("admission_decision_ref") != decision_ref
+                        or witness.get("current_phase") not in {
+                            "bootstrap", "runtime", "maintenance", "shutdown"}
+                        or witness.get("requested_phase") != "runtime"
+                        or not isinstance(witness.get("reason_codes"), (list, tuple))
+                        or len(witness["reason_codes"]) > 64
+                        or not all(isinstance(reason, str) and reason
+                            and len(reason) <= 128
+                            for reason in witness.get("reason_codes"))):
+                    raise ValueError("resource_release_admission_witness_invalid")
             if release_receipt.get("invocation_linkage_posture") in {
                     "pending_invocation_receipt", "legacy_unlinked"}:
                 release_lineage_findings.append(
@@ -581,6 +619,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "invocation_linkage_posture", "cancelled_invocation_receipt_id",
                 "cancelled_invocation_receipt_digest",
                 "release_admission_decision_ref", "release_admission_outcome",
+                "release_admission_witness",
                 "active_inference_preemption_requested",
                 "active_inference_cancellation_confirmed", "worker_exit_observed",
                 "close_failure", "inference_performed", "host_mutation_performed")}

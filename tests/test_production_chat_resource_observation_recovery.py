@@ -38,7 +38,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     registry = InstallationStateRegistry(tmp_path / "state", _test_only=True)
     bundle = handle
     release_body = {
-        "schema_version": "sentientos.production_chat_resource_release_receipt:v3",
+        "schema_version": "sentientos.production_chat_resource_release_receipt:v4",
         "status": "worker_closed",
         "trigger_kind": "idle_game_gpu_residency",
         "trigger_correlation_id": "game-workload-observation",
@@ -48,6 +48,17 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "model_identity_digest": "sha256:" + "1" * 64,
         "release_admission_decision_ref": "kernel_decision:release-correlation",
         "release_admission_outcome": "allow",
+        "release_admission_witness": {
+            "schema_version": "sentientos.resource_release_admission_witness:v1",
+            "outcome": "allow", "reason_codes": [], "current_phase": "runtime",
+            "requested_phase": "runtime",
+            "authority_class": "local_model_resource_release",
+            "action_kind": "local_model_resource_release",
+            "actor": "production_chat_game_resource_governor",
+            "target_subsystem": "production_chat",
+            "correlation_id": "release-correlation",
+            "admission_decision_ref": "kernel_decision:release-correlation",
+        },
         "release_reason_codes": [],
         "resource_observation": {"workload_mode": "gaming",
             "active_inference_preemption_requested": False,
@@ -110,6 +121,29 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "sentientos.production_chat_resource_observation.read_serving_operation_history",
         lambda *args, **kwargs: serving_history)
 
+    forged_witness_release = dict(release_body)
+    forged_witness_release["release_admission_witness"] = {
+        **release_body["release_admission_witness"], "actor": "unowned_actor"}
+    forged_identity_body = dict(forged_witness_release)
+    forged_identity_body.pop("receipt_id")
+    forged_identity_body.pop("receipt_semantic_digest")
+    forged_body = json.dumps(forged_identity_body, sort_keys=True,
+        separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    forged_id = "serving-resource-release-" + hashlib.sha256(forged_body).hexdigest()[:24]
+    forged_witness_release["receipt_id"] = forged_id
+    forged_witness_release.pop("receipt_semantic_digest")
+    forged_witness_release["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+        forged_witness_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    forged_path = release_directory.child(forged_id + ".json")
+    handle.durable_create(forged_path,
+        (json.dumps(forged_witness_release, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+    with pytest.raises(ProductionChatResourceObservationError,
+            match="resource_release_admission_witness_invalid"):
+        observer.observe()
+    forged_path.path.unlink()
+
     first = observer.observe()
     second = observer.observe()
     assert first.manifest_digest == second.manifest_digest
@@ -137,6 +171,8 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     projected_release = projected["payload"]["resource_release_receipts"][0]
     assert projected_release["release_admission_decision_ref"] == (
         "kernel_decision:release-correlation")
+    assert projected_release["release_admission_witness"]["actor"] == (
+        "production_chat_game_resource_governor")
     projected_observation = projected_release["resource_observation"]
     assert projected_observation["gpu_telemetry_available"] is True
     assert projected_observation["gpu_telemetry_complete"] is True
