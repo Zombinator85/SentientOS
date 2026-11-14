@@ -923,12 +923,15 @@ def test_host_pressure_preemption_persists_exact_active_invocation(
 
 @pytest.mark.no_legacy_skip
 @pytest.mark.parametrize("accelerator_route,gpu_layers", [("gpu", 1), ("cpu", 0)])
-@pytest.mark.parametrize("governor_mode", ["enforce", "advisory", "shadow"])
+@pytest.mark.parametrize("governor_mode", ["enforce", "advisory", "shadow", None])
 @pytest.mark.parametrize("operation_kind", ["inference", "model_serving"])
 def test_active_verified_game_defers_optional_model_work_with_nominal_telemetry(
         monkeypatch, tmp_path, accelerator_route, gpu_layers, governor_mode,
         operation_kind):
-    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", governor_mode)
+    if governor_mode is None:
+        monkeypatch.delenv("SENTIENTOS_GOVERNOR_MODE", raising=False)
+    else:
+        monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", governor_mode)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")

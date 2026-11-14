@@ -2972,11 +2972,14 @@ def test_verified_game_presence_retries_unconfirmed_cpu_inference_cancellation(
     serving.close()
 
 
-@pytest.mark.parametrize("governor_mode", ["enforce", "advisory", "shadow"])
+@pytest.mark.parametrize("governor_mode", ["enforce", "advisory", "shadow", None])
 def test_verified_game_presence_defers_each_new_inference_on_same_snapshot(
         monkeypatch, tmp_path, governor_mode):
     now = datetime.now(timezone.utc)
-    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", governor_mode)
+    if governor_mode is None:
+        monkeypatch.delenv("SENTIENTOS_GOVERNOR_MODE", raising=False)
+    else:
+        monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", governor_mode)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
     kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
