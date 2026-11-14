@@ -6,6 +6,7 @@ import math
 import os
 import subprocess
 import threading
+import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence, cast
 
@@ -195,6 +196,9 @@ class ExactRuntimeLocalModel:
             bufsize=1, env=_environment(), cwd=str(Path(str(chain["artifact_path"])).parent),
         )
         self._lock = threading.Lock()
+        self._active_generation_started_at: float | None = None
+        self._active_generation_cpu_baseline: tuple[float, float] | None = None
+        self._cancelled_generation_resources: dict[str, Any] | None = None
         ready = self._read()
         expected = {"type": "ready", "interpreter_path": str(interpreter),
                     "artifact_sha256": chain["artifact_sha256"],
@@ -234,6 +238,14 @@ class ExactRuntimeLocalModel:
     def generate(self, prompt: str, history: Sequence[str] | None = None, **generation: Any) -> str:
         return self.generate_with_metadata(prompt, history, **generation)[0]
 
+    def _process_cpu_times(self) -> tuple[float, float] | None:
+        try:
+            import psutil
+            times = psutil.Process(self._process.pid).cpu_times()
+            return float(times.user), float(times.system)
+        except (ImportError, OSError, ValueError):
+            return None
+
     def generate_with_metadata(self, prompt: str, history: Sequence[str] | None = None,
                                **generation: Any) -> tuple[str, dict[str, Any]]:
         if self._process.poll() is not None:
@@ -247,9 +259,14 @@ class ExactRuntimeLocalModel:
         if len(data.encode()) > MAX_PROTOCOL_BYTES:
             raise ModelLoadError("exact runtime worker request too large")
         with self._lock:
+            self._cancelled_generation_resources = None
+            self._active_generation_started_at = time.monotonic()
+            self._active_generation_cpu_baseline = self._process_cpu_times()
             assert self._process.stdin is not None
             self._process.stdin.write(data + "\n"); self._process.stdin.flush()
             response = self._read()
+            self._active_generation_started_at = None
+            self._active_generation_cpu_baseline = None
         if (set(response) != {"type", "output", "peak_rss_kib", "user_cpu_seconds",
                               "system_cpu_seconds", "invocation_resources",
                               "backend_thread_limit_control"}
@@ -314,12 +331,32 @@ class ExactRuntimeLocalModel:
         return "llama_cpp exact-runtime worker (" + str(self.active_identity.resolved_artifact_path) + ")"
 
     def cancel_pending_generation(self) -> bool:
-        """Terminate the isolated runtime process so invocation deadlines can hold."""
+        """Terminate the isolated worker and retain a bounded process CPU sample."""
         if self._process.poll() is not None:
             return False
+        started_at = getattr(self, "_active_generation_started_at", None)
+        baseline = getattr(self, "_active_generation_cpu_baseline", None)
+        sampled = self._process_cpu_times() if started_at is not None else None
+        if started_at is not None and baseline is not None and sampled is not None:
+            rss_bytes = None
+            self._cancelled_generation_resources = {
+                "schema_version": (
+                    "sentientos.governed_local_model_backend_resource_observation:v1"),
+                "backend": "llama_cpp",
+                "observation_source": "parent_sampled_exact_runtime_worker",
+                "user_cpu_seconds": max(0.0, sampled[0] - baseline[0]),
+                "system_cpu_seconds": max(0.0, sampled[1] - baseline[1]),
+                "wall_seconds": max(0.0, time.monotonic() - started_at),
+                "process_peak_rss_bytes": rss_bytes,
+            }
         self._process.kill()
         self._process.wait(timeout=5)
         return self._process.poll() is not None
+
+    def take_cancelled_generation_resource_observation(self) -> dict[str, Any] | None:
+        observation = self._cancelled_generation_resources
+        self._cancelled_generation_resources = None
+        return dict(observation) if observation is not None else None
 
     def close(self) -> None:
         if self._process.poll() is None:

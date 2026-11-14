@@ -18,7 +18,8 @@ from sentientos.causal_resource_principal_authentication import RootIssuerProven
 from sentientos.causal_resource_principal_currentness import PrincipalCurrentnessVerifier, ReadOnlyPrincipalRevocationRegistry, REGISTRY_SCHEMA, registry_digest_for
 from sentientos.causal_resource_principal_trust_catalog import CATALOG_SCHEMA, ReadOnlyTrustedIssuerCatalog, catalog_digest_for
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
-from sentientos.control_plane_kernel import AdmissionOutcome, ControlPlaneKernel, LifecyclePhase
+from sentientos.control_plane_kernel import (AdmissionOutcome, AuthorityClass,
+    ControlActionRequest, ControlPlaneKernel, LifecyclePhase)
 from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, GovernedLocalModelResourceInvocationContext, LocalModelInvocationBudget
 from sentientos.governed_local_model_invocation import LocalModelInvocationDeferred
@@ -26,7 +27,7 @@ from sentientos.governed_local_model_resource_allocation import GovernedLocalMod
 from sentientos.host_collectors import HostCollectorResult
 from sentientos.host_resource_runtime import (HostObservationCollectorSpec,
     HostResourceRuntimeCoordinator, build_observation_plan, validate_evaluation)
-from sentientos.local_model_authority import build_local_model_authority_map
+from sentientos.local_model_authority import build_local_model_authority_map, digest_payload
 from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionError, _resource_linkage_fields,
 )
@@ -88,6 +89,105 @@ def test_resource_backed_completion_cross_links_exact_effect_receipt_and_survive
     assert ledger._state["receipts"][-1]["effect_receipt_digest"] == receipt.receipt_digest
     assert ledger.remaining_calls(context.allocation.allocation_id) == 1
     assert GovernedLocalModelResourceLedger(ledger.path).remaining_calls(context.allocation.allocation_id) == 1
+
+
+
+
+def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(tmp_path):
+    started = threading.Event()
+    cancelled = threading.Event()
+
+    class SampledCancellationModel(Model):
+        supports_per_invocation_thread_limit = True
+
+        def generate_governed_with_metadata(self, prompt, **kwargs):
+            started.set()
+            if not cancelled.wait(2):
+                raise AssertionError("test cancellation was not delivered")
+            raise RuntimeError("worker_terminated_for_game_priority")
+
+        def cancel_pending_generation(self):
+            cancelled.set()
+            return True
+
+        def take_cancelled_generation_resource_observation(self):
+            return {
+                "schema_version":
+                    "sentientos.governed_local_model_backend_resource_observation:v1",
+                "backend": "llama_cpp",
+                "observation_source": "parent_sampled_exact_runtime_worker",
+                "user_cpu_seconds": 0.6,
+                "system_cpu_seconds": 0.15,
+                "wall_seconds": 0.8,
+                "process_peak_rss_bytes": None,
+            }
+
+    model, invoker, _, context, ledger = setup(tmp_path, model=SampledCancellationModel(),
+        cpu_ceiling=20.0)
+    request = invoker.build_request(purpose="local_user_chat", prompt="wait",
+        caller="test", correlation_id="cancelled-cpu-accounting",
+        budget=LocalModelInvocationBudget(100, 200, 20, 5.0, 2),
+        linkage={"max_backend_threads": 2})
+    result = []
+    worker = threading.Thread(target=lambda: result.append(
+        invoker.invoke(request, resource_context=context)))
+    worker.start()
+    assert started.wait(2)
+    active_reference = invoker.active_invocation_request_reference()
+    assert active_reference is not None
+    kernel = invoker.kernel
+    decision = kernel._finalize(ControlActionRequest(
+        action_kind="local_model_inference_preemption",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="production_chat_game_workload_governor",
+        target_subsystem="governed_local_model_invocation",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"correlation_id": "active-inference-preemption:"
+            + digest_payload(dict(active_reference)) + ":cancelled-cpu-test"}),
+        AdmissionOutcome.ALLOW, ["admitted"], {})
+    assert invoker.cancel_pending_generation(reason="workload_transition",
+        cancellation_admission_decision=decision) is True
+    worker.join(2)
+
+    assert not worker.is_alive()
+    receipt = result[0]
+    assert receipt.status == "cancelled"
+    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v5"
+    assert receipt.cancellation_resource_observation["user_cpu_seconds"] == 0.6
+    assert ledger._state["receipts"][-2]["resource_specific_measurement"][
+        "backend_resource_observation"] == receipt.cancellation_resource_observation
+    assert ledger.cpu_seconds_used(context.allocation.allocation_id) == 0.75
+    recovered = GovernedLocalModelResourceLedger(ledger.path)
+    assert recovered.cpu_seconds_used(context.allocation.allocation_id) == 0.75
+    from sentientos.governed_local_model_invocation import validate_receipt
+    assert validate_receipt(receipt.to_dict())[0]
+    from sentientos.host_resource_runtime import resource_consumption_world_state_records
+    projected = resource_consumption_world_state_records(
+        ledger=ledger, invocation_receipts=[receipt.to_dict()],
+        verified_inference_admission_decisions=[{
+            "schema_version": "sentientos.resource_bound_inference_admission_witness:v1",
+            "invocation_receipt_id": receipt.receipt_id,
+            "invocation_receipt_digest": receipt.receipt_digest,
+            "request_id": receipt.request["request_id"],
+            "request_digest": receipt.request["request_digest"],
+            "admission_decision_ref": receipt.admission_decision_ref,
+            "correlation_id": receipt.request["correlation_id"],
+            "resource_allocation_binding": {
+                "schema_version": (
+                    "sentientos.governed_local_model_resource_allocation_admission_context:v1"),
+                "allocation_id": context.allocation.allocation_id,
+                "allocation_digest": context.allocation.allocation_digest,
+                "allocator_id": context.allocation.allocator_id,
+                "resource_kind": context.allocation.resource_kind,
+                "policy_digest": context.allocation.policy_digest,
+                "policy_epoch": context.allocation.epoch,
+                "principal_binding_digest": context.allocation.principal_binding_digest,
+            },
+        }])[0]
+    assert projected["disposition"] == "recorded"
+    assert not any(finding.startswith(
+        "backend_resource_observation_receipt_mismatch:")
+        for finding in projected["payload"]["lineage_findings"])
 
 
 def test_inference_admission_records_exact_preflighted_resource_allocation(
@@ -181,10 +281,10 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
             "schema_version": "sentientos.resource_bound_inference_admission_witness:v1",
             "invocation_receipt_id": receipt.receipt_id,
             "invocation_receipt_digest": receipt.receipt_digest,
-            "request_id": receipt.request.request_id,
-            "request_digest": receipt.request.request_digest,
+            "request_id": receipt.request["request_id"],
+            "request_digest": receipt.request["request_digest"],
             "admission_decision_ref": receipt.admission_decision_ref,
-            "correlation_id": receipt.request.correlation_id,
+            "correlation_id": receipt.request["correlation_id"],
             "resource_allocation_binding": {
                 "schema_version": (
                     "sentientos.governed_local_model_resource_allocation_admission_context:v1"),
@@ -213,10 +313,10 @@ def test_exact_backend_resource_observation_flows_into_governed_allocation_recei
         "schema_version": "sentientos.resource_bound_inference_admission_witness:v1",
         "invocation_receipt_id": receipt.receipt_id,
         "invocation_receipt_digest": receipt.receipt_digest,
-        "request_id": receipt.request.request_id,
-        "request_digest": receipt.request.request_digest,
+        "request_id": receipt.request["request_id"],
+        "request_digest": receipt.request["request_digest"],
         "admission_decision_ref": receipt.admission_decision_ref,
-        "correlation_id": receipt.request.correlation_id,
+        "correlation_id": receipt.request["correlation_id"],
         "resource_allocation_binding": {
             "schema_version": (
                 "sentientos.governed_local_model_resource_allocation_admission_context:v1"),
@@ -458,7 +558,7 @@ def test_background_inference_defers_then_recovers_with_measured_effect_receipts
     kernel.set_phase(LifecyclePhase.RUNTIME)
 
     completed = invoker.invoke(request, resource_context=context)
-    assert completed.status == "admitted_completed"
+    assert completed.status == "admitted_completed", completed.reason_codes
     assert completed.effects["local_model_inference"] is True
     assert completed.latency_ms >= 0 and model.calls == 1
     assert [item["state"] for item in ledger._state["receipts"]] == [
@@ -466,7 +566,7 @@ def test_background_inference_defers_then_recovers_with_measured_effect_receipts
     assert ledger._state["receipts"][-1]["effect_receipt_digest"] == completed.receipt_digest
 
 
-def test_game_host_pressure_defers_without_resource_debit_then_recovers(
+def test_game_host_pressure_defers_and_nominal_recovery_still_yields_to_game(
         tmp_path, monkeypatch):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -527,9 +627,9 @@ def test_game_host_pressure_defers_without_resource_debit_then_recovers(
     assert recovered_evaluation is not None
     assert validate_evaluation(recovered_evaluation).ok
     completed = invoker.invoke(request, resource_context=context)
-    assert completed.status == "admitted_completed"
-    assert completed.effects["local_model_inference"] is True
-    assert model.calls == 1
-    assert states(ledger) == ["attempt_begun", "measured_completed", "reconciled"]
-    assert ledger.remaining_calls(context.allocation.allocation_id) == 1
-    assert ledger._state["receipts"][-1]["effect_receipt_digest"] == completed.receipt_digest
+    assert completed.status == "deferred"
+    assert completed.effects["local_model_inference"] is False
+    assert model.calls == 0
+    assert ledger._state["attempts"] == {}
+    assert ledger._state["receipts"] == []
+    assert ledger.remaining_calls(context.allocation.allocation_id) == 2

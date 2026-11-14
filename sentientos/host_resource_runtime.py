@@ -789,16 +789,19 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             if isinstance(completion, Mapping)
             and completion.get("schema_version") ==
                 "sentientos.llama_cpp_completion_observation:v3" else None)
-        expected_observation = ({
-            "schema_version": (
-                "sentientos.governed_local_model_backend_resource_observation:v1"),
-            "backend": "llama_cpp",
-            "observation_source": "exact_runtime_worker_process",
-            "user_cpu_seconds": metrics.get("user_cpu_seconds"),
-            "system_cpu_seconds": metrics.get("system_cpu_seconds"),
-            "wall_seconds": metrics.get("wall_seconds"),
-            "process_peak_rss_bytes": metrics.get("process_peak_rss_bytes"),
-        } if isinstance(metrics, Mapping) else None)
+        cancellation_observation = linked_invocation.get(
+            "cancellation_resource_observation")
+        expected_observation = (dict(cancellation_observation)
+            if isinstance(cancellation_observation, Mapping) else ({
+                "schema_version": (
+                    "sentientos.governed_local_model_backend_resource_observation:v1"),
+                "backend": "llama_cpp",
+                "observation_source": "exact_runtime_worker_process",
+                "user_cpu_seconds": metrics.get("user_cpu_seconds"),
+                "system_cpu_seconds": metrics.get("system_cpu_seconds"),
+                "wall_seconds": metrics.get("wall_seconds"),
+                "process_peak_rss_bytes": metrics.get("process_peak_rss_bytes"),
+            } if isinstance(metrics, Mapping) else None))
         if (not isinstance(backend_observation, Mapping)
                 or dict(backend_observation) != expected_observation):
             lineage_findings.append(

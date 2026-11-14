@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -40,6 +41,40 @@ def test_exact_runtime_worker_reports_confirmed_process_cancellation() -> None:
     assert model.cancel_pending_generation() is True
     assert process.killed is True
     assert model.cancel_pending_generation() is False
+
+
+def test_exact_runtime_worker_samples_cpu_before_cancellation(tmp_path, monkeypatch):
+    class Process:
+        returncode = None
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            self.returncode = -9
+
+        def wait(self, *, timeout):
+            assert timeout == 5
+            return self.returncode
+
+    model = object.__new__(ExactRuntimeLocalModel)
+    model._process = Process()
+    model._active_generation_started_at = time.monotonic() - 0.8
+    model._active_generation_cpu_baseline = (1.0, 0.2)
+    model._cancelled_generation_resources = None
+    samples = iter(((1.6, 0.35),))
+    monkeypatch.setattr(ExactRuntimeLocalModel, "_process_cpu_times",
+        lambda self: next(samples))
+
+    assert model.cancel_pending_generation() is True
+    observation = model.take_cancelled_generation_resource_observation()
+    assert observation is not None
+    assert observation["observation_source"] == "parent_sampled_exact_runtime_worker"
+    assert observation["user_cpu_seconds"] == pytest.approx(0.6)
+    assert observation["system_cpu_seconds"] == pytest.approx(0.15)
+    assert observation["wall_seconds"] >= 0.8
+    assert observation["process_peak_rss_bytes"] is None
+    assert model.take_cancelled_generation_resource_observation() is None
 
 
 def test_exact_runtime_worker_close_waits_for_live_process_exit() -> None:

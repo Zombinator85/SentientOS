@@ -343,8 +343,9 @@ class GovernedLocalModelResourceConsumptionReceipt:
                     or backend_observation.get("schema_version") !=
                         _BACKEND_RESOURCE_OBSERVATION_SCHEMA
                     or backend_observation.get("backend") != "llama_cpp"
-                    or backend_observation.get("observation_source") !=
-                        "exact_runtime_worker_process"):
+                    or backend_observation.get("observation_source") not in {
+                        "exact_runtime_worker_process",
+                        "parent_sampled_exact_runtime_worker"}):
                 raise GovernedLocalModelResourceError("backend_resource_observation_invalid")
             for name in ("user_cpu_seconds", "system_cpu_seconds", "wall_seconds"):
                 metric = backend_observation.get(name)
