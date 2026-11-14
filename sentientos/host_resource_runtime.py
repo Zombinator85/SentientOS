@@ -496,6 +496,34 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 raise ValueError("resource_release_receipt_invalid")
             receipt_id = release_receipt.get("receipt_id")
             receipt_digest = release_receipt.get("receipt_semantic_digest")
+            # Recovery enriches the stored receipt with independently verified
+            # serving and invocation links. Remove only those derived fields,
+            # then recheck the immutable release body before it contributes to
+            # resource lineage.
+            enriched_fields = {
+                "serving_receipt_linkage_posture", "serving_receipt_id",
+                "serving_receipt_semantic_digest", "invocation_linkage_posture",
+                "cancelled_invocation_receipt_id",
+                "cancelled_invocation_receipt_digest",
+            }
+            release_body = {key: value for key, value in release_receipt.items()
+                if key not in enriched_fields and key != "receipt_semantic_digest"}
+            release_identity_body = dict(release_body)
+            release_identity_body.pop("receipt_id", None)
+            try:
+                expected_release_digest = hashlib.sha256(json.dumps(
+                    release_body, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+                expected_release_id = "serving-resource-release-" + hashlib.sha256(
+                    json.dumps(release_identity_body, sort_keys=True,
+                        separators=(",", ":"), ensure_ascii=False,
+                        allow_nan=False).encode("utf-8")).hexdigest()[:24]
+            except (TypeError, ValueError) as exc:
+                raise ValueError("resource_release_receipt_canonicalization_invalid") from exc
+            if receipt_digest != expected_release_digest:
+                raise ValueError("resource_release_receipt_digest_mismatch")
+            if receipt_id != expected_release_id:
+                raise ValueError("resource_release_receipt_id_mismatch")
             decision_ref = release_receipt.get("release_admission_decision_ref")
             correlation = release_receipt.get("release_correlation_id")
             if (not isinstance(receipt_id, str) or not receipt_id

@@ -125,6 +125,13 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             "kernel_decision:release-correlation")
     assert projected["disposition"] == "degraded"
     assert projected["payload"]["resource_release_receipt_posture"] == "degraded"
+    tampered_release = dict(first.verified_resource_release_receipts[0])
+    tampered_release["status"] = "denied"
+    with pytest.raises(ValueError,
+            match="resource_release_receipt_digest_mismatch"):
+        resource_consumption_world_state_records(
+            ledger=first.ledger,
+            verified_resource_release_receipts=(tampered_release,))
 
     linked_invocation = {
         "receipt_id": "lmrec-" + "d" * 24,
