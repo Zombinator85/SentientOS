@@ -448,6 +448,7 @@ class ProductionChatResourceObservationOwner:
                     raise ProductionChatResourceObservationError(
                         "resource_release_admission_witness_invalid")
             if value.get("schema_version") == _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5:
+                host_measurement_binding_posture: str | None = None
                 witness = value.get("release_admission_witness")
                 if not isinstance(witness, Mapping):
                     raise ProductionChatResourceObservationError(
@@ -513,7 +514,13 @@ class ProductionChatResourceObservationOwner:
                         if isinstance(runtime_governor, Mapping) else None)
                     evidence = (evidence_refs.get("resource_observation_evidence")
                         if isinstance(evidence_refs, Mapping) else None)
-                    if (not isinstance(evidence, Mapping)
+                    if admission_record is None:
+                        host_measurement_binding_posture = (
+                            "admission_unrecorded" if release_status == "admission_unrecorded"
+                            else "admission_record_missing")
+                    elif release_status == "denied":
+                        host_measurement_binding_posture = "admission_denied"
+                    elif (not isinstance(evidence, Mapping)
                             or evidence.get("status") != "current"
                             or evidence.get("observation_correlation_id")
                                 != receipt_observation.get("observation_correlation_id")
@@ -525,14 +532,33 @@ class ProductionChatResourceObservationOwner:
                                 != receipt_observation.get("game_workload_message_id")
                             or evidence.get("pressure_labels")
                                 != receipt_observation.get("pressure_labels")
-                            or evidence.get("gpu_utilization_percent")
-                                != receipt_observation.get("gpu_utilization_percent")
-                            or evidence.get("vram_utilization_percent")
-                                != receipt_observation.get("vram_utilization_percent")
                             or evidence.get("active_inference_preemption_requested")
                                 != value.get("active_inference_preemption_requested")):
                         raise ProductionChatResourceObservationError(
                             "resource_release_host_observation_admission_mismatch")
+                    elif isinstance(evidence, Mapping):
+                        measurement_fields = {
+                            "gpu_utilization_percent", "vram_utilization_percent"}
+                        recorded_measurement_fields = measurement_fields.intersection(evidence)
+                        if recorded_measurement_fields == measurement_fields:
+                            if (evidence.get("schema_version") !=
+                                    "sentientos.production_game_host_resource_release_evidence:v2"
+                                    or evidence.get("gpu_utilization_percent")
+                                        != receipt_observation.get(
+                                            "gpu_utilization_percent")
+                                    or evidence.get("vram_utilization_percent")
+                                        != receipt_observation.get(
+                                            "vram_utilization_percent")):
+                                raise ProductionChatResourceObservationError(
+                                    "resource_release_host_observation_admission_mismatch")
+                            host_measurement_binding_posture = "verified"
+                        elif not recorded_measurement_fields and evidence.get(
+                                "schema_version") is None:
+                            host_measurement_binding_posture = (
+                                "legacy_report_bound_measurements_unbound")
+                        else:
+                            raise ProductionChatResourceObservationError(
+                                "resource_release_host_observation_admission_mismatch")
                 if (value.get("active_inference_cancellation_confirmed") is True
                         and isinstance(admission_record, Mapping)):
                     delegated = admission_record.get("delegated_outcomes")
@@ -558,6 +584,10 @@ class ProductionChatResourceObservationOwner:
             verified_value["serving_receipt_linkage_posture"] = "verified"
             verified_value["serving_receipt_id"] = serving_binding[1]
             verified_value["serving_receipt_semantic_digest"] = serving_binding[2]
+            if (value.get("schema_version") == _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5
+                    and host_measurement_binding_posture is not None):
+                verified_value["host_measurement_binding_posture"] = (
+                    host_measurement_binding_posture)
             if value.get("schema_version") in {
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3,
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,

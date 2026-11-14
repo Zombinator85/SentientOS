@@ -238,6 +238,8 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     host_evidence_refs = dict(host_evidence_governor["evidence_refs"])
     host_evidence_refs["resource_observation_evidence"] = {
         "status": "current",
+        "schema_version": (
+            "sentientos.production_game_host_resource_release_evidence:v2"),
         "observation_correlation_id": "host-observation-correlation",
         "host_report_id": "host-report-1",
         "host_report_digest": "a" * 64,
@@ -269,6 +271,57 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             match="resource_release_host_observation_admission_mismatch"):
         observer.observe()
     host_evidence_path.path.unlink()
+
+    legacy_host_release = dict(host_evidence_release)
+    legacy_host_release["resource_observation"] = {
+        **host_evidence_release["resource_observation"],
+        "gpu_utilization_percent": 22.0}
+    legacy_record = dict(host_evidence_record)
+    legacy_delegated = dict(host_evidence_delegated)
+    legacy_governor = dict(host_evidence_governor)
+    legacy_refs = dict(host_evidence_refs)
+    legacy_resource_evidence = dict(
+        host_evidence_refs["resource_observation_evidence"])
+    legacy_resource_evidence.pop("schema_version")
+    legacy_resource_evidence.pop("gpu_utilization_percent")
+    legacy_resource_evidence.pop("vram_utilization_percent")
+    legacy_refs["resource_observation_evidence"] = legacy_resource_evidence
+    legacy_governor["evidence_refs"] = legacy_refs
+    legacy_delegated["runtime_governor"] = legacy_governor
+    legacy_record["delegated_outcomes"] = legacy_delegated
+    legacy_host_release["release_admission_record"] = legacy_record
+    legacy_host_release.pop("receipt_id")
+    legacy_host_release.pop("receipt_semantic_digest")
+    legacy_id = "serving-resource-release-" + hashlib.sha256(json.dumps(
+        legacy_host_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()[:24]
+    legacy_host_release["receipt_id"] = legacy_id
+    legacy_host_release["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+        legacy_host_release, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    legacy_path = release_directory.child(legacy_id + ".json")
+    handle.durable_create(legacy_path,
+        (json.dumps(legacy_host_release, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+    try:
+        legacy_snapshot = observer.observe()
+        legacy_projected = next(item for item in
+            legacy_snapshot.verified_resource_release_receipts
+            if item.get("receipt_id") == legacy_id)
+        assert legacy_projected["host_measurement_binding_posture"] == (
+            "legacy_report_bound_measurements_unbound")
+        from sentientos.host_resource_runtime import (
+            resource_consumption_world_state_records,
+        )
+        legacy_world_state = resource_consumption_world_state_records(
+            ledger=legacy_snapshot.ledger,
+            verified_resource_release_receipts=(
+                legacy_snapshot.verified_resource_release_receipts))[0]
+        assert any(item.get("host_measurement_binding_posture") ==
+            "legacy_report_bound_measurements_unbound"
+            for item in legacy_world_state["payload"]["resource_release_receipts"])
+    finally:
+        legacy_path.path.unlink()
 
     first = observer.observe()
     second = observer.observe()

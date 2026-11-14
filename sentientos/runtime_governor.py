@@ -2224,6 +2224,8 @@ class RuntimeGovernor:
             valid = valid and evidence_valid
             evidence_ref = ({
                 "status": "current",
+                "schema_version": (
+                    "sentientos.production_game_host_resource_release_evidence:v2"),
                 "observation_correlation_id": observation_value.get("observation_correlation_id"),
                 "host_report_id": observation_value.get("host_report_id"),
                 "game_workload_message_id": observation_value.get("game_workload_message_id"),
