@@ -583,6 +583,23 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "payload"]["resource_release_receipts"][0]
     assert any("resource_release_invocation_linkage_missing_or_mismatched:" in item
         for item in forged_v10_projection["payload"]["lineage_findings"])
+    monkeypatch.setattr(
+        "sentientos.governed_local_model_invocation.validate_receipt",
+        lambda _receipt: (True, ()))
+    corroborated_v10_release = {
+        **v10_linked_releases[0],
+        "cancelled_invocation_receipt_id": exact_linked_v10["receipt_id"],
+        "cancelled_invocation_receipt_digest": exact_linked_v10["receipt_digest"],
+        "cancelled_invocation_preemption_ref": preemption_ref,
+    }
+    corroborated_v10_projection = resource_consumption_world_state_records(
+        ledger=first.ledger,
+        invocation_receipts=(exact_linked_v10,),
+        verified_resource_release_receipts=(corroborated_v10_release,))[0]
+    assert corroborated_v10_projection["payload"]["resource_release_receipts"][0][
+        "cancelled_invocation_preemption_ref"] == preemption_ref
+    assert not any("resource_release_preemption_linkage_missing_or_mismatched:" in item
+        for item in corroborated_v10_projection["payload"]["lineage_findings"])
     substituted_invocation = {
         **exact_linked_invocation,
         "cancellation_admission_record": {
