@@ -233,6 +233,12 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         resource_facts = [fact for fact in snapshot.facts
             if fact.subject.subject_kind == "causal_resource_consumption"]
         assert len(resource_facts) == 1
+        assert resource_facts[0].disposition == "recorded", {
+            "source_kind": resource_facts[0].source.kind,
+            "source_id": resource_facts[0].source.source_id,
+            "stage": resource_facts[0].stage,
+            "lineage_findings": resource_facts[0].payload.get("lineage_findings"),
+        }
         assert resource_facts[0].payload["shared_host_usage_attribution"] == (
             "unknown_without_independent_observation")
 
@@ -265,7 +271,12 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         epistemic_snapshot = epistemic_surfaces.current_world_state_snapshot
         assert epistemic_snapshot is not None
         developed = epistemic_surfaces.run_epistemic_development(tick_id=tick_id_n)
-        assert developed["status"] == "state_advanced"
+        assert developed["status"] == "state_advanced", {
+            "development": developed,
+            "facts": [(fact.source.kind, fact.source.source_id,
+                fact.subject.subject_kind, fact.subject.subject_id,
+                fact.stage, fact.disposition) for fact in epistemic_snapshot.facts],
+        }
         assert developed["next_tick_only"] is True and developed["authority"] is False
         bindings = epistemic_owner.bindings(proposition.proposition_id)
         assert len(bindings) == 1
