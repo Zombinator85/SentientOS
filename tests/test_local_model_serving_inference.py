@@ -1543,7 +1543,7 @@ def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
         assert result["receipt"].status == "cancelled"
         assert result["receipt"].cancellation_admission_decision_ref
         assert result["receipt"].schema_version == (
-            "sentientos.local_model_invocation_receipt:v4")
+            "sentientos.local_model_invocation_receipt:v6")
         assert result["receipt"].effects["local_model_inference"] is True
         assert model.closed is True
         assert model.calls == 1
@@ -1563,6 +1563,12 @@ def test_selected_gaming_profile_cancels_active_cpu_inference_on_host_pressure(
             (tmp_path / "kernel-decisions.jsonl").read_text(
                 encoding="utf-8").splitlines())
             if json.loads(line).get("action_kind") == "local_model_resource_release")
+        release_decision_facts = dict(release_decision)
+        release_decision_facts.pop("timestamp")
+        assert result["receipt"].cancellation_admission_decision == {
+            "schema_version": "sentientos.cancellation_admission_decision_witness:v1",
+            **release_decision_facts,
+        }
         assert release_decision["correlation_id"].startswith(
             "active-resource-release:"
             + digest_payload(release["active_inference_request_reference"]) + ":")
@@ -1892,7 +1898,7 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
     assert invocation_result["receipt"].status == "cancelled"
     assert invocation_result["receipt"].cancellation_admission_decision_ref
     assert invocation_result["receipt"].schema_version == (
-        "sentientos.local_model_invocation_receipt:v4")
+        "sentientos.local_model_invocation_receipt:v6")
     assert invocation_result["receipt"].output_text is None
     assert resource_ledger.remaining_calls(bundle.allocation_id) == 1
     assert len(resource_ledger._state["attempts"]) == 1
@@ -1939,6 +1945,12 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
                 encoding="utf-8").splitlines())
             if json.loads(line).get("action_kind") ==
                 "local_model_inference_preemption")
+        preemption_decision_facts = dict(preemption_decision)
+        preemption_decision_facts.pop("timestamp")
+        assert invocation_result["receipt"].cancellation_admission_decision == {
+            "schema_version": "sentientos.cancellation_admission_decision_witness:v1",
+            **preemption_decision_facts,
+        }
         assert invocation_result["receipt"].cancellation_admission_decision_ref == (
             preemption_decision["admission_decision_ref"])
         assert release["resource_observation"]["pressure_labels"] == ["cpu_pressure"]

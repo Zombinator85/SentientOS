@@ -371,7 +371,7 @@ def test_governed_cancellation_admission_is_bound_to_receipt(
     assert "cancelled_for_workload_transition" in result[0].reason_codes
     assert result[0].cancellation_admission_decision_ref == (
         decision.admission_decision_ref)
-    assert result[0].schema_version == "sentientos.local_model_invocation_receipt:v4"
+    assert result[0].schema_version == "sentientos.local_model_invocation_receipt:v6"
     valid, reasons = validate_receipt(result[0].to_dict())
     assert valid, reasons
     persisted = json.loads((tmp_path / "runtime" / "receipts" /

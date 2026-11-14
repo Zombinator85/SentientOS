@@ -36,6 +36,7 @@ _DIGEST_BOUND_INVOCATION_RECEIPT_SCHEMAS = frozenset({
     "sentientos.local_model_invocation_receipt:v3",
     "sentientos.local_model_invocation_receipt:v4",
     "sentientos.local_model_invocation_receipt:v5",
+    "sentientos.local_model_invocation_receipt:v6",
 })
 
 
@@ -621,6 +622,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             release_receipt_summaries.append(summary)
     admission_by_receipt: dict[str, Mapping[str, Any]] = {}
     host_observation_binding_posture_by_receipt: dict[str, str] = {}
+    workload_preemption_admission_posture_by_receipt: dict[str, str] = {}
     witness_v1_fields = {
         "schema_version", "invocation_receipt_id", "invocation_receipt_digest",
         "request_id", "request_digest", "admission_decision_ref", "correlation_id",
@@ -656,7 +658,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     "sentientos.local_model_invocation_receipt:v2",
                     "sentientos.local_model_invocation_receipt:v3",
                     "sentientos.local_model_invocation_receipt:v4",
-                    "sentientos.local_model_invocation_receipt:v5"}:
+                    "sentientos.local_model_invocation_receipt:v5",
+                    "sentientos.local_model_invocation_receipt:v6"}:
                 raise ValueError("resource_invocation_receipt_schema_unsupported")
             # Current receipts must prove their semantic digest and schema
             # contract before any downstream resource lineage uses them. Keep
@@ -810,6 +813,20 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     or len(cancellation_ref) <= len("kernel_decision:")):
                 lineage_findings.append(
                     f"workload_preemption_admission_linkage_missing:{invocation.get('receipt_id')}")
+                workload_preemption_admission_posture_by_receipt[str(
+                    invocation.get("receipt_id"))] = "missing_or_invalid_reference"
+            elif (invocation.get("schema_version") ==
+                    "sentientos.local_model_invocation_receipt:v6"
+                    and isinstance(invocation.get("cancellation_admission_decision"), Mapping)
+                    and invocation["cancellation_admission_decision"].get(
+                        "admission_decision_ref") == cancellation_ref):
+                workload_preemption_admission_posture_by_receipt[str(
+                    invocation.get("receipt_id"))] = "verified_receipt_bound_decision"
+            else:
+                workload_preemption_admission_posture_by_receipt[str(
+                    invocation.get("receipt_id"))] = "legacy_reference_only"
+                lineage_findings.append(
+                    f"workload_preemption_admission_decision_unverified:{invocation.get('receipt_id')}")
         if verified_inference_admission_decisions is not None and invocation.get("resource_allocation_digest") is not None:
             admission_witness = admission_by_receipt.get(str(invocation.get("receipt_id")))
             request = invocation.get("request")
@@ -1055,6 +1072,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             str(invocation.get("receipt_id")), {}).get("admission_decision_ref"),
         "cancellation_admission_decision_ref": invocation.get(
             "cancellation_admission_decision_ref"),
+        "workload_preemption_admission_posture":
+            workload_preemption_admission_posture_by_receipt.get(
+                str(invocation.get("receipt_id")), "not_required"),
         "host_resource_observation_binding_posture":
             host_observation_binding_posture_by_receipt.get(
                 str(invocation.get("receipt_id")), "not_verified"),

@@ -156,9 +156,13 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(
     assert not worker.is_alive()
     receipt = result[0]
     assert receipt.status == "cancelled"
-    assert receipt.schema_version == (
-        "sentientos.local_model_invocation_receipt:v5" if cancellation_confirmed
-        else "sentientos.local_model_invocation_receipt:v4")
+    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v6"
+    decision_facts = decision.to_dict()
+    decision_facts.pop("timestamp")
+    assert receipt.cancellation_admission_decision == {
+        "schema_version": "sentientos.cancellation_admission_decision_witness:v1",
+        **decision_facts,
+    }
     measurement = ledger._state["receipts"][-2]["resource_specific_measurement"]
     if cancellation_confirmed:
         assert receipt.cancellation_resource_observation["user_cpu_seconds"] == 0.6
@@ -174,7 +178,15 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(
         expected_cpu_seconds)
     from sentientos.governed_local_model_invocation import validate_receipt
     from sentientos.host_resource_runtime import resource_consumption_world_state_records
-    assert validate_receipt(receipt.to_dict())[0]
+    receipt_valid, receipt_findings = validate_receipt(receipt.to_dict())
+    assert receipt_valid, receipt_findings
+    substituted_decision = dict(receipt.cancellation_admission_decision or {})
+    substituted_decision["actor"] = "untrusted_caller"
+    substituted_receipt = replace(receipt,
+        cancellation_admission_decision=substituted_decision)
+    valid, findings = validate_receipt(substituted_receipt.to_dict())
+    assert not valid
+    assert "cancellation_admission_decision_invalid" in findings
     if cancellation_confirmed:
         substituted_reference = "kernel_decision:active-inference-preemption:" + \
             digest_payload({**dict(active_reference), "request_id": "another-invocation"}) + \
@@ -211,6 +223,9 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(
             },
         }])[0]
     assert projected["disposition"] == "recorded"
+    projected_invocation = projected["payload"]["invocation_receipts"][0]
+    assert projected_invocation["workload_preemption_admission_posture"] == (
+        "verified_receipt_bound_decision")
     assert not any(finding.startswith(
         "backend_resource_observation_receipt_mismatch:")
         for finding in projected["payload"]["lineage_findings"])

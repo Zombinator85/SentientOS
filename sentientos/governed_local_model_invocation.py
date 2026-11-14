@@ -37,6 +37,9 @@ INVOCATION_RECEIPT_SCHEMA = "sentientos.local_model_invocation_receipt:v2"
 INVOCATION_RECEIPT_SCHEMA_V3 = "sentientos.local_model_invocation_receipt:v3"
 INVOCATION_RECEIPT_SCHEMA_V4 = "sentientos.local_model_invocation_receipt:v4"
 INVOCATION_RECEIPT_SCHEMA_V5 = "sentientos.local_model_invocation_receipt:v5"
+INVOCATION_RECEIPT_SCHEMA_V6 = "sentientos.local_model_invocation_receipt:v6"
+CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA = (
+    "sentientos.cancellation_admission_decision_witness:v1")
 LLAMA_COMPLETION_OBSERVATION_SCHEMA_V1 = "sentientos.llama_cpp_completion_observation:v1"
 LLAMA_COMPLETION_OBSERVATION_SCHEMA = "sentientos.llama_cpp_completion_observation:v2"
 LLAMA_COMPLETION_OBSERVATION_SCHEMA_V3 = "sentientos.llama_cpp_completion_observation:v3"
@@ -210,6 +213,70 @@ def _valid_cancellation_admission_request_binding(value: object,
         if correlation.startswith(prefix) and correlation[len(prefix):]:
             return True
     return False
+
+
+def _valid_cancellation_admission_decision(value: object, *, reference: object,
+        request: object) -> bool:
+    fields = {
+        "schema_version", "event_type", "final_disposition", "outcome",
+        "reason_codes", "delegate_checks_consulted", "lifecycle_phase",
+        "current_phase", "requested_phase", "authority_class", "action_kind",
+        "actor_source", "actor", "execution_owner", "target_subsystem",
+        "delegated_outcomes", "federation_context", "proof_budget_context",
+        "protected_mutation_intent", "correlation_id", "admission_decision_ref",
+    }
+    if (not isinstance(value, Mapping) or set(value) != fields
+            or value.get("schema_version") !=
+                CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA
+            or value.get("event_type") != "control_plane_decision"
+            or value.get("final_disposition") != AdmissionOutcome.ALLOW.value
+            or value.get("outcome") != AdmissionOutcome.ALLOW.value
+            or value.get("admission_decision_ref") != reference
+            or not _valid_cancellation_admission_request_binding(reference, request)
+            or not isinstance(value.get("correlation_id"), str)
+            or reference != "kernel_decision:" + value["correlation_id"]
+            or not isinstance(value.get("reason_codes"), list)
+            or not value.get("reason_codes")
+            or not all(isinstance(reason, str) for reason in value["reason_codes"])
+            or not isinstance(value.get("delegated_outcomes"), Mapping)
+            or not isinstance(value.get("actor"), str)
+            or value.get("actor_source") != value.get("actor")
+            or value.get("execution_owner") != value.get("actor")
+            or value.get("delegate_checks_consulted") != sorted(
+                value["delegated_outcomes"])):
+        return False
+    governor = value["delegated_outcomes"].get("runtime_governor")
+    if (value.get("authority_class") == AuthorityClass.LOCAL_MODEL_INFERENCE.value
+            and value.get("action_kind") == "local_model_inference_preemption"
+            and value.get("target_subsystem") == "governed_local_model_invocation"
+            and value.get("actor") in {
+                "production_chat_host_resource_governor",
+                "production_chat_game_workload_governor"}):
+        if governor is None:
+            return True
+        return (isinstance(governor, Mapping)
+            and governor.get("allowed") is True
+            and governor.get("reason") in {
+                "allowed_host_resource_pressure_inference_preemption",
+                "allowed_verified_game_workload_inference_preemption"})
+    return (value.get("authority_class") ==
+                AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE.value
+            and value.get("action_kind") == "local_model_resource_release"
+            and value.get("target_subsystem") == "production_chat"
+            and value.get("actor") in {
+                "production_chat_host_resource_governor",
+                "production_chat_workload_resource_governor",
+                "production_chat_game_resource_governor"})
+
+
+def _cancellation_admission_decision_witness(
+        decision: ControlActionDecision) -> dict[str, Any]:
+    # ControlActionDecision is the exact kernel-owned object, while its event
+    # timestamp is minted by to_dict(). Keep the stable semantic decision facts
+    # in the receipt and leave the event timestamp with the kernel's audit row.
+    payload = decision.to_dict()
+    return {"schema_version": CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA,
+        **{key: value for key, value in payload.items() if key != "timestamp"}}
 RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
     "type": "object",
     "required": ["conclusion", "lesson_candidate"],
@@ -479,6 +546,7 @@ class LocalModelInvocationReceipt:
     backend_completion: Mapping[str, Any] | None = None
     cancellation_admission_decision_ref: str | None = None
     cancellation_resource_observation: Mapping[str, Any] | None = None
+    cancellation_admission_decision: Mapping[str, Any] | None = None
 
     def semantic_payload(self) -> dict[str, Any]:
         payload = {"schema_version": self.schema_version, "request": dict(self.request),
@@ -492,14 +560,19 @@ class LocalModelInvocationReceipt:
             payload["backend_completion"] = (dict(self.backend_completion)
                 if self.backend_completion is not None else None)
         if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V4,
-                INVOCATION_RECEIPT_SCHEMA_V5}:
+                INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6}:
             payload["backend_completion"] = (dict(self.backend_completion)
                 if self.backend_completion is not None else None)
             payload["cancellation_admission_decision_ref"] = self.cancellation_admission_decision_ref
-        if self.schema_version == INVOCATION_RECEIPT_SCHEMA_V5:
+        if self.schema_version in {INVOCATION_RECEIPT_SCHEMA_V5,
+                INVOCATION_RECEIPT_SCHEMA_V6}:
             payload["cancellation_resource_observation"] = (
                 dict(self.cancellation_resource_observation)
                 if self.cancellation_resource_observation is not None else None)
+        if self.schema_version == INVOCATION_RECEIPT_SCHEMA_V6:
+            payload["cancellation_admission_decision"] = (
+                dict(self.cancellation_admission_decision)
+                if self.cancellation_admission_decision is not None else None)
         return payload
 
     @property
@@ -596,15 +669,16 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
         # exactly the pre-v2 field set. An explicit null is not legacy.
         semantic = {key: payload.get(key) for key in legacy_semantic_keys}
     elif schema in {INVOCATION_RECEIPT_SCHEMA, INVOCATION_RECEIPT_SCHEMA_V3,
-                    INVOCATION_RECEIPT_SCHEMA_V4, INVOCATION_RECEIPT_SCHEMA_V5}:
+                    INVOCATION_RECEIPT_SCHEMA_V4, INVOCATION_RECEIPT_SCHEMA_V5,
+                    INVOCATION_RECEIPT_SCHEMA_V6}:
         semantic = {key: payload.get(key) for key in (
             "schema_version", *legacy_semantic_keys, "observed_at")}
         if schema in {INVOCATION_RECEIPT_SCHEMA_V3, INVOCATION_RECEIPT_SCHEMA_V4,
-                INVOCATION_RECEIPT_SCHEMA_V5}:
+                INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6}:
             semantic["backend_completion"] = payload.get("backend_completion")
             completion = payload.get("backend_completion")
             if (completion is None and schema in {INVOCATION_RECEIPT_SCHEMA_V4,
-                    INVOCATION_RECEIPT_SCHEMA_V5}):
+                    INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6}):
                 pass
             elif not validate_backend_completion_observation(completion):
                 reasons.append("backend_completion_observation_invalid")
@@ -641,7 +715,7 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
                         semantic["cancellation_admission_decision_ref"],
                         payload.get("request"))):
                 reasons.append("cancellation_admission_request_binding_invalid")
-        if schema == INVOCATION_RECEIPT_SCHEMA_V5:
+        if schema in {INVOCATION_RECEIPT_SCHEMA_V5, INVOCATION_RECEIPT_SCHEMA_V6}:
             if (payload.get("status") not in {"cancelled", "timeout"}
                     or not isinstance(payload.get("effects"), Mapping)
                     or payload["effects"].get("local_model_inference") is not True):
@@ -662,9 +736,20 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
                 reasons.append("cancellation_admission_request_binding_invalid")
             observation = payload.get("cancellation_resource_observation")
             semantic["cancellation_resource_observation"] = observation
-            if not _valid_backend_resource_observation(observation,
-                    expected_source="parent_sampled_exact_runtime_worker"):
+            if ((schema == INVOCATION_RECEIPT_SCHEMA_V5 or observation is not None)
+                    and not _valid_backend_resource_observation(observation,
+                        expected_source="parent_sampled_exact_runtime_worker")):
                 reasons.append("cancellation_resource_observation_invalid")
+        if schema == INVOCATION_RECEIPT_SCHEMA_V6:
+            cancellation_decision = payload.get("cancellation_admission_decision")
+            semantic["cancellation_admission_decision"] = cancellation_decision
+            if cancellation_ref := semantic.get("cancellation_admission_decision_ref"):
+                if not _valid_cancellation_admission_decision(
+                        cancellation_decision, reference=cancellation_ref,
+                        request=payload.get("request")):
+                    reasons.append("cancellation_admission_decision_invalid")
+            elif cancellation_decision is not None:
+                reasons.append("cancellation_admission_decision_unreferenced")
         observed_at = payload.get("observed_at")
         try:
             timestamp = datetime.fromisoformat(str(observed_at).replace("Z", "+00:00"))
@@ -742,7 +827,7 @@ class GovernedLocalModelInvoker:
     CANCELLATION_QUIESCENCE_TIMEOUT_SECONDS = 0.5
 
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
-        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_invocation_request_reference: dict[str, str] | None = None; self._active_cancel_reason: str | None = None; self._active_cancel_admission_ref: str | None = None; self._active_cancel_confirmed = False; self._active_residency_preload_event: threading.Event | None = None; self._backend_quiescence_callbacks: list[Callable[[], None]] = []
+        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None; self._active_invocation_request_reference: dict[str, str] | None = None; self._active_cancel_reason: str | None = None; self._active_cancel_admission_ref: str | None = None; self._active_cancel_admission_decision: dict[str, Any] | None = None; self._active_cancel_confirmed = False; self._active_residency_preload_event: threading.Event | None = None; self._backend_quiescence_callbacks: list[Callable[[], None]] = []
 
     def register_evidence_sink(self, sink: Callable[[Mapping[str, Any]], None] | None) -> None:
         """Install an explicit observational receipt sink owned by the runtime."""
@@ -850,6 +935,9 @@ class GovernedLocalModelInvoker:
                     return False
             self._active_cancel_reason = reason
             self._active_cancel_admission_ref = admission_ref
+            self._active_cancel_admission_decision = (
+                _cancellation_admission_decision_witness(decision)
+                if admission_ref is not None else None)
             self._active_cancel_confirmed = False
             event.set()
         cancel = getattr(self.model, "cancel_pending_generation", None)
@@ -928,6 +1016,8 @@ class GovernedLocalModelInvoker:
                             if active_release_event is not None:
                                 self._active_cancel_reason = "workload_transition"
                                 self._active_cancel_admission_ref = decision.admission_decision_ref
+                                self._active_cancel_admission_decision = (
+                                    _cancellation_admission_decision_witness(decision))
                                 self._active_cancel_confirmed = False
                                 active_release_event.set()
                         cancel = getattr(self.model, "cancel_pending_generation", None)
@@ -1159,6 +1249,7 @@ class GovernedLocalModelInvoker:
             False if resource_context is not None else None)
         generated_output: str | None = None
         cancellation_admission_ref: str | None = None
+        cancellation_admission_decision: Mapping[str, Any] | None = None
         resource_allocation_binding: dict[str, Any] | None = None
         inference_attempted = threading.Event()
         active_release_event: threading.Event | None = None
@@ -1388,6 +1479,7 @@ class GovernedLocalModelInvoker:
                             }
                             self._active_cancel_reason = None
                             self._active_cancel_admission_ref = None
+                            self._active_cancel_admission_decision = None
                             self._active_cancel_confirmed = False
                         # Ollama supports an event check around connection setup, closing the
                         # race where disconnect lands just before the HTTP request is installed.
@@ -1510,6 +1602,10 @@ class GovernedLocalModelInvoker:
                             with self._active_state_lock:
                                 cancel_reason = self._active_cancel_reason
                                 cancellation_admission_ref = self._active_cancel_admission_ref
+                                cancellation_admission_decision = (
+                                    dict(self._active_cancel_admission_decision)
+                                    if self._active_cancel_admission_decision is not None
+                                    else None)
                                 cancellation_confirmed = self._active_cancel_confirmed
                             reasons.append({"workload_transition": "cancelled_for_workload_transition",
                                 "client_disconnect": "cancelled_by_client_disconnect",
@@ -1545,12 +1641,13 @@ class GovernedLocalModelInvoker:
         receipt_output = generated_output if generated_output is not None else output
         actual_generation_parameters = ({key: value for key, value in gen_kwargs.items()
             if key not in {"on_content_chunk", "_cancel_event"}} if "gen_kwargs" in locals() else {})
-        receipt_schema = (INVOCATION_RECEIPT_SCHEMA_V5
-            if cancellation_resource_observation is not None
-            else INVOCATION_RECEIPT_SCHEMA_V4 if cancellation_admission_ref
+        receipt_schema = (INVOCATION_RECEIPT_SCHEMA_V6
+            if cancellation_admission_ref is not None
+            else INVOCATION_RECEIPT_SCHEMA_V5
+                if cancellation_resource_observation is not None
             else INVOCATION_RECEIPT_SCHEMA_V3 if backend_completion is not None
             else INVOCATION_RECEIPT_SCHEMA)
-        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": actual_generation_parameters}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=receipt_schema, backend_completion=backend_completion, cancellation_admission_decision_ref=cancellation_admission_ref, cancellation_resource_observation=cancellation_resource_observation)
+        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": actual_generation_parameters}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=receipt_schema, backend_completion=backend_completion, cancellation_admission_decision_ref=cancellation_admission_ref, cancellation_resource_observation=cancellation_resource_observation, cancellation_admission_decision=cancellation_admission_decision)
         if persist:
             try:
                 self._persist(request, receipt, decision_payload,
