@@ -243,6 +243,29 @@ class ControlPlaneKernel:
 
     def observe_host_resource_evaluation(self, evaluation: object) -> bool:
         """Pass a validated, proposal-only observation to the runtime scheduler."""
+        try:
+            from sentientos.host_resource_runtime import HostResourceRuntimeEvaluation
+
+            if type(evaluation) is not HostResourceRuntimeEvaluation:
+                return False
+            epoch = evaluation.epoch
+            if (not isinstance(epoch.admission_decision_ref, str)
+                    or not epoch.admission_decision_ref
+                    or epoch.admission_outcome != AdmissionOutcome.ALLOW.value):
+                return False
+            with self._recorded_decision_lock:
+                admission_owned = any(
+                    decision.admission_decision_ref == epoch.admission_decision_ref
+                    and decision.authority_class == AuthorityClass.OBSERVATION
+                    and decision.action_kind == "host_resource_observation_epoch"
+                    and decision.actor == "sentientosd"
+                    and decision.target_subsystem == "host_resource_observation_runtime"
+                    and decision.correlation_id == epoch.correlation_id
+                    for decision in self._recorded_admitted_decisions.values())
+            if not admission_owned:
+                return False
+        except (ImportError, AttributeError, TypeError):
+            return False
         observer = getattr(self._runtime_governor, "observe_host_resource_evaluation", None)
         if not callable(observer):
             return False

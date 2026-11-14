@@ -48,8 +48,10 @@ def test_observation_rejects_admission_decision_from_another_kernel(tmp_path):
 
     plan = build_observation_plan(specs=[HostObservationCollectorSpec(
         "memory", True, ("linux", "unknown"), 1, collector)])
-    owner_kernel = ControlPlaneKernel(phase=LifecyclePhase.RUNTIME)
-    other_kernel = ControlPlaneKernel(phase=LifecyclePhase.RUNTIME)
+    owner_kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        phase=LifecyclePhase.RUNTIME)
+    other_kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        phase=LifecyclePhase.RUNTIME)
     coordinator = HostResourceRuntimeCoordinator(
         kernel=owner_kernel, runtime_state_root=tmp_path, plan=plan)
     foreign_decision = other_kernel.admit(ControlActionRequest(
@@ -71,6 +73,9 @@ def test_observation_rejects_admission_decision_from_another_kernel(tmp_path):
         correlation_id="owned-observation", decision=owned_decision)
     assert evaluation is not None and validate_evaluation(evaluation).ok
     assert calls["n"] == 1
+    assert owner_kernel._runtime_governor._host_resource_evidence is not None
+    assert other_kernel.observe_host_resource_evaluation(evaluation) is False
+    assert other_kernel._runtime_governor._host_resource_evidence is None
 
 
 def test_duplicate_correlation_and_one_epoch_per_tick(tmp_path):
