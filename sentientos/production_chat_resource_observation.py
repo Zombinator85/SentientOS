@@ -565,7 +565,7 @@ class ProductionChatResourceObservationOwner:
                     entitlement = (receipt_observation.get(
                         "resource_entitlement_observation")
                         if isinstance(receipt_observation, Mapping) else None)
-                    serving_binding = (receipt_observation.get(
+                    resource_entitlement_binding = (receipt_observation.get(
                         "serving_entitlement_binding")
                         if isinstance(receipt_observation, Mapping) else None)
                     delegated = (admission_record.get("delegated_outcomes")
@@ -590,7 +590,7 @@ class ProductionChatResourceObservationOwner:
                                 "policy_digest", "policy_epoch", "principal_binding_digest",
                                 "remaining_call_entitlement", "checked_at", "observation_id",
                                 "observation_digest"}
-                            or not isinstance(serving_binding, Mapping)
+                            or not isinstance(resource_entitlement_binding, Mapping)
                             or not isinstance(evidence, Mapping)
                             or evidence.get("status") != "current"
                             or evidence.get("resource_entitlement_observation") != entitlement
@@ -606,11 +606,11 @@ class ProductionChatResourceObservationOwner:
                             or len(json.dumps(dict(entitlement), sort_keys=True,
                                 separators=(",", ":"), ensure_ascii=False,
                                 allow_nan=False).encode("utf-8")) > 4096
-                            or serving_binding.get("schema_version") !=
+                            or resource_entitlement_binding.get("schema_version") !=
                                 "sentientos.governed_local_model_serving_entitlement_binding:v1"
-                            or serving_binding.get("binding_scope") !=
+                            or resource_entitlement_binding.get("binding_scope") !=
                                 "inference_call_entitlement"
-                            or any(serving_binding.get(key) != entitlement.get(key)
+                            or any(resource_entitlement_binding.get(key) != entitlement.get(key)
                                 for key in ("allocation_id", "allocation_digest", "allocator_id",
                                     "resource_kind", "policy_digest", "policy_epoch",
                                     "principal_binding_digest"))

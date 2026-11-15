@@ -24,11 +24,15 @@ import sentientos.chat_service as chat_service
 from sentientos.chat_service import PersistentConversationService
 from sentientos.conversation_session import ConversationSessionStore
 from sentientos.local_model_serving_inference import ProductionServingInferenceController
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.production_chat_resource_context import (
     ProductionChatResourceContextOwner,
     ResourceBackedProductionChatInference,
 )
 from sentientos.production_chat_resource_provisioning import load_production_chat_resource_context_owner
+from sentientos.production_chat_resource_observation import (
+    ProductionChatResourceObservationOwner,
+)
 from sentientos.production_chat_resource_provisioning_bundle_producer import (
     produce_production_chat_resource_provisioning_bundle,
 )
@@ -437,7 +441,7 @@ def test_exhausted_call_entitlement_releases_idle_serving_session_through_runtim
             return fixed_now if tz is None else fixed_now.astimezone(tz)
 
     monkeypatch.setattr("sentientos.runtime_governor.datetime", FixedDateTime)
-    installation, artifacts = provisioning_inputs(tmp_path / "allocation", calls=1)
+    installation, artifacts = provisioning_inputs(tmp_path / "serving", calls=1)
     bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 1)
     policy = GovernedLocalModelResourcePolicy.create(
         epoch=1, max_resource_specific_bounds=bounds,
@@ -486,6 +490,16 @@ def test_exhausted_call_entitlement_releases_idle_serving_session_through_runtim
         assert release["resource_observation"]["host_telemetry_used_for_admission"] is False
         assert release["inference_performed"] is False
         assert release["host_mutation_performed"] is False
+        observation_registry = InstallationStateRegistry(
+            tmp_path / "serving" / "state", _test_only=True)
+        read_only = observation_registry.open_read_only(
+            InstallationIdentity.parse("production"))
+        observed = ProductionChatResourceObservationOwner(
+            read_only, "entitlement-release").observe()
+        assert observed.verified_resource_release_receipts[0]["trigger_kind"] == (
+            "call_entitlement_exhausted")
+        assert observed.verified_resource_release_receipts[0]["resource_observation"][
+            "resource_entitlement_observation"]["remaining_call_entitlement"] == 0
         serving_receipt_path = (tmp_path / "serving" / "state" / "installations"
             / "production" / "state" / "local-model" / "serving" / "receipts")
         serving_record = json.loads(next(serving_receipt_path.glob("*.json")).read_text(
