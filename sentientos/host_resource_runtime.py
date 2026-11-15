@@ -1245,6 +1245,17 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             release_lineage_findings.append(
                 f"game_recovery_hold_release_receipt_linkage_{linkage}:"
                 + str(hold.get("hold_id")))
+    game_recovery_custody_posture = (
+        "not_requested" if verified_game_resource_recovery_holds is None
+        else game_resource_recovery_posture)
+    if (verified_game_resource_recovery_holds is not None
+            and verified_resource_release_receipts is not None
+            and not game_recovery_hold_summaries
+            and game_recovery_custody_posture not in {
+                "not_requested", "verified_no_recovery_holds",
+                "verified_recovery_cleared"}):
+        release_lineage_findings.append(
+            "game_recovery_hold_custody_unverified_without_hold_records")
     admission_by_receipt: dict[str, Mapping[str, Any]] = {}
     host_observation_binding_posture_by_receipt: dict[str, str] = {}
     workload_preemption_admission_posture_by_receipt: dict[str, str] = {}
@@ -2061,7 +2072,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                    "verified" if game_recovery_hold_summaries
                        and all(state == "verified"
                            for state in game_recovery_release_linkage_states) else
-                   "verified_no_holds" if not game_recovery_hold_summaries else
+                   "verified_no_holds" if not game_recovery_hold_summaries
+                       and game_recovery_custody_posture in {
+                           "not_requested", "verified_no_recovery_holds",
+                           "verified_recovery_cleared"} else
                    "degraded"),
                "inference_admission_decision_count": len(admission_by_receipt),
                "inference_admission_decision_posture": (

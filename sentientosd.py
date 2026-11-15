@@ -2047,6 +2047,11 @@ class RuntimeMaintenanceSurfaces:
                     game_resource_recovery_posture=(
                         observation.game_resource_recovery_posture))
                 records.extend(resource_records)
+                resource_record = next((item for item in resource_records
+                    if item.get("subject_kind") == "causal_resource_consumption"), None)
+                resource_payload = (resource_record.get("payload", {})
+                    if isinstance(resource_record, Mapping)
+                    and isinstance(resource_record.get("payload"), Mapping) else {})
                 degraded = (observation.invocation_receipt_posture != "verified"
                             or any(item.get("disposition") != "recorded" for item in resource_records)
                             or observation.predecessor_invocation_receipt_posture
@@ -2088,6 +2093,9 @@ class RuntimeMaintenanceSurfaces:
                     "pending_game_resource_recovery_hold_count": sum(
                         item.get("clearance") is None
                         for item in observation.game_resource_recovery_holds),
+                    "game_resource_recovery_release_linkage_posture": str(
+                        resource_payload.get(
+                            "game_resource_recovery_release_linkage_posture", "unknown")),
                     "serving_operation_history_posture": (
                         "complete_receipts_present" if observation.serving_operation_history
                         and all(item.get("status") == "serving_receipt_verified"
@@ -4611,6 +4619,8 @@ def _compose_causal_introspection(
                 "recovery_posture": str(payload.get("recovery_posture", "unknown")),
                 "game_resource_recovery_posture": str(payload.get(
                     "game_resource_recovery_posture", "unknown")),
+                "game_resource_recovery_release_linkage_posture": str(payload.get(
+                    "game_resource_recovery_release_linkage_posture", "unknown")),
                 "game_resource_recovery_hold_count": int(payload.get(
                     "game_resource_recovery_hold_count", 0)),
                 "pending_game_resource_recovery_hold_count": sum(
@@ -4646,6 +4656,7 @@ def _compose_causal_introspection(
                     "lineage_finding_count": "count", "lineage_posture": "lineage",
                     "recovery_posture": "lifecycle", "invocation_receipt_posture": "health",
                     "game_resource_recovery_posture": "lifecycle",
+                    "game_resource_recovery_release_linkage_posture": "lineage",
                     "game_resource_recovery_hold_count": "count",
                     "pending_game_resource_recovery_hold_count": "count",
                     "chat_process_generation_posture": "lifecycle",

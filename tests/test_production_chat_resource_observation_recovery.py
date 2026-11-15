@@ -41,6 +41,20 @@ def test_read_only_observer_exposes_digest_bound_game_recovery_hold_and_clearanc
         verified_game_resource_recovery_holds=initial.game_resource_recovery_holds,
         game_resource_recovery_posture=initial.game_resource_recovery_posture)[0]
     assert initial_runtime["disposition"] == "degraded"
+    custody_unknown_projection = resource_consumption_world_state_records(
+        ledger=initial.ledger, verified_resource_release_receipts=(),
+        verified_game_resource_recovery_holds=(),
+        game_resource_recovery_posture=initial.game_resource_recovery_posture)[0]
+    assert custody_unknown_projection["payload"][
+        "game_resource_recovery_release_linkage_posture"] == "degraded"
+    assert any("game_recovery_hold_custody_unverified" in finding
+        for finding in custody_unknown_projection["payload"]["lineage_findings"])
+    verified_empty_projection = resource_consumption_world_state_records(
+        ledger=initial.ledger, verified_resource_release_receipts=(),
+        verified_game_resource_recovery_holds=(),
+        game_resource_recovery_posture="verified_no_recovery_holds")[0]
+    assert verified_empty_projection["payload"][
+        "game_resource_recovery_release_linkage_posture"] == "verified_no_holds"
     import sentientosd
     initial_surfaces = sentientosd.RuntimeMaintenanceSurfaces(
         tmp_path, runtime_state_root=tmp_path / "runtime-initial",
@@ -54,6 +68,12 @@ def test_read_only_observer_exposes_digest_bound_game_recovery_hold_and_clearanc
     assert initial_resource_fact.disposition == "degraded"
     assert initial_resource_fact.payload["game_resource_recovery_posture"] == (
         "unknown_hold_custody_directory_missing")
+    assert initial_resource_fact.payload[
+        "game_resource_recovery_release_linkage_posture"] == "degraded"
+    initial_health_fact = next(item for item in initial_snapshot.facts
+        if item.subject.subject_kind == "read_only_resource_custody_source")
+    assert initial_health_fact.payload[
+        "game_resource_recovery_release_linkage_posture"] == "degraded"
 
     release_ref = "kernel_decision:synthetic-game-release"
     hold_id = hashlib.sha256(release_ref.encode()).hexdigest()[:32]
@@ -129,6 +149,10 @@ def test_read_only_observer_exposes_digest_bound_game_recovery_hold_and_clearanc
         if item.subject.subject_kind == "read_only_resource_custody_source")
     assert health_fact.payload["game_resource_recovery_posture"] == (
         "verified_pending_recovery")
+    assert resource_fact.payload[
+        "game_resource_recovery_release_linkage_posture"] == "degraded"
+    assert health_fact.payload[
+        "game_resource_recovery_release_linkage_posture"] == "degraded"
     assert surfaces._feedback["surfaces"]["production_chat_resource_observation"][
         "pending_game_resource_recovery_hold_count"] == 1
     from sentientos.causal_introspection import CaptureContext, IntrospectionConfig
@@ -142,6 +166,8 @@ def test_read_only_observer_exposes_digest_bound_game_recovery_hold_and_clearanc
         for item in resource_projection.observations}
     assert observed_metadata["game_resource_recovery_posture"] == (
         "verified_pending_recovery")
+    assert observed_metadata[
+        "game_resource_recovery_release_linkage_posture"] == "degraded"
     assert observed_metadata["pending_game_resource_recovery_hold_count"] == 1
 
     clearance = {
