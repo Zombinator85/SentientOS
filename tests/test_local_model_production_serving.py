@@ -21,6 +21,9 @@ from sentientos.local_model_production_serving import (
 )
 from sentientos.local_model_runtime_worker import ExactRuntimeLocalModel
 from sentientos.local_model_authority import digest_payload
+from sentientos.production_chat_resource_context import (
+    GovernedLocalModelResourceEntitlementObservation,
+)
 from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.foreground_game_detection import ForegroundGameObservation
 from sentientos.host_collectors import HostCollectorResult
@@ -107,6 +110,41 @@ def serving_entitlement_binding(checked_at: str, max_gpu_layers: int) -> dict[st
     }
 
 
+def retain_synthetic_entitlement(kernel, binding, checked_at: str) -> str | None:
+    if (not isinstance(kernel, ControlPlaneKernel)
+            or not isinstance(binding, dict)
+            or binding.get("schema_version") !=
+                "sentientos.governed_local_model_serving_entitlement_binding:v2"):
+        return None
+    body = {
+        "schema_version": (
+            "sentientos.governed_local_model_resource_entitlement_observation:v2"),
+        **{key: binding[key] for key in (
+            "allocation_id", "allocation_digest", "allocator_id", "resource_kind",
+            "policy_digest", "policy_epoch", "principal_binding_digest",
+            "remaining_call_entitlement")},
+        "entitlement_status": "current", "invalidation_reason_code": None,
+        "checked_at": checked_at,
+    }
+    observation_digest = digest_payload(body)
+    observation = GovernedLocalModelResourceEntitlementObservation(
+        allocation_id=str(body["allocation_id"]),
+        allocation_digest=str(body["allocation_digest"]),
+        allocator_id=str(body["allocator_id"]),
+        resource_kind=str(body["resource_kind"]),
+        policy_digest=str(body["policy_digest"]),
+        policy_epoch=int(body["policy_epoch"]),
+        principal_binding_digest=str(body["principal_binding_digest"]),
+        remaining_call_entitlement=int(body["remaining_call_entitlement"]),
+        entitlement_status="current", invalidation_reason_code=None,
+        checked_at=checked_at,
+        observation_id="lmentitlement-" + observation_digest[:24],
+        observation_digest=observation_digest)
+    assert kernel._runtime_governor.observe_governed_local_model_resource_entitlement(
+        observation)
+    return observation.observation_id
+
+
 def serving_preflight_context_provider(kernel: ControlPlaneKernel, state_root):
     def collector(collector_id, values):
         return lambda *, observed_at=None: HostCollectorResult(
@@ -130,10 +168,16 @@ def serving_preflight_context_provider(kernel: ControlPlaneKernel, state_root):
         assert kernel.observe_host_resource_evaluation(evaluation) is True
         load_configuration = activation_state["load_configuration"]
         gpu_layers = load_configuration["n_gpu_layers"]
+        entitlement_checked_at = datetime.now(timezone.utc).isoformat()
+        entitlement_binding = serving_entitlement_binding(
+            entitlement_checked_at, gpu_layers)
+        entitlement_observation_id = retain_synthetic_entitlement(
+            kernel, entitlement_binding, entitlement_checked_at)
         return {
             "resource_governance_required": True,
-            "governed_inference_entitlement_binding": serving_entitlement_binding(
-                datetime.now(timezone.utc).isoformat(), gpu_layers),
+            "governed_inference_entitlement_binding": entitlement_binding,
+            **({"resource_entitlement_observation_id": entitlement_observation_id}
+                if entitlement_observation_id is not None else {}),
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
@@ -475,9 +519,13 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
             entitlement_binding.pop("max_gpu_layers")
         elif entitlement_schema == "missing":
             entitlement_binding = None
+        entitlement_observation_id = retain_synthetic_entitlement(
+            kernel, entitlement_binding, now.isoformat())
         return {
             "resource_governance_required": entitlement_schema != "uncomposed",
             "governed_inference_entitlement_binding": entitlement_binding,
+            **({"resource_entitlement_observation_id": entitlement_observation_id}
+                if entitlement_observation_id is not None else {}),
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
@@ -625,10 +673,15 @@ def test_host_pressure_blocks_initial_model_load_before_factory(
         assert evaluation is not None
         assert kernel.observe_host_resource_evaluation(evaluation) is True
         load_configuration = activation_state["load_configuration"]
+        entitlement_binding = serving_entitlement_binding(
+            now.isoformat(), gpu_layers)
+        entitlement_observation_id = retain_synthetic_entitlement(
+            kernel, entitlement_binding, now.isoformat())
         return {
             "resource_governance_required": True,
-            "governed_inference_entitlement_binding": serving_entitlement_binding(
-                now.isoformat(), gpu_layers),
+            "governed_inference_entitlement_binding": entitlement_binding,
+            **({"resource_entitlement_observation_id": entitlement_observation_id}
+                if entitlement_observation_id is not None else {}),
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
@@ -742,10 +795,15 @@ def test_runtime_governor_revalidates_game_priority_after_model_load(
         mode = latest_mode["mode"]
         automatic_mode = transition == "game_started"
         load_configuration = activation_state["load_configuration"]
+        entitlement_binding = serving_entitlement_binding(
+            now.isoformat(), gpu_layers)
+        entitlement_observation_id = retain_synthetic_entitlement(
+            kernel, entitlement_binding, now.isoformat())
         return {
             "resource_governance_required": True,
-            "governed_inference_entitlement_binding": serving_entitlement_binding(
-                now.isoformat(), gpu_layers),
+            "governed_inference_entitlement_binding": entitlement_binding,
+            **({"resource_entitlement_observation_id": entitlement_observation_id}
+                if entitlement_observation_id is not None else {}),
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
@@ -1084,6 +1142,8 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             "max_gpu_layers": gpu_layer_entitlement["value"],
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }
+        entitlement_observation_id = retain_synthetic_entitlement(
+            kernel, entitlement_binding, entitlement_binding["checked_at"])
         entitlement_checks.append(entitlement_binding)
         return {
             "resource_governance_required": True,
@@ -1091,6 +1151,8 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
             "governed_inference_entitlement_binding": entitlement_binding,
+            **({"resource_entitlement_observation_id": entitlement_observation_id}
+                if entitlement_observation_id is not None else {}),
             "workload_mode": "automatic",
             "effective_workload_mode": ("gaming" if workload.game_foreground is True
                 or workload.game_process_running is True else "normal"),
@@ -1214,6 +1276,16 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             "model_serving_admission_decision_record"] == serving_decisions[success_index]
         assert recovered_receipt["binding"][
             "resource_admission_revalidation_decision"] == serving_decisions[revalidation_index]
+        assert recovered_receipt["binding"][
+            "resource_entitlement_observation_id"] == recovered_receipt[
+                "resource_admission_context"][
+                    "resource_entitlement_observation_id"]
+        assert recovered_receipt["binding"][
+            "model_serving_admission_decision_record"]["delegated_outcomes"][
+                "runtime_governor"]["evidence_refs"][
+                    "resource_entitlement_evidence"]["observation_id"] == (
+                        recovered_receipt["binding"][
+                            "resource_entitlement_observation_id"])
         assert recovered_receipt["resource_admission_context"][
             "governed_inference_entitlement_binding"] == recovered_receipt[
                 "binding"]["governed_inference_entitlement_binding"]

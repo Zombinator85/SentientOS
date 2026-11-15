@@ -134,6 +134,63 @@ def _valid_resource_serving_decision_record(binding: Mapping[str, Any], *,
         and record.get("admission_decision_ref") == reference)
 
 
+def _decision_retains_current_entitlement(record: object,
+        binding: Mapping[str, Any], *, expected_observation_id: str | None = None
+        ) -> bool:
+    if not isinstance(record, Mapping):
+        return False
+    delegated = record.get("delegated_outcomes")
+    governor = (delegated.get("runtime_governor")
+        if isinstance(delegated, Mapping) else None)
+    evidence_refs = (governor.get("evidence_refs")
+        if isinstance(governor, Mapping) else None)
+    observation = (evidence_refs.get("resource_entitlement_evidence")
+        if isinstance(evidence_refs, Mapping) else None)
+    if not isinstance(observation, Mapping):
+        return False
+    observation_fields = {
+        "schema_version", "allocation_id", "allocation_digest", "allocator_id",
+        "resource_kind", "policy_digest", "policy_epoch",
+        "principal_binding_digest", "remaining_call_entitlement",
+        "entitlement_status", "invalidation_reason_code", "checked_at",
+        "observation_id", "observation_digest",
+    }
+    if set(observation) != observation_fields:
+        return False
+    observation_body = {key: value for key, value in observation.items()
+        if key not in {"observation_id", "observation_digest"}}
+    observation_digest = observation.get("observation_digest")
+    observation_id = observation.get("observation_id")
+    try:
+        checked_at = datetime.fromisoformat(str(observation.get(
+            "checked_at")).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return False
+    expected_fields = (
+        "allocation_id", "allocation_digest", "allocator_id", "resource_kind",
+        "policy_digest", "policy_epoch", "principal_binding_digest")
+    entitlement = binding.get("governed_inference_entitlement_binding")
+    return bool(
+        observation.get("schema_version") ==
+            "sentientos.governed_local_model_resource_entitlement_observation:v2"
+        and observation.get("entitlement_status") == "current"
+        and observation.get("invalidation_reason_code") is None
+        and type(observation.get("remaining_call_entitlement")) is int
+        and observation["remaining_call_entitlement"] > 0
+        and checked_at.tzinfo is not None and checked_at.utcoffset() is not None
+        and isinstance(observation_digest, str)
+        and observation_digest == digest_payload(observation_body)
+        and isinstance(observation_id, str)
+        and observation_id == "lmentitlement-" + observation_digest[:24]
+        and (expected_observation_id is None
+            or observation_id == expected_observation_id)
+        and isinstance(entitlement, Mapping)
+        and entitlement.get("schema_version") == SERVING_RESOURCE_ENTITLEMENT_SCHEMA
+        and all(observation.get(key) == entitlement.get(key)
+            for key in expected_fields)
+    )
+
+
 def _valid_resource_admission_evidence_binding(binding: Mapping[str, Any]) -> bool:
     schema = binding.get("resource_admission_evidence_schema")
     specs = (
@@ -159,14 +216,26 @@ def _valid_resource_admission_evidence_binding(binding: Mapping[str, Any]) -> bo
             record_key=initial_record, reference_key=initial_reference,
             correlation_key=initial_correlation):
         return False
+    expected_observation_id = binding.get("resource_entitlement_observation_id")
+    if expected_observation_id is not None:
+        if (not isinstance(expected_observation_id, str)
+                or not expected_observation_id
+                or not _decision_retains_current_entitlement(
+                    binding.get(initial_record), binding,
+                    expected_observation_id=expected_observation_id)):
+            return False
     postload_record, postload_reference, postload_correlation = specs[1]
     postload_keys = (postload_record, postload_reference, postload_correlation)
     if not any(key in binding for key in postload_keys):
-        return True
-    return (all(key in binding for key in postload_keys)
-        and _valid_resource_serving_decision_record(binding,
-            record_key=postload_record, reference_key=postload_reference,
-            correlation_key=postload_correlation))
+        return expected_observation_id is None
+    if (not all(key in binding for key in postload_keys)
+            or not _valid_resource_serving_decision_record(binding,
+                record_key=postload_record, reference_key=postload_reference,
+                correlation_key=postload_correlation)):
+        return False
+    return (expected_observation_id is None
+        or _decision_retains_current_entitlement(
+            binding.get(postload_record), binding))
 
 
 def _valid_serving_resource_entitlement(value: object) -> bool:
@@ -485,6 +554,9 @@ def read_serving_operation_history(handle: Any, *, maximum: int = MAX_SERVING_OP
         context_entitlement = (resource_admission_context.get(
             "governed_inference_entitlement_binding")
             if isinstance(resource_admission_context, Mapping) else None)
+        context_observation_id = (resource_admission_context.get(
+            "resource_entitlement_observation_id")
+            if isinstance(resource_admission_context, Mapping) else None)
         if (resource_entitlement is not None
                 and (not _valid_serving_resource_entitlement(resource_entitlement)
                     or context_entitlement != resource_entitlement)):
@@ -493,6 +565,15 @@ def read_serving_operation_history(handle: Any, *, maximum: int = MAX_SERVING_OP
         if context_entitlement is not None and resource_entitlement is None:
             raise ProductionServingError(
                 "serving_resource_entitlement_binding_invalid")
+        if (binding.get("resource_entitlement_observation_id") is not None
+                and binding.get("resource_entitlement_observation_id")
+                    != context_observation_id):
+            raise ProductionServingError(
+                "serving_resource_entitlement_observation_binding_invalid")
+        if (context_observation_id is not None
+                and binding.get("resource_entitlement_observation_id") is None):
+            raise ProductionServingError(
+                "serving_resource_entitlement_observation_binding_invalid")
         receipts.append(receipt)
     by_receipt_operation: dict[str, dict[str, Any]] = {}
     for receipt in receipts:
@@ -985,6 +1066,12 @@ class ProductionServingController:
             if resource_entitlement_binding is not None:
                 binding["governed_inference_entitlement_binding"] = dict(
                     resource_entitlement_binding)
+                entitlement_observation_id = admission_context.get(
+                    "resource_entitlement_observation_id")
+                if (isinstance(entitlement_observation_id, str)
+                        and entitlement_observation_id):
+                    binding["resource_entitlement_observation_id"] = (
+                        entitlement_observation_id)
             if admission_decision_record is not None:
                 binding["model_serving_admission_decision_record"] = dict(
                     admission_decision_record)

@@ -26,7 +26,10 @@ from sentientos.local_model_authority import build_local_model_authority_map, di
 from sentientos.production_chat_resource_context import (
     GovernedLocalModelResourceEntitlementObservation,
 )
-from sentientos.local_model_production_serving import ProductionServingController, ServingSession
+from sentientos.local_model_production_serving import (
+    ProductionServingController, ServingSession,
+    _valid_resource_admission_evidence_binding,
+)
 from sentientos.local_model_serving_inference import (
     ProductionServingInferenceController,
     ProductionServingInferenceError,
@@ -710,7 +713,21 @@ def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generat
 
 
 def test_exact_serving_backed_generation_has_independent_admission_and_linkage(monkeypatch, tmp_path):
-    bridge, serving, session, model, kernel, _ = setup(monkeypatch, tmp_path)
+    bridge, serving, session, model, kernel, _ = setup(
+        monkeypatch, tmp_path,
+        kernel_override=ControlPlaneKernel(
+            decisions_path=tmp_path / "kernel-decisions.jsonl"))
+    serving_entitlement_id = session.binding["resource_entitlement_observation_id"]
+    serving_admission_evidence = session.binding[
+        "model_serving_admission_decision_record"]["delegated_outcomes"][
+            "runtime_governor"]["evidence_refs"]["resource_entitlement_evidence"]
+    assert serving_admission_evidence["observation_id"] == serving_entitlement_id
+    assert _valid_resource_admission_evidence_binding(session.binding)
+    mismatched_observation_binding = dict(session.binding)
+    mismatched_observation_binding["resource_entitlement_observation_id"] = (
+        "lmentitlement-" + "0" * 24)
+    assert not _valid_resource_admission_evidence_binding(
+        mismatched_observation_binding)
     receipt = bridge.generate(prompt="hello", caller="operator", correlation_id="inference-1")
     assert receipt.status == "admitted_completed" and receipt.output_text == "answer" and model.calls == 1
     assert receipt.admission_decision_ref != session.binding["model_serving_admission_ref"]
@@ -719,7 +736,17 @@ def test_exact_serving_backed_generation_has_independent_admission_and_linkage(m
                 "activation_generation", "model_serving_admission_ref", "authority_map_digest",
                 "observed_loaded_model_identity"):
         assert key in linkage
-    assert [r.authority_class for r in kernel.requests] == [AuthorityClass.MODEL_SERVING, AuthorityClass.LOCAL_MODEL_INFERENCE]
+    decisions = [json.loads(line) for line in
+        (tmp_path / "kernel-decisions.jsonl").read_text(
+            encoding="utf-8").splitlines()]
+    admission_authorities = [decision["authority_class"] for decision in decisions
+        if decision["authority_class"] in {
+            AuthorityClass.MODEL_SERVING.value,
+            AuthorityClass.LOCAL_MODEL_INFERENCE.value}]
+    assert admission_authorities == [
+        AuthorityClass.MODEL_SERVING.value,
+        AuthorityClass.MODEL_SERVING.value,
+        AuthorityClass.LOCAL_MODEL_INFERENCE.value]
     assert serving.current_session() == session
 
 
