@@ -1071,8 +1071,10 @@ class ProductionServingInferenceController:
             self, *, resource_entitlement_owner: object | None = None) -> dict[str, Any]:
         """Release idle optional residency for game priority or host GPU pressure."""
         from .production_chat_resource_context import (
-            GovernedLocalModelResourceError,
             ProductionChatResourceContextOwner,
+        )
+        from .governed_local_model_resource_allocation import (
+            GovernedLocalModelResourceError,
         )
         # A bounded client timeout can finish while the backend worker ignores
         # cancellation. The request then releases the receipt-capacity lock,
@@ -1541,8 +1543,10 @@ class ProductionServingInferenceController:
             active_invoker: GovernedLocalModelInvoker) -> dict[str, Any] | None:
         """Cancel an in-flight invocation after its exact allocation is invalidated."""
         from .production_chat_resource_context import (
-            GovernedLocalModelResourceError,
             ProductionChatResourceContextOwner,
+        )
+        from .governed_local_model_resource_allocation import (
+            GovernedLocalModelResourceError,
         )
         if type(resource_entitlement_owner) is not ProductionChatResourceContextOwner:
             return {"status": "skipped", "reason": "exact_resource_entitlement_owner_required"}
