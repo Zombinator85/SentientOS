@@ -973,6 +973,31 @@ class GovernedLocalModelResourceAllocator:
             self.ledger._persist_candidate(candidate)
             return receipt
 
+    def _recover_orphaned_provisional_attempts(
+            self, allocation: GovernedLocalModelResourceAllocation, *,
+            observed_at: str
+            ) -> tuple[GovernedLocalModelResourceConsumptionReceipt, ...]:
+        """Restore attempts proven not to have entered a backend after restart.
+
+        Call only while the provisioning owner holds exclusive process custody
+        of this ledger. ``provisional`` is durably published before any backend
+        entry; the transition to ``begun`` and its receipt are one ledger
+        publication, so a surviving provisional attempt cannot have executed
+        model inference.
+        """
+        exact = GovernedLocalModelResourceAllocation.from_mapping(
+            allocation.to_dict())
+        with self.ledger._lock:
+            if self.ledger.allocation(exact.allocation_id) != exact:
+                raise GovernedLocalModelResourceError("allocation_substitution")
+            attempt_ids = tuple(sorted(attempt_id for attempt_id, attempt
+                in self.ledger._state["attempts"].items()
+                if isinstance(attempt, Mapping)
+                and attempt.get("allocation_id") == exact.allocation_id
+                and attempt.get("status") == "provisional"))
+            return tuple(self.reconcile_not_begun(exact, attempt_id,
+                observed_at=observed_at) for attempt_id in attempt_ids)
+
     def append_receipt(self, allocation: GovernedLocalModelResourceAllocation, attempt_id: str, *,
                        state: str, observed_at: str, measurement: Mapping[str, object],
                        effect_receipt_digest: str | None = None

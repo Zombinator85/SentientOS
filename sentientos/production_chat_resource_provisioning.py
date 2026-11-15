@@ -163,11 +163,17 @@ def load_production_chat_resource_context_owner(
         raise ProductionChatResourceProvisioningError("manifest_allocation_mismatch")
     try:
         allocator = GovernedLocalModelResourceAllocator(policy=policy, ledger=ledger)
-        return ProductionChatResourceContextOwner(allocator=allocator, allocation=allocation, principal=principal,
+        owner = ProductionChatResourceContextOwner(allocator=allocator, allocation=allocation, principal=principal,
             authenticated=authenticated, current=current, policy=policy, nonce_source=nonce_source, clock=clock,
             installation_identity=installation_handle.identity.value,
             provisioning_id=selected,
             ledger_owner_lock=owner_lock)
+        # The owner holds the exclusive process lock. Any surviving
+        # provisional attempt belongs to a prior process: backend entry and
+        # its receipt are published together, so it can be restored before
+        # new serving admission is possible.
+        owner.recover_orphaned_provisional_attempts()
+        return owner
     except Exception:
         owner_lock.__exit__(None, None, None)
         raise

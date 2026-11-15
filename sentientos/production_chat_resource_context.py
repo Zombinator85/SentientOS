@@ -16,6 +16,7 @@ from .governed_local_model_invocation import (
 from .governed_local_model_resource_allocation import (
     GovernedLocalModelResourceAllocation,
     GovernedLocalModelResourceAllocator,
+    GovernedLocalModelResourceConsumptionReceipt,
     GovernedLocalModelResourceError,
     GovernedLocalModelResourcePolicy,
 )
@@ -160,6 +161,24 @@ class ProductionChatResourceContextOwner:
             clock=self._clock,
             custody_lease=self._custody_lease,
         )
+
+    def recover_orphaned_provisional_attempts(self
+            ) -> tuple[GovernedLocalModelResourceConsumptionReceipt, ...]:
+        """Reconcile no-effect attempts while holding exclusive ledger custody."""
+        self._require_open()
+        if self._ledger_owner_lock is None:
+            raise GovernedLocalModelResourceError(
+                "resource_ledger_process_owner_required")
+        self._custody_lease.acquire()
+        try:
+            self._require_open()
+            observed_at = self._clock()
+            if type(observed_at) is not str or not observed_at:
+                raise GovernedLocalModelResourceError("invalid_current_time")
+            return self.allocator._recover_orphaned_provisional_attempts(
+                self.allocation, observed_at=observed_at)
+        finally:
+            self._custody_lease.release()
 
     def serving_admission_entitlement_binding(self) -> Mapping[str, object]:
         """Return a current call-entitlement reference without debiting a call.

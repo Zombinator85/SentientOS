@@ -64,6 +64,9 @@ def owner(tmp_path, *, calls=2, nonces=None, clock=lambda: NOW):
 
 def test_owner_uses_exact_preexisting_objects_and_zero_argument_fresh_nonce(tmp_path):
     custody, _, _, _, _ = owner(tmp_path)
+    with pytest.raises(GovernedLocalModelResourceError,
+                       match="resource_ledger_process_owner_required"):
+        custody.recover_orphaned_provisional_attempts()
     first = custody.next_context()
     second = custody.next_context()
     assert first is not second
@@ -240,6 +243,60 @@ def test_production_chat_rejects_resource_owner_from_another_installation(
                 resource_context_owner=custody)
     finally:
         custody.close()
+
+
+def test_restart_reconciles_orphaned_provisional_resource_attempt(
+        tmp_path):
+    installation, artifacts = provisioning_inputs(tmp_path, calls=3)
+    bundle = produce_production_chat_resource_provisioning_bundle(
+        installation, "chat-resource", **artifacts)
+    first_owner = load_production_chat_resource_context_owner(
+        installation, "chat-resource", clock=lambda: NOW,
+        nonce_source=lambda: "first-process-nonce")
+    attempt_id = first_owner.allocator.final_gate(
+        allocation=first_owner.allocation,
+        principal=first_owner.principal,
+        authenticated=first_owner.authenticated,
+        current=first_owner.current,
+        policy=first_owner.policy,
+        current_time=NOW,
+        durable_attempt_nonce="crash-before-backend-entry")
+    assert first_owner.allocator.ledger.remaining_calls(
+        bundle.allocation_id) == 2
+    begun_attempt_id = first_owner.allocator.final_gate(
+        allocation=first_owner.allocation,
+        principal=first_owner.principal,
+        authenticated=first_owner.authenticated,
+        current=first_owner.current,
+        policy=first_owner.policy,
+        current_time=NOW,
+        durable_attempt_nonce="backend-entry-before-crash")
+    first_owner.allocator.record_backend_entry(first_owner.allocation,
+        begun_attempt_id, observed_at=NOW)
+    assert first_owner.allocator.ledger.remaining_calls(
+        bundle.allocation_id) == 1
+    first_owner.close()
+
+    recovered_owner = load_production_chat_resource_context_owner(
+        installation, "chat-resource", clock=lambda: NOW,
+        nonce_source=lambda: "recovered-process-nonce")
+    try:
+        ledger = recovered_owner.allocator.ledger
+        assert ledger._state["attempts"][attempt_id]["status"] == "restored"
+        recovery_receipt = next(receipt for receipt in ledger._state["receipts"]
+            if receipt["attempt_id"] == attempt_id)
+        assert recovery_receipt["state"] == "attempted_not_begun"
+        assert recovery_receipt["resource_specific_measurement"][
+            "generation_attempted"] is False
+        assert recovery_receipt["resource_specific_measurement"][
+            "call_units_consumed"] == 0
+        assert ledger._state["attempts"][begun_attempt_id]["status"] == "begun"
+        assert any(receipt["attempt_id"] == begun_attempt_id
+            and receipt["state"] == "attempt_begun"
+            for receipt in ledger._state["receipts"])
+        assert ledger.remaining_calls(bundle.allocation_id) == 2
+    finally:
+        recovered_owner.close()
 
 
 def test_adapter_forwards_exact_context_and_ordinary_chat_arguments(monkeypatch, tmp_path):
