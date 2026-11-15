@@ -690,6 +690,30 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "active_inference_preemption_requested": False,
         "host_telemetry_used_for_admission": False,
     }
+    performance_record = dict(performance_release["release_admission_record"])
+    performance_delegated = dict(performance_record["delegated_outcomes"])
+    performance_governor = dict(performance_delegated["runtime_governor"])
+    performance_refs = dict(performance_governor["evidence_refs"])
+    performance_observation = performance_release["resource_observation"]
+    performance_refs["resource_observation_evidence"] = {
+        "status": "current",
+        "workload_mode": "normal",
+        **{key: performance_observation[key] for key in (
+            "game_performance_message_id", "game_performance_payload_digest",
+            "game_performance_process_id_digest",
+            "game_performance_process_name_digest", "game_performance_source_id",
+            "game_performance_generation_id", "game_performance_sequence",
+            "frame_time_p95_ms", "hitch_count_over_50ms", "process_cpu_percent",
+            "process_rss_bytes", "model_gpu_layers",
+            "active_inference_preemption_requested")},
+        "game_performance_observed_at": performance_observation[
+            "game_performance_observed_at"],
+        "serving_session_id": performance_release["serving_session_id"],
+    }
+    performance_governor["evidence_refs"] = performance_refs
+    performance_delegated["runtime_governor"] = performance_governor
+    performance_record["delegated_outcomes"] = performance_delegated
+    performance_release["release_admission_record"] = performance_record
     performance_release = reidentify_release(performance_release)
     performance_projection = resource_consumption_world_state_records(
         ledger=first.ledger,
@@ -704,6 +728,20 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     assert performance_observation["game_performance_sequence"] == 9
     assert performance_observation["game_performance_observed_at"] == (
         "2026-09-21T08:30:00+00:00")
+    substituted_performance_release = json.loads(json.dumps(performance_release))
+    substituted_record = substituted_performance_release["release_admission_record"]
+    substituted_delegated = substituted_record["delegated_outcomes"]
+    substituted_governor = substituted_delegated["runtime_governor"]
+    substituted_evidence = substituted_governor["evidence_refs"][
+        "resource_observation_evidence"]
+    substituted_evidence["game_performance_payload_digest"] = "f" * 64
+    substituted_performance_release = reidentify_release(
+        substituted_performance_release)
+    with pytest.raises(ValueError,
+            match="resource_release_game_performance_admission_mismatch"):
+        resource_consumption_world_state_records(
+            ledger=first.ledger,
+            verified_resource_release_receipts=(substituted_performance_release,))
     malformed_performance_release = json.loads(json.dumps(performance_release))
     malformed_performance_release["resource_observation"].pop(
         "game_performance_payload_digest")

@@ -2218,10 +2218,24 @@ class RuntimeGovernor:
                 "workload_mode": "normal",
                 "game_performance_message_id": observation_value.get(
                     "game_performance_message_id"),
+                "game_performance_payload_digest": observation_value.get(
+                    "game_performance_payload_digest"),
                 "game_performance_process_id_digest": observation_value.get(
                     "game_performance_process_id_digest"),
                 "game_performance_process_name_digest": observation_value.get(
                     "game_performance_process_name_digest"),
+                "game_performance_source_id": observation_value.get(
+                    "game_performance_source_id"),
+                "game_performance_generation_id": observation_value.get(
+                    "game_performance_generation_id"),
+                "game_performance_sequence": observation_value.get(
+                    "game_performance_sequence"),
+                "game_performance_observed_at": observation_value.get("observed_at"),
+                "frame_time_p95_ms": observation_value.get("frame_time_p95_ms"),
+                "hitch_count_over_50ms": observation_value.get(
+                    "hitch_count_over_50ms"),
+                "process_cpu_percent": observation_value.get("process_cpu_percent"),
+                "process_rss_bytes": observation_value.get("process_rss_bytes"),
                 "model_gpu_layers": observation_value.get("model_gpu_layers"),
                 "serving_session_id": observation_value.get("serving_session_id"),
                 "active_inference_preemption_requested": observation_value.get(

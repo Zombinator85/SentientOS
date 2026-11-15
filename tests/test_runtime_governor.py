@@ -466,6 +466,12 @@ def test_normal_mode_game_performance_gpu_residency_release_requires_exact_evide
     assert accepted.allowed is True
     assert accepted.evidence_refs["resource_observation_evidence"]["status"] == "current"
     assert accepted.evidence_refs["resource_observation_evidence"]["workload_mode"] == "normal"
+    assert accepted.evidence_refs["resource_observation_evidence"][
+        "game_performance_payload_digest"] == performance.payload_digest
+    assert accepted.evidence_refs["resource_observation_evidence"][
+        "game_performance_source_id"] == performance.source_id
+    assert accepted.evidence_refs["resource_observation_evidence"][
+        "game_performance_sequence"] == performance.sequence
     assert forged.allowed is False
 
 

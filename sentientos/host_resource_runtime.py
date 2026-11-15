@@ -644,6 +644,44 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 if (type(value.get("model_gpu_layers")) is not int
                         or not 1 <= value["model_gpu_layers"] <= 256):
                     raise ValueError("resource_release_game_performance_evidence_invalid")
+                admission_record = release_receipt.get("release_admission_record")
+                delegated = (admission_record.get("delegated_outcomes")
+                    if isinstance(admission_record, Mapping) else None)
+                governor = (delegated.get("runtime_governor")
+                    if isinstance(delegated, Mapping) else None)
+                evidence_refs = (governor.get("evidence_refs")
+                    if isinstance(governor, Mapping) else None)
+                admission_evidence = (evidence_refs.get(
+                    "resource_observation_evidence")
+                    if isinstance(evidence_refs, Mapping) else None)
+                evidence_fields = {
+                    "status", "workload_mode", "game_performance_message_id",
+                    "game_performance_payload_digest",
+                    "game_performance_process_id_digest",
+                    "game_performance_process_name_digest",
+                    "game_performance_source_id", "game_performance_generation_id",
+                    "game_performance_sequence", "game_performance_observed_at",
+                    "frame_time_p95_ms", "hitch_count_over_50ms",
+                    "process_cpu_percent", "process_rss_bytes", "model_gpu_layers",
+                    "serving_session_id", "active_inference_preemption_requested",
+                }
+                observation_evidence_fields = evidence_fields - {"status"}
+                mismatched_evidence_fields = (
+                    observation_evidence_fields.intersection(value)
+                    if isinstance(admission_evidence, Mapping) else set())
+                if isinstance(admission_evidence, Mapping):
+                    mismatched_evidence_fields = {
+                        key for key in mismatched_evidence_fields
+                        if admission_evidence.get(key) != value.get(key)}
+                if (not isinstance(admission_evidence, Mapping)
+                        or set(admission_evidence) != evidence_fields
+                        or admission_evidence.get("status") != "current"
+                        or mismatched_evidence_fields
+                        or admission_evidence.get("serving_session_id")
+                            != release_receipt.get("serving_session_id")):
+                    raise ValueError(
+                        "resource_release_game_performance_admission_mismatch:" +
+                        ",".join(sorted(mismatched_evidence_fields)))
             labels = summary.get("pressure_labels")
             if isinstance(labels, (list, tuple)):
                 summary["pressure_labels"] = tuple(
