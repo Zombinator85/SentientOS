@@ -324,7 +324,11 @@ COMPANION_HISTORY_INTERVENTION_INSTRUCTION = (
     "canonical_user_memory_context.records as memory_record_ids when the answer relies on a retained "
     "user statement. Never put memory IDs in evidence_ids or history_record_ids. If no selected memory "
     "supports the response, memory_record_ids must be []. A memory-only answer is allowed only as a "
-    "qualified report of what was explicitly retained, not as verified external fact."
+    "qualified report of what was explicitly retained, not as verified external fact. "
+    "If a retrieved history packet contains operator_feedback_context, its assertion is an "
+    "unverified operator report, not independent observation or current fact. Describe it only "
+    "as something the operator reported, retain its unverified posture, and cite the containing "
+    "developmental history record rather than its nested source fact ID."
 )
 EXPERIMENT_CONTEXT_INSTRUCTION = (
     "Reason over four separately typed, non-authoritative substrates. Current evidence is current external observation "
@@ -892,7 +896,9 @@ def _historical_security_evidence_context(candidate: Mapping[str, Any]) -> list[
     selected = set(selected_ids)
     summaries: list[dict[str, Any]] = []
     for fact in selected_facts:
-        if not isinstance(fact, Mapping) or fact.get("fact_id") not in selected:
+        if (not isinstance(fact, Mapping)
+                or not isinstance(fact.get("fact_id"), str)
+                or fact.get("fact_id") not in selected):
             continue
         source, subject, payload = fact.get("source"), fact.get("subject"), fact.get("payload")
         if not all(isinstance(item, Mapping) for item in (source, subject, payload)):
@@ -2223,6 +2229,96 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
     return summaries
 
 
+def _historical_operator_feedback_context(candidate: Mapping[str, Any]
+        ) -> list[dict[str, Any]]:
+    """Project source-linked operator reports without upgrading their posture."""
+    selected_ids = candidate.get("selected_fact_ids")
+    selected_facts = candidate.get("selected_facts")
+    if (not isinstance(selected_ids, (list, tuple)) or len(selected_ids) > MAX_FACTS
+            or not all(isinstance(item, str) and item for item in selected_ids)
+            or not isinstance(selected_facts, (list, tuple))
+            or len(selected_facts) > MAX_FACTS):
+        return []
+    selected = set(selected_ids)
+    summaries: list[dict[str, Any]] = []
+    for fact in selected_facts:
+        if not isinstance(fact, Mapping) or fact.get("fact_id") not in selected:
+            continue
+        source, subject, payload = fact.get("source"), fact.get("subject"), fact.get("payload")
+        if not all(isinstance(item, Mapping) for item in (source, subject, payload)):
+            continue
+        assert isinstance(source, Mapping) and isinstance(subject, Mapping)
+        assert isinstance(payload, Mapping)
+        if (source.get("kind") != "operator_input"
+                or source.get("schema_version") != "sentientos.local_operator_feedback:v1"
+                or subject.get("subject_kind") != "operator_reported_companion_feedback"
+                or fact.get("stage") != "observation"
+                or fact.get("disposition") != "reported"
+                or fact.get("evidence_strength") != "operator_assertion_unverified"
+                or fact.get("effect_claimed") is not False
+                or fact.get("effect_proven") is not False
+                or payload.get("schema_version") != "sentientos.local_operator_feedback:v1"
+                or payload.get("evidence_posture") != "operator_assertion_unverified"):
+            continue
+        if set(payload) != {"schema_version", "request_id", "assistant_turn_id",
+                "assistant_response_digest", "source_capture_digest",
+                "followup_capture_digest", "assertion_text", "assertion_digest",
+                "evidence_posture", "authority"}:
+            continue
+        authority = payload.get("authority")
+        if (not isinstance(authority, Mapping)
+                or set(authority) != {"decision", "admission", "execution", "adoption", "truth"}
+                or any(value is not False for value in authority.values())):
+            continue
+        text = payload.get("assertion_text")
+        if (not isinstance(text, str) or not text.strip() or len(text) > 800
+                or hashlib.sha256(text.encode("utf-8")).hexdigest()
+                    != payload.get("assertion_digest")):
+            continue
+        digest_fields = ("assistant_response_digest", "source_capture_digest",
+            "followup_capture_digest")
+        if any(not _valid_lower_sha256(payload.get(key)) for key in digest_fields):
+            continue
+        request_id, assistant_turn_id = payload.get("request_id"), payload.get(
+            "assistant_turn_id")
+        source_id, source_digest = source.get("source_id"), source.get("digest")
+        if (not isinstance(request_id, str) or not request_id
+                or not isinstance(assistant_turn_id, str) or not assistant_turn_id
+                or not isinstance(source_id, str) or not source_id
+                or not _valid_lower_sha256(source_digest)):
+            continue
+        semantic = {key: payload[key] for key in (
+            "schema_version", "request_id", "assistant_turn_id",
+            "assistant_response_digest", "source_capture_digest",
+            "followup_capture_digest", "assertion_text", "assertion_digest",
+            "evidence_posture", "authority")}
+        identity = hashlib.sha256(json.dumps(semantic, sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+        if (source_id != f"local-operator-feedback:{identity}"
+                or subject.get("subject_id") != f"assistant-turn:{assistant_turn_id}"):
+            continue
+        summaries.append({
+            "operator_feedback_fact_id": fact["fact_id"],
+            "source_id": source_id,
+            "source_record_digest": source_digest,
+            "source_schema_version": source["schema_version"],
+            "request_id": request_id,
+            "assistant_turn_id": assistant_turn_id,
+            "assistant_response_digest": payload["assistant_response_digest"],
+            "source_capture_digest": payload["source_capture_digest"],
+            "followup_capture_digest": payload["followup_capture_digest"],
+            "assertion_text": text,
+            "assertion_digest": payload["assertion_digest"],
+            "evidence_posture": "operator_assertion_unverified",
+            "observed_at": fact.get("observed_at"),
+            "effect_proven": False,
+            "historical_only": True,
+            "current_truth": False,
+            "authority": False,
+        })
+    return summaries
+
+
 def _history_context_packet(record: Mapping[str, Any], *,
         include_source_evidence_context: bool = True,
         compact_for_input_budget: bool = False,
@@ -2284,6 +2380,12 @@ def _history_context_packet(record: Mapping[str, Any], *,
                 "details_omitted_for_cognition_input_budget")
         else:
             packet["historical_embodiment_reports"] = embodiment_context
+    operator_feedback_context = ([] if task_family_scoped else
+        _historical_operator_feedback_context(candidate))
+    if operator_feedback_context:
+        packet["operator_feedback_context"] = operator_feedback_context
+        packet["operator_feedback_context_posture"] = (
+            "source_linked_operator_assertion_unverified")
     task_examples = _task_family_history_examples(candidate,
         task_family_id=task_family_id)
     if task_examples:

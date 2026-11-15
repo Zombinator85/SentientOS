@@ -6603,11 +6603,54 @@ def test_companion_bridge_runs_existing_matched_history_intervention_on_fresh_sc
     assert result.canonical_explicit_user_retention_mutated is False
 
 
-def test_operator_confirmed_bridge_cycle_writes_then_later_cognition_retrieves_history(
+def test_operator_feedback_provenance_survives_writeback_and_changes_later_response(
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)
-    cognition, fake = owner(tmp_path / "operator-cycle",
+    feedback_text = "The altar has four candle objects and two are lit."
+
+    class FeedbackConditionedInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                history = prompt.get("developmental_history", ())
+                operator_reports = [report for packet in history
+                    if isinstance(packet, Mapping)
+                    for report in packet.get("operator_feedback_context", ())
+                    if isinstance(report, Mapping)
+                    and report.get("evidence_posture")
+                        == "operator_assertion_unverified"]
+                matching_reports = [report for report in operator_reports
+                    if report.get("assertion_text") == feedback_text]
+                if matching_reports:
+                    self.companion_output_override = {
+                        "disposition": "answer",
+                        "response": (
+                            "An earlier operator report stated: "
+                            + matching_reports[0]["assertion_text"]
+                            + " That report was not independently verified."),
+                        "evidence_ids": [],
+                        "history_record_ids": prompt.get("history_citation_allowlist", []),
+                        "memory_record_ids": [],
+                    }
+                else:
+                    self.companion_output_override = {
+                        "disposition": "abstain",
+                        "response": "I do not have a relevant retained report.",
+                        "evidence_ids": [], "history_record_ids": [],
+                        "memory_record_ids": [],
+                    }
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    fake = FeedbackConditionedInvoker()
+    cognition, fake = owner(tmp_path / "operator-cycle", invoker=fake,
         allowed_source_kinds=("embodiment", "operator_input"), max_selected_facts=2)
+    # The learned interpretation is deliberately generic so the later answer
+    # must use the separately projected, source-linked feedback report.
+    fake.history_interpretation = "A developmental interpretation was recorded."
     screen = {"modality": "screen",
         "text": "A fresh, bounded operator-approved observation of a test scene.",
         "capture_digest": "d" * 64,
@@ -6624,7 +6667,7 @@ def test_operator_confirmed_bridge_cycle_writes_then_later_cognition_retrieves_h
     assert ResidentDevelopmentalCompanionBridge(
         restricted, clock=lambda: now).operator_feedback_available() is False
     feedback = make_operator_feedback_record(
-        "The altar has four candle objects and two are lit.",
+        feedback_text,
         request_id="cycle-feedback-1", assistant_turn_id="turn-" + "a" * 24,
         assistant_response_digest="f" * 64,
         source_capture_digest="b" * 64,
@@ -6642,18 +6685,38 @@ def test_operator_confirmed_bridge_cycle_writes_then_later_cognition_retrieves_h
     assert len(cycle.selected_fact_ids) == 2
     cycle_request = fake.requests[-1]
     assert cycle_request.purpose == "resident_developmental_interpretation"
-    assert "The altar has four candle objects and two are lit." in cycle_request.prompt
+    assert feedback_text in cycle_request.prompt
     assert "operator_assertion_unverified" in cycle_request.prompt
     assert "effect_proven" in cycle_request.prompt
-    fake.companion_output_override = {
-        "disposition": "answer", "response": "I can use the retained lesson.",
-        "evidence_ids": ["__CURRENT_FACT__"],
-        "history_record_ids": [cycle.written_record_id]}
     later = bridge.respond(request_id="later-cognition-cycle",
-        question="What can you learn from the current scene?", screen_observation=screen)
+        question="What did the earlier operator report about the candles?",
+        screen_observation=screen)
     assert later.status == "admitted_completed"
+    assert later.disposition == "answer"
+    assert "not independently verified" in later.response
     assert cycle.written_record_id in later.history_record_ids
     assert later.developmental_history_writeback_performed is False
+    later_prompt = json.loads(fake.requests[-1].prompt)
+    assert feedback_text in json.dumps(later_prompt["developmental_history"])
+    assert "operator_assertion_unverified" in json.dumps(
+        later_prompt["developmental_history"])
+
+    # Same observation and later question without the feedback cycle do not
+    # produce the historical answer: the report's admitted writeback changes
+    # which subsequent behavior the controlled invoker selects.
+    control_fake = FeedbackConditionedInvoker()
+    control_cognition, _ = owner(tmp_path / "operator-cycle-control",
+        allowed_source_kinds=("embodiment", "operator_input"), max_selected_facts=2,
+        invoker=control_fake)
+    control_bridge = ResidentDevelopmentalCompanionBridge(
+        control_cognition, clock=lambda: now)
+    control_bridge.run_developmental_cycle(
+        tick_id="operator-cycle-control", screen_observation=screen)
+    control_later = control_bridge.respond(request_id="later-cognition-control",
+        question="What did the earlier operator report about the candles?",
+        screen_observation=screen)
+    assert control_later.disposition == "abstain"
+    assert control_later.response == "I do not have a relevant retained report."
 
 
 def test_companion_cycle_runs_configured_epistemic_owner_after_cognition(

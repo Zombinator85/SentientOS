@@ -118,6 +118,23 @@ behavior is scripted from supplied history text, so this is not evidence that a
 real model generalizes the lesson, that the recommendation is objectively
 correct, or that persistent cognition improves task performance in deployment.
 
+## Operator feedback provenance through later decisions
+
+`tests/test_resident_developmental_cognition.py::test_operator_feedback_provenance_survives_writeback_and_changes_later_response`
+composes the explicitly confirmed developmental cycle with a later resident
+interaction. The history projection now carries a bounded `operator_feedback_context`
+containing the original assertion, its digest and source bindings, and the
+`operator_assertion_unverified` posture. The later prompt says to report it as
+an operator statement, not independent observation or current fact. In the
+controlled comparison, the same later question and scene answer as a qualified
+historical report when that context is present and abstain when the feedback
+cycle is absent. The answer cites only the outer developmental record; no
+canonical user-memory mutation occurs.
+
+This establishes source-posture preservation and a controlled behavioral
+difference across writeback and retrieval. It does not show that a real model
+will reliably preserve the qualification or that the operator report is true.
+
 ## Explicitly retained user context in resident serving
 
 Resident-routed chat now queries the existing canonical memory store with the
