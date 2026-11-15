@@ -1050,7 +1050,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             release_receipt_summaries.append(summary)
     if verified_serving_operation_history and release_receipt_summaries:
         from sentientos.local_model_authority import digest_payload
-        serving_release_bindings: dict[tuple[str, str], tuple[str, str, str]] = {}
+        serving_release_bindings: dict[
+            tuple[str, str], tuple[str, str, str, int | None]] = {}
         for history in verified_serving_operation_history:
             if not isinstance(history, Mapping):
                 continue
@@ -1065,6 +1066,13 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 if isinstance(binding, Mapping) else None)
             loaded_identity = (binding.get("observed_loaded_model_identity")
                 if isinstance(binding, Mapping) else None)
+            load_configuration = (binding.get("load_configuration")
+                if isinstance(binding, Mapping) else None)
+            gpu_layers = (load_configuration.get("n_gpu_layers")
+                if isinstance(load_configuration, Mapping) else None)
+            if (gpu_layers is not None
+                    and (type(gpu_layers) is not int or not 0 <= gpu_layers <= 256)):
+                raise ValueError("serving_operation_history_gpu_layer_configuration_invalid")
             serving_receipt_id = receipt.get("receipt_id")
             serving_receipt_digest = history.get("receipt_semantic_digest")
             if (not isinstance(session_id, str) or not isinstance(operation_id, str)
@@ -1086,7 +1094,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             history_key = (session_id, operation_id)
             candidate_binding = (
                 digest_payload(dict(loaded_identity)), serving_receipt_id,
-                serving_receipt_digest)
+                serving_receipt_digest, gpu_layers)
             prior_binding = serving_release_bindings.get(history_key)
             if prior_binding is not None and prior_binding != candidate_binding:
                 raise ValueError("resource_release_serving_history_collision")
@@ -1122,6 +1130,20 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 release_lineage_findings.append(
                     "resource_release_serving_model_linkage_missing_or_mismatched:"
                     + str(release.get("receipt_id")))
+            if release.get("trigger_kind") in {
+                    "idle_game_gpu_residency",
+                    "idle_gaming_profile_gpu_residency",
+                    "idle_game_performance_gpu_residency"}:
+                observation = release.get("resource_observation")
+                observed_layers = (observation.get("model_gpu_layers")
+                    if isinstance(observation, Mapping) else None)
+                if (type(observed_layers) is not int
+                        or not 1 <= observed_layers <= 256
+                        or binding is None
+                        or binding[3] != observed_layers):
+                    release_lineage_findings.append(
+                        "resource_release_gpu_layer_linkage_missing_or_mismatched:"
+                        + str(release.get("receipt_id")))
     admission_by_receipt: dict[str, Mapping[str, Any]] = {}
     host_observation_binding_posture_by_receipt: dict[str, str] = {}
     workload_preemption_admission_posture_by_receipt: dict[str, str] = {}

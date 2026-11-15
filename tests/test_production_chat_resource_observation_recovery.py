@@ -138,6 +138,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         },
         "release_reason_codes": [],
         "resource_observation": {"workload_mode": "gaming",
+            "model_gpu_layers": 24,
             "active_inference_preemption_requested": False,
             "gpu_telemetry_available": True, "gpu_telemetry_complete": True,
             "gpu_telemetry_sources": [{"collector_id": "nvidia_gpu",
@@ -200,6 +201,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "session_id": "session-1",
         "binding": {"installation_identity": str(identity),
             "serving_operation_id": "serve-1",
+            "load_configuration": {"n_gpu_layers": 24},
             "observed_loaded_model_identity": loaded_identity},
     }
     serving_receipt["receipt_id"] = "serving-receipt-" + semantic_digest(
@@ -788,6 +790,33 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     assert not any(item.startswith(
         "resource_release_serving_model_linkage_missing_or_mismatched:")
         for item in serving_link_projection["payload"]["lineage_findings"])
+    mismatched_gpu_serving_receipt = dict(projection_serving_receipt)
+    mismatched_gpu_binding = dict(mismatched_gpu_serving_receipt["binding"])
+    mismatched_gpu_binding["load_configuration"] = {"n_gpu_layers": 16}
+    mismatched_gpu_serving_receipt["binding"] = mismatched_gpu_binding
+    mismatched_gpu_serving_receipt.pop("receipt_id")
+    mismatched_gpu_serving_receipt.pop("receipt_semantic_digest")
+    mismatched_gpu_serving_receipt["receipt_id"] = "serving-receipt-" + semantic_digest(
+        mismatched_gpu_serving_receipt)[:24]
+    mismatched_gpu_serving_receipt["receipt_semantic_digest"] = semantic_digest(
+        mismatched_gpu_serving_receipt)
+    mismatched_gpu_history_body = {
+        "status": "legacy_receipt_without_reservation", "attempt": None,
+        "attempt_semantic_digest": None,
+        "receipt": mismatched_gpu_serving_receipt,
+        "receipt_semantic_digest": mismatched_gpu_serving_receipt[
+            "receipt_semantic_digest"],
+    }
+    mismatched_gpu_history = ({**mismatched_gpu_history_body,
+        "history_semantic_digest": semantic_digest(mismatched_gpu_history_body)},)
+    mismatched_gpu_projection = resource_consumption_world_state_records(
+        ledger=first.ledger,
+        source_identity={"installation_identity": str(identity)},
+        verified_serving_operation_history=mismatched_gpu_history,
+        verified_resource_release_receipts=first.verified_resource_release_receipts)[0]
+    assert any(item.startswith(
+        "resource_release_gpu_layer_linkage_missing_or_mismatched:")
+        for item in mismatched_gpu_projection["payload"]["lineage_findings"])
     wrapper_only_forgery = dict(projection_serving_receipt)
     wrapper_only_forgery_binding = dict(wrapper_only_forgery["binding"])
     wrapper_only_forgery_binding["observed_loaded_model_identity"] = {
