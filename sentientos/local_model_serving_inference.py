@@ -461,9 +461,21 @@ class ProductionServingInferenceController:
                     CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES)
         if (expected_configured_mode == "normal"
                 and trigger_kind in {"idle_game_frame_pressure_reconciliation",
+                    "idle_game_performance_gpu_residency",
                     "idle_host_gpu_resource_reconciliation",
                     "idle_host_memory_resource_reconciliation"}):
-            return current.get("configured_mode") == "normal"
+            if current.get("configured_mode") != "normal":
+                return False
+            if trigger_kind == "idle_game_performance_gpu_residency":
+                getter = getattr(self._serving._kernel,
+                    "current_verified_game_performance_evidence", None)
+                try:
+                    performance = getter() if callable(getter) else None
+                except Exception:
+                    performance = None
+                return (isinstance(performance, Mapping)
+                    and isinstance(performance.get("message_id"), str))
+            return True
         provenance = current.get("transport_provenance")
         return (current.get("configured_mode") == "automatic"
             and current.get("observation_status") == "available"
@@ -1070,6 +1082,17 @@ class ProductionServingInferenceController:
                                     "serving_session_id": session.session_id,
                                     "active_inference_cancellation_confirmed": frame_release[
                                         "active_inference_cancellation_confirmed"]}
+                            residency_release = self._release_after_gpu_model_residency(
+                                session, model, pending_workload,
+                                preempt_active_generation=True)
+                            if residency_release is not None:
+                                return {"status": residency_release["status"],
+                                    "release_receipt_id": residency_release["receipt_id"],
+                                    "trigger_kind": residency_release["trigger_kind"],
+                                    "serving_session_id": session.session_id,
+                                    "active_inference_cancellation_confirmed": (
+                                        residency_release[
+                                            "active_inference_cancellation_confirmed"])}
                 if resource_entitlement_owner is not None:
                     entitlement_preemption = (
                         self._preempt_active_inference_for_invalidated_entitlement(
@@ -1258,6 +1281,14 @@ class ProductionServingInferenceController:
         load_configuration = session.binding.get("load_configuration")
         gpu_layers = (load_configuration.get("n_gpu_layers")
             if isinstance(load_configuration, Mapping) else None)
+        if type(gpu_layers) is int and 1 <= gpu_layers <= 256:
+            residency_release = self._release_after_gpu_model_residency(
+                session, model, self.current_workload_state())
+            if residency_release is not None:
+                return {"status": residency_release["status"],
+                    "release_receipt_id": residency_release["receipt_id"],
+                    "trigger_kind": residency_release["trigger_kind"],
+                    "serving_session_id": session.session_id}
         correlation_prefix = ("idle-host-gpu-resource-reconcile-"
             if type(gpu_layers) is int and 1 <= gpu_layers <= 256
             else "idle-host-memory-resource-reconcile-")
@@ -2194,6 +2225,14 @@ class ProductionServingInferenceController:
         provenance = workload.get("transport_provenance")
         message_id = provenance.get("message_id") if isinstance(provenance, Mapping) else None
         observed_at = workload.get("observed_at")
+        performance_getter = getattr(self._serving._kernel,
+            "current_verified_game_performance_evidence", None)
+        try:
+            performance = (performance_getter()
+                if workload.get("configured_mode") == "normal"
+                and callable(performance_getter) else None)
+        except Exception:
+            performance = None
         load_configuration = session.binding.get("load_configuration")
         gpu_layers = (load_configuration.get("n_gpu_layers")
             if isinstance(load_configuration, Mapping) else None)
@@ -2207,25 +2246,38 @@ class ProductionServingInferenceController:
             and (workload.get("game_foreground") is True
                  or workload.get("game_process_running") is True)
             and isinstance(message_id, str) and isinstance(observed_at, str))
+        performance_game_evidence = (
+            workload.get("configured_mode") == "normal"
+            and isinstance(performance, Mapping)
+            and all(isinstance(performance.get(key), str) and performance.get(key)
+                for key in ("message_id", "payload_digest", "process_id_digest",
+                    "process_name_digest", "source_id", "generation_id", "observed_at"))
+            and type(performance.get("sequence")) is int)
         if ((selected_gaming_profile and not profile_evidence)
-                or (not selected_gaming_profile and not game_evidence)
+                or (not selected_gaming_profile and not game_evidence
+                    and not performance_game_evidence)
                 or type(gpu_layers) is not int or not 1 <= gpu_layers <= 256):
             return None
+        trigger_kind = ("idle_gaming_profile_gpu_residency" if selected_gaming_profile
+            else "idle_game_performance_gpu_residency" if performance_game_evidence
+            else "idle_game_gpu_residency")
         if not self._release_workload_evidence_is_current(
-                ("idle_gaming_profile_gpu_residency" if selected_gaming_profile
-                    else "idle_game_gpu_residency"),
-                "gaming" if selected_gaming_profile else "automatic"):
+                trigger_kind,
+                "gaming" if selected_gaming_profile else
+                "normal" if performance_game_evidence else "automatic"):
             return None
         loaded_identity = getattr(model, "active_identity", None)
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
             return None
-        trigger_kind = ("idle_gaming_profile_gpu_residency" if selected_gaming_profile
-            else "idle_game_gpu_residency")
         trigger_prefix = ("idle-gaming-profile-gpu-residency-"
-            if selected_gaming_profile else "idle-game-gpu-residency-")
+            if selected_gaming_profile else
+            "idle-game-performance-gpu-residency-" if performance_game_evidence else
+            "idle-game-gpu-residency-")
         trigger_correlation = trigger_prefix + str(time.time_ns())
         evidence_time = (datetime.now(timezone.utc).isoformat()
-            if selected_gaming_profile else observed_at)
+            if selected_gaming_profile else performance.get("observed_at")
+            if performance_game_evidence and isinstance(performance, Mapping)
+            else observed_at)
         # Host telemetry is measurement-only for this release trigger. Never
         # wait for a fresh collector cycle before freeing GPU-backed model
         # residency for a verified game workload or explicitly selected profile.
@@ -2264,6 +2316,30 @@ class ProductionServingInferenceController:
             }
             actor = "production_chat_game_resource_governor"
             reason_code = "verified_game_gpu_model_residency"
+        if performance_game_evidence and isinstance(performance, Mapping):
+            evidence = {
+                "schema_version": (
+                    "sentientos.production_game_performance_gpu_residency_release_evidence:v1"),
+                "trigger_kind": trigger_kind,
+                "trigger_correlation_id": trigger_correlation,
+                "workload_mode": "normal",
+                "game_performance_message_id": performance["message_id"],
+                "game_performance_payload_digest": performance["payload_digest"],
+                "game_performance_process_id_digest": performance["process_id_digest"],
+                "game_performance_process_name_digest": performance["process_name_digest"],
+                "game_performance_source_id": performance["source_id"],
+                "game_performance_generation_id": performance["generation_id"],
+                "game_performance_sequence": performance["sequence"],
+                "frame_time_p95_ms": performance.get("frame_time_p95_ms"),
+                "hitch_count_over_50ms": performance.get("hitch_count_over_50ms"),
+                "process_cpu_percent": performance.get("process_cpu_percent"),
+                "process_rss_bytes": performance.get("process_rss_bytes"),
+                "model_gpu_layers": gpu_layers,
+                "serving_session_id": session.session_id,
+                "active_inference_preemption_requested": preempt_active_generation,
+                "observed_at": evidence_time,
+            }
+            reason_code = "verified_game_performance_gpu_model_residency"
         decision = self._serving._kernel.admit(ControlActionRequest(
             action_kind="local_model_resource_release",
             authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
@@ -2389,7 +2465,23 @@ class ProductionServingInferenceController:
                 "workload_observation_status": "not_requested",
                 "active_inference_preemption_requested": preempt_active_generation,
                 "model_gpu_layers": gpu_layers, "host_telemetry_used_for_admission": False}
-                if selected_gaming_profile else {"game_workload_message_id": message_id,
+                if selected_gaming_profile else {
+                    "workload_mode": "normal",
+                    "game_performance_message_id": performance["message_id"],
+                    "game_performance_payload_digest": performance["payload_digest"],
+                    "game_performance_process_id_digest": performance[
+                        "process_id_digest"],
+                    "game_performance_process_name_digest": performance[
+                        "process_name_digest"],
+                    "game_performance_source_id": performance["source_id"],
+                    "game_performance_generation_id": performance["generation_id"],
+                    "game_performance_sequence": performance["sequence"],
+                    "game_performance_observed_at": performance["observed_at"],
+                    "active_inference_preemption_requested": preempt_active_generation,
+                    "model_gpu_layers": gpu_layers,
+                    "host_telemetry_used_for_admission": False}
+                if performance_game_evidence and isinstance(performance, Mapping)
+                else {"game_workload_message_id": message_id,
                     "model_gpu_layers": gpu_layers, "host_telemetry_used_for_admission": False}),
             "resource_measurement_comparison": {
                 "status": ("comparable" if gpu_delta is not None or vram_delta is not None

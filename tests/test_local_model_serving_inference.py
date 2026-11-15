@@ -3646,6 +3646,8 @@ def test_selected_gaming_profile_after_inference_admission_defers_before_effect(
     "idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
     "deferred_vram_pressure",
     "idle_game_gpu_residency", "idle_game_gpu_residency_unrecorded_admission",
+    "idle_game_gpu_residency_normal_mode",
+    "idle_game_gpu_residency_active_inference_normal_mode",
     "deferred_thermal_pressure",
     "deferred_gpu_thermal_pressure",
     "idle_game_frame_pressure", "idle_game_frame_pressure_mismatched_process",
@@ -3725,6 +3727,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         "idle_game_frame_pressure_active_inference_unconfirmed",
         "idle_game_frame_pressure_active_inference_scheduler",
         "idle_game_frame_pressure_active_inference_normal_mode",
+        "idle_game_gpu_residency_active_inference_normal_mode",
     }
     if not late_game_transition:
         assert kernel.observe_verified_game_performance(game_evidence)
@@ -3739,7 +3742,9 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     game_workload_active = threading.Event()
     if not late_game_transition and trigger not in {
             "idle_game_frame_pressure_normal_mode",
-            "idle_game_frame_pressure_active_inference_normal_mode"}:
+            "idle_game_frame_pressure_active_inference_normal_mode",
+            "idle_game_gpu_residency_normal_mode",
+            "idle_game_gpu_residency_active_inference_normal_mode"}:
         assert kernel.observe_verified_game_workload(game_workload)
         game_workload_active.set()
 
@@ -3767,6 +3772,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         {"gpu": 22.0, "vram": 47.0}
         if trigger in {"idle_nominal_pressure", "idle_cpu_pressure", "deferred_cpu_pressure",
             "idle_game_gpu_residency", "idle_game_gpu_residency_unrecorded_admission",
+            "idle_game_gpu_residency_normal_mode",
+            "idle_game_gpu_residency_active_inference_normal_mode",
             "deferred_thermal_pressure",
             "deferred_gpu_thermal_pressure",
             "idle_game_frame_pressure", "idle_game_frame_pressure_mismatched_process",
@@ -3837,12 +3844,15 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         host_resource_observation_owner=host_resource_owner,
         foreground_game_detector=VerifiedGameDetector(),
         gpu_layers=24 if trigger in {"idle_game_gpu_residency",
-            "idle_game_gpu_residency_unrecorded_admission"} else 0,
+            "idle_game_gpu_residency_unrecorded_admission",
+            "idle_game_gpu_residency_normal_mode",
+            "idle_game_gpu_residency_active_inference_normal_mode"} else 0,
         on_generate=active_generation
             if trigger in {"idle_game_frame_pressure_active_inference",
                 "idle_game_frame_pressure_active_inference_unconfirmed",
                 "idle_game_frame_pressure_active_inference_scheduler",
-                "idle_game_frame_pressure_active_inference_normal_mode"} else None)
+                "idle_game_frame_pressure_active_inference_normal_mode",
+                "idle_game_gpu_residency_active_inference_normal_mode"} else None)
     if trigger == "idle_game_gpu_residency_unrecorded_admission":
         original_append = kernel._append
 
@@ -3854,7 +3864,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         monkeypatch.setattr(kernel, "_append", fail_release_admission_append)
     if trigger in {"idle_game_frame_pressure_active_inference",
             "idle_game_frame_pressure_active_inference_scheduler",
-            "idle_game_frame_pressure_active_inference_normal_mode"}:
+            "idle_game_frame_pressure_active_inference_normal_mode",
+            "idle_game_gpu_residency_active_inference_normal_mode"}:
         model.cancel_pending_generation = lambda: (active_cancelled.set() or True)
     elif trigger == "idle_game_frame_pressure_active_inference_unconfirmed":
         model.cancel_pending_generation = lambda: False
@@ -3886,7 +3897,9 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     model.close = simulated_release
     bridge.set_workload_mode("normal" if trigger in {
         "idle_game_frame_pressure_normal_mode",
-        "idle_game_frame_pressure_active_inference_normal_mode"}
+        "idle_game_frame_pressure_active_inference_normal_mode",
+        "idle_game_gpu_residency_normal_mode",
+        "idle_game_gpu_residency_active_inference_normal_mode"}
         else "automatic", ["ExampleGame.exe"])
 
     if trigger == "deferred_stale_host_observation":
@@ -3935,14 +3948,16 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     elif trigger in {"idle_game_frame_pressure_active_inference",
             "idle_game_frame_pressure_active_inference_unconfirmed",
             "idle_game_frame_pressure_active_inference_scheduler",
-            "idle_game_frame_pressure_active_inference_normal_mode"}:
+            "idle_game_frame_pressure_active_inference_normal_mode",
+            "idle_game_gpu_residency_active_inference_normal_mode"}:
         invocation_results = {}
         inference = bridge
         resource_custody = None
         resource_ledger = None
         resource_allocation_id = None
         if trigger in {"idle_game_frame_pressure_active_inference_scheduler",
-                "idle_game_frame_pressure_active_inference_normal_mode"}:
+                "idle_game_frame_pressure_active_inference_normal_mode",
+                "idle_game_gpu_residency_active_inference_normal_mode"}:
             from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
             from sentientos.governed_local_model_resource_allocation import (
                 GovernedLocalModelResourceBounds,
@@ -4001,7 +4016,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                 generation_provider=lambda: generation_id, clock=lambda: now
             ).receive_once()
             assert kernel.observe_verified_game_performance(changed_game_evidence)
-            if trigger != "idle_game_frame_pressure_active_inference_normal_mode":
+            if trigger not in {"idle_game_frame_pressure_active_inference_normal_mode",
+                    "idle_game_gpu_residency_active_inference_normal_mode"}:
                 game_workload_active.set()
                 assert kernel.observe_verified_game_workload(game_workload)
 
@@ -4114,10 +4130,13 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         else:
             reconciliation = bridge.reconcile_idle_game_resource_state()
         assert reconciliation["trigger_kind"] == (
-            "idle_game_frame_pressure_reconciliation")
+            "idle_game_performance_gpu_residency"
+            if trigger == "idle_game_gpu_residency_active_inference_normal_mode"
+            else "idle_game_frame_pressure_reconciliation")
         if trigger in {"idle_game_frame_pressure_active_inference",
                 "idle_game_frame_pressure_active_inference_scheduler",
-                "idle_game_frame_pressure_active_inference_normal_mode"}:
+                "idle_game_frame_pressure_active_inference_normal_mode",
+                "idle_game_gpu_residency_active_inference_normal_mode"}:
             invocation_thread.join(timeout=5)
             assert not invocation_thread.is_alive()
             assert reconciliation["status"] == "worker_closed"
@@ -4199,9 +4218,13 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             assert nominal is not None
             assert nominal.pressure_report.pressure_labels == ("nominal",)
         reconciliation = bridge.reconcile_idle_game_resource_state()
-        if trigger == "idle_game_gpu_residency":
+        if trigger in {"idle_game_gpu_residency",
+                "idle_game_gpu_residency_normal_mode"}:
             assert reconciliation["status"] == "worker_closed"
-            assert reconciliation["trigger_kind"] == "idle_game_gpu_residency"
+            assert reconciliation["trigger_kind"] == (
+                "idle_game_performance_gpu_residency"
+                if trigger == "idle_game_gpu_residency_normal_mode"
+                else "idle_game_gpu_residency")
             assert model.closed is True
             assert serving.current_session() is None
             assert isinstance(reconciliation["release_receipt_id"], str)
@@ -4228,6 +4251,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             return
         if trigger not in {"idle_game_gpu_residency",
                 "idle_game_gpu_residency_unrecorded_admission",
+                "idle_game_gpu_residency_normal_mode",
                 "idle_game_frame_pressure",
                 "idle_game_frame_pressure_mismatched_process",
                 "idle_game_frame_pressure_normal_mode"}:
@@ -4241,7 +4265,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         "idle_game_frame_pressure_active_inference",
         "idle_game_frame_pressure_active_inference_scheduler",
         "idle_game_frame_pressure_active_inference_unconfirmed",
-        "idle_game_frame_pressure_active_inference_normal_mode"} else 0)
+        "idle_game_frame_pressure_active_inference_normal_mode",
+        "idle_game_gpu_residency_active_inference_normal_mode"} else 0)
     if trigger in {"deferred_inference", "deferred_cpu_pressure",
             "deferred_vram_pressure", "deferred_thermal_pressure",
             "deferred_gpu_thermal_pressure"}:
@@ -4267,6 +4292,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         expected_collector_count = (0 if trigger ==
             "idle_game_gpu_residency_unrecorded_admission" else
             4 if trigger in {"idle_game_gpu_residency",
+            "idle_game_gpu_residency_normal_mode",
             "idle_game_frame_pressure_mismatched_process",
             "idle_game_frame_pressure_active_inference_unconfirmed"} else 8)
         assert observed_collector_calls == expected_collector_count
@@ -4375,6 +4401,35 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "sample_delta_only; telemetry_does_not_establish_causation")
         assert release["inference_performed"] is False
         assert release["host_mutation_performed"] is False
+        serving.close()
+        return
+    if trigger in {"idle_game_gpu_residency_normal_mode",
+            "idle_game_gpu_residency_active_inference_normal_mode"}:
+        assert release["trigger_kind"] == "idle_game_performance_gpu_residency"
+        assert release["resource_observation"]["workload_mode"] == "normal"
+        assert release["resource_observation"]["game_performance_message_id"] == (
+            accepted[1 if trigger ==
+                "idle_game_gpu_residency_active_inference_normal_mode" else 0].message_id)
+        assert release["resource_observation"]["game_performance_process_id_digest"] == (
+            game_evidence.process_id_digest)
+        assert release["resource_observation"]["game_performance_process_name_digest"] == (
+            game_evidence.process_name_digest)
+        assert release["resource_observation"]["game_performance_payload_digest"] == (
+            changed_game_evidence.payload_digest if trigger ==
+                "idle_game_gpu_residency_active_inference_normal_mode"
+                else game_evidence.payload_digest)
+        assert "game_workload_message_id" not in release["resource_observation"]
+        assert release["resource_observation"]["host_telemetry_used_for_admission"] is False
+        assert release["resource_observation"]["model_gpu_layers"] == 24
+        assert release["active_inference_preemption_requested"] is (
+            trigger == "idle_game_gpu_residency_active_inference_normal_mode")
+        assert release["active_inference_cancellation_confirmed"] is (
+            True if trigger == "idle_game_gpu_residency_active_inference_normal_mode"
+            else None)
+        assert release["inference_performed"] is False
+        assert release["host_mutation_performed"] is False
+        assert release["resource_measurement_comparison"]["interpretation"] == (
+            "sample_delta_only; telemetry_does_not_establish_causation")
         serving.close()
         return
     if trigger in {"idle_game_frame_pressure",

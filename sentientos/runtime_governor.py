@@ -1522,6 +1522,7 @@ class RuntimeGovernor:
                 "verified_game_gpu_pressure",
                 "verified_game_host_pressure",
                 "verified_game_gpu_model_residency",
+                "verified_game_performance_gpu_model_residency",
                 "selected_gaming_profile_gpu_model_residency",
                 "verified_game_frame_pressure",
                 "selected_gaming_profile_host_pressure",
@@ -2151,6 +2152,82 @@ class RuntimeGovernor:
                     if frame_age_seconds is not None else None),
             } if evidence_valid and isinstance(observation_value, Mapping) else {
                 "status": "missing_stale_malformed_or_unverified_game_frame_pressure"})
+        elif reason_code == "verified_game_performance_gpu_model_residency":
+            observation_value = payload.get("resource_observation")
+            expected_fields = {
+                "schema_version", "trigger_kind", "trigger_correlation_id",
+                "workload_mode", "game_performance_message_id",
+                "game_performance_payload_digest", "game_performance_process_id_digest",
+                "game_performance_process_name_digest", "game_performance_source_id",
+                "game_performance_generation_id", "game_performance_sequence",
+                "frame_time_p95_ms", "hitch_count_over_50ms", "process_cpu_percent",
+                "process_rss_bytes", "model_gpu_layers", "serving_session_id",
+                "active_inference_preemption_requested", "observed_at",
+            }
+            current = self.current_verified_game_performance_evidence()
+            evidence_valid = False
+            if isinstance(observation_value, Mapping) and set(observation_value) == expected_fields:
+                source = observation_value.get("trigger_correlation_id")
+                expected_release = (_expected_resource_release_correlation(
+                    "idle_game_performance_gpu_residency", source,
+                    active_invocation_reference=payload.get(
+                        "active_inference_request_reference"),
+                    bind_active_invocation=payload.get(
+                        "active_inference_preemption_requested") is True)
+                    if isinstance(source, str) else None)
+                current_fields = {
+                    "game_performance_message_id": "message_id",
+                    "game_performance_payload_digest": "payload_digest",
+                    "game_performance_process_id_digest": "process_id_digest",
+                    "game_performance_process_name_digest": "process_name_digest",
+                    "game_performance_source_id": "source_id",
+                    "game_performance_generation_id": "generation_id",
+                    "game_performance_sequence": "sequence",
+                    "frame_time_p95_ms": "frame_time_p95_ms",
+                    "hitch_count_over_50ms": "hitch_count_over_50ms",
+                    "process_cpu_percent": "process_cpu_percent",
+                    "process_rss_bytes": "process_rss_bytes",
+                    "observed_at": "observed_at",
+                }
+                current_match = (isinstance(current, Mapping)
+                    and all(observation_value.get(field) == current.get(current_field)
+                        for field, current_field in current_fields.items()))
+                evidence_valid = bool(
+                    observation_value.get("schema_version") ==
+                        "sentientos.production_game_performance_gpu_residency_release_evidence:v1"
+                    and observation_value.get("trigger_kind") ==
+                        "idle_game_performance_gpu_residency"
+                    and isinstance(source, str)
+                    and source.startswith("idle-game-performance-gpu-residency-")
+                    and correlation_id == expected_release
+                    and observation_value.get("workload_mode") == "normal"
+                    and actor == "production_chat_game_resource_governor"
+                    and subject == actor and payload.get("target_subsystem") == "production_chat"
+                    and type(observation_value.get("model_gpu_layers")) is int
+                    and 1 <= observation_value["model_gpu_layers"] <= 256
+                    and isinstance(observation_value.get("serving_session_id"), str)
+                    and re.fullmatch(r"serving-session-[0-9a-f]{24}",
+                        str(observation_value.get("serving_session_id"))) is not None
+                    and type(observation_value.get(
+                        "active_inference_preemption_requested")) is bool
+                    and _valid_active_invocation_release_binding(payload)
+                    and current_match)
+            valid = valid and evidence_valid
+            evidence_ref = ({
+                "status": "current",
+                "workload_mode": "normal",
+                "game_performance_message_id": observation_value.get(
+                    "game_performance_message_id"),
+                "game_performance_process_id_digest": observation_value.get(
+                    "game_performance_process_id_digest"),
+                "game_performance_process_name_digest": observation_value.get(
+                    "game_performance_process_name_digest"),
+                "model_gpu_layers": observation_value.get("model_gpu_layers"),
+                "serving_session_id": observation_value.get("serving_session_id"),
+                "active_inference_preemption_requested": observation_value.get(
+                    "active_inference_preemption_requested"),
+            } if evidence_valid and isinstance(observation_value, Mapping) else {
+                "status": "missing_stale_or_unverified_game_performance_gpu_residency"})
         elif reason_code == "verified_game_gpu_model_residency":
             observation_value = payload.get("resource_observation")
             expected_fields = {

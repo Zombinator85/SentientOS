@@ -409,6 +409,67 @@ def test_verified_game_gpu_residency_release_requires_exact_fresh_game_evidence(
 
 
 @pytest.mark.no_legacy_skip
+def test_normal_mode_game_performance_gpu_residency_release_requires_exact_evidence(
+        monkeypatch, tmp_path):
+    from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = datetime.now(timezone.utc).isoformat()
+    performance = VerifiedGamePerformanceObservation(
+        "windows-edge", "edge-generation-1", 7, "a" * 64, "b" * 64,
+        observed_at, "c" * 64, None, 0, 12.0, 4096, "available", observed_at,
+        "d" * 64)
+    assert governor.observe_verified_game_performance(performance)
+    trigger = "idle-game-performance-gpu-residency-test"
+    evidence = {
+        "schema_version": (
+            "sentientos.production_game_performance_gpu_residency_release_evidence:v1"),
+        "trigger_kind": "idle_game_performance_gpu_residency",
+        "trigger_correlation_id": trigger,
+        "workload_mode": "normal",
+        "game_performance_message_id": "a" * 64,
+        "game_performance_payload_digest": "b" * 64,
+        "game_performance_process_id_digest": "c" * 64,
+        "game_performance_process_name_digest": "d" * 64,
+        "game_performance_source_id": "windows-edge",
+        "game_performance_generation_id": "edge-generation-1",
+        "game_performance_sequence": 7,
+        "frame_time_p95_ms": None,
+        "hitch_count_over_50ms": 0,
+        "process_cpu_percent": 12.0,
+        "process_rss_bytes": 4096,
+        "model_gpu_layers": 24,
+        "serving_session_id": "serving-session-" + "a" * 24,
+        "active_inference_preemption_requested": False,
+        "observed_at": observed_at,
+    }
+
+    def admit(observation):
+        release_correlation = "production-chat-resource-release-" + hashlib.sha256(
+            ("idle_game_performance_gpu_residency:" + trigger).encode(
+                "utf-8")).hexdigest()[:24]
+        return governor._admit_local_model_resource_release(
+            actor="production_chat_game_resource_governor",
+            subject="production_chat_game_resource_governor",
+            correlation_id=release_correlation,
+            metadata={"purpose": "local_model_resource_release",
+                "reason_code": "verified_game_performance_gpu_model_residency",
+                "target_subsystem": "production_chat",
+                "model_identity_digest": "e" * 64,
+                "serving_session_id": "serving-session-" + "a" * 24,
+                "resource_observation": observation})
+
+    accepted = admit(evidence)
+    forged = admit({**evidence, "game_performance_payload_digest": "f" * 64})
+    assert accepted.allowed is True
+    assert accepted.evidence_refs["resource_observation_evidence"]["status"] == "current"
+    assert accepted.evidence_refs["resource_observation_evidence"]["workload_mode"] == "normal"
+    assert forged.allowed is False
+
+
+@pytest.mark.no_legacy_skip
 def test_selected_gaming_profile_release_requires_current_observed_host_pressure(
         monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
