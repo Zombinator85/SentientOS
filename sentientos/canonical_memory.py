@@ -310,9 +310,20 @@ class CanonicalMemoryStore:
                 continue
             score = len(terms & _memory_retrieval_terms(record["text"]))
             if score:
-                ranked.append((score, str(record.get("id", "")), record))
+                try:
+                    timestamp = datetime.fromisoformat(
+                        str(record.get("timestamp", "")).replace("Z", "+00:00"))
+                    if timestamp.tzinfo is None:
+                        timestamp = timestamp.replace(tzinfo=timezone.utc)
+                    recency = timestamp.timestamp()
+                except (OverflowError, OSError, TypeError, ValueError):
+                    # Bad or absent time never outranks a valid retained record.
+                    recency = float("-inf")
+                ranked.append((score, recency, str(record.get("id", "")), record))
         selected: list[dict[str, Any]]=[]; used=0; omitted=[]
-        for _,_,record in sorted(ranked,key=lambda x:(-x[0],x[1])):
+        # Relevance remains primary. Recency only orders equally relevant
+        # retained reports; it is not evidence that a newer statement is true.
+        for _,_,_,record in sorted(ranked,key=lambda x:(-x[0],-x[1],x[2])):
             identity=(record.get("id"),record.get("text_digest") or digest({"text":record["text"]}))
             if len(selected)>=max(0,limit):
                 omitted.append((identity,"selection_limit"))

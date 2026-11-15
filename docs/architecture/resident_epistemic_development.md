@@ -121,7 +121,10 @@ correct, or that persistent cognition improves task performance in deployment.
 ## Explicitly retained user context in resident serving
 
 Resident-routed chat now queries the existing canonical memory store with the
-current question. A record enters the resident prompt only when its canonical
+current question. Retrieval ranks relevance first and uses the retained record
+timestamp only to order equally relevant matches; an invalid timestamp sorts
+last in that tie. Recency is a selection aid, not evidence of truth or
+supersession. A record enters the resident prompt only when its canonical
 record shape and text digest match, its source user turn is still linked as
 retained, and `AdmittedRetentionWriter.verify_committed_artifact` verifies the
 stored artifact against that source turn and receipt. The bounded projection
