@@ -3207,6 +3207,22 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
     from sentientos.game_performance_bridge import (
         GAME_PROCESS_CPU_PRESSURE_PERCENT, VerifiedGamePerformanceObservation,
     )
+    from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+    from sentientos.governed_local_model_resource_allocation import (
+        GovernedLocalModelResourceBounds, GovernedLocalModelResourcePolicy,
+    )
+    from sentientos.production_chat_resource_context import (
+        ResourceBackedProductionChatInference,
+    )
+    from sentientos.production_chat_resource_provisioning import (
+        load_production_chat_resource_context_owner,
+    )
+    from sentientos.production_chat_resource_provisioning_bundle_producer import (
+        produce_production_chat_resource_provisioning_bundle,
+    )
+    from tests.test_production_chat_resource_provisioning_bundle_producer import (
+        encoded, inputs as provisioning_inputs,
+    )
 
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
@@ -3214,6 +3230,26 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
     kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
         decisions_path=tmp_path / "kernel-decisions.jsonl")
+    resource_now = now.replace(microsecond=0)
+    installation, provisioning_artifacts = provisioning_inputs(
+        tmp_path / "game-cpu-resource-provisioning", calls=2,
+        current_time=resource_now.isoformat().replace("+00:00", "Z"))
+    resource_bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
+    resource_policy = GovernedLocalModelResourcePolicy.create(
+        epoch=1, max_resource_specific_bounds=resource_bounds,
+        not_before=(resource_now - timedelta(minutes=30)).isoformat().replace(
+            "+00:00", "Z"),
+        valid_until=(resource_now + timedelta(minutes=45)).isoformat().replace(
+            "+00:00", "Z"))
+    provisioning_artifacts["requested_bounds"] = resource_bounds
+    provisioning_artifacts["resource_policy_artifact"] = encoded(
+        resource_policy.to_dict())
+    bundle = produce_production_chat_resource_provisioning_bundle(
+        installation, "game-cpu-priority", **provisioning_artifacts)
+    resource_custody = load_production_chat_resource_context_owner(
+        installation, "game-cpu-priority",
+        clock=lambda: resource_now.isoformat().replace("+00:00", "Z"),
+        nonce_source=lambda: "game-cpu-active-attempt")
     started = threading.Event()
     cancelled = threading.Event()
 
@@ -3224,15 +3260,24 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
         raise RuntimeError("fixture_cancelled_for_game_cpu_priority")
 
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
-        kernel_override=kernel, gpu_layers=0, on_generate=active_generation)
+        kernel_override=kernel, gpu_layers=0, on_generate=active_generation,
+        serving_admission_context_provider=lambda _correlation, _state: {
+            "governed_inference_entitlement_binding": dict(
+                resource_custody.serving_admission_entitlement_binding())})
     model.cancel_pending_generation = lambda: (cancelled.set() or True)
     bridge.set_workload_mode("normal")
+    inference = ResourceBackedProductionChatInference(bridge, resource_custody)
     results = {}
-    worker = threading.Thread(target=lambda: results.setdefault("receipt",
-        bridge.generate(prompt=("[SYSTEM_INSTRUCTION]\nRules.\n"
+    def invoke():
+        results["receipt"] = inference.generate(
+            prompt=("[SYSTEM_INSTRUCTION]\nRules.\n"
             "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\n"
             "USER_DATA: optional inference"), caller="chat_service",
-            correlation_id="active-game-cpu-pressure")))
+            correlation_id="active-game-cpu-pressure",
+            budget=LocalModelInvocationBudget(8000, 4000, 512, 30.0, 2),
+            caller_linkage={})
+
+    worker = threading.Thread(target=invoke)
     worker.start()
     assert started.wait(timeout=5)
 
@@ -3278,6 +3323,26 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
         "active_inference_request_reference"] == {
             key: receipt.request[key] for key in (
                 "request_id", "request_digest", "correlation_id")}
+    resource_ledger = resource_custody.allocator.ledger
+    assert resource_ledger.remaining_calls(bundle.allocation_id) == 1
+    resource_receipts = resource_ledger._state["receipts"]
+    assert [item["state"] for item in resource_receipts] == [
+        "attempt_begun", "measured_cancelled", "reconciled"]
+    assert resource_receipts[-1]["effect_receipt_digest"] == receipt.receipt_digest
+    assert receipt.resource_allocation_digest == resource_custody.allocation.allocation_digest
+    assert receipt.resource_attempt_id == resource_receipts[0]["attempt_id"]
+    assert receipt.resource_consumption_receipt_digests == tuple(
+        item["receipt_digest"] for item in resource_receipts[-2:])
+    from sentientos.host_resource_runtime import resource_consumption_world_state_records
+    projected_resource = resource_consumption_world_state_records(
+        ledger=resource_ledger, invocation_receipts=[persisted])[0]
+    projected_invocation = projected_resource["payload"]["invocation_receipts"][0]
+    assert projected_resource["disposition"] == "recorded"
+    assert projected_invocation["cancellation_admission_decision_ref"] == (
+        receipt.cancellation_admission_decision_ref)
+    assert projected_invocation["cancellation_preemption_ref"] == (
+        dict(receipt.cancellation_preemption_ref))
+    resource_custody.close()
     serving.close()
 
 
