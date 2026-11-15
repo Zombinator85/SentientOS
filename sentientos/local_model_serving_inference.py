@@ -1507,6 +1507,14 @@ class ProductionServingInferenceController:
             cancelled = active_invoker.cancel_pending_generation(
                 reason="workload_transition",
                 cancellation_admission_decision=admission)
+            residency_release = None
+            if cancelled and "gpu_pressure" in pressure_labels:
+                # Cancellation yields accelerator execution. Then run the
+                # ordinary independently admitted idle host pressure release
+                # path so persistent GPU residency can yield VRAM as well.
+                residency_release = self._reconcile_idle_normal_resource_pressure()
+            residency_released = (isinstance(residency_release, Mapping)
+                and residency_release.get("status") == "worker_closed")
             return {"status": "preempted" if cancelled else "preemption_unconfirmed",
                 "reason": ("host_resource_pressure_optional_inference_priority"
                     if cancelled else "active_inference_cancellation_unconfirmed"),
@@ -1517,7 +1525,13 @@ class ProductionServingInferenceController:
                 "host_report_id": report_id,
                 "pressure_labels": pressure_labels,
                 "active_inference_cancellation_confirmed": cancelled,
-                "model_residency_released": False,
+                "model_residency_released": bool(residency_released),
+                "resource_release_receipt_id": (
+                    residency_release.get("release_receipt_id")
+                    if isinstance(residency_release, Mapping) else None),
+                "resource_release_status": (
+                    residency_release.get("status")
+                    if isinstance(residency_release, Mapping) else None),
             }
         finally:
             self._preemption_lock.release()

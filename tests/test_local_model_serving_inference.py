@@ -1870,22 +1870,37 @@ def test_selected_gaming_profile_cancels_active_inference_on_host_pressure(
         serving.close()
 
 
+@pytest.mark.parametrize(("pressure_kind", "gpu_layers", "expect_residency_release"), [
+    ("cpu", 0, False), ("gpu", 24, True),
+], ids=["cpu-yields-inference", "gpu-pressure-releases-residency"])
 def test_normal_host_pressure_cancels_active_optional_inference(
-        monkeypatch, tmp_path):
+        monkeypatch, tmp_path, pressure_kind, gpu_layers, expect_residency_release):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
     kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
         decisions_path=tmp_path / "kernel-decisions.jsonl")
-    cpu_pressure = {"active": False}
+    pressure_active = {"active": False}
 
     def collector(collector_id, **values):
         def collect(*, observed_at=None):
             current = dict(values)
             if collector_id == "cpu":
                 current["utilization_percent"] = (
-                    95.0 if cpu_pressure["active"] else 20.0)
+                    95.0 if pressure_kind == "cpu" and pressure_active["active"]
+                    else 20.0)
+            elif collector_id == "nvidia_gpu":
+                current["devices"] = [{
+                    "index": 0,
+                    "gpu_utilization_percent": (
+                        96.0 if pressure_kind == "gpu" and pressure_active["active"]
+                        else 20.0),
+                    "vram_utilization_percent": (
+                        92.0 if pressure_kind == "gpu" and pressure_active["active"]
+                        else 30.0),
+                    "temperature_c": 55.0,
+                }]
             return HostCollectorResult(collector_id, "available",
                 observed_at or now.isoformat(), "synthetic_test_fixture",
                 values=current)
@@ -1898,6 +1913,10 @@ def test_normal_host_pressure_cancels_active_optional_inference(
                 collector("cpu", utilization_percent=20.0)),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
                 collector("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", device_count=1, devices=[{
+                    "index": 0, "gpu_utilization_percent": 20.0,
+                    "vram_utilization_percent": 30.0, "temperature_c": 55.0}])),
         ]), clock=lambda: now.isoformat())
     started = threading.Event()
     cancelled = threading.Event()
@@ -1910,7 +1929,7 @@ def test_normal_host_pressure_cancels_active_optional_inference(
 
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, host_resource_observation_owner=host_owner,
-        gpu_layers=0, on_generate=active_generation)
+        gpu_layers=gpu_layers, on_generate=active_generation)
     model.cancel_pending_generation = lambda: (cancelled.set() or True)
     result = {}
     invocation = threading.Thread(target=lambda: result.setdefault(
@@ -1920,7 +1939,7 @@ def test_normal_host_pressure_cancels_active_optional_inference(
     invocation.start()
     try:
         assert started.wait(timeout=5)
-        cpu_pressure["active"] = True
+        pressure_active["active"] = True
         reconciliation = bridge.reconcile_workload_state()
         invocation.join(timeout=5)
 
@@ -1928,27 +1947,32 @@ def test_normal_host_pressure_cancels_active_optional_inference(
         assert reconciliation["status"] == "preempted", reconciliation
         assert reconciliation["trigger_kind"] == (
             "host_resource_pressure_active_inference_preemption")
-        assert reconciliation["pressure_labels"] == ["cpu_pressure"]
+        expected_pressure = "cpu_pressure" if pressure_kind == "cpu" else "gpu_pressure"
+        assert reconciliation["pressure_labels"] == [expected_pressure]
         assert reconciliation["active_inference_cancellation_confirmed"] is True
-        assert reconciliation["model_residency_released"] is False
+        assert reconciliation["model_residency_released"] is expect_residency_release
+        if expect_residency_release:
+            assert reconciliation["resource_release_status"] == "worker_closed"
+            assert reconciliation["resource_release_receipt_id"]
         assert result["receipt"].status == "cancelled"
         assert result["receipt"].effects["local_model_inference"] is True
-        assert model.closed is False
-        assert serving.current_session() == session
-        assert host_owner.latest_evaluation().pressure_report.pressure_labels == (
-            "cpu_pressure",)
+        assert model.closed is expect_residency_release
+        assert (serving.current_session() is None if expect_residency_release
+            else serving.current_session() == session)
+        assert expected_pressure in host_owner.latest_evaluation().pressure_report.pressure_labels
         decisions = [json.loads(line) for line in
             (tmp_path / "kernel-decisions.jsonl").read_text(
                 encoding="utf-8").splitlines()]
         preemption = next(item for item in reversed(decisions)
             if item.get("action_kind") == "local_model_inference_preemption")
+        preemption_index = decisions.index(preemption)
         delegated = preemption["delegated_outcomes"]["runtime_governor"]
         assert delegated["allowed"] is True
         assert delegated["reason"] == (
             "allowed_host_resource_pressure_inference_preemption")
         evidence = delegated["evidence_refs"]["host_resource_evidence"]
         assert evidence["status"] == "current"
-        assert evidence["pressure_labels"] == ["cpu_pressure"]
+        assert evidence["pressure_labels"] == [expected_pressure]
         request_reference = {key: result["receipt"].request[key] for key in (
             "request_id", "request_digest", "correlation_id")}
         assert delegated["evidence_refs"][
@@ -1966,6 +1990,35 @@ def test_normal_host_pressure_cancels_active_optional_inference(
         assert result["receipt"].cancellation_admission_decision[
             "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
                 "active_inference_preemption"] == preemption_evidence
+        if expect_residency_release:
+            release = next(item for item in reversed(decisions)
+                if item.get("action_kind") == "local_model_resource_release")
+            assert decisions.index(release) > preemption_index
+            release_governor = release["delegated_outcomes"]["runtime_governor"]
+            assert release_governor["allowed"] is True
+            assert release_governor["reason"] == "model_resource_release_fail_safe"
+            release_evidence = release_governor["evidence_refs"][
+                "resource_observation_evidence"]
+            assert release_evidence["status"] == "current"
+            assert release_evidence["pressure_labels"] == ["gpu_pressure"]
+            release_files = list((tmp_path / "state" / "installations" / "install-1" /
+                "state" / "local-model" / "serving" /
+                "resource-release-receipts").glob("*.json"))
+            assert len(release_files) == 1
+            release_receipt = json.loads(release_files[0].read_text(encoding="utf-8"))
+            assert release_receipt["receipt_id"] == reconciliation[
+                "resource_release_receipt_id"]
+            assert release_receipt["status"] == "worker_closed"
+            assert release_receipt["trigger_kind"] == (
+                "idle_host_gpu_resource_reconciliation")
+            assert release_receipt["resource_observation"][
+                "host_report_id"] == release_evidence["host_report_id"]
+            assert release_receipt["resource_observation"][
+                "host_report_digest"] == release_evidence["host_report_digest"]
+            assert release_receipt["resource_measurement_comparison"]["before"][
+                "gpu_telemetry_sources"][0][
+                "source"] == "synthetic_test_fixture"
+            assert release_receipt["host_mutation_performed"] is False
     finally:
         if invocation.is_alive():
             model.cancel_pending_generation()
