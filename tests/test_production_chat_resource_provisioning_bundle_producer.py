@@ -5,6 +5,7 @@ import hashlib
 import inspect
 import json
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Event, current_thread
 from typing import cast
@@ -36,7 +37,13 @@ class Backend:
 def encoded(value: object) -> bytes:
     return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
-def inputs(tmp_path: Path, *, calls: int = 2):
+def inputs(tmp_path: Path, *, calls: int = 2, current_time: str = NOW):
+    current = datetime.fromisoformat(current_time.replace("Z", "+00:00"))
+
+    def timestamp(delta: timedelta) -> str:
+        return (current + delta).astimezone(timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ")
+
     registry = InstallationStateRegistry(tmp_path / "state", _test_only=True)
     handle = registry.open(InstallationIdentity.parse("production"), create=True)
     seed = bytes(range(32)); public = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes_raw()
@@ -45,12 +52,14 @@ def inputs(tmp_path: Path, *, calls: int = 2):
     signer = CryptographyEd25519RootIssuerProvenanceSigner(reference=reference, custody=RootIssuerPrivateKeyCustody(reference=reference, backend=cast(RootIssuerPrivateKeyBackend, Backend())))
     issuance = RootPrincipalIssuer(issuer_id=issuer, sponsorship_verifier=Sponsor(), provenance_signer=signer).mint_root_with_provenance(
         sponsorship_evidence={}, subject_binding_digest="sha256:" + "2" * 64, epoch=1,
-        issued_at="2026-09-21T08:00:00Z", expires_at="2026-09-21T10:00:00Z", signed_at="2026-09-21T08:10:00Z")
-    cb = {"schema": CATALOG_SCHEMA, "catalog_version": 1, "entries": [{"issuer_id": issuer, "signing_key_id": key_id, "algorithm": "ed25519", "public_key": base64.urlsafe_b64encode(public).decode().rstrip("="), "valid_from": "2026-09-21T07:00:00Z", "valid_until": "2026-09-21T11:00:00Z", "revocation_status": "active"}]}
-    rb = {"schema": REGISTRY_SCHEMA, "registry_version": 1, "generated_at": "2026-09-21T08:00:00Z", "valid_until": "2026-09-21T09:30:00Z", "revoked_principals": []}
+        issued_at=timestamp(timedelta(minutes=-30)),
+        expires_at=timestamp(timedelta(hours=2)),
+        signed_at=timestamp(timedelta(minutes=-20)))
+    cb = {"schema": CATALOG_SCHEMA, "catalog_version": 1, "entries": [{"issuer_id": issuer, "signing_key_id": key_id, "algorithm": "ed25519", "public_key": base64.urlsafe_b64encode(public).decode().rstrip("="), "valid_from": timestamp(timedelta(minutes=-90)), "valid_until": timestamp(timedelta(minutes=150)), "revocation_status": "active"}]}
+    rb = {"schema": REGISTRY_SCHEMA, "registry_version": 1, "generated_at": timestamp(timedelta(minutes=-30)), "valid_until": timestamp(timedelta(minutes=60)), "revoked_principals": []}
     bounds = GovernedLocalModelResourceBounds(100, 200, 20, 5.0, calls)
-    policy = GovernedLocalModelResourcePolicy.create(epoch=1, max_resource_specific_bounds=bounds, not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
-    kwargs = dict(principal_artifact=encoded(issuance.principal.to_dict()), provenance_artifact=encoded(issuance.provenance.to_dict()), trusted_issuer_catalog_artifact=encoded({**cb, "catalog_digest": catalog_digest_for(cb)}), principal_revocation_registry_artifact=encoded({**rb, "registry_digest": registry_digest_for(rb)}), resource_policy_artifact=encoded(policy.to_dict()), requested_bounds=bounds, requested_not_before="2026-09-21T08:00:00Z", requested_not_after="2026-09-21T09:00:00Z", clock=lambda: NOW)
+    policy = GovernedLocalModelResourcePolicy.create(epoch=1, max_resource_specific_bounds=bounds, not_before=timestamp(timedelta(minutes=-30)), valid_until=timestamp(timedelta(minutes=45)))
+    kwargs = dict(principal_artifact=encoded(issuance.principal.to_dict()), provenance_artifact=encoded(issuance.provenance.to_dict()), trusted_issuer_catalog_artifact=encoded({**cb, "catalog_digest": catalog_digest_for(cb)}), principal_revocation_registry_artifact=encoded({**rb, "registry_digest": registry_digest_for(rb)}), resource_policy_artifact=encoded(policy.to_dict()), requested_bounds=bounds, requested_not_before=timestamp(timedelta(minutes=-30)), requested_not_after=timestamp(timedelta(minutes=30)), clock=lambda: current_time)
     return handle, kwargs
 
 def test_producer_publishes_manifest_last_and_existing_consumer_loads(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

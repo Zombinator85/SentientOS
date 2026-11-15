@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import threading
@@ -3947,13 +3947,18 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             encoded, inputs as provisioning_inputs,
         )
 
+        resource_policy_now = now.replace(microsecond=0)
         installation, provisioning_artifacts = provisioning_inputs(
-            tmp_path / "scheduled-resource-provisioning", calls=2)
+            tmp_path / "scheduled-resource-provisioning", calls=2,
+            current_time=resource_policy_now.isoformat().replace(
+                "+00:00", "Z"))
         resource_bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
         resource_policy = GovernedLocalModelResourcePolicy.create(
             epoch=1, max_resource_specific_bounds=resource_bounds,
-            not_before="2026-09-21T08:00:00Z",
-            valid_until="2026-09-21T09:15:00Z")
+            not_before=(resource_policy_now - timedelta(minutes=30)).isoformat().replace(
+                "+00:00", "Z"),
+            valid_until=(resource_policy_now + timedelta(minutes=45)).isoformat().replace(
+                "+00:00", "Z"))
         provisioning_artifacts["requested_bounds"] = resource_bounds
         provisioning_artifacts["resource_policy_artifact"] = encoded(
             resource_policy.to_dict())
@@ -3961,7 +3966,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             installation, "scheduled-chat", **provisioning_artifacts)
         resource_custody = load_production_chat_resource_context_owner(
             installation, "scheduled-chat",
-            clock=lambda: "2026-09-21T08:30:00Z",
+            clock=lambda: resource_policy_now.isoformat().replace(
+                "+00:00", "Z"),
             nonce_source=iter(("scheduled-attempt-one", "scheduled-attempt-two")).__next__)
         resource_allocation_id = bundle.allocation_id
         resource_ledger = resource_custody.allocator.ledger
