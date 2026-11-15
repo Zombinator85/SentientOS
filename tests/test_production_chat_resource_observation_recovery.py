@@ -641,6 +641,79 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "collector_id": "nvidia_gpu", "status": "available",
         "source": "synthetic_test_fixture", "sample_scope": "device_wide",
         "per_process_attribution_available": False},)
+    # Recovery must retain authenticated game-pacing provenance on the newer
+    # normal-mode residency release instead of silently projecting only the
+    # legacy game-presence fields.
+    performance_release = dict(first.verified_resource_release_receipts[0])
+    enrichment_fields = {
+        "serving_receipt_linkage_posture", "serving_receipt_id",
+        "serving_receipt_semantic_digest", "invocation_linkage_posture",
+        "cancelled_invocation_receipt_id", "cancelled_invocation_receipt_digest",
+        "cancelled_invocation_preemption_ref", "host_measurement_binding_posture",
+    }
+
+    def reidentify_release(receipt):
+        enriched = {key: value for key, value in receipt.items()
+            if key in enrichment_fields}
+        body = {key: value for key, value in receipt.items()
+            if key not in enrichment_fields and key != "receipt_semantic_digest"}
+        body.pop("receipt_id", None)
+        receipt_id = "serving-resource-release-" + hashlib.sha256(json.dumps(
+            body, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+            allow_nan=False).encode("utf-8")).hexdigest()[:24]
+        body["receipt_id"] = receipt_id
+        body["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+            body, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+            allow_nan=False).encode("utf-8")).hexdigest()
+        return {**body, **enriched}
+
+    performance_release["trigger_kind"] = "idle_game_performance_gpu_residency"
+    performance_release["trigger_correlation_id"] = (
+        "idle-game-performance-gpu-residency-recovery-fixture")
+    performance_release["active_inference_preemption_requested"] = False
+    performance_release["active_inference_cancellation_confirmed"] = None
+    performance_release["resource_observation"] = {
+        "workload_mode": "normal",
+        "game_performance_message_id": "a" * 64,
+        "game_performance_payload_digest": "b" * 64,
+        "game_performance_process_id_digest": "c" * 64,
+        "game_performance_process_name_digest": "d" * 64,
+        "game_performance_source_id": "windows-edge",
+        "game_performance_generation_id": "windows-edge-generation-1",
+        "game_performance_sequence": 9,
+        "game_performance_observed_at": "2026-09-21T08:30:00+00:00",
+        "frame_time_p95_ms": 16.7,
+        "hitch_count_over_50ms": 0,
+        "process_cpu_percent": 12.0,
+        "process_rss_bytes": 4096,
+        "model_gpu_layers": 24,
+        "active_inference_preemption_requested": False,
+        "host_telemetry_used_for_admission": False,
+    }
+    performance_release = reidentify_release(performance_release)
+    performance_projection = resource_consumption_world_state_records(
+        ledger=first.ledger,
+        verified_resource_release_receipts=(performance_release,))[0]
+    performance_observation = performance_projection["payload"][
+        "resource_release_receipts"][0]["resource_observation"]
+    assert performance_observation["game_performance_message_id"] == "a" * 64
+    assert performance_observation["game_performance_payload_digest"] == "b" * 64
+    assert performance_observation["game_performance_source_id"] == "windows-edge"
+    assert performance_observation["game_performance_generation_id"] == (
+        "windows-edge-generation-1")
+    assert performance_observation["game_performance_sequence"] == 9
+    assert performance_observation["game_performance_observed_at"] == (
+        "2026-09-21T08:30:00+00:00")
+    malformed_performance_release = json.loads(json.dumps(performance_release))
+    malformed_performance_release["resource_observation"].pop(
+        "game_performance_payload_digest")
+    malformed_performance_release = reidentify_release(
+        malformed_performance_release)
+    with pytest.raises(ValueError,
+            match="resource_release_game_performance_evidence_invalid"):
+        resource_consumption_world_state_records(
+            ledger=first.ledger,
+            verified_resource_release_receipts=(malformed_performance_release,))
     comparison = projected_release["resource_measurement_comparison"]
     assert comparison["before"]["gpu_utilization_percent"] == 74.0
     assert comparison["before"]["ram_utilization_percent"] == 68.0

@@ -576,8 +576,74 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "gpu_telemetry_available", "gpu_telemetry_complete",
                 "gpu_telemetry_sources", "host_telemetry_used_for_admission",
                 "active_inference_preemption_requested", "host_policy_binding",
-                "resource_entitlement_observation", "serving_entitlement_binding"})
+                "resource_entitlement_observation", "serving_entitlement_binding",
+                "game_performance_message_id", "game_performance_payload_digest",
+                "game_performance_process_id_digest",
+                "game_performance_process_name_digest",
+                "game_performance_source_id", "game_performance_generation_id",
+                "game_performance_sequence", "game_performance_observed_at",
+                "frame_time_p95_ms", "hitch_count_over_50ms",
+                "process_cpu_percent", "process_rss_bytes"})
             summary = {key: value[key] for key in allowed if key in value}
+            performance_fields = {
+                "workload_mode", "game_performance_message_id",
+                "game_performance_payload_digest", "game_performance_process_id_digest",
+                "game_performance_process_name_digest", "game_performance_source_id",
+                "game_performance_generation_id", "game_performance_sequence",
+                "game_performance_observed_at", "frame_time_p95_ms",
+                "hitch_count_over_50ms", "process_cpu_percent", "process_rss_bytes",
+                "model_gpu_layers",
+            }
+            if any(key.startswith("game_performance_") for key in value):
+                observed_at = value.get("game_performance_observed_at")
+                try:
+                    performance_timestamp = datetime.fromisoformat(
+                        observed_at.replace("Z", "+00:00")
+                        if isinstance(observed_at, str) else "")
+                except ValueError:
+                    performance_timestamp = None
+                valid_optional_number = lambda key, minimum, maximum: (
+                    value.get(key) is None or (type(value.get(key)) in (int, float)
+                        and math.isfinite(float(value[key]))
+                        and minimum <= float(value[key]) <= maximum))
+                performance_digests = (
+                    "game_performance_message_id", "game_performance_payload_digest",
+                    "game_performance_process_id_digest",
+                    "game_performance_process_name_digest")
+                if (not performance_fields <= set(value)
+                        or release_receipt.get("trigger_kind") !=
+                            "idle_game_performance_gpu_residency"
+                        or value.get("workload_mode") != "normal"
+                        or any(not isinstance(value.get(key), str)
+                            or re.fullmatch(r"[0-9a-f]{64}", value[key]) is None
+                            for key in performance_digests)
+                        or any(not isinstance(value.get(key), str)
+                            or not value[key] or len(value[key]) > 256
+                            for key in ("game_performance_source_id",
+                                "game_performance_generation_id"))
+                        or type(value.get("game_performance_sequence")) is not int
+                        or value["game_performance_sequence"] < 1
+                        or performance_timestamp is None
+                        or performance_timestamp.tzinfo is None
+                        or performance_timestamp.utcoffset() is None
+                        or not valid_optional_number("frame_time_p95_ms", 0, 10_000)
+                        or not valid_optional_number("process_cpu_percent", 0, 10_000)
+                        or (value.get("frame_time_p95_ms") is not None
+                            and value["frame_time_p95_ms"] <= 0)
+                        or (value.get("hitch_count_over_50ms") is not None
+                            and (type(value["hitch_count_over_50ms"]) is not int
+                                or not 0 <= value["hitch_count_over_50ms"] <= 100_000))
+                        or (value.get("process_rss_bytes") is not None
+                            and (type(value["process_rss_bytes"]) is not int
+                                or not 0 <= value["process_rss_bytes"] <= 2**63 - 1))
+                        or value.get("active_inference_preemption_requested") is not
+                            (release_receipt.get(
+                                "active_inference_preemption_requested") is True)
+                        or value.get("host_telemetry_used_for_admission") is not False):
+                    raise ValueError("resource_release_game_performance_evidence_invalid")
+                if (type(value.get("model_gpu_layers")) is not int
+                        or not 1 <= value["model_gpu_layers"] <= 256):
+                    raise ValueError("resource_release_game_performance_evidence_invalid")
             labels = summary.get("pressure_labels")
             if isinstance(labels, (list, tuple)):
                 summary["pressure_labels"] = tuple(
