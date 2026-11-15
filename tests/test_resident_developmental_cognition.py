@@ -1820,12 +1820,35 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         "history_adverse"
     assert projected_effects[corrective_record.record_id]["effect_classification"] == \
         "no_difference_observed"
+    prompt_adverse_experience = next(packet["task_relevant_experience"][0]
+        for packet in final_prompt["developmental_history"]
+        if packet.get("record_id") == retained.record_id)
+    assert prompt_adverse_experience["examples"] == []
+    adverse_omission = prompt_adverse_experience["adverse_examples_omission"]
+    assert adverse_omission["posture"] == \
+        "adverse_outcome_examples_withheld_from_guidance"
+    assert adverse_omission["example_count"] == 3
+    assert adverse_omission["examples_digest"] == "sha256:" + digest_payload(
+        adverse_experience["examples"])
+    assert [item["evaluator_correct"] for item in adverse_experience["examples"]] == \
+        [False, False, False]
+    prompt_corrective_experience = next(packet["task_relevant_experience"][0]
+        for packet in final_prompt["developmental_history"]
+        if packet.get("record_id") == corrective_record.record_id)
+    assert [item["evaluator_correct"] for item in
+        prompt_corrective_experience["examples"]] == [True, True]
     effect_refs = final_history_request.upstream_evidence[
         "task_family_history_prompt_projection"]["records"]
     bound_effect_digests = {digest for row in effect_refs
         for digest in row["controlled_task_effect_digests"]}
     assert {item["comparison_digest"] for item in projected_effects.values()} <= \
         bound_effect_digests
+    prompt_projection = final_history_request.upstream_evidence[
+        "task_family_history_prompt_projection"]
+    [withheld_adverse] = prompt_projection["withheld_adverse_examples"]
+    assert prompt_projection["withheld_adverse_example_count"] == 3
+    assert withheld_adverse["record_id"] == retained.record_id
+    assert withheld_adverse["examples_digest"] == adverse_omission["examples_digest"]
     history_record_order = [packet.get("record_id")
         for packet in final_prompt["developmental_history"]]
     assert history_record_order.index(retained.record_id) < \

@@ -2503,9 +2503,27 @@ def _history_context_packet(record: Mapping[str, Any], *,
                 packet["selected_fact_ids"] = sorted({
                     str(item["source_fact_id"]) for item in eligible
                     if isinstance(item.get("source_fact_id"), str)})
-            packet["task_relevant_experience"] = (
-                [_compact_task_family_history_example(item) for item in eligible]
-                if compact_for_input_budget else eligible)
+            projected_experiences: list[dict[str, Any]] = []
+            for item in eligible:
+                projected = (_compact_task_family_history_example(item)
+                    if compact_for_input_budget else dict(item))
+                effect = item.get("controlled_task_effect")
+                examples = item.get("examples", ())
+                if (isinstance(effect, Mapping)
+                        and effect.get("posture") == "complete_comparable_condition_scores"
+                        and effect.get("effect_classification") == "history_adverse"
+                        and isinstance(examples, (list, tuple)) and examples):
+                    projected["adverse_examples_omission"] = {
+                        "posture": "adverse_outcome_examples_withheld_from_guidance",
+                        "example_count": len(examples),
+                        "examples_digest": _digest(examples),
+                        "controlled_task_effect_digest": effect.get("comparison_digest"),
+                        "source_fact_id": item.get("source_fact_id"),
+                        "historical_only": True, "current_truth": False, "authority": False,
+                    }
+                    projected["examples"] = []
+                projected_experiences.append(projected)
+            packet["task_relevant_experience"] = projected_experiences
         if omitted:
             omission_evidence = [{
                 "source_fact_id": item.get("source_fact_id"),
@@ -2727,6 +2745,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         raise ResidentDevelopmentalCognitionError(
             "task_family_prompt_projection_history_invalid")
     entries: list[dict[str, Any]] = []
+    withheld_adverse_examples: list[dict[str, Any]] = []
     for packet in history:
         if not isinstance(packet, Mapping):
             raise ResidentDevelopmentalCognitionError(
@@ -2751,6 +2770,19 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         effect_digests = [effect.get("comparison_digest")
             for experience in experiences
             if isinstance((effect := experience.get("controlled_task_effect")), Mapping)]
+        for experience in experiences:
+            omission = experience.get("adverse_examples_omission")
+            if isinstance(omission, Mapping):
+                withheld_adverse_examples.append({
+                    "record_id": packet["record_id"],
+                    "record_digest": packet["record_digest"],
+                    "source_fact_id": omission.get("source_fact_id"),
+                    "example_count": omission.get("example_count"),
+                    "examples_digest": omission.get("examples_digest"),
+                    "controlled_task_effect_digest": omission.get(
+                        "controlled_task_effect_digest"),
+                    "posture": omission.get("posture"),
+                })
         entries.append({
             "record_id": packet["record_id"],
             "record_digest": packet["record_digest"],
@@ -2764,7 +2796,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 example.get("evaluator_correct") is False for example in example_rows),
         })
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v2",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v3",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",
@@ -2772,6 +2804,9 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         "task_relevant_record_count": len(entries),
         "task_relevant_example_count": sum(item["example_count"] for item in entries),
         "records": entries,
+        "withheld_adverse_example_count": sum(
+            item["example_count"] for item in withheld_adverse_examples),
+        "withheld_adverse_examples": withheld_adverse_examples,
         "historical_only": True,
         "current_truth": False,
         "authority": False,
