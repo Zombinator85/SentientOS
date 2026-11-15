@@ -3907,6 +3907,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                 "governed_inference_entitlement_binding": dict(
                     resource_custody.serving_admission_entitlement_binding())})
             if resource_custody is not None else None)
+    )
     if trigger == "idle_game_gpu_residency_unrecorded_admission":
         original_append = kernel._append
 
