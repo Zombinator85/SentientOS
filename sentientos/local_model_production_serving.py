@@ -17,7 +17,9 @@ from .installation_state import (
     InstallationStateError, InstallationStateHandle,
     InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView,
 )
-from .local_model_production_activation import ProductionActivationError, verify_current_activation
+from .local_model_production_activation import (
+    ProductionActivationError, verify_current_activation,
+)
 from .local_model_runtime_worker import ExactRuntimeLocalModel
 from .local_model_authority import digest_payload
 from .local_runtime_provisioning import semantic_digest
@@ -175,6 +177,13 @@ def _decision_retains_current_entitlement(record: object,
         "policy_digest", "policy_epoch", "principal_binding_digest")
     entitlement = binding.get("governed_inference_entitlement_binding")
     load_configuration = binding.get("load_configuration")
+    activation_state = binding.get("activation_state")
+    activation_state_digest = (activation_state.get("state_semantic_digest")
+        if isinstance(activation_state, Mapping) else None)
+    activation_state_body = ({key: value for key, value in activation_state.items()
+        if key not in {"state_semantic_digest", "activation_intent_id",
+            "activation_intent_semantic_digest"}}
+        if isinstance(activation_state, Mapping) else None)
     configured_gpu_layers = (load_configuration.get("n_gpu_layers")
         if isinstance(load_configuration, Mapping) else None)
     expected_route = ("gpu" if configured_gpu_layers else "cpu")
@@ -196,6 +205,12 @@ def _decision_retains_current_entitlement(record: object,
         and entitlement.get("schema_version") == SERVING_RESOURCE_ENTITLEMENT_SCHEMA
         and all(observation.get(key) == entitlement.get(key)
             for key in expected_fields)
+        and isinstance(activation_state, Mapping)
+        and isinstance(activation_state_body, Mapping)
+        and activation_state_digest == semantic_digest(activation_state_body)
+        and activation_state_digest ==
+            binding.get("activation_state_semantic_digest")
+        and activation_state.get("load_configuration") == load_configuration
         and _same_serving_resource_entitlement(
             evidence_entitlement, entitlement)
         and type(configured_gpu_layers) is int

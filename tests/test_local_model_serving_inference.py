@@ -747,6 +747,11 @@ def test_exact_serving_backed_generation_has_independent_admission_and_linkage(m
                 "model_gpu_layer_entitlement"] = 1
     assert not _valid_resource_admission_evidence_binding(
         mismatched_gpu_cap_binding)
+    mismatched_activation_configuration = deepcopy(dict(session.binding))
+    mismatched_activation_configuration["activation_state"][
+        "load_configuration"]["n_gpu_layers"] = 1
+    assert not _valid_resource_admission_evidence_binding(
+        mismatched_activation_configuration)
     receipt = bridge.generate(prompt="hello", caller="operator", correlation_id="inference-1")
     assert receipt.status == "admitted_completed" and receipt.output_text == "answer" and model.calls == 1
     assert receipt.admission_decision_ref != session.binding["model_serving_admission_ref"]
