@@ -1082,7 +1082,22 @@ class ProductionChatResourceObservationOwner:
                         raise ProductionChatResourceObservationError(
                             "invocation_software_generation_handoff_mismatch")
                     verified_software = dict(historical)
-            if value.get("resource_allocation_digest") == allocation.allocation_digest:
+            # A final allocator gate can deny after the runtime governor has
+            # admitted the request. Such receipts have no attempt/debit link,
+            # but their durable kernel decision still binds the preflighted
+            # allocation. Retain them as admission evidence for recovery.
+            admission_record = value.get("admission_decision_record")
+            delegates = (admission_record.get("delegated_outcomes")
+                if isinstance(admission_record, Mapping) else None)
+            runtime = delegates.get("runtime_governor") if isinstance(delegates, Mapping) else None
+            evidence = runtime.get("evidence_refs") if isinstance(runtime, Mapping) else None
+            admission_binding = (evidence.get("resource_allocation_binding")
+                if isinstance(evidence, Mapping) else None)
+            if (value.get("resource_allocation_digest") == allocation.allocation_digest
+                    or (value.get("status") == "resource_denied"
+                        and isinstance(admission_binding, Mapping)
+                        and admission_binding.get("allocation_digest")
+                            == allocation.allocation_digest)):
                 receipts.append(dict(value))
                 admission_witnesses.append(self._resource_admission_witness(
                     value, allocation))

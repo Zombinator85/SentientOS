@@ -1209,14 +1209,22 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     invocation.get("receipt_id"))] = "legacy_reference_only"
                 lineage_findings.append(
                     f"workload_preemption_admission_decision_unverified:{invocation.get('receipt_id')}")
-        if verified_inference_admission_decisions is not None and invocation.get("resource_allocation_digest") is not None:
-            admission_witness = admission_by_receipt.get(str(invocation.get("receipt_id")))
+        admission_witness = admission_by_receipt.get(str(invocation.get("receipt_id")))
+        witness_binding = (admission_witness.get("resource_allocation_binding")
+            if isinstance(admission_witness, Mapping) else None)
+        admission_allocation_digest = (witness_binding.get("allocation_digest")
+            if isinstance(witness_binding, Mapping) else None)
+        if (verified_inference_admission_decisions is not None
+                and (invocation.get("resource_allocation_digest") is not None
+                    or (invocation.get("status") == "resource_denied"
+                        and admission_allocation_digest in allocation_by_digest))):
             request = invocation.get("request")
             request_id = request.get("request_id") if isinstance(request, Mapping) else None
             request_digest = request.get("request_digest") if isinstance(request, Mapping) else None
             correlation_id = request.get("correlation_id") if isinstance(request, Mapping) else None
             allocation = allocation_by_digest.get(str(
-                invocation.get("resource_allocation_digest")))
+                invocation.get("resource_allocation_digest")
+                or admission_allocation_digest))
             allocation_binding = (admission_witness.get("resource_allocation_binding")
                 if isinstance(admission_witness, Mapping) else None)
             expected_binding = ({
@@ -1459,6 +1467,14 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             if isinstance(invocation.get("request"), Mapping) else None),
         "observed_at": invocation.get("observed_at"),
         "resource_allocation_digest": invocation.get("resource_allocation_digest"),
+        "resource_admission_allocation_digest": admission_allocation_digest,
+        "resource_admission_posture": (
+            "verified_denied_before_attempt" if
+            invocation.get("status") == "resource_denied"
+                and invocation.get("resource_allocation_digest") is None
+                and admission_allocation_digest in allocation_by_digest
+            else "attempt_linked" if invocation.get("resource_allocation_digest") is not None
+            else "unlinked"),
         "resource_attempt_id": invocation.get("resource_attempt_id"),
         "resource_consumption_receipt_digests": invocation.get("resource_consumption_receipt_digests"),
         "resource_linkage_digest": invocation.get("resource_linkage_digest"),

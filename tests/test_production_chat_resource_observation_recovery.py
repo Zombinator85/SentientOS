@@ -958,7 +958,7 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
         setup as invocation_setup,
     )
 
-    handle, values = inputs(tmp_path, calls=2)
+    handle, values = inputs(tmp_path, calls=1)
     produce_production_chat_resource_provisioning_bundle(
         handle, "admission-link", **values)
     now = "2026-09-21T08:30:00Z"
@@ -1034,9 +1034,10 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
     }
     backend, invoker, base_request, _unused_context, _unused_ledger = invocation_setup(
         tmp_path / "model", kernel=kernel)
+    single_call_budget = type(base_request.budget)(100, 200, 20, 5.0, 1)
     request = invoker.build_request(purpose="local_user_chat", prompt="hello",
         caller="resource-observation-test", correlation_id=correlation_id,
-        budget=base_request.budget,
+        budget=single_call_budget,
         linkage={"host_resource_observation": host_observation})
     resource_owner = load_production_chat_resource_context_owner(
         handle, "admission-link", clock=lambda: now,
@@ -1124,5 +1125,39 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
                 match="resource_inference_host_observation_binding_mismatch"):
             observer.observe()
         handle.durable_replace(decision_file, decision_bytes)
+
+        denied_request = invoker.build_request(purpose="local_user_chat",
+            prompt="again", caller="resource-observation-test",
+            correlation_id=correlation_id + ":allocator-denial",
+            budget=single_call_budget)
+        denied = invoker.invoke(denied_request,
+            resource_context=resource_owner.next_context())
+        assert denied.status == "resource_denied"
+        assert denied.effects["local_model_inference"] is False
+        assert denied.resource_attempt_id is None
+        denied_decision_bytes = (tmp_path / "model" / "runtime" / "decisions"
+            / (denied_request.request_id + ".json")).read_bytes()
+        handle.durable_create(receipt_directory.child(denied.receipt_id + ".json"),
+            (json.dumps(denied.to_dict(), sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8"))
+        handle.durable_create(decision_directory.child(denied_request.request_id + ".json"),
+            denied_decision_bytes)
+        recovered_with_denial = observer.observe()
+        denied_witness = next(item for item in
+            recovered_with_denial.verified_inference_admission_decisions
+            if item["invocation_receipt_id"] == denied.receipt_id)
+        assert denied_witness["resource_allocation_binding"]["allocation_digest"] == (
+            observed.ledger.observation_snapshot()["allocations"][0]["allocation_digest"])
+        denied_projection = resource_consumption_world_state_records(
+            ledger=recovered_with_denial.ledger,
+            invocation_receipts=recovered_with_denial.invocation_receipts,
+            verified_inference_admission_decisions=(
+                *recovered_with_denial.verified_inference_admission_decisions,))[0]
+        projected_denial = next(item for item in
+            denied_projection["payload"]["invocation_receipts"]
+            if item["receipt_id"] == denied.receipt_id)
+        assert projected_denial["resource_admission_posture"] == (
+            "verified_denied_before_attempt")
+        assert projected_denial["resource_attempt_id"] is None
     finally:
         resource_owner.close()

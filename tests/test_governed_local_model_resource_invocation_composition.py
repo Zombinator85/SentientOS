@@ -583,6 +583,67 @@ def test_resource_receipt_linkage_is_projection_ready_without_inventing_measurem
         _resource_linkage_fields(replace(receipt,
             resource_consumption_receipt_digests=("0" * 64, "1" * 64)))
 
+
+def test_allocator_denial_remains_linked_to_admission_without_consumption(tmp_path):
+    model, invoker, request, context, ledger = setup(tmp_path, calls=1)
+    admitted = invoker.invoke(request, resource_context=context)
+    denied_request = invoker.build_request(purpose="local_user_chat", prompt="again",
+        caller="test", correlation_id="allocator-denial-after-admission",
+        budget=LocalModelInvocationBudget(100, 200, 20, 5.0, 1))
+    denied = invoker.invoke(denied_request, resource_context=replace(
+        context, durable_attempt_nonce="allocator-denial"))
+
+    assert admitted.status == "admitted_completed"
+    assert denied.status == "resource_denied"
+    assert denied.effects["local_model_inference"] is False
+    assert denied.resource_allocation_digest is None
+    assert denied.resource_attempt_id is None
+    assert denied.admission_decision_record["final_disposition"] == "allow"
+    binding = denied.admission_decision_record["delegated_outcomes"][
+        "runtime_governor"]["evidence_refs"]["resource_allocation_binding"]
+    assert binding["allocation_digest"] == context.allocation.allocation_digest
+
+    from sentientos.host_resource_runtime import resource_consumption_world_state_records
+    witness = {
+        "schema_version": "sentientos.resource_bound_inference_admission_witness:v3",
+        "invocation_receipt_id": denied.receipt_id,
+        "invocation_receipt_digest": denied.receipt_digest,
+        "request_id": denied.request["request_id"],
+        "request_digest": denied.request["request_digest"],
+        "admission_decision_ref": denied.admission_decision_ref,
+        "correlation_id": denied.request["correlation_id"],
+        "resource_allocation_binding": binding,
+        "host_resource_observation_binding": None,
+        "admission_decision_record": denied.admission_decision_record,
+    }
+    projection = resource_consumption_world_state_records(ledger=ledger,
+        invocation_receipts=[admitted.to_dict(), denied.to_dict()],
+        verified_inference_admission_decisions=[
+            {"schema_version": "sentientos.resource_bound_inference_admission_witness:v3",
+             "invocation_receipt_id": admitted.receipt_id,
+             "invocation_receipt_digest": admitted.receipt_digest,
+             "request_id": admitted.request["request_id"],
+             "request_digest": admitted.request["request_digest"],
+             "admission_decision_ref": admitted.admission_decision_ref,
+             "correlation_id": admitted.request["correlation_id"],
+             "resource_allocation_binding": admitted.admission_decision_record[
+                 "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+                     "resource_allocation_binding"],
+             "host_resource_observation_binding": None,
+             "admission_decision_record": admitted.admission_decision_record},
+            witness])[0]
+    assert projection["disposition"] == "recorded"
+    projected_denial = next(item for item in projection["payload"]["invocation_receipts"]
+        if item["receipt_id"] == denied.receipt_id)
+    assert projected_denial["resource_admission_allocation_digest"] == (
+        context.allocation.allocation_digest)
+    assert projected_denial["resource_admission_posture"] == (
+        "verified_denied_before_attempt")
+    assert projected_denial["resource_attempt_id"] is None
+    assert not any(finding.endswith(denied.receipt_id)
+        and "resource" in finding for finding in projection["payload"]["lineage_findings"])
+
+
 def test_serving_guard_rejection_restores_only_pre_entry_debit(tmp_path):
     model, invoker, request, context, ledger = setup(tmp_path)
     receipt = invoker.invoke(request, resource_context=context, pre_effect_guard=lambda: (_ for _ in ()).throw(ValueError("stale")))
