@@ -107,6 +107,53 @@ def serving_entitlement_binding(checked_at: str, max_gpu_layers: int) -> dict[st
     }
 
 
+def serving_preflight_context_provider(kernel: ControlPlaneKernel, state_root):
+    def collector(collector_id, values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or datetime.now(timezone.utc).isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=state_root / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", {"utilization_percent": 20.0})),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", {"used_percent": 40.0})),
+        ]), clock=lambda: datetime.now(timezone.utc).isoformat())
+
+    def provide(correlation_id, activation_state):
+        observation_id = "local-chat-serving-" + hashlib.sha256(
+            correlation_id.encode("utf-8")).hexdigest()[:32]
+        evaluation = host_owner.run_cycle(correlation_id=observation_id)
+        assert evaluation is not None
+        assert kernel.observe_host_resource_evaluation(evaluation) is True
+        load_configuration = activation_state["load_configuration"]
+        gpu_layers = load_configuration["n_gpu_layers"]
+        return {
+            "resource_governance_required": True,
+            "governed_inference_entitlement_binding": serving_entitlement_binding(
+                datetime.now(timezone.utc).isoformat(), gpu_layers),
+            "purpose": "local_model_serving",
+            "host_resource_observation_namespace": "local-chat-serving",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp",
+                "accelerator_route": "gpu" if gpu_layers else "cpu",
+                "gpu_layers": gpu_layers,
+                "configuration_digest": semantic_digest(load_configuration),
+            },
+            "workload_mode": "normal", "effective_workload_mode": "normal",
+            "serving_workload_evidence": {
+                "configured_mode": "normal", "mode_source": "operator_selected",
+                "observation_status": "not_requested",
+            },
+        }
+
+    return provide
+
+
 @pytest.fixture
 def handle(tmp_path):
     registry = InstallationStateRegistry(tmp_path / "custody", _test_only=True)
@@ -852,14 +899,17 @@ def test_correlations_bind_operation_and_activation(monkeypatch, handle):
 def test_real_kernel_dedupes_replay_but_admits_new_operation_for_same_activation(monkeypatch, handle, tmp_path):
     current, made = evidence(), []
     kernel = ControlPlaneKernel(decisions_path=tmp_path / "kernel-decisions.jsonl")
+    admission_context = serving_preflight_context_provider(kernel, tmp_path)
     ctl = controller(monkeypatch, handle, [current] * 6, kernel=kernel,
                      factory=lambda c, l: made.append(Model(identity())) or made[-1])
-    first = ctl.establish(operation_id="serve-operation-1")
+    first = ctl.establish(operation_id="serve-operation-1",
+        admission_context_provider=admission_context)
     ctl.close()
     with pytest.raises(ProductionServingError, match="serving_operation_reused"):
         ctl.establish(operation_id="serve-operation-1")
     assert len(made) == 1
-    second = ctl.establish(operation_id="serve-operation-2")
+    second = ctl.establish(operation_id="serve-operation-2",
+        admission_context_provider=admission_context)
     assert len(made) == 2 and first.session_id != second.session_id
     receipts = [__import__("json").loads(handle.read_regular(handle.fixed_object("local-model/serving/receipts/" + name)))
                 for name in handle.list_regular_names(handle.fixed_object("local-model/serving/receipts"))]
@@ -870,19 +920,27 @@ def test_real_kernel_dedupes_replay_but_admits_new_operation_for_same_activation
 
 def test_same_activation_operation_replay_blocked_across_fresh_controllers(monkeypatch, handle, tmp_path):
     current, made = evidence(), []
+    first_kernel = ControlPlaneKernel(decisions_path=tmp_path / "one.jsonl")
+    second_kernel = ControlPlaneKernel(decisions_path=tmp_path / "two.jsonl")
     monkeypatch.setattr("sentientos.local_model_production_serving.verify_current_activation",
                         lambda *a, **k: current)
-    first = ProductionServingController(handle, ControlPlaneKernel(decisions_path=tmp_path / "one.jsonl"),
+    first = ProductionServingController(handle, first_kernel,
         model_factory=lambda c, l: made.append(Model(identity())) or made[-1])
-    second = ProductionServingController(handle, ControlPlaneKernel(decisions_path=tmp_path / "two.jsonl"),
+    second = ProductionServingController(handle, second_kernel,
         model_factory=lambda c, l: made.append(Model(identity())) or made[-1])
     monkeypatch.setattr(first, "_commissioning_identity", lambda s: identity().to_dict())
     monkeypatch.setattr(second, "_commissioning_identity", lambda s: identity().to_dict())
-    first.establish(operation_id="serve-operation-X"); first.close()
+    first.establish(operation_id="serve-operation-X",
+        admission_context_provider=serving_preflight_context_provider(
+            first_kernel, tmp_path / "first")); first.close()
     with pytest.raises(ProductionServingError, match="serving_operation_reused"):
-        second.establish(operation_id="serve-operation-X")
+        second.establish(operation_id="serve-operation-X",
+            admission_context_provider=serving_preflight_context_provider(
+                second_kernel, tmp_path / "second"))
     assert len(made) == 1
-    second.establish(operation_id="serve-operation-Y")
+    second.establish(operation_id="serve-operation-Y",
+        admission_context_provider=serving_preflight_context_provider(
+            second_kernel, tmp_path / "second"))
     assert len(made) == 2
 
 

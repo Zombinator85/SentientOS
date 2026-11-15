@@ -2782,7 +2782,8 @@ class RuntimeGovernor:
     ) -> GovernorDecision:
         payload = dict(metadata or {})
         if payload.get("resource_governance_required") is not True:
-            if actor == "deterministic_activated_model_serving_controller":
+            if (actor == "deterministic_activated_model_serving_controller"
+                    and self._mode == "enforce"):
                 return self._decision(
                     action_class="local_model_serving", allowed=False,
                     reason="deferred_model_serving_resource_preflight_required",
