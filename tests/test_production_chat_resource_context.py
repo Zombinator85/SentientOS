@@ -878,6 +878,19 @@ def test_invalidated_entitlement_preempts_exact_active_invocation(
             "active-entitlement-revoke").observe()
         assert observed.invocation_receipts[0]["cancellation_preemption_ref"] == dict(
             receipt.cancellation_preemption_ref)
+        projected = resource_consumption_world_state_records(
+            ledger=custody.allocator.ledger,
+            invocation_receipts=observed.invocation_receipts)[0]
+        projected_invocation = projected["payload"]["invocation_receipts"][0]
+        assert projected_invocation["receipt_id"] == receipt.receipt_id
+        assert projected_invocation["cancellation_preemption_ref"] == dict(
+            receipt.cancellation_preemption_ref)
+        assert projected_invocation["workload_preemption_admission_posture"] == (
+            "verified_receipt_bound_kernel_record")
+        assert not any(finding.startswith((
+            "workload_preemption_admission_linkage_missing:",
+            "workload_preemption_admission_decision_unverified:"))
+            for finding in projected["payload"]["lineage_findings"])
     finally:
         finish.set()
         invocation_thread.join(timeout=5)
