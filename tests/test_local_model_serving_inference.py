@@ -1944,6 +1944,9 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
                 serving.current_session() == session)
             return chat_service._RESOURCE_RECONCILIATION_TASK is not None
         finally:
+            # Ensure a failed cancellation assertion cannot strand the fake
+            # backend while shutdown drains the scheduler's worker operation.
+            cancelled.set()
             await chat_service._shutdown_event()
 
     try:
@@ -2014,6 +2017,7 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
             "allowed_host_resource_pressure_inference_preemption")
         assert preemption_governor["evidence_refs"]["host_resource_evidence"][
             "pressure_labels"] == ["cpu_pressure"]
+        serving.close()
         return
 
     release_path = next(release_directory.glob("*.json"))
