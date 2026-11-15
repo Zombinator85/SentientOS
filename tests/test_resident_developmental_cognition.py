@@ -199,7 +199,7 @@ class FakeInvoker:
                     offset = y1 - multiplier * x1
                     answers = [multiplier * probe + offset for probe in probes]
             elif self.objective_mode in {"derive_from_admitted_family",
-                    "derive_from_latest_admitted_family"}:
+                    "derive_from_latest_admitted_family", "derive_from_controlled_effect"}:
                 examples = []
                 for packet in history:
                     for experience in packet.get("task_relevant_experience", ()):
@@ -207,14 +207,25 @@ class FakeInvoker:
                                 and experience.get("task_family_id") == descriptor.get("task_family_id")
                                 and experience.get("event_scope") ==
                                     "scored_benchmark_outcome_not_external_environmental_event"):
+                            controlled_effect = experience.get("controlled_task_effect")
+                            if (self.objective_mode == "derive_from_controlled_effect"
+                                    and (not isinstance(controlled_effect, Mapping)
+                                        or controlled_effect.get("posture")
+                                            != "complete_comparable_condition_scores"
+                                        or controlled_effect.get("effect_classification")
+                                            == "history_adverse")):
+                                continue
                             examples.extend((int(item["probe_input"]), int(item["observed_answer"]))
                                 for item in experience.get("examples", ())
                                 if isinstance(item, Mapping)
                                 and type(item.get("probe_input")) is int
-                                and type(item.get("observed_answer")) is int)
+                                and type(item.get("observed_answer")) is int
+                                and (self.objective_mode != "derive_from_controlled_effect"
+                                    or item.get("evaluator_correct") is True))
                 if len(examples) >= 2:
                     fitting_examples = (examples[-2:]
-                        if self.objective_mode == "derive_from_latest_admitted_family"
+                        if self.objective_mode in {"derive_from_latest_admitted_family",
+                            "derive_from_controlled_effect"}
                         else examples[:2])
                     (x1, y1), (x2, y2) = fitting_examples
                     multiplier = (y2 - y1) // (x2 - x1)
@@ -1343,7 +1354,7 @@ print(json.dumps({"context_id": context["context_id"],
         request_id="family-transfer", task=transfer)
     assert staged_path.exists() and matching_count >= 1
     # The scoped packet omits unscoped narrative; derive only from exact score-bound examples.
-    fake.objective_mode = "derive_from_admitted_family"
+    fake.objective_mode = "derive_from_controlled_effect"
     staged = load_objective_request(tmp_path / "state")
     assert staged is not None
     result = cognition.run_objective_intervention_once(snapshot=world,
@@ -1774,7 +1785,7 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     # in source chronology; the evaluator's target is held fixed in this fixture.
     # This fixture variant fits the newest two admitted examples while still
     # retaining the earlier adverse record in the same chronological prompt.
-    fake.objective_mode = "derive_from_latest_admitted_family"
+    fake.objective_mode = "derive_from_controlled_effect"
     restarted, _ = owner(tmp_path, comparison=True, invoker=fake,
         allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
     final_task = ObjectivePredictionTask(0, 23, 13, (14,),
