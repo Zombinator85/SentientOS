@@ -58,6 +58,8 @@ def test_legacy_entitlement_release_observation_remains_exhaustion_only() -> Non
             "invalidation_reason_code": "policy_expired",
         }
         assert validate(invalidation_v2, "resource_entitlement_invalidated") is True
+        assert validate({**invalidation_v2, "remaining_call_entitlement": -1},
+            "resource_entitlement_invalidated") is False
 
 
 def test_reconstruction_is_read_only_stable_and_does_not_replenish(

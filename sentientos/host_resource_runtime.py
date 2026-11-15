@@ -54,7 +54,7 @@ def _resource_entitlement_observation_shape_valid(
     if (set(value) != _RESOURCE_ENTITLEMENT_OBSERVATION_V2_FIELDS
             or schema !=
                 "sentientos.governed_local_model_resource_entitlement_observation:v2"
-            or type(remaining) is not int):
+            or type(remaining) is not int or remaining < 0):
         return False
     if trigger_kind == "call_entitlement_exhausted":
         return (value.get("entitlement_status") == "exhausted"
