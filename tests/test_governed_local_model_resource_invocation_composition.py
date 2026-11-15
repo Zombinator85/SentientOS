@@ -665,6 +665,12 @@ def test_allocator_denial_remains_linked_to_admission_without_consumption(tmp_pa
         invocation_receipts=[admitted.to_dict(), denied.to_dict()],
         verified_inference_admission_decisions=[admitted_witness, witness])[0]
     assert projection["disposition"] == "recorded"
+    projected_admission = next(item for item in projection["payload"][
+        "invocation_receipts"] if item["receipt_id"] == admitted.receipt_id)
+    assert projected_admission["resource_admission_outcome"] == "allow"
+    assert projected_admission["resource_admission_posture"] == "attempt_linked"
+    assert projected_admission["resource_admission_allocation_digest"] == (
+        context.allocation.allocation_digest)
     projected_denial = next(item for item in projection["payload"]["invocation_receipts"]
         if item["receipt_id"] == denied.receipt_id)
     assert projected_denial["resource_admission_allocation_digest"] == (

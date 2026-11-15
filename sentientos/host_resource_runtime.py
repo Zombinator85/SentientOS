@@ -1479,6 +1479,38 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     selected_allocations = all_allocations[-16:]
     selected_attempts = all_attempts[-max_attempts:]
     selected_invocations = tuple(invocation_receipts[-min(max_invocation_receipts, 16):])
+
+    def resource_admission_projection(invocation: Mapping[str, Any]
+            ) -> Mapping[str, Any]:
+        witness = admission_by_receipt.get(str(invocation.get("receipt_id")))
+        binding = (witness.get("resource_allocation_binding")
+            if isinstance(witness, Mapping) else None)
+        allocation_digest = (binding.get("allocation_digest")
+            if isinstance(binding, Mapping) else None)
+        outcome = (witness.get("admission_outcome", "allow")
+            if isinstance(witness, Mapping) else None)
+        if (isinstance(witness, Mapping) and outcome == "defer"
+                and invocation.get("resource_allocation_digest") is None
+                and allocation_digest in allocation_by_digest):
+            posture = "verified_deferred_before_attempt"
+        elif (isinstance(witness, Mapping) and outcome == "deny"
+                and invocation.get("resource_allocation_digest") is None
+                and allocation_digest in allocation_by_digest):
+            posture = "verified_denied_before_attempt"
+        elif (invocation.get("status") == "resource_denied"
+                and invocation.get("resource_allocation_digest") is None
+                and allocation_digest in allocation_by_digest):
+            posture = "verified_allocator_denial_before_attempt"
+        elif invocation.get("resource_allocation_digest") is not None:
+            posture = "attempt_linked"
+        else:
+            posture = "unlinked"
+        return {
+            "resource_admission_allocation_digest": allocation_digest,
+            "resource_admission_outcome": outcome,
+            "resource_admission_posture": posture,
+        }
+
     compact_invocations = tuple({
         "receipt_id": invocation.get("receipt_id"),
         "receipt_digest": invocation.get("receipt_digest"),
@@ -1498,27 +1530,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             if isinstance(invocation.get("request"), Mapping) else None),
         "observed_at": invocation.get("observed_at"),
         "resource_allocation_digest": invocation.get("resource_allocation_digest"),
-        "resource_admission_allocation_digest": admission_allocation_digest,
-        "resource_admission_outcome": (
-            admission_witness.get("admission_outcome", "allow")
-            if isinstance(admission_witness, Mapping) else None),
-        "resource_admission_posture": (
-            "verified_deferred_before_attempt" if
-            isinstance(admission_witness, Mapping)
-                and admission_witness.get("admission_outcome") == "defer"
-                and invocation.get("resource_allocation_digest") is None
-                and admission_allocation_digest in allocation_by_digest
-            else "verified_denied_before_attempt" if
-            isinstance(admission_witness, Mapping)
-                and admission_witness.get("admission_outcome") == "deny"
-                and invocation.get("resource_allocation_digest") is None
-                and admission_allocation_digest in allocation_by_digest
-            else "verified_allocator_denial_before_attempt" if
-            invocation.get("status") == "resource_denied"
-                and invocation.get("resource_allocation_digest") is None
-                and admission_allocation_digest in allocation_by_digest
-            else "attempt_linked" if invocation.get("resource_allocation_digest") is not None
-            else "unlinked"),
+        **resource_admission_projection(invocation),
         "resource_attempt_id": invocation.get("resource_attempt_id"),
         "resource_consumption_receipt_digests": invocation.get("resource_consumption_receipt_digests"),
         "resource_linkage_digest": invocation.get("resource_linkage_digest"),
