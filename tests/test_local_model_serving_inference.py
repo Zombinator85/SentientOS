@@ -1850,16 +1850,6 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
     started = threading.Event()
     cancelled = threading.Event()
 
-    def active_generation():
-        started.set()
-        if not cancelled.wait(timeout=5):
-            raise AssertionError("verified-game cancellation was not delivered")
-        raise RuntimeError("fixture_generation_cancelled_for_verified_game")
-
-    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
-        kernel_override=kernel, host_resource_observation_owner=host_owner,
-        gpu_layers=gpu_layers, on_generate=active_generation)
-    model.cancel_pending_generation = lambda: (cancelled.set() or True)
     installation, provisioning_artifacts = provisioning_inputs(
         tmp_path / "automatic-game-resource-provisioning", calls=2)
     resource_bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
@@ -1873,6 +1863,20 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
     resource_custody = load_production_chat_resource_context_owner(
         installation, "automatic-game-chat", clock=lambda: "2026-09-21T08:30:00Z",
         nonce_source=iter(("automatic-attempt-one", "automatic-attempt-two")).__next__)
+
+    def active_generation():
+        started.set()
+        if not cancelled.wait(timeout=5):
+            raise AssertionError("verified-game cancellation was not delivered")
+        raise RuntimeError("fixture_generation_cancelled_for_verified_game")
+
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, host_resource_observation_owner=host_owner,
+        gpu_layers=gpu_layers, on_generate=active_generation,
+        serving_admission_context_provider=lambda _correlation, _state: {
+            "governed_inference_entitlement_binding": dict(
+                resource_custody.serving_admission_entitlement_binding())})
+    model.cancel_pending_generation = lambda: (cancelled.set() or True)
     inference = ResourceBackedProductionChatInference(bridge, resource_custody)
     resource_ledger = resource_custody.allocator.ledger
     reconciliations = []
@@ -3828,6 +3832,51 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     active_started = threading.Event()
     active_cancelled = threading.Event()
     finish_generation = threading.Event()
+    resource_custody = None
+    resource_ledger = None
+    resource_allocation_id = None
+    resource_backed_triggers = {
+        "idle_game_frame_pressure_active_inference_scheduler",
+        "idle_game_frame_pressure_active_inference_normal_mode",
+        "idle_game_gpu_residency_active_inference_normal_mode",
+    }
+    if trigger in resource_backed_triggers:
+        from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+        from sentientos.governed_local_model_resource_allocation import (
+            GovernedLocalModelResourceBounds,
+            GovernedLocalModelResourcePolicy,
+        )
+        from sentientos.production_chat_resource_context import (
+            ResourceBackedProductionChatInference,
+        )
+        from sentientos.production_chat_resource_provisioning import (
+            load_production_chat_resource_context_owner,
+        )
+        from sentientos.production_chat_resource_provisioning_bundle_producer import (
+            produce_production_chat_resource_provisioning_bundle,
+        )
+        from tests.test_production_chat_resource_provisioning_bundle_producer import (
+            encoded, inputs as provisioning_inputs,
+        )
+
+        installation, provisioning_artifacts = provisioning_inputs(
+            tmp_path / "scheduled-resource-provisioning", calls=2)
+        resource_bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
+        resource_policy = GovernedLocalModelResourcePolicy.create(
+            epoch=1, max_resource_specific_bounds=resource_bounds,
+            not_before="2026-09-21T08:00:00Z",
+            valid_until="2026-09-21T09:15:00Z")
+        provisioning_artifacts["requested_bounds"] = resource_bounds
+        provisioning_artifacts["resource_policy_artifact"] = encoded(
+            resource_policy.to_dict())
+        bundle = produce_production_chat_resource_provisioning_bundle(
+            installation, "scheduled-chat", **provisioning_artifacts)
+        resource_custody = load_production_chat_resource_context_owner(
+            installation, "scheduled-chat",
+            clock=lambda: "2026-09-21T08:30:00Z",
+            nonce_source=iter(("scheduled-attempt-one", "scheduled-attempt-two")).__next__)
+        resource_allocation_id = bundle.allocation_id
+        resource_ledger = resource_custody.allocator.ledger
 
     def active_generation():
         active_started.set()
@@ -3852,7 +3901,12 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
                 "idle_game_frame_pressure_active_inference_unconfirmed",
                 "idle_game_frame_pressure_active_inference_scheduler",
                 "idle_game_frame_pressure_active_inference_normal_mode",
-                "idle_game_gpu_residency_active_inference_normal_mode"} else None)
+                "idle_game_gpu_residency_active_inference_normal_mode"} else None,
+        serving_admission_context_provider=(
+            (lambda _correlation, _state: {
+                "governed_inference_entitlement_binding": dict(
+                    resource_custody.serving_admission_entitlement_binding())})
+            if resource_custody is not None else None)
     if trigger == "idle_game_gpu_residency_unrecorded_admission":
         original_append = kernel._append
 
@@ -3943,6 +3997,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             release_directory = (tmp_path / "state" / "installations" / "install-1"
                 / "state" / "local-model" / "serving" / "resource-release-receipts")
             assert not release_directory.exists() or not list(release_directory.glob("*.json"))
+            if resource_custody is not None:
+                resource_custody.close()
             serving.close()
             return
     elif trigger in {"idle_game_frame_pressure_active_inference",
@@ -3952,48 +4008,7 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "idle_game_gpu_residency_active_inference_normal_mode"}:
         invocation_results = {}
         inference = bridge
-        resource_custody = None
-        resource_ledger = None
-        resource_allocation_id = None
-        if trigger in {"idle_game_frame_pressure_active_inference_scheduler",
-                "idle_game_frame_pressure_active_inference_normal_mode",
-                "idle_game_gpu_residency_active_inference_normal_mode"}:
-            from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
-            from sentientos.governed_local_model_resource_allocation import (
-                GovernedLocalModelResourceBounds,
-                GovernedLocalModelResourcePolicy,
-            )
-            from sentientos.production_chat_resource_context import (
-                ResourceBackedProductionChatInference,
-            )
-            from sentientos.production_chat_resource_provisioning import (
-                load_production_chat_resource_context_owner,
-            )
-            from sentientos.production_chat_resource_provisioning_bundle_producer import (
-                produce_production_chat_resource_provisioning_bundle,
-            )
-            from tests.test_production_chat_resource_provisioning_bundle_producer import (
-                encoded, inputs as provisioning_inputs,
-            )
-
-            installation, provisioning_artifacts = provisioning_inputs(
-                tmp_path / "scheduled-resource-provisioning", calls=2)
-            resource_bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
-            resource_policy = GovernedLocalModelResourcePolicy.create(
-                epoch=1, max_resource_specific_bounds=resource_bounds,
-                not_before="2026-09-21T08:00:00Z",
-                valid_until="2026-09-21T09:15:00Z")
-            provisioning_artifacts["requested_bounds"] = resource_bounds
-            provisioning_artifacts["resource_policy_artifact"] = encoded(
-                resource_policy.to_dict())
-            bundle = produce_production_chat_resource_provisioning_bundle(
-                installation, "scheduled-chat", **provisioning_artifacts)
-            resource_custody = load_production_chat_resource_context_owner(
-                installation, "scheduled-chat",
-                clock=lambda: "2026-09-21T08:30:00Z",
-                nonce_source=iter(("scheduled-attempt-one", "scheduled-attempt-two")).__next__)
-            resource_allocation_id = bundle.allocation_id
-            resource_ledger = resource_custody.allocator.ledger
+        if resource_custody is not None:
             inference = ResourceBackedProductionChatInference(bridge, resource_custody)
         active_prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
             "[SESSION_HISTORY_DATA]\nUSER_DATA: optional inference")
@@ -4247,6 +4262,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             assert reconciliation["reason"] == "current_host_pressure_evidence_required"
             assert model.closed is False
             assert serving.current_session() is not None
+            if resource_custody is not None:
+                resource_custody.close()
             serving.close()
             return
         if trigger not in {"idle_game_gpu_residency",
@@ -4337,6 +4354,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "active_inference_cancellation_unconfirmed" for release in decoded_releases)
         assert {release["resource_observation"]["game_performance_message_id"]
             for release in decoded_releases} == {accepted[1].message_id, accepted[2].message_id}
+        if resource_custody is not None:
+            resource_custody.close()
         serving.close()
         return
     release = decoded_releases[0]
@@ -4367,6 +4386,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert release["release_admission_record"] is None
         assert release["release_admission_witness"]["admission_decision_ref"] == (
             release["release_admission_decision_ref"])
+        if resource_custody is not None:
+            resource_custody.close()
         serving.close()
         return
     if trigger == "idle_game_frame_pressure_mismatched_process":
@@ -4375,6 +4396,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert release["status"] == "denied"
         assert release["resource_observation"]["game_performance_process_name_digest"] == (
             hashlib.sha256(b"examplegame.exe").hexdigest())
+        if resource_custody is not None:
+            resource_custody.close()
         serving.close()
         return
     assert model.closed is True
@@ -4401,6 +4424,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "sample_delta_only; telemetry_does_not_establish_causation")
         assert release["inference_performed"] is False
         assert release["host_mutation_performed"] is False
+        if resource_custody is not None:
+            resource_custody.close()
         serving.close()
         return
     if trigger in {"idle_game_gpu_residency_normal_mode",
@@ -4430,6 +4455,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         assert release["host_mutation_performed"] is False
         assert release["resource_measurement_comparison"]["interpretation"] == (
             "sample_delta_only; telemetry_does_not_establish_causation")
+        if resource_custody is not None:
+            resource_custody.close()
         serving.close()
         return
     if trigger in {"idle_game_frame_pressure",
@@ -4521,6 +4548,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "telemetry_does_not_establish_causation")
         assert release["inference_performed"] is False
         assert release["host_mutation_performed"] is False
+        if resource_custody is not None:
+            resource_custody.close()
         serving.close()
         return
     assert release["trigger_kind"] == (
@@ -4585,6 +4614,8 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
     assert release["worker_exit_observed"] is None
     assert release["inference_performed"] is False
     assert release["host_mutation_performed"] is False
+    if resource_custody is not None:
+        resource_custody.close()
     serving.close()
 
 
