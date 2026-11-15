@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime, timezone
+import hashlib
 from threading import Event, Lock, Thread
 
 import pytest
@@ -547,6 +548,68 @@ def test_governed_entitlement_release_closes_idle_session_through_runtime(
             "resource_entitlement_observation"]["observation_id"] == (
                 release["resource_observation"][
                     "resource_entitlement_observation"]["observation_id"])
+        if expected_trigger == "call_entitlement_exhausted":
+            from sentientos.local_model_authority import digest_payload
+
+            legacy_release = json.loads(release_receipts[0].read_text(
+                encoding="utf-8"))
+            current_entitlement = legacy_release["resource_observation"][
+                "resource_entitlement_observation"]
+            legacy_entitlement = {key: current_entitlement[key] for key in (
+                "allocation_id", "allocation_digest", "allocator_id", "resource_kind",
+                "policy_digest", "policy_epoch", "principal_binding_digest",
+                "remaining_call_entitlement", "checked_at")}
+            legacy_entitlement["schema_version"] = (
+                "sentientos.governed_local_model_resource_entitlement_observation:v1")
+            legacy_digest = digest_payload(legacy_entitlement)
+            legacy_entitlement["observation_id"] = "lmentitlement-" + legacy_digest[:24]
+            legacy_entitlement["observation_digest"] = legacy_digest
+            legacy_release["resource_observation"][
+                "resource_entitlement_observation"] = legacy_entitlement
+            admission_evidence = legacy_release["release_admission_record"][
+                "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+                    "resource_observation_evidence"]
+            admission_evidence["resource_entitlement_observation"] = legacy_entitlement
+            legacy_body = dict(legacy_release)
+            legacy_body.pop("receipt_id", None)
+            legacy_body.pop("receipt_semantic_digest", None)
+            legacy_receipt_id = "serving-resource-release-" + hashlib.sha256(
+                json.dumps(legacy_body, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()[:24]
+            legacy_release["receipt_id"] = legacy_receipt_id
+            legacy_release.pop("receipt_semantic_digest", None)
+            legacy_release["receipt_semantic_digest"] = hashlib.sha256(json.dumps(
+                legacy_release, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+            legacy_path = receipt_path / (legacy_receipt_id + ".json")
+            legacy_path.write_text(json.dumps(legacy_release, sort_keys=True,
+                separators=(",", ":"), ensure_ascii=False, allow_nan=False) + "\n",
+                encoding="utf-8")
+            legacy_snapshot = ProductionChatResourceObservationOwner(
+                observation_registry.open_read_only(
+                    InstallationIdentity.parse("production")),
+                "entitlement-release").observe()
+            recovered_legacy = next(item for item in
+                legacy_snapshot.verified_resource_release_receipts
+                if item["receipt_id"] == legacy_receipt_id)
+            assert recovered_legacy["resource_observation"][
+                "resource_entitlement_observation"]["schema_version"] == (
+                    "sentientos.governed_local_model_resource_entitlement_observation:v1")
+            legacy_projection_input = dict(recovered_legacy)
+            legacy_projection_input.update({
+                "serving_receipt_linkage_posture": "verified",
+                "serving_receipt_id": serving_record["receipt_id"],
+                "serving_receipt_semantic_digest": serving_record[
+                    "receipt_semantic_digest"],
+                "invocation_linkage_posture": "not_required",
+            })
+            legacy_projection = resource_consumption_world_state_records(
+                ledger=custody.allocator.ledger,
+                verified_resource_release_receipts=[legacy_projection_input])[0]
+            assert legacy_projection["payload"]["resource_release_receipts"][0][
+                "resource_observation"]["resource_entitlement_observation"][
+                    "schema_version"] == (
+                        "sentientos.governed_local_model_resource_entitlement_observation:v1")
     finally:
         custody.close()
         serving.close()
