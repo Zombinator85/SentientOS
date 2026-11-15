@@ -3202,8 +3202,11 @@ def test_verified_game_presence_preempts_active_cpu_inference_without_pressure(
     serving.close()
 
 
+@pytest.mark.parametrize(("gpu_layers", "expect_residency_release"), [
+    (0, False), (16, True),
+])
 def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
-        monkeypatch, tmp_path):
+        monkeypatch, tmp_path, gpu_layers, expect_residency_release):
     from sentientos.game_performance_bridge import (
         GAME_PROCESS_CPU_PRESSURE_PERCENT, VerifiedGamePerformanceObservation,
     )
@@ -3260,7 +3263,7 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
         raise RuntimeError("fixture_cancelled_for_game_cpu_priority")
 
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
-        kernel_override=kernel, gpu_layers=0, on_generate=active_generation,
+        kernel_override=kernel, gpu_layers=gpu_layers, on_generate=active_generation,
         serving_admission_context_provider=lambda _correlation, _state: {
             "governed_inference_entitlement_binding": dict(
                 resource_custody.serving_admission_entitlement_binding())})
@@ -3310,11 +3313,35 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
         "verified_game_process_cpu_pressure_active_inference_preemption")
     assert preemption["process_cpu_percent"] == GAME_PROCESS_CPU_PRESSURE_PERCENT
     assert preemption["active_inference_cancellation_confirmed"] is True
+    assert preemption["model_residency_released"] is expect_residency_release
     receipt = results["receipt"]
     assert receipt.status == "cancelled"
     assert receipt.output_text is None
-    assert serving.current_session() == session
-    assert model.closed is False
+    if expect_residency_release:
+        assert preemption["resource_release_status"] == "worker_closed"
+        assert preemption["resource_release_receipt_id"]
+        assert serving.current_session() is None
+        assert model.closed is True
+        release_paths = tuple((serving._handle.root / "local-model" / "serving"
+            / "resource-release-receipts").glob("*.json"))
+        assert len(release_paths) == 1
+        release = json.loads(release_paths[0].read_text(encoding="utf-8"))
+        assert release["receipt_id"] == preemption["resource_release_receipt_id"]
+        assert release["status"] == "worker_closed"
+        assert release["trigger_kind"] == "idle_game_performance_gpu_residency"
+        assert release["resource_observation"]["game_performance_message_id"] == (
+            sample.message_id)
+        release_evidence = release["release_admission_record"][
+            "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+                "resource_observation_evidence"]
+        assert release_evidence["process_cpu_percent"] == (
+            GAME_PROCESS_CPU_PRESSURE_PERCENT)
+        assert release_evidence["game_performance_message_id"] == (
+            sample.message_id)
+        assert release["host_mutation_performed"] is False
+    else:
+        assert serving.current_session() == session
+        assert model.closed is False
     persisted_path = (tmp_path / "state" / "installations" / "install-1" /
         "state" / "local-model" / "inference" / "receipts" /
         (receipt.receipt_id + ".json"))

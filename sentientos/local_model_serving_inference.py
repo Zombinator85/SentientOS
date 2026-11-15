@@ -2137,6 +2137,16 @@ class ProductionServingInferenceController:
             reason="workload_transition", cancellation_admission_decision=decision)
         if cancelled:
             self._last_active_game_preemption_attempt = attempt_key
+        residency_release = None
+        load_configuration = session.binding.get("load_configuration")
+        gpu_layers = (load_configuration.get("n_gpu_layers")
+            if isinstance(load_configuration, Mapping) else None)
+        if cancelled and type(gpu_layers) is int and 1 <= gpu_layers <= 256:
+            # The CPU-pressure admission stops optional inference. Once the
+            # exact worker is confirmed quiescent, separately admit release of
+            # its GPU-backed model residency so the game can use that headroom.
+            residency_release = self._release_after_gpu_model_residency(
+                session, model, workload)
         return {"status": "preempted" if cancelled else "preemption_unconfirmed",
             "reason": ("authenticated_game_process_cpu_priority" if cancelled else
                 "active_inference_cancellation_unconfirmed"),
@@ -2146,7 +2156,12 @@ class ProductionServingInferenceController:
             "process_cpu_percent": float(process_cpu),
             "cancellation_admission_decision_ref": decision.admission_decision_ref,
             "active_inference_cancellation_confirmed": cancelled,
-            "model_residency_released": False}
+            "model_residency_released": (isinstance(residency_release, Mapping)
+                and residency_release.get("status") == "worker_closed"),
+            "resource_release_receipt_id": (residency_release.get("receipt_id")
+                if isinstance(residency_release, Mapping) else None),
+            "resource_release_status": (residency_release.get("status")
+                if isinstance(residency_release, Mapping) else None)}
 
     def _release_after_game_frame_pressure(
             self, session: ServingSession, model: Any,
