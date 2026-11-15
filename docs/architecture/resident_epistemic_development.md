@@ -81,10 +81,11 @@ objective truth, or improved intelligence.
 ## Query-relevant experience in resident interactions
 
 The resident companion interaction now ranks already admitted developmental
-interpretations against the current question by lexical token overlap before
-the existing bounded history projection. Unmatched slots are filled from the
-recent checkpoint sequence. The selected record identities and the retrieval
-policy (`query_overlap_then_recency_fill:v1`) remain in the normal history
+interpretations and source-verified operator-report text against the current
+question by lexical token overlap before the existing bounded history
+projection. Unmatched slots are filled from the recent checkpoint sequence.
+The selected record identities and the retrieval policy
+(`query_overlap_with_operator_reports_then_recency_fill:v2`) remain in the normal history
 selection lineage; the history packet remains explicitly historical,
 non-authoritative, and not current truth. This is a deterministic relevance
 heuristic, not semantic retrieval or evidence that the selected experience
@@ -122,7 +123,9 @@ correct, or that persistent cognition improves task performance in deployment.
 
 `tests/test_resident_developmental_cognition.py::test_operator_feedback_provenance_survives_writeback_and_changes_later_response`
 composes the explicitly confirmed developmental cycle with a later resident
-interaction. The history projection now carries a bounded `operator_feedback_context`
+interaction, with four newer unrelated records competing for a four-record
+history window. The source-linked feedback report still ranks into the window.
+The history projection carries a bounded `operator_feedback_context`
 containing the original assertion, its digest and source bindings, and the
 `operator_assertion_unverified` posture. The later prompt says to report it as
 an operator statement, not independent observation or current fact. In the

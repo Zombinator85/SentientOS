@@ -4430,7 +4430,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_then_recency_fill:v1"
+        "query_overlap_with_operator_reports_then_recency_fill:v2"
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
 
@@ -6688,6 +6688,13 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert feedback_text in cycle_request.prompt
     assert "operator_assertion_unverified" in cycle_request.prompt
     assert "effect_proven" in cycle_request.prompt
+    filler_ids = []
+    for index in range(4):
+        filler = bridge.run_developmental_cycle(
+            tick_id=f"operator-feedback-filler-{index}",
+            screen_observation=screen)
+        assert filler.written_record_id is not None
+        filler_ids.append(filler.written_record_id)
     later = bridge.respond(request_id="later-cognition-cycle",
         question="What did the earlier operator report about the candles?",
         screen_observation=screen)
@@ -6695,6 +6702,8 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert later.disposition == "answer"
     assert "not independently verified" in later.response
     assert cycle.written_record_id in later.history_record_ids
+    assert len(later.prior_record_ids) == 4
+    assert sum(record_id in later.prior_record_ids for record_id in filler_ids) == 3
     assert later.developmental_history_writeback_performed is False
     later_prompt = json.loads(fake.requests[-1].prompt)
     assert feedback_text in json.dumps(later_prompt["developmental_history"])
@@ -6712,6 +6721,10 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
         control_cognition, clock=lambda: now)
     control_bridge.run_developmental_cycle(
         tick_id="operator-cycle-control", screen_observation=screen)
+    for index in range(4):
+        control_bridge.run_developmental_cycle(
+            tick_id=f"operator-cycle-control-filler-{index}",
+            screen_observation=screen)
     control_later = control_bridge.respond(request_id="later-cognition-control",
         question="What did the earlier operator report about the candles?",
         screen_observation=screen)

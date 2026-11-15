@@ -2943,7 +2943,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "task_family_relevant_then_recency_fill:v1",
                 "task_family_probe_overlap_then_recency_fill:v2",
                 "task_family_model_identity_then_probe_overlap_then_recency_fill:v3",
-                "query_overlap_then_recency_fill:v1"}
+                "query_overlap_then_recency_fill:v1",
+                "query_overlap_with_operator_reports_then_recency_fill:v2"}
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
@@ -5355,8 +5356,13 @@ class ResidentDevelopmentalCognitionOwner:
                     raise ResidentDevelopmentalCognitionError(
                         "relevant_history_recovery_failed") from exc
                 candidate = record.candidate
-                searchable = " ".join(str(candidate.get(key, "")) for key in
-                    ("interpretation", "uncertainty", "epistemic_status")) if isinstance(candidate, Mapping) else ""
+                searchable_parts = ([str(candidate.get(key, "")) for key in
+                    ("interpretation", "uncertainty", "epistemic_status")]
+                    if isinstance(candidate, Mapping) else [])
+                if isinstance(candidate, Mapping):
+                    searchable_parts.extend(item["assertion_text"]
+                        for item in _historical_operator_feedback_context(candidate))
+                searchable = " ".join(searchable_parts)
                 query_overlap = len(terms & {term.casefold() for term in
                     re.findall(r"[A-Za-z0-9_]{3,}", searchable)})
                 if query_overlap:
@@ -6086,7 +6092,7 @@ class ResidentDevelopmentalCognitionOwner:
                 and bool(observed_target_identity))
             else "task_family_probe_overlap_then_recency_fill:v2"
             if isinstance(task_family_id, str) else
-            "query_overlap_then_recency_fill:v1"
+            "query_overlap_with_operator_reports_then_recency_fill:v2"
             if interaction_question is not None
                 and condition_id == "companion-interaction"
             else "completed_tick_recency_suffix:v1")
