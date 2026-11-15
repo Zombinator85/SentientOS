@@ -954,6 +954,17 @@ def test_two_contexts_conserve_one_allocation_and_stale_currentness_fails_closed
 
 
 def test_persistent_chat_two_turns_use_one_preissued_allocation_without_storage_contamination(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            value = datetime.fromisoformat(NOW.replace("Z", "+00:00"))
+            return value if tz is None else value.astimezone(tz)
+
+    monkeypatch.setattr("sentientos.runtime_governor.datetime", FixedDateTime)
     installation, artifacts = provisioning_inputs(tmp_path, calls=2)
     bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
     policy = GovernedLocalModelResourcePolicy.create(
@@ -970,6 +981,7 @@ def test_persistent_chat_two_turns_use_one_preissued_allocation_without_storage_
     serving_bridge, serving, _, model, _, _ = serving_setup(
         monkeypatch, tmp_path, installation_identity="production",
         kernel_override=kernel,
+        preflight_clock=lambda: NOW,
         serving_admission_context_provider=lambda _correlation, _state: {
             "governed_inference_entitlement_binding": dict(
                 custody.serving_admission_entitlement_binding())})
