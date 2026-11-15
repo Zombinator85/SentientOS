@@ -167,7 +167,9 @@ def test_read_only_observer_exposes_digest_bound_game_recovery_hold_and_clearanc
         game_resource_recovery_posture=cleared.game_resource_recovery_posture)[0]
     assert cleared_runtime["payload"]["game_resource_recovery_posture"] == (
         "verified_recovery_cleared")
-    assert cleared_runtime["disposition"] == "recorded"
+    assert cleared_runtime["payload"][
+        "game_resource_recovery_release_linkage_posture"] == "not_requested"
+    assert cleared_runtime["disposition"] == "degraded"
 
     clearance["game_generation_id"] = "wrong-generation"
     clearance_path.path.write_text(json.dumps(clearance), encoding="utf-8")
@@ -876,6 +878,48 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         verified_resource_release_receipts=(performance_release,))[0]
     performance_observation = performance_projection["payload"][
         "resource_release_receipts"][0]["resource_observation"]
+    recovery_hold = {
+        "hold_id": "e" * 32,
+        "hold_semantic_digest": "f" * 64,
+        "release_admission_decision_ref": performance_release[
+            "release_admission_decision_ref"],
+        "release_admission_record": performance_release[
+            "release_admission_record"],
+        "serving_session_id": performance_release["serving_session_id"],
+        "model_identity_digest": performance_release[
+            "model_identity_digest"].removeprefix("sha256:"),
+        "game_source_id": performance_observation["game_performance_source_id"],
+        "game_generation_id": performance_observation[
+            "game_performance_generation_id"],
+        "game_pressure_observed_at": performance_observation[
+            "game_performance_observed_at"],
+        "clearance": None,
+        "posture": "pending_fresh_game_exit_evidence",
+    }
+    linked_recovery_projection = resource_consumption_world_state_records(
+        ledger=first.ledger,
+        verified_resource_release_receipts=(performance_release,),
+        verified_game_resource_recovery_holds=(recovery_hold,),
+        game_resource_recovery_posture="verified_pending_recovery")[0]
+    linked_recovery_hold = linked_recovery_projection["payload"][
+        "game_resource_recovery_holds"][0]
+    assert linked_recovery_projection["payload"][
+        "game_resource_recovery_release_linkage_posture"] == "verified"
+    assert linked_recovery_hold["release_receipt_linkage_posture"] == "verified"
+    assert linked_recovery_hold["release_receipt_id"] == performance_release["receipt_id"]
+    mismatched_recovery_hold = {**recovery_hold,
+        "game_generation_id": "substituted-generation"}
+    mismatched_recovery_projection = resource_consumption_world_state_records(
+        ledger=first.ledger,
+        verified_resource_release_receipts=(performance_release,),
+        verified_game_resource_recovery_holds=(mismatched_recovery_hold,),
+        game_resource_recovery_posture="verified_pending_recovery")[0]
+    assert mismatched_recovery_projection["payload"][
+        "game_resource_recovery_release_linkage_posture"] == "degraded"
+    assert mismatched_recovery_projection["disposition"] == "degraded"
+    assert any(item.startswith(
+        "game_recovery_hold_release_receipt_linkage_mismatched:")
+        for item in mismatched_recovery_projection["payload"]["lineage_findings"])
     assert performance_observation["game_performance_message_id"] == "a" * 64
     assert performance_observation["game_performance_payload_digest"] == "b" * 64
     assert performance_observation["game_performance_source_id"] == "windows-edge"

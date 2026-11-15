@@ -117,6 +117,44 @@ def _resource_release_checks_valid(value: object) -> bool:
             for check in value))
 
 
+def _game_recovery_hold_release_linkage(
+        hold: Mapping[str, Any],
+        release_receipts: Sequence[Mapping[str, Any]] | None
+        ) -> tuple[str, str | None]:
+    if release_receipts is None:
+        return "not_requested", None
+    reference = hold.get("release_admission_decision_ref")
+    matches = [receipt for receipt in release_receipts
+        if receipt.get("release_admission_decision_ref") == reference]
+    if not matches:
+        return "missing", None
+    if len(matches) != 1:
+        return "ambiguous", None
+    receipt = matches[0]
+    observation = receipt.get("resource_observation")
+    admission = receipt.get("release_admission_record")
+    hold_admission = hold.get("release_admission_record")
+    model_digest = receipt.get("model_identity_digest")
+    if isinstance(model_digest, str):
+        model_digest = model_digest.removeprefix("sha256:")
+    linked = (
+        receipt.get("trigger_kind") == "idle_game_performance_gpu_residency"
+        and receipt.get("status") in {"worker_closed", "release_effect_unconfirmed"}
+        and receipt.get("serving_session_id") == hold.get("serving_session_id")
+        and model_digest == hold.get("model_identity_digest")
+        and isinstance(admission, Mapping)
+        and isinstance(hold_admission, Mapping)
+        and dict(admission) == dict(hold_admission)
+        and isinstance(observation, Mapping)
+        and observation.get("game_performance_source_id") == hold.get("game_source_id")
+        and observation.get("game_performance_generation_id") == hold.get(
+            "game_generation_id")
+        and observation.get("game_performance_observed_at") == hold.get(
+            "game_pressure_observed_at"))
+    return ("verified", str(receipt.get("receipt_id"))) if linked else (
+        "mismatched", None)
+
+
 _DIGEST_BOUND_INVOCATION_RECEIPT_SCHEMAS = frozenset({
     "sentientos.local_model_invocation_receipt:v2",
     "sentientos.local_model_invocation_receipt:v3",
@@ -1190,6 +1228,23 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     release_lineage_findings.append(
                         "resource_release_gpu_layer_linkage_missing_or_mismatched:"
                         + str(release.get("receipt_id")))
+    game_recovery_release_linkage_states = []
+    hold_summary_by_id = {str(item.get("hold_id")): item
+        for item in game_recovery_hold_summaries}
+    for hold in verified_game_resource_recovery_holds or ():
+        linkage, release_id = _game_recovery_hold_release_linkage(
+            hold, release_receipt_summaries
+            if verified_resource_release_receipts is not None else None)
+        hold_summary = hold_summary_by_id.get(str(hold.get("hold_id")))
+        if hold_summary is not None:
+            hold_summary["release_receipt_linkage_posture"] = linkage
+            if release_id is not None:
+                hold_summary["release_receipt_id"] = release_id
+        game_recovery_release_linkage_states.append(linkage)
+        if linkage not in {"verified", "not_requested"}:
+            release_lineage_findings.append(
+                f"game_recovery_hold_release_receipt_linkage_{linkage}:"
+                + str(hold.get("hold_id")))
     admission_by_receipt: dict[str, Mapping[str, Any]] = {}
     host_observation_binding_posture_by_receipt: dict[str, str] = {}
     workload_preemption_admission_posture_by_receipt: dict[str, str] = {}
@@ -2000,6 +2055,14 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "game_resource_recovery_posture": (
                    "not_requested" if verified_game_resource_recovery_holds is None
                    else game_resource_recovery_posture),
+               "game_resource_recovery_release_linkage_posture": (
+                   "not_requested" if verified_game_resource_recovery_holds is None
+                       or verified_resource_release_receipts is None else
+                   "verified" if game_recovery_hold_summaries
+                       and all(state == "verified"
+                           for state in game_recovery_release_linkage_states) else
+                   "verified_no_holds" if not game_recovery_hold_summaries else
+                   "degraded"),
                "inference_admission_decision_count": len(admission_by_receipt),
                "inference_admission_decision_posture": (
                    "not_requested" if verified_inference_admission_decisions is None
@@ -2030,10 +2093,15 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "lineage_finding_count": len(bounded_lineage_findings)}
     game_recovery_posture_complete = payload["game_resource_recovery_posture"] in {
         "not_requested", "verified_no_recovery_holds", "verified_recovery_cleared"}
+    game_recovery_release_linkage_complete = (
+        not game_recovery_hold_summaries
+        or payload["game_resource_recovery_release_linkage_posture"] == "verified")
     resource_observation_complete = (
         not lineage_findings
+        and not release_lineage_findings
         and payload["recovery_posture"] == "reconciled_or_restored"
-        and game_recovery_posture_complete)
+        and game_recovery_posture_complete
+        and game_recovery_release_linkage_complete)
     record = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
              "source_id": "governed_local_model_resource_consumption",
              "schema_version": RESOURCE_CONSUMPTION_WORLD_STATE_SCHEMA,
