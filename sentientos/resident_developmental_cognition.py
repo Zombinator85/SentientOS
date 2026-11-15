@@ -339,6 +339,10 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "reward signal. Historical prediction-outcome lineage records bind comparison identities and bounded field outcomes; "
     "they remain claims about their recorded sources, and contradiction is material for reconsideration rather than a "
     "command to believe or act. A missing or indeterminate field is not a satisfied prediction. "
+    "When task-family context contains a controlled_task_effect summary, an adverse result is evidence against blindly reusing "
+    "that experience, a favorable result supports cautious consideration only, and no measured difference or "
+    "unavailable comparison leaves its effect uncertain. These summaries concern only their exact recorded task "
+    "suite; they do not establish generalization or learning. "
     "Treat measured, estimated, predicted, and unknown quantities according to their source posture; "
     "never infer per-invocation CPU, GPU, energy, or token measurements from shared host use, call counts, output size, "
     "or latency."
@@ -1383,6 +1387,7 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
         "source_active_model_identity_digest", "model_identity_binding_posture",
         "target_active_model_identity_digest", "model_identity_relation",
         "applicability_posture", "evaluator", "event_scope", "examples",
+        "controlled_task_effect",
         "independent_backend_observation", "execution_evidence_scope",
         "execution_evidence_posture", "historical_only", "current_truth", "authority")}
     resource_context = example.get("resource_context")
@@ -1475,6 +1480,84 @@ def _task_family_model_applicability(example: Mapping[str, Any], *,
         posture = "cross_model_transfer_not_established"
     return {"target_active_model_identity_digest": target_digest,
         "model_identity_relation": relation, "applicability_posture": posture}
+
+
+def _controlled_task_history_effect(condition_outcomes: object, *,
+        task_family_id: str, task_digest: str) -> dict[str, Any]:
+    """Summarize only a complete, comparable, receipt-bound three-condition score set."""
+    semantic: dict[str, Any] = {
+        "schema_version": "sentientos.controlled_task_history_effect:v1",
+        "task_family_id": task_family_id, "task_digest": task_digest,
+        "posture": "comparison_unavailable",
+        "scope": "same_task_suite_exact_correctness_not_general_learning",
+        "historical_only": True, "current_truth": False, "authority": False,
+        "learning_established": False,
+    }
+    expected = ("history_present", "history_withheld", "history_restored")
+    if (not isinstance(condition_outcomes, (list, tuple))
+            or len(condition_outcomes) != len(expected)
+            or not isinstance(task_family_id, str) or not task_family_id
+            or not isinstance(task_digest, str)
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", task_digest)):
+        semantic["comparison_digest"] = _digest(semantic)
+        return semantic
+    if any(not isinstance(item, Mapping)
+            or not isinstance(item.get("condition_id"), str)
+            for item in condition_outcomes):
+        semantic["comparison_digest"] = _digest(semantic)
+        return semantic
+    by_id = {item["condition_id"]: item for item in condition_outcomes}
+    if len(by_id) != len(expected) or set(by_id) != set(expected):
+        semantic["comparison_digest"] = _digest(semantic)
+        return semantic
+    valid_rows = all(
+        by_id[condition].get("evaluator") == "deterministic_exact_integer_suite_oracle_v2"
+        and by_id[condition].get("score_status") in {"correct", "incorrect"}
+        and type(by_id[condition].get("correct_count")) is int
+        and type(by_id[condition].get("probe_count")) is int
+        and 1 <= by_id[condition]["probe_count"] <= 16
+        and 0 <= by_id[condition]["correct_count"] <= by_id[condition]["probe_count"]
+        and (by_id[condition]["score_status"] != "correct"
+            or by_id[condition]["correct_count"] == by_id[condition]["probe_count"])
+        and (by_id[condition]["score_status"] != "incorrect"
+            or by_id[condition]["correct_count"] < by_id[condition]["probe_count"])
+        and isinstance(by_id[condition].get("score_digest"), str)
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", by_id[condition]["score_digest"])
+        and isinstance(by_id[condition].get("inference_receipt_id"), str)
+        and bool(by_id[condition].get("inference_receipt_id"))
+        and isinstance(by_id[condition].get("inference_receipt_digest"), str)
+        and re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}",
+            by_id[condition]["inference_receipt_digest"]) is not None
+        and by_id[condition].get("historical_only") is True
+        and by_id[condition].get("current_truth") is False
+        and by_id[condition].get("authority") is False
+        for condition in expected)
+    evaluator_rows = [by_id[condition].get("evaluator") for condition in expected]
+    probe_rows = [by_id[condition].get("probe_count") for condition in expected]
+    if (not valid_rows or any(value != evaluator_rows[0] for value in evaluator_rows[1:])
+            or any(value != probe_rows[0] for value in probe_rows[1:])):
+        semantic["comparison_digest"] = _digest(semantic)
+        return semantic
+    counts = {condition: by_id[condition]["correct_count"] for condition in expected}
+    delta = counts["history_present"] - counts["history_withheld"]
+    semantic.update({
+        "posture": "complete_comparable_condition_scores",
+        "effect_classification": ("history_favorable" if delta > 0 else
+            "history_adverse" if delta < 0 else "no_difference_observed"),
+        "condition_correct_counts": counts,
+        "probe_count": probe_rows[0],
+        "history_present_minus_withheld_correct_count": delta,
+        "restored_matches_present_score": (
+            counts["history_restored"] == counts["history_present"]),
+        "condition_score_bindings": [{
+            "condition_id": condition,
+            "score_digest": by_id[condition]["score_digest"],
+            "inference_receipt_id": by_id[condition]["inference_receipt_id"],
+            "inference_receipt_digest": by_id[condition]["inference_receipt_digest"],
+        } for condition in expected],
+    })
+    semantic["comparison_digest"] = _digest(semantic)
+    return semantic
 
 
 def _observed_current_cognition_model_identity(invoker: Any) -> dict[str, Any] | None:
@@ -1930,7 +2013,7 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
             execution_posture = derived_posture
             independent_backend_observation = False
         projected_example = {
-            "schema_version": "sentientos.task_family_history_examples:v1",
+            "schema_version": "sentientos.task_family_history_examples:v2",
             "task_family_id": task_family_id,
             "task_family_posture": "operator_declared_protocol_bound",
             "source_fact_id": fact.get("fact_id"),
@@ -1951,6 +2034,9 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
             "examples": rows,
             "resource_context": resource_context,
             "condition_outcomes": condition_outcomes,
+            "controlled_task_effect": _controlled_task_history_effect(
+                condition_outcomes, task_family_id=task_family_id,
+                task_digest=descriptor["task_digest"]),
             "execution_evidence_scope": execution_scope,
             "execution_evidence_posture": execution_posture,
             "execution_evidence_conditions": execution_conditions,
@@ -2660,19 +2746,23 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 raise ResidentDevelopmentalCognitionError(
                     "task_family_prompt_projection_examples_invalid")
             example_rows.extend(rows)
+        effect_digests = [effect.get("comparison_digest")
+            for experience in experiences
+            if isinstance((effect := experience.get("controlled_task_effect")), Mapping)]
         entries.append({
             "record_id": packet["record_id"],
             "record_digest": packet["record_digest"],
             "experience_count": len(experiences),
             "example_count": len(example_rows),
             "examples_digest": _digest(example_rows),
+            "controlled_task_effect_digests": effect_digests,
             "evaluator_correct_count": sum(
                 example.get("evaluator_correct") is True for example in example_rows),
             "evaluator_incorrect_count": sum(
                 example.get("evaluator_correct") is False for example in example_rows),
         })
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v1",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v2",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",

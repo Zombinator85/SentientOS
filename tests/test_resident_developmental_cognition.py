@@ -1652,6 +1652,13 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     retained = cognition.writeback.store.get(retained_result.written_record_id)
     retained_fact = next(fact for fact in retained.candidate["selected_facts"]
         if fact["payload"].get("objective_task_family") == "integer_affine_prediction")
+    from sentientos.resident_developmental_cognition import _task_family_history_examples
+    [adverse_experience] = _task_family_history_examples(retained.candidate,
+        task_family_id="integer_affine_prediction")
+    assert adverse_experience["controlled_task_effect"]["effect_classification"] == \
+        "history_adverse"
+    assert adverse_experience["controlled_task_effect"][
+        "history_present_minus_withheld_correct_count"] == -3
     assert [item["evaluator_correct"] for item in retained_fact["payload"][
         "acquisition_examples"]] == [False, False, False]
     assert retained_fact["payload"]["objective_scores"][0]["score_digest"] == source_score_digest
@@ -1755,6 +1762,10 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     corrective_record = cognition.writeback.store.get(corrective_feedback.written_record_id)
     corrective_fact = next(fact for fact in corrective_record.candidate["selected_facts"]
         if fact["payload"].get("objective_task_family") == "integer_affine_prediction")
+    [corrective_experience] = _task_family_history_examples(corrective_record.candidate,
+        task_family_id="integer_affine_prediction")
+    assert corrective_experience["controlled_task_effect"]["effect_classification"] == \
+        "no_difference_observed"
     assert [item["evaluator_correct"] for item in
         corrective_fact["payload"]["acquisition_examples"]] == [True, True]
     assert corrective_record.record_id != retained.record_id
@@ -1784,9 +1795,26 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     assert epistemic_owner.current_state(proposition.proposition_id).stance == "contested"
     final_scores = {row["condition_id"]: row["score"]
         for row in final_run["objective_scores"]}
-    final_prompt = next(json.loads(request.prompt) for request in reversed(fake.requests)
+    final_history_request = next(request for request in reversed(fake.requests)
         if request.purpose == "resident_developmental_history_intervention_experiment"
         and request.linkage.get("condition_id") == "history_present")
+    final_prompt = json.loads(final_history_request.prompt)
+    projected_effects = {}
+    for packet in final_prompt["developmental_history"]:
+        experiences = packet.get("task_relevant_experience", ())
+        if experiences:
+            projected_effects[packet["record_id"]] = experiences[0][
+                "controlled_task_effect"]
+    assert projected_effects[retained.record_id]["effect_classification"] == \
+        "history_adverse"
+    assert projected_effects[corrective_record.record_id]["effect_classification"] == \
+        "no_difference_observed"
+    effect_refs = final_history_request.upstream_evidence[
+        "task_family_history_prompt_projection"]["records"]
+    bound_effect_digests = {digest for row in effect_refs
+        for digest in row["controlled_task_effect_digests"]}
+    assert {item["comparison_digest"] for item in projected_effects.values()} <= \
+        bound_effect_digests
     history_record_order = [packet.get("record_id")
         for packet in final_prompt["developmental_history"]]
     assert history_record_order.index(retained.record_id) < \
@@ -2388,6 +2416,29 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         "authenticated_owner_receipt_not_independent_backend_observation")
     assert projected_examples[0]["execution_evidence_posture"] == (
         "one_or_more_conditions_simulated_or_no_backend_entry")
+    from sentientos.resident_developmental_cognition import (
+        _controlled_task_history_effect, _digest as cognition_digest,
+    )
+    effect = projected_examples[0]["controlled_task_effect"]
+    assert effect["posture"] == "complete_comparable_condition_scores"
+    assert effect["effect_classification"] == "history_favorable"
+    assert effect["history_present_minus_withheld_correct_count"] == 3
+    assert effect["restored_matches_present_score"] is True
+    assert effect["scope"] == "same_task_suite_exact_correctness_not_general_learning"
+    assert effect["learning_established"] is False
+    assert effect["historical_only"] is True
+    assert effect["current_truth"] is False and effect["authority"] is False
+    assert effect["comparison_digest"] == cognition_digest({key: value
+        for key, value in effect.items() if key != "comparison_digest"})
+    assert [item["score_digest"] for item in effect["condition_score_bindings"]] == [
+        item["score_digest"] for item in projected_examples[0]["condition_outcomes"]]
+    incomparable = [dict(item) for item in projected_examples[0]["condition_outcomes"]]
+    incomparable[1]["probe_count"] += 1
+    unavailable_effect = _controlled_task_history_effect(incomparable,
+        task_family_id="integer_affine_prediction",
+        task_digest=projected_examples[0]["source_task_digest"])
+    assert unavailable_effect["posture"] == "comparison_unavailable"
+    assert "effect_classification" not in unavailable_effect
     assert projected_examples[0]["independent_backend_observation"] is False
     assert projected_examples[0]["resource_context"]["posture"] == (
         "unknown_missing_or_unbound_lineage")
@@ -2441,7 +2492,6 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     bound_model_fact = next(fact for fact in bound_model_identity["selected_facts"]
         if fact["fact_id"] == family_fact["fact_id"])
     identity = {"provider": "fixture", "model": "fixture-model"}
-    from sentientos.resident_developmental_cognition import _digest as cognition_digest
     bound_model_fact["payload"]["active_model_identity"] = identity
     bound_model_fact["payload"]["active_model_identity_digest"] = cognition_digest(identity)
     bound_projection = _task_family_history_examples(bound_model_identity,
@@ -2475,6 +2525,7 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         task_family_id="integer_affine_prediction",
         target_model_identity=identity, compact_for_input_budget=True)
     task_experience = packet["task_relevant_experience"][0]
+    assert task_experience["controlled_task_effect"] == effect
     assert "interpretation" not in packet
     assert packet["task_family_scope"] == "integer_affine_prediction"
     assert packet["task_family_scope_posture"] == (

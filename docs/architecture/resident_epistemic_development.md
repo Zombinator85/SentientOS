@@ -75,6 +75,15 @@ invoke a model, acquire a serving session, or execute a goal. The result does no
 establish real-model learning, external truth, improved task performance, or
 execution authority.
 
+Same-model, same-task-family history now also carries a compact controlled
+effect summary when all three score-bound conditions are comparable. It records
+whether history-present correctness was adverse, favorable, or unchanged against
+the withheld condition, whether restoration reproduced the history-present
+score, and the score and invocation receipt identities behind that comparison.
+Incomplete comparisons remain `comparison_unavailable` without a directional
+claim. These summaries are prompt-bound historical evidence for the exact task
+suite only; they do not establish learning or generalization.
+
 This composition is not production sensor evidence, beneficial learning,
 objective truth, or improved intelligence.
 
