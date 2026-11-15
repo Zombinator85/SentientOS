@@ -661,14 +661,15 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             source_identity={"installation_identity": str(identity)},
             verified_serving_operation_history=conflicting_serving_history,
             verified_resource_release_receipts=first.verified_resource_release_receipts)
-    with pytest.raises(ValueError,
-            match="resource_release_serving_history_duplicate"):
-        resource_consumption_world_state_records(
-            ledger=first.ledger,
-            source_identity={"installation_identity": str(identity)},
-            verified_serving_operation_history=(
-                *projection_serving_history, projection_serving_history[0]),
-            verified_resource_release_receipts=first.verified_resource_release_receipts)
+    duplicate_history_projection = resource_consumption_world_state_records(
+        ledger=first.ledger,
+        source_identity={"installation_identity": str(identity)},
+        verified_serving_operation_history=(
+            *projection_serving_history, projection_serving_history[0]),
+        verified_resource_release_receipts=first.verified_resource_release_receipts)[0]
+    assert not any(item.startswith(
+        "resource_release_serving_model_linkage_missing_or_mismatched:")
+        for item in duplicate_history_projection["payload"]["lineage_findings"])
     tampered_release = dict(first.verified_resource_release_receipts[0])
     tampered_release["status"] = "denied"
     with pytest.raises(ValueError,

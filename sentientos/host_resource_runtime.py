@@ -861,7 +861,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             if prior_binding is not None and prior_binding != candidate_binding:
                 raise ValueError("resource_release_serving_history_collision")
             if prior_binding is not None:
-                raise ValueError("resource_release_serving_history_duplicate")
+                continue
             serving_release_bindings[history_key] = candidate_binding
         for release in release_receipt_summaries:
             admission = release.get("release_admission_record")
