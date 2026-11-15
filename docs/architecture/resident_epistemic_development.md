@@ -85,11 +85,11 @@ interpretations and source-verified operator-report text against the current
 question by lexical token overlap before the existing bounded history
 projection. Unmatched slots are filled from the recent checkpoint sequence.
 The selected record identities and the retrieval policy
-(`query_overlap_with_operator_reports_then_recency_fill:v2`) remain in the normal history
+(`query_overlap_with_operator_reports_then_recency_fill:v3`) remain in the normal history
 selection lineage; the history packet remains explicitly historical,
 non-authoritative, and not current truth. This is a deterministic relevance
-heuristic, not semantic retrieval or evidence that the selected experience
-improves an answer.
+heuristic that normalizes common plural endings. It is not semantic retrieval
+or evidence that the selected experience improves an answer.
 
 The focused counterfactual in
 `tests/test_resident_developmental_cognition.py::test_companion_query_selects_relevant_older_experience_over_recent_unrelated_history`

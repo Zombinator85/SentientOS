@@ -2319,6 +2319,20 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
     return summaries
 
 
+def _history_retrieval_terms(text: str) -> set[str]:
+    """Normalize common plurals for lexical history relevance matching."""
+    terms: set[str] = set()
+    for token in re.findall(r"[A-Za-z0-9_]{3,}", text.casefold()):
+        if len(token) > 4 and token.endswith("ies"):
+            token = token[:-3] + "y"
+        elif len(token) > 4 and token.endswith(("ches", "shes", "sses", "xes", "zes")):
+            token = token[:-2]
+        elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+            token = token[:-1]
+        terms.add(token)
+    return terms
+
+
 def _history_context_packet(record: Mapping[str, Any], *,
         include_source_evidence_context: bool = True,
         compact_for_input_budget: bool = False,
@@ -2944,7 +2958,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "task_family_probe_overlap_then_recency_fill:v2",
                 "task_family_model_identity_then_probe_overlap_then_recency_fill:v3",
                 "query_overlap_then_recency_fill:v1",
-                "query_overlap_with_operator_reports_then_recency_fill:v2"}
+                "query_overlap_with_operator_reports_then_recency_fill:v2",
+                "query_overlap_with_operator_reports_then_recency_fill:v3"}
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
@@ -5347,7 +5362,6 @@ class ResidentDevelopmentalCognitionOwner:
             # lexical overlap, while preserving checkpoint order for ties and
             # filling unused slots from the recent suffix. This ranks history;
             # it does not establish truth or correctness.
-            terms = {term.casefold() for term in re.findall(r"[A-Za-z0-9_]{3,}", relevance_query)}
             ranked: list[tuple[int, int, str]] = []
             for order, record_id in enumerate(ids):
                 try:
@@ -5363,8 +5377,8 @@ class ResidentDevelopmentalCognitionOwner:
                     searchable_parts.extend(item["assertion_text"]
                         for item in _historical_operator_feedback_context(candidate))
                 searchable = " ".join(searchable_parts)
-                query_overlap = len(terms & {term.casefold() for term in
-                    re.findall(r"[A-Za-z0-9_]{3,}", searchable)})
+                query_overlap = len(_history_retrieval_terms(relevance_query)
+                    & _history_retrieval_terms(searchable))
                 if query_overlap:
                     ranked.append((query_overlap, order, record_id))
             ranked.sort(reverse=True)
@@ -6092,7 +6106,7 @@ class ResidentDevelopmentalCognitionOwner:
                 and bool(observed_target_identity))
             else "task_family_probe_overlap_then_recency_fill:v2"
             if isinstance(task_family_id, str) else
-            "query_overlap_with_operator_reports_then_recency_fill:v2"
+            "query_overlap_with_operator_reports_then_recency_fill:v3"
             if interaction_question is not None
                 and condition_id == "companion-interaction"
             else "completed_tick_recency_suffix:v1")
