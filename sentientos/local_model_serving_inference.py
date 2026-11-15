@@ -1043,15 +1043,23 @@ class ProductionServingInferenceController:
             if (pending_workload.get("configured_mode") == "gaming"
                     or verified_active_game):
                 return self._preempt_for_verified_game_workload()
-            if pending_workload.get("configured_mode") == "normal":
+            automatic_no_game = (
+                pending_workload.get("configured_mode") == "automatic"
+                and pending_workload.get("effective_mode") == "normal"
+                and pending_workload.get("observation_status") == "available"
+                and pending_workload.get("game_foreground") is False
+                and pending_workload.get("game_process_running") is False)
+            if (pending_workload.get("configured_mode") == "normal"
+                    or automatic_no_game):
                 if resource_entitlement_owner is not None:
                     entitlement_preemption = (
                         self._preempt_active_inference_for_invalidated_entitlement(
                             resource_entitlement_owner, active_invoker))
                     if entitlement_preemption is not None:
                         return entitlement_preemption
-                return self._preempt_active_inference_for_host_pressure(
-                    active_invoker)
+                if pending_workload.get("configured_mode") == "normal":
+                    return self._preempt_active_inference_for_host_pressure(
+                        active_invoker)
         if not self._receipt_capacity_lock.acquire(blocking=False):
             return self._preempt_for_verified_game_workload()
         try:

@@ -616,8 +616,9 @@ def test_governed_entitlement_release_closes_idle_session_through_runtime(
         serving.close()
 
 
+@pytest.mark.parametrize("workload_mode", ["normal", "automatic"])
 def test_invalidated_entitlement_preempts_exact_active_invocation(
-        monkeypatch, tmp_path):
+        monkeypatch, tmp_path, workload_mode):
     import json
 
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
@@ -658,14 +659,22 @@ def test_invalidated_entitlement_preempts_exact_active_invocation(
             raise AssertionError("invalidated allocation did not preempt active worker")
         raise RuntimeError("fixture_generation_stopped_after_entitlement_invalidation")
 
+    class NoGameDetector:
+        def observe(self, _process_names):
+            return ForegroundGameObservation("available", False, "a" * 64, NOW,
+                game_process_running=False, running_process_name_digests=())
+
     bridge, serving, session, model, _, _ = serving_setup(
         monkeypatch, tmp_path / "serving", installation_identity="production",
         kernel_override=kernel, on_generate=active_generation,
+        foreground_game_detector=NoGameDetector() if workload_mode == "automatic" else None,
         serving_admission_context_provider=lambda _correlation, _state: {
             "governed_inference_entitlement_binding":
                 dict(custody.serving_admission_entitlement_binding())})
     model.cancel_pending_generation = lambda: (finish.set() or True)
     inference = ResourceBackedProductionChatInference(bridge, custody)
+    if workload_mode == "automatic":
+        inference.set_workload_mode("automatic", ["ExampleGame.exe"])
 
     def invoke():
         invocation_result["receipt"] = inference.generate(
