@@ -24,7 +24,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
-COLLECTOR_STATUSES = frozenset({"available", "partial", "unavailable", "error"})
+COLLECTOR_STATUSES = frozenset({
+    "available", "partial", "unavailable", "error", "unsupported",
+})
 FORBIDDEN_COLLECTOR_MARKERS = frozenset(
     {
         "host_mutation_performed",

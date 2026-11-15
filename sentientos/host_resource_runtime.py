@@ -287,8 +287,12 @@ def build_observation_plan(*, budget: HostObservationBudget | None = None, specs
     sem = {"budget": b.to_dict(), "collectors": [c.to_dict() for c in cs]}
     return HostObservationPlan(_id("hop_", sem), b, cs, _id("hops_", sem))
 
-def _unsupported_result(spec: HostObservationCollectorSpec, observed_at: str) -> HostCollectorResult:
-    return HostCollectorResult(spec.collector_id, "unavailable", observed_at, "unsupported_platform", values={"unsupported_platform": True}, warnings=("unsupported_platform",))
+def _unsupported_result(spec: HostObservationCollectorSpec,
+        observed_at: str) -> HostCollectorResult:
+    status = "unavailable" if spec.required else "unsupported"
+    return HostCollectorResult(
+        spec.collector_id, status, observed_at, "unsupported_platform",
+        values={"unsupported_platform": True}, warnings=("unsupported_platform",))
 
 def _exception_result(spec: HostObservationCollectorSpec, observed_at: str, exc: BaseException) -> HostCollectorResult:
     return HostCollectorResult(spec.collector_id, "error", observed_at, "contained_exception", findings=(), warnings=("collector_exception_contained",), values={"exception_label": type(exc).__name__})

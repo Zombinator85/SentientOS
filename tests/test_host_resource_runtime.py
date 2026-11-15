@@ -176,6 +176,64 @@ def test_windows_process_count_observation_flows_through_runtime_without_identit
     assert evaluation.epoch.results[0].host_mutation_performed is False
 
 
+@pytest.mark.parametrize("required", (False, True))
+def test_windows_platform_unsupported_collector_preserves_requiredness(
+        tmp_path, monkeypatch, required):
+    monkeypatch.setattr("sentientos.host_resource_runtime.platform.system",
+        lambda: "Windows")
+    now = datetime.now(timezone.utc).isoformat()
+    unsupported_calls = []
+
+    def core_result(collector_id, values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now,
+            "synthetic_test_fixture", values=values)
+
+    def linux_only_sensor(*, observed_at=None):
+        unsupported_calls.append(observed_at)
+        return _result("thermal_sensors")
+
+    specs = [
+        HostObservationCollectorSpec("cpu", True, ("windows",), 1,
+            core_result("cpu", {"utilization_percent": 20.0})),
+        HostObservationCollectorSpec("memory", True, ("windows",), 2,
+            core_result("memory", {"used_percent": 45.0})),
+        HostObservationCollectorSpec("nvidia_gpu", False, ("windows",), 3,
+            core_result("nvidia_gpu", {"device_count": 1, "devices": [{
+                "index": 0, "gpu_utilization_percent": 10.0,
+                "vram_utilization_percent": 20.0}]})),
+        HostObservationCollectorSpec("thermal_sensors", required, ("linux",), 4,
+            linux_only_sensor),
+    ]
+    evaluation = HostResourceRuntimeCoordinator(
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME),
+        runtime_state_root=tmp_path,
+        plan=build_observation_plan(specs=specs),
+        clock=lambda: now,
+    ).run_cycle(correlation_id="windows-unsupported-optional-thermal")
+
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+    assert unsupported_calls == []
+    expected_status = "unavailable" if required else "unsupported"
+    assert evaluation.epoch.status_counts[expected_status] == 1
+    assert evaluation.epoch.status_counts["unsupported"] == (0 if required else 1)
+    assert evaluation.epoch.status_counts["unavailable"] == (1 if required else 0)
+    assert evaluation.epoch.optional_failed == ()
+    assert evaluation.epoch.required_failed == (
+        ("thermal_sensors",) if required else ())
+    thermal = next(result for result in evaluation.epoch.results
+        if result.collector_id == "thermal_sensors")
+    assert thermal.status == expected_status
+    assert thermal.source == "unsupported_platform"
+    if required:
+        assert "sensor_unavailable" in evaluation.pressure_report.pressure_labels
+        assert evaluation.policy_decision.status == "host_resource_policy_incomplete"
+    else:
+        assert evaluation.epoch.status_counts["unavailable"] == 0
+        assert "sensor_unavailable" not in evaluation.pressure_report.pressure_labels
+        assert evaluation.policy_decision.status == "host_resource_policy_nominal"
+
+
 def test_windows_nvidia_smi_evidence_defers_optional_gpu_inference_for_game(
         tmp_path, monkeypatch):
     from sentientos.host_collectors import (collect_cpu_observation,
