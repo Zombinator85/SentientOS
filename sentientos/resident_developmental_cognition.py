@@ -3948,7 +3948,9 @@ class ResidentDevelopmentalCognitionOwner:
                 "self_model_claim_ids", "self_model_claim_digests", "epistemic_proposition_ids",
                 "epistemic_state_ids", "epistemic_state_digests", "epistemic_generations",
                 "epistemic_evidence_set_digests", "epistemic_consumed_packet_ids",
-                "epistemic_consumed_packet_digests", "epistemic_omitted_packets")
+                "epistemic_consumed_packet_digests", "epistemic_omitted_packets",
+                "companion_history_citation_ids", "canonical_user_memory_record_ids",
+                "canonical_user_memory_record_digests", "companion_memory_citation_ids")
             for condition in CONDITION_ORDER:
                 raw = by_condition[condition]
                 value = dict(raw)
@@ -4850,7 +4852,10 @@ class ResidentDevelopmentalCognitionOwner:
                 if not memory_lineage_valid:
                     raise ResidentDevelopmentalCognitionError(
                         "cognition_companion_memory_citations_invalid")
-            if versioned_v3_observation or versioned_v4_observation or versioned_v5_observation or versioned_v6_observation or versioned_v7_observation or versioned_v8_observation:
+            if (versioned_v3_observation or versioned_v4_observation
+                    or versioned_v5_observation or versioned_v6_observation
+                    or versioned_v7_observation or versioned_v8_observation
+                    or versioned_v9_observation):
                 session_id, session_binding = value.get("serving_session_id"), value.get("serving_session_binding")
                 absent = session_id is None and session_binding is None
                 activation_digest = (session_binding.get("activation_state_semantic_digest")
@@ -4868,7 +4873,9 @@ class ResidentDevelopmentalCognitionOwner:
                     and (activation_digest_raw or (versioned_v3_observation and activation_digest_legacy)))
                 if not (absent or present):
                     raise ResidentDevelopmentalCognitionError("cognition_observation_serving_session_binding_invalid")
-                if versioned_v4_observation or versioned_v5_observation or versioned_v6_observation or versioned_v7_observation or versioned_v8_observation:
+                if (versioned_v4_observation or versioned_v5_observation
+                        or versioned_v6_observation or versioned_v7_observation
+                        or versioned_v8_observation or versioned_v9_observation):
                     receipt_id, receipt_digest = (value.get("serving_session_receipt_id"),
                         value.get("serving_session_receipt_digest"))
                     receipt_absent = absent and receipt_id is None and receipt_digest is None
@@ -4909,7 +4916,9 @@ class ResidentDevelopmentalCognitionOwner:
             verified_observation = {
                 **value, "observation_id": observation_id,
                 "observation_digest": observation_digest}
-            if versioned_v3_observation or versioned_v5_observation or versioned_v6_observation or versioned_v7_observation or versioned_v8_observation:
+            if (versioned_v3_observation or versioned_v5_observation
+                    or versioned_v6_observation or versioned_v7_observation
+                    or versioned_v8_observation or versioned_v9_observation):
                 self._verify_observation_invocation(verified_observation)
             verified_records[observation_id] = verified_observation
         if include_records:

@@ -1354,7 +1354,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert later.written_record_id in family_record_ids
     conditions = recovered["conditions"]
     present, withheld, restored = conditions
-    assert all(item["schema_version"] == "sentientos.resident_cognition_observation:v8"
+    assert all(item["schema_version"] == "sentientos.resident_cognition_observation:v9"
         for item in conditions)
     # This fixture uses genuinely unlinked historical-compatible invocation
     # receipts; the new observation version must retain that empty linkage.
@@ -4794,7 +4794,7 @@ def test_development_chat_configuration_hosts_resident_cognition_owner(
         observation = cognition.verified_cognition_observation(
             response.context["cognition_observation_id"],
             response.context["cognition_observation_digest"])
-        assert observation["schema_version"] == "sentientos.resident_cognition_observation:v8"
+        assert observation["schema_version"] == "sentientos.resident_cognition_observation:v9"
         assert observation["companion_history_citation_ids"] == [seed.written_record_id]
         turns = app.sessions.load(session_id)["turns"]
         assert turns[-1]["linkage"]["response_origin"] == "resident_developmental_cognition"
@@ -6271,7 +6271,7 @@ def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp
     durable = [json.loads(path.read_text(encoding="utf-8"))
         for path in restarted.observations_root.glob("*.json")]
     by_request = {row["request_id"]: row for row in durable}
-    assert all(by_request[request.request_id]["schema_version"].endswith(":v8")
+    assert all(by_request[request.request_id]["schema_version"].endswith(":v9")
         and by_request[request.request_id]["developmental_history_selection"]
             == request.upstream_evidence["developmental_history_selection"]
         for request in cognition)
@@ -8941,8 +8941,13 @@ def test_pre_v6_observation_recovery_preserves_historical_digest_shape(tmp_path:
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v8"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v9"
     value.pop("companion_history_citation_ids")
+    for field in ("canonical_user_memory_selection_digest",
+            "canonical_user_memory_source_snapshot_digest",
+            "canonical_user_memory_record_ids", "canonical_user_memory_record_digests",
+            "companion_memory_citation_ids"):
+        value.pop(field)
     value["schema_version"] = "sentientos.resident_cognition_observation:v7"
     value.pop("observation_id")
     value.pop("observation_digest")
@@ -8975,8 +8980,13 @@ def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_pat
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v8"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v9"
     value.pop("companion_history_citation_ids")
+    for field in ("canonical_user_memory_selection_digest",
+            "canonical_user_memory_source_snapshot_digest",
+            "canonical_user_memory_record_ids", "canonical_user_memory_record_digests",
+            "companion_memory_citation_ids"):
+        value.pop(field)
     value["schema_version"] = "sentientos.resident_cognition_observation:v7"
     value.pop("observation_id")
     value.pop("observation_digest")
@@ -9014,8 +9024,13 @@ def test_rehashed_v7_history_selection_substitution_fails_receipt_reconciliation
     path = next(path for path in composition.observations_root.glob("*.json")
         if json.loads(path.read_text(encoding="utf-8")).get("condition_id") == "history_present")
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v8"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v9"
     value.pop("companion_history_citation_ids")
+    for field in ("canonical_user_memory_selection_digest",
+            "canonical_user_memory_source_snapshot_digest",
+            "canonical_user_memory_record_ids", "canonical_user_memory_record_digests",
+            "companion_memory_citation_ids"):
+        value.pop(field)
     value["schema_version"] = "sentientos.resident_cognition_observation:v7"
     selection = value["developmental_history_selection"]
     assert len(selection["selected_records"]) == 1

@@ -166,6 +166,9 @@ IDs. The durable resident observation records the memory source snapshot,
 selection digest, record digests, and citations under schema v9. This permits a
 memory-only answer only as a qualified report of the explicitly retained user
 statement; it does not make the statement current or externally verified.
+Restart recovery normalizes the v9 lineage arrays and reconciles its governed
+invocation receipt before exposing an observation or completing an interrupted
+scored run; a receipt mismatch fails recovery before inference can be retried.
 If canonical retrieval was partial or matching records were omitted, the owner
 normalizes any answer that cites retained memory to a clarification request and
 clears its citations, including when the model also returned unrelated current
