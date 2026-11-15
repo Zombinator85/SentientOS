@@ -722,12 +722,31 @@ def test_exact_serving_backed_generation_has_independent_admission_and_linkage(m
         "model_serving_admission_decision_record"]["delegated_outcomes"][
             "runtime_governor"]["evidence_refs"]["resource_entitlement_evidence"]
     assert serving_admission_evidence["observation_id"] == serving_entitlement_id
+    serving_governor_evidence = session.binding[
+        "model_serving_admission_decision_record"]["delegated_outcomes"][
+            "runtime_governor"]["evidence_refs"]
+    assert serving_governor_evidence["model_gpu_layers"] == 0
+    assert serving_governor_evidence["model_gpu_layer_entitlement"] == 0
+    assert serving_governor_evidence["model_gpu_layer_entitlement_invalid"] is False
     assert _valid_resource_admission_evidence_binding(session.binding)
     mismatched_observation_binding = dict(session.binding)
     mismatched_observation_binding["resource_entitlement_observation_id"] = (
         "lmentitlement-" + "0" * 24)
     assert not _valid_resource_admission_evidence_binding(
         mismatched_observation_binding)
+    mismatched_gpu_layer_binding = deepcopy(dict(session.binding))
+    mismatched_gpu_layer_binding[
+        "model_serving_admission_decision_record"]["delegated_outcomes"][
+            "runtime_governor"]["evidence_refs"]["model_gpu_layers"] = 1
+    assert not _valid_resource_admission_evidence_binding(
+        mismatched_gpu_layer_binding)
+    mismatched_gpu_cap_binding = deepcopy(dict(session.binding))
+    mismatched_gpu_cap_binding[
+        "model_serving_admission_decision_record"]["delegated_outcomes"][
+            "runtime_governor"]["evidence_refs"][
+                "model_gpu_layer_entitlement"] = 1
+    assert not _valid_resource_admission_evidence_binding(
+        mismatched_gpu_cap_binding)
     receipt = bridge.generate(prompt="hello", caller="operator", correlation_id="inference-1")
     assert receipt.status == "admitted_completed" and receipt.output_text == "answer" and model.calls == 1
     assert receipt.admission_decision_ref != session.binding["model_serving_admission_ref"]

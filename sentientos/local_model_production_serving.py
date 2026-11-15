@@ -146,7 +146,11 @@ def _decision_retains_current_entitlement(record: object,
         if isinstance(governor, Mapping) else None)
     observation = (evidence_refs.get("resource_entitlement_evidence")
         if isinstance(evidence_refs, Mapping) else None)
-    if not isinstance(observation, Mapping):
+    evidence_entitlement = (evidence_refs.get(
+        "serving_resource_entitlement_binding")
+        if isinstance(evidence_refs, Mapping) else None)
+    if (not isinstance(evidence_refs, Mapping)
+            or not isinstance(observation, Mapping)):
         return False
     observation_fields = {
         "schema_version", "allocation_id", "allocation_digest", "allocator_id",
@@ -170,6 +174,10 @@ def _decision_retains_current_entitlement(record: object,
         "allocation_id", "allocation_digest", "allocator_id", "resource_kind",
         "policy_digest", "policy_epoch", "principal_binding_digest")
     entitlement = binding.get("governed_inference_entitlement_binding")
+    load_configuration = binding.get("load_configuration")
+    configured_gpu_layers = (load_configuration.get("n_gpu_layers")
+        if isinstance(load_configuration, Mapping) else None)
+    expected_route = ("gpu" if configured_gpu_layers else "cpu")
     return bool(
         observation.get("schema_version") ==
             "sentientos.governed_local_model_resource_entitlement_observation:v2"
@@ -188,6 +196,17 @@ def _decision_retains_current_entitlement(record: object,
         and entitlement.get("schema_version") == SERVING_RESOURCE_ENTITLEMENT_SCHEMA
         and all(observation.get(key) == entitlement.get(key)
             for key in expected_fields)
+        and _same_serving_resource_entitlement(
+            evidence_entitlement, entitlement)
+        and type(configured_gpu_layers) is int
+        and 0 <= configured_gpu_layers <= 256
+        and evidence_refs.get("model_gpu_layers") == configured_gpu_layers
+        and evidence_refs.get("model_gpu_layer_entitlement") ==
+            entitlement.get("max_gpu_layers")
+        and evidence_refs.get("model_gpu_layer_entitlement_invalid") is False
+        and evidence_refs.get("model_configuration_digest") ==
+            semantic_digest(load_configuration)
+        and evidence_refs.get("model_accelerator_route") == expected_route
     )
 
 

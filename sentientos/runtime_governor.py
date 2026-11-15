@@ -3646,6 +3646,16 @@ class RuntimeGovernor:
         payload["resource_entitlement_evidence"] = (
             entitlement_evidence if entitlement_evidence is not None
             else {"status": "unavailable"})
+        if operation_kind == "model_serving":
+            payload["serving_resource_entitlement_binding"] = (
+                dict(serving_entitlement_binding)
+                if isinstance(serving_entitlement_binding, Mapping) else None)
+            payload["model_gpu_layer_entitlement"] = serving_gpu_layer_cap
+            payload["model_gpu_layer_entitlement_invalid"] = (
+                serving_gpu_layer_cap_invalid)
+            payload["model_gpu_layers"] = gpu_layers
+            payload["model_configuration_digest"] = gpu_profile_digest
+            payload["model_accelerator_route"] = accelerator_route
         payload["game_frame_pressure"] = game_pressure
         payload["optional_model_load_in_gaming_profile"] = (
             optional_model_load_in_gaming_profile)
@@ -4343,6 +4353,8 @@ class RuntimeGovernor:
                             "model_gpu_layer_entitlement",
                             "model_gpu_layer_entitlement_invalid",
                             "model_gpu_layers",
+                            "model_configuration_digest",
+                            "model_accelerator_route",
                             "resource_observation_evidence",
                             "resource_release_target",
                             "resource_allocation_binding")
