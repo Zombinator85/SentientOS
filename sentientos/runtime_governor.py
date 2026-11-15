@@ -2822,6 +2822,25 @@ class RuntimeGovernor:
                 gpu_layers = raw_layers if type(raw_layers) is int else None
                 accelerator_route = str(raw_route)
                 gpu_profile_digest = raw_profile_digest
+        serving_entitlement_binding = payload.get(
+            "governed_inference_entitlement_binding")
+        serving_gpu_layer_cap: int | None = None
+        serving_gpu_layer_cap_invalid = False
+        if operation_kind == "model_serving" and isinstance(
+                serving_entitlement_binding, Mapping):
+            binding_schema = serving_entitlement_binding.get("schema_version")
+            if binding_schema == (
+                    "sentientos.governed_local_model_serving_entitlement_binding:v2"):
+                raw_layer_cap = serving_entitlement_binding.get("max_gpu_layers")
+                if raw_layer_cap is None:
+                    serving_gpu_layer_cap = None
+                elif (type(raw_layer_cap) is int and 0 <= raw_layer_cap <= 256):
+                    serving_gpu_layer_cap = raw_layer_cap
+                else:
+                    serving_gpu_layer_cap_invalid = True
+            elif binding_schema != (
+                    "sentientos.governed_local_model_serving_entitlement_binding:v1"):
+                serving_gpu_layer_cap_invalid = True
         gpu_offload_requested = accelerator_route == "gpu"
         gpu_telemetry_required = accelerator_route in {"gpu", "unknown"}
         game_pressure = False
@@ -3030,6 +3049,14 @@ class RuntimeGovernor:
             # was independently verified as active.
             reason, blocks = ("deferred_local_model_" + operation_label
                 + "_under_host_pressure_in_conservative_automatic_mode", True)
+        elif operation_kind == "model_serving" and serving_gpu_layer_cap_invalid:
+            reason, blocks = (
+                "deferred_model_serving_resource_entitlement_invalid", True)
+        elif (operation_kind == "model_serving"
+                and serving_gpu_layer_cap is not None
+                and (gpu_layers is None or gpu_layers > serving_gpu_layer_cap)):
+            reason, blocks = (
+                "deferred_model_serving_gpu_layers_exceed_resource_entitlement", True)
         elif (operation_kind == "inference" and foreground and gpu_offload_requested
                 and "gpu_pressure" in pressure_reasons):
             # Foreground chat remains optional GPU work. A current device-wide
@@ -3247,6 +3274,11 @@ class RuntimeGovernor:
                 "conservative_automatic_profile_requires_gpu_telemetry": (
                     conservative_automatic_profile_requires_gpu_telemetry),
                 "model_gpu_layers": gpu_layers,
+                "serving_resource_entitlement_binding": (
+                    dict(serving_entitlement_binding)
+                    if isinstance(serving_entitlement_binding, Mapping) else None),
+                "model_gpu_layer_entitlement": serving_gpu_layer_cap,
+                "model_gpu_layer_entitlement_invalid": serving_gpu_layer_cap_invalid,
                 "model_accelerator_route": accelerator_route,
                 "model_configuration_digest": gpu_profile_digest,
                 "optional_model_load_in_gaming_profile": (
@@ -3984,6 +4016,10 @@ class RuntimeGovernor:
                             "gaming_workload_profile_host_pressure",
                             "gaming_workload_profile_resource_telemetry_incomplete",
                             "gaming_workload_profile_evidence",
+                            "serving_resource_entitlement_binding",
+                            "model_gpu_layer_entitlement",
+                            "model_gpu_layer_entitlement_invalid",
+                            "model_gpu_layers",
                             "resource_observation_evidence",
                             "resource_release_target",
                             "resource_allocation_binding")

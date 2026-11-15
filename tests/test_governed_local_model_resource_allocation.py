@@ -340,6 +340,28 @@ def test_cpu_seconds_ceiling_must_narrow_policy_bounds() -> None:
         policy_max)
 
 
+@pytest.mark.parametrize("bad", [True, -1, 257, 1.5])
+def test_gpu_layer_ceiling_rejects_invalid_values(bad: object) -> None:
+    with pytest.raises(GovernedLocalModelResourceError,
+                       match="invalid_max_gpu_layers"):
+        GovernedLocalModelResourceBounds(
+            1, 1, 1, 1.0, 1, max_gpu_layers=bad)  # type: ignore[arg-type]
+
+
+def test_gpu_layer_ceiling_is_optional_but_narrows_policy_bound() -> None:
+    policy_max = GovernedLocalModelResourceBounds(
+        100, 200, 20, 5.0, 2, max_gpu_layers=12)
+    requested = GovernedLocalModelResourceBounds(
+        100, 200, 20, 5.0, 2, max_gpu_layers=8)
+    assert requested.is_within(policy_max)
+    assert GovernedLocalModelResourceBounds.from_mapping(
+        requested.to_dict()) == requested
+    assert not GovernedLocalModelResourceBounds(
+        100, 200, 20, 5.0, 2).is_within(policy_max)
+    assert not GovernedLocalModelResourceBounds(
+        100, 200, 20, 5.0, 2, max_gpu_layers=16).is_within(policy_max)
+
+
 def test_policy_loader_is_exact_digest_bound_and_closed(tmp_path: Path) -> None:
     policy = GovernedLocalModelResourcePolicy.create(epoch=1, max_resource_specific_bounds=GovernedLocalModelResourceBounds(1, 1, 1, 1.0, 1),
         not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:00:00Z")

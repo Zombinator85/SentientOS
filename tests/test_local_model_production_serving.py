@@ -932,9 +932,10 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
     factory_calls = []
     model = Model(identity())
     current = evidence(gpu_layers=16)
-    ctl = controller(monkeypatch, handle, [current, current, current, current], kernel=kernel,
+    ctl = controller(monkeypatch, handle, [current] * 8, kernel=kernel,
         factory=lambda _chain, _load: factory_calls.append("loaded") or model)
     entitlement_checks = []
+    gpu_layer_entitlement = {"value": 16}
 
     def admission_context(correlation_id, activation_state):
         observation_id = "local-chat-serving-" + hashlib.sha256(
@@ -944,7 +945,7 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
         load_configuration = activation_state["load_configuration"]
         entitlement_binding = {
             "schema_version": (
-                "sentientos.governed_local_model_serving_entitlement_binding:v1"),
+                "sentientos.governed_local_model_serving_entitlement_binding:v2"),
             "binding_scope": "inference_call_entitlement",
             "allocation_id": "lmalloc-" + "a" * 24,
             "allocation_digest": "a" * 64,
@@ -955,6 +956,7 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             "principal_binding_digest": "sha256:" + "b" * 64,
             "remaining_call_entitlement": (1 if correlation_id.endswith(
                 ":post-load-resource-revalidation") else 2),
+            "max_gpu_layers": gpu_layer_entitlement["value"],
             "checked_at": (now + timedelta(seconds=1)).isoformat()
                 if correlation_id.endswith(":post-load-resource-revalidation")
                 else now.isoformat(),
@@ -994,6 +996,14 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
 
         foreground["game"] = False
         idle_message = publisher.publish_once(("ExampleGame.exe",))
+        if governor_mode == "enforce":
+            gpu_layer_entitlement["value"] = 8
+            with pytest.raises(ProductionServingError, match="control_plane_not_allowed"):
+                ctl.establish(operation_id="serving-game-idle-over-cap",
+                    admission_context_provider=admission_context)
+            assert factory_calls == []
+
+        gpu_layer_entitlement["value"] = 16
         session = ctl.establish(operation_id="serving-game-idle",
             admission_context_provider=admission_context)
         assert factory_calls == ["loaded"]
@@ -1004,8 +1014,10 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
                 encoding="utf-8").splitlines()]
         serving_decisions = [item for item in decisions
             if item.get("authority_class") == AuthorityClass.MODEL_SERVING.value]
-        assert [item["final_disposition"] for item in serving_decisions] == [
-            "defer", "allow", "allow"]
+        expected_dispositions = (["defer", "defer", "allow", "allow"]
+            if governor_mode == "enforce" else ["defer", "allow", "allow"])
+        assert [item["final_disposition"] for item in serving_decisions] == (
+            expected_dispositions)
         assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
             "reason"] == "deferred_gpu_model_serving_while_game_active"
         assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
@@ -1015,20 +1027,27 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
         assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
             "evidence_refs"]["game_workload_evidence"]["message_id"] == (
                 active_message.payload["message_id"])
-        assert serving_decisions[1]["delegated_outcomes"]["runtime_governor"][
+        success_index = 2 if governor_mode == "enforce" else 1
+        revalidation_index = success_index + 1
+        if governor_mode == "enforce":
+            assert serving_decisions[1]["delegated_outcomes"]["runtime_governor"][
+                "reason"] == "deferred_model_serving_gpu_layers_exceed_resource_entitlement"
+        assert serving_decisions[success_index]["delegated_outcomes"]["runtime_governor"][
             "evidence_refs"]["game_workload_evidence"]["message_id"] == (
                 idle_message.payload["message_id"])
-        assert serving_decisions[2]["delegated_outcomes"]["runtime_governor"][
+        assert serving_decisions[revalidation_index]["delegated_outcomes"]["runtime_governor"][
             "evidence_refs"]["game_workload_evidence"]["message_id"] == (
                 idle_message.payload["message_id"])
         assert session.binding["model_serving_admission_decision_record"] == (
-            serving_decisions[1])
+            serving_decisions[success_index])
         assert session.binding["resource_admission_evidence_schema"] == (
             "sentientos.local_model_serving_admission_evidence:v1")
         assert session.binding["governed_inference_entitlement_binding"][
             "allocation_id"] == "lmalloc-" + "a" * 24
-        assert [item["remaining_call_entitlement"] for item in entitlement_checks] == [
-            2, 2, 1]
+        assert session.binding["governed_inference_entitlement_binding"][
+            "max_gpu_layers"] == 16
+        assert [item["remaining_call_entitlement"] for item in entitlement_checks] == (
+            [2, 2, 2, 1] if governor_mode == "enforce" else [2, 2, 1])
         assert _valid_resource_admission_evidence_binding(session.binding)
         incomplete_evidence_binding = dict(session.binding)
         incomplete_evidence_binding[
@@ -1045,28 +1064,31 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
         assert not _valid_resource_admission_evidence_binding(
             wrong_phase_binding)
         assert session.binding["resource_admission_revalidation_correlation_id"] == (
-            serving_decisions[2]["correlation_id"])
+            serving_decisions[revalidation_index]["correlation_id"])
         assert session.binding["resource_admission_revalidation_decision_ref"] == (
-            serving_decisions[2]["admission_decision_ref"])
+            serving_decisions[revalidation_index]["admission_decision_ref"])
         assert session.binding["resource_admission_revalidation_decision"] == (
-            serving_decisions[2])
+            serving_decisions[revalidation_index])
         recovered_history = read_serving_operation_history(handle)
         recovered_receipt = next(item["receipt"] for item in recovered_history
             if item["receipt"] is not None
             and item["receipt"].get("binding", {}).get("serving_operation_id")
                 == "serving-game-idle")
         assert recovered_receipt["binding"][
-            "model_serving_admission_decision_record"] == serving_decisions[1]
+            "model_serving_admission_decision_record"] == serving_decisions[success_index]
         assert recovered_receipt["binding"][
-            "resource_admission_revalidation_decision"] == serving_decisions[2]
+            "resource_admission_revalidation_decision"] == serving_decisions[revalidation_index]
         assert recovered_receipt["resource_admission_context"][
             "governed_inference_entitlement_binding"] == recovered_receipt[
                 "binding"]["governed_inference_entitlement_binding"]
         assert recovered_receipt["binding"][
+            "governed_inference_entitlement_binding"]["max_gpu_layers"] == 16
+        assert recovered_receipt["binding"][
             "resource_admission_revalidation_decision"]["delegated_outcomes"][
                 "runtime_governor"]["evidence_refs"]["game_workload_evidence"][
                     "message_id"] == idle_message.payload["message_id"]
-        assert host_owner.collector_call_count == 9
+        assert host_owner.collector_call_count == (
+            12 if governor_mode == "enforce" else 9)
     finally:
         ctl.close()
         detector.close()

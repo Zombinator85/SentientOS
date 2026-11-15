@@ -139,6 +139,7 @@ class GovernedLocalModelResourceBounds:
     timeout_seconds: float
     max_calls_per_correlation: int
     max_cpu_seconds_per_allocation: float | None = None
+    max_gpu_layers: int | None = None
 
     def __post_init__(self) -> None:
         for name in ("max_input_chars", "max_output_chars", "max_new_tokens", "max_calls_per_correlation"):
@@ -153,11 +154,17 @@ class GovernedLocalModelResourceBounds:
                     or not math.isfinite(self.max_cpu_seconds_per_allocation)
                     or self.max_cpu_seconds_per_allocation <= 0)):
             raise GovernedLocalModelResourceError("invalid_max_cpu_seconds_per_allocation")
+        if (self.max_gpu_layers is not None
+                and (type(self.max_gpu_layers) is not int
+                    or not 0 <= self.max_gpu_layers <= 256)):
+            raise GovernedLocalModelResourceError("invalid_max_gpu_layers")
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, object]) -> "GovernedLocalModelResourceBounds":
-        required = set(cls.__dataclass_fields__) - {"max_cpu_seconds_per_allocation"}
-        if frozenset(value) not in {frozenset(required), frozenset(cls.__dataclass_fields__)}:
+        optional = {"max_cpu_seconds_per_allocation", "max_gpu_layers"}
+        required = set(cls.__dataclass_fields__) - optional
+        if (not required <= set(value)
+                or set(value) - set(cls.__dataclass_fields__)):
             raise GovernedLocalModelResourceError("bounds_fields_not_exact")
         return cls(**dict(value))  # type: ignore[arg-type]
 
@@ -165,6 +172,8 @@ class GovernedLocalModelResourceBounds:
         result = asdict(self)
         if self.max_cpu_seconds_per_allocation is None:
             result.pop("max_cpu_seconds_per_allocation")
+        if self.max_gpu_layers is None:
+            result.pop("max_gpu_layers")
         return result
 
     def is_within(self, maximum: "GovernedLocalModelResourceBounds") -> bool:

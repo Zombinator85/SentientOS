@@ -226,7 +226,8 @@ class ProductionChatResourceContextOwner:
         """Return a current call-entitlement reference without debiting a call.
 
         This proves that the resident model is serving under a live governed
-        invocation entitlement. It does not reserve host memory or exercise
+        invocation entitlement. Its optional GPU layer ceiling applies to the
+        configured layer count only; it does not reserve VRAM or exercise
         hardware-control authority.
         """
         self._require_open()
@@ -358,7 +359,7 @@ class ProductionChatResourceContextOwner:
             raise GovernedLocalModelResourceError("call_entitlement_exhausted")
         return {
             "schema_version": (
-                "sentientos.governed_local_model_serving_entitlement_binding:v1"),
+                "sentientos.governed_local_model_serving_entitlement_binding:v2"),
             "binding_scope": "inference_call_entitlement",
             "allocation_id": allocation.allocation_id,
             "allocation_digest": allocation.allocation_digest,
@@ -368,6 +369,7 @@ class ProductionChatResourceContextOwner:
             "policy_epoch": allocation.epoch,
             "principal_binding_digest": allocation.principal_binding_digest,
             "remaining_call_entitlement": remaining_calls,
+            "max_gpu_layers": allocation.resource_specific_bounds.max_gpu_layers,
             "checked_at": current_time,
         }
 

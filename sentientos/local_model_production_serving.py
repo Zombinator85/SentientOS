@@ -30,6 +30,8 @@ RECEIPT_SCHEMA = "sentientos.local_model_serving_session_receipt:v1"
 RESOURCE_ADMISSION_EVIDENCE_SCHEMA = (
     "sentientos.local_model_serving_admission_evidence:v1")
 SERVING_RESOURCE_ENTITLEMENT_SCHEMA = (
+    "sentientos.governed_local_model_serving_entitlement_binding:v2")
+LEGACY_SERVING_RESOURCE_ENTITLEMENT_SCHEMA = (
     "sentientos.governed_local_model_serving_entitlement_binding:v1")
 WITNESS_SCHEMA = "sentientos.privilege_witness:model_serving:v1"
 INVALIDATION_SCHEMA = "sentientos.local_model_serving_session_invalidation:v1"
@@ -168,12 +170,26 @@ def _valid_resource_admission_evidence_binding(binding: Mapping[str, Any]) -> bo
 
 
 def _valid_serving_resource_entitlement(value: object) -> bool:
-    fields = {
+    base_fields = {
         "schema_version", "binding_scope", "allocation_id", "allocation_digest",
         "allocator_id", "resource_kind", "policy_digest", "policy_epoch",
         "principal_binding_digest", "remaining_call_entitlement", "checked_at",
     }
-    if not isinstance(value, Mapping) or set(value) != fields:
+    if not isinstance(value, Mapping):
+        return False
+    schema = value.get("schema_version")
+    if schema == LEGACY_SERVING_RESOURCE_ENTITLEMENT_SCHEMA:
+        fields = base_fields
+    elif schema == SERVING_RESOURCE_ENTITLEMENT_SCHEMA:
+        fields = base_fields | {"max_gpu_layers"}
+    else:
+        return False
+    if set(value) != fields:
+        return False
+    max_gpu_layers = value.get("max_gpu_layers")
+    if (schema == SERVING_RESOURCE_ENTITLEMENT_SCHEMA
+            and max_gpu_layers is not None
+            and (type(max_gpu_layers) is not int or not 0 <= max_gpu_layers <= 256)):
         return False
     checked_at = value.get("checked_at")
     try:
@@ -182,7 +198,9 @@ def _valid_serving_resource_entitlement(value: object) -> bool:
     except (TypeError, ValueError):
         return False
     return bool(
-        value.get("schema_version") == SERVING_RESOURCE_ENTITLEMENT_SCHEMA
+        value.get("schema_version") in {
+            LEGACY_SERVING_RESOURCE_ENTITLEMENT_SCHEMA,
+            SERVING_RESOURCE_ENTITLEMENT_SCHEMA}
         and value.get("binding_scope") == "inference_call_entitlement"
         and isinstance(value.get("allocation_id"), str)
         and re.fullmatch(r"lmalloc-[0-9a-f]{24}", value["allocation_id"]) is not None
@@ -212,7 +230,7 @@ def _same_serving_resource_entitlement(left: object, right: object) -> bool:
     identity_fields = (
         "schema_version", "binding_scope", "allocation_id", "allocation_digest",
         "allocator_id", "resource_kind", "policy_digest", "policy_epoch",
-        "principal_binding_digest",
+        "principal_binding_digest", "max_gpu_layers",
     )
     assert isinstance(left, Mapping) and isinstance(right, Mapping)
     return all(left.get(field) == right.get(field) for field in identity_fields)

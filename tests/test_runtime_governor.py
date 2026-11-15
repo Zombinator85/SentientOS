@@ -1040,6 +1040,76 @@ def test_background_gpu_inference_keeps_background_pressure_classification(
     assert decision.evidence_refs["game_priority_block"] is False
 
 
+@pytest.mark.parametrize(("gpu_layers", "expected_allowed"), [
+    (8, True), (9, False), (None, False),
+])
+def test_model_serving_enforces_owner_entitled_gpu_layer_ceiling(
+        monkeypatch, tmp_path, gpu_layers, expected_allowed):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "1.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "1.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "1.0")
+    governor = RuntimeGovernor()
+    correlation_id = "allocation-gpu-layer-cap-" + str(gpu_layers)
+    observed_at = datetime.now(timezone.utc).isoformat()
+    observation_id = "local-chat-serving-" + hashlib.sha256(
+        correlation_id.encode("utf-8")).hexdigest()[:32]
+    governor._host_resource_evidence_by_correlation[observation_id] = {
+        "observed_at": observed_at, "evaluation_id": "evaluation-gpu-layer-cap",
+        "epoch_id": "epoch-gpu-layer-cap", "snapshot_id": "snapshot-gpu-layer-cap",
+        "report_id": "report-gpu-layer-cap", "report_digest": "a" * 64,
+        "pressure_labels": (), "cpu_utilization_percent": 20.0,
+        "ram_utilization_percent": 40.0, "gpu_utilization_percent": 20.0,
+        "vram_utilization_percent": 40.0, "gpu_telemetry_available": True,
+        "gpu_telemetry_complete": True,
+        "observation_correlation_id": observation_id,
+    }
+    binding = {
+        "schema_version": (
+            "sentientos.governed_local_model_serving_entitlement_binding:v2"),
+        "binding_scope": "inference_call_entitlement",
+        "allocation_id": "lmalloc-" + "b" * 24,
+        "allocation_digest": "b" * 64,
+        "allocator_id": "sentientos.governed_local_model_resource_allocator.v1",
+        "resource_kind": "governed_local_model_invocation_call_entitlement.v1",
+        "policy_digest": "c" * 64, "policy_epoch": 1,
+        "principal_binding_digest": "sha256:" + "d" * 64,
+        "remaining_call_entitlement": 2, "max_gpu_layers": 8,
+        "checked_at": observed_at,
+    }
+    profile = {
+        "schema_version": "sentientos.model_execution_profile:v1",
+        "engine": "llama_cpp",
+        "accelerator_route": ("unknown" if gpu_layers is None else
+            "gpu" if gpu_layers else "cpu"),
+        "gpu_layers": gpu_layers,
+        "configuration_digest": "e" * 64,
+    }
+    decision = governor._admit_local_model_inference(
+        actor="deterministic_activated_model_serving_controller",
+        subject="local_model_chat", correlation_id=correlation_id,
+        metadata={
+            "purpose": "local_model_serving",
+            "resource_governance_required": True,
+            "host_resource_observation_namespace": "local-chat-serving",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": profile,
+            "workload_mode": "normal", "effective_workload_mode": "normal",
+            "workload_evidence": {"configured_mode": "normal"},
+            "governed_inference_entitlement_binding": binding,
+        }, operation_kind="model_serving")
+
+    assert decision.allowed is expected_allowed
+    if expected_allowed:
+        assert decision.reason == "allowed"
+    else:
+        assert decision.reason == (
+            "deferred_model_serving_gpu_layers_exceed_resource_entitlement")
+    assert decision.evidence_refs["model_gpu_layer_entitlement"] == 8
+    assert decision.evidence_refs["serving_resource_entitlement_binding"] == binding
+
+
 @pytest.mark.parametrize("age_seconds,expected_status", [
     (14, "current"),
     (16, "stale_or_invalid"),

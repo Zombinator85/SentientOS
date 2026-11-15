@@ -75,7 +75,7 @@ def test_producer_publishes_manifest_last_and_existing_consumer_loads(tmp_path: 
     entitlement_binding = owner.serving_admission_entitlement_binding()
     assert entitlement_binding == {
         "schema_version": (
-            "sentientos.governed_local_model_serving_entitlement_binding:v1"),
+            "sentientos.governed_local_model_serving_entitlement_binding:v2"),
         "binding_scope": "inference_call_entitlement",
         "allocation_id": result.allocation_id,
         "allocation_digest": result.allocation_digest,
@@ -85,6 +85,7 @@ def test_producer_publishes_manifest_last_and_existing_consumer_loads(tmp_path: 
         "policy_epoch": 1,
         "principal_binding_digest": owner.principal.binding_digest,
         "remaining_call_entitlement": 2,
+        "max_gpu_layers": None,
         "checked_at": NOW,
     }
     assert owner.allocator.ledger.snapshot_counts() == (1, 0, 0)
@@ -120,6 +121,30 @@ def test_serving_admission_entitlement_is_read_only_current_and_exhaustion_aware
         with pytest.raises(GovernedLocalModelResourceError,
                            match="policy_expired"):
             owner.serving_admission_entitlement_binding()
+    finally:
+        owner.close()
+
+
+def test_serving_entitlement_carries_policy_bound_gpu_layer_ceiling(
+        tmp_path: Path) -> None:
+    handle, kwargs = inputs(tmp_path, calls=2)
+    bounded = GovernedLocalModelResourceBounds(
+        100, 200, 20, 5.0, 2, max_gpu_layers=8)
+    policy = GovernedLocalModelResourcePolicy.create(
+        epoch=2, max_resource_specific_bounds=bounded,
+        not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
+    kwargs["requested_bounds"] = bounded
+    kwargs["resource_policy_artifact"] = encoded(policy.to_dict())
+    produce_production_chat_resource_provisioning_bundle(
+        handle, "gpu-layer-entitlement", **kwargs)
+    owner = load_production_chat_resource_context_owner(
+        handle, "gpu-layer-entitlement", clock=lambda: NOW,
+        nonce_source=lambda: "gpu-layer-entitlement-nonce")
+    try:
+        binding = owner.serving_admission_entitlement_binding()
+        assert binding["max_gpu_layers"] == 8
+        assert binding["allocation_digest"] == owner.allocation.allocation_digest
+        assert binding["policy_digest"] == owner.policy.policy_digest
     finally:
         owner.close()
 

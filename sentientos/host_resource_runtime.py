@@ -40,6 +40,13 @@ _RESOURCE_ENTITLEMENT_OBSERVATION_V1_FIELDS = {
 _RESOURCE_ENTITLEMENT_OBSERVATION_V2_FIELDS = (
     _RESOURCE_ENTITLEMENT_OBSERVATION_V1_FIELDS
     | {"entitlement_status", "invalidation_reason_code"})
+_SERVING_RESOURCE_ENTITLEMENT_BINDING_V1_FIELDS = {
+    "schema_version", "binding_scope", "allocation_id", "allocation_digest",
+    "allocator_id", "resource_kind", "policy_digest", "policy_epoch",
+    "principal_binding_digest", "remaining_call_entitlement", "checked_at",
+}
+_SERVING_RESOURCE_ENTITLEMENT_BINDING_V2_FIELDS = (
+    _SERVING_RESOURCE_ENTITLEMENT_BINDING_V1_FIELDS | {"max_gpu_layers"})
 
 
 def _resource_entitlement_observation_shape_valid(
@@ -66,6 +73,20 @@ def _resource_entitlement_observation_shape_valid(
                 "allocation_expired", "policy_expired", "currentness_stale",
                 "principal_expired", "allocation_not_current"})
     return False
+
+
+def _serving_resource_entitlement_binding_shape_valid(
+        value: Mapping[str, Any]) -> bool:
+    schema = value.get("schema_version")
+    if (schema == "sentientos.governed_local_model_serving_entitlement_binding:v1"
+            and set(value) == _SERVING_RESOURCE_ENTITLEMENT_BINDING_V1_FIELDS):
+        return True
+    if (schema != "sentientos.governed_local_model_serving_entitlement_binding:v2"
+            or set(value) != _SERVING_RESOURCE_ENTITLEMENT_BINDING_V2_FIELDS):
+        return False
+    max_gpu_layers = value.get("max_gpu_layers")
+    return (max_gpu_layers is None
+        or (type(max_gpu_layers) is int and 0 <= max_gpu_layers <= 256))
 
 
 def summarize_gpu_telemetry_source(result: HostCollectorResult) -> dict[str, Any]:
@@ -831,8 +852,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         or entitlement.get("observation_id") !=
                             "lmentitlement-" + str(entitlement_digest)[:24]
                         or len(canonical_json(dict(entitlement)).encode("utf-8")) > 4096
-                        or serving_binding.get("schema_version") !=
-                            "sentientos.governed_local_model_serving_entitlement_binding:v1"
+                        or not _serving_resource_entitlement_binding_shape_valid(
+                            serving_binding)
                         or serving_binding.get("binding_scope") !=
                             "inference_call_entitlement"
                         or len(canonical_json(dict(serving_binding)).encode("utf-8")) > 4096
