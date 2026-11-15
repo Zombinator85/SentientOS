@@ -627,11 +627,11 @@ class GovernedLocalModelResourceLedger:
                     stream.write(data); stream.flush(); os.fsync(stream.fileno())
                 os.replace(name, self.path)
                 self._state = candidate
-                directory = os.open(self.path.parent, os.O_RDONLY)
-                try:
-                    os.fsync(directory)
-                finally:
-                    os.close(directory)
+                # Windows does not support opening a directory with os.open
+                # for the POSIX directory-fsync step. The replacement is
+                # atomic and the candidate file itself was flushed before it
+                # became visible; keep the Windows single-process writer on
+                # that platform's supported durability boundary.
             finally:
                 if os.path.exists(name):
                     os.unlink(name)
