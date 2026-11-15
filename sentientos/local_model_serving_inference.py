@@ -1113,8 +1113,14 @@ class ProductionServingInferenceController:
                         except ProductionServingError:
                             model = None
                         if model is not None:
-                            cpu_preemption = self._preempt_for_game_process_cpu_pressure(
-                                session, model, pending_workload, active_invoker)
+                            if not self._preemption_lock.acquire(blocking=False):
+                                return {"status": "skipped",
+                                    "reason": "game_resource_preemption_in_progress"}
+                            try:
+                                cpu_preemption = self._preempt_for_game_process_cpu_pressure(
+                                    session, model, pending_workload, active_invoker)
+                            finally:
+                                self._preemption_lock.release()
                             if cpu_preemption is not None:
                                 return cpu_preemption
                             frame_release = self._release_after_game_frame_pressure(
@@ -2025,6 +2031,13 @@ class ProductionServingInferenceController:
         """Yield the exact active optional call when authenticated game CPU is saturated."""
         if workload.get("configured_mode") != "normal":
             return None
+        with self._active_invoker_lock:
+            if self._active_invoker is not active_invoker:
+                return {"status": "skipped", "reason": "active_inference_changed"}
+        if not active_invoker.backend_work_pending():
+            return {"status": "skipped", "reason": "active_backend_work_required"}
+        if self._serving.current_session() is not session:
+            return {"status": "skipped", "reason": "current_serving_session_required"}
         getter = getattr(self._serving._kernel,
             "current_verified_game_performance_evidence", None)
         if not callable(getter):
@@ -2058,6 +2071,14 @@ class ProductionServingInferenceController:
                     and active_reference.get(key)
                     for key in ("request_id", "request_digest", "correlation_id"))):
             return {"status": "skipped", "reason": "active_invocation_identity_required"}
+        attempt_key = self._active_invocation_attempt_key(session.session_id,
+            "game-process-cpu-pressure:" + str(performance["message_id"]),
+            active_invoker)
+        if attempt_key is None:
+            return {"status": "skipped", "reason": "active_invocation_identity_required"}
+        if attempt_key == self._last_active_game_preemption_attempt:
+            return {"status": "skipped",
+                "reason": "game_cpu_preemption_already_attempted_for_invocation"}
         identity = getattr(model, "active_identity", None)
         if identity is None or not callable(getattr(identity, "to_dict", None)):
             return {"status": "skipped", "reason": "exact_loaded_model_identity_required"}
@@ -2106,11 +2127,14 @@ class ProductionServingInferenceController:
             and governor.get("reason") ==
                 "allowed_game_process_cpu_pressure_inference_preemption")
         if not admitted:
+            self._last_active_game_preemption_attempt = attempt_key
             return {"status": "denied",
                 "reason": "game_process_cpu_pressure_preemption_admission_required",
                 "cancellation_admission_decision_ref": decision.admission_decision_ref}
         cancelled = active_invoker.cancel_pending_generation(
             reason="workload_transition", cancellation_admission_decision=decision)
+        if cancelled:
+            self._last_active_game_preemption_attempt = attempt_key
         return {"status": "preempted" if cancelled else "preemption_unconfirmed",
             "reason": ("authenticated_game_process_cpu_priority" if cancelled else
                 "active_inference_cancellation_unconfirmed"),
