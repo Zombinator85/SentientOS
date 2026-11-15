@@ -513,6 +513,58 @@ def serving_entitlement_binding(checked_at: str, max_gpu_layers: int) -> dict[st
     }
 
 
+def default_serving_preflight_context_provider(
+        kernel: ControlPlaneKernel, state_root):
+    def collector(collector_id, values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or datetime.now(timezone.utc).isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=state_root / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", {"utilization_percent": 20.0})),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", {"used_percent": 40.0})),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", {"device_count": 1, "devices": [{
+                    "index": 0, "gpu_utilization_percent": 20.0,
+                    "vram_utilization_percent": 30.0}]})),
+        ]), clock=lambda: datetime.now(timezone.utc).isoformat())
+
+    def provide(correlation_id, activation_state):
+        observation_id = "local-chat-serving-" + hashlib.sha256(
+            correlation_id.encode("utf-8")).hexdigest()[:32]
+        evaluation = host_owner.run_cycle(correlation_id=observation_id)
+        assert evaluation is not None
+        assert kernel.observe_host_resource_evaluation(evaluation) is True
+        load_configuration = activation_state["load_configuration"]
+        gpu_layers = load_configuration["n_gpu_layers"]
+        return {
+            "resource_governance_required": True,
+            "governed_inference_entitlement_binding": serving_entitlement_binding(
+                datetime.now(timezone.utc).isoformat(), gpu_layers),
+            "purpose": "local_model_serving",
+            "host_resource_observation_namespace": "local-chat-serving",
+            "host_resource_observation_id": observation_id,
+            "model_execution_profile": {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": "llama_cpp",
+                "accelerator_route": "gpu" if gpu_layers else "cpu",
+                "gpu_layers": gpu_layers,
+                "configuration_digest": semantic_digest(load_configuration),
+            },
+            "workload_mode": "normal", "effective_workload_mode": "normal",
+            "serving_workload_evidence": {
+                "configured_mode": "normal", "mode_source": "operator_selected",
+                "observation_status": "not_requested",
+            },
+        }
+
+    return provide
+
+
 def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generate=None,
           installation_identity="install-1", runtime_handoff_id=None, state_root=None,
           serving_operation_id="serve-1", foreground_game_detector=None,
@@ -548,6 +600,22 @@ def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generat
     handle = InstallationStateRegistry(state_root or (tmp_path / "state"), _test_only=True).open(
         InstallationIdentity.parse(installation_identity), create=True)
     kernel = kernel_override or Kernel(inference)
+    if isinstance(kernel, ControlPlaneKernel):
+        default_preflight = default_serving_preflight_context_provider(
+            kernel, tmp_path / f"serving-preflight-{id(kernel)}")
+        if serving_admission_context_provider is None:
+            serving_admission_context_provider = default_preflight
+        else:
+            explicit_provider = serving_admission_context_provider
+
+            def serving_admission_context_provider(correlation_id, activation_state):
+                context = dict(explicit_provider(correlation_id, activation_state))
+                if context.get("host_resource_observation_id"):
+                    context.setdefault("resource_governance_required", True)
+                    return context
+                preflight = dict(default_preflight(correlation_id, activation_state))
+                preflight.update(context)
+                return preflight
     model = Model(identity, on_generate)
     factory = model_factory(identity, model) if model_factory is not None else (lambda c, l: model)
     serving = ProductionServingController(handle, kernel, model_factory=factory)
@@ -3755,14 +3823,14 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         source_id=source_id, generation_provider=lambda: generation_id,
         clock=lambda: now).receive_once()
     late_game_transition = trigger in {
+        "idle_game_gpu_residency",
+        "idle_game_frame_pressure",
         "idle_game_frame_pressure_active_inference",
         "idle_game_frame_pressure_active_inference_unconfirmed",
         "idle_game_frame_pressure_active_inference_scheduler",
         "idle_game_frame_pressure_active_inference_normal_mode",
         "idle_game_gpu_residency_active_inference_normal_mode",
     }
-    if not late_game_transition:
-        assert kernel.observe_verified_game_performance(game_evidence)
     game_workload_digest = hashlib.sha256(("othergame.exe"
         if trigger == "idle_game_frame_pressure_mismatched_process"
         else "examplegame.exe").encode("utf-8")).hexdigest()
@@ -3772,14 +3840,6 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
             "generation_id": "foreground-generation-1", "sequence": 1,
             "envelope_created_at": now.isoformat()})
     game_workload_active = threading.Event()
-    if not late_game_transition and trigger not in {
-            "idle_game_frame_pressure_normal_mode",
-            "idle_game_frame_pressure_active_inference_normal_mode",
-            "idle_game_gpu_residency_normal_mode",
-            "idle_game_gpu_residency_active_inference_normal_mode"}:
-        assert kernel.observe_verified_game_workload(game_workload)
-        game_workload_active.set()
-
     class VerifiedGameDetector:
         def observe(self, process_names):
             del process_names
@@ -3984,6 +4044,20 @@ def test_verified_game_resource_governance_defers_or_releases_before_effect(
         "idle_game_gpu_residency_normal_mode",
         "idle_game_gpu_residency_active_inference_normal_mode"}
         else "automatic", ["ExampleGame.exe"])
+
+    if not late_game_transition:
+        assert kernel.observe_verified_game_performance(game_evidence)
+        if trigger not in {
+                "idle_game_frame_pressure_normal_mode",
+                "idle_game_frame_pressure_active_inference_normal_mode",
+                "idle_game_gpu_residency_normal_mode",
+                "idle_game_gpu_residency_active_inference_normal_mode"}:
+            game_workload_active.set()
+            assert kernel.observe_verified_game_workload(game_workload)
+    elif trigger in {"idle_game_gpu_residency", "idle_game_frame_pressure"}:
+        assert kernel.observe_verified_game_performance(game_evidence)
+        game_workload_active.set()
+        assert kernel.observe_verified_game_workload(game_workload)
 
     if trigger == "deferred_stale_host_observation":
         original_release = bridge._release_after_host_pressure
