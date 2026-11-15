@@ -2041,7 +2041,11 @@ class RuntimeMaintenanceSurfaces:
                     verified_inference_admission_decisions=(
                         observation.verified_inference_admission_decisions),
                     verified_resource_release_receipts=(
-                        observation.verified_resource_release_receipts))
+                        observation.verified_resource_release_receipts),
+                    verified_game_resource_recovery_holds=(
+                        observation.game_resource_recovery_holds),
+                    game_resource_recovery_posture=(
+                        observation.game_resource_recovery_posture))
                 records.extend(resource_records)
                 degraded = (observation.invocation_receipt_posture != "verified"
                             or any(item.get("disposition") != "recorded" for item in resource_records)
@@ -2077,6 +2081,13 @@ class RuntimeMaintenanceSurfaces:
                     "serving_operation_attempt_posture": observation.serving_operation_attempt_posture,
                     "serving_operation_attempt_count": len(observation.serving_operation_attempts),
                     "serving_operation_history_count": len(observation.serving_operation_history),
+                    "game_resource_recovery_posture": (
+                        observation.game_resource_recovery_posture),
+                    "game_resource_recovery_hold_count": len(
+                        observation.game_resource_recovery_holds),
+                    "pending_game_resource_recovery_hold_count": sum(
+                        item.get("clearance") is None
+                        for item in observation.game_resource_recovery_holds),
                     "serving_operation_history_posture": (
                         "complete_receipts_present" if observation.serving_operation_history
                         and all(item.get("status") == "serving_receipt_verified"
@@ -4561,7 +4572,11 @@ def _compose_causal_introspection(
                 verified_inference_admission_decisions=(
                     observation.verified_inference_admission_decisions),
                 verified_resource_release_receipts=(
-                    observation.verified_resource_release_receipts))
+                    observation.verified_resource_release_receipts),
+                verified_game_resource_recovery_holds=(
+                    observation.game_resource_recovery_holds),
+                game_resource_recovery_posture=(
+                    observation.game_resource_recovery_posture))
             resource_record = next((item for item in records
                 if item.get("subject_kind") == "causal_resource_consumption"), None)
             if not isinstance(resource_record, Mapping) or not isinstance(resource_record.get("payload"), Mapping):
@@ -4594,6 +4609,13 @@ def _compose_causal_introspection(
                     len(payload.get("lineage_findings", ())))),
                 "lineage_posture": str(payload.get("lineage_posture", "unknown")),
                 "recovery_posture": str(payload.get("recovery_posture", "unknown")),
+                "game_resource_recovery_posture": str(payload.get(
+                    "game_resource_recovery_posture", "unknown")),
+                "game_resource_recovery_hold_count": int(payload.get(
+                    "game_resource_recovery_hold_count", 0)),
+                "pending_game_resource_recovery_hold_count": sum(
+                    item.get("clearance") is None for item in
+                    observation.game_resource_recovery_holds),
                 "invocation_receipt_posture": observation.invocation_receipt_posture,
                 "chat_process_generation_posture": observation.chat_process_generation_posture,
                 "verified_chat_process_generation_attribution_count": len(
@@ -4623,6 +4645,9 @@ def _compose_causal_introspection(
                     "retained_invocation_receipt_count": "count", "incomplete_attempt_count": "count",
                     "lineage_finding_count": "count", "lineage_posture": "lineage",
                     "recovery_posture": "lifecycle", "invocation_receipt_posture": "health",
+                    "game_resource_recovery_posture": "lifecycle",
+                    "game_resource_recovery_hold_count": "count",
+                    "pending_game_resource_recovery_hold_count": "count",
                     "chat_process_generation_posture": "lifecycle",
                     "verified_chat_process_generation_attribution_count": "count",
                     "identity_retention_posture": "lifecycle",

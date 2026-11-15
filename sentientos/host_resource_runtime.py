@@ -576,6 +576,25 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         or any(item.get("clearance") is None
                             for item in verified_game_resource_recovery_holds))))):
         raise ValueError("game_resource_recovery_posture_mismatch")
+    game_recovery_hold_summaries = []
+    for item in (verified_game_resource_recovery_holds or ())[-16:]:
+        if not isinstance(item, Mapping):
+            raise ValueError("game_resource_recovery_hold_shape_invalid")
+        admission = item.get("release_admission_record")
+        clearance = item.get("clearance")
+        summary = {key: item.get(key) for key in (
+            "hold_id", "hold_semantic_digest", "release_admission_decision_ref",
+            "serving_session_id", "model_identity_digest", "game_source_id",
+            "game_generation_id", "game_pressure_observed_at", "posture")}
+        summary["release_admission_record_digest"] = (
+            digest(dict(admission)) if isinstance(admission, Mapping) else None)
+        summary["clearance"] = ({
+            key: clearance.get(key) for key in (
+                "game_source_id", "game_generation_id", "game_message_id",
+                "game_observed_at", "game_foreground", "game_process_running",
+                "clearance_semantic_digest")}
+            if isinstance(clearance, Mapping) else None)
+        game_recovery_hold_summaries.append(summary)
     release_receipt_summaries: list[dict[str, Any]] = []
     release_lineage_findings: list[str] = []
     seen_release_receipt_ids: set[str] = set()
@@ -1973,8 +1992,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "game_resource_recovery_hold_count": (
                    0 if verified_game_resource_recovery_holds is None
                    else len(verified_game_resource_recovery_holds)),
-               "game_resource_recovery_holds": tuple(
-                   dict(item) for item in (verified_game_resource_recovery_holds or ())[-16:]),
+               "game_resource_recovery_holds": tuple(game_recovery_hold_summaries),
                "game_resource_recovery_posture": (
                    "not_requested" if verified_game_resource_recovery_holds is None
                    else game_resource_recovery_posture),

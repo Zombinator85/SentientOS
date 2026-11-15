@@ -87,6 +87,41 @@ def test_read_only_observer_exposes_digest_bound_game_recovery_hold_and_clearanc
     assert pending_runtime["payload"]["game_resource_recovery_holds"][0][
         "release_admission_decision_ref"] == release_ref
     assert pending_runtime["disposition"] == "degraded"
+    import sentientosd
+    surfaces = sentientosd.RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resource_observation_owner=observer)
+    surfaces.build_world_state_board(tick_id="2026-11-15T10:00:30+00:00")
+    snapshot = surfaces.current_world_state_snapshot
+    assert snapshot is not None
+    resource_fact = next(item for item in snapshot.facts
+        if item.subject.subject_kind == "causal_resource_consumption")
+    assert resource_fact.payload["game_resource_recovery_posture"] == (
+        "verified_pending_recovery")
+    assert resource_fact.payload["game_resource_recovery_holds"][0][
+        "release_admission_decision_ref"] == release_ref
+    assert resource_fact.payload["game_resource_recovery_holds"][0][
+        "release_admission_record_digest"]
+    assert "release_admission_record" not in resource_fact.payload[
+        "game_resource_recovery_holds"][0]
+    health_fact = next(item for item in snapshot.facts
+        if item.subject.subject_kind == "read_only_resource_custody_source")
+    assert health_fact.payload["game_resource_recovery_posture"] == (
+        "verified_pending_recovery")
+    assert surfaces._feedback["surfaces"]["production_chat_resource_observation"][
+        "pending_game_resource_recovery_hold_count"] == 1
+    from sentientos.causal_introspection import CaptureContext, IntrospectionConfig
+    metadata_runtime = sentientosd._compose_causal_introspection(
+        surfaces, resident_serving_controller=None,
+        config=IntrospectionConfig(True, tmp_path / "introspection", False, 8,
+            ("causal_resources",), ()))
+    resource_projection = metadata_runtime.registrations[0].provider.project(
+        CaptureContext("2026-11-15T10:00:30+00:00", capture_posture="synthetic_test"))
+    observed_metadata = {item.observation_key: item.bounded_value
+        for item in resource_projection.observations}
+    assert observed_metadata["game_resource_recovery_posture"] == (
+        "verified_pending_recovery")
+    assert observed_metadata["pending_game_resource_recovery_hold_count"] == 1
 
     clearance = {
         "schema_version": "sentientos.game_resource_recovery_clearance:v1",
