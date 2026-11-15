@@ -556,7 +556,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             and len(verified_resource_release_receipts) > 256):
         raise ValueError("resource_release_receipt_bound_exceeded")
     recovery_postures = {"verified_no_recovery_holds",
-        "verified_pending_recovery", "verified_recovery_cleared"}
+        "verified_pending_recovery", "verified_recovery_cleared",
+        "unknown_hold_custody_directory_missing"}
     if (verified_game_resource_recovery_holds is not None
             and len(verified_game_resource_recovery_holds) > 4096):
         raise ValueError("game_resource_recovery_hold_bound_exceeded")
@@ -574,7 +575,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 or (game_resource_recovery_posture == "verified_recovery_cleared"
                     and (not verified_game_resource_recovery_holds
                         or any(item.get("clearance") is None
-                            for item in verified_game_resource_recovery_holds))))):
+                            for item in verified_game_resource_recovery_holds)))
+                or (game_resource_recovery_posture ==
+                    "unknown_hold_custody_directory_missing"
+                    and verified_game_resource_recovery_holds))):
         raise ValueError("game_resource_recovery_posture_mismatch")
     game_recovery_hold_summaries = []
     for item in (verified_game_resource_recovery_holds or ())[-16:]:
@@ -2024,12 +2028,19 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "lineage_posture": "verified" if not lineage_findings else "degraded",
                "lineage_findings": bounded_lineage_findings[:64],
                "lineage_finding_count": len(bounded_lineage_findings)}
+    game_recovery_posture_complete = payload["game_resource_recovery_posture"] in {
+        "not_requested", "verified_no_recovery_holds", "verified_recovery_cleared"}
+    resource_observation_complete = (
+        not lineage_findings
+        and payload["recovery_posture"] == "reconciled_or_restored"
+        and game_recovery_posture_complete)
     record = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
              "source_id": "governed_local_model_resource_consumption",
              "schema_version": RESOURCE_CONSUMPTION_WORLD_STATE_SCHEMA,
              "subject_kind": "causal_resource_consumption",
              "subject_id": str(snapshot["ledger_digest"]), "stage": "observation",
-             "disposition": "recorded" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" and payload["game_resource_recovery_posture"] not in {"verified_pending_recovery", "degraded"} else "degraded", "evidence_strength": "receipt_bound" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" and payload["game_resource_recovery_posture"] not in {"verified_pending_recovery", "degraded"} else "incomplete",
+             "disposition": "recorded" if resource_observation_complete else "degraded",
+             "evidence_strength": "receipt_bound" if resource_observation_complete else "incomplete",
              "effect_claimed": False, "effect_proven": False,
              # The ledger receipt's event time is historical custody. Do not
              # let a restart/reprojection timestamp make old consumption

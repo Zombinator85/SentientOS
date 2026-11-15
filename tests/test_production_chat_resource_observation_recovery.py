@@ -32,6 +32,29 @@ def test_read_only_observer_exposes_digest_bound_game_recovery_hold_and_clearanc
     registry = InstallationStateRegistry(tmp_path / "state", _test_only=True)
     observer = ProductionChatResourceObservationOwner(
         registry.open_read_only(identity), "recovery")
+    initial = observer.observe()
+    assert initial.game_resource_recovery_posture == (
+        "unknown_hold_custody_directory_missing")
+    from sentientos.host_resource_runtime import resource_consumption_world_state_records
+    initial_runtime = resource_consumption_world_state_records(
+        ledger=initial.ledger,
+        verified_game_resource_recovery_holds=initial.game_resource_recovery_holds,
+        game_resource_recovery_posture=initial.game_resource_recovery_posture)[0]
+    assert initial_runtime["disposition"] == "degraded"
+    import sentientosd
+    initial_surfaces = sentientosd.RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-initial",
+        resource_observation_owner=observer)
+    initial_surfaces.build_world_state_board(
+        tick_id="2026-11-15T09:59:30+00:00")
+    initial_snapshot = initial_surfaces.current_world_state_snapshot
+    assert initial_snapshot is not None
+    initial_resource_fact = next(item for item in initial_snapshot.facts
+        if item.subject.subject_kind == "causal_resource_consumption")
+    assert initial_resource_fact.disposition == "degraded"
+    assert initial_resource_fact.payload["game_resource_recovery_posture"] == (
+        "unknown_hold_custody_directory_missing")
+
     release_ref = "kernel_decision:synthetic-game-release"
     hold_id = hashlib.sha256(release_ref.encode()).hexdigest()[:32]
     pressure_at = "2026-11-15T10:00:00+00:00"
@@ -77,7 +100,6 @@ def test_read_only_observer_exposes_digest_bound_game_recovery_hold_and_clearanc
     assert pending.game_resource_recovery_holds[0]["release_admission_decision_ref"] == release_ref
     assert pending.game_resource_recovery_holds[0]["posture"] == (
         "pending_fresh_game_exit_evidence")
-    from sentientos.host_resource_runtime import resource_consumption_world_state_records
     pending_runtime = resource_consumption_world_state_records(
         ledger=pending.ledger,
         verified_game_resource_recovery_holds=pending.game_resource_recovery_holds,
@@ -87,7 +109,6 @@ def test_read_only_observer_exposes_digest_bound_game_recovery_hold_and_clearanc
     assert pending_runtime["payload"]["game_resource_recovery_holds"][0][
         "release_admission_decision_ref"] == release_ref
     assert pending_runtime["disposition"] == "degraded"
-    import sentientosd
     surfaces = sentientosd.RuntimeMaintenanceSurfaces(
         tmp_path, runtime_state_root=tmp_path / "runtime",
         resource_observation_owner=observer)

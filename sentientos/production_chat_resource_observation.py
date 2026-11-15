@@ -383,7 +383,10 @@ class ProductionChatResourceObservationOwner:
                 GAME_RECOVERY_HOLD_ROOT, max_entries=MAX_GAME_RECOVERY_HOLDS)
         except InstallationStateError as exc:
             if exc.code == "state_directory_missing":
-                return (), "verified_no_recovery_holds"
+                # Serving creates this directory before it can persist a hold.
+                # Its absence therefore cannot prove either that serving has
+                # never created a hold or that prior custody is intact.
+                return (), "unknown_hold_custody_directory_missing"
             raise ProductionChatResourceObservationError(
                 "game_resource_recovery_hold_custody_unavailable") from exc
         holds: list[Mapping[str, Any]] = []
