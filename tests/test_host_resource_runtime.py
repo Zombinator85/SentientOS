@@ -12,6 +12,7 @@ pytestmark = pytest.mark.no_legacy_skip
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
 from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass, ControlActionRequest
 from sentientos.host_collectors import HostCollectorResult
+from sentientos.host_resource_policy import host_resource_policy_decision_digest
 from sentientos.host_resource_runtime import (MAX_RETAINED_OBSERVATION_EPOCHS,
     HostObservationBudget, HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
     build_observation_plan, default_collector_specs, persist_evidence_bundle,
@@ -63,7 +64,17 @@ def test_runtime_observation_is_read_only_and_quarantine_calls_no_collector(tmp_
 
 
 def test_runtime_keeps_measured_cpu_pressure_proposal_visible_with_optional_sensor_gap(
-        tmp_path):
+        tmp_path, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    correlation_id = "cpu-pressure-inference-after-optional-sensor-gap"
+    observation_id = "local-chat-inference-" + hashlib.sha256(
+        correlation_id.encode()).hexdigest()[:32]
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        phase=LifecyclePhase.RUNTIME, decisions_path=tmp_path / "kernel.jsonl")
     specs = [
         HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
             lambda observed_at=None: _result("cpu", utilization_percent=95.0,
@@ -85,10 +96,10 @@ def test_runtime_keeps_measured_cpu_pressure_proposal_visible_with_optional_sens
                 warnings=("sensor_unavailable:fan_pwm",))),
     ]
     evaluation = HostResourceRuntimeCoordinator(
-        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME),
+        kernel=kernel,
         runtime_state_root=tmp_path,
         plan=build_observation_plan(specs=specs),
-    ).run_cycle(correlation_id="cpu-pressure-with-optional-sensor-gaps")
+    ).run_cycle(correlation_id=observation_id)
 
     assert evaluation is not None and validate_evaluation(evaluation).ok
     assert "cpu_pressure" in evaluation.pressure_report.pressure_labels
@@ -100,6 +111,29 @@ def test_runtime_keeps_measured_cpu_pressure_proposal_visible_with_optional_sens
     assert all(receipt.does_not_execute and receipt.does_not_mutate_host
         and receipt.not_authorized_for_fulfillment
         for receipt in evaluation.proposal_receipts)
+
+    admission = kernel.admit(ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="maintenance", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "maintenance_implementation",
+            "correlation_id": correlation_id,
+            "host_resource_observation_id": observation_id},
+    ))
+    assert admission.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_background_inference_under_host_pressure" in (
+        admission.reason_codes)
+    host_evidence = admission.delegated_outcomes["runtime_governor"][
+        "evidence_refs"]["host_resource_evidence"]
+    assert host_evidence["evaluation_id"] == evaluation.evaluation_id
+    assert host_evidence["pressure_labels"] == list(
+        evaluation.pressure_report.pressure_labels)
+    assert host_evidence["policy_decision_id"] == (
+        evaluation.policy_decision.decision_id)
+    assert host_evidence["policy_decision_digest"] == (
+        host_resource_policy_decision_digest(evaluation.policy_decision))
+    assert host_evidence["policy_proposal_only"] is True
 
 
 def test_windows_process_count_observation_flows_through_runtime_without_identity(
