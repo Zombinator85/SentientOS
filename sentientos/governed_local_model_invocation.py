@@ -442,6 +442,12 @@ def _cancellation_preemption_reference(decision: object, *,
         evidence_kind = "active_inference_preemption"
         evidence_digest = digest_payload(dict(preemption))
     else:
+        # A v10 receipt claims that this admission's evidence caused this exact
+        # invocation to be preempted. Generic current host/game evidence is not
+        # enough to make that causal claim; require the governor's explicit
+        # request binding before creating the stronger receipt reference.
+        if evidence_refs.get("active_inference_request_reference") != request_reference:
+            return None
         current_evidence = any(isinstance(evidence_refs.get(key), Mapping)
             and evidence_refs[key].get("status") == "current"
             for key in ("game_workload_evidence", "game_performance_evidence",

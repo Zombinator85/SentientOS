@@ -98,14 +98,22 @@ def test_game_cancellation_admission_requires_exact_invocation_evidence() -> Non
             "evidence_refs": {
                 key: value for key, value in decision["delegated_outcomes"]
                     ["runtime_governor"]["evidence_refs"].items()
-                if key != "active_inference_preemption"}}}}
+                    if key not in {"active_inference_preemption",
+                        "active_inference_request_reference"}}}}}
     legacy_ref = _cancellation_preemption_reference(legacy_evidence_decision,
         admission_reference=reference, request=request)
-    assert legacy_ref is not None
-    assert legacy_ref["preemption_evidence_kind"] == "runtime_governor_evidence_refs"
-    assert legacy_ref["preemption_evidence_digest"] == digest_payload(
-        legacy_evidence_decision["delegated_outcomes"]["runtime_governor"]
-            ["evidence_refs"])
+    assert legacy_ref is None
+    request_bound_legacy_evidence = {**decision, "delegated_outcomes": {
+        "runtime_governor": {**decision["delegated_outcomes"]["runtime_governor"],
+            "evidence_refs": {
+                key: value for key, value in decision["delegated_outcomes"]
+                    ["runtime_governor"]["evidence_refs"].items()
+                if key != "active_inference_preemption"}}}}
+    request_bound_ref = _cancellation_preemption_reference(
+        request_bound_legacy_evidence, admission_reference=reference, request=request)
+    assert request_bound_ref is not None
+    assert request_bound_ref["preemption_evidence_kind"] == (
+        "runtime_governor_evidence_refs")
     tampered = {**decision, "delegated_outcomes": {"runtime_governor": {
         **decision["delegated_outcomes"]["runtime_governor"],
         "evidence_refs": {
