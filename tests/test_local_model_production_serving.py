@@ -90,6 +90,23 @@ def evidence(generation=1, *, gpu_layers=0):
             "catalog_proof": proof, "activation_history": history}
 
 
+def serving_entitlement_binding(checked_at: str, max_gpu_layers: int) -> dict[str, object]:
+    return {
+        "schema_version": "sentientos.governed_local_model_serving_entitlement_binding:v2",
+        "binding_scope": "inference_call_entitlement",
+        "allocation_id": "lmalloc-" + "b" * 24,
+        "allocation_digest": "b" * 64,
+        "allocator_id": "sentientos.governed_local_model_resource_allocator.v1",
+        "resource_kind": "governed_local_model_invocation_call_entitlement.v1",
+        "policy_digest": "c" * 64,
+        "policy_epoch": 1,
+        "principal_binding_digest": "d" * 64,
+        "remaining_call_entitlement": 2,
+        "max_gpu_layers": max_gpu_layers,
+        "checked_at": checked_at,
+    }
+
+
 @pytest.fixture
 def handle(tmp_path):
     registry = InstallationStateRegistry(tmp_path / "custody", _test_only=True)
@@ -311,29 +328,33 @@ def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, o
 
 
 @pytest.mark.parametrize(("gpu_value", "game_active", "gpu_layers", "workload_mode",
-                         "should_load", "expected_reason"), [
-    (94.0, True, 16, "automatic", False, "deferred_local_model_serving_under_host_pressure_during_game"),
-    (94.0, False, 16, "automatic", False, "deferred_background_model_serving_under_host_pressure"),
-    (20.0, True, 16, "automatic", False, "deferred_gpu_model_serving_while_game_active"),
-    (20.0, False, 16, "automatic", True, "allowed"),
-    (20.0, False, 16, "gaming", False, "deferred_gpu_model_serving_in_gaming_mode"),
-    (20.0, False, 0, "gaming", False,
+                         "entitlement_schema", "should_load", "expected_reason"), [
+    (94.0, True, 16, "automatic", "v2", False, "deferred_local_model_serving_under_host_pressure_during_game"),
+    (94.0, False, 16, "automatic", "v2", False, "deferred_background_model_serving_under_host_pressure"),
+    (20.0, True, 16, "automatic", "v2", False, "deferred_gpu_model_serving_while_game_active"),
+    (20.0, False, 16, "automatic", "v2", True, "allowed"),
+    (20.0, False, 16, "gaming", "v2", False, "deferred_gpu_model_serving_in_gaming_mode"),
+    (20.0, False, 0, "gaming", "v2", False,
         "deferred_cpu_model_serving_in_gaming_mode"),
-    (20.0, False, 16, "conservative_automatic", False,
+    (20.0, False, 16, "conservative_automatic", "v2", False,
         "deferred_game_workload_observation_unavailable_for_model_serving"),
-    (20.0, False, 16, "automatic_unverified_gaming", False,
+    (20.0, False, 16, "automatic_unverified_gaming", "v2", False,
         "deferred_game_workload_observation_unavailable_for_model_serving"),
-    (20.0, False, 16, "automatic_unverified_normal", False,
+    (20.0, False, 16, "automatic_unverified_normal", "v2", False,
         "deferred_game_workload_observation_unavailable_for_model_serving"),
-    ((None, 20.0), False, 16, "automatic", False, "deferred_gpu_offload_telemetry_incomplete"),
-    ((20.0, None), False, 16, "automatic", False, "deferred_gpu_offload_telemetry_incomplete"),
-    (None, True, 16, "automatic", False, "deferred_resource_telemetry_incomplete_during_game"),
-    (20.0, True, 0, "automatic", False,
+    ((None, 20.0), False, 16, "automatic", "v2", False, "deferred_gpu_offload_telemetry_incomplete"),
+    ((20.0, None), False, 16, "automatic", "v2", False, "deferred_gpu_offload_telemetry_incomplete"),
+    (None, True, 16, "automatic", "v2", False, "deferred_resource_telemetry_incomplete_during_game"),
+    (20.0, True, 0, "automatic", "v2", False,
         "deferred_cpu_model_serving_while_game_active"),
+    (20.0, False, 16, "automatic", "v1", False,
+        "deferred_model_serving_resource_entitlement_invalid"),
+    (20.0, False, 16, "automatic", "missing", False,
+        "deferred_model_serving_resource_entitlement_invalid"),
 ])
 def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
         monkeypatch, handle, gpu_value, game_active, gpu_layers, workload_mode,
-        should_load, expected_reason):
+        entitlement_schema, should_load, expected_reason):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(handle.root / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(handle.root))
@@ -396,8 +417,18 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
             "automatic", "conservative_automatic", "automatic_unverified_gaming",
             "automatic_unverified_normal"}
             else workload_mode)
+        entitlement_binding: dict[str, object] | None = serving_entitlement_binding(
+            now.isoformat(), load_configuration["n_gpu_layers"])
+        if entitlement_schema == "v1":
+            assert entitlement_binding is not None
+            entitlement_binding["schema_version"] = (
+                "sentientos.governed_local_model_serving_entitlement_binding:v1")
+            entitlement_binding.pop("max_gpu_layers")
+        elif entitlement_schema == "missing":
+            entitlement_binding = None
         return {
             "resource_governance_required": True,
+            "governed_inference_entitlement_binding": entitlement_binding,
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
@@ -545,6 +576,8 @@ def test_host_pressure_blocks_initial_model_load_before_factory(
         load_configuration = activation_state["load_configuration"]
         return {
             "resource_governance_required": True,
+            "governed_inference_entitlement_binding": serving_entitlement_binding(
+                now.isoformat(), gpu_layers),
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
@@ -660,6 +693,8 @@ def test_runtime_governor_revalidates_game_priority_after_model_load(
         load_configuration = activation_state["load_configuration"]
         return {
             "resource_governance_required": True,
+            "governed_inference_entitlement_binding": serving_entitlement_binding(
+                now.isoformat(), gpu_layers),
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,

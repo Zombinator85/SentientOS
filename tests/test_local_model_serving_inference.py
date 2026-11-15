@@ -496,6 +496,23 @@ class Model:
     def close(self): self.closed = True
 
 
+def serving_entitlement_binding(checked_at: str, max_gpu_layers: int) -> dict[str, object]:
+    return {
+        "schema_version": "sentientos.governed_local_model_serving_entitlement_binding:v2",
+        "binding_scope": "inference_call_entitlement",
+        "allocation_id": "lmalloc-" + "b" * 24,
+        "allocation_digest": "b" * 64,
+        "allocator_id": "sentientos.governed_local_model_resource_allocator.v1",
+        "resource_kind": "governed_local_model_invocation_call_entitlement.v1",
+        "policy_digest": "c" * 64,
+        "policy_epoch": 1,
+        "principal_binding_digest": "d" * 64,
+        "remaining_call_entitlement": 2,
+        "max_gpu_layers": max_gpu_layers,
+        "checked_at": checked_at,
+    }
+
+
 def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generate=None,
           installation_identity="install-1", runtime_handoff_id=None, state_root=None,
           serving_operation_id="serve-1", foreground_game_detector=None,
@@ -1359,6 +1376,8 @@ def test_conservative_automatic_host_pressure_cancels_active_optional_inference(
         }
         return {
             "resource_governance_required": True,
+            "governed_inference_entitlement_binding": serving_entitlement_binding(
+                now.isoformat(), int(gpu_layers)),
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
@@ -2158,6 +2177,9 @@ def test_scheduled_reconciliation_restores_released_model_through_fresh_serving_
     def admission_context(correlation_id, _activation_state):
         admission_contexts.append(correlation_id)
         return {"resource_governance_required": True,
+            "governed_inference_entitlement_binding": serving_entitlement_binding(
+                datetime.now(timezone.utc).isoformat(), int(
+                    _activation_state["load_configuration"]["n_gpu_layers"])),
             "purpose": "local_model_serving",
             "host_resource_observation_id": correlation_id}
 
@@ -2274,7 +2296,8 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
                 cpu if collector_id == "cpu" else
                 thermal if collector_id == "thermal_sensors" else values)
             return HostCollectorResult(collector_id, "available",
-                observed_at or now.isoformat(), "synthetic_test_fixture",
+                observed_at or datetime.now(timezone.utc).isoformat(),
+                "synthetic_test_fixture",
                 values=dict(current))
         return collect
 
@@ -2289,7 +2312,7 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
                 collector("nvidia_gpu")),
             HostObservationCollectorSpec("thermal_sensors", False,
                 ("linux", "unknown"), 4, collector("thermal_sensors")),
-        ]), clock=lambda: now.isoformat())
+        ]), clock=lambda: datetime.now(timezone.utc).isoformat())
     admission_observations = []
 
     def admission_context(correlation_id, activation_state):
@@ -2304,6 +2327,8 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
         load_configuration = activation_state.get("load_configuration", {})
         gpu_layers = load_configuration.get("n_gpu_layers")
         return {"resource_governance_required": True,
+            "governed_inference_entitlement_binding": serving_entitlement_binding(
+                datetime.now(timezone.utc).isoformat(), int(gpu_layers)),
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
@@ -2332,16 +2357,17 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
 
     def publish_recovery_game(active):
         recovery_game["sequence"] += 1
+        observed_at = datetime.now(timezone.utc).isoformat()
         message_id = hashlib.sha256(
             f"recovery-game-{pressure_kind}-{recovery_game['sequence']}-{active}".encode(
                 "utf-8")).hexdigest()
         observation = ForegroundGameObservation(
             "available", active, hashlib.sha256(b"examplegame.exe").hexdigest(),
-            now.isoformat(), transport_provenance={
+            observed_at, transport_provenance={
                 "message_id": message_id, "source_id": "windows-edge",
                 "session_id": "recovery-game-session", "generation_id": "edge-generation",
                 "sequence": recovery_game["sequence"],
-                "envelope_created_at": now.isoformat()},
+                "envelope_created_at": observed_at},
             game_process_running=active,
             running_process_name_digests=(
                 (hashlib.sha256(b"examplegame.exe").hexdigest(),) if active else ()))
@@ -2418,7 +2444,9 @@ def test_scheduled_recovery_waits_for_fresh_host_pressure_to_clear(
         await chat_service._startup_event()
         try:
             if not await asyncio.to_thread(deferred.wait, 5):
-                raise AssertionError("scheduler did not defer recovery under host pressure")
+                raise AssertionError(
+                    "scheduler did not defer recovery under host pressure: "
+                    f"{recovery_results!r}")
             assert serving.current_session() is None
             assert serving.resource_recovery_pending() is True
             assert len(models) == 1
