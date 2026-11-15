@@ -2093,6 +2093,19 @@ def test_normal_host_pressure_cancels_active_optional_inference(
             assert not any(item.startswith(
                 "resource_release_preemption_cause_linkage_missing_or_mismatched:")
                 for item in runtime_resource_fact.payload["lineage_findings"])
+            tampered_release = dict(observed_release)
+            tampered_release["preemption_cause_invocation_receipt_digest"] = (
+                "b" * 64)
+            tampered_projection = resource_consumption_world_state_records(
+                ledger=GovernedLocalModelResourceLedger(
+                    tmp_path / "resource-lineage-tampered.json"),
+                invocation_receipts=observed_resources.invocation_receipts,
+                verified_resource_release_receipts=(tampered_release,),
+                verified_preemption_invocation_receipts=(
+                    observed_resources.verified_preemption_invocation_receipts))[0]
+            assert any(item.startswith(
+                "resource_release_preemption_cause_linkage_missing_or_mismatched:")
+                for item in tampered_projection["payload"]["lineage_findings"])
     finally:
         if invocation.is_alive():
             model.cancel_pending_generation()
