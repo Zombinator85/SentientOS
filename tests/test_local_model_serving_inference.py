@@ -514,12 +514,13 @@ def serving_entitlement_binding(checked_at: str, max_gpu_layers: int) -> dict[st
 
 
 def default_serving_preflight_context_provider(
-        kernel: ControlPlaneKernel, state_root):
+        kernel: ControlPlaneKernel, state_root, *, clock=None):
     def collector(collector_id, values):
         return lambda *, observed_at=None: HostCollectorResult(
             collector_id, "available", observed_at or datetime.now(timezone.utc).isoformat(),
             "synthetic_test_fixture", values=values)
 
+    observation_clock = clock or (lambda: datetime.now(timezone.utc).isoformat())
     host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
         runtime_state_root=state_root / "host-resource",
         plan=build_observation_plan(specs=[
@@ -531,7 +532,7 @@ def default_serving_preflight_context_provider(
                 collector("nvidia_gpu", {"device_count": 1, "devices": [{
                     "index": 0, "gpu_utilization_percent": 20.0,
                     "vram_utilization_percent": 30.0}]})),
-        ]), clock=lambda: datetime.now(timezone.utc).isoformat())
+        ]), clock=observation_clock)
 
     def provide(correlation_id, activation_state):
         observation_id = "local-chat-serving-" + hashlib.sha256(
@@ -569,7 +570,8 @@ def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generat
           installation_identity="install-1", runtime_handoff_id=None, state_root=None,
           serving_operation_id="serve-1", foreground_game_detector=None,
           kernel_override=None, host_resource_observation_owner=None, gpu_layers=0,
-          serving_admission_context_provider=None, model_factory=None):
+          serving_admission_context_provider=None, model_factory=None,
+          preflight_clock=None):
     tmp_path.mkdir(parents=True, exist_ok=True)
     artifact = tmp_path / "exact.gguf"; artifact.write_bytes(b"tiny-model")
     load = {"n_ctx": 512, "n_gpu_layers": gpu_layers}
@@ -602,7 +604,8 @@ def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generat
     kernel = kernel_override or Kernel(inference)
     if isinstance(kernel, ControlPlaneKernel):
         default_preflight = default_serving_preflight_context_provider(
-            kernel, tmp_path / f"serving-preflight-{id(kernel)}")
+            kernel, tmp_path / f"serving-preflight-{id(kernel)}",
+            clock=preflight_clock)
         if serving_admission_context_provider is None:
             serving_admission_context_provider = default_preflight
         else:
@@ -1874,7 +1877,8 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
     from tests.test_gaming_companion_tls_transport import _certificate_bundle
     from cryptography.hazmat.primitives.serialization import Encoding
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    now_text = now.isoformat().replace("+00:00", "Z")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
@@ -1938,17 +1942,19 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
     cancelled = threading.Event()
 
     installation, provisioning_artifacts = provisioning_inputs(
-        tmp_path / "automatic-game-resource-provisioning", calls=2)
+        tmp_path / "automatic-game-resource-provisioning", calls=2,
+        current_time=now_text)
     resource_bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
     resource_policy = GovernedLocalModelResourcePolicy.create(
         epoch=1, max_resource_specific_bounds=resource_bounds,
-        not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
+        not_before=(now - timedelta(minutes=30)).isoformat().replace("+00:00", "Z"),
+        valid_until=(now + timedelta(minutes=45)).isoformat().replace("+00:00", "Z"))
     provisioning_artifacts["requested_bounds"] = resource_bounds
     provisioning_artifacts["resource_policy_artifact"] = encoded(resource_policy.to_dict())
     bundle = produce_production_chat_resource_provisioning_bundle(
         installation, "automatic-game-chat", **provisioning_artifacts)
     resource_custody = load_production_chat_resource_context_owner(
-        installation, "automatic-game-chat", clock=lambda: "2026-09-21T08:30:00Z",
+        installation, "automatic-game-chat", clock=lambda: now_text,
         nonce_source=iter(("automatic-attempt-one", "automatic-attempt-two")).__next__)
 
     def active_generation():

@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
+import json
 from threading import Event, Lock, Thread
 
 import pytest
@@ -16,7 +17,7 @@ from sentientos.governed_local_model_resource_allocation import (
 from sentientos.governed_local_model_invocation import (
     LocalModelInvocationBudget, validate_receipt,
 )
-from sentientos.control_plane_kernel import ControlPlaneKernel
+from sentientos.control_plane_kernel import AuthorityClass, ControlPlaneKernel
 from sentientos.host_collectors import HostCollectorResult
 from sentientos.host_resource_runtime import (
     HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
@@ -377,6 +378,83 @@ def test_resource_backed_inference_requires_serving_bound_allocation(
         inference_custody.close()
         serving.close()
 
+
+def test_published_allocation_reaches_persistent_serving_inference_and_recovers(
+        monkeypatch, tmp_path):
+    """Exercise the installed entitlement through the production serving bridge.
+
+    The model backend, activation, and host observations are deterministic test
+    fixtures. This proves software admission/custody/debit linkage, not hardware
+    scheduling, GPU control, or observed host pressure.
+    """
+    installation, artifacts = provisioning_inputs(tmp_path / "provisioning")
+    produced = produce_production_chat_resource_provisioning_bundle(
+        installation, "runtime-invocation", **artifacts)
+    resource_owner = load_production_chat_resource_context_owner(
+        installation, "runtime-invocation", clock=lambda: NOW,
+        nonce_source=lambda: "runtime-invocation-attempt")
+    bridge = serving = None
+    try:
+        bridge, serving, session, model, kernel, _ = serving_setup(
+            monkeypatch, tmp_path / "serving",
+            installation_identity=installation.identity.value,
+            state_root=tmp_path / "serving-state",
+            serving_admission_context_provider=lambda _correlation, _activation: {
+                "governed_inference_entitlement_binding": dict(
+                    resource_owner.serving_admission_entitlement_binding())})
+        inference = ResourceBackedProductionChatInference(bridge, resource_owner)
+        receipt = inference.generate(
+            prompt="synthetic persistent chat request",
+            caller="persistent_chat_service",
+            correlation_id="published-runtime-resource-call",
+            budget=LocalModelInvocationBudget(100, 200, 8, 5.0, 2),
+            caller_linkage={},
+        )
+
+        assert receipt.status == "admitted_completed"
+        assert receipt.output_text == "answer"
+        assert model.calls == 1
+        assert receipt.resource_allocation_digest == resource_owner.allocation.allocation_digest
+        assert receipt.request["linkage"]["serving_session_id"] == session.session_id
+        valid, findings = validate_receipt(receipt.to_dict())
+        assert valid, findings
+        admitted_classes = [request.authority_class for request in kernel.requests]
+        assert AuthorityClass.MODEL_SERVING in admitted_classes
+        assert admitted_classes[-1] == AuthorityClass.LOCAL_MODEL_INFERENCE
+        assert resource_owner.allocator.ledger.snapshot_counts() == (1, 1, 3)
+        assert resource_owner.allocator.ledger.remaining_calls(produced.allocation_id) == 1
+
+        durable = bridge._serving._handle.read_regular_bounded(
+            bridge._serving._handle.fixed_object(
+                f"local-model/inference/receipts/{receipt.receipt_id}.json"),
+            max_bytes=1_048_576)
+        durable_receipt = json.loads(durable.decode("utf-8"))
+        assert durable_receipt["receipt_digest"] == receipt.receipt_digest
+        assert durable_receipt["resource_allocation_digest"] == (
+            produced.allocation_digest)
+
+        resource_owner.close()
+        recovered_owner = load_production_chat_resource_context_owner(
+            installation, "runtime-invocation", clock=lambda: NOW,
+            nonce_source=lambda: "recovered-runtime-attempt")
+        try:
+            assert recovered_owner.allocation.allocation_digest == (
+                produced.allocation_digest)
+            assert recovered_owner.allocator.ledger.snapshot_counts() == (1, 1, 3)
+            assert recovered_owner.allocator.ledger.remaining_calls(
+                produced.allocation_id) == 1
+            records = resource_consumption_world_state_records(
+                ledger=recovered_owner.allocator.ledger,
+                invocation_receipts=(durable_receipt,))
+            assert len(records) == 1
+            assert not records[0]["payload"]["lineage_findings"]
+        finally:
+            recovered_owner.close()
+    finally:
+        resource_owner.close()
+        if serving is not None:
+            serving.close()
+
 def test_duplicate_nonce_and_exhaustion_fail_without_retry_or_backend_generation(tmp_path):
     custody, model, invoker, request, ledger = owner(tmp_path, calls=2, nonces=["same", "same"])
     first = invoker.invoke(request, resource_context=custody.next_context())
@@ -509,6 +587,7 @@ def test_governed_entitlement_release_closes_idle_session_through_runtime(
     bridge, serving, _, model, _, _ = serving_setup(
         monkeypatch, tmp_path / "serving", installation_identity="production",
         kernel_override=kernel,
+        preflight_clock=lambda: current_time["value"],
         serving_admission_context_provider=lambda _correlation, _state: {
             "governed_inference_entitlement_binding":
                 dict(custody.serving_admission_entitlement_binding())})
@@ -701,6 +780,7 @@ def test_invalidated_entitlement_preempts_exact_active_invocation(
     bridge, serving, session, model, _, _ = serving_setup(
         monkeypatch, tmp_path / "serving", installation_identity="production",
         kernel_override=kernel, on_generate=active_generation,
+        preflight_clock=lambda: current_time["value"],
         foreground_game_detector=NoGameDetector() if workload_mode == "automatic" else None,
         serving_admission_context_provider=lambda _correlation, _state: {
             "governed_inference_entitlement_binding":
@@ -867,7 +947,8 @@ def test_persistent_chat_two_turns_use_one_preissued_allocation_without_storage_
 
 def test_gaming_host_pressure_deferral_does_not_debit_production_chat_allocation(
         monkeypatch, tmp_path):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    now_text = now.isoformat().replace("+00:00", "Z")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
@@ -894,17 +975,19 @@ def test_gaming_host_pressure_deferral_does_not_debit_production_chat_allocation
             HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1, cpu),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2, memory),
         ]), clock=lambda: now.isoformat())
-    installation, artifacts = provisioning_inputs(tmp_path / "allocation", calls=2)
+    installation, artifacts = provisioning_inputs(tmp_path / "allocation", calls=2,
+        current_time=now_text)
     bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
     policy = GovernedLocalModelResourcePolicy.create(
         epoch=1, max_resource_specific_bounds=bounds,
-        not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
+        not_before=(now - timedelta(minutes=30)).isoformat().replace("+00:00", "Z"),
+        valid_until=(now + timedelta(minutes=45)).isoformat().replace("+00:00", "Z"))
     artifacts["requested_bounds"] = bounds
     artifacts["resource_policy_artifact"] = encoded(policy.to_dict())
     issued = produce_production_chat_resource_provisioning_bundle(
         installation, "chat-resource", **artifacts)
     custody = load_production_chat_resource_context_owner(
-        installation, "chat-resource", clock=lambda: NOW,
+        installation, "chat-resource", clock=lambda: now_text,
         nonce_source=lambda: "gaming-pressure-call")
     serving_bridge, serving, _, backend, _, _ = serving_setup(
         monkeypatch, tmp_path / "serving", kernel_override=kernel,
@@ -954,7 +1037,8 @@ def test_game_frame_pressure_defers_production_chat_without_debit_then_recovers(
     governor = RuntimeGovernor()
     kernel = ControlPlaneKernel(runtime_governor=governor,
         decisions_path=tmp_path / "kernel-decisions.jsonl")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    now_text = now.isoformat().replace("+00:00", "Z")
 
     def collector(collector_id, values):
         return lambda *, observed_at=None: HostCollectorResult(
@@ -969,17 +1053,19 @@ def test_game_frame_pressure_defers_production_chat_without_debit_then_recovers(
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
                 collector("memory", {"used_percent": 40.0})),
         ]), clock=lambda: now.isoformat())
-    installation, artifacts = provisioning_inputs(tmp_path / "allocation", calls=2)
+    installation, artifacts = provisioning_inputs(tmp_path / "allocation", calls=2,
+        current_time=now_text)
     bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
     policy = GovernedLocalModelResourcePolicy.create(
         epoch=1, max_resource_specific_bounds=bounds,
-        not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
+        not_before=(now - timedelta(minutes=30)).isoformat().replace("+00:00", "Z"),
+        valid_until=(now + timedelta(minutes=45)).isoformat().replace("+00:00", "Z"))
     artifacts["requested_bounds"] = bounds
     artifacts["resource_policy_artifact"] = encoded(policy.to_dict())
     issued = produce_production_chat_resource_provisioning_bundle(
         installation, "chat-resource", **artifacts)
     custody = load_production_chat_resource_context_owner(
-        installation, "chat-resource", clock=lambda: NOW,
+        installation, "chat-resource", clock=lambda: now_text,
         nonce_source=iter(("frame-pressure-call", "frame-recovery-call",
             "game-exit-call")).__next__)
     serving_bridge, serving, _, backend, _, _ = serving_setup(
