@@ -2073,6 +2073,26 @@ def test_normal_host_pressure_cancels_active_optional_inference(
             assert not any(item.startswith(
                 "resource_release_preemption_cause_linkage_missing_or_mismatched:")
                 for item in lineage_projection["payload"]["lineage_findings"])
+            from sentientosd import RuntimeMaintenanceSurfaces
+            maintenance = RuntimeMaintenanceSurfaces(
+                tmp_path, resource_observation_owner=resource_observer,
+                resource_observation_configuration_status={
+                    "status": "configured", "read_only": True,
+                    "effect_authority": False,
+                })
+            maintenance.build_world_state_board(
+                tick_id="2026-11-15T17:30:00Z")
+            runtime_snapshot = maintenance.current_world_state_snapshot
+            assert runtime_snapshot is not None
+            runtime_resource_fact = next(fact for fact in runtime_snapshot.facts
+                if fact.source.kind == "resource_governor"
+                and fact.source.source_id ==
+                    "governed_local_model_resource_consumption")
+            assert runtime_resource_fact.payload["resource_release_receipts"][0][
+                "preemption_release_linkage_posture"] == "verified"
+            assert not any(item.startswith(
+                "resource_release_preemption_cause_linkage_missing_or_mismatched:")
+                for item in runtime_resource_fact.payload["lineage_findings"])
     finally:
         if invocation.is_alive():
             model.cancel_pending_generation()
