@@ -161,10 +161,15 @@ resident context. The end-to-end deterministic bridge test
 shows that an explicitly retained preference can be selected for a later
 question, cited through `memory_record_ids`, and linked to the committed
 observation. The citation parser rejects IDs outside the selected memory set.
+The conflict path is exercised by
+`tests/test_persistent_governed_conversation.py::test_conflicting_retained_preferences_reach_resident_and_prompt_clarification`:
+two explicitly retained, conflicting answer preferences both survive an
+indirect question-conditioned selection, reach the resident prompt, and are
+cited by a deterministic fixture that asks which preference applies.
 
 This connects the existing explicit-retention substrate to the resident prompt
 path. It does not establish that real-model responses use this context
-correctly, resolve conflicting memories, or improve decisions; the scripted
-inference fixture establishes software wiring and citation enforcement only.
-Real-model response quality and longitudinal decision improvement remain open
-evaluation work.
+correctly or independently recognize every material conflict. The scripted
+fixture establishes this conflict path's wiring and citation behavior, not
+general conflict resolution or decision improvement. Real-model response
+quality and longitudinal decision improvement remain open evaluation work.

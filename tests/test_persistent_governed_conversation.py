@@ -439,6 +439,74 @@ def test_verified_retained_memory_can_support_a_cited_resident_answer(tmp_path: 
     assert observation["canonical_user_memory_record_ids"] == [memory_id]
 
 
+def test_conflicting_retained_preferences_reach_resident_and_prompt_clarification(
+        tmp_path: Path) -> None:
+    from tests.test_resident_developmental_cognition import (
+        FakeInvoker as CognitionFakeInvoker, owner as cognition_owner,
+    )
+    from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+
+    class ClarifyingInvoker(CognitionFakeInvoker):
+        observed_memory_texts: tuple[str, ...] = ()
+
+        def invoke(self, request, **kwargs):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                memory = prompt.get("canonical_user_memory_context", {})
+                records = memory.get("records", [])
+                self.observed_memory_texts = tuple(
+                    row["text"] for row in records if isinstance(row, dict))
+                relevant = [row for row in records if isinstance(row, dict)
+                    and ("concise" in row.get("text", "").casefold()
+                        or "detailed" in row.get("text", "").casefold())]
+                if len(relevant) == 2:
+                    self.companion_output_override = {
+                        "disposition": "ask",
+                        "response": (
+                            "I have retained both concise and detailed answer preferences. "
+                            "Which should I use now?"),
+                        "evidence_ids": [], "history_record_ids": [],
+                        "memory_record_ids": [row["memory_id"] for row in relevant],
+                    }
+            return super().invoke(request, **kwargs)
+
+    retained_statements = (
+        "Concise answers work best for me.",
+        "Detailed answers work best for me.",
+    )
+    cognition_invoker = ClarifyingInvoker()
+    cognition, _ = cognition_owner(tmp_path / "cognition", invoker=cognition_invoker)
+    now = datetime.now(timezone.utc)
+    screen = {"modality": "screen", "text": "A neutral test scene is visible.",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False,
+        "text_change_kind": "initial", "previous_text_digest": None}
+    app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
+        cognition_bridge=ResidentDevelopmentalCompanionBridge(cognition,
+            clock=lambda: now))
+    session_id = app.create_session()
+    for index, text in enumerate(retained_statements):
+        app.chat(text, session_id=session_id,
+            request_id=f"conflicting-memory-source-{index}", retain=True)
+
+    response = app.chat("What answer style suits me?", session_id=session_id,
+        request_id="clarify-conflicting-retained-preferences", observe_screen=True)
+
+    assert set(cognition_invoker.observed_memory_texts) == set(retained_statements)
+    assert response.response == (
+        "I have retained both concise and detailed answer preferences. "
+        "Which should I use now?")
+    linkage = app.sessions.load(session_id)["turns"][-1]["linkage"]
+    cited_ids = linkage["cognition_memory_citation_ids"]
+    assert len(cited_ids) == 2
+    observation = cognition.verified_cognition_observation(
+        linkage["cognition_observation_id"], linkage["cognition_observation_digest"])
+    assert set(observation["canonical_user_memory_record_ids"]) == set(cited_ids)
+    assert observation["companion_memory_citation_ids"] == cited_ids
+
+
 def test_companion_uses_ordinary_chat_without_current_cognition_evidence(
         tmp_path: Path) -> None:
     class NoEvidenceBridge:
