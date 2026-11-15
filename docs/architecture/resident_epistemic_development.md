@@ -124,7 +124,10 @@ Resident-routed chat now queries the existing canonical memory store with the
 current question. Retrieval ranks relevance first and uses the retained record
 timestamp only to order equally relevant matches; an invalid timestamp sorts
 last in that tie. Recency is a selection aid, not evidence of truth or
-supersession. A record enters the resident prompt only when its canonical
+supersession. Retrieval also normalizes a narrow set of common plural forms,
+so an indirect query about an "answer" can select statements that mention
+"answers". It remains lexical retrieval and does not infer entailment. A record
+enters the resident prompt only when its canonical
 record shape and text digest match, its source user turn is still linked as
 retained, and `AdmittedRetentionWriter.verify_committed_artifact` verifies the
 stored artifact against that source turn and receipt. The bounded projection

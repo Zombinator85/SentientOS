@@ -103,10 +103,21 @@ class ExplicitRetentionAdmissionGate:
         return RetentionAdmission(decision,cd,body["request_id"],digest(body),None if valid else "invalid_explicit_user_candidate")
 def _memory_retrieval_terms(text: str) -> set[str]:
     """Use content anchors so common chat phrasing cannot dominate memory matches."""
-    return {
-        token for token in re.findall(r"[a-z0-9]+", text.casefold())
-        if len(token) > 2 and token not in _MEMORY_RETRIEVAL_STOP_WORDS
-    }
+    terms: set[str] = set()
+    for token in re.findall(r"[a-z0-9]+", text.casefold()):
+        if len(token) <= 2 or token in _MEMORY_RETRIEVAL_STOP_WORDS:
+            continue
+        # Normalize common English plurals so a query about an "answer" can
+        # retrieve a retained statement about "answers". Keep this deliberately
+        # narrow: retrieval remains lexical and does not claim semantic entailment.
+        if len(token) > 4 and token.endswith("ies"):
+            token = token[:-3] + "y"
+        elif (len(token) > 4 and token.endswith(("ches", "shes", "sses", "xes", "zes"))):
+            token = token[:-2]
+        elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+            token = token[:-1]
+        terms.add(token)
+    return terms
 
 
 def _is_prior_message_recall_question(text: str) -> bool:

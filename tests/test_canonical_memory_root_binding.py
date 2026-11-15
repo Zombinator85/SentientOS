@@ -244,3 +244,20 @@ def test_invalid_memory_timestamp_never_wins_recency_tie(
 
     assert [record["id"] for record in selected] == [
         "memory-known-time", "memory-unknown-time"]
+
+
+def test_indirect_answer_style_query_retrieves_both_conflicting_preferences(
+        tmp_path: Path, monkeypatch) -> None:
+    store = CanonicalMemoryStore(tmp_path / "unused-memory")
+    records = [
+        {"id": "memory-concise", "text": "Concise answers work best for me.",
+            "timestamp": "2025-01-01T00:00:00Z"},
+        {"id": "memory-detailed", "text": "Detailed answers work best for me.",
+            "timestamp": "2026-01-01T00:00:00Z"},
+    ]
+    monkeypatch.setattr(store, "_records", lambda: (records, "complete"))
+
+    selected = store.retrieve("What answer style suits me?", limit=4)["memories"]
+
+    assert [record["id"] for record in selected] == [
+        "memory-detailed", "memory-concise"]
