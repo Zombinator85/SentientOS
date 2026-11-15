@@ -954,8 +954,13 @@ class GovernedLocalModelResourceAllocator:
             return receipt
 
     def reconcile_not_begun(self, allocation: GovernedLocalModelResourceAllocation,
-                             attempt_id: str, *, observed_at: str
+                             attempt_id: str, *, observed_at: str,
+                             invocation_outcome: str = "serving_guard_rejected"
                              ) -> GovernedLocalModelResourceConsumptionReceipt:
+        if invocation_outcome not in {
+                "serving_guard_rejected", "recovered_before_backend_entry"}:
+            raise GovernedLocalModelResourceError(
+                "invalid_not_begun_invocation_outcome")
         with self.ledger._lock:
             candidate = self.ledger._candidate()
             attempt = candidate["attempts"].get(attempt_id)
@@ -966,7 +971,7 @@ class GovernedLocalModelResourceAllocator:
                 raise GovernedLocalModelResourceError("backend_entry_already_recorded")
             attempt["status"] = "restored"
             measurement = self.measurement(allocation, generation_attempted=False,
-                call_units_consumed=0, invocation_outcome="serving_guard_rejected")
+                call_units_consumed=0, invocation_outcome=invocation_outcome)
             receipt = self._append_receipt_candidate(candidate, allocation=allocation,
                 attempt_id=attempt_id, state="attempted_not_begun", observed_at=observed_at,
                 measurement=measurement)
@@ -996,7 +1001,9 @@ class GovernedLocalModelResourceAllocator:
                 and attempt.get("allocation_id") == exact.allocation_id
                 and attempt.get("status") == "provisional"))
             return tuple(self.reconcile_not_begun(exact, attempt_id,
-                observed_at=observed_at) for attempt_id in attempt_ids)
+                observed_at=observed_at,
+                invocation_outcome="recovered_before_backend_entry")
+                for attempt_id in attempt_ids)
 
     def append_receipt(self, allocation: GovernedLocalModelResourceAllocation, attempt_id: str, *,
                        state: str, observed_at: str, measurement: Mapping[str, object],

@@ -290,6 +290,8 @@ def test_restart_reconciles_orphaned_provisional_resource_attempt(
             "generation_attempted"] is False
         assert recovery_receipt["resource_specific_measurement"][
             "call_units_consumed"] == 0
+        assert recovery_receipt["resource_specific_measurement"][
+            "invocation_outcome"] == "recovered_before_backend_entry"
         assert ledger._state["attempts"][begun_attempt_id]["status"] == "begun"
         assert any(receipt["attempt_id"] == begun_attempt_id
             and receipt["state"] == "attempt_begun"

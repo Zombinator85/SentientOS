@@ -223,7 +223,10 @@ def test_unmeasured_cpu_reservation_remains_charged_until_not_begun_reconciliati
         current_time=NOW, durable_attempt_nonce="cpu-reservation-recovery",
         requested_timeout_seconds=0.7, max_backend_threads=1)
     assert ledger.cpu_seconds_used(allocation.allocation_id) == 0.7
-    allocator.reconcile_not_begun(allocation, attempt, observed_at=NOW)
+    not_begun = allocator.reconcile_not_begun(
+        allocation, attempt, observed_at=NOW)
+    assert not_begun.resource_specific_measurement["invocation_outcome"] == (
+        "serving_guard_rejected")
     assert ledger.cpu_seconds_used(allocation.allocation_id) == 0.0
     next_attempt = allocator.final_gate(allocation=allocation,
         principal=principal, authenticated=authenticated, current=current,
