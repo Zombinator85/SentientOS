@@ -847,6 +847,8 @@ class ProductionServingController:
                 if isinstance(evidence_refs, Mapping) else None)
             release_target = (evidence_refs.get("resource_release_target")
                 if isinstance(evidence_refs, Mapping) else None)
+            release_cpu = (release_evidence.get("process_cpu_percent")
+                if isinstance(release_evidence, Mapping) else None)
             release_ref = marker.get("release_admission_decision_ref")
             identity_digest = marker.get("model_identity_digest")
             if (marker.get("schema_version") != GAME_RECOVERY_HOLD_SCHEMA
@@ -887,11 +889,10 @@ class ProductionServingController:
                     or not marker.get("game_generation_id")
                     or not isinstance(marker.get("game_pressure_observed_at"), str)
                     or not marker.get("game_pressure_observed_at")
-                    or type(release_evidence.get("process_cpu_percent")) not in {
-                        int, float}
-                    or not math.isfinite(float(
-                        release_evidence.get("process_cpu_percent", float("nan"))))
-                    or release_evidence.get("process_cpu_percent") < 100.0
+                    or not isinstance(release_cpu, (int, float))
+                    or isinstance(release_cpu, bool)
+                    or not math.isfinite(float(release_cpu))
+                    or release_cpu < 100.0
                     or release_evidence.get("game_performance_source_id") !=
                         marker.get("game_source_id")
                     or release_evidence.get("game_performance_generation_id") !=
@@ -1553,7 +1554,8 @@ class ProductionServingController:
             require_verified_game_clearance_for_recovery: bool = False,
             game_clearance_evidence: Mapping[str, Any] | None = None) -> bool:
         """Close this exact serving worker only for this kernel-owned release admission."""
-        if not self._owns_resource_release_admission(admission_decision, expected):
+        if (admission_decision is None
+                or not self._owns_resource_release_admission(admission_decision, expected)):
             raise ProductionServingError("resource_release_admission_not_owned")
         with self._lifecycle_lock:
             if self._session != expected or self._model is None:
