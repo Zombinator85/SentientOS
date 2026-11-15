@@ -27,6 +27,50 @@ MAX_RETAINED_GAME_WORKLOAD_EVIDENCE = 64
 MAX_RETAINED_RESOURCE_ENTITLEMENT_EVIDENCE = 64
 
 
+def _valid_governed_serving_entitlement_binding(value: Mapping[str, object]) -> bool:
+    """Check the complete owner-minted v2 serving entitlement contract."""
+    fields = {
+        "schema_version", "binding_scope", "allocation_id", "allocation_digest",
+        "allocator_id", "resource_kind", "policy_digest", "policy_epoch",
+        "principal_binding_digest", "remaining_call_entitlement", "max_gpu_layers",
+        "checked_at",
+    }
+    allocation_id = value.get("allocation_id")
+    allocation_digest = value.get("allocation_digest")
+    policy_digest = value.get("policy_digest")
+    policy_epoch = value.get("policy_epoch")
+    principal_digest = value.get("principal_binding_digest")
+    remaining_calls = value.get("remaining_call_entitlement")
+    max_gpu_layers = value.get("max_gpu_layers")
+    checked_at = value.get("checked_at")
+    return bool(
+        set(value) == fields
+        and value.get("schema_version") ==
+            "sentientos.governed_local_model_serving_entitlement_binding:v2"
+        and value.get("binding_scope") == "inference_call_entitlement"
+        and isinstance(allocation_id, str)
+        and re.fullmatch(r"lmalloc-[0-9a-f]{24}", allocation_id) is not None
+        and isinstance(allocation_digest, str)
+        and re.fullmatch(r"[0-9a-f]{64}", allocation_digest) is not None
+        and value.get("allocator_id") ==
+            "sentientos.governed_local_model_resource_allocator.v1"
+        and value.get("resource_kind") ==
+            "governed_local_model_invocation_call_entitlement.v1"
+        and isinstance(policy_digest, str)
+        and re.fullmatch(r"[0-9a-f]{64}", policy_digest) is not None
+        and type(policy_epoch) is int
+        and policy_epoch >= 1
+        and isinstance(principal_digest, str)
+        and re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", principal_digest) is not None
+        and type(remaining_calls) is int
+        and remaining_calls > 0
+        and (max_gpu_layers is None or (type(max_gpu_layers) is int
+            and 0 <= max_gpu_layers <= 256))
+        and isinstance(checked_at, str)
+        and bool(checked_at)
+    )
+
+
 def _host_resource_policy_binding(evidence: Mapping[str, object]
         ) -> dict[str, object] | None:
     """Return verified policy provenance for an owner-retained host sample."""
@@ -2943,6 +2987,13 @@ class RuntimeGovernor:
                 and (not isinstance(serving_entitlement_binding, Mapping)
                     or serving_entitlement_binding.get("schema_version") != (
                         "sentientos.governed_local_model_serving_entitlement_binding:v2"))):
+            serving_gpu_layer_cap_invalid = True
+        if (resource_governance_required
+                and isinstance(serving_entitlement_binding, Mapping)
+                and serving_entitlement_binding.get("schema_version") == (
+                    "sentientos.governed_local_model_serving_entitlement_binding:v2")
+                and not _valid_governed_serving_entitlement_binding(
+                    serving_entitlement_binding)):
             serving_gpu_layer_cap_invalid = True
         if operation_kind == "model_serving" and isinstance(
                 serving_entitlement_binding, Mapping):

@@ -1115,25 +1115,45 @@ def test_background_gpu_inference_keeps_background_pressure_classification(
 
 
 @pytest.mark.parametrize(("gpu_layers", "entitlement_schema",
-    "entitlement_age_seconds", "expected_allowed", "expected_reason"), [
-    (8, "v2", 0, True, "allowed"),
+    "entitlement_age_seconds", "expected_allowed", "expected_reason",
+    "entitlement_mutation"), [
+    (8, "v2", 0, True, "allowed", None),
     (9, "v2", 0, False,
-        "deferred_model_serving_gpu_layers_exceed_resource_entitlement"),
+        "deferred_model_serving_gpu_layers_exceed_resource_entitlement", None),
     (None, "v2", 0, False,
-        "deferred_model_serving_gpu_layers_exceed_resource_entitlement"),
+        "deferred_model_serving_gpu_layers_exceed_resource_entitlement", None),
     (8, "v2", 16, False,
-        "deferred_model_serving_resource_entitlement_invalid"),
+        "deferred_model_serving_resource_entitlement_invalid", None),
     (8, "v2", -1, False,
-        "deferred_model_serving_resource_entitlement_invalid"),
+        "deferred_model_serving_resource_entitlement_invalid", None),
     (8, "v1", 0, False,
-        "deferred_model_serving_resource_entitlement_invalid"),
+        "deferred_model_serving_resource_entitlement_invalid", None),
     (8, "missing", 0, False,
-        "deferred_model_serving_resource_entitlement_invalid"),
+        "deferred_model_serving_resource_entitlement_invalid", None),
+    (8, "v2", 0, False,
+        "deferred_model_serving_resource_entitlement_invalid",
+        {"binding_scope": "unbound"}),
+    (8, "v2", 0, False,
+        "deferred_model_serving_resource_entitlement_invalid",
+        {"allocation_digest": "not-a-digest"}),
+    (8, "v2", 0, False,
+        "deferred_model_serving_resource_entitlement_invalid",
+        {"remaining_call_entitlement": 0}),
+    (8, "v2", 0, False,
+        "deferred_model_serving_resource_entitlement_invalid",
+        {"policy_epoch": True}),
+    (8, "v2", 0, False,
+        "deferred_model_serving_resource_entitlement_invalid",
+        {"max_gpu_layers": True}),
+    (8, "v2", 0, False,
+        "deferred_model_serving_resource_entitlement_invalid",
+        {"unrecognized": True}),
 ])
 @pytest.mark.no_legacy_skip
 def test_model_serving_enforces_owner_entitled_gpu_layer_ceiling(
         monkeypatch, tmp_path, gpu_layers, entitlement_schema,
-        entitlement_age_seconds, expected_allowed, expected_reason):
+        entitlement_age_seconds, expected_allowed, expected_reason,
+        entitlement_mutation):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "1.0")
@@ -1176,6 +1196,8 @@ def test_model_serving_enforces_owner_entitled_gpu_layer_ceiling(
         binding.pop("max_gpu_layers")
     elif entitlement_schema == "missing":
         binding = None
+    if isinstance(binding, dict) and entitlement_mutation is not None:
+        binding.update(entitlement_mutation)
     profile = {
         "schema_version": "sentientos.model_execution_profile:v1",
         "engine": "llama_cpp",
