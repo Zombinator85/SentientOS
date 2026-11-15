@@ -4404,6 +4404,36 @@ def test_companion_interaction_uses_existing_history_without_learning_from_curre
     assert result.response not in durable
 
 
+def test_companion_query_selects_relevant_older_experience_over_recent_unrelated_history(
+        tmp_path: Path) -> None:
+    cognition, fake = owner(tmp_path)
+    fake.history_interpretation = "Battery calibration showed a weak cell needs slower charging."
+    relevant = cognition.run_tick(snapshot=snapshot(), tick_id="query-history-relevant")
+    assert relevant.written_record_id
+    unrelated_ids = []
+    for index in range(4):
+        fake.history_interpretation = f"Unrelated astronomy observation number {index}."
+        outcome = cognition.run_tick(snapshot=snapshot(), tick_id=f"query-history-unrelated-{index}")
+        assert outcome.written_record_id
+        unrelated_ids.append(outcome.written_record_id)
+    fake.companion_output_override = {
+        "disposition": "answer", "response": "Historical guidance considered.",
+        "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"]}
+
+    result = cognition.run_companion_interaction(snapshot=snapshot(),
+        request_id="query-history-companion", question="How should battery calibration charge a weak cell?")
+
+    assert result.prior_record_ids == (unrelated_ids[1], unrelated_ids[2],
+        unrelated_ids[3], relevant.written_record_id)
+    assert unrelated_ids[0] not in result.prior_record_ids
+    assert result.history_record_ids == result.prior_record_ids
+    prompt = json.loads(fake.requests[-1].prompt)
+    assert prompt["developmental_history_retrieval_policy_id"] == \
+        "query_overlap_then_recency_fill:v1"
+    assert all(row["current_truth"] is False and row["authority"] is False
+        for row in prompt["developmental_history"])
+
+
 @pytest.mark.parametrize("payload", [
     {"disposition": "answer", "response": "unsupported",
         "evidence_ids": ["not-current"], "history_record_ids": []},

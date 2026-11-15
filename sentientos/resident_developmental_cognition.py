@@ -2826,7 +2826,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "completed_tick_recency_suffix:v1",
                 "task_family_relevant_then_recency_fill:v1",
                 "task_family_probe_overlap_then_recency_fill:v2",
-                "task_family_model_identity_then_probe_overlap_then_recency_fill:v3"}
+                "task_family_model_identity_then_probe_overlap_then_recency_fill:v3",
+                "query_overlap_then_recency_fill:v1"}
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
@@ -5038,6 +5039,7 @@ class ResidentDevelopmentalCognitionOwner:
     def _prior_projection(self, state: Mapping[str, Any], tick_id: str, *,
             task_family_id: str | None = None,
             task_probe_inputs: tuple[int, ...] = (),
+            relevance_query: str | None = None,
             require_task_family_history: bool = False,
             target_model_identity: Mapping[str, Any] | None = None,
             record_allowlist: tuple[str, ...] | None = None
@@ -5076,6 +5078,8 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError(
                     "history_record_allowlist_not_admitted")
             ids = list(record_allowlist)
+        if relevance_query is not None and not isinstance(relevance_query, str):
+            raise ResidentDevelopmentalCognitionError("history_relevance_query_invalid")
         family = task_family_id or (self.objective_task.public_descriptor().get("task_family_id")
             if self.objective_task is not None else None)
         if isinstance(family, str):
@@ -5157,6 +5161,40 @@ class ResidentDevelopmentalCognitionOwner:
             else:
                 # Keep the established family-only order for legacy callers.
                 ids = list(reversed(selected))
+        elif relevance_query is not None and relevance_query.strip():
+            # Companion requests can retrieve older admitted interpretations by
+            # lexical overlap, while preserving checkpoint order for ties and
+            # filling unused slots from the recent suffix. This ranks history;
+            # it does not establish truth or correctness.
+            terms = {term.casefold() for term in re.findall(r"[A-Za-z0-9_]{3,}", relevance_query)}
+            ranked: list[tuple[int, int, str]] = []
+            for order, record_id in enumerate(ids):
+                try:
+                    record = self.writeback.store.get(record_id)
+                except Exception as exc:
+                    raise ResidentDevelopmentalCognitionError(
+                        "relevant_history_recovery_failed") from exc
+                candidate = record.candidate
+                searchable = " ".join(str(candidate.get(key, "")) for key in
+                    ("interpretation", "uncertainty", "epistemic_status")) if isinstance(candidate, Mapping) else ""
+                query_overlap = len(terms & {term.casefold() for term in
+                    re.findall(r"[A-Za-z0-9_]{3,}", searchable)})
+                if query_overlap:
+                    ranked.append((query_overlap, order, record_id))
+            ranked.sort(reverse=True)
+            selected = [item[2] for item in ranked[:self.config.max_retrieved_records]]
+            selected_set = set(selected)
+            for record_id in reversed(ids):
+                if len(selected) >= self.config.max_retrieved_records:
+                    break
+                if record_id not in selected_set:
+                    selected.append(record_id)
+                    selected_set.add(record_id)
+            # History budgeting keeps a complete suffix. Put strongest query
+            # matches last so ranking survives a smaller input budget.
+            overlap_by_id = {item[2]: item[0] for item in ranked}
+            ids = sorted(selected, key=lambda record_id: (
+                overlap_by_id.get(record_id, 0), ids.index(record_id)))
         ids = ids[-self.config.max_retrieved_records:]
         return self.writeback.retrieve(ids, limit=self.config.max_retrieved_records)
 
@@ -5852,7 +5890,9 @@ class ResidentDevelopmentalCognitionOwner:
                 and isinstance(observed_target_identity, Mapping)
                 and bool(observed_target_identity))
             else "task_family_probe_overlap_then_recency_fill:v2"
-            if isinstance(task_family_id, str) else "completed_tick_recency_suffix:v1")
+            if isinstance(task_family_id, str) else
+            "query_overlap_then_recency_fill:v1"
+            if interaction_question is not None else "completed_tick_recency_suffix:v1")
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
                 projection=prior_epistemic_state, history_present=with_history,
@@ -6353,7 +6393,8 @@ class ResidentDevelopmentalCognitionOwner:
         capture: dict[str, Any] = {}
         with self._composition_lock():
             state = self._state()
-            projection = self._prior_projection(state, tick_id)
+            projection = self._prior_projection(state, tick_id,
+                relevance_query=question)
             current = self._current_projection(snapshot)
             observation = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
                 projection=projection, with_history=bool(projection.requested_record_ids),
