@@ -1498,6 +1498,45 @@ def _task_family_guidance_examples(examples: object, *, effect: Mapping[str, Any
     return guidance, omission
 
 
+def _task_family_history_retrieval_utility(experiences: object, *,
+        target_model_identity: Mapping[str, Any] | None,
+        task_probe_inputs: set[int]) -> tuple[int, int, int]:
+    """Rank validated family history by outcome posture, correct examples, and probe overlap."""
+    if not isinstance(experiences, (list, tuple)):
+        return (0, 0, 0)
+    outcome_priority = 0
+    correct_example_count = 0
+    probe_overlap: set[int] = set()
+    for experience in experiences:
+        if not isinstance(experience, Mapping):
+            continue
+        if _task_family_model_applicability(experience,
+                target_model_identity=target_model_identity)[
+                "model_identity_relation"] != "same_active_model_identity":
+            continue
+        effect = experience.get("controlled_task_effect")
+        examples = experience.get("examples", ())
+        if not isinstance(effect, Mapping):
+            continue
+        guidance, _ = _task_family_guidance_examples(examples,
+            effect=effect, source_fact_id=experience.get("source_fact_id"))
+        if not guidance:
+            continue
+        classification = effect.get("effect_classification")
+        priority = (3 if effect.get("posture")
+            == "complete_comparable_condition_scores"
+            and classification == "history_favorable" else
+            2 if effect.get("posture")
+            == "complete_comparable_condition_scores"
+            and classification == "no_difference_observed" else 1)
+        outcome_priority = max(outcome_priority, priority)
+        correct_example_count += len(guidance)
+        probe_overlap.update(item["probe_input"] for item in guidance
+            if type(item.get("probe_input")) is int
+            and item["probe_input"] in task_probe_inputs)
+    return outcome_priority, correct_example_count, len(probe_overlap)
+
+
 def _task_family_model_applicability(example: Mapping[str, Any], *,
         target_model_identity: Mapping[str, Any] | None) -> dict[str, Any]:
     """Compare exact recorded identities while keeping task-family scope explicit."""
@@ -3130,6 +3169,7 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "task_family_relevant_then_recency_fill:v1",
                 "task_family_probe_overlap_then_recency_fill:v2",
                 "task_family_model_identity_then_probe_overlap_then_recency_fill:v3",
+                "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4",
                 "query_overlap_then_recency_fill:v1",
                 "query_overlap_with_operator_reports_then_recency_fill:v2",
                 "query_overlap_with_operator_reports_then_recency_fill:v3",
@@ -3143,7 +3183,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
     family_policy = selection.get("retrieval_policy_id") in {
         "task_family_relevant_then_recency_fill:v1",
         "task_family_probe_overlap_then_recency_fill:v2",
-        "task_family_model_identity_then_probe_overlap_then_recency_fill:v3"}
+        "task_family_model_identity_then_probe_overlap_then_recency_fill:v3",
+        "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4"}
     if family_policy != isinstance(family, str):
         raise ResidentDevelopmentalCognitionError(
             "developmental_history_selection_policy_family_mismatch")
@@ -5473,6 +5514,8 @@ class ResidentDevelopmentalCognitionOwner:
             probe_set = set(task_probe_inputs)
             relevance: dict[str, int] = {}
             model_relevance: dict[str, int] = {}
+            outcome_relevance: dict[str, int] = {}
+            guidance_example_counts: dict[str, int] = {}
             for record_id in reversed(ids):
                 try:
                     record = self.writeback.store.get(record_id)
@@ -5486,7 +5529,6 @@ class ResidentDevelopmentalCognitionOwner:
                         and fact["payload"].get("objective_task_family") == family]
                 if matching_facts:
                     relevant_newest_first.append(record_id)
-                    overlap: set[int] = set()
                     same_model = False
                     for fact in matching_facts:
                         payload = fact["payload"]
@@ -5500,24 +5542,26 @@ class ResidentDevelopmentalCognitionOwner:
                                 and source_identity_digest == _digest(dict(source_identity))
                                 and dict(source_identity) == dict(target_model_identity)):
                             same_model = True
-                        examples = payload.get("acquisition_examples", ())
-                        if isinstance(examples, (list, tuple)):
-                            for item in examples:
-                                if isinstance(item, Mapping):
-                                    probe_input = item.get("probe_input")
-                                    if type(probe_input) is int and probe_input in probe_set:
-                                        overlap.add(probe_input)
-                    relevance[record_id] = len(overlap)
                     model_relevance[record_id] = int(same_model)
+                    experiences = _task_family_history_examples(candidate,
+                        task_family_id=family)
+                    utility = _task_family_history_retrieval_utility(experiences,
+                        target_model_identity=target_model_identity,
+                        task_probe_inputs=probe_set)
+                    outcome_relevance[record_id], guidance_example_counts[record_id], \
+                        relevance[record_id] = utility
             # Exact active-model identity ranks applicable records first, then
-            # public probe overlap and checkpoint order break ties.
-            # Evaluator correctness is not a filter, so adverse examples survive.
+            # measured outcome posture, evaluator-correct example count, probe
+            # overlap, and checkpoint order. Adverse and unscored examples do
+            # not earn retrieval relevance; their source records remain eligible
+            # as lower-priority historical context.
             # A task that explicitly requires family history must never receive
             # unrelated records as a substitute. Initial acquisition tasks that
             # do not require family history retain the general-history control
             # used by the existing three-condition experiment.
             relevant_newest_first.sort(key=lambda record_id: (
-                model_relevance[record_id], relevance[record_id],
+                model_relevance[record_id], outcome_relevance[record_id],
+                guidance_example_counts[record_id], relevance[record_id],
                 ids.index(record_id)), reverse=True)
             selected = list(relevant_newest_first[:self.config.max_retrieved_records])
             selected_set = set(selected)
@@ -5536,6 +5580,8 @@ class ResidentDevelopmentalCognitionOwner:
                 ids = sorted((record_id for record_id in ids
                     if record_id in selected_set), key=lambda record_id: (
                         model_relevance.get(record_id, 0),
+                        outcome_relevance.get(record_id, 0),
+                        guidance_example_counts.get(record_id, 0),
                         relevance.get(record_id, -1), ids.index(record_id)))
             else:
                 # Keep the established family-only order for legacy callers.
@@ -6292,7 +6338,7 @@ class ResidentDevelopmentalCognitionOwner:
                 else _observed_current_cognition_model_identity(self.invoker))
         context["developmental_history_target_model_identity"] = observed_target_identity
         context["developmental_history_retrieval_policy_id"] = (
-            "task_family_model_identity_then_probe_overlap_then_recency_fill:v3"
+            "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4"
             if (isinstance(task_family_id, str)
                 and isinstance(observed_target_identity, Mapping)
                 and bool(observed_target_identity))
@@ -7425,7 +7471,7 @@ class ResidentDevelopmentalCognitionOwner:
                             "requires_task_family_history") is True),
                     "developmental_history_target_model_identity": preflight_target_model_identity,
                     "developmental_history_retrieval_policy_id": (
-                        "task_family_model_identity_then_probe_overlap_then_recency_fill:v3"
+                        "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4"
                         if (isinstance(family_for_preflight, str)
                             and isinstance(preflight_target_model_identity, Mapping)
                             and bool(preflight_target_model_identity))

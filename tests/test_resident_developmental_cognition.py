@@ -1383,7 +1383,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert later.written_record_id not in withheld["retrieved_record_ids"]
     assert later.written_record_id in restored["retrieved_record_ids"]
     assert present["developmental_history_selection"]["retrieval_policy_id"] == \
-        "task_family_model_identity_then_probe_overlap_then_recency_fill:v3"
+        "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4"
     assert present["developmental_history_selection"]["task_family_id"] == \
         "integer_affine_prediction"
     assert withheld["developmental_history_selection"]["treatment"] == "withheld"
@@ -1875,6 +1875,26 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     assert final_progression["learning_established"] is False
     assert final_progression["performance_improvement_established"] is False
 
+    # Counterfactual retrieval pressure: place the adverse record last in a
+    # synthetic checkpoint ordering and give the owner one record slot. The
+    # validated corrective example must still outrank recency.
+    limited_retrieval_owner, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"),
+        max_selected_facts=16, max_retrieved_records=1)
+    retrieval_state = limited_retrieval_owner._state()
+    adverse_tick = next(row for row in retrieval_state["completed_ticks"]
+        if row.get("record_id") == retained.record_id)
+    corrective_tick = next(row for row in retrieval_state["completed_ticks"]
+        if row.get("record_id") == corrective_record.record_id)
+    counterfactual_state = {**retrieval_state, "completed_ticks": [
+        corrective_tick, adverse_tick]}
+    prioritized = limited_retrieval_owner._prior_projection(
+        counterfactual_state, "retrieval-outcome-counterfactual",
+        task_family_id="integer_affine_prediction", task_probe_inputs=(14,),
+        require_task_family_history=True,
+        target_model_identity=fake.active_model_identity)
+    assert prioritized.requested_record_ids == (corrective_record.record_id,)
+
     # Rebuild the epistemic owner and admission controller independently. Both
     # adverse source digests, the contextual tie, and the favorable source
     # digest remain in the same proposition history; the favorable result does
@@ -2257,7 +2277,7 @@ print(json.dumps({"stance": state.stance if state else None,
 def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
     from sentientos.resident_developmental_cognition import (
         _digest as cognition_digest, _task_family_guidance_examples,
-        _task_family_history_prompt_projection,
+        _task_family_history_prompt_projection, _task_family_history_retrieval_utility,
     )
 
     effect = {
@@ -2301,6 +2321,23 @@ def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
     assert withheld["examples_digest"] == omission["examples_digest"]
     assert projection["authority"] is False
     assert projection["current_truth"] is False
+
+    identity = {"provider": "fixture", "model": "retrieval-ranking"}
+    favorable = {"source_active_model_identity": identity,
+        "source_active_model_identity_digest": cognition_digest(identity),
+        "examples": examples[:1],
+        "controlled_task_effect": {**effect,
+            "effect_classification": "history_favorable"}}
+    adverse = {"source_active_model_identity": identity,
+        "source_active_model_identity_digest": cognition_digest(identity),
+        "examples": [*examples, {"probe_input": 5, "observed_answer": 23,
+            "evaluator_correct": True}],
+        "controlled_task_effect": {**effect,
+            "effect_classification": "history_adverse"}}
+    assert _task_family_history_retrieval_utility([favorable],
+        target_model_identity=identity, task_probe_inputs={2}) == (3, 1, 1)
+    assert _task_family_history_retrieval_utility([adverse],
+        target_model_identity=identity, task_probe_inputs={2, 3, 4, 5}) == (0, 0, 0)
 
 
 class RootlessHistoryFakeInvoker(FakeInvoker):
@@ -5046,7 +5083,8 @@ def test_companion_bridge_consumes_existing_self_model_and_epistemic_projections
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None,
           allowed_source_kinds: tuple[str, ...] = ("capability_registry",),
           max_selected_facts: int = 1, objective_task=None,
-          resource_context_owner=None, max_inference_timeout_seconds: int = 30):
+          resource_context_owner=None, max_inference_timeout_seconds: int = 30,
+          max_retrieved_records: int = 4):
     ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
     def current():
@@ -5058,7 +5096,8 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
         admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger), current_sequence=current)
     fake = invoker or FakeInvoker()
     result = ResidentDevelopmentalCognitionOwner(config=ResidentDevelopmentalCognitionConfig(
-        root / "history", root / "state", allowed_source_kinds, max_selected_facts, 4,
+        root / "history", root / "state", allowed_source_kinds, max_selected_facts,
+        max_retrieved_records,
         comparison, max_inference_timeout_seconds=max_inference_timeout_seconds), writeback=ctrl,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
         invoker=fake, current_sequence=next_sequence, objective_task=objective_task,
