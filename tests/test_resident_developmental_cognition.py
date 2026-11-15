@@ -1383,7 +1383,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert later.written_record_id not in withheld["retrieved_record_ids"]
     assert later.written_record_id in restored["retrieved_record_ids"]
     assert present["developmental_history_selection"]["retrieval_policy_id"] == \
-        "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4"
+        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v5"
     assert present["developmental_history_selection"]["task_family_id"] == \
         "integer_affine_prediction"
     assert withheld["developmental_history_selection"]["treatment"] == "withheld"
@@ -2338,6 +2338,9 @@ def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
         target_model_identity=identity, task_probe_inputs={2}) == (3, 1, 1)
     assert _task_family_history_retrieval_utility([adverse],
         target_model_identity=identity, task_probe_inputs={2, 3, 4, 5}) == (0, 0, 0)
+    other_identity = {"provider": "fixture", "model": "another-retrieval-ranking"}
+    assert _task_family_history_retrieval_utility([favorable],
+        target_model_identity=other_identity, task_probe_inputs={2}) == (3, 1, 1)
 
 
 class RootlessHistoryFakeInvoker(FakeInvoker):
@@ -2635,7 +2638,7 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     other_identity = {"provider": "fixture", "model": "other-model"}
     assert _task_family_model_applicability(bound_projection,
         target_model_identity=other_identity)["applicability_posture"] == \
-        "cross_model_transfer_not_established"
+        "cross_model_oracle_verified_examples_only_performance_unproven"
     assert _task_family_model_applicability(bound_projection,
         target_model_identity=None)["model_identity_relation"] == "model_identity_unbound"
     from sentientos.resident_developmental_cognition import _compact_task_family_history_example
@@ -2668,13 +2671,21 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         "created_at": "fixture-time", "epistemic_posture": "historical_only"},
         task_family_id="integer_affine_prediction",
         target_model_identity=other_identity, compact_for_input_budget=True)
-    assert "task_relevant_experience" not in cross_model_packet
-    omission = cross_model_packet["task_relevant_experience_omission"]
-    assert omission["posture"] == \
-        "identity_not_matched_examples_withheld_from_task_guidance"
-    assert omission["omitted_source_fact_ids"] == [bound_projection["source_fact_id"]]
-    assert omission["omitted_evidence_digest"]
-    assert len(omission["omission_evidence"][0]["historical_outcomes"]) == 3
+    [cross_model_experience] = cross_model_packet["task_relevant_experience"]
+    assert cross_model_experience["model_identity_relation"] == \
+        "different_active_model_identity"
+    assert cross_model_experience["applicability_posture"] == \
+        "cross_model_oracle_verified_examples_only_performance_unproven"
+    assert all(item["evaluator_correct"] is True
+        for item in cross_model_experience["examples"])
+    unbound_model_packet = _history_context_packet({"record_id": admitted.record_id,
+        "record_digest": admitted.record_digest, "candidate": bound_model_identity,
+        "created_at": "fixture-time", "epistemic_posture": "historical_only"},
+        task_family_id="integer_affine_prediction", target_model_identity=None,
+        compact_for_input_budget=True)
+    assert "task_relevant_experience" not in unbound_model_packet
+    assert unbound_model_packet["task_relevant_experience_omission"]["posture"] == \
+        "model_identity_unbound_examples_withheld_from_task_guidance"
     assert _task_family_history_examples(admitted.candidate,
         task_family_id="unrelated_family") == []
 
@@ -3032,9 +3043,8 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert third_progression["execution_evidence_scope"] == (
         "authenticated_owner_receipts_not_independent_backend_observation")
 
-    # Reconstruct again under a different model identity. Historical source
-    # scores and omission evidence remain inspectable, while structured probe
-    # examples are withheld from this target model's task guidance.
+    # Reconstruct under a different model identity. Only exact evaluator-correct
+    # examples cross the identity boundary, with the source and scope posture intact.
     cross_model_task = ObjectivePredictionTask(3, 2, 20, (21, 22),
         task_family_id="integer_affine_prediction", requires_task_family_history=True)
     _, cross_model_request, cross_model_eligible = stage_request(config_path=config_path,
@@ -3052,18 +3062,21 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         active_model_identity=cross_model_identity, publish_session=True)
     cross_model_scores = {row["condition_id"]: row["score"]
         for row in cross_model_episode["run"]["objective_scores"]}
-    assert all(row["correct_count"] == 0 for row in cross_model_scores.values())
+    assert cross_model_scores["history_present"]["correct_count"] == 3
+    assert cross_model_scores["history_withheld"]["correct_count"] == 0
+    assert cross_model_scores["history_restored"]["correct_count"] == 3
     cross_prompt = json.loads(cross_model_episode["prompts"]["history_present"])
     cross_history = cross_prompt["developmental_history"]
-    assert not any("task_relevant_experience" in item for item in cross_history)
-    cross_omissions = [item["task_relevant_experience_omission"]
-        for item in cross_history if "task_relevant_experience_omission" in item]
-    assert cross_omissions
-    assert all(item["omitted_evidence_digest"] for item in cross_omissions)
-    assert any(any(outcome["correct_count"] == 3
-            for evidence in item["omission_evidence"]
-            for outcome in evidence["historical_outcomes"])
-        for item in cross_omissions)
+    cross_experiences = [experience for item in cross_history
+        for experience in item.get("task_relevant_experience", ())]
+    assert cross_experiences
+    assert all(experience["model_identity_relation"] ==
+        "different_active_model_identity" for experience in cross_experiences)
+    assert all(experience["applicability_posture"] ==
+        "cross_model_oracle_verified_examples_only_performance_unproven"
+        for experience in cross_experiences)
+    assert all(example["evaluator_correct"] is True
+        for experience in cross_experiences for example in experience["examples"])
 
     tampered_receipt = next(receipt.receipt_id for receipt in fake.receipts.values()
         if receipt.purpose == "resident_developmental_history_intervention_experiment"

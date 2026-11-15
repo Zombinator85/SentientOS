@@ -344,7 +344,9 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "validated corrective experience. A history_favorable comparison may inform the exact task family, but rely on "
     "evaluator-correct examples only and do not generalize beyond the recorded suite. For no_difference_observed or "
     "comparison_unavailable, the history has no demonstrated benefit; treat any evaluator-correct example as tentative "
-    "and retain uncertainty. These summaries do not establish generalization or learning. "
+    "and retain uncertainty. Examples from a different bound model identity remain oracle-verified task examples, "
+    "not evidence of cross-model performance transfer; use only for their exact task family and do not claim "
+    "generalization or learning. These summaries do not establish generalization or learning. "
     "Treat measured, estimated, predicted, and unknown quantities according to their source posture; "
     "never infer per-invocation CPU, GPU, energy, or token measurements from shared host use, call counts, output size, "
     "or latency."
@@ -1512,7 +1514,8 @@ def _task_family_history_retrieval_utility(experiences: object, *,
             continue
         if _task_family_model_applicability(experience,
                 target_model_identity=target_model_identity)[
-                "model_identity_relation"] != "same_active_model_identity":
+                "model_identity_relation"] not in {
+                    "same_active_model_identity", "different_active_model_identity"}:
             continue
         effect = experience.get("controlled_task_effect")
         examples = experience.get("examples", ())
@@ -1555,7 +1558,7 @@ def _task_family_model_applicability(example: Mapping[str, Any], *,
         posture = "same_family_same_model_task_scope_unverified"
     else:
         relation = "different_active_model_identity"
-        posture = "cross_model_transfer_not_established"
+        posture = "cross_model_oracle_verified_examples_only_performance_unproven"
     return {"target_active_model_identity_digest": target_digest,
         "model_identity_relation": relation, "applicability_posture": posture}
 
@@ -2571,9 +2574,10 @@ def _history_context_packet(record: Mapping[str, Any], *,
             item.update(_task_family_model_applicability(item,
                 target_model_identity=target_model_identity))
         eligible = [item for item in task_examples
-            if item.get("model_identity_relation") == "same_active_model_identity"]
+            if item.get("model_identity_relation") in {
+                "same_active_model_identity", "different_active_model_identity"}]
         omitted = [item for item in task_examples
-            if item.get("model_identity_relation") != "same_active_model_identity"]
+            if item.get("model_identity_relation") == "model_identity_unbound"]
         if eligible:
             if task_family_scoped:
                 packet["selected_fact_ids"] = sorted({
@@ -2616,7 +2620,7 @@ def _history_context_packet(record: Mapping[str, Any], *,
                     if isinstance(outcome, Mapping)],
             } for item in omitted]
             packet["task_relevant_experience_omission"] = {
-                "posture": "identity_not_matched_examples_withheld_from_task_guidance",
+                "posture": "model_identity_unbound_examples_withheld_from_task_guidance",
                 "omitted_example_count": len(omitted),
                 "omitted_source_fact_ids": [item.get("source_fact_id") for item in omitted],
                 "omitted_evidence_digest": _digest(omission_evidence),
@@ -3169,7 +3173,7 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "task_family_relevant_then_recency_fill:v1",
                 "task_family_probe_overlap_then_recency_fill:v2",
                 "task_family_model_identity_then_probe_overlap_then_recency_fill:v3",
-                "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4",
+                "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v5",
                 "query_overlap_then_recency_fill:v1",
                 "query_overlap_with_operator_reports_then_recency_fill:v2",
                 "query_overlap_with_operator_reports_then_recency_fill:v3",
@@ -3184,7 +3188,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
         "task_family_relevant_then_recency_fill:v1",
         "task_family_probe_overlap_then_recency_fill:v2",
         "task_family_model_identity_then_probe_overlap_then_recency_fill:v3",
-        "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4"}
+        "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4",
+        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v5"}
     if family_policy != isinstance(family, str):
         raise ResidentDevelopmentalCognitionError(
             "developmental_history_selection_policy_family_mismatch")
@@ -5550,18 +5555,18 @@ class ResidentDevelopmentalCognitionOwner:
                         task_probe_inputs=probe_set)
                     outcome_relevance[record_id], guidance_example_counts[record_id], \
                         relevance[record_id] = utility
-            # Exact active-model identity ranks applicable records first, then
-            # measured outcome posture, evaluator-correct example count, probe
-            # overlap, and checkpoint order. Adverse and unscored examples do
-            # not earn retrieval relevance; their source records remain eligible
-            # as lower-priority historical context.
+            # Evaluator-correct guidance and measured outcome posture rank first;
+            # exact active-model identity breaks ties before probe overlap and
+            # checkpoint order. Oracle-verified examples can remain useful
+            # across model identities, while adverse and unscored examples earn
+            # no guidance relevance.
             # A task that explicitly requires family history must never receive
             # unrelated records as a substitute. Initial acquisition tasks that
             # do not require family history retain the general-history control
             # used by the existing three-condition experiment.
             relevant_newest_first.sort(key=lambda record_id: (
-                model_relevance[record_id], outcome_relevance[record_id],
-                guidance_example_counts[record_id], relevance[record_id],
+                outcome_relevance[record_id], guidance_example_counts[record_id],
+                model_relevance[record_id], relevance[record_id],
                 ids.index(record_id)), reverse=True)
             selected = list(relevant_newest_first[:self.config.max_retrieved_records])
             selected_set = set(selected)
@@ -5579,9 +5584,9 @@ class ResidentDevelopmentalCognitionOwner:
                 # checkpoint order remains the stable tie-breaker.
                 ids = sorted((record_id for record_id in ids
                     if record_id in selected_set), key=lambda record_id: (
-                        model_relevance.get(record_id, 0),
                         outcome_relevance.get(record_id, 0),
                         guidance_example_counts.get(record_id, 0),
+                        model_relevance.get(record_id, 0),
                         relevance.get(record_id, -1), ids.index(record_id)))
             else:
                 # Keep the established family-only order for legacy callers.
@@ -6338,7 +6343,7 @@ class ResidentDevelopmentalCognitionOwner:
                 else _observed_current_cognition_model_identity(self.invoker))
         context["developmental_history_target_model_identity"] = observed_target_identity
         context["developmental_history_retrieval_policy_id"] = (
-            "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4"
+            "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v5"
             if (isinstance(task_family_id, str)
                 and isinstance(observed_target_identity, Mapping)
                 and bool(observed_target_identity))
@@ -7471,7 +7476,7 @@ class ResidentDevelopmentalCognitionOwner:
                             "requires_task_family_history") is True),
                     "developmental_history_target_model_identity": preflight_target_model_identity,
                     "developmental_history_retrieval_policy_id": (
-                        "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4"
+                        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v5"
                         if (isinstance(family_for_preflight, str)
                             and isinstance(preflight_target_model_identity, Mapping)
                             and bool(preflight_target_model_identity))
