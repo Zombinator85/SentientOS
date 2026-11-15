@@ -3078,6 +3078,57 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert all(example["evaluator_correct"] is True
         for experience in cross_experiences for example in experience["examples"])
 
+    # Feed this cross-model result through ordinary World-State composition
+    # and writeback, then reconstruct under a third identity for a new task.
+    cross_run = cross_model_episode["run"]
+    cross_world = WorldStateBoardBuilder().build(
+        cognition.experiments.world_state_records(run_refs=((
+            cross_run["run_id"], cross_run["run_digest"]),)))
+    cross_feedback = cognition.run_tick(snapshot=cross_world,
+        tick_id="cross-model-transfer-feedback")
+    assert cross_feedback.written_record_id
+    cross_admitted = cognition.writeback.store.get(cross_feedback.written_record_id)
+    cross_admitted_experiences = _task_family_history_examples(
+        cross_admitted.candidate, task_family_id="integer_affine_prediction")
+    [cross_admitted_experience] = cross_admitted_experiences
+    assert cross_admitted_experience["source_active_model_identity"] == cross_model_identity
+    assert cross_admitted_experience["controlled_task_effect"][
+        "effect_classification"] == "history_favorable"
+    assert all(item["evaluator_correct"] is True
+        for item in cross_admitted_experience["examples"])
+
+    fourth_task = ObjectivePredictionTask(3, 2, 24, (25, 26),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    _, fourth_request, fourth_eligible = stage_request(config_path=config_path,
+        request_id="episode-third-model-after-cross-model-feedback", task=fourth_task)
+    assert fourth_eligible >= 1
+    third_model_identity = {"provider": "fixture", "model": "third-model"}
+    fourth_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="episode-third-model-after-cross-model-feedback",
+        request_digest=str(fourth_request["request_digest"]),
+        prior_request_refs=(
+            ("episode-acquisition", str(acquisition_request["request_digest"])),
+            ("episode-heldout-after-restart", str(heldout_request["request_digest"])),
+            ("episode-third-after-recovered-feedback", str(third_request["request_digest"])),
+            ("episode-cross-model-guidance-gate", str(cross_model_request["request_digest"]))),
+        active_model_identity=third_model_identity, publish_session=True)
+    assert "run" in fourth_episode, fourth_episode
+    fourth_scores = {row["condition_id"]: row["score"]
+        for row in fourth_episode["run"]["objective_scores"]}
+    assert fourth_scores["history_present"]["correct_count"] == 3
+    assert fourth_scores["history_withheld"]["correct_count"] == 0
+    assert fourth_scores["history_restored"]["correct_count"] == 3
+    fourth_prompt = json.loads(fourth_episode["prompts"]["history_present"])
+    fourth_history = fourth_prompt["developmental_history"]
+    cross_retained = next(experience for packet in fourth_history
+        if packet.get("record_id") == cross_feedback.written_record_id
+        for experience in packet.get("task_relevant_experience", ()))
+    assert cross_retained["model_identity_relation"] == \
+        "different_active_model_identity"
+    assert cross_retained["source_active_model_identity"] == cross_model_identity
+    assert all(item["evaluator_correct"] is True for item in cross_retained["examples"])
+
     tampered_receipt = next(receipt.receipt_id for receipt in fake.receipts.values()
         if receipt.purpose == "resident_developmental_history_intervention_experiment"
         and "objective_task_plan_digest" in receipt.request.get("upstream_evidence", {}))
