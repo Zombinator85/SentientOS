@@ -2114,11 +2114,16 @@ class PersistentConversationService:
             seen_ids.add(memory_id)
         if not selected:
             return None
+        source_binding_omitted = len(selected) < len(retrieved["memories"])
+        selection_posture = ("matching_records_omitted" if source_binding_omitted
+            else str(retrieved.get("selection_posture", "unknown")))
+        retrieval_posture = ("partial_source_verification" if source_binding_omitted
+            else str(retrieved.get("retrieval_posture", "unknown")))
         semantic = {
             "schema_version": "sentientos.canonical_user_memory_cognition_context:v1",
             "source_snapshot_digest": retrieved["snapshot_digest"],
-            "retrieval_posture": str(retrieved.get("retrieval_posture", "unknown")),
-            "selection_posture": str(retrieved.get("selection_posture", "unknown")),
+            "retrieval_posture": retrieval_posture,
+            "selection_posture": selection_posture,
             "records": selected, "read_only": True,
             "historical_only": True, "current_truth": False,
             "authority": False, "mutation_performed": False,

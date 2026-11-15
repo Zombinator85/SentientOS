@@ -155,8 +155,12 @@ The source integration is covered by
 and resident owner binding and fail-closed authority handling by
 `tests/test_resident_developmental_cognition.py::test_canonical_user_memory_is_prompt_bound_historical_context_not_evidence`.
 That source test also rewrites a retained artifact and its local text digest;
-source-turn and receipt verification then keep the altered content out of the
-resident context. The end-to-end deterministic bridge test
+source-turn and receipt verification keep the altered content out of resident
+context. When another valid match remains, the chat layer marks that projection
+partial rather than silently presenting the survivor as the complete result;
+`tests/test_persistent_governed_conversation.py::test_failed_memory_source_verification_forces_resident_clarification`
+shows the owner then replaces a memory-citing answer with a clarification and
+persists no memory citation for it. The end-to-end deterministic bridge test
 `tests/test_persistent_governed_conversation.py::test_verified_retained_memory_supports_cited_answer_after_service_reconstruction`
 reconstructs both the resident owner and conversation service over durable
 roots, then shows that an explicitly retained preference can be selected for

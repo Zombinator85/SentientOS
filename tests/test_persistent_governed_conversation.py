@@ -326,7 +326,7 @@ def test_resident_cognition_bridge_delivers_receipt_linked_answer_and_recovers(
 
 def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
         tmp_path: Path) -> None:
-    retained_text = "I prefer concise answers."
+    retained_texts = ("I prefer concise answers.", "I prefer detailed answers.")
     memory_contexts = []
 
     class CognitionBridge:
@@ -356,9 +356,12 @@ def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
 
     app = service(tmp_path, FakeInvoker(), cognition_bridge=CognitionBridge())
     session_id = app.create_session()
-    saved = app.chat(retained_text, session_id=session_id,
+    saved = app.chat(retained_texts[0], session_id=session_id,
         request_id="explicit-memory-retention", retain=True)
     assert saved.retention["status"] == "memory_retention_committed"
+    second_saved = app.chat(retained_texts[1], session_id=session_id,
+        request_id="explicit-memory-correction-retention", retain=True)
+    assert second_saved.retention["status"] == "memory_retention_committed"
 
     response = app.chat("What do I prefer?", session_id=session_id,
         request_id="resident-memory-recall")
@@ -367,18 +370,18 @@ def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
     assert len(memory_contexts) == 1
     context = memory_contexts[0]
     assert context["schema_version"] == "sentientos.canonical_user_memory_cognition_context:v1"
-    assert context["records"][0]["text"] == retained_text
+    assert {row["text"] for row in context["records"]} == set(retained_texts)
     assert context["records"][0]["memory_id"].startswith("memory-")
     assert context["records"][0]["historical_only"] is True
     assert context["records"][0]["current_truth"] is False
     assert context["records"][0]["authority"] is False
     assert context["mutation_performed"] is False
     assert response.context["cognition_memory_citation_ids"] == [
-        context["records"][0]["memory_id"]]
+        row["memory_id"] for row in context["records"]]
     assert response.context["cognition_memory_selection_digest"] == context["selection_digest"]
     assert context["selection_digest"] == digest({key: value
         for key, value in context.items() if key != "selection_digest"})
-    assert len(app.sessions.load(session_id)["turns"]) == 4
+    assert len(app.sessions.load(session_id)["turns"]) == 6
 
     # A record whose text and local digest are both rewritten still fails
     # source-turn and admission-receipt verification before resident use.
@@ -389,7 +392,81 @@ def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
     memory_path.write_text(json.dumps(altered, sort_keys=True) + "\n", encoding="utf-8")
     app.chat("What do I prefer?", session_id=session_id,
         request_id="resident-memory-recall-after-tamper")
-    assert memory_contexts[-1] is None
+    remaining_context = memory_contexts[-1]
+    assert remaining_context is not None
+    assert len(remaining_context["records"]) == 1
+    assert remaining_context["selection_posture"] == "matching_records_omitted"
+    assert remaining_context["retrieval_posture"] == "partial_source_verification"
+
+
+def test_failed_memory_source_verification_forces_resident_clarification(
+        tmp_path: Path) -> None:
+    from tests.test_resident_developmental_cognition import (
+        FakeInvoker as CognitionFakeInvoker, owner as cognition_owner,
+    )
+    from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+
+    class AnswerFromSelectedMemory(CognitionFakeInvoker):
+        observed_memory_context: dict[str, object] | None = None
+
+        def invoke(self, request, **kwargs):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                context = prompt.get("canonical_user_memory_context")
+                self.observed_memory_context = context
+                records = context.get("records", []) if isinstance(context, dict) else []
+                self.companion_output_override = {
+                    "disposition": "answer",
+                    "response": "You prefer the retained answer style.",
+                    "evidence_ids": [], "history_record_ids": [],
+                    "memory_record_ids": [row["memory_id"] for row in records],
+                }
+            return super().invoke(request, **kwargs)
+
+    now = datetime.now(timezone.utc)
+    screen = {"modality": "screen", "text": "A neutral test scene is visible.",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False,
+        "text_change_kind": "initial", "previous_text_digest": None}
+    cognition_invoker = AnswerFromSelectedMemory()
+    cognition, _ = cognition_owner(tmp_path / "cognition", invoker=cognition_invoker)
+    app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
+        cognition_bridge=ResidentDevelopmentalCompanionBridge(cognition,
+            clock=lambda: now))
+    session_id = app.create_session()
+    for index, text in enumerate((
+            "I prefer concise answers.", "I prefer detailed answers.")):
+        app.chat(text, session_id=session_id,
+            request_id=f"source-check-memory-{index}", retain=True)
+
+    retrieved = app.memories.retrieve("What answer style should you use?")
+    tampered_id = retrieved["selected_memory_ids"][0]
+    memory_path = app.memories.raw / f"{tampered_id}.json"
+    altered = json.loads(memory_path.read_text(encoding="utf-8"))
+    altered["text"] = "I prefer verbose answers."
+    altered["text_digest"] = digest({"text": altered["text"]})
+    memory_path.write_text(json.dumps(altered, sort_keys=True) + "\n", encoding="utf-8")
+
+    response = app.chat("What answer style should you use?", session_id=session_id,
+        request_id="source-check-memory-clarification", observe_screen=True)
+
+    memory_context = cognition_invoker.observed_memory_context
+    assert memory_context is not None
+    assert memory_context["selection_posture"] == "matching_records_omitted"
+    assert memory_context["retrieval_posture"] == "partial_source_verification"
+    assert len(memory_context["records"]) == 1
+    assert memory_context["records"][0]["memory_id"] != tampered_id
+    assert response.response == (
+        "I found relevant retained statements, but the available memory context is "
+        "incomplete. Which statement should I use?")
+    linkage = app.sessions.load(session_id)["turns"][-1]["linkage"]
+    assert linkage["cognition_memory_citation_ids"] == []
+    observation = cognition.verified_cognition_observation(
+        linkage["cognition_observation_id"], linkage["cognition_observation_digest"])
+    assert len(observation["canonical_user_memory_record_ids"]) == 1
+    assert observation["companion_memory_citation_ids"] == []
 
 
 def test_verified_retained_memory_supports_cited_answer_after_service_reconstruction(
