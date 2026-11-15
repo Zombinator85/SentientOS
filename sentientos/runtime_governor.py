@@ -2924,6 +2924,14 @@ class RuntimeGovernor:
             "governed_inference_entitlement_binding")
         serving_gpu_layer_cap: int | None = None
         serving_gpu_layer_cap_invalid = False
+        resource_governance_required = (
+            operation_kind == "model_serving"
+            and payload.get("resource_governance_required") is True)
+        if (resource_governance_required
+                and (not isinstance(serving_entitlement_binding, Mapping)
+                    or serving_entitlement_binding.get("schema_version") != (
+                        "sentientos.governed_local_model_serving_entitlement_binding:v2"))):
+            serving_gpu_layer_cap_invalid = True
         if operation_kind == "model_serving" and isinstance(
                 serving_entitlement_binding, Mapping):
             binding_schema = serving_entitlement_binding.get("schema_version")
