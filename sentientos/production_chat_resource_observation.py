@@ -561,7 +561,9 @@ class ProductionChatResourceObservationOwner:
                         raise ProductionChatResourceObservationError(
                             "resource_release_target_binding_invalid")
                 receipt_observation = value.get("resource_observation")
-                if value.get("trigger_kind") == "call_entitlement_exhausted":
+                if value.get("trigger_kind") in {
+                        "call_entitlement_exhausted",
+                        "resource_entitlement_invalidated"}:
                     entitlement = (receipt_observation.get(
                         "resource_entitlement_observation")
                         if isinstance(receipt_observation, Mapping) else None)
@@ -588,16 +590,27 @@ class ProductionChatResourceObservationOwner:
                             or set(entitlement) != {"schema_version", "allocation_id",
                                 "allocation_digest", "allocator_id", "resource_kind",
                                 "policy_digest", "policy_epoch", "principal_binding_digest",
-                                "remaining_call_entitlement", "checked_at", "observation_id",
+                                "remaining_call_entitlement", "entitlement_status",
+                                "invalidation_reason_code", "checked_at", "observation_id",
                                 "observation_digest"}
                             or not isinstance(resource_entitlement_binding, Mapping)
                             or not isinstance(evidence, Mapping)
                             or evidence.get("status") != "current"
                             or evidence.get("resource_entitlement_observation") != entitlement
                             or entitlement.get("schema_version") !=
-                                "sentientos.governed_local_model_resource_entitlement_observation:v1"
+                                "sentientos.governed_local_model_resource_entitlement_observation:v2"
                             or type(entitlement.get("remaining_call_entitlement")) is not int
-                            or entitlement.get("remaining_call_entitlement") != 0
+                            or (value.get("trigger_kind") ==
+                                "call_entitlement_exhausted" and (
+                                entitlement.get("entitlement_status") != "exhausted"
+                                or entitlement.get("remaining_call_entitlement") != 0
+                                or entitlement.get("invalidation_reason_code") is not None))
+                            or (value.get("trigger_kind") ==
+                                "resource_entitlement_invalidated" and (
+                                entitlement.get("entitlement_status") != "invalidated"
+                                or entitlement.get("invalidation_reason_code") not in {
+                                    "allocation_expired", "policy_expired", "currentness_stale",
+                                    "principal_expired", "allocation_not_current"}))
                             or type(entitlement.get("policy_epoch")) is not int
                             or not isinstance(entitlement.get("checked_at"), str)
                             or entitlement.get("observation_digest") != entitlement_digest

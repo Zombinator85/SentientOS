@@ -1443,7 +1443,9 @@ class RuntimeGovernor:
         payload = dict(metadata or {})
         identity_digest = payload.get("model_identity_digest")
         reason_code = payload.get("reason_code")
-        entitlement_release = reason_code == "governed_call_entitlement_exhausted"
+        entitlement_release = reason_code in {
+            "governed_call_entitlement_exhausted",
+            "governed_resource_entitlement_invalidated"}
         entitlement_evidence: dict[str, object] | None = None
         entitlement_valid = not entitlement_release
         if entitlement_release:
@@ -1480,9 +1482,17 @@ class RuntimeGovernor:
                     and resource_observation.get("serving_session_id") ==
                         payload.get("serving_session_id")
                     and observation_value.get("schema_version") ==
-                        "sentientos.governed_local_model_resource_entitlement_observation:v1"
+                        "sentientos.governed_local_model_resource_entitlement_observation:v2"
                     and type(observation_value.get("remaining_call_entitlement")) is int
-                    and observation_value.get("remaining_call_entitlement") == 0
+                    and ((reason_code == "governed_call_entitlement_exhausted"
+                            and observation_value.get("entitlement_status") == "exhausted"
+                            and observation_value.get("remaining_call_entitlement") == 0
+                            and observation_value.get("invalidation_reason_code") is None)
+                        or (reason_code == "governed_resource_entitlement_invalidated"
+                            and observation_value.get("entitlement_status") == "invalidated"
+                            and observation_value.get("invalidation_reason_code") in {
+                                "allocation_expired", "policy_expired", "currentness_stale",
+                                "principal_expired", "allocation_not_current"}))
                     and type(observation_value.get("policy_epoch")) is int
                     and isinstance(observation_value.get("observation_digest"), str)
                     and re.fullmatch(r"[0-9a-f]{64}", observation_value.get(
@@ -1517,6 +1527,7 @@ class RuntimeGovernor:
                 "selected_gaming_profile_host_pressure",
                 "conservative_automatic_profile_host_pressure",
                 "governed_call_entitlement_exhausted",
+                "governed_resource_entitlement_invalidated",
                 "rootless_experimental_epistemic_complete",
                 "rootless_experimental_developmental_complete",
             }
@@ -2609,7 +2620,8 @@ class RuntimeGovernor:
                         "verified_game_frame_pressure",
                         "selected_gaming_profile_host_pressure",
                     "conservative_automatic_profile_host_pressure",
-                    "governed_call_entitlement_exhausted"} else
+                    "governed_call_entitlement_exhausted",
+                    "governed_resource_entitlement_invalidated"} else
                     "model_resource_release_request_invalid"),
             subject=subject, scope="local", origin=actor,
             pressure=self.sample_pressure(), metadata=payload,
@@ -2632,10 +2644,22 @@ class RuntimeGovernor:
         observation_id = payload.get("observation_id")
         remaining_call_entitlement = payload.get("remaining_call_entitlement")
         if (payload.get("schema_version") !=
-                "sentientos.governed_local_model_resource_entitlement_observation:v1"
+                "sentientos.governed_local_model_resource_entitlement_observation:v2"
                 or not isinstance(remaining_call_entitlement, int)
                 or isinstance(remaining_call_entitlement, bool)
                 or remaining_call_entitlement < 0
+                or payload.get("entitlement_status") not in {
+                    "current", "exhausted", "invalidated"}
+                or (payload.get("entitlement_status") == "invalidated"
+                    and payload.get("invalidation_reason_code") not in {
+                        "allocation_expired", "policy_expired", "currentness_stale",
+                        "principal_expired", "allocation_not_current"})
+                or (payload.get("entitlement_status") != "invalidated"
+                    and payload.get("invalidation_reason_code") is not None)
+                or (payload.get("entitlement_status") == "exhausted"
+                    and remaining_call_entitlement != 0)
+                or (payload.get("entitlement_status") == "current"
+                    and remaining_call_entitlement <= 0)
                 or type(payload.get("policy_epoch")) is not int
                 or not isinstance(payload.get("checked_at"), str)
                 or not isinstance(observation_digest, str)

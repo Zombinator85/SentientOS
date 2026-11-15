@@ -561,12 +561,18 @@ class ProductionServingInferenceController:
             trigger_kind = "deferred_inference"
         if not isinstance(resource_observation, Mapping) or not isinstance(workload_evidence, Mapping):
             return None
-        entitlement_release = trigger_kind == "call_entitlement_exhausted"
+        entitlement_release = trigger_kind in {
+            "call_entitlement_exhausted", "resource_entitlement_invalidated"}
         if entitlement_release and (
                 not isinstance(serving_entitlement_binding, Mapping)
                 or not isinstance(resource_entitlement_observation, Mapping)
-                or resource_entitlement_observation.get(
-                    "remaining_call_entitlement") != 0):
+                or (trigger_kind == "call_entitlement_exhausted"
+                    and (resource_entitlement_observation.get("entitlement_status") != "exhausted"
+                        or resource_entitlement_observation.get(
+                            "remaining_call_entitlement") != 0))
+                or (trigger_kind == "resource_entitlement_invalidated"
+                    and resource_entitlement_observation.get("entitlement_status") !=
+                        "invalidated")):
             return None
         selected_gaming_profile = trigger_kind in {
             "gaming_profile_resource_reconciliation",
@@ -643,7 +649,7 @@ class ProductionServingInferenceController:
             return None
         profile_release = selected_gaming_profile or conservative_automatic_profile
         host_release_evidence = {
-            "schema_version": ("sentientos.production_local_model_resource_entitlement_release_evidence:v1"
+            "schema_version": ("sentientos.production_local_model_resource_entitlement_release_evidence:v2"
                 if entitlement_release else
                 "sentientos.production_host_gpu_pressure_release_evidence:v1"
                 if general_gpu_pressure else
@@ -717,7 +723,9 @@ class ProductionServingInferenceController:
                 "vram_utilization_percent": resource_observation.get(
                     "vram_utilization_percent"),
             })
-        reason_code = ("governed_call_entitlement_exhausted" if entitlement_release else
+        reason_code = ("governed_resource_entitlement_invalidated"
+            if trigger_kind == "resource_entitlement_invalidated" else
+            "governed_call_entitlement_exhausted" if entitlement_release else
             "host_gpu_pressure_observed" if general_gpu_pressure else
             "host_memory_pressure_observed" if general_memory_pressure else
             "selected_gaming_profile_host_pressure" if selected_gaming_profile
@@ -1055,7 +1063,7 @@ class ProductionServingInferenceController:
                     if (entitlement is not None
                             and self._serving._kernel.observe_governed_local_model_resource_entitlement(
                                 resource_entitlement_owner, entitlement)
-                            and entitlement.remaining_call_entitlement == 0):
+                            and entitlement.entitlement_status in {"exhausted", "invalidated"}):
                         if not isinstance(binding, Mapping):
                             return {"status": "skipped", "reason": "serving_entitlement_binding_required"}
                         try:
@@ -1069,18 +1077,21 @@ class ProductionServingInferenceController:
                                 or any(binding.get(key) != getattr(entitlement, key)
                                     for key in binding_fields)):
                             return {"status": "skipped", "reason": "serving_entitlement_binding_mismatch"}
-                        correlation_id = "resource-entitlement-exhausted-" + entitlement.observation_id
+                        trigger_kind = ("call_entitlement_exhausted"
+                            if entitlement.entitlement_status == "exhausted" else
+                            "resource_entitlement_invalidated")
+                        correlation_id = trigger_kind + "-" + entitlement.observation_id
                         released = self._release_after_host_pressure(
                             session, model, None, resource_observation={}, workload_evidence={},
                             trigger_correlation_id=correlation_id,
-                            trigger_kind="call_entitlement_exhausted",
+                            trigger_kind=trigger_kind,
                             serving_entitlement_binding=binding,
                             resource_entitlement_observation=entitlement.to_dict())
                         if released is None:
                             return {"status": "skipped", "reason": "release_evidence_invalid"}
                         return {"status": released["status"],
                             "release_receipt_id": released["receipt_id"],
-                            "trigger_kind": "call_entitlement_exhausted",
+                            "trigger_kind": trigger_kind,
                             "serving_session_id": session.session_id}
             if workload.get("configured_mode") == "normal":
                 return self._reconcile_idle_normal_resource_pressure()

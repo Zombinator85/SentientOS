@@ -753,7 +753,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             summary["post_release_observation"] = bounded_release_observation(
                 release_receipt.get("post_release_observation"), post_release=True)
             resource_observation = release_receipt.get("resource_observation")
-            if release_receipt.get("trigger_kind") == "call_entitlement_exhausted":
+            if release_receipt.get("trigger_kind") in {
+                    "call_entitlement_exhausted", "resource_entitlement_invalidated"}:
                 entitlement = (resource_observation.get(
                     "resource_entitlement_observation")
                     if isinstance(resource_observation, Mapping) else None)
@@ -786,15 +787,26 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         or set(entitlement) != {"schema_version", "allocation_id",
                             "allocation_digest", "allocator_id", "resource_kind",
                             "policy_digest", "policy_epoch", "principal_binding_digest",
-                            "remaining_call_entitlement", "checked_at", "observation_id",
+                            "remaining_call_entitlement", "entitlement_status",
+                            "invalidation_reason_code", "checked_at", "observation_id",
                             "observation_digest"}
                         or admission_evidence.get("status") != "current"
                         or admission_evidence.get("resource_entitlement_observation")
                             != entitlement
                         or entitlement.get("schema_version") !=
-                            "sentientos.governed_local_model_resource_entitlement_observation:v1"
+                            "sentientos.governed_local_model_resource_entitlement_observation:v2"
                         or type(entitlement.get("remaining_call_entitlement")) is not int
-                        or entitlement.get("remaining_call_entitlement") != 0
+                        or (release_receipt.get("trigger_kind") ==
+                            "call_entitlement_exhausted" and (
+                            entitlement.get("entitlement_status") != "exhausted"
+                            or entitlement.get("remaining_call_entitlement") != 0
+                            or entitlement.get("invalidation_reason_code") is not None))
+                        or (release_receipt.get("trigger_kind") ==
+                            "resource_entitlement_invalidated" and (
+                            entitlement.get("entitlement_status") != "invalidated"
+                            or entitlement.get("invalidation_reason_code") not in {
+                                "allocation_expired", "policy_expired", "currentness_stale",
+                                "principal_expired", "allocation_not_current"}))
                         or type(entitlement.get("policy_epoch")) is not int
                         or not isinstance(entitlement.get("checked_at"), str)
                         or entitlement.get("observation_digest") != entitlement_digest

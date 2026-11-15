@@ -38,6 +38,8 @@ class GovernedLocalModelResourceEntitlementObservation:
     policy_epoch: int
     principal_binding_digest: str
     remaining_call_entitlement: int
+    entitlement_status: str
+    invalidation_reason_code: str | None
     checked_at: str
     observation_id: str
     observation_digest: str
@@ -45,7 +47,7 @@ class GovernedLocalModelResourceEntitlementObservation:
     def to_dict(self) -> dict[str, object]:
         return {
             "schema_version": (
-                "sentientos.governed_local_model_resource_entitlement_observation:v1"),
+                "sentientos.governed_local_model_resource_entitlement_observation:v2"),
             "allocation_id": self.allocation_id,
             "allocation_digest": self.allocation_digest,
             "allocator_id": self.allocator_id,
@@ -54,6 +56,8 @@ class GovernedLocalModelResourceEntitlementObservation:
             "policy_epoch": self.policy_epoch,
             "principal_binding_digest": self.principal_binding_digest,
             "remaining_call_entitlement": self.remaining_call_entitlement,
+            "entitlement_status": self.entitlement_status,
+            "invalidation_reason_code": self.invalidation_reason_code,
             "checked_at": self.checked_at,
             "observation_id": self.observation_id,
             "observation_digest": self.observation_digest,
@@ -242,16 +246,30 @@ class ProductionChatResourceContextOwner:
             current_time = self._clock()
             if type(current_time) is not str or not current_time:
                 raise GovernedLocalModelResourceError("invalid_current_time")
-            allocation, remaining_calls = self.allocator.current_entitlement(
-                allocation=self.allocation,
-                principal=self.principal,
-                authenticated=self.authenticated,
-                current=self.current,
-                policy=self.policy,
-                current_time=current_time)
+            try:
+                allocation, remaining_calls = self.allocator.current_entitlement(
+                    allocation=self.allocation,
+                    principal=self.principal,
+                    authenticated=self.authenticated,
+                    current=self.current,
+                    policy=self.policy,
+                    current_time=current_time)
+                entitlement_status = "exhausted" if remaining_calls == 0 else "current"
+                invalidation_reason_code = None
+            except GovernedLocalModelResourceError as exc:
+                error_code = str(exc)
+                if error_code not in {
+                        "allocation_expired", "policy_expired", "currentness_stale",
+                        "principal_expired", "allocation_not_current"}:
+                    raise
+                allocation = self.allocation
+                remaining_calls = self.allocator.ledger.remaining_calls(
+                    allocation.allocation_id)
+                entitlement_status = "invalidated"
+                invalidation_reason_code = error_code
             body: dict[str, object] = {
                 "schema_version": (
-                    "sentientos.governed_local_model_resource_entitlement_observation:v1"),
+                    "sentientos.governed_local_model_resource_entitlement_observation:v2"),
                 "allocation_id": allocation.allocation_id,
                 "allocation_digest": allocation.allocation_digest,
                 "allocator_id": allocation.allocator_id,
@@ -260,6 +278,8 @@ class ProductionChatResourceContextOwner:
                 "policy_epoch": allocation.epoch,
                 "principal_binding_digest": allocation.principal_binding_digest,
                 "remaining_call_entitlement": remaining_calls,
+                "entitlement_status": entitlement_status,
+                "invalidation_reason_code": invalidation_reason_code,
                 "checked_at": current_time,
             }
             observation_digest = digest_payload(body)
@@ -272,6 +292,8 @@ class ProductionChatResourceContextOwner:
                 policy_epoch=allocation.epoch,
                 principal_binding_digest=allocation.principal_binding_digest,
                 remaining_call_entitlement=remaining_calls,
+                entitlement_status=entitlement_status,
+                invalidation_reason_code=invalidation_reason_code,
                 checked_at=current_time,
                 observation_id="lmentitlement-" + observation_digest[:24],
                 observation_digest=observation_digest)
@@ -281,7 +303,7 @@ class ProductionChatResourceContextOwner:
             self._custody_lease.release()
 
     def verifies_current_entitlement_observation(self, observation: object) -> bool:
-        """Verify exact owner provenance and that its zero remains current."""
+        """Verify the exact owner-minted entitlement snapshot remains valid."""
         if (type(observation) is not GovernedLocalModelResourceEntitlementObservation
                 or observation is not self._last_entitlement_observation):
             return False
@@ -300,9 +322,22 @@ class ProductionChatResourceContextOwner:
                     current_time=current_time)
             finally:
                 self._custody_lease.release()
-        except (GovernedLocalModelResourceError, TypeError, ValueError):
+        except GovernedLocalModelResourceError as exc:
+            error_code = str(exc)
+            return (observation.entitlement_status == "invalidated"
+                and observation.invalidation_reason_code == error_code
+                and error_code in {"allocation_expired", "policy_expired",
+                    "currentness_stale", "principal_expired", "allocation_not_current"}
+                and observation.allocation_digest == self.allocation.allocation_digest
+                and observation.policy_digest == self.allocation.policy_digest
+                and observation.principal_binding_digest ==
+                    self.allocation.principal_binding_digest)
+        except (TypeError, ValueError):
             return False
         return (type(current_time) is str and bool(current_time)
+            and observation.entitlement_status == (
+                "exhausted" if remaining_calls == 0 else "current")
+            and observation.invalidation_reason_code is None
             and allocation.allocation_digest == observation.allocation_digest
             and remaining_calls == observation.remaining_call_entitlement
             and allocation.policy_digest == observation.policy_digest

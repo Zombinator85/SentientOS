@@ -403,7 +403,7 @@ def test_entitlement_observation_is_owner_minted_current_and_kernel_retained(
             "serving_entitlement_binding": binding,
             "resource_observation": {
                 "schema_version": (
-                    "sentientos.production_local_model_resource_entitlement_release_evidence:v1"),
+                    "sentientos.production_local_model_resource_entitlement_release_evidence:v2"),
                 "serving_session_id": session_id,
                 "resource_entitlement_observation": newer.to_dict(),
             },
@@ -428,21 +428,31 @@ def test_entitlement_observation_is_owner_minted_current_and_kernel_retained(
         custody.close()
 
 
-def test_exhausted_call_entitlement_releases_idle_serving_session_through_runtime(
-        monkeypatch, tmp_path):
+@pytest.mark.parametrize(("calls", "release_time", "expected_trigger", "expected_status",
+    "expected_invalidation"), [
+    (1, NOW, "call_entitlement_exhausted", "exhausted", None),
+    (2, "2026-09-21T09:00:00Z", "resource_entitlement_invalidated",
+        "invalidated", "allocation_expired"),
+])
+def test_governed_entitlement_release_closes_idle_session_through_runtime(
+        monkeypatch, tmp_path, calls, release_time, expected_trigger, expected_status,
+        expected_invalidation):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
     fixed_now = datetime.fromisoformat(NOW.replace("Z", "+00:00"))
 
+    current_time = {"value": NOW}
+
     class FixedDateTime(datetime):
         @classmethod
         def now(cls, tz=None):
-            return fixed_now if tz is None else fixed_now.astimezone(tz)
+            value = datetime.fromisoformat(current_time["value"].replace("Z", "+00:00"))
+            return value if tz is None else value.astimezone(tz)
 
     monkeypatch.setattr("sentientos.runtime_governor.datetime", FixedDateTime)
-    installation, artifacts = provisioning_inputs(tmp_path / "serving", calls=1)
-    bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 1)
+    installation, artifacts = provisioning_inputs(tmp_path / "serving", calls=calls)
+    bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, calls)
     policy = GovernedLocalModelResourcePolicy.create(
         epoch=1, max_resource_specific_bounds=bounds,
         not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
@@ -451,7 +461,7 @@ def test_exhausted_call_entitlement_releases_idle_serving_session_through_runtim
     bundle = produce_production_chat_resource_provisioning_bundle(
         installation, "entitlement-release", **artifacts)
     custody = load_production_chat_resource_context_owner(
-        installation, "entitlement-release", clock=lambda: NOW,
+        installation, "entitlement-release", clock=lambda: current_time["value"],
         nonce_source=lambda: "one-entitled-call")
     governor = RuntimeGovernor()
     kernel = ControlPlaneKernel(runtime_governor=governor,
@@ -466,16 +476,26 @@ def test_exhausted_call_entitlement_releases_idle_serving_session_through_runtim
     try:
         receipt = inference.generate(prompt="synthetic fixture prompt",
             caller="chat_service", correlation_id="entitlement-release-call",
-            budget=LocalModelInvocationBudget(8000, 4000, 512, 30.0, 1),
+            budget=LocalModelInvocationBudget(8000, 4000, 512, 30.0, calls),
             caller_linkage={})
         assert receipt.status == "admitted_completed"
         assert model.calls == 1
-        assert custody.allocator.ledger.remaining_calls(bundle.allocation_id) == 0
+        assert custody.allocator.ledger.remaining_calls(bundle.allocation_id) == calls - 1
+
+        current_time["value"] = release_time
+        if expected_trigger == "resource_entitlement_invalidated":
+            invalidation = custody.current_entitlement_observation()
+            assert invalidation.entitlement_status == "invalidated"
+            assert invalidation.invalidation_reason_code == "allocation_expired"
+            assert kernel.observe_governed_local_model_resource_entitlement(
+                custody, invalidation) is True
+            assert kernel.observe_governed_local_model_resource_entitlement(
+                custody, replace(invalidation, invalidation_reason_code="forged")) is False
 
         released = inference.reconcile_workload_state()
 
         assert released["status"] == "worker_closed", released
-        assert released["trigger_kind"] == "call_entitlement_exhausted"
+        assert released["trigger_kind"] == expected_trigger
         assert serving.current_session() is None
         assert model.closed is True
         assert model.calls == 1
@@ -486,7 +506,10 @@ def test_exhausted_call_entitlement_releases_idle_serving_session_through_runtim
         import json
         release = json.loads(release_receipts[0].read_text(encoding="utf-8"))
         assert release["resource_observation"][
-            "resource_entitlement_observation"]["remaining_call_entitlement"] == 0
+            "resource_entitlement_observation"]["entitlement_status"] == expected_status
+        assert release["resource_observation"][
+            "resource_entitlement_observation"]["invalidation_reason_code"] == (
+                expected_invalidation)
         assert release["resource_observation"]["host_telemetry_used_for_admission"] is False
         assert release["inference_performed"] is False
         assert release["host_mutation_performed"] is False
@@ -497,9 +520,9 @@ def test_exhausted_call_entitlement_releases_idle_serving_session_through_runtim
         observed = ProductionChatResourceObservationOwner(
             read_only, "entitlement-release").observe()
         assert observed.verified_resource_release_receipts[0]["trigger_kind"] == (
-            "call_entitlement_exhausted")
+            expected_trigger)
         assert observed.verified_resource_release_receipts[0]["resource_observation"][
-            "resource_entitlement_observation"]["remaining_call_entitlement"] == 0
+            "resource_entitlement_observation"]["entitlement_status"] == expected_status
         serving_receipt_path = (tmp_path / "serving" / "state" / "installations"
             / "production" / "state" / "local-model" / "serving" / "receipts")
         serving_record = json.loads(next(serving_receipt_path.glob("*.json")).read_text(
