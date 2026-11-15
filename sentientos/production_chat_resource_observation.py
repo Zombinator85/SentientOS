@@ -71,6 +71,10 @@ _RESOURCE_ADMISSION_WITNESS_SCHEMA = (
     "sentientos.resource_bound_inference_admission_witness:v3")
 _RESOURCE_ADMISSION_WITNESS_SCHEMA_V2 = (
     "sentientos.resource_bound_inference_admission_witness:v2")
+_RESOURCE_ADMISSION_WITNESS_SCHEMA_V3 = (
+    "sentientos.resource_bound_inference_admission_witness:v3")
+_RESOURCE_ADMISSION_WITNESS_SCHEMA_V4 = (
+    "sentientos.resource_bound_inference_admission_witness:v4")
 _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA = (
     "sentientos.resource_admission_host_observation_binding:v2")
 _RESOURCE_HOST_OBSERVATION_BINDING_SCHEMA_V1 = (
@@ -960,11 +964,18 @@ class ProductionChatResourceObservationOwner:
                 "status": "current",
                 **host_values,
             }
+        final_disposition = decision.get("final_disposition")
+        outcome = decision.get("outcome")
+        admission_outcome_valid = (
+            (final_disposition == "allow" and outcome == "allow")
+            or (final_disposition == "defer" and outcome == "defer"
+                and invocation.get("status") == "deferred")
+            or (final_disposition == "deny" and outcome == "deny"
+                and invocation.get("status") == "denied"))
         if (set(decision) != expected_decision_fields
                 or decision.get("event_type") != "control_plane_decision"
                 or not isinstance(decision.get("timestamp"), str)
-                or decision.get("final_disposition") != "allow"
-                or decision.get("outcome") != "allow"
+                or not admission_outcome_valid
                 or decision.get("authority_class") != "local_model_inference"
                 or decision.get("action_kind") != "local_model_inference"
                 or decision.get("target_subsystem") != "governed_local_model_invocation"
@@ -988,7 +999,13 @@ class ProductionChatResourceObservationOwner:
             raise ProductionChatResourceObservationError(
                 "resource_inference_admission_record_mismatch")
         return {
-            "schema_version": (_RESOURCE_ADMISSION_WITNESS_SCHEMA
+            "schema_version": (_RESOURCE_ADMISSION_WITNESS_SCHEMA_V4
+                if decision.get("outcome") in {"defer", "deny"}
+                and invocation.get("schema_version") in {
+                    "sentientos.local_model_invocation_receipt:v8",
+                    "sentientos.local_model_invocation_receipt:v9",
+                    "sentientos.local_model_invocation_receipt:v10"}
+                else _RESOURCE_ADMISSION_WITNESS_SCHEMA_V3
                 if invocation.get("schema_version") in {
                     "sentientos.local_model_invocation_receipt:v8",
                     "sentientos.local_model_invocation_receipt:v9",
@@ -1002,6 +1019,14 @@ class ProductionChatResourceObservationOwner:
             "correlation_id": correlation_id,
             "resource_allocation_binding": expected_binding,
             "host_resource_observation_binding": host_observation_binding,
+            **({"admission_final_disposition": final_disposition,
+                "admission_outcome": outcome}
+                if decision.get("outcome") in {"defer", "deny"}
+                and invocation.get("schema_version") in {
+                    "sentientos.local_model_invocation_receipt:v8",
+                    "sentientos.local_model_invocation_receipt:v9",
+                    "sentientos.local_model_invocation_receipt:v10"}
+                else {}),
             **({"admission_decision_record": dict(decision)}
                 if invocation.get("schema_version") in {
                     "sentientos.local_model_invocation_receipt:v8",
@@ -1093,8 +1118,12 @@ class ProductionChatResourceObservationOwner:
             evidence = runtime.get("evidence_refs") if isinstance(runtime, Mapping) else None
             admission_binding = (evidence.get("resource_allocation_binding")
                 if isinstance(evidence, Mapping) else None)
+            no_effect_admission_status = (
+                value.get("status") in {"resource_denied", "denied", "deferred"}
+                and isinstance(value.get("effects"), Mapping)
+                and value["effects"].get("local_model_inference") is False)
             if (value.get("resource_allocation_digest") == allocation.allocation_digest
-                    or (value.get("status") == "resource_denied"
+                    or (no_effect_admission_status
                         and isinstance(admission_binding, Mapping)
                         and admission_binding.get("allocation_digest")
                             == allocation.allocation_digest)):

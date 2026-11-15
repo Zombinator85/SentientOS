@@ -912,13 +912,16 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         "resource_allocation_binding"}
     witness_v2_fields = witness_v1_fields | {"host_resource_observation_binding"}
     witness_v3_fields = witness_v2_fields | {"admission_decision_record"}
+    witness_v4_fields = witness_v3_fields | {
+        "admission_final_disposition", "admission_outcome"}
     if verified_inference_admission_decisions is not None:
         for witness in verified_inference_admission_decisions:
             if (not isinstance(witness, Mapping)
                     or witness.get("schema_version") not in {
                         "sentientos.resource_bound_inference_admission_witness:v1",
                         "sentientos.resource_bound_inference_admission_witness:v2",
-                        "sentientos.resource_bound_inference_admission_witness:v3"}
+                        "sentientos.resource_bound_inference_admission_witness:v3",
+                        "sentientos.resource_bound_inference_admission_witness:v4"}
                     or (witness.get("schema_version") ==
                         "sentientos.resource_bound_inference_admission_witness:v1"
                         and set(witness) != witness_v1_fields)
@@ -927,7 +930,14 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         and set(witness) != witness_v2_fields)
                     or (witness.get("schema_version") ==
                         "sentientos.resource_bound_inference_admission_witness:v3"
-                        and set(witness) != witness_v3_fields)):
+                        and set(witness) != witness_v3_fields)
+                    or (witness.get("schema_version") ==
+                        "sentientos.resource_bound_inference_admission_witness:v4"
+                        and (set(witness) != witness_v4_fields
+                            or witness.get("admission_final_disposition")
+                                not in {"defer", "deny"}
+                            or witness.get("admission_outcome")
+                                != witness.get("admission_final_disposition")))):
                 raise ValueError("inference_admission_decision_witness_invalid")
             receipt_id = witness.get("invocation_receipt_id")
             if not isinstance(receipt_id, str) or not receipt_id or receipt_id in admission_by_receipt:
@@ -1216,7 +1226,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             if isinstance(witness_binding, Mapping) else None)
         if (verified_inference_admission_decisions is not None
                 and (invocation.get("resource_allocation_digest") is not None
-                    or (invocation.get("status") == "resource_denied"
+                    or (invocation.get("status") in {
+                            "resource_denied", "denied", "deferred"}
+                        and isinstance(invocation.get("effects"), Mapping)
+                        and invocation["effects"].get("local_model_inference") is False
                         and admission_allocation_digest in allocation_by_digest))):
             request = invocation.get("request")
             request_id = request.get("request_id") if isinstance(request, Mapping) else None
@@ -1248,7 +1261,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 if isinstance(admission_witness, Mapping)
                 and witness_schema in {
                     "sentientos.resource_bound_inference_admission_witness:v2",
-                    "sentientos.resource_bound_inference_admission_witness:v3"}
+                    "sentientos.resource_bound_inference_admission_witness:v3",
+                    "sentientos.resource_bound_inference_admission_witness:v4"}
                 else None)
             if isinstance(request_host_observation, Mapping):
                 if request_host_observation.get("status") == "current":
@@ -1268,7 +1282,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 host_binding_posture = "not_provided"
             if (not isinstance(admission_witness, Mapping)
                     or frozenset(admission_witness) not in {frozenset(witness_v1_fields),
-                        frozenset(witness_v2_fields), frozenset(witness_v3_fields)}
+                        frozenset(witness_v2_fields), frozenset(witness_v3_fields),
+                        frozenset(witness_v4_fields)}
                     or (witness_schema == "sentientos.resource_bound_inference_admission_witness:v1"
                         and isinstance(request_host_observation, Mapping)
                         and request_host_observation.get("status") == "current")
@@ -1282,8 +1297,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         "sentientos.local_model_invocation_receipt:v8",
                         "sentientos.local_model_invocation_receipt:v9",
                         "sentientos.local_model_invocation_receipt:v10"}
-                        and witness_schema !=
-                            "sentientos.resource_bound_inference_admission_witness:v3")
+                        and witness_schema not in {
+                            "sentientos.resource_bound_inference_admission_witness:v3",
+                            "sentientos.resource_bound_inference_admission_witness:v4"})
                     or admission_witness.get("admission_decision_ref")
                         != invocation.get("admission_decision_ref")
                     or admission_witness.get("admission_decision_ref")
@@ -1292,6 +1308,21 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         "sentientos.resource_bound_inference_admission_witness:v3"
                         and admission_witness.get("admission_decision_record")
                             != invocation.get("admission_decision_record"))
+                    or (witness_schema ==
+                        "sentientos.resource_bound_inference_admission_witness:v4"
+                        and (admission_witness.get("admission_decision_record")
+                                != invocation.get("admission_decision_record")
+                            or not isinstance(invocation.get(
+                                "admission_decision_record"), Mapping)
+                            or admission_witness.get("admission_final_disposition")
+                                != invocation["admission_decision_record"].get(
+                                    "final_disposition")
+                            or admission_witness.get("admission_outcome")
+                                != invocation["admission_decision_record"].get(
+                                    "outcome")
+                            or invocation.get("status") != (
+                                "deferred" if admission_witness.get(
+                                    "admission_outcome") == "defer" else "denied")))
                     or not isinstance(allocation_binding, Mapping)
                     or dict(allocation_binding) != expected_binding):
                 lineage_findings.append(
@@ -1468,8 +1499,21 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         "observed_at": invocation.get("observed_at"),
         "resource_allocation_digest": invocation.get("resource_allocation_digest"),
         "resource_admission_allocation_digest": admission_allocation_digest,
+        "resource_admission_outcome": (
+            admission_witness.get("admission_outcome", "allow")
+            if isinstance(admission_witness, Mapping) else None),
         "resource_admission_posture": (
-            "verified_denied_before_attempt" if
+            "verified_deferred_before_attempt" if
+            isinstance(admission_witness, Mapping)
+                and admission_witness.get("admission_outcome") == "defer"
+                and invocation.get("resource_allocation_digest") is None
+                and admission_allocation_digest in allocation_by_digest
+            else "verified_denied_before_attempt" if
+            isinstance(admission_witness, Mapping)
+                and admission_witness.get("admission_outcome") == "deny"
+                and invocation.get("resource_allocation_digest") is None
+                and admission_allocation_digest in allocation_by_digest
+            else "verified_allocator_denial_before_attempt" if
             invocation.get("status") == "resource_denied"
                 and invocation.get("resource_allocation_digest") is None
                 and admission_allocation_digest in allocation_by_digest

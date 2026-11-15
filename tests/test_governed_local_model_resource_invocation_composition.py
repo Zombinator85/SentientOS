@@ -52,9 +52,40 @@ class Model:
         if self.error: raise RuntimeError("secret backend details")
         return self.text
 class DenyingKernel:
-    phase = LifecyclePhase.RUNTIME
+    def __init__(self):
+        self.phase = LifecyclePhase.RUNTIME
+        self._records = {}
+
     def admit(self, request):
-        return SimpleNamespace(allowed=False, outcome=AdmissionOutcome.DENY, reason_codes=("test_denial",), admission_decision_ref=None, to_dict=lambda: {"outcome": "deny"})
+        correlation_id = request.metadata["correlation_id"]
+        payload = {
+            "event_type": "control_plane_decision",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "final_disposition": "deny", "outcome": "deny",
+            "reason_codes": ["test_denial"],
+            "delegate_checks_consulted": [],
+            "lifecycle_phase": self.phase.value,
+            "current_phase": self.phase.value,
+            "requested_phase": request.requested_phase.value,
+            "authority_class": request.authority_class.value,
+            "action_kind": request.action_kind,
+            "actor_source": request.actor, "actor": request.actor,
+            "execution_owner": request.actor,
+            "target_subsystem": request.target_subsystem,
+            "delegated_outcomes": {}, "federation_context": None,
+            "proof_budget_context": None, "protected_mutation_intent": None,
+            "correlation_id": correlation_id,
+            "admission_decision_ref": "kernel_decision:" + correlation_id,
+        }
+        decision = SimpleNamespace(allowed=False, outcome=AdmissionOutcome.DENY,
+            reason_codes=("test_denial",),
+            admission_decision_ref=payload["admission_decision_ref"],
+            to_dict=lambda: dict(payload))
+        self._records[id(decision)] = payload
+        return decision
+
+    def recorded_decision_payload(self, decision):
+        return self._records.get(id(decision))
 
 def setup(tmp_path: Path, *, calls=2, model=None, kernel=None, cpu_ceiling=None,
           max_input_chars=100):
@@ -156,7 +187,7 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(
     assert not worker.is_alive()
     receipt = result[0]
     assert receipt.status == "cancelled"
-    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v6"
+    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v8"
     decision_facts = decision.to_dict()
     decision_facts.pop("timestamp")
     assert receipt.cancellation_admission_decision == {
@@ -227,7 +258,7 @@ def test_cancelled_worker_sample_reconciles_reserved_cpu_entitlement(
     assert projected["disposition"] == "recorded"
     projected_invocation = projected["payload"]["invocation_receipts"][0]
     assert projected_invocation["workload_preemption_admission_posture"] == (
-        "verified_receipt_bound_decision")
+        "verified_receipt_bound_kernel_record")
     assert not any(finding.startswith(
         "backend_resource_observation_receipt_mismatch:")
         for finding in projected["payload"]["lineage_findings"])
@@ -616,33 +647,33 @@ def test_allocator_denial_remains_linked_to_admission_without_consumption(tmp_pa
         "host_resource_observation_binding": None,
         "admission_decision_record": denied.admission_decision_record,
     }
+    admitted_witness = {
+        "schema_version": "sentientos.resource_bound_inference_admission_witness:v3",
+        "invocation_receipt_id": admitted.receipt_id,
+        "invocation_receipt_digest": admitted.receipt_digest,
+        "request_id": admitted.request["request_id"],
+        "request_digest": admitted.request["request_digest"],
+        "admission_decision_ref": admitted.admission_decision_ref,
+        "correlation_id": admitted.request["correlation_id"],
+        "resource_allocation_binding": admitted.admission_decision_record[
+            "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+                "resource_allocation_binding"],
+        "host_resource_observation_binding": None,
+        "admission_decision_record": admitted.admission_decision_record,
+    }
     projection = resource_consumption_world_state_records(ledger=ledger,
         invocation_receipts=[admitted.to_dict(), denied.to_dict()],
-        verified_inference_admission_decisions=[
-            {"schema_version": "sentientos.resource_bound_inference_admission_witness:v3",
-             "invocation_receipt_id": admitted.receipt_id,
-             "invocation_receipt_digest": admitted.receipt_digest,
-             "request_id": admitted.request["request_id"],
-             "request_digest": admitted.request["request_digest"],
-             "admission_decision_ref": admitted.admission_decision_ref,
-             "correlation_id": admitted.request["correlation_id"],
-             "resource_allocation_binding": admitted.admission_decision_record[
-                 "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
-                     "resource_allocation_binding"],
-             "host_resource_observation_binding": None,
-             "admission_decision_record": admitted.admission_decision_record},
-            witness])[0]
+        verified_inference_admission_decisions=[admitted_witness, witness])[0]
     assert projection["disposition"] == "recorded"
     projected_denial = next(item for item in projection["payload"]["invocation_receipts"]
         if item["receipt_id"] == denied.receipt_id)
     assert projected_denial["resource_admission_allocation_digest"] == (
         context.allocation.allocation_digest)
     assert projected_denial["resource_admission_posture"] == (
-        "verified_denied_before_attempt")
+        "verified_allocator_denial_before_attempt")
     assert projected_denial["resource_attempt_id"] is None
     assert not any(finding.endswith(denied.receipt_id)
         and "resource" in finding for finding in projection["payload"]["lineage_findings"])
-
 
 def test_serving_guard_rejection_restores_only_pre_entry_debit(tmp_path):
     model, invoker, request, context, ledger = setup(tmp_path)
@@ -833,6 +864,45 @@ def test_game_host_pressure_defers_and_nominal_recovery_still_yields_to_game(
     assert ledger._state["attempts"] == {}
     assert ledger._state["receipts"] == []
     assert ledger.remaining_calls(context.allocation.allocation_id) == 2
+    assert deferred.admission_decision_record["outcome"] == "defer"
+    from sentientos.production_chat_resource_observation import (
+        ProductionChatResourceObservationOwner,
+    )
+    decision_path = (invoker.runtime_root / "decisions"
+        / (request.request_id + ".json"))
+    receipt_path = invoker.runtime_root / "receipts" / f"{deferred.receipt_id}.json"
+
+    class RecoveryHandle:
+        def list_regular_names(self, path, *, max_entries):
+            assert path == "local-model/inference/receipts"
+            assert max_entries >= 1
+            return [receipt_path.name]
+
+        def read_regular_bounded(self, path, *, max_bytes):
+            payload = (decision_path if path.endswith(".json")
+                and "/decisions/" in path else receipt_path).read_bytes()
+            assert len(payload) <= max_bytes
+            return payload
+
+    recovery_owner = object.__new__(ProductionChatResourceObservationOwner)
+    recovery_owner._handle = RecoveryHandle()
+    recovered = recovery_owner._invocation_receipts(context.allocation)
+    witness = recovered[5][0]
+    assert recovered[0][0]["receipt_id"] == deferred.receipt_id
+    assert witness["schema_version"] == (
+        "sentientos.resource_bound_inference_admission_witness:v4")
+    assert witness["admission_outcome"] == "defer"
+    from sentientos.host_resource_runtime import resource_consumption_world_state_records
+    projection = resource_consumption_world_state_records(ledger=ledger,
+        invocation_receipts=recovered[0],
+        verified_inference_admission_decisions=[witness])[0]
+    projected_deferral = projection["payload"]["invocation_receipts"][0]
+    assert projection["disposition"] == "recorded"
+    assert projected_deferral["resource_admission_allocation_digest"] == (
+        context.allocation.allocation_digest)
+    assert projected_deferral["resource_admission_posture"] == (
+        "verified_deferred_before_attempt")
+    assert projected_deferral["resource_attempt_id"] is None
 
     assert governor.observe_verified_game_performance(game_sample(2))
     recovered_evaluation = HostResourceRuntimeCoordinator(

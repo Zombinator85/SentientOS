@@ -1157,7 +1157,7 @@ def test_resource_invocation_admission_recovery_binds_exact_host_observation(
             denied_projection["payload"]["invocation_receipts"]
             if item["receipt_id"] == denied.receipt_id)
         assert projected_denial["resource_admission_posture"] == (
-            "verified_denied_before_attempt")
+            "verified_allocator_denial_before_attempt")
         assert projected_denial["resource_attempt_id"] is None
     finally:
         resource_owner.close()
