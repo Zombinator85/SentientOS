@@ -1259,6 +1259,122 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             release_receipt.pop("cancelled_invocation_preemption_ref", None)
             release_lineage_findings.append(
                 f"resource_release_preemption_linkage_unexpected:{release_receipt.get('receipt_id')}")
+    # An invalidation can first cancel a running invocation, then release the
+    # resident model on the next reconciliation pass. In that two-step path,
+    # the release admission has its own decision reference, so the older
+    # same-decision linkage above does not apply. Join the independently
+    # admitted release and cancellation through the exact owner-minted
+    # entitlement observation they both carry.
+    for release_receipt in release_receipt_summaries:
+        if release_receipt.get("trigger_kind") != "resource_entitlement_invalidated":
+            continue
+        resource_observation = release_receipt.get("resource_observation")
+        entitlement_observation = (resource_observation.get(
+            "resource_entitlement_observation")
+            if isinstance(resource_observation, Mapping) else None)
+        admission_record = release_receipt.get("release_admission_record")
+        delegated = (admission_record.get("delegated_outcomes")
+            if isinstance(admission_record, Mapping) else None)
+        governor = (delegated.get("runtime_governor")
+            if isinstance(delegated, Mapping) else None)
+        evidence_refs = (governor.get("evidence_refs")
+            if isinstance(governor, Mapping) else None)
+        release_evidence = (evidence_refs.get("resource_observation_evidence")
+            if isinstance(evidence_refs, Mapping) else None)
+        admitted_entitlement = (release_evidence.get(
+            "resource_entitlement_observation")
+            if isinstance(release_evidence, Mapping) else None)
+        if (not isinstance(release_evidence, Mapping)
+                or release_evidence.get("status") != "current"
+                or not isinstance(entitlement_observation, Mapping)
+                or dict(entitlement_observation) != admitted_entitlement
+                or not isinstance(entitlement_observation.get("observation_id"), str)
+                or not isinstance(entitlement_observation.get("observation_digest"), str)):
+            release_receipt["entitlement_preemption_linkage_posture"] = (
+                "release_entitlement_evidence_unbound")
+            release_lineage_findings.append(
+                "resource_release_entitlement_preemption_evidence_unbound:"
+                + str(release_receipt.get("receipt_id")))
+            continue
+        matching_invocations = []
+        for invocation in invocation_by_id.values():
+            if (invocation.get("status") != "cancelled"
+                    or "cancelled_for_workload_transition" not in
+                        invocation.get("reason_codes", ())
+                    or invocation.get("schema_version") !=
+                        "sentientos.local_model_invocation_receipt:v10"):
+                continue
+            decision = invocation.get("cancellation_admission_decision")
+            decision_delegated = (decision.get("delegated_outcomes")
+                if isinstance(decision, Mapping) else None)
+            decision_governor = (decision_delegated.get("runtime_governor")
+                if isinstance(decision_delegated, Mapping) else None)
+            decision_evidence_refs = (decision_governor.get("evidence_refs")
+                if isinstance(decision_governor, Mapping) else None)
+            entitlement_evidence = (decision_evidence_refs.get(
+                "resource_entitlement_evidence")
+                if isinstance(decision_evidence_refs, Mapping) else None)
+            preemption = (decision_evidence_refs.get("active_inference_preemption")
+                if isinstance(decision_evidence_refs, Mapping) else None)
+            entitlement_preemption_allowed = (
+                isinstance(decision_governor, Mapping)
+                and decision_governor.get("allowed") is True
+                and decision_governor.get("reason") ==
+                    "allowed_resource_entitlement_invalidation_inference_preemption"
+                and isinstance(decision, Mapping)
+                and decision.get("actor") ==
+                    "production_chat_resource_entitlement_governor")
+            invocation_model_digest = (preemption.get("model_identity_digest")
+                if isinstance(preemption, Mapping) else None)
+            release_model_digest = release_receipt.get("model_identity_digest")
+            if isinstance(release_model_digest, str):
+                release_model_digest = release_model_digest.removeprefix("sha256:")
+            if (not entitlement_preemption_allowed
+                    or not isinstance(entitlement_evidence, Mapping)
+                    or entitlement_evidence.get("entitlement_status") != "invalidated"
+                    or entitlement_evidence.get("observation_id")
+                        != entitlement_observation.get("observation_id")
+                    or entitlement_evidence.get("observation_digest")
+                        != entitlement_observation.get("observation_digest")
+                    or not isinstance(preemption, Mapping)
+                    or preemption.get("preemption_kind")
+                        != "resource_entitlement_invalidated"
+                    or preemption.get("resource_entitlement_observation_id")
+                        != entitlement_observation.get("observation_id")
+                    or preemption.get("resource_entitlement_observation_digest")
+                        != entitlement_observation.get("observation_digest")
+                    or preemption.get("allocation_digest")
+                        != entitlement_observation.get("allocation_digest")
+                    or preemption.get("serving_session_id")
+                        != release_receipt.get("serving_session_id")
+                    or invocation_model_digest != release_model_digest):
+                continue
+            matching_invocations.append(invocation)
+        if len(matching_invocations) > 1:
+            release_receipt["entitlement_preemption_linkage_posture"] = "ambiguous"
+            release_lineage_findings.append(
+                "resource_release_entitlement_preemption_ambiguous:"
+                + str(release_receipt.get("receipt_id")))
+        elif matching_invocations:
+            invocation = matching_invocations[0]
+            reference = invocation.get("cancellation_preemption_ref")
+            if not isinstance(reference, Mapping):
+                release_receipt["entitlement_preemption_linkage_posture"] = (
+                    "invocation_preemption_reference_missing")
+                release_lineage_findings.append(
+                    "resource_release_entitlement_preemption_reference_missing:"
+                    + str(release_receipt.get("receipt_id")))
+            else:
+                release_receipt.update({
+                    "entitlement_preemption_linkage_posture": "verified",
+                    "entitlement_preemption_invocation_receipt_id":
+                        invocation.get("receipt_id"),
+                    "entitlement_preemption_invocation_receipt_digest":
+                        invocation.get("receipt_digest"),
+                    "entitlement_preemption_ref": dict(reference),
+                })
+        else:
+            release_receipt["entitlement_preemption_linkage_posture"] = "not_linked"
     predecessor_invocation_by_id: dict[str, Mapping[str, Any]] = {}
     for predecessor in verified_predecessor_invocation_receipts:
         if not isinstance(predecessor, Mapping):

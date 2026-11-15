@@ -891,6 +891,44 @@ def test_invalidated_entitlement_preempts_exact_active_invocation(
             "workload_preemption_admission_linkage_missing:",
             "workload_preemption_admission_decision_unverified:"))
             for finding in projected["payload"]["lineage_findings"])
+        released = inference.reconcile_workload_state()
+        assert released["status"] == "worker_closed", released
+        assert released["trigger_kind"] == "resource_entitlement_invalidated"
+        assert serving.current_session() is None
+        assert model.closed is True
+        release_observation = ProductionChatResourceObservationOwner(
+            InstallationStateRegistry(tmp_path / "serving" / "state",
+                _test_only=True).open_read_only(
+                    InstallationIdentity.parse("production")),
+            "active-entitlement-revoke").observe()
+        release = release_observation.verified_resource_release_receipts[0]
+        release_entitlement = release["resource_observation"][
+            "resource_entitlement_observation"]
+        cancellation_evidence = receipt.cancellation_admission_decision[
+            "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+                "resource_entitlement_evidence"]
+        assert release_entitlement["observation_id"] == invalidation.observation_id
+        assert release_entitlement["observation_digest"] == invalidation.observation_digest
+        assert cancellation_evidence["observation_digest"] == (
+            release_entitlement["observation_digest"])
+        release_projection = resource_consumption_world_state_records(
+            ledger=custody.allocator.ledger,
+            invocation_receipts=release_observation.invocation_receipts,
+            verified_resource_release_receipts=(
+                release_observation.verified_resource_release_receipts))[0]
+        projected_release = release_projection["payload"][
+            "resource_release_receipts"][0]
+        assert projected_release["entitlement_preemption_linkage_posture"] == (
+            "verified")
+        assert projected_release["entitlement_preemption_invocation_receipt_id"] == (
+            receipt.receipt_id)
+        assert projected_release["entitlement_preemption_invocation_receipt_digest"] == (
+            receipt.receipt_digest)
+        assert projected_release["entitlement_preemption_ref"] == dict(
+            receipt.cancellation_preemption_ref)
+        assert not any(finding.startswith(
+            "resource_release_entitlement_preemption_")
+            for finding in release_projection["payload"]["lineage_findings"])
     finally:
         finish.set()
         invocation_thread.join(timeout=5)
