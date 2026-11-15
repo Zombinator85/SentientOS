@@ -853,6 +853,17 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     or not isinstance(serving_receipt_id, str)
                     or not isinstance(serving_receipt_digest, str)):
                 continue
+            expected_serving_receipt_digest = semantic_digest({
+                key: value for key, value in receipt.items()
+                if key != "receipt_semantic_digest"})
+            expected_serving_receipt_id = "serving-receipt-" + semantic_digest({
+                key: value for key, value in receipt.items()
+                if key not in {"receipt_id", "receipt_semantic_digest"}})[:24]
+            if (serving_receipt_digest != expected_serving_receipt_digest
+                    or receipt.get("receipt_semantic_digest")
+                        != expected_serving_receipt_digest
+                    or serving_receipt_id != expected_serving_receipt_id):
+                raise ValueError("serving_operation_history_receipt_identity_invalid")
             history_key = (session_id, operation_id)
             candidate_binding = (
                 digest_payload(dict(loaded_identity)), serving_receipt_id,

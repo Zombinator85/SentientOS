@@ -25,6 +25,7 @@ pytestmark = pytest.mark.no_legacy_skip
 def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     from sentientos.local_model_authority import digest_payload
+    from sentientos.local_runtime_provisioning import semantic_digest
     from sentientos.host_resource_policy import (
         HostResourcePolicyDecision, host_resource_policy_decision_digest,
     )
@@ -156,15 +157,18 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     observer = ProductionChatResourceObservationOwner(
         registry.open_read_only(identity), "recovery")
     serving_receipt = {
-        "receipt_id": "serving-receipt-" + "a" * 24,
         "session_id": "session-1",
-        "binding": {"serving_operation_id": "serve-1",
+        "binding": {"installation_identity": str(identity),
+            "serving_operation_id": "serve-1",
             "observed_loaded_model_identity": loaded_identity},
     }
+    serving_receipt["receipt_id"] = "serving-receipt-" + semantic_digest(
+        serving_receipt)[:24]
+    serving_receipt["receipt_semantic_digest"] = semantic_digest(serving_receipt)
     serving_history = ({
         "status": "serving_receipt_verified",
         "receipt": serving_receipt,
-        "receipt_semantic_digest": "b" * 64,
+        "receipt_semantic_digest": serving_receipt["receipt_semantic_digest"],
     },)
     monkeypatch.setattr(
         "sentientos.production_chat_resource_observation.read_serving_operation_history",
@@ -578,7 +582,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     assert first.verified_resource_release_receipts[0][
         "serving_receipt_linkage_posture"] == "verified"
     assert first.verified_resource_release_receipts[0][
-        "serving_receipt_semantic_digest"] == "b" * 64
+        "serving_receipt_semantic_digest"] == serving_receipt["receipt_semantic_digest"]
     assert first.resource_release_receipt_posture == "pending_invocation_receipts"
     from sentientos.host_resource_runtime import resource_consumption_world_state_records
     projected = resource_consumption_world_state_records(
@@ -617,19 +621,11 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "sample_delta_only; telemetry_does_not_establish_causation")
     assert projected["disposition"] == "degraded"
     assert projected["payload"]["resource_release_receipt_posture"] == "degraded"
-    from sentientos.local_runtime_provisioning import semantic_digest
-    projection_serving_receipt = {
-        "receipt_id": "serving-receipt-" + "a" * 24,
-        "receipt_semantic_digest": "b" * 64,
-        "session_id": "session-1",
-        "binding": {"installation_identity": str(identity),
-            "serving_operation_id": "serve-1",
-            "observed_loaded_model_identity": loaded_identity},
-    }
+    projection_serving_receipt = dict(serving_receipt)
     projection_history_body = {
         "status": "legacy_receipt_without_reservation", "attempt": None,
         "attempt_semantic_digest": None, "receipt": projection_serving_receipt,
-        "receipt_semantic_digest": "b" * 64,
+        "receipt_semantic_digest": serving_receipt["receipt_semantic_digest"],
     }
     projection_serving_history = ({**projection_history_body,
         "history_semantic_digest": semantic_digest(projection_history_body)},)
@@ -641,16 +637,38 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
     assert not any(item.startswith(
         "resource_release_serving_model_linkage_missing_or_mismatched:")
         for item in serving_link_projection["payload"]["lineage_findings"])
+    wrapper_only_forgery = dict(projection_serving_receipt)
+    wrapper_only_forgery_binding = dict(wrapper_only_forgery["binding"])
+    wrapper_only_forgery_binding["observed_loaded_model_identity"] = {
+        "model_id": "wrapper-only-forgery", "revision": "r1"}
+    wrapper_only_forgery["binding"] = wrapper_only_forgery_binding
+    wrapper_only_forgery_body = {**projection_history_body,
+        "receipt": wrapper_only_forgery}
+    wrapper_only_forgery_history = ({**wrapper_only_forgery_body,
+        "history_semantic_digest": semantic_digest(wrapper_only_forgery_body)},)
+    with pytest.raises(ValueError,
+            match="serving_operation_history_receipt_identity_invalid"):
+        resource_consumption_world_state_records(
+            ledger=first.ledger,
+            source_identity={"installation_identity": str(identity)},
+            verified_serving_operation_history=wrapper_only_forgery_history,
+            verified_resource_release_receipts=first.verified_resource_release_receipts)
     conflicting_serving_receipt = dict(projection_serving_receipt)
     conflicting_serving_receipt["receipt_id"] = "serving-receipt-" + "f" * 24
     conflicting_binding = dict(conflicting_serving_receipt["binding"])
     conflicting_binding["observed_loaded_model_identity"] = {
         "model_id": "different-synthetic-model", "revision": "r1"}
     conflicting_serving_receipt["binding"] = conflicting_binding
-    conflicting_serving_receipt["receipt_semantic_digest"] = "c" * 64
+    conflicting_serving_receipt.pop("receipt_id")
+    conflicting_serving_receipt.pop("receipt_semantic_digest")
+    conflicting_serving_receipt["receipt_id"] = "serving-receipt-" + semantic_digest(
+        conflicting_serving_receipt)[:24]
+    conflicting_serving_receipt["receipt_semantic_digest"] = semantic_digest(
+        conflicting_serving_receipt)
     conflicting_history_body = {**projection_history_body,
         "receipt": conflicting_serving_receipt,
-        "receipt_semantic_digest": "c" * 64}
+        "receipt_semantic_digest": conflicting_serving_receipt[
+            "receipt_semantic_digest"]}
     conflicting_serving_history = (*projection_serving_history, {
         **conflicting_history_body,
         "history_semantic_digest": semantic_digest(conflicting_history_body)})
