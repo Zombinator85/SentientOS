@@ -256,10 +256,28 @@ def evaluate_host_resource_policy(
     elif "unknown" in labels:
         status = "host_resource_policy_blocked"
         reasons.add("unknown_pressure_label_blocks_proposal_readiness")
-    elif "telemetry_incomplete" in labels or "sensor_unavailable" in labels:
+    elif "telemetry_incomplete" in labels:
         status = "host_resource_policy_incomplete"
         reasons.add("incomplete_telemetry_requires_review")
         proposal_kinds.add("request_operator_review_candidate")
+    elif "sensor_unavailable" in labels:
+        # Missing optional sensors must remain visible and prevent any claim of
+        # automatic readiness. They need not hide a pressure proposal already
+        # supported by an available CPU, memory, GPU, or disk measurement.
+        # Receipts remain proposal-only and keep the operator-review candidate.
+        proposal_kinds.add("request_operator_review_candidate")
+        known_pressure_labels = {
+            "cpu_pressure", "memory_pressure", "gpu_pressure", "disk_pressure",
+            "thermal_pressure", "battery_pressure", "network_pressure",
+            "service_degraded",
+        }
+        if set(labels).intersection(known_pressure_labels) and candidate_kinds:
+            status = "host_resource_policy_proposal_ready"
+            reasons.add("observed_pressure_proposals_remain_reviewable_with_sensor_gaps")
+            warnings.add("sensor_gaps_do_not_authorize_fulfillment")
+        else:
+            status = "host_resource_policy_incomplete"
+            reasons.add("incomplete_telemetry_requires_review")
     elif labels == ("nominal",):
         status = "host_resource_policy_nominal"
         reasons.add("nominal_monitor_only")

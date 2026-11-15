@@ -62,6 +62,46 @@ def test_runtime_observation_is_read_only_and_quarantine_calls_no_collector(tmp_
     assert calls["n"] == 1
 
 
+def test_runtime_keeps_measured_cpu_pressure_proposal_visible_with_optional_sensor_gap(
+        tmp_path):
+    specs = [
+        HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+            lambda observed_at=None: _result("cpu", utilization_percent=95.0,
+                cpu_count=8)),
+        HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+            lambda observed_at=None: _result("memory", used_percent=40.0,
+                total_bytes=1000, available_bytes=600)),
+        HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3,
+            lambda observed_at=None: _result("disk", used_percent=50.0,
+                total_bytes=1000, free_bytes=500)),
+        HostObservationCollectorSpec("thermal_sensors", False,
+            ("linux", "unknown"), 4, lambda observed_at=None: HostCollectorResult(
+                "thermal_sensors", "unavailable", observed_at or
+                "2026-11-13T00:00:00+00:00", "test:unavailable",
+                warnings=("sensor_unavailable:thermal",))),
+        HostObservationCollectorSpec("fan_pwm", False, ("linux", "unknown"), 5,
+            lambda observed_at=None: HostCollectorResult("fan_pwm", "unavailable",
+                observed_at or "2026-11-13T00:00:00+00:00", "test:unavailable",
+                warnings=("sensor_unavailable:fan_pwm",))),
+    ]
+    evaluation = HostResourceRuntimeCoordinator(
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME),
+        runtime_state_root=tmp_path,
+        plan=build_observation_plan(specs=specs),
+    ).run_cycle(correlation_id="cpu-pressure-with-optional-sensor-gaps")
+
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+    assert "cpu_pressure" in evaluation.pressure_report.pressure_labels
+    assert "sensor_unavailable" in evaluation.pressure_report.pressure_labels
+    assert evaluation.policy_decision.status == "host_resource_policy_proposal_ready"
+    kinds = {receipt.proposal_kind for receipt in evaluation.proposal_receipts}
+    assert "reduce_model_load_candidate" in kinds
+    assert "request_operator_review_candidate" in kinds
+    assert all(receipt.does_not_execute and receipt.does_not_mutate_host
+        and receipt.not_authorized_for_fulfillment
+        for receipt in evaluation.proposal_receipts)
+
+
 def test_windows_process_count_observation_flows_through_runtime_without_identity(
         tmp_path, monkeypatch):
     from sentientos.host_collectors import (collect_cpu_observation,
