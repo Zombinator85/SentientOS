@@ -2037,6 +2037,94 @@ class PersistentConversationService:
             },
             retention={"status": "not_requested"})
 
+    def _resident_canonical_memory_context(self, question: str) -> dict[str, Any] | None:
+        """Bind only explicitly retained, source-turn-verified memories for cognition."""
+        retrieved = self.memories.retrieve(question, limit=4,
+            budget_chars=self.memory_budget_chars)
+        if (not isinstance(retrieved, Mapping)
+                or retrieved.get("read_only") is not True
+                or not isinstance(retrieved.get("snapshot_digest"), str)
+                or not isinstance(retrieved.get("memories"), list)):
+            return None
+        selected: list[dict[str, Any]] = []
+        used = 0
+        seen_ids: set[str] = set()
+        for record in retrieved["memories"]:
+            if not isinstance(record, Mapping):
+                continue
+            memory_id, text, text_digest = (
+                record.get("id"), record.get("text"), record.get("text_digest"))
+            meta = record.get("meta")
+            if (not isinstance(memory_id, str) or not memory_id
+                    or memory_id in seen_ids or not isinstance(text, str)
+                    or not text or len(text) > self.memory_budget_chars
+                    or not isinstance(text_digest, str)
+                    or digest_payload({"text": text}) != text_digest
+                    or record.get("source") != "conversation_user_turn"
+                    or record.get("category") != "event"
+                    or record.get("tags") != ["explicit-retention"]
+                    or type(record.get("importance")) is not float
+                    or record.get("importance") != 1.0
+                    or not isinstance(meta, Mapping)):
+                continue
+            source_session_id, source_turn_id = (
+                meta.get("session_id"), meta.get("turn_id"))
+            admission_digest = meta.get("admission_receipt_digest")
+            if (not isinstance(source_session_id, str) or not source_session_id
+                    or not isinstance(source_turn_id, str) or not source_turn_id
+                    or not isinstance(admission_digest, str)
+                    or len(admission_digest) != 64):
+                continue
+            try:
+                source_session = self.sessions.load(source_session_id)
+                source_turn = next((turn for turn in source_session.get("turns", ())
+                    if isinstance(turn, Mapping) and turn.get("turn_id") == source_turn_id), None)
+                receipt = source_turn.get("retention_receipt") if isinstance(source_turn, Mapping) else None
+                verification = (self.retention_writer.verify_committed_artifact(
+                    receipt, source_turn, source_session_id)
+                    if isinstance(receipt, Mapping) and isinstance(source_turn, Mapping) else {})
+            except Exception:
+                continue
+            if (not isinstance(source_turn, Mapping)
+                    or source_turn.get("role") != "user"
+                    or source_turn.get("retention_state") != "retained"
+                    or source_turn.get("text") != text
+                    or source_turn.get("text_digest") != text_digest
+                    or verification.get("artifact_status") != "verified"
+                    or verification.get("admission_status")
+                        != "policy_recomputed_not_execution_attested"
+                    or verification.get("memory_id") != memory_id
+                    or verification.get("record_digest") != digest_payload(dict(record))
+                    or verification.get("admission_receipt_digest") != admission_digest):
+                continue
+            if used + len(text) > self.memory_budget_chars:
+                continue
+            selected.append({
+                "memory_id": memory_id, "text": text,
+                "text_digest": text_digest,
+                "memory_record_digest": digest_payload(dict(record)),
+                "source_turn_id": source_turn_id,
+                "source_turn_text_digest": str(source_turn["text_digest"]),
+                "admission_receipt_digest": admission_digest,
+                "timestamp": str(record.get("timestamp", "")),
+                "historical_only": True, "current_truth": False,
+                "authority": False,
+            })
+            used += len(text)
+            seen_ids.add(memory_id)
+        if not selected:
+            return None
+        semantic = {
+            "schema_version": "sentientos.canonical_user_memory_cognition_context:v1",
+            "source_snapshot_digest": retrieved["snapshot_digest"],
+            "retrieval_posture": str(retrieved.get("retrieval_posture", "unknown")),
+            "selection_posture": str(retrieved.get("selection_posture", "unknown")),
+            "records": selected, "read_only": True,
+            "historical_only": True, "current_truth": False,
+            "authority": False, "mutation_performed": False,
+        }
+        return {**semantic, "selection_digest": digest_payload(semantic)}
+
     def _complete_resident_cognition_response(self, *, session_id: str,
             user_turn: Mapping[str, Any], question: str,
             screen_observation: Mapping[str, object] | None,
@@ -2046,8 +2134,12 @@ class PersistentConversationService:
         if bridge is None:
             raise RuntimeError("resident_cognition_bridge_unavailable")
         request_id = f"{session_id}:{user_turn['turn_id']}"
-        result = bridge.respond(request_id=request_id, question=question,
-            screen_observation=screen_observation)
+        canonical_memory_context = self._resident_canonical_memory_context(question)
+        response_kwargs: dict[str, Any] = {"request_id": request_id,
+            "question": question, "screen_observation": screen_observation}
+        if canonical_memory_context is not None:
+            response_kwargs["canonical_memory_context"] = canonical_memory_context
+        result = bridge.respond(**response_kwargs)
         response_text = getattr(result, "response", None)
         if (getattr(result, "status", None) != "admitted_completed"
                 or not isinstance(response_text, str) or not response_text.strip()
@@ -2067,6 +2159,9 @@ class PersistentConversationService:
         evidence_ids = getattr(result, "evidence_ids", ())
         prior_record_ids = getattr(result, "prior_record_ids", ())
         history_record_ids = getattr(result, "history_record_ids", ())
+        memory_record_ids = getattr(result, "memory_record_ids", ())
+        memory_selection_digest = getattr(
+            result, "canonical_user_memory_selection_digest", None)
         if (not isinstance(observation_id, str) or not observation_id.startswith("devcog-")
                 or not isinstance(observation_digest, str) or not observation_digest.startswith("sha256:")
                 or not isinstance(receipt_id, str) or not receipt_id.startswith("lmrec-")
@@ -2083,6 +2178,16 @@ class PersistentConversationService:
                 or len(set(history_record_ids)) != len(history_record_ids)
                 or not set(history_record_ids).issubset(prior_record_ids)):
             raise RuntimeError("resident_cognition_history_lineage_invalid")
+        expected_memory_ids = ({row["memory_id"] for row in
+            canonical_memory_context.get("records", ())}
+            if canonical_memory_context is not None else set())
+        if (not isinstance(memory_record_ids, (tuple, list))
+                or any(not isinstance(item, str) for item in memory_record_ids)
+                or len(set(memory_record_ids)) != len(memory_record_ids)
+                or not set(memory_record_ids).issubset(expected_memory_ids)
+                or memory_selection_digest != (canonical_memory_context.get("selection_digest")
+                    if canonical_memory_context is not None else None)):
+            raise RuntimeError("resident_cognition_memory_lineage_invalid")
         lineage = {
             "status": "resident_cognition_interaction",
             "cognition_observation_id": observation_id,
@@ -2108,6 +2213,8 @@ class PersistentConversationService:
                 "cognition_evidence_ids": list(evidence_ids),
                 "cognition_prior_record_ids": list(prior_record_ids),
                 "cognition_history_record_ids": list(history_record_ids),
+                "cognition_memory_citation_ids": list(memory_record_ids),
+                "cognition_memory_selection_digest": memory_selection_digest,
                 "cognition_model_id": model_id,
                 "cognition_model_artifact_digest": getattr(result, "model_artifact_digest", None),
                 "self_model_projection_id": getattr(result, "self_model_projection_id", None),
@@ -2148,6 +2255,8 @@ class PersistentConversationService:
                 "cognition_evidence_ids": list(evidence_ids),
                 "cognition_prior_record_ids": list(prior_record_ids),
                 "cognition_history_record_ids": list(history_record_ids),
+                "cognition_memory_citation_ids": list(memory_record_ids),
+                "cognition_memory_selection_digest": memory_selection_digest,
                 "cognition_model_id": model_id,
                 "self_model_projection_id": getattr(result, "self_model_projection_id", None),
                 "self_model_projection_digest": getattr(result, "self_model_projection_digest", None),

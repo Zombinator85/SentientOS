@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 import shutil
@@ -321,6 +322,121 @@ def test_resident_cognition_bridge_delivers_receipt_linked_answer_and_recovers(
     assert bridge.verifications == 1
     assert len(bridge.calls) == 1
     assert invoker.requests == []
+
+
+def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
+        tmp_path: Path) -> None:
+    retained_text = "I prefer concise answers."
+    memory_contexts = []
+
+    class CognitionBridge:
+        def respond(self, *, request_id, question, screen_observation=None,
+                canonical_memory_context=None):
+            memory_contexts.append(canonical_memory_context)
+            return SimpleNamespace(status="admitted_completed", disposition="answer",
+                response="I will keep answers concise.", evidence_ids=(),
+                cognition_observation_id="devcog-" + "a" * 24,
+                cognition_observation_digest="sha256:" + "b" * 64,
+                snapshot_id="world-state-memory-test", snapshot_digest="c" * 64,
+                inference_receipt_id="lmrec-" + "d" * 24,
+                inference_receipt_digest="e" * 64,
+                invocation_output_digest="f" * 64, model_id="fixture-model",
+                model_artifact_digest="g" * 64, prior_record_ids=(),
+                history_record_ids=(), memory_record_ids=tuple(row["memory_id"] for row in
+                    canonical_memory_context.get("records", ()))
+                    if canonical_memory_context is not None else (),
+                canonical_user_memory_selection_digest=(canonical_memory_context.get(
+                    "selection_digest") if canonical_memory_context is not None else None),
+                developmental_history_writeback_performed=False,
+                authority=False, current_truth=False,
+                canonical_explicit_user_retention_mutated=False)
+
+        def verify_committed_response(self, **_kwargs):
+            return True
+
+    app = service(tmp_path, FakeInvoker(), cognition_bridge=CognitionBridge())
+    session_id = app.create_session()
+    saved = app.chat(retained_text, session_id=session_id,
+        request_id="explicit-memory-retention", retain=True)
+    assert saved.retention["status"] == "memory_retention_committed"
+
+    response = app.chat("What do I prefer?", session_id=session_id,
+        request_id="resident-memory-recall")
+
+    assert response.context["response_origin"] == "resident_developmental_cognition"
+    assert len(memory_contexts) == 1
+    context = memory_contexts[0]
+    assert context["schema_version"] == "sentientos.canonical_user_memory_cognition_context:v1"
+    assert context["records"][0]["text"] == retained_text
+    assert context["records"][0]["memory_id"].startswith("memory-")
+    assert context["records"][0]["historical_only"] is True
+    assert context["records"][0]["current_truth"] is False
+    assert context["records"][0]["authority"] is False
+    assert context["mutation_performed"] is False
+    assert response.context["cognition_memory_citation_ids"] == [
+        context["records"][0]["memory_id"]]
+    assert response.context["cognition_memory_selection_digest"] == context["selection_digest"]
+    assert context["selection_digest"] == digest({key: value
+        for key, value in context.items() if key != "selection_digest"})
+    assert len(app.sessions.load(session_id)["turns"]) == 4
+
+    # A record whose text and local digest are both rewritten still fails
+    # source-turn and admission-receipt verification before resident use.
+    memory_path = app.memories.raw / (context["records"][0]["memory_id"] + ".json")
+    altered = json.loads(memory_path.read_text(encoding="utf-8"))
+    altered["text"] = "I prefer verbose answers."
+    altered["text_digest"] = digest({"text": altered["text"]})
+    memory_path.write_text(json.dumps(altered, sort_keys=True) + "\n", encoding="utf-8")
+    app.chat("What do I prefer?", session_id=session_id,
+        request_id="resident-memory-recall-after-tamper")
+    assert memory_contexts[-1] is None
+
+
+def test_verified_retained_memory_can_support_a_cited_resident_answer(tmp_path: Path) -> None:
+    from tests.test_resident_developmental_cognition import (
+        FakeInvoker as CognitionFakeInvoker, owner as cognition_owner,
+    )
+
+    from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+
+    retained_text = "I prefer concise answers."
+    cognition_invoker = CognitionFakeInvoker()
+    cognition, _ = cognition_owner(tmp_path / "cognition", invoker=cognition_invoker)
+    now = datetime.now(timezone.utc)
+    screen = {"modality": "screen", "text": "A neutral test scene is visible.",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False,
+        "text_change_kind": "initial", "previous_text_digest": None}
+    app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
+        cognition_bridge=ResidentDevelopmentalCompanionBridge(cognition,
+            clock=lambda: now))
+    session_id = app.create_session()
+    app.chat(retained_text, session_id=session_id,
+        request_id="retained-memory-source", retain=True)
+    selected = app.memories.retrieve("What do I prefer?")
+    memory_id = selected["selected_memory_ids"][0]
+    cognition_invoker.companion_output_override = {
+        "disposition": "answer",
+        "response": "You explicitly retained a preference for concise answers.",
+        "evidence_ids": [], "history_record_ids": [],
+        "memory_record_ids": [memory_id],
+    }
+
+    response = app.chat("What do I prefer?", session_id=session_id,
+        request_id="cited-resident-memory-answer", observe_screen=True)
+
+    assert response.response == cognition_invoker.companion_output_override["response"]
+    turns = app.sessions.load(session_id)["turns"]
+    linkage = turns[-1]["linkage"]
+    assert linkage["response_origin"] == "resident_developmental_cognition"
+    assert linkage["cognition_evidence_ids"] == []
+    assert linkage["cognition_memory_citation_ids"] == [memory_id]
+    assert linkage["cognition_memory_selection_digest"]
+    observation = cognition.verified_cognition_observation(
+        linkage["cognition_observation_id"], linkage["cognition_observation_digest"])
+    assert observation["companion_memory_citation_ids"] == [memory_id]
+    assert observation["canonical_user_memory_record_ids"] == [memory_id]
 
 
 def test_companion_uses_ordinary_chat_without_current_cognition_evidence(

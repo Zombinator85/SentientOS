@@ -424,6 +424,22 @@ class ResidentDevelopmentalCompanionBridge:
                 and isinstance(retrieved_record_ids, (list, tuple))
                 and all(isinstance(item, str) for item in retrieved_record_ids)
                 and set(history_record_ids).issubset(retrieved_record_ids))
+            if observation.get("schema_version") == "sentientos.resident_cognition_observation:v8":
+                memory_lineage_valid = (
+                    "cognition_memory_selection_digest" not in linkage
+                    and "cognition_memory_citation_ids" not in linkage)
+            else:
+                memory_citation_ids = linkage.get("cognition_memory_citation_ids", ())
+                memory_lineage_valid = (
+                    observation.get("schema_version")
+                        == "sentientos.resident_cognition_observation:v9"
+                    and linkage.get("cognition_memory_selection_digest")
+                        == observation.get("canonical_user_memory_selection_digest")
+                    and isinstance(memory_citation_ids, (list, tuple))
+                    and list(memory_citation_ids)
+                        == list(observation.get("companion_memory_citation_ids", ()))
+                    and set(memory_citation_ids) <=
+                        set(observation.get("canonical_user_memory_record_ids", ())))
             return (
                 linkage.get("response_origin") == "resident_developmental_cognition"
                 and observation.get("condition_id") == "companion-interaction"
@@ -456,9 +472,11 @@ class ResidentDevelopmentalCompanionBridge:
                     set(observation.get("current_fact_ids", ()))
                 and linkage.get("cognition_prior_record_ids") ==
                     list(observation.get("retrieved_record_ids", ()))
-                and observation.get("schema_version") ==
-                    "sentientos.resident_cognition_observation:v8"
+                and observation.get("schema_version") in {
+                    "sentientos.resident_cognition_observation:v8",
+                    "sentientos.resident_cognition_observation:v9"}
                 and observation.get("companion_history_citation_ids") == list(history_record_ids)
+                and memory_lineage_valid
                 and history_lineage_valid
                 and linkage.get("cognition_model_id") == observation.get("model_id")
                 and linkage.get("cognition_model_artifact_digest") ==
@@ -780,7 +798,8 @@ class ResidentDevelopmentalCompanionBridge:
             epistemic_development_error_type=epistemic_error_type)
 
     def respond(self, *, request_id: str, question: str,
-                screen_observation: Mapping[str, Any] | None = None
+                screen_observation: Mapping[str, Any] | None = None,
+                canonical_memory_context: Mapping[str, Any] | None = None
                 ) -> ResidentCompanionInteractionResult:
         proprioception: Sequence[EmbodimentObservation] = ()
         if self._proprioception_provider is not None:
@@ -804,4 +823,5 @@ class ResidentDevelopmentalCompanionBridge:
             return self._owner.run_companion_interaction(
                 snapshot=snapshot, request_id=request_id, question=question,
                 prior_self_model=prior_self_model,
-                prior_epistemic_state=prior_epistemic_state)
+                prior_epistemic_state=prior_epistemic_state,
+                canonical_memory_context=canonical_memory_context)

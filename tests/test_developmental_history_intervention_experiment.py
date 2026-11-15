@@ -484,7 +484,7 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
         "current_projection_digest": "sha256:projection",
         "prior_self_model_digest": "sha256:self-model",
         "prior_epistemic_state_digest": "sha256:epistemic",
-        "response_contract": "sentientos.companion_history_intervention_decision:v1",
+        "response_contract": "sentientos.companion_history_intervention_decision:v2",
         "condition_group": "tick-1:retrieval-comparison",
         "invocation_purpose": "resident_developmental_history_intervention_experiment",
         "expected_output_format": "json",

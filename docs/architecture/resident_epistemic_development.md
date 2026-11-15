@@ -117,3 +117,43 @@ resident decision interface with a controlled substitute. The substitute's
 behavior is scripted from supplied history text, so this is not evidence that a
 real model generalizes the lesson, that the recommendation is objectively
 correct, or that persistent cognition improves task performance in deployment.
+
+## Explicitly retained user context in resident serving
+
+Resident-routed chat now queries the existing canonical memory store with the
+current question. A record enters the resident prompt only when its canonical
+record shape and text digest match, its source user turn is still linked as
+retained, and `AdmittedRetentionWriter.verify_committed_artifact` verifies the
+stored artifact against that source turn and receipt. The bounded projection
+preserves record IDs, text and record digests, source turn identity, and
+admission receipt digest; the inference receipt's upstream evidence binds the
+selection digest and record identities.
+
+The prompt treats this substrate separately from current World-State evidence
+and developmental interpretations. It labels retained content as historical,
+possibly stale, and untrusted data; it cannot grant instructions or authority,
+is not eligible for current `evidence_ids` or developmental
+`history_record_ids`, and causes no retention mutation. A separate
+`memory_record_ids` citation list is bound to the selected canonical memory
+IDs. The durable resident observation records the memory source snapshot,
+selection digest, record digests, and citations under schema v9. This permits a
+memory-only answer only as a qualified report of the explicitly retained user
+statement; it does not make the statement current or externally verified.
+The source integration is covered by
+`tests/test_persistent_governed_conversation.py::test_resident_cognition_receives_only_verified_explicitly_retained_memory`,
+and resident owner binding and fail-closed authority handling by
+`tests/test_resident_developmental_cognition.py::test_canonical_user_memory_is_prompt_bound_historical_context_not_evidence`.
+That source test also rewrites a retained artifact and its local text digest;
+source-turn and receipt verification then keep the altered content out of the
+resident context. The end-to-end deterministic bridge test
+`tests/test_persistent_governed_conversation.py::test_verified_retained_memory_can_support_a_cited_resident_answer`
+shows that an explicitly retained preference can be selected for a later
+question, cited through `memory_record_ids`, and linked to the committed
+observation. The citation parser rejects IDs outside the selected memory set.
+
+This connects the existing explicit-retention substrate to the resident prompt
+path. It does not establish that real-model responses use this context
+correctly, resolve conflicting memories, or improve decisions; the scripted
+inference fixture establishes software wiring and citation enforcement only.
+Real-model response quality and longitudinal decision improvement remain open
+evaluation work.

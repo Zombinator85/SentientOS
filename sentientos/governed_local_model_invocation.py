@@ -162,7 +162,8 @@ RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
 }
 RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA = {
     "type": "object",
-    "required": ["disposition", "response", "evidence_ids", "history_record_ids"],
+    "required": ["disposition", "response", "evidence_ids", "history_record_ids",
+        "memory_record_ids"],
     "additionalProperties": False,
     "properties": {
         "disposition": {"type": "string", "enum": ["answer", "ask", "abstain"]},
@@ -171,6 +172,8 @@ RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA = {
             "items": {"type": "string", "minLength": 1, "maxLength": 256}},
         "history_record_ids": {"type": "array", "maxItems": 16, "uniqueItems": True,
             "items": {"type": "string", "pattern": "^devrec-[0-9a-f]{24}$"}},
+        "memory_record_ids": {"type": "array", "maxItems": 4, "uniqueItems": True,
+            "items": {"type": "string", "pattern": "^memory-[0-9a-f]{24}$"}},
     },
 }
 # Keep decoding controls identical in all history-intervention conditions.
