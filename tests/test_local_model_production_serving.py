@@ -475,13 +475,14 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
         assert runtime["evidence_refs"]["game_workload_evidence"]["message_id"] == "b" * 64
 
 
-@pytest.mark.parametrize(("pressure_kind", "expected_label"), [
-    ("cpu", "cpu_pressure"),
-    ("memory", "memory_pressure"),
-    ("thermal", "thermal_pressure"),
+@pytest.mark.parametrize(("pressure_kind", "expected_label", "gpu_layers"), [
+    ("cpu", "cpu_pressure", 0),
+    ("memory", "memory_pressure", 0),
+    ("gpu", "gpu_pressure", 16),
+    ("thermal", "thermal_pressure", 0),
 ])
 def test_host_pressure_blocks_initial_model_load_before_factory(
-        monkeypatch, handle, pressure_kind, expected_label):
+        monkeypatch, handle, pressure_kind, expected_label, gpu_layers):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(handle.root / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(handle.root))
@@ -503,6 +504,12 @@ def test_host_pressure_blocks_initial_model_load_before_factory(
                 current = {"zones": [{"id": "cpu",
                     "temperature_c": 92.0 if pressure_kind == "thermal" else 55.0,
                     "telemetry_only": True, "control_available": False}]}
+            elif collector_id == "nvidia_gpu":
+                current = {"sample_scope": "device_wide",
+                    "per_process_attribution_available": False,
+                    "device_count": 1, "devices": [{"index": 0,
+                    "gpu_utilization_percent": 95.0 if pressure_kind == "gpu" else 20.0,
+                    "vram_utilization_percent": 95.0 if pressure_kind == "gpu" else 30.0}]}
             else:
                 current = values
             return HostCollectorResult(collector_id, "available",
@@ -525,7 +532,7 @@ def test_host_pressure_blocks_initial_model_load_before_factory(
             HostObservationCollectorSpec("thermal_sensors", False,
                 ("linux", "unknown"), 4, collector("thermal_sensors")),
         ]), clock=lambda: now.isoformat())
-    ctl = controller(monkeypatch, handle, [evidence(gpu_layers=0)], kernel=kernel,
+    ctl = controller(monkeypatch, handle, [evidence(gpu_layers=gpu_layers)], kernel=kernel,
         factory=lambda _chain, _load: factory_calls.append("loaded")
             or Model(identity()))
 
@@ -543,8 +550,9 @@ def test_host_pressure_blocks_initial_model_load_before_factory(
             "host_resource_observation_id": observation_id,
             "model_execution_profile": {
                 "schema_version": "sentientos.model_execution_profile:v1",
-                "engine": "llama_cpp", "accelerator_route": "cpu",
-                "gpu_layers": 0,
+                "engine": "llama_cpp",
+                "accelerator_route": "gpu" if gpu_layers else "cpu",
+                "gpu_layers": gpu_layers,
                 "configuration_digest": semantic_digest(load_configuration),
             },
             "workload_mode": "normal", "effective_workload_mode": "normal",
@@ -570,6 +578,16 @@ def test_host_pressure_blocks_initial_model_load_before_factory(
         "deferred_background_model_serving_under_host_pressure")
     assert runtime["evidence_refs"]["host_resource_evidence"]["status"] == "current"
     assert runtime["evidence_refs"]["observed_pressure_labels"] == [expected_label]
+    if pressure_kind == "gpu":
+        host_evidence = runtime["evidence_refs"]["host_resource_evidence"]
+        assert host_evidence["gpu_telemetry_complete"] is True
+        assert host_evidence["gpu_utilization_percent"] == 95.0
+        assert host_evidence["vram_utilization_percent"] == 95.0
+        assert host_evidence["gpu_telemetry_sources"] == [{
+            "collector_id": "nvidia_gpu", "status": "available",
+            "source": "synthetic_test_fixture", "sample_scope": "device_wide",
+            "per_process_attribution_available": False,
+        }]
 
 
 @pytest.mark.parametrize(("transition", "gpu_layers", "expected_reason"), [
