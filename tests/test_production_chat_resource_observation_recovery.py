@@ -22,6 +22,44 @@ from tests.test_production_chat_resource_provisioning_bundle_producer import inp
 pytestmark = pytest.mark.no_legacy_skip
 
 
+def test_legacy_entitlement_release_observation_remains_exhaustion_only() -> None:
+    from sentientos.host_resource_runtime import (
+        _resource_entitlement_observation_shape_valid as host_shape_valid,
+    )
+    from sentientos.production_chat_resource_observation import (
+        _resource_entitlement_observation_shape_valid as receipt_shape_valid,
+    )
+
+    legacy = {
+        "schema_version": (
+            "sentientos.governed_local_model_resource_entitlement_observation:v1"),
+        "allocation_id": "lmalloc-" + "a" * 24,
+        "allocation_digest": "a" * 64,
+        "allocator_id": "sentientos.governed_local_model_resource_allocator.v1",
+        "resource_kind": "governed_local_model_invocation_call_entitlement.v1",
+        "policy_digest": "b" * 64,
+        "policy_epoch": 1,
+        "principal_binding_digest": "sha256:" + "c" * 64,
+        "remaining_call_entitlement": 0,
+        "checked_at": "2026-09-21T08:30:00Z",
+        "observation_id": "lmentitlement-" + "d" * 24,
+        "observation_digest": "d" * 64,
+    }
+    for validate in (host_shape_valid, receipt_shape_valid):
+        assert validate(legacy, "call_entitlement_exhausted") is True
+        assert validate(legacy, "resource_entitlement_invalidated") is False
+        assert validate({**legacy, "remaining_call_entitlement": 1},
+            "call_entitlement_exhausted") is False
+        invalidation_v2 = {
+            **legacy,
+            "schema_version": (
+                "sentientos.governed_local_model_resource_entitlement_observation:v2"),
+            "entitlement_status": "invalidated",
+            "invalidation_reason_code": "policy_expired",
+        }
+        assert validate(invalidation_v2, "resource_entitlement_invalidated") is True
+
+
 def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     from sentientos.local_model_authority import digest_payload

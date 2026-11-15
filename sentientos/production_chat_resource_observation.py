@@ -96,6 +96,41 @@ _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6 = (
 _RESOURCE_RELEASE_NAME = re.compile(
     r"serving-resource-release-[0-9a-f]{24}\.json\Z")
 _MAX_RESOURCE_RELEASE_RECEIPTS = 256
+_RESOURCE_ENTITLEMENT_OBSERVATION_V1_FIELDS = {
+    "schema_version", "allocation_id", "allocation_digest", "allocator_id",
+    "resource_kind", "policy_digest", "policy_epoch", "principal_binding_digest",
+    "remaining_call_entitlement", "checked_at", "observation_id",
+    "observation_digest",
+}
+_RESOURCE_ENTITLEMENT_OBSERVATION_V2_FIELDS = (
+    _RESOURCE_ENTITLEMENT_OBSERVATION_V1_FIELDS
+    | {"entitlement_status", "invalidation_reason_code"})
+
+
+def _resource_entitlement_observation_shape_valid(
+        value: Mapping[str, Any], trigger_kind: object) -> bool:
+    schema = value.get("schema_version")
+    remaining = value.get("remaining_call_entitlement")
+    if set(value) == _RESOURCE_ENTITLEMENT_OBSERVATION_V1_FIELDS:
+        return (schema ==
+                "sentientos.governed_local_model_resource_entitlement_observation:v1"
+            and trigger_kind == "call_entitlement_exhausted"
+            and type(remaining) is int and remaining == 0)
+    if (set(value) != _RESOURCE_ENTITLEMENT_OBSERVATION_V2_FIELDS
+            or schema !=
+                "sentientos.governed_local_model_resource_entitlement_observation:v2"
+            or type(remaining) is not int):
+        return False
+    if trigger_kind == "call_entitlement_exhausted":
+        return (value.get("entitlement_status") == "exhausted"
+            and remaining == 0
+            and value.get("invalidation_reason_code") is None)
+    if trigger_kind == "resource_entitlement_invalidated":
+        return (value.get("entitlement_status") == "invalidated"
+            and value.get("invalidation_reason_code") in {
+                "allocation_expired", "policy_expired", "currentness_stale",
+                "principal_expired", "allocation_not_current"})
+    return False
 
 
 def _resource_release_reason_codes_valid(value: object) -> bool:
@@ -587,30 +622,13 @@ class ProductionChatResourceObservationOwner:
                     else:
                         entitlement_digest = None
                     if (not isinstance(entitlement, Mapping)
-                            or set(entitlement) != {"schema_version", "allocation_id",
-                                "allocation_digest", "allocator_id", "resource_kind",
-                                "policy_digest", "policy_epoch", "principal_binding_digest",
-                                "remaining_call_entitlement", "entitlement_status",
-                                "invalidation_reason_code", "checked_at", "observation_id",
-                                "observation_digest"}
+                            or not _resource_entitlement_observation_shape_valid(
+                                entitlement, value.get("trigger_kind"))
                             or not isinstance(resource_entitlement_binding, Mapping)
                             or not isinstance(evidence, Mapping)
                             or evidence.get("status") != "current"
                             or evidence.get("resource_entitlement_observation") != entitlement
-                            or entitlement.get("schema_version") !=
-                                "sentientos.governed_local_model_resource_entitlement_observation:v2"
                             or type(entitlement.get("remaining_call_entitlement")) is not int
-                            or (value.get("trigger_kind") ==
-                                "call_entitlement_exhausted" and (
-                                entitlement.get("entitlement_status") != "exhausted"
-                                or entitlement.get("remaining_call_entitlement") != 0
-                                or entitlement.get("invalidation_reason_code") is not None))
-                            or (value.get("trigger_kind") ==
-                                "resource_entitlement_invalidated" and (
-                                entitlement.get("entitlement_status") != "invalidated"
-                                or entitlement.get("invalidation_reason_code") not in {
-                                    "allocation_expired", "policy_expired", "currentness_stale",
-                                    "principal_expired", "allocation_not_current"}))
                             or type(entitlement.get("policy_epoch")) is not int
                             or not isinstance(entitlement.get("checked_at"), str)
                             or entitlement.get("observation_digest") != entitlement_digest
