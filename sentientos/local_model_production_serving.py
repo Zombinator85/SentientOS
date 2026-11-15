@@ -786,6 +786,7 @@ class ProductionServingController:
         self._resource_recovery_activation_digest: str | None = None
         self._resource_recovery_pending = False
         self._resource_recovery_requires_game_clearance = False
+        self._resource_recovery_game_clearance_after: dict[str, str] | None = None
         self._lifecycle_lock = threading.RLock()
         for relative in ("local-model", "local-model/serving", "local-model/serving/receipts",
                 SERVING_ATTEMPT_ROOT):
@@ -876,7 +877,28 @@ class ProductionServingController:
                     evidence = None
                 if (not isinstance(evidence, Mapping)
                         or evidence.get("game_foreground") is not False
-                        or evidence.get("game_process_running") is not False):
+                        or evidence.get("game_process_running") is not False
+                        or not isinstance(self._resource_recovery_game_clearance_after,
+                            Mapping)
+                        or evidence.get("source_id") !=
+                            self._resource_recovery_game_clearance_after.get("source_id")
+                        or evidence.get("generation_id") !=
+                            self._resource_recovery_game_clearance_after.get("generation_id")):
+                    return {"status": "deferred",
+                        "reason_code": "fresh_verified_game_clearance_required"}
+                try:
+                    clearance_at = datetime.fromisoformat(
+                        str(evidence["observed_at"]).replace("Z", "+00:00"))
+                    pressure_at = datetime.fromisoformat(
+                        self._resource_recovery_game_clearance_after["observed_at"]
+                            .replace("Z", "+00:00"))
+                except (KeyError, TypeError, ValueError):
+                    return {"status": "deferred",
+                        "reason_code": "fresh_verified_game_clearance_required"}
+                if (clearance_at.tzinfo is None or clearance_at.utcoffset() is None
+                        or pressure_at.tzinfo is None or pressure_at.utcoffset() is None
+                        or clearance_at.astimezone(timezone.utc)
+                            <= pressure_at.astimezone(timezone.utc)):
                     return {"status": "deferred",
                         "reason_code": "fresh_verified_game_clearance_required"}
             if self._session is not None or self._model is not None:
@@ -895,6 +917,7 @@ class ProductionServingController:
                 return {"status": "deferred", "reason_code": exc.code}
             self._resource_recovery_pending = False
             self._resource_recovery_requires_game_clearance = False
+            self._resource_recovery_game_clearance_after = None
             return {"status": "restored", "serving_operation_id": operation_id,
                 "serving_session_id": session.session_id,
                 "serving_operation_attempt_id": session.binding.get(
@@ -934,6 +957,7 @@ class ProductionServingController:
                 "activation_state_semantic_digest")
             self._resource_recovery_pending = False
             self._resource_recovery_requires_game_clearance = False
+            self._resource_recovery_game_clearance_after = None
             return session
 
     def _establish_locked(self, *, operation_id: str,
@@ -1255,7 +1279,8 @@ class ProductionServingController:
     def release_current_session_after_resource_admission(
             self, expected: ServingSession, *, reason: str,
             admission_decision: ControlActionDecision | None = None,
-            require_verified_game_clearance_for_recovery: bool = False) -> bool:
+            require_verified_game_clearance_for_recovery: bool = False,
+            game_clearance_evidence: Mapping[str, Any] | None = None) -> bool:
         """Close this exact serving worker only for this kernel-owned release admission."""
         if not self._owns_resource_release_admission(admission_decision, expected):
             raise ProductionServingError("resource_release_admission_not_owned")
@@ -1273,6 +1298,15 @@ class ProductionServingController:
                 self._resource_recovery_pending = True
                 self._resource_recovery_requires_game_clearance = bool(
                     require_verified_game_clearance_for_recovery)
+                self._resource_recovery_game_clearance_after = (
+                    {key: str(game_clearance_evidence[key]) for key in (
+                        "source_id", "generation_id", "observed_at")}
+                    if require_verified_game_clearance_for_recovery
+                        and isinstance(game_clearance_evidence, Mapping)
+                        and all(isinstance(game_clearance_evidence.get(key), str)
+                            and game_clearance_evidence.get(key) for key in (
+                                "source_id", "generation_id", "observed_at"))
+                    else None)
             return released
 
     def close(self) -> None:
@@ -1280,5 +1314,6 @@ class ProductionServingController:
             self._invalidate_locked("controller_closed")
             self._resource_recovery_pending = False
             self._resource_recovery_requires_game_clearance = False
+            self._resource_recovery_game_clearance_after = None
             self._admission_context_provider = None
             self._resource_recovery_activation_digest = None

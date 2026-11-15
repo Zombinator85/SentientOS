@@ -2590,7 +2590,12 @@ class ProductionServingInferenceController:
                     closed = self._serving.release_current_session_after_resource_admission(
                         session, reason=reason_code, admission_decision=decision,
                         require_verified_game_clearance_for_recovery=(
-                            require_verified_game_clearance_for_recovery))
+                            require_verified_game_clearance_for_recovery),
+                        game_clearance_evidence=(
+                            {key: performance.get(key) for key in (
+                                "source_id", "generation_id", "observed_at")}
+                            if require_verified_game_clearance_for_recovery
+                                and isinstance(performance, Mapping) else None))
                 worker = getattr(model, "_process", None)
                 poll = getattr(worker, "poll", None)
                 worker_exit_observed = poll() is not None if callable(poll) else None

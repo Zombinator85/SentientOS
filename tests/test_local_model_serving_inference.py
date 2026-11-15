@@ -3351,9 +3351,11 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
             observation = ForegroundGameObservation(
                 "available", active, hashlib.sha256(b"examplegame.exe").hexdigest(),
                 observed_at, transport_provenance={
-                    "message_id": workload_message_id, "source_id": "windows-edge",
+                    "message_id": workload_message_id,
+                    "source_id": "windows-edge" if active else "other-edge",
                     "session_id": "cpu-pressure-game-session",
-                    "generation_id": "edge-generation", "sequence": sequence,
+                    "generation_id": ("edge-generation" if active
+                        else "other-generation"), "sequence": sequence,
                     "envelope_created_at": observed_at},
                 game_process_running=active,
                 running_process_name_digests=(
@@ -3364,6 +3366,19 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
                 assert serving.recover_after_resource_release() == {
                     "status": "deferred",
                     "reason_code": "fresh_verified_game_clearance_required"}
+        assert serving.recover_after_resource_release() == {
+            "status": "deferred",
+            "reason_code": "fresh_verified_game_clearance_required"}
+        matching_inactive_at = datetime.now(timezone.utc).isoformat()
+        matching_inactive = ForegroundGameObservation(
+            "available", False, hashlib.sha256(b"examplegame.exe").hexdigest(),
+            matching_inactive_at, transport_provenance={
+                "message_id": hashlib.sha256(b"game-clearance-matching-inactive").hexdigest(),
+                "source_id": "windows-edge", "session_id": "cpu-pressure-game-session",
+                "generation_id": "edge-generation", "sequence": 2,
+                "envelope_created_at": matching_inactive_at},
+            game_process_running=False, running_process_name_digests=())
+        assert kernel.observe_verified_game_workload(matching_inactive)
         kernel._runtime_governor._game_workload_evidence["observed_at"] = (
             (datetime.now(timezone.utc) - timedelta(seconds=11)).isoformat())
         assert serving.recover_after_resource_release() == {
