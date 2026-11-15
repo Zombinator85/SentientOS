@@ -2959,7 +2959,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "task_family_model_identity_then_probe_overlap_then_recency_fill:v3",
                 "query_overlap_then_recency_fill:v1",
                 "query_overlap_with_operator_reports_then_recency_fill:v2",
-                "query_overlap_with_operator_reports_then_recency_fill:v3"}
+                "query_overlap_with_operator_reports_then_recency_fill:v3",
+                "query_overlap_with_operator_reports_then_recency_fill:v4"}
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
@@ -5362,7 +5363,8 @@ class ResidentDevelopmentalCognitionOwner:
             # lexical overlap, while preserving checkpoint order for ties and
             # filling unused slots from the recent suffix. This ranks history;
             # it does not establish truth or correctness.
-            ranked: list[tuple[int, int, str]] = []
+            query_terms = _history_retrieval_terms(relevance_query)
+            document_terms: dict[str, set[str]] = {}
             for order, record_id in enumerate(ids):
                 try:
                     record = self.writeback.store.get(record_id)
@@ -5377,10 +5379,18 @@ class ResidentDevelopmentalCognitionOwner:
                     searchable_parts.extend(item["assertion_text"]
                         for item in _historical_operator_feedback_context(candidate))
                 searchable = " ".join(searchable_parts)
-                query_overlap = len(_history_retrieval_terms(relevance_query)
-                    & _history_retrieval_terms(searchable))
-                if query_overlap:
-                    ranked.append((query_overlap, order, record_id))
+                document_terms[record_id] = _history_retrieval_terms(searchable)
+            document_frequency = {term: sum(term in terms
+                for terms in document_terms.values()) for term in query_terms}
+            ranked: list[tuple[float, int, str]] = []
+            document_count = max(1, len(document_terms))
+            for order, record_id in enumerate(ids):
+                shared = query_terms & document_terms[record_id]
+                relevance_score = sum((math.log((document_count + 1) /
+                    (document_frequency[term] + 0.5)) + 1) ** 2
+                    for term in shared)
+                if relevance_score:
+                    ranked.append((relevance_score, order, record_id))
             ranked.sort(reverse=True)
             selected = [item[2] for item in ranked[:self.config.max_retrieved_records]]
             selected_set = set(selected)
@@ -6106,7 +6116,7 @@ class ResidentDevelopmentalCognitionOwner:
                 and bool(observed_target_identity))
             else "task_family_probe_overlap_then_recency_fill:v2"
             if isinstance(task_family_id, str) else
-            "query_overlap_with_operator_reports_then_recency_fill:v3"
+            "query_overlap_with_operator_reports_then_recency_fill:v4"
             if interaction_question is not None
                 and condition_id == "companion-interaction"
             else "completed_tick_recency_suffix:v1")

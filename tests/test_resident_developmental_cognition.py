@@ -4430,7 +4430,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_operator_reports_then_recency_fill:v3"
+        "query_overlap_with_operator_reports_then_recency_fill:v4"
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
 
@@ -6690,13 +6690,14 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert "effect_proven" in cycle_request.prompt
     filler_ids = []
     for index in range(4):
+        fake.history_interpretation = "The earlier operator report was recorded."
         filler = bridge.run_developmental_cycle(
             tick_id=f"operator-feedback-filler-{index}",
             screen_observation=screen)
         assert filler.written_record_id is not None
         filler_ids.append(filler.written_record_id)
     later = bridge.respond(request_id="later-cognition-cycle",
-        question="Candles?",
+        question="What did the earlier operator report say about the candles?",
         screen_observation=screen)
     assert later.status == "admitted_completed"
     assert later.disposition == "answer"
@@ -6722,11 +6723,12 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     control_bridge.run_developmental_cycle(
         tick_id="operator-cycle-control", screen_observation=screen)
     for index in range(4):
+        control_fake.history_interpretation = "The earlier operator report was recorded."
         control_bridge.run_developmental_cycle(
             tick_id=f"operator-cycle-control-filler-{index}",
             screen_observation=screen)
     control_later = control_bridge.respond(request_id="later-cognition-control",
-        question="Candles?",
+        question="What did the earlier operator report say about the candles?",
         screen_observation=screen)
     assert control_later.disposition == "abstain"
     assert control_later.response == "I do not have a relevant retained report."
