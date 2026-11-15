@@ -1371,7 +1371,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert later.written_record_id not in withheld["retrieved_record_ids"]
     assert later.written_record_id in restored["retrieved_record_ids"]
     assert present["developmental_history_selection"]["retrieval_policy_id"] == \
-        "task_family_probe_overlap_then_recency_fill:v2"
+        "task_family_model_identity_then_probe_overlap_then_recency_fill:v3"
     assert present["developmental_history_selection"]["task_family_id"] == \
         "integer_affine_prediction"
     assert withheld["developmental_history_selection"]["treatment"] == "withheld"
@@ -7579,6 +7579,58 @@ def test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_ide
     assert all(record_id not in withheld_prompt for record_id in prior_ids)
     assert withheld_metadata["developmental_history_selection"]["selected_records"] == []
     assert len(withheld_metadata["developmental_history_selection"]["omitted_records"]) == 4
+
+
+def test_task_family_retrieval_prioritizes_bound_current_model_before_probe_overlap(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Applicable history survives the retrieval cap over higher-overlap other-model records."""
+    from types import SimpleNamespace
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+    from sentientos.resident_developmental_cognition import _digest
+
+    current_identity = {"provider": "fixture", "model": "current"}
+    other_identity = {"provider": "fixture", "model": "replacement"}
+    records: dict[str, Any] = {}
+
+    def record(identity: Mapping[str, Any], probes: tuple[int, ...], *,
+            correct: bool) -> Any:
+        fact = {"payload": {
+            "objective_task_family": "integer_affine_prediction",
+            "active_model_identity": dict(identity),
+            "active_model_identity_digest": _digest(dict(identity)),
+            "acquisition_examples": [{"probe_input": probe,
+                "evaluator_correct": correct} for probe in probes],
+        }}
+        return SimpleNamespace(candidate={"selected_facts": [fact]})
+
+    ids = ["old-current-model"]
+    records[ids[0]] = record(current_identity, (10,), correct=False)
+    for index in range(4):
+        record_id = f"new-other-model-{index}"
+        ids.append(record_id)
+        records[record_id] = record(other_identity, (10, 11), correct=True)
+
+    cognition, _ = owner(tmp_path)
+    monkeypatch.setattr(cognition.writeback.store, "get",
+        lambda record_id: records[record_id])
+    monkeypatch.setattr(cognition.writeback, "retrieve", lambda record_ids, *, limit:
+        DevelopmentalHistoryProjection(tuple(records[record_id]
+            for record_id in record_ids), tuple(record_ids)))
+
+    selected = cognition._prior_projection({"completed_ticks": [
+            {"tick_id": record_id, "record_id": record_id} for record_id in ids]},
+        "later-task", task_family_id="integer_affine_prediction",
+        task_probe_inputs=(10, 11), require_task_family_history=True,
+        target_model_identity=current_identity)
+
+    assert selected.requested_record_ids[-1] == "old-current-model"
+    assert len(selected.requested_record_ids) == 4
+    assert "new-other-model-0" not in selected.requested_record_ids
+    # Matching identity affects retrieval priority only; adverse outcomes are
+    # neither discarded nor promoted into truth or authority.
+    current_fact = records["old-current-model"].candidate["selected_facts"][0]
+    assert current_fact["payload"]["acquisition_examples"][0][
+        "evaluator_correct"] is False
 
 
 def test_tick_n_admitted_developmental_writeback_is_durable_and_bounded(tmp_path: Path) -> None:

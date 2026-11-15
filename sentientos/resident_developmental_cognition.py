@@ -2825,7 +2825,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
             or selection.get("retrieval_policy_id") not in {
                 "completed_tick_recency_suffix:v1",
                 "task_family_relevant_then_recency_fill:v1",
-                "task_family_probe_overlap_then_recency_fill:v2"}
+                "task_family_probe_overlap_then_recency_fill:v2",
+                "task_family_model_identity_then_probe_overlap_then_recency_fill:v3"}
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
@@ -2834,7 +2835,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_family_invalid")
     family_policy = selection.get("retrieval_policy_id") in {
         "task_family_relevant_then_recency_fill:v1",
-        "task_family_probe_overlap_then_recency_fill:v2"}
+        "task_family_probe_overlap_then_recency_fill:v2",
+        "task_family_model_identity_then_probe_overlap_then_recency_fill:v3"}
     if family_policy != isinstance(family, str):
         raise ResidentDevelopmentalCognitionError(
             "developmental_history_selection_policy_family_mismatch")
@@ -5037,6 +5039,7 @@ class ResidentDevelopmentalCognitionOwner:
             task_family_id: str | None = None,
             task_probe_inputs: tuple[int, ...] = (),
             require_task_family_history: bool = False,
+            target_model_identity: Mapping[str, Any] | None = None,
             record_allowlist: tuple[str, ...] | None = None
             ) -> DevelopmentalHistoryProjection:
         # Tick identifiers are opaque at this owner boundary. The durable,
@@ -5086,6 +5089,7 @@ class ResidentDevelopmentalCognitionOwner:
             relevant_newest_first: list[str] = []
             probe_set = set(task_probe_inputs)
             relevance: dict[str, int] = {}
+            model_relevance: dict[str, int] = {}
             for record_id in reversed(ids):
                 try:
                     record = self.writeback.store.get(record_id)
@@ -5100,8 +5104,20 @@ class ResidentDevelopmentalCognitionOwner:
                 if matching_facts:
                     relevant_newest_first.append(record_id)
                     overlap: set[int] = set()
+                    same_model = False
                     for fact in matching_facts:
-                        examples = fact["payload"].get("acquisition_examples", ())
+                        payload = fact["payload"]
+                        source_identity = payload.get("active_model_identity")
+                        source_identity_digest = payload.get(
+                            "active_model_identity_digest")
+                        if (isinstance(target_model_identity, Mapping)
+                                and bool(target_model_identity)
+                                and isinstance(source_identity, Mapping)
+                                and bool(source_identity)
+                                and source_identity_digest == _digest(dict(source_identity))
+                                and dict(source_identity) == dict(target_model_identity)):
+                            same_model = True
+                        examples = payload.get("acquisition_examples", ())
                         if isinstance(examples, (list, tuple)):
                             for item in examples:
                                 if isinstance(item, Mapping):
@@ -5109,14 +5125,17 @@ class ResidentDevelopmentalCognitionOwner:
                                     if type(probe_input) is int and probe_input in probe_set:
                                         overlap.add(probe_input)
                     relevance[record_id] = len(overlap)
-            # Exact public probe overlap ranks records; checkpoint order breaks ties.
+                    model_relevance[record_id] = int(same_model)
+            # Exact active-model identity ranks applicable records first, then
+            # public probe overlap and checkpoint order break ties.
             # Evaluator correctness is not a filter, so adverse examples survive.
             # A task that explicitly requires family history must never receive
             # unrelated records as a substitute. Initial acquisition tasks that
             # do not require family history retain the general-history control
             # used by the existing three-condition experiment.
             relevant_newest_first.sort(key=lambda record_id: (
-                relevance[record_id], ids.index(record_id)), reverse=True)
+                model_relevance[record_id], relevance[record_id],
+                ids.index(record_id)), reverse=True)
             selected = list(relevant_newest_first[:self.config.max_retrieved_records])
             selected_set = set(selected)
             if not require_task_family_history:
@@ -5133,6 +5152,7 @@ class ResidentDevelopmentalCognitionOwner:
                 # checkpoint order remains the stable tie-breaker.
                 ids = sorted((record_id for record_id in ids
                     if record_id in selected_set), key=lambda record_id: (
+                        model_relevance.get(record_id, 0),
                         relevance.get(record_id, -1), ids.index(record_id)))
             else:
                 # Keep the established family-only order for legacy callers.
@@ -5562,7 +5582,9 @@ class ResidentDevelopmentalCognitionOwner:
                   epistemic_revision_probe_expected_prompt_digest: str | None = None,
                   interaction_question: str | None = None,
                   interaction_capture: dict[str, Any] | None = None,
-                  companion_intervention: bool = False
+                  companion_intervention: bool = False,
+                  target_model_identity: Mapping[str, Any] | None = None,
+                  target_model_identity_observed: bool = False
                   ) -> ResidentCognitionObservation:
         # Keep the full eligible set in custody metadata for withheld controls;
         # only the bounded selected suffix is put into the model prompt.
@@ -5818,10 +5840,18 @@ class ResidentDevelopmentalCognitionOwner:
         context["developmental_history_task_family_history_required"] = (
             isinstance(task_descriptor, Mapping)
             and task_descriptor.get("requires_task_family_history") is True)
-        context["developmental_history_target_model_identity"] = (
-            _observed_current_cognition_model_identity(self.invoker))
+        observed_target_identity = (dict(target_model_identity)
+            if target_model_identity_observed
+                and isinstance(target_model_identity, Mapping)
+                else None if target_model_identity_observed
+                else _observed_current_cognition_model_identity(self.invoker))
+        context["developmental_history_target_model_identity"] = observed_target_identity
         context["developmental_history_retrieval_policy_id"] = (
-            "task_family_probe_overlap_then_recency_fill:v2"
+            "task_family_model_identity_then_probe_overlap_then_recency_fill:v3"
+            if (isinstance(task_family_id, str)
+                and isinstance(observed_target_identity, Mapping)
+                and bool(observed_target_identity))
+            else "task_family_probe_overlap_then_recency_fill:v2"
             if isinstance(task_family_id, str) else "completed_tick_recency_suffix:v1")
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
@@ -6699,9 +6729,16 @@ class ResidentDevelopmentalCognitionOwner:
             else ())
         require_family = (objective_task.specification().get("requires_task_family_history") is True
             if objective_task is not None else False)
+        # This adapter is a read-only serving-identity observation. Capture it
+        # before retrieval so exact-model applicability can influence which
+        # task-family records survive the bounded history cap.
+        preflight_target_model_identity = (
+            _observed_current_cognition_model_identity(self.invoker)
+            if isinstance(family_id, str) else None)
         prior = self._prior_projection(state, tick_id, task_family_id=family_id,
             task_probe_inputs=task_probe_inputs,
             require_task_family_history=require_family,
+            target_model_identity=preflight_target_model_identity,
             record_allowlist=(companion_intervention_record_allowlist
                 if companion_intervention_question is not None else None))
         if objective_only and not prior.requested_record_ids:
@@ -6766,7 +6803,9 @@ class ResidentDevelopmentalCognitionOwner:
                                     prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
                                     epistemic_revision_probe=epistemic_revision_probe,
                                     epistemic_revision_probe_expected_prompt_digest=(
-                                        epistemic_revision_probe_expected_prompt_digest)))
+                                        epistemic_revision_probe_expected_prompt_digest),
+                                    target_model_identity=preflight_target_model_identity,
+                                    target_model_identity_observed=isinstance(family_id, str)))
             else:
                 # Freeze the exact history that fits the real inference context
                 # before preregistering the comparison. Conditions rerun this
@@ -6778,8 +6817,6 @@ class ResidentDevelopmentalCognitionOwner:
                         if self.objective_task is not None else None)
                 family_for_preflight = (task_descriptor_for_preflight.get("task_family_id")
                     if isinstance(task_descriptor_for_preflight, Mapping) else None)
-                preflight_target_model_identity = (
-                    _observed_current_cognition_model_identity(self.invoker))
                 preflight_context: dict[str, Any] = {
                     "instruction": EXPERIMENT_CONTEXT_INSTRUCTION,
                     "current_evidence": (_current_evidence_prompt_payload(current)
@@ -6799,7 +6836,11 @@ class ResidentDevelopmentalCognitionOwner:
                             "requires_task_family_history") is True),
                     "developmental_history_target_model_identity": preflight_target_model_identity,
                     "developmental_history_retrieval_policy_id": (
-                        "task_family_probe_overlap_then_recency_fill:v2"
+                        "task_family_model_identity_then_probe_overlap_then_recency_fill:v3"
+                        if (isinstance(family_for_preflight, str)
+                            and isinstance(preflight_target_model_identity, Mapping)
+                            and bool(preflight_target_model_identity))
+                        else "task_family_probe_overlap_then_recency_fill:v2"
                         if isinstance(family_for_preflight, str)
                         else "completed_tick_recency_suffix:v1"),
                 }
@@ -6851,6 +6892,13 @@ class ResidentDevelopmentalCognitionOwner:
                 probe = self.invoker.build_request(purpose=EXPERIMENT_PURPOSE, prompt="protocol-control-probe",
                     caller=PRINCIPAL, correlation_id=f"{tick_id}:developmental-experiment:protocol",
                     budget=budget, upstream_evidence={"control_probe":True}, linkage={"protocol_only":True})
+                probe_identity = getattr(probe, "active_model_identity", {})
+                if (isinstance(preflight_target_model_identity, Mapping)
+                        and bool(preflight_target_model_identity)
+                        and isinstance(probe_identity, Mapping)
+                        and dict(probe_identity) != dict(preflight_target_model_identity)):
+                    raise ResidentDevelopmentalCognitionError(
+                        "history_target_model_identity_changed_during_preflight")
                 protocol = make_protocol(snapshot_id=snapshot.snapshot_id, snapshot_digest=snapshot.digest,
                     current_projection_id=current.projection_id, current_projection_digest=current.projection_digest,
                     current_fact_ids=current.fact_ids, record_ids=protocol_record_ids,
@@ -6926,7 +6974,9 @@ class ResidentDevelopmentalCognitionOwner:
                         objective_plan=objective_plan,
                         interaction_question=companion_intervention_question,
                         interaction_capture=capture,
-                        companion_intervention=companion_intervention_question is not None)
+                        companion_intervention=companion_intervention_question is not None,
+                        target_model_identity=preflight_target_model_identity,
+                        target_model_identity_observed=isinstance(family_id, str))
                     condition_observations[condition_id] = observation
                     if capture is not None:
                         condition_captures[condition_id] = capture
