@@ -27,7 +27,7 @@ from sentientos.production_chat_resource_context import (
     GovernedLocalModelResourceEntitlementObservation,
 )
 from sentientos.local_model_production_serving import (
-    ProductionServingController, ServingSession,
+    ProductionServingController, ProductionServingError, ServingSession,
     _valid_resource_admission_evidence_binding,
 )
 from sentientos.local_model_serving_inference import (
@@ -3340,8 +3340,35 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
             sample.message_id)
         assert release["host_mutation_performed"] is False
         from sentientos.foreground_game_detection import ForegroundGameObservation
+        from sentientos.local_model_production_serving import (
+            GAME_RECOVERY_CLEARANCE_ROOT, GAME_RECOVERY_HOLD_ROOT,
+        )
 
-        assert serving.recover_after_resource_release() == {
+        admission_context_provider = serving._admission_context_provider
+        commissioning_identity = serving._commissioning_identity
+        serving = ProductionServingController(serving._handle, kernel,
+            model_factory=serving._factory,
+            allow_synthetic_evidence_for_tests=True)
+        monkeypatch.setattr(serving, "_commissioning_identity", commissioning_identity)
+        assert serving.resource_recovery_pending()
+        hold_paths = tuple((serving._handle.root / GAME_RECOVERY_HOLD_ROOT).glob("*.json"))
+        assert len(hold_paths) == 1
+
+        def recovery_attempt(sequence):
+            try:
+                current_session = serving.establish(
+                    operation_id=f"game-recovery-restart-{sequence}",
+                    expected_activation_state_digest=session.binding[
+                        "activation_state_semantic_digest"],
+                    admission_context_provider=admission_context_provider)
+            except Exception as exc:
+                assert getattr(exc, "code", None) == (
+                    "fresh_verified_game_clearance_required")
+                return {"status": "deferred",
+                    "reason_code": "fresh_verified_game_clearance_required"}
+            return {"status": "restored", "session": current_session}
+
+        assert recovery_attempt(0) == {
             "status": "deferred",
             "reason_code": "fresh_verified_game_clearance_required"}
         for sequence, active in ((1, True), (2, False)):
@@ -3363,10 +3390,10 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
                     if active else ()))
             assert kernel.observe_verified_game_workload(observation)
             if active:
-                assert serving.recover_after_resource_release() == {
+                assert recovery_attempt(sequence) == {
                     "status": "deferred",
                     "reason_code": "fresh_verified_game_clearance_required"}
-        assert serving.recover_after_resource_release() == {
+        assert recovery_attempt(3) == {
             "status": "deferred",
             "reason_code": "fresh_verified_game_clearance_required"}
         matching_inactive_at = datetime.now(timezone.utc).isoformat()
@@ -3381,7 +3408,7 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
         assert kernel.observe_verified_game_workload(matching_inactive)
         kernel._runtime_governor._game_workload_evidence["observed_at"] = (
             (datetime.now(timezone.utc) - timedelta(seconds=11)).isoformat())
-        assert serving.recover_after_resource_release() == {
+        assert recovery_attempt(4) == {
             "status": "deferred",
             "reason_code": "fresh_verified_game_clearance_required"}
         fresh_inactive_at = datetime.now(timezone.utc).isoformat()
@@ -3394,9 +3421,26 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
                 "envelope_created_at": fresh_inactive_at},
             game_process_running=False, running_process_name_digests=())
         assert kernel.observe_verified_game_workload(fresh_inactive)
-        recovery = serving.recover_after_resource_release()
+        recovery = recovery_attempt(5)
         assert recovery["status"] == "restored", recovery
         assert serving.serving_is_current()
+        assert len(tuple((serving._handle.root / GAME_RECOVERY_CLEARANCE_ROOT)
+            .glob("*.json"))) == 1
+        restarted_after_clearance = ProductionServingController(
+            serving._handle, kernel, model_factory=serving._factory,
+            allow_synthetic_evidence_for_tests=True)
+        assert not restarted_after_clearance.resource_recovery_pending()
+        clearance_path = next((serving._handle.root / GAME_RECOVERY_CLEARANCE_ROOT)
+            .glob("*.json"))
+        corrupted_clearance = json.loads(clearance_path.read_text(encoding="utf-8"))
+        corrupted_clearance["game_foreground"] = True
+        clearance_path.write_text(json.dumps(corrupted_clearance), encoding="utf-8")
+        with pytest.raises(ProductionServingError) as invalid_clearance:
+            ProductionServingController(serving._handle, kernel,
+                model_factory=serving._factory,
+                allow_synthetic_evidence_for_tests=True)
+        assert invalid_clearance.value.code == (
+            "game_resource_recovery_clearance_binding_invalid")
     else:
         assert serving.current_session() == session
         assert model.closed is False
