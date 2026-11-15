@@ -6354,6 +6354,65 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert subsequent.status == "completed_controlled_intervention"
 
 
+def test_retrieved_experience_changes_later_companion_recommendation_with_restoration(
+        tmp_path: Path) -> None:
+    class HistoryApplyingFakeInvoker(FakeInvoker):
+        def invoke(self, request, **kwargs):
+            condition = request.linkage.get("condition_id")
+            if (request.purpose == "resident_developmental_history_intervention_experiment"
+                    and condition in {"history_present", "history_withheld", "history_restored"}):
+                prompt = json.loads(request.prompt)
+                packets = prompt.get("developmental_history", [])
+                interpretations = " ".join(str(item.get("interpretation", ""))
+                    for item in packets if isinstance(item, dict))
+                applies = ("weak battery" in interpretations.casefold()
+                    and "slower charging" in interpretations.casefold())
+                if applies:
+                    decision = {"disposition": "answer",
+                        "response": "Use slower charging for the weak battery, following the retained calibration experience.",
+                        "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"]}
+                else:
+                    decision = {"disposition": "abstain",
+                        "response": "No applicable retained calibration guidance is available.",
+                        "evidence_ids": [], "history_record_ids": []}
+                self.companion_output_by_condition[condition] = decision
+            return super().invoke(request, **kwargs)
+
+    acquisition_fake = FakeInvoker()
+    acquisition_fake.history_interpretation = (
+        "Weak battery calibration showed slower charging avoided overheating.")
+    acquisition_owner, _ = owner(tmp_path / "cognition", invoker=acquisition_fake)
+    acquired = acquisition_owner.run_tick(snapshot=snapshot(),
+        tick_id="battery-calibration-experience")
+    assert acquired.written_record_id
+
+    # Reconstruct the owner to ensure the later recommendation consumes durable
+    # experience rather than an in-memory object from the acquisition call.
+    application_fake = HistoryApplyingFakeInvoker()
+    application_owner, _ = owner(tmp_path / "cognition", comparison=True,
+        invoker=application_fake)
+    result = application_owner.run_companion_history_intervention(
+        snapshot=snapshot(2), tick_id="battery-calibration-application",
+        question="How should I charge a weak battery during calibration?",
+        history_record_allowlist=(acquired.written_record_id,))
+
+    assert result.status == "completed_controlled_intervention"
+    present, withheld, restored = result.conditions
+    assert present["response"] == restored["response"]
+    assert "Use slower charging" in present["response"]
+    assert withheld["response"] == "No applicable retained calibration guidance is available."
+    assert present["disposition"] == restored["disposition"] == "answer"
+    assert withheld["disposition"] == "abstain"
+    assert present["retrieved_record_ids"] == restored["retrieved_record_ids"] == [
+        acquired.written_record_id]
+    assert withheld["retrieved_record_ids"] == []
+    assert result.response_text_classification == (
+        "history_presence_associated_stable_response_text_difference")
+    assert result.restored_prompt_matches is True
+    assert result.authority is False and result.action_authority is False
+    assert result.canonical_explicit_user_retention_mutated is False
+
+
 def test_companion_bridge_runs_existing_matched_history_intervention_on_fresh_screen(
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)

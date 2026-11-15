@@ -97,3 +97,23 @@ records and verifies that it survives the four-record retrieval bound while the
 oldest unrelated record is omitted. The remaining open work is to measure
 whether relevant experience changes resident responses appropriately across
 controlled tasks, and to evaluate semantic retrieval beyond lexical overlap.
+
+## Experience application under controlled conditions
+
+`tests/test_resident_developmental_cognition.py::test_retrieved_experience_changes_later_companion_recommendation_with_restoration`
+extends the existing matched history intervention. A first owner admits a
+historical interpretation that slower charging avoided overheating for a weak
+battery. A reconstructed owner then runs the same later question through the
+history-present, history-withheld, and history-restored conditions. A
+deterministic prompt-conditioned substitute recommends slower charging when it
+receives that retained interpretation, abstains when it does not, and reproduces
+the recommendation when the history is restored. Current snapshot, question,
+model fixture, and other controlled inputs are held constant by the existing
+intervention protocol; the result is recorded without action authority or
+canonical user-memory mutation.
+
+This demonstrates durable experience retrieval and its application through the
+resident decision interface with a controlled substitute. The substitute's
+behavior is scripted from supplied history text, so this is not evidence that a
+real model generalizes the lesson, that the recommendation is objectively
+correct, or that persistent cognition improves task performance in deployment.

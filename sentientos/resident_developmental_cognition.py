@@ -5892,7 +5892,9 @@ class ResidentDevelopmentalCognitionOwner:
             else "task_family_probe_overlap_then_recency_fill:v2"
             if isinstance(task_family_id, str) else
             "query_overlap_then_recency_fill:v1"
-            if interaction_question is not None else "completed_tick_recency_suffix:v1")
+            if interaction_question is not None
+                and condition_id == "companion-interaction"
+            else "completed_tick_recency_suffix:v1")
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
                 projection=prior_epistemic_state, history_present=with_history,
