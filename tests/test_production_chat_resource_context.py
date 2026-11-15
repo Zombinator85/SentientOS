@@ -433,6 +433,8 @@ def test_entitlement_observation_is_owner_minted_current_and_kernel_retained(
     (1, NOW, "call_entitlement_exhausted", "exhausted", None),
     (2, "2026-09-21T09:00:00Z", "resource_entitlement_invalidated",
         "invalidated", "allocation_expired"),
+    (2, "2026-09-21T09:16:00Z", "resource_entitlement_invalidated",
+        "invalidated", "policy_expired"),
 ])
 def test_governed_entitlement_release_closes_idle_session_through_runtime(
         monkeypatch, tmp_path, calls, release_time, expected_trigger, expected_status,
@@ -486,7 +488,7 @@ def test_governed_entitlement_release_closes_idle_session_through_runtime(
         if expected_trigger == "resource_entitlement_invalidated":
             invalidation = custody.current_entitlement_observation()
             assert invalidation.entitlement_status == "invalidated"
-            assert invalidation.invalidation_reason_code == "allocation_expired"
+            assert invalidation.invalidation_reason_code == expected_invalidation
             assert kernel.observe_governed_local_model_resource_entitlement(
                 custody, invalidation) is True
             assert kernel.observe_governed_local_model_resource_entitlement(
