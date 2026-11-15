@@ -1461,6 +1461,43 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
     return retained
 
 
+def _task_family_guidance_examples(examples: object, *, effect: Mapping[str, Any],
+        source_fact_id: object) -> tuple[list[Mapping[str, Any]], dict[str, Any] | None]:
+    """Select only evaluator-correct examples and digest withheld outcomes."""
+    if (not isinstance(examples, (list, tuple))
+            or any(not isinstance(item, Mapping) for item in examples)):
+        raise ResidentDevelopmentalCognitionError(
+            "task_family_guidance_examples_invalid")
+    adverse = (effect.get("posture") == "complete_comparable_condition_scores"
+        and effect.get("effect_classification") == "history_adverse")
+    guidance: list[Mapping[str, Any]] = []
+    withheld: list[Mapping[str, Any]] = []
+    for example in examples:
+        if not adverse and example.get("evaluator_correct") is True:
+            guidance.append(example)
+        else:
+            withheld.append(example)
+    if not withheld:
+        return guidance, None
+    omission = {
+        "posture": ("adverse_outcome_examples_withheld_from_guidance" if adverse else
+            "non_evaluator_correct_examples_withheld_from_guidance"),
+        "example_count": len(withheld),
+        "examples_digest": _digest(withheld),
+        "evaluator_correct_count": sum(
+            item.get("evaluator_correct") is True for item in withheld),
+        "evaluator_incorrect_count": sum(
+            item.get("evaluator_correct") is False for item in withheld),
+        "evaluator_correctness_unavailable_count": sum(
+            item.get("evaluator_correct") is not True
+            and item.get("evaluator_correct") is not False for item in withheld),
+        "controlled_task_effect_digest": effect.get("comparison_digest"),
+        "source_fact_id": source_fact_id,
+        "historical_only": True, "current_truth": False, "authority": False,
+    }
+    return guidance, omission
+
+
 def _task_family_model_applicability(example: Mapping[str, Any], *,
         target_model_identity: Mapping[str, Any] | None) -> dict[str, Any]:
     """Compare exact recorded identities while keeping task-family scope explicit."""
@@ -2509,19 +2546,16 @@ def _history_context_packet(record: Mapping[str, Any], *,
                     if compact_for_input_budget else dict(item))
                 effect = item.get("controlled_task_effect")
                 examples = item.get("examples", ())
-                if (isinstance(effect, Mapping)
-                        and effect.get("posture") == "complete_comparable_condition_scores"
-                        and effect.get("effect_classification") == "history_adverse"
-                        and isinstance(examples, (list, tuple)) and examples):
-                    projected["adverse_examples_omission"] = {
-                        "posture": "adverse_outcome_examples_withheld_from_guidance",
-                        "example_count": len(examples),
-                        "examples_digest": _digest(examples),
-                        "controlled_task_effect_digest": effect.get("comparison_digest"),
-                        "source_fact_id": item.get("source_fact_id"),
-                        "historical_only": True, "current_truth": False, "authority": False,
-                    }
-                    projected["examples"] = []
+                if isinstance(effect, Mapping):
+                    guidance, omission = _task_family_guidance_examples(examples,
+                        effect=effect, source_fact_id=item.get("source_fact_id"))
+                    projected["examples"] = guidance
+                    if omission is not None:
+                        omission_key = ("adverse_examples_omission"
+                            if omission["posture"]
+                                == "adverse_outcome_examples_withheld_from_guidance"
+                            else "non_evaluator_correct_examples_omission")
+                        projected[omission_key] = omission
                 projected_experiences.append(projected)
             packet["task_relevant_experience"] = projected_experiences
         if omitted:
@@ -2746,6 +2780,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
             "task_family_prompt_projection_history_invalid")
     entries: list[dict[str, Any]] = []
     withheld_adverse_examples: list[dict[str, Any]] = []
+    withheld_non_correct_examples: list[dict[str, Any]] = []
     for packet in history:
         if not isinstance(packet, Mapping):
             raise ResidentDevelopmentalCognitionError(
@@ -2771,18 +2806,26 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
             for experience in experiences
             if isinstance((effect := experience.get("controlled_task_effect")), Mapping)]
         for experience in experiences:
-            omission = experience.get("adverse_examples_omission")
-            if isinstance(omission, Mapping):
-                withheld_adverse_examples.append({
-                    "record_id": packet["record_id"],
-                    "record_digest": packet["record_digest"],
-                    "source_fact_id": omission.get("source_fact_id"),
-                    "example_count": omission.get("example_count"),
-                    "examples_digest": omission.get("examples_digest"),
-                    "controlled_task_effect_digest": omission.get(
-                        "controlled_task_effect_digest"),
-                    "posture": omission.get("posture"),
-                })
+            for omission_key, target in (
+                    ("adverse_examples_omission", withheld_adverse_examples),
+                    ("non_evaluator_correct_examples_omission",
+                        withheld_non_correct_examples)):
+                omission = experience.get(omission_key)
+                if isinstance(omission, Mapping):
+                    target.append({
+                        "record_id": packet["record_id"],
+                        "record_digest": packet["record_digest"],
+                        "source_fact_id": omission.get("source_fact_id"),
+                        "example_count": omission.get("example_count"),
+                        "examples_digest": omission.get("examples_digest"),
+                        "controlled_task_effect_digest": omission.get(
+                            "controlled_task_effect_digest"),
+                        "posture": omission.get("posture"),
+                        "evaluator_correct_count": omission.get("evaluator_correct_count"),
+                        "evaluator_incorrect_count": omission.get("evaluator_incorrect_count"),
+                        "evaluator_correctness_unavailable_count": omission.get(
+                            "evaluator_correctness_unavailable_count"),
+                    })
         entries.append({
             "record_id": packet["record_id"],
             "record_digest": packet["record_digest"],
@@ -2796,7 +2839,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 example.get("evaluator_correct") is False for example in example_rows),
         })
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v3",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v4",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",
@@ -2807,6 +2850,9 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         "withheld_adverse_example_count": sum(
             item["example_count"] for item in withheld_adverse_examples),
         "withheld_adverse_examples": withheld_adverse_examples,
+        "withheld_non_evaluator_correct_example_count": sum(
+            item["example_count"] for item in withheld_non_correct_examples),
+        "withheld_non_evaluator_correct_examples": withheld_non_correct_examples,
         "historical_only": True,
         "current_truth": False,
         "authority": False,

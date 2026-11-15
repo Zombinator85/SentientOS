@@ -2254,6 +2254,55 @@ print(json.dumps({"stance": state.stance if state else None,
         "epistemic_projection_digest"] == updated_projection.projection_digest
 
 
+def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
+    from sentientos.resident_developmental_cognition import (
+        _digest as cognition_digest, _task_family_guidance_examples,
+        _task_family_history_prompt_projection,
+    )
+
+    effect = {
+        "posture": "complete_comparable_condition_scores",
+        "effect_classification": "no_difference_observed",
+        "comparison_digest": "sha256:" + "a" * 64,
+    }
+    examples = [
+        {"probe_input": 2, "observed_answer": 8, "evaluator_correct": True},
+        {"probe_input": 3, "observed_answer": 14, "evaluator_correct": False},
+        {"probe_input": 4, "observed_answer": 18, "evaluator_correct": False},
+    ]
+    guidance, omission = _task_family_guidance_examples(examples,
+        effect=effect, source_fact_id="fact-mixed-outcome")
+    assert guidance == [examples[0]]
+    assert omission is not None
+    assert omission["posture"] == \
+        "non_evaluator_correct_examples_withheld_from_guidance"
+    assert omission["example_count"] == 2
+    assert omission["examples_digest"] == cognition_digest(examples[1:])
+    assert omission["evaluator_incorrect_count"] == 2
+
+    context = {"developmental_history": [{
+        "record_id": "record-mixed-outcome",
+        "record_digest": "sha256:" + "b" * 64,
+        "task_relevant_experience": [{
+            "source_fact_id": "fact-mixed-outcome",
+            "examples": guidance,
+            "controlled_task_effect": effect,
+            "non_evaluator_correct_examples_omission": omission,
+        }],
+    }]}
+    projection = _task_family_history_prompt_projection(context,
+        condition_id="history_present", task_family_id="integer_affine_prediction")
+    assert projection["task_relevant_example_count"] == 1
+    assert projection["records"][0]["evaluator_correct_count"] == 1
+    assert projection["records"][0]["evaluator_incorrect_count"] == 0
+    assert projection["withheld_non_evaluator_correct_example_count"] == 2
+    [withheld] = projection["withheld_non_evaluator_correct_examples"]
+    assert withheld["record_id"] == "record-mixed-outcome"
+    assert withheld["examples_digest"] == omission["examples_digest"]
+    assert projection["authority"] is False
+    assert projection["current_truth"] is False
+
+
 class RootlessHistoryFakeInvoker(FakeInvoker):
     """Fixture for development-only, receipt-bound calls without a serving session."""
 
@@ -2302,8 +2351,8 @@ class RootlessHistoryFakeInvoker(FakeInvoker):
         return receipt.to_dict()
 
 
-def test_rootless_receipts_admit_same_family_examples_to_later_prompt(tmp_path: Path) -> None:
-    """Rootless verified receipts must not be discarded for lacking serving IDs."""
+def test_rootless_receipts_bind_withheld_examples_in_later_prompt(tmp_path: Path) -> None:
+    """Rootless verified receipts retain provenance when examples are ineligible."""
     from scripts.stage_resident_objective_intervention import stage_request
 
     fake = RootlessHistoryFakeInvoker()
@@ -2352,9 +2401,15 @@ def test_rootless_receipts_admit_same_family_examples_to_later_prompt(tmp_path: 
     transfer_projections = projections[-3:]
     assert [item["condition_id"] for item in transfer_projections] == [
         "history_present", "history_withheld", "history_restored"]
-    assert transfer_projections[0]["task_relevant_example_count"] == 3
+    assert transfer_projections[0]["task_relevant_example_count"] == 0
+    assert (transfer_projections[0]["withheld_adverse_example_count"]
+        + transfer_projections[0]["withheld_non_evaluator_correct_example_count"]) == 3
     assert transfer_projections[1]["task_relevant_example_count"] == 0
-    assert transfer_projections[2]["task_relevant_example_count"] == 3
+    assert transfer_projections[2]["task_relevant_example_count"] == 0
+    assert transfer_projections[0]["withheld_adverse_examples"] == \
+        transfer_projections[2]["withheld_adverse_examples"]
+    assert transfer_projections[0]["withheld_non_evaluator_correct_examples"] == \
+        transfer_projections[2]["withheld_non_evaluator_correct_examples"]
 
 
 def test_admitted_family_example_supports_second_heldout_episode_after_restart(
