@@ -351,6 +351,8 @@ def test_model_serving_admission_precedes_and_blocks_load(monkeypatch, handle, o
         "deferred_model_serving_resource_entitlement_invalid"),
     (20.0, False, 16, "automatic", "missing", False,
         "deferred_model_serving_resource_entitlement_invalid"),
+    (20.0, False, 16, "automatic", "uncomposed", False,
+        "deferred_model_serving_resource_preflight_required"),
 ])
 def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
         monkeypatch, handle, gpu_value, game_active, gpu_layers, workload_mode,
@@ -427,7 +429,7 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
         elif entitlement_schema == "missing":
             entitlement_binding = None
         return {
-            "resource_governance_required": True,
+            "resource_governance_required": entitlement_schema != "uncomposed",
             "governed_inference_entitlement_binding": entitlement_binding,
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
@@ -482,28 +484,30 @@ def test_runtime_governor_gates_initial_model_load_on_game_and_host_evidence(
     runtime = decision["delegated_outcomes"]["runtime_governor"]
     assert runtime["action_class"] == "local_model_serving"
     assert runtime["reason"] == expected_reason
-    assert runtime["evidence_refs"]["host_resource_evidence"]["status"] == "current"
-    if workload_mode in {"gaming", "conservative_automatic"}:
-        assert runtime["evidence_refs"][
-            "optional_model_load_in_gaming_profile"] is True
-        assert runtime["evidence_refs"][
-            "optional_gpu_model_load_in_gaming_profile"] is (gpu_layers > 0)
-        expected_mode_source = (
-            "foreground_observation_unavailable_conservative_gaming"
-            if workload_mode == "conservative_automatic" else "operator_selected")
-        assert runtime["evidence_refs"][
-            "gaming_workload_profile_evidence"]["mode_source"] == (
-                expected_mode_source)
-    elif workload_mode == "automatic_unverified_gaming":
-        assert runtime["evidence_refs"][
-            "gaming_workload_profile_evidence"]["mode_source"] == (
-                "foreground_allowlist_match")
-    elif workload_mode == "automatic_unverified_normal":
-        assert runtime["evidence_refs"][
-            "gaming_workload_profile_evidence"]["mode_source"] == (
-                "foreground_allowlist_no_match")
-    else:
-        assert runtime["evidence_refs"]["game_workload_evidence"]["message_id"] == "b" * 64
+    if entitlement_schema != "uncomposed":
+        assert runtime["evidence_refs"]["host_resource_evidence"]["status"] == "current"
+        if workload_mode in {"gaming", "conservative_automatic"}:
+            assert runtime["evidence_refs"][
+                "optional_model_load_in_gaming_profile"] is True
+            assert runtime["evidence_refs"][
+                "optional_gpu_model_load_in_gaming_profile"] is (gpu_layers > 0)
+            expected_mode_source = (
+                "foreground_observation_unavailable_conservative_gaming"
+                if workload_mode == "conservative_automatic" else "operator_selected")
+            assert runtime["evidence_refs"][
+                "gaming_workload_profile_evidence"]["mode_source"] == (
+                    expected_mode_source)
+        elif workload_mode == "automatic_unverified_gaming":
+            assert runtime["evidence_refs"][
+                "gaming_workload_profile_evidence"]["mode_source"] == (
+                    "foreground_allowlist_match")
+        elif workload_mode == "automatic_unverified_normal":
+            assert runtime["evidence_refs"][
+                "gaming_workload_profile_evidence"]["mode_source"] == (
+                    "foreground_allowlist_no_match")
+        else:
+            assert runtime["evidence_refs"]["game_workload_evidence"][
+                "message_id"] == "b" * 64
 
 
 @pytest.mark.parametrize(("pressure_kind", "expected_label", "gpu_layers"), [
