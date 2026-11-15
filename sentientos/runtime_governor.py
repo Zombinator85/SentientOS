@@ -2734,6 +2734,11 @@ class RuntimeGovernor:
             game_evidence = dict(self._game_performance_evidence) if self._game_performance_evidence is not None else None
             game_workload = (dict(self._game_workload_evidence)
                 if self._game_workload_evidence is not None else None)
+            raw_entitlement_id = payload.get("resource_entitlement_observation_id")
+            entitlement_evidence = (dict(self._resource_entitlement_evidence_by_id[
+                raw_entitlement_id]) if isinstance(raw_entitlement_id, str)
+                and raw_entitlement_id in self._resource_entitlement_evidence_by_id
+                else None)
         evidence_age_seconds: float | None = None
         evidence_ref: dict[str, object] = {"status": "unavailable"}
         labels: set[str] = set()
@@ -3228,12 +3233,63 @@ class RuntimeGovernor:
                     sort_keys=True, separators=(",", ":"),
                     ensure_ascii=False).encode("utf-8")).hexdigest() + ":")
         )
-        preemption_valid = game_preemption_valid or host_pressure_preemption_valid
+        entitlement_preemption_fields = {
+            "schema_version", "preemption_kind", "serving_session_id",
+            "model_identity_digest", "resource_entitlement_observation_id",
+            "resource_entitlement_observation_digest", "allocation_digest",
+            "active_inference_request_reference",
+        }
+        entitlement_preemption_valid = (
+            isinstance(preemption, Mapping)
+            and set(preemption) == entitlement_preemption_fields
+            and preemption.get("schema_version") ==
+                "sentientos.active_inference_preemption:v4"
+            and preemption.get("preemption_kind") ==
+                "resource_entitlement_invalidated"
+            and actor == "production_chat_resource_entitlement_governor"
+            and subject == actor
+            and isinstance(preemption.get("serving_session_id"), str)
+            and re.fullmatch(r"serving-session-[0-9a-f]{24}", str(
+                preemption.get("serving_session_id"))) is not None
+            and isinstance(preemption.get("model_identity_digest"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", str(
+                preemption.get("model_identity_digest"))) is not None
+            and isinstance(entitlement_evidence, Mapping)
+            and entitlement_evidence.get("entitlement_status") == "invalidated"
+            and isinstance(entitlement_evidence.get("checked_at"), str)
+            and 0 <= (now - datetime.fromisoformat(str(
+                entitlement_evidence.get("checked_at")).replace("Z", "+00:00"))
+                .astimezone(timezone.utc)).total_seconds() <= 15.0
+            and preemption.get("resource_entitlement_observation_id") ==
+                entitlement_evidence.get("observation_id")
+            and preemption.get("resource_entitlement_observation_digest") ==
+                entitlement_evidence.get("observation_digest")
+            and preemption.get("allocation_digest") ==
+                entitlement_evidence.get("allocation_digest")
+            and isinstance(preemption.get("active_inference_request_reference"), Mapping)
+            and set(preemption["active_inference_request_reference"]) == {
+                "request_id", "request_digest", "correlation_id"}
+            and all(isinstance(preemption["active_inference_request_reference"].get(key), str)
+                and preemption["active_inference_request_reference"].get(key)
+                for key in ("request_id", "request_digest", "correlation_id"))
+            and preemption.get("active_inference_request_reference") ==
+                payload.get("active_inference_request_reference")
+            and isinstance(correlation_id, str)
+            and correlation_id.startswith(
+                "active-inference-preemption:" + hashlib.sha256(json.dumps(
+                    dict(preemption["active_inference_request_reference"]),
+                    sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False).encode("utf-8")).hexdigest() + ":")
+        )
+        preemption_valid = (game_preemption_valid or host_pressure_preemption_valid
+            or entitlement_preemption_valid)
         if preemption_requested:
             reason = ("allowed_verified_game_workload_inference_preemption"
                 if game_preemption_valid else
                 "allowed_host_resource_pressure_inference_preemption"
                 if host_pressure_preemption_valid else
+                "allowed_resource_entitlement_invalidation_inference_preemption"
+                if entitlement_preemption_valid else
                 "deferred_active_inference_preemption_game_evidence_unavailable")
             blocks = not preemption_valid
 
@@ -3308,6 +3364,14 @@ class RuntimeGovernor:
                 "active_inference_preemption_admitted": preemption_valid,
                 "active_host_pressure_preemption_admitted":
                     host_pressure_preemption_valid,
+                "resource_entitlement_preemption_admitted":
+                    entitlement_preemption_valid,
+                "resource_entitlement_evidence": (
+                    entitlement_evidence if entitlement_evidence is not None
+                    else {"status": "unavailable"}),
+                "active_inference_preemption": (
+                    dict(preemption) if preemption_valid
+                    and isinstance(preemption, Mapping) else None),
             },
         )
         posture = self._compose_runtime_posture(
@@ -3324,6 +3388,9 @@ class RuntimeGovernor:
         payload["observed_pressure_labels"] = sorted(labels)
         payload["game_performance_evidence"] = game_evidence_ref
         payload["game_workload_evidence"] = game_workload_ref
+        payload["resource_entitlement_evidence"] = (
+            entitlement_evidence if entitlement_evidence is not None
+            else {"status": "unavailable"})
         payload["game_frame_pressure"] = game_pressure
         payload["optional_model_load_in_gaming_profile"] = (
             optional_model_load_in_gaming_profile)
@@ -4007,6 +4074,7 @@ class RuntimeGovernor:
                 key: metadata[key]
                 for key in ("host_resource_evidence", "observed_pressure_labels",
                             "game_performance_evidence", "game_workload_evidence",
+                            "resource_entitlement_evidence",
                             "active_inference_request_reference",
                             "active_inference_preemption",
                             "game_frame_pressure", "host_pressure_during_verified_game",

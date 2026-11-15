@@ -337,6 +337,34 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
                         or preemption.get("pressure_labels")
                             != host_evidence.get("pressure_labels")):
                     return False
+        if (actor == "production_chat_resource_entitlement_governor"
+                and value.get("schema_version") ==
+                    CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2):
+            preemption = evidence_refs.get("active_inference_preemption")
+            entitlement = evidence_refs.get("resource_entitlement_evidence")
+            if (not isinstance(preemption, Mapping)
+                    or set(preemption) != {
+                        "schema_version", "preemption_kind", "serving_session_id",
+                        "model_identity_digest", "resource_entitlement_observation_id",
+                        "resource_entitlement_observation_digest", "allocation_digest",
+                        "active_inference_request_reference"}
+                    or preemption.get("schema_version") !=
+                        "sentientos.active_inference_preemption:v4"
+                    or preemption.get("preemption_kind") !=
+                        "resource_entitlement_invalidated"
+                    or preemption.get("active_inference_request_reference") != {
+                        key: request.get(key) for key in (
+                            "request_id", "request_digest", "correlation_id")}
+                    or not isinstance(entitlement, Mapping)
+                    or entitlement.get("entitlement_status") != "invalidated"
+                    or preemption.get("resource_entitlement_observation_id") !=
+                        entitlement.get("observation_id")
+                    or preemption.get("resource_entitlement_observation_digest") !=
+                        entitlement.get("observation_digest")
+                    or preemption.get("allocation_digest") !=
+                        entitlement.get("allocation_digest")
+                    or not _active_preemption_matches_invocation(preemption, request)):
+                return False
         if (actor == "production_chat_game_resource_governor"
                 and not any(isinstance(evidence_refs.get(key), Mapping)
                     and evidence_refs[key].get("status") == "current"
@@ -361,14 +389,16 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
             and value.get("target_subsystem") == "governed_local_model_invocation"
             and value.get("actor") in {
                 "production_chat_host_resource_governor",
-                "production_chat_game_workload_governor"}):
+                "production_chat_game_workload_governor",
+                "production_chat_resource_entitlement_governor"}):
         if governor is None and not require_runtime_evidence:
             return True
         return (isinstance(governor, Mapping)
             and governor.get("allowed") is True
             and governor.get("reason") in {
                 "allowed_host_resource_pressure_inference_preemption",
-                "allowed_verified_game_workload_inference_preemption"})
+                "allowed_verified_game_workload_inference_preemption",
+                "allowed_resource_entitlement_invalidation_inference_preemption"})
     release_scope_valid = (value.get("authority_class") ==
                 AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE.value
             and value.get("action_kind") == "local_model_resource_release"
@@ -1239,7 +1269,8 @@ class GovernedLocalModelInvoker:
                 and decision.target_subsystem == "governed_local_model_invocation"
                 and decision.actor in {
                     "production_chat_host_resource_governor",
-                    "production_chat_game_workload_governor"})
+                    "production_chat_game_workload_governor",
+                    "production_chat_resource_entitlement_governor"})
             resource_release = (
                 decision.outcome == AdmissionOutcome.ALLOW
                 and decision.authority_class == AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE

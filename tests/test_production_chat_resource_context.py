@@ -13,7 +13,9 @@ from sentientos.governed_local_model_resource_allocation import (
     GovernedLocalModelResourceAllocator, GovernedLocalModelResourceBounds,
     GovernedLocalModelResourceLedger, GovernedLocalModelResourcePolicy,
 )
-from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+from sentientos.governed_local_model_invocation import (
+    LocalModelInvocationBudget, validate_receipt,
+)
 from sentientos.control_plane_kernel import ControlPlaneKernel
 from sentientos.host_collectors import HostCollectorResult
 from sentientos.host_resource_runtime import (
@@ -363,7 +365,6 @@ def test_entitlement_observation_is_owner_minted_current_and_kernel_retained(
     custody, model, invoker, request, ledger = owner(tmp_path, calls=1,
         ledger_owner_lock=ledger_owner_lock)
     fixed_now = datetime.fromisoformat(NOW.replace("Z", "+00:00"))
-
     class FixedDateTime(datetime):
         @classmethod
         def now(cls, tz=None):
@@ -611,6 +612,152 @@ def test_governed_entitlement_release_closes_idle_session_through_runtime(
                     "schema_version"] == (
                         "sentientos.governed_local_model_resource_entitlement_observation:v1")
     finally:
+        custody.close()
+        serving.close()
+
+
+def test_invalidated_entitlement_preempts_exact_active_invocation(
+        monkeypatch, tmp_path):
+    import json
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    current_time = {"value": NOW}
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            value = datetime.fromisoformat(current_time["value"].replace("Z", "+00:00"))
+            return value if tz is None else value.astimezone(tz)
+
+    monkeypatch.setattr("sentientos.runtime_governor.datetime", FixedDateTime)
+    installation, artifacts = provisioning_inputs(tmp_path / "serving", calls=2)
+    bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
+    policy = GovernedLocalModelResourcePolicy.create(
+        epoch=1, max_resource_specific_bounds=bounds,
+        not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
+    artifacts["requested_bounds"] = bounds
+    artifacts["resource_policy_artifact"] = encoded(policy.to_dict())
+    bundle = produce_production_chat_resource_provisioning_bundle(
+        installation, "active-entitlement-revoke", **artifacts)
+    custody = load_production_chat_resource_context_owner(
+        installation, "active-entitlement-revoke",
+        clock=lambda: current_time["value"],
+        nonce_source=lambda: "active-entitled-call")
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    started = Event()
+    finish = Event()
+    invocation_result = {}
+
+    def active_generation():
+        started.set()
+        if not finish.wait(timeout=5):
+            raise AssertionError("invalidated allocation did not preempt active worker")
+        raise RuntimeError("fixture_generation_stopped_after_entitlement_invalidation")
+
+    bridge, serving, session, model, _, _ = serving_setup(
+        monkeypatch, tmp_path / "serving", installation_identity="production",
+        kernel_override=kernel, on_generate=active_generation,
+        serving_admission_context_provider=lambda _correlation, _state: {
+            "governed_inference_entitlement_binding":
+                dict(custody.serving_admission_entitlement_binding())})
+    model.cancel_pending_generation = lambda: (finish.set() or True)
+    inference = ResourceBackedProductionChatInference(bridge, custody)
+
+    def invoke():
+        invocation_result["receipt"] = inference.generate(
+            prompt="synthetic active entitlement fixture",
+            caller="chat_service", correlation_id="active-entitlement-revocation",
+            budget=LocalModelInvocationBudget(8000, 4000, 512, 30.0, 2),
+            caller_linkage={})
+
+    invocation_thread = Thread(target=invoke)
+    try:
+        invocation_thread.start()
+        assert started.wait(timeout=5)
+        assert bridge._active_invoker is not None
+        assert bridge._active_invoker.backend_work_pending()
+
+        # The call was already admitted and debited. Revoking the allocation
+        # while its worker is still active should cancel that exact worker,
+        # without releasing the resident serving session or another process.
+        current_time["value"] = "2026-09-21T09:00:00Z"
+        invalidation = custody.current_entitlement_observation()
+        assert invalidation.entitlement_status == "invalidated"
+        assert invalidation.invalidation_reason_code == "allocation_expired"
+        reconciled = inference.reconcile_workload_state()
+        assert reconciled["status"] == "preempted", reconciled
+        assert reconciled["trigger_kind"] == (
+            "resource_entitlement_invalidated_active_inference_preemption")
+        assert reconciled["active_inference_cancellation_confirmed"] is True
+        invocation_thread.join(timeout=5)
+        assert not invocation_thread.is_alive()
+
+        receipt = invocation_result["receipt"]
+        assert receipt.status == "cancelled"
+        assert receipt.cancellation_preemption_ref is not None
+        assert receipt.cancellation_admission_decision is not None
+        assert receipt.cancellation_admission_decision["actor"] == (
+            "production_chat_resource_entitlement_governor")
+        assert receipt.cancellation_admission_decision["delegated_outcomes"][
+            "runtime_governor"]["reason"] == (
+                "allowed_resource_entitlement_invalidation_inference_preemption")
+        assert receipt.cancellation_admission_decision["delegated_outcomes"][
+            "runtime_governor"]["evidence_refs"]["resource_entitlement_evidence"][
+                "observation_digest"] == invalidation.observation_digest
+        from sentientos.control_plane_kernel import (
+            AuthorityClass, ControlActionRequest, LifecyclePhase,
+        )
+        active_reference = {key: receipt.request[key] for key in (
+            "request_id", "request_digest", "correlation_id")}
+        forged_preemption = dict(receipt.cancellation_admission_decision[
+            "delegated_outcomes"]["runtime_governor"]["evidence_refs"][
+                "active_inference_preemption"])
+        forged_preemption["resource_entitlement_observation_digest"] = "0" * 64
+        reference_digest = hashlib.sha256(json.dumps(active_reference,
+            sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+                "utf-8")).hexdigest()
+        forged_decision = kernel.admit(ControlActionRequest(
+            action_kind="local_model_inference_preemption",
+            authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+            actor="production_chat_resource_entitlement_governor",
+            target_subsystem="governed_local_model_invocation",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"correlation_id": "active-inference-preemption:"
+                + reference_digest + ":forged-entitlement-digest",
+                "purpose": "local_user_chat",
+                "resource_entitlement_observation_id": invalidation.observation_id,
+                "active_inference_preemption": forged_preemption,
+                "active_inference_request_reference": active_reference}))
+        assert forged_decision.allowed is False
+        assert forged_decision.delegated_outcomes["runtime_governor"]["reason"] == (
+            "deferred_active_inference_preemption_game_evidence_unavailable")
+        assert validate_receipt(receipt.to_dict())[0] is True
+        assert serving.current_session() == session
+        assert model.calls == 1 and model.closed is False
+        assert custody.allocator.ledger.remaining_calls(bundle.allocation_id) == 1
+        attempts = list(custody.allocator.ledger._state["attempts"].values())
+        assert len(attempts) == 1
+        assert [item["state"] for item in custody.allocator.ledger._state["receipts"]] == [
+            "attempt_begun", "measured_cancelled", "reconciled"]
+        durable_path = (serving._handle.root / "local-model" / "inference"
+            / "receipts" / f"{receipt.receipt_id}.json")
+        durable = json.loads(durable_path.read_text(encoding="utf-8"))
+        assert durable["cancellation_preemption_ref"] == dict(
+            receipt.cancellation_preemption_ref)
+        observed = ProductionChatResourceObservationOwner(
+            InstallationStateRegistry(tmp_path / "serving" / "state",
+                _test_only=True).open_read_only(
+                    InstallationIdentity.parse("production")),
+            "active-entitlement-revoke").observe()
+        assert observed.invocation_receipts[0]["cancellation_preemption_ref"] == dict(
+            receipt.cancellation_preemption_ref)
+    finally:
+        finish.set()
+        invocation_thread.join(timeout=5)
         custody.close()
         serving.close()
 

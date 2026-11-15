@@ -1044,6 +1044,12 @@ class ProductionServingInferenceController:
                     or verified_active_game):
                 return self._preempt_for_verified_game_workload()
             if pending_workload.get("configured_mode") == "normal":
+                if resource_entitlement_owner is not None:
+                    entitlement_preemption = (
+                        self._preempt_active_inference_for_invalidated_entitlement(
+                            resource_entitlement_owner, active_invoker))
+                    if entitlement_preemption is not None:
+                        return entitlement_preemption
                 return self._preempt_active_inference_for_host_pressure(
                     active_invoker)
         if not self._receipt_capacity_lock.acquire(blocking=False):
@@ -1397,6 +1403,96 @@ class ProductionServingInferenceController:
             }
         finally:
             self._preemption_lock.release()
+
+    def _preempt_active_inference_for_invalidated_entitlement(
+            self, resource_entitlement_owner: object,
+            active_invoker: GovernedLocalModelInvoker) -> dict[str, Any] | None:
+        """Cancel an in-flight invocation after its exact allocation is invalidated."""
+        from .production_chat_resource_context import (
+            GovernedLocalModelResourceError,
+            ProductionChatResourceContextOwner,
+        )
+        if type(resource_entitlement_owner) is not ProductionChatResourceContextOwner:
+            return {"status": "skipped", "reason": "exact_resource_entitlement_owner_required"}
+        try:
+            observation = resource_entitlement_owner.current_entitlement_observation()
+        except (GovernedLocalModelResourceError, TypeError, ValueError):
+            return None
+        if (observation.entitlement_status != "invalidated"
+                or not self._serving._kernel.observe_governed_local_model_resource_entitlement(
+                    resource_entitlement_owner, observation)):
+            return None
+        session = self._serving.current_session()
+        active_reference = active_invoker.active_invocation_request_reference()
+        if session is None or not isinstance(active_reference, Mapping):
+            return None
+        binding = session.binding.get("governed_inference_entitlement_binding")
+        fields = ("allocation_id", "allocation_digest", "allocator_id", "resource_kind",
+            "policy_digest", "policy_epoch", "principal_binding_digest")
+        if (not isinstance(binding, Mapping)
+                or binding.get("binding_scope") != "inference_call_entitlement"
+                or any(binding.get(key) != getattr(observation, key) for key in fields)):
+            return {"status": "skipped", "reason": "serving_entitlement_binding_mismatch"}
+        try:
+            model = self._serving._current_inference_model(session)
+        except ProductionServingError:
+            return {"status": "skipped", "reason": "current_serving_session_required"}
+        identity = getattr(model, "active_identity", None)
+        if identity is None or not callable(getattr(identity, "to_dict", None)):
+            return {"status": "skipped", "reason": "exact_loaded_model_identity_required"}
+        correlation = "active-inference-preemption:" + hashlib.sha256(json.dumps(
+            dict(active_reference), sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False).encode("utf-8")).hexdigest() + ":" + hashlib.sha256(
+                (session.session_id + observation.observation_id + str(time.time_ns())
+                    ).encode("utf-8")).hexdigest()[:24]
+        preemption = {
+            "schema_version": "sentientos.active_inference_preemption:v4",
+            "preemption_kind": "resource_entitlement_invalidated",
+            "serving_session_id": session.session_id,
+            "model_identity_digest": digest_payload(identity.to_dict()),
+            "resource_entitlement_observation_id": observation.observation_id,
+            "resource_entitlement_observation_digest": observation.observation_digest,
+            "allocation_digest": observation.allocation_digest,
+            "active_inference_request_reference": dict(active_reference),
+        }
+        admission = self._serving._kernel.admit(ControlActionRequest(
+            action_kind="local_model_inference_preemption",
+            authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+            actor="production_chat_resource_entitlement_governor",
+            target_subsystem="governed_local_model_invocation",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"correlation_id": correlation,
+                "purpose": "local_user_chat",
+                "resource_entitlement_observation_id": observation.observation_id,
+                "active_inference_preemption": preemption,
+                "active_inference_request_reference": dict(active_reference)}))
+        delegated = admission.delegated_outcomes.get("runtime_governor")
+        allowed = (admission.allowed
+            and admission.outcome == AdmissionOutcome.ALLOW
+            and admission.authority_class == AuthorityClass.LOCAL_MODEL_INFERENCE
+            and admission.action_kind == "local_model_inference_preemption"
+            and admission.actor == "production_chat_resource_entitlement_governor"
+            and admission.target_subsystem == "governed_local_model_invocation"
+            and admission.correlation_id == correlation
+            and isinstance(delegated, Mapping)
+            and delegated.get("allowed") is True
+            and delegated.get("reason") ==
+                "allowed_resource_entitlement_invalidation_inference_preemption")
+        if not allowed:
+            return {"status": "denied",
+                "reason": "resource_entitlement_invalidation_preemption_admission_required",
+                "cancellation_admission_decision_ref": admission.admission_decision_ref}
+        cancelled = active_invoker.cancel_pending_generation(
+            reason="workload_transition",
+            cancellation_admission_decision=admission)
+        return {"status": "preempted" if cancelled else "preemption_unconfirmed",
+            "reason": ("resource_entitlement_invalidated"
+                if cancelled else "active_inference_cancellation_unconfirmed"),
+            "trigger_kind": "resource_entitlement_invalidated_active_inference_preemption",
+            "serving_session_id": session.session_id,
+            "resource_entitlement_observation_id": observation.observation_id,
+            "active_inference_cancellation_confirmed": cancelled,
+            "model_residency_released": False}
 
     def _preempt_for_verified_game_workload(self) -> dict[str, Any]:
         """Admit and cancel optional inference when a game workload takes priority."""
