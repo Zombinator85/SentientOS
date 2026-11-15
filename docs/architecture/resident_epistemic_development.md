@@ -161,11 +161,12 @@ partial rather than silently presenting the survivor as the complete result;
 `tests/test_persistent_governed_conversation.py::test_failed_memory_source_verification_forces_resident_clarification`
 shows the owner then replaces a memory-citing answer with a clarification and
 persists no memory citation for it. The end-to-end deterministic bridge test
-`tests/test_persistent_governed_conversation.py::test_verified_retained_memory_supports_cited_answer_after_service_reconstruction`
+`tests/test_persistent_governed_conversation.py::test_verified_retained_memory_supports_cited_answer_after_restart_in_new_session`
 reconstructs both the resident owner and conversation service over durable
-roots, then shows that an explicitly retained preference can be selected for
-a later question, cited through `memory_record_ids`, and linked to the committed
-observation. The citation parser rejects IDs outside the selected memory set.
+roots, then asks from a different session and shows that an explicitly retained
+preference can be selected, cited through `memory_record_ids`, and linked to the
+committed observation. The citation parser rejects IDs outside the selected
+memory set.
 The conflict path is exercised by
 `tests/test_persistent_governed_conversation.py::test_conflicting_retained_preferences_reach_resident_and_prompt_clarification`:
 two explicitly retained, conflicting answer preferences both survive an

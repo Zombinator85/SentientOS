@@ -469,7 +469,7 @@ def test_failed_memory_source_verification_forces_resident_clarification(
     assert observation["companion_memory_citation_ids"] == []
 
 
-def test_verified_retained_memory_supports_cited_answer_after_service_reconstruction(
+def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_session(
         tmp_path: Path) -> None:
     from tests.test_resident_developmental_cognition import (
         FakeInvoker as CognitionFakeInvoker, owner as cognition_owner,
@@ -500,6 +500,8 @@ def test_verified_retained_memory_supports_cited_answer_after_service_reconstruc
     restarted_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=ResidentDevelopmentalCompanionBridge(restarted_cognition,
             clock=lambda: now))
+    query_session_id = restarted_app.create_session()
+    assert query_session_id != session_id
     selected = restarted_app.memories.retrieve("What do I prefer?")
     memory_id = selected["selected_memory_ids"][0]
     restarted_invoker.companion_output_override = {
@@ -509,12 +511,12 @@ def test_verified_retained_memory_supports_cited_answer_after_service_reconstruc
         "memory_record_ids": [memory_id],
     }
 
-    response = restarted_app.chat("What do I prefer?", session_id=session_id,
+    response = restarted_app.chat("What do I prefer?", session_id=query_session_id,
         request_id="cited-resident-memory-answer", observe_screen=True)
 
     assert response.response == restarted_invoker.companion_output_override["response"]
     assert cognition_invoker.requests == []
-    turns = restarted_app.sessions.load(session_id)["turns"]
+    turns = restarted_app.sessions.load(query_session_id)["turns"]
     linkage = turns[-1]["linkage"]
     assert linkage["response_origin"] == "resident_developmental_cognition"
     assert linkage["cognition_evidence_ids"] == []
