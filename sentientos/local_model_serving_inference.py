@@ -205,7 +205,7 @@ class ProductionServingInferenceController:
 
     @staticmethod
     def _active_invocation_attempt_key(session_id: str, purpose: str,
-            invoker: GovernedLocalModelInvoker) -> tuple[str, str] | None:
+            invoker: GovernedLocalModelInvoker) -> tuple[str, ...] | None:
         """Deduplicate against the request identity, not a recyclable object id."""
         reference = invoker.active_invocation_request_reference()
         if (not isinstance(reference, Mapping)
@@ -213,7 +213,7 @@ class ProductionServingInferenceController:
                 or not all(isinstance(reference.get(key), str) and reference.get(key)
                     for key in ("request_id", "request_digest", "correlation_id"))):
             return None
-        return (session_id, purpose + ":" + digest_payload(dict(reference)))
+        return (session_id, purpose, digest_payload(dict(reference)))
 
     def resource_reconciliation_interval_seconds(self) -> float:
         """Poll resource governance faster while optional inference is active.
@@ -1810,7 +1810,12 @@ class ProductionServingInferenceController:
                 if workload_attempt_key == self._last_active_game_preemption_attempt:
                     return {"status": "skipped",
                         "reason": "game_residency_release_already_attempted_for_observation"}
-                invocation_attempt_key = (*workload_attempt_key, active_invoker)
+                invocation_attempt_key = self._active_invocation_attempt_key(
+                    session.session_id, "automatic-game:" + workload_message_id,
+                    active_invoker)
+                if invocation_attempt_key is None:
+                    return {"status": "skipped",
+                        "reason": "active_invocation_identity_required"}
                 if invocation_attempt_key == self._last_active_game_preemption_attempt:
                     return {"status": "skipped",
                         "reason": "game_preemption_already_attempted_for_invocation"}
