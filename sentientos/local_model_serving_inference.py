@@ -159,6 +159,7 @@ class ProductionServingInferenceController:
 
     RESOURCE_RECONCILIATION_INTERVAL_SECONDS = 5.0
     ACTIVE_RESOURCE_PRIORITY_RECONCILIATION_INTERVAL_SECONDS = 0.5
+    GPU_RESIDENCY_PRIORITY_RECONCILIATION_INTERVAL_SECONDS = 1.0
 
     def __init__(self, serving_controller: ProductionServingController, *,
                  runtime_handoff_id: str | None = None,
@@ -227,6 +228,19 @@ class ProductionServingInferenceController:
             inference_active = self._active_invoker is not None
         if inference_active:
             return self.ACTIVE_RESOURCE_PRIORITY_RECONCILIATION_INTERVAL_SECONDS
+        # Automatic game detection must release optional GPU residency quickly
+        # when a game starts, even while no inference request is active. Keep
+        # the faster cadence scoped to an actually resident GPU-backed model
+        # under the automatic workload policy; ordinary idle chat retains the
+        # lower-cost baseline cadence.
+        if self.current_workload_mode() == "automatic":
+            session = self._serving.current_session()
+            load_configuration = (session.binding.get("load_configuration")
+                if session is not None else None)
+            gpu_layers = (load_configuration.get("n_gpu_layers")
+                if isinstance(load_configuration, Mapping) else None)
+            if type(gpu_layers) is int and 1 <= gpu_layers <= 256:
+                return self.GPU_RESIDENCY_PRIORITY_RECONCILIATION_INTERVAL_SECONDS
         return self.RESOURCE_RECONCILIATION_INTERVAL_SECONDS
 
     def set_resource_reconciliation_wakeup(

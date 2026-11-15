@@ -846,6 +846,19 @@ def test_resource_reconciliation_accelerates_during_active_inference(
     serving.close()
 
 
+def test_automatic_game_detection_accelerates_for_gpu_resident_model(
+        monkeypatch, tmp_path):
+    bridge, serving, _, _, _, _ = setup(monkeypatch, tmp_path, gpu_layers=8)
+    assert bridge.resource_reconciliation_interval_seconds() == 5.0
+
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+
+    assert bridge.resource_reconciliation_interval_seconds() == 1.0
+    bridge.set_workload_mode("normal")
+    assert bridge.resource_reconciliation_interval_seconds() == 5.0
+    serving.close()
+
+
 @pytest.mark.parametrize(("mode", "expected_status", "expected_calls"), [
     ("normal", "deferred", 0),
     ("gaming", "deferred", 0),
