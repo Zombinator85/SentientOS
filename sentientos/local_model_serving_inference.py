@@ -30,6 +30,9 @@ from .governed_local_model_invocation import (
     MAX_INVOCATION_RECEIPTS,
     validate_receipt,
 )
+from .governed_local_model_resource_allocation import (
+    GovernedLocalModelResourceAllocation,
+)
 from .local_model_authority import LocalModelAuthorityMap, build_local_model_authority_map, digest_payload
 from .local_model_resource_profile import (
     LocalModelResourceProfileError,
@@ -511,6 +514,31 @@ class ProductionServingInferenceController:
                 "serving_operation_attempt_semantic_digest",
             )
         }
+
+    def resource_allocation_matches_current_serving(
+            self, allocation: GovernedLocalModelResourceAllocation) -> bool:
+        """Bind each production inference debit to the serving admission's allocation."""
+        if type(allocation) is not GovernedLocalModelResourceAllocation:
+            return False
+        session = self._serving.current_session()
+        if session is None:
+            return False
+        binding = session.binding.get("governed_inference_entitlement_binding")
+        expected = {
+            "allocation_id": allocation.allocation_id,
+            "allocation_digest": allocation.allocation_digest,
+            "allocator_id": allocation.allocator_id,
+            "resource_kind": allocation.resource_kind,
+            "policy_digest": allocation.policy_digest,
+            "policy_epoch": allocation.epoch,
+            "principal_binding_digest": allocation.principal_binding_digest,
+            "max_gpu_layers": allocation.resource_specific_bounds.max_gpu_layers,
+        }
+        return (isinstance(binding, Mapping)
+            and binding.get("schema_version") ==
+                "sentientos.governed_local_model_serving_entitlement_binding:v2"
+            and binding.get("binding_scope") == "inference_call_entitlement"
+            and all(binding.get(key) == value for key, value in expected.items()))
 
     @staticmethod
     def _authority(session: ServingSession) -> LocalModelAuthorityMap:

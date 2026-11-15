@@ -433,6 +433,10 @@ class ResourceBackedProductionChatInference:
                  budget: LocalModelInvocationBudget,
                  caller_linkage: Mapping[str, Any]) -> LocalModelInvocationReceipt:
         context = self._owner.next_context()
+        if not self._delegate.resource_allocation_matches_current_serving(
+                context.allocation):
+            raise GovernedLocalModelResourceError(
+                "serving_resource_allocation_mismatch")
         return self._delegate.generate(
             prompt=prompt,
             caller=caller,

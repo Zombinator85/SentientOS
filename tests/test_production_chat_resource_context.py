@@ -315,6 +315,8 @@ def test_adapter_forwards_exact_context_and_ordinary_chat_arguments(monkeypatch,
     bridge = object.__new__(ProductionServingInferenceController)
     seen = {}
     monkeypatch.setattr(ProductionServingInferenceController, "current_conversation_model_identity", lambda self: {"model_id": "stable"})
+    monkeypatch.setattr(ProductionServingInferenceController,
+        "resource_allocation_matches_current_serving", lambda self, allocation: True)
     def generate(self, **kwargs):
         seen.update(kwargs)
         return "receipt"
@@ -342,6 +344,38 @@ def test_adapter_forwards_exact_context_and_ordinary_chat_arguments(monkeypatch,
     assert context.allocation is custody.allocation and context.principal is custody.principal
     assert context.durable_attempt_nonce == "nonce-one"
 
+
+def test_resource_backed_inference_requires_serving_bound_allocation(
+        monkeypatch, tmp_path):
+    serving_custody, _, _, _, _ = owner(tmp_path / "serving-entitlement")
+    inference_custody, _, _, _, ledger = owner(tmp_path / "inference-entitlement", calls=3)
+    assert serving_custody.allocation.allocation_digest != (
+        inference_custody.allocation.allocation_digest)
+    bridge, serving, _, model, _, _ = serving_setup(
+        monkeypatch, tmp_path / "serving",
+        serving_admission_context_provider=lambda _correlation, _state: {
+            "governed_inference_entitlement_binding": dict(
+                serving_custody.serving_admission_entitlement_binding())})
+    adapter = ResourceBackedProductionChatInference(bridge, inference_custody)
+    try:
+        assert bridge.resource_allocation_matches_current_serving(
+            serving_custody.allocation)
+        assert not bridge.resource_allocation_matches_current_serving(
+            inference_custody.allocation)
+        with pytest.raises(GovernedLocalModelResourceError,
+                match="serving_resource_allocation_mismatch"):
+            adapter.generate(prompt="synthetic mismatch fixture", caller="chat_service",
+                correlation_id="mismatched-serving-resource-entitlement",
+                budget=LocalModelInvocationBudget(8000, 4000, 512, 30.0, 2),
+                caller_linkage={})
+        assert model.calls == 0
+        assert ledger.snapshot_counts() == (1, 0, 0)
+        assert ledger.remaining_calls(inference_custody.allocation.allocation_id) == 3
+        assert serving.current_session() is not None
+    finally:
+        serving_custody.close()
+        inference_custody.close()
+        serving.close()
 
 def test_duplicate_nonce_and_exhaustion_fail_without_retry_or_backend_generation(tmp_path):
     custody, model, invoker, request, ledger = owner(tmp_path, calls=2, nonces=["same", "same"])
@@ -797,14 +831,17 @@ def test_persistent_chat_two_turns_use_one_preissued_allocation_without_storage_
     artifacts["requested_bounds"] = bounds
     artifacts["resource_policy_artifact"] = encoded(policy.to_dict())
     kernel = ControlPlaneKernel(decisions_path=tmp_path / "kernel-decisions.jsonl")
-    serving_bridge, serving, _, model, _, _ = serving_setup(
-        monkeypatch, tmp_path, installation_identity="production",
-        kernel_override=kernel)
     bundle = produce_production_chat_resource_provisioning_bundle(
         installation, "chat-resource", **artifacts)
     custody = load_production_chat_resource_context_owner(
         installation, "chat-resource", clock=lambda: NOW,
         nonce_source=iter(("chat-nonce-one", "chat-nonce-two")).__next__)
+    serving_bridge, serving, _, model, _, _ = serving_setup(
+        monkeypatch, tmp_path, installation_identity="production",
+        kernel_override=kernel,
+        serving_admission_context_provider=lambda _correlation, _state: {
+            "governed_inference_entitlement_binding": dict(
+                custody.serving_admission_entitlement_binding())})
     service = PersistentConversationService(
         inference=ResourceBackedProductionChatInference(serving_bridge, custody),
         session_store=ConversationSessionStore(tmp_path / "conversations"),
@@ -857,10 +894,6 @@ def test_gaming_host_pressure_deferral_does_not_debit_production_chat_allocation
             HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1, cpu),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2, memory),
         ]), clock=lambda: now.isoformat())
-    serving_bridge, serving, _, backend, _, _ = serving_setup(
-        monkeypatch, tmp_path / "serving", kernel_override=kernel,
-        host_resource_observation_owner=host_owner)
-
     installation, artifacts = provisioning_inputs(tmp_path / "allocation", calls=2)
     bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
     policy = GovernedLocalModelResourcePolicy.create(
@@ -873,6 +906,12 @@ def test_gaming_host_pressure_deferral_does_not_debit_production_chat_allocation
     custody = load_production_chat_resource_context_owner(
         installation, "chat-resource", clock=lambda: NOW,
         nonce_source=lambda: "gaming-pressure-call")
+    serving_bridge, serving, _, backend, _, _ = serving_setup(
+        monkeypatch, tmp_path / "serving", kernel_override=kernel,
+        host_resource_observation_owner=host_owner,
+        serving_admission_context_provider=lambda _correlation, _state: {
+            "governed_inference_entitlement_binding": dict(
+                custody.serving_admission_entitlement_binding())})
     adapter = ResourceBackedProductionChatInference(serving_bridge, custody)
     service = PersistentConversationService(
         inference=adapter,
@@ -930,10 +969,6 @@ def test_game_frame_pressure_defers_production_chat_without_debit_then_recovers(
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
                 collector("memory", {"used_percent": 40.0})),
         ]), clock=lambda: now.isoformat())
-    serving_bridge, serving, _, backend, _, _ = serving_setup(
-        monkeypatch, tmp_path / "serving", kernel_override=kernel,
-        host_resource_observation_owner=host_owner)
-
     installation, artifacts = provisioning_inputs(tmp_path / "allocation", calls=2)
     bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
     policy = GovernedLocalModelResourcePolicy.create(
@@ -947,6 +982,12 @@ def test_game_frame_pressure_defers_production_chat_without_debit_then_recovers(
         installation, "chat-resource", clock=lambda: NOW,
         nonce_source=iter(("frame-pressure-call", "frame-recovery-call",
             "game-exit-call")).__next__)
+    serving_bridge, serving, _, backend, _, _ = serving_setup(
+        monkeypatch, tmp_path / "serving", kernel_override=kernel,
+        host_resource_observation_owner=host_owner,
+        serving_admission_context_provider=lambda _correlation, _state: {
+            "governed_inference_entitlement_binding": dict(
+                custody.serving_admission_entitlement_binding())})
     adapter = ResourceBackedProductionChatInference(serving_bridge, custody)
     serving_bridge.set_workload_mode("gaming")
     prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
