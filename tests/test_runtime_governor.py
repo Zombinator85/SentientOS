@@ -1114,13 +1114,26 @@ def test_background_gpu_inference_keeps_background_pressure_classification(
     assert decision.evidence_refs["game_priority_block"] is False
 
 
-@pytest.mark.parametrize(("gpu_layers", "entitlement_schema", "expected_allowed"), [
-    (8, "v2", True), (9, "v2", False), (None, "v2", False),
-    (8, "v1", False), (8, "missing", False),
+@pytest.mark.parametrize(("gpu_layers", "entitlement_schema",
+    "entitlement_age_seconds", "expected_allowed", "expected_reason"), [
+    (8, "v2", 0, True, "allowed"),
+    (9, "v2", 0, False,
+        "deferred_model_serving_gpu_layers_exceed_resource_entitlement"),
+    (None, "v2", 0, False,
+        "deferred_model_serving_gpu_layers_exceed_resource_entitlement"),
+    (8, "v2", 16, False,
+        "deferred_model_serving_resource_entitlement_invalid"),
+    (8, "v2", -1, False,
+        "deferred_model_serving_resource_entitlement_invalid"),
+    (8, "v1", 0, False,
+        "deferred_model_serving_resource_entitlement_invalid"),
+    (8, "missing", 0, False,
+        "deferred_model_serving_resource_entitlement_invalid"),
 ])
 @pytest.mark.no_legacy_skip
 def test_model_serving_enforces_owner_entitled_gpu_layer_ceiling(
-        monkeypatch, tmp_path, gpu_layers, entitlement_schema, expected_allowed):
+        monkeypatch, tmp_path, gpu_layers, entitlement_schema,
+        entitlement_age_seconds, expected_allowed, expected_reason):
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "1.0")
@@ -1154,7 +1167,8 @@ def test_model_serving_enforces_owner_entitled_gpu_layer_ceiling(
         "policy_digest": "c" * 64, "policy_epoch": 1,
         "principal_binding_digest": "sha256:" + "d" * 64,
         "remaining_call_entitlement": 2, "max_gpu_layers": 8,
-        "checked_at": observed_at,
+        "checked_at": (datetime.now(timezone.utc)
+            - timedelta(seconds=entitlement_age_seconds)).isoformat(),
     }
     if entitlement_schema == "v1":
         binding["schema_version"] = (
@@ -1185,13 +1199,7 @@ def test_model_serving_enforces_owner_entitled_gpu_layer_ceiling(
         }, operation_kind="model_serving")
 
     assert decision.allowed is expected_allowed
-    if expected_allowed:
-        assert decision.reason == "allowed"
-    elif entitlement_schema != "v2":
-        assert decision.reason == "deferred_model_serving_resource_entitlement_invalid"
-    else:
-        assert decision.reason == (
-            "deferred_model_serving_gpu_layers_exceed_resource_entitlement")
+    assert decision.reason == expected_reason
 
 
 @pytest.mark.parametrize("age_seconds,expected_status", [

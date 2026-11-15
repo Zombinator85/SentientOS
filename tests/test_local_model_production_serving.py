@@ -1082,9 +1082,7 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             "remaining_call_entitlement": (1 if correlation_id.endswith(
                 ":post-load-resource-revalidation") else 2),
             "max_gpu_layers": gpu_layer_entitlement["value"],
-            "checked_at": (now + timedelta(seconds=1)).isoformat()
-                if correlation_id.endswith(":post-load-resource-revalidation")
-                else now.isoformat(),
+            "checked_at": datetime.now(timezone.utc).isoformat(),
         }
         entitlement_checks.append(entitlement_binding)
         return {

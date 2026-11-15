@@ -2934,6 +2934,8 @@ class RuntimeGovernor:
             "governed_inference_entitlement_binding")
         serving_gpu_layer_cap: int | None = None
         serving_gpu_layer_cap_invalid = False
+        serving_entitlement_freshness: dict[str, object] = {
+            "status": "not_applicable"}
         resource_governance_required = (
             operation_kind == "model_serving"
             and payload.get("resource_governance_required") is True)
@@ -2947,6 +2949,32 @@ class RuntimeGovernor:
             binding_schema = serving_entitlement_binding.get("schema_version")
             if binding_schema == (
                     "sentientos.governed_local_model_serving_entitlement_binding:v2"):
+                from sentientos.host_resource_runtime import (
+                    HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS,
+                )
+
+                raw_checked_at = serving_entitlement_binding.get("checked_at")
+                try:
+                    checked_at = datetime.fromisoformat(
+                        str(raw_checked_at).replace("Z", "+00:00"))
+                    entitlement_age_seconds = (
+                        now - checked_at.astimezone(timezone.utc)).total_seconds()
+                except (TypeError, ValueError):
+                    checked_at = None
+                    entitlement_age_seconds = None
+                entitlement_fresh = (
+                    checked_at is not None and checked_at.tzinfo is not None
+                    and 0 <= entitlement_age_seconds
+                    <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS)
+                serving_entitlement_freshness = {
+                    "status": "current" if entitlement_fresh else "stale_or_invalid",
+                    "checked_at": raw_checked_at,
+                    "age_seconds": (round(entitlement_age_seconds, 3)
+                        if entitlement_age_seconds is not None else None),
+                    "max_age_seconds": HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS,
+                }
+                if not entitlement_fresh:
+                    serving_gpu_layer_cap_invalid = True
                 raw_layer_cap = serving_entitlement_binding.get("max_gpu_layers")
                 if raw_layer_cap is None:
                     serving_gpu_layer_cap = None
@@ -3446,6 +3474,7 @@ class RuntimeGovernor:
                     if isinstance(serving_entitlement_binding, Mapping) else None),
                 "model_gpu_layer_entitlement": serving_gpu_layer_cap,
                 "model_gpu_layer_entitlement_invalid": serving_gpu_layer_cap_invalid,
+                "model_serving_entitlement_freshness": serving_entitlement_freshness,
                 "model_accelerator_route": accelerator_route,
                 "model_configuration_digest": gpu_profile_digest,
                 "optional_model_load_in_gaming_profile": (
