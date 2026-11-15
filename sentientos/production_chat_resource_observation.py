@@ -209,6 +209,7 @@ class ProductionChatResourceObservation:
     resource_release_receipt_posture: str = "unknown"
     game_resource_recovery_holds: tuple[Mapping[str, Any], ...] = ()
     game_resource_recovery_posture: str = "unknown"
+    verified_preemption_invocation_receipts: tuple[Mapping[str, Any], ...] = ()
 
 
 class ProductionChatResourceObservationOwner:
@@ -362,7 +363,8 @@ class ProductionChatResourceObservationOwner:
         except ProductionServingError as exc:
             raise ProductionChatResourceObservationError(
                 "serving_operation_history_invalid:" + str(exc)) from exc
-        resource_release_receipts, resource_release_posture = (
+        (resource_release_receipts, resource_release_posture,
+         preemption_invocation_receipts) = (
             self._resource_release_receipts(serving_operation_history,
                 invocation_receipts))
         recovery_holds, recovery_posture = self._game_resource_recovery_custody()
@@ -375,7 +377,7 @@ class ProductionChatResourceObservationOwner:
             predecessor_receipts, predecessor_receipt_posture,
             admission_witnesses, admission_posture,
             resource_release_receipts, resource_release_posture,
-            recovery_holds, recovery_posture)
+            recovery_holds, recovery_posture, preemption_invocation_receipts)
 
     def _game_resource_recovery_custody(
             self) -> tuple[tuple[Mapping[str, Any], ...], str]:
@@ -557,7 +559,8 @@ class ProductionChatResourceObservationOwner:
     def _resource_release_receipts(
             self, serving_operation_history: tuple[Mapping[str, Any], ...],
             invocation_receipts: tuple[Mapping[str, Any], ...]
-            ) -> tuple[tuple[Mapping[str, Any], ...], str]:
+            ) -> tuple[tuple[Mapping[str, Any], ...], str,
+                       tuple[Mapping[str, Any], ...]]:
         serving_by_session: dict[str, tuple[str, str, str, str | None]] = {}
         for history in serving_operation_history:
             serving_receipt = history.get("receipt")
@@ -590,10 +593,11 @@ class ProductionChatResourceObservationOwner:
                 max_entries=_MAX_RESOURCE_RELEASE_RECEIPTS)
         except InstallationStateError as exc:
             if exc.code == "state_directory_missing":
-                return (), "verified_no_release_receipts"
+                return (), "verified_no_release_receipts", ()
             raise ProductionChatResourceObservationError(
                 "resource_release_receipt_directory_invalid") from exc
         receipts: list[Mapping[str, Any]] = []
+        preemption_invocation_receipts: dict[str, Mapping[str, Any]] = {}
         seen_ids: set[str] = set()
         for name in names:
             if _RESOURCE_RELEASE_NAME.fullmatch(name) is None:
@@ -1122,6 +1126,11 @@ class ProductionChatResourceObservationOwner:
                         invocation.get("receipt_digest"))
                     verified_value["preemption_cause_admission_decision_ref"] = (
                         cause_reference)
+                    if not any(scoped.get("receipt_id") ==
+                            invocation.get("receipt_id")
+                            for scoped in invocation_receipts):
+                        preemption_invocation_receipts[str(
+                            invocation["receipt_id"])] = dict(invocation)
             if (value.get("schema_version") in {
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6,
@@ -1216,7 +1225,9 @@ class ProductionChatResourceObservationOwner:
             posture = "partial_legacy_unlinked"
         else:
             posture = "verified"
-        return tuple(receipts), posture
+        return tuple(receipts), posture, tuple(
+            preemption_invocation_receipts[key]
+            for key in sorted(preemption_invocation_receipts))
 
     def _resource_admission_witness(self, invocation: Mapping[str, Any],
                                     allocation: GovernedLocalModelResourceAllocation

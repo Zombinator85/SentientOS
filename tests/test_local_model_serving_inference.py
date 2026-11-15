@@ -2051,6 +2051,10 @@ def test_normal_host_pressure_cancels_active_optional_inference(
             assert observed_release["preemption_release_linkage_posture"] == "verified"
             assert observed_release["preemption_cause_invocation_receipt_id"] == (
                 result["receipt"].receipt_id)
+            assert observed_resources.invocation_receipts == ()
+            assert [item["receipt_id"] for item in
+                observed_resources.verified_preemption_invocation_receipts] == [
+                    result["receipt"].receipt_id]
             from sentientos.governed_local_model_resource_allocation import (
                 GovernedLocalModelResourceLedger,
             )
@@ -2060,10 +2064,15 @@ def test_normal_host_pressure_cancels_active_optional_inference(
             lineage_projection = resource_consumption_world_state_records(
                 ledger=GovernedLocalModelResourceLedger(
                     tmp_path / "resource-lineage.json"),
-                invocation_receipts=(result["receipt"].to_dict(),),
-                verified_resource_release_receipts=(observed_release,))[0]
+                invocation_receipts=observed_resources.invocation_receipts,
+                verified_resource_release_receipts=(observed_release,),
+                verified_preemption_invocation_receipts=(
+                    observed_resources.verified_preemption_invocation_receipts))[0]
             assert lineage_projection["payload"]["resource_release_receipts"][0][
                 "preemption_release_linkage_posture"] == "verified"
+            assert not any(item.startswith(
+                "resource_release_preemption_cause_linkage_missing_or_mismatched:")
+                for item in lineage_projection["payload"]["lineage_findings"])
     finally:
         if invocation.is_alive():
             model.cancel_pending_generation()

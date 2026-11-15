@@ -2042,6 +2042,8 @@ class RuntimeMaintenanceSurfaces:
                         observation.verified_inference_admission_decisions),
                     verified_resource_release_receipts=(
                         observation.verified_resource_release_receipts),
+                    verified_preemption_invocation_receipts=(
+                        observation.verified_preemption_invocation_receipts),
                     verified_game_resource_recovery_holds=(
                         observation.game_resource_recovery_holds),
                     game_resource_recovery_posture=(
@@ -4581,6 +4583,8 @@ def _compose_causal_introspection(
                     observation.verified_inference_admission_decisions),
                 verified_resource_release_receipts=(
                     observation.verified_resource_release_receipts),
+                verified_preemption_invocation_receipts=(
+                    observation.verified_preemption_invocation_receipts),
                 verified_game_resource_recovery_holds=(
                     observation.game_resource_recovery_holds),
                 game_resource_recovery_posture=(

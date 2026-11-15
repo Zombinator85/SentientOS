@@ -552,6 +552,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                               verified_serving_operation_history: Sequence[Mapping[str, Any]] = (),
                                               verified_inference_admission_decisions: Sequence[Mapping[str, Any]] | None = None,
                                               verified_resource_release_receipts: Sequence[Mapping[str, Any]] | None = None,
+                                              verified_preemption_invocation_receipts: Sequence[Mapping[str, Any]] = (),
                                               verified_game_resource_recovery_holds: Sequence[Mapping[str, Any]] | None = None,
                                               game_resource_recovery_posture: str | None = None) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
@@ -593,6 +594,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     if (verified_resource_release_receipts is not None
             and len(verified_resource_release_receipts) > 256):
         raise ValueError("resource_release_receipt_bound_exceeded")
+    if len(verified_preemption_invocation_receipts) > 256:
+        raise ValueError("preemption_invocation_receipt_bound_exceeded")
     recovery_postures = {"verified_no_recovery_holds",
         "verified_pending_recovery", "verified_recovery_cleared",
         "unknown_hold_custody_directory_missing"}
@@ -1344,6 +1347,30 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             if dict(invocation_by_id[receipt_id]) != dict(invocation):
                 raise ValueError("resource_invocation_receipt_identity_conflict")
             raise ValueError("resource_invocation_receipt_duplicate")
+        invocation_by_id[receipt_id] = invocation
+    # Exact preemption-cause receipts remain separate from allocation-scoped
+    # invocations. They can corroborate a verified release cause link below,
+    # but cannot add allocation consumption or admission evidence.
+    for invocation in verified_preemption_invocation_receipts:
+        if not isinstance(invocation, Mapping):
+            raise ValueError("preemption_invocation_receipt_invalid")
+        valid_invocation, invocation_findings = validate_receipt(invocation)
+        if (not valid_invocation or invocation.get("status") != "cancelled"
+                or not isinstance(invocation.get(
+                    "cancellation_admission_decision_ref"), str)):
+            finding = invocation_findings[0] if invocation_findings else (
+                "cancelled_invocation_binding_invalid")
+            raise ValueError("preemption_invocation_receipt_invalid:" + finding)
+        receipt_id = invocation.get("receipt_id")
+        receipt_digest = invocation.get("receipt_digest")
+        if (not isinstance(receipt_id, str) or not receipt_id
+                or not isinstance(receipt_digest, str) or not receipt_digest):
+            raise ValueError("preemption_invocation_receipt_identity_invalid")
+        prior = invocation_by_id.get(receipt_id)
+        if prior is not None:
+            if dict(prior) != dict(invocation):
+                raise ValueError("resource_invocation_receipt_identity_conflict")
+            continue
         invocation_by_id[receipt_id] = invocation
     for release_receipt in release_receipt_summaries:
         if release_receipt.get("invocation_linkage_posture") != "verified":

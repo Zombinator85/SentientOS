@@ -1152,7 +1152,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
             "correlation_id": "invocation-correlation",
         },
     }
-    linked_releases, linked_posture = observer._resource_release_receipts(
+    linked_releases, linked_posture, _ = observer._resource_release_receipts(
         serving_history, (linked_invocation,))
     assert linked_posture == "verified"
     assert linked_releases[0]["invocation_linkage_posture"] == "verified"
@@ -1177,7 +1177,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "cancellation_admission_record": dict(
             release_body["release_admission_record"]),
     }
-    legacy_linked_releases, legacy_linked_posture = observer._resource_release_receipts(
+    legacy_linked_releases, legacy_linked_posture, _ = observer._resource_release_receipts(
         serving_history, (exact_linked_v7,))
     assert legacy_linked_posture == "verified"
     assert legacy_linked_releases[0]["invocation_linkage_posture"] == "verified"
@@ -1189,7 +1189,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "cancellation_admission_record": dict(
             release_body["release_admission_record"]),
     }
-    exact_linked_releases, exact_linked_posture = observer._resource_release_receipts(
+    exact_linked_releases, exact_linked_posture, _ = observer._resource_release_receipts(
         serving_history, (exact_linked_invocation,))
     assert exact_linked_posture == "verified"
     assert exact_linked_releases[0]["invocation_linkage_posture"] == "verified"
@@ -1209,7 +1209,7 @@ def test_reconstruction_is_read_only_stable_and_does_not_replenish(
         "effects": {"local_model_inference": True},
         "cancellation_preemption_ref": preemption_ref,
     }
-    v10_linked_releases, v10_linkage_posture = observer._resource_release_receipts(
+    v10_linked_releases, v10_linkage_posture, _ = observer._resource_release_receipts(
         serving_history, (exact_linked_v10,))
     assert v10_linkage_posture == "verified"
     assert v10_linked_releases[0]["cancelled_invocation_preemption_ref"] == (
