@@ -3293,6 +3293,14 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
         source_observed_at=now.isoformat(),
         process_name_digest=hashlib.sha256(b"examplegame.exe").hexdigest())
     assert kernel.observe_verified_game_performance(sample)
+    assert bridge._preemption_lock.acquire(blocking=False)
+    try:
+        concurrent_reconciliation = bridge.reconcile_idle_game_resource_state()
+    finally:
+        bridge._preemption_lock.release()
+    assert concurrent_reconciliation == {"status": "skipped",
+        "reason": "game_resource_preemption_in_progress"}
+    assert not cancelled.is_set()
     preemption = bridge.reconcile_idle_game_resource_state()
     worker.join(timeout=5)
 

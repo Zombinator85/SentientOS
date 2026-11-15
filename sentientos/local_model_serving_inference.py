@@ -1119,31 +1119,33 @@ class ProductionServingInferenceController:
                             try:
                                 cpu_preemption = self._preempt_for_game_process_cpu_pressure(
                                     session, model, pending_workload, active_invoker)
+                                if cpu_preemption is not None:
+                                    return cpu_preemption
+                                frame_release = self._release_after_game_frame_pressure(
+                                    session, model, pending_workload,
+                                    preempt_active_generation=True)
+                                if frame_release is not None:
+                                    return {"status": frame_release["status"],
+                                        "release_receipt_id": frame_release["receipt_id"],
+                                        "trigger_kind": (
+                                            "idle_game_frame_pressure_reconciliation"),
+                                        "serving_session_id": session.session_id,
+                                        "active_inference_cancellation_confirmed": (
+                                            frame_release[
+                                                "active_inference_cancellation_confirmed"])}
+                                residency_release = self._release_after_gpu_model_residency(
+                                    session, model, pending_workload,
+                                    preempt_active_generation=True)
+                                if residency_release is not None:
+                                    return {"status": residency_release["status"],
+                                        "release_receipt_id": residency_release["receipt_id"],
+                                        "trigger_kind": residency_release["trigger_kind"],
+                                        "serving_session_id": session.session_id,
+                                        "active_inference_cancellation_confirmed": (
+                                            residency_release[
+                                                "active_inference_cancellation_confirmed"])}
                             finally:
                                 self._preemption_lock.release()
-                            if cpu_preemption is not None:
-                                return cpu_preemption
-                            frame_release = self._release_after_game_frame_pressure(
-                                session, model, pending_workload,
-                                preempt_active_generation=True)
-                            if frame_release is not None:
-                                return {"status": frame_release["status"],
-                                    "release_receipt_id": frame_release["receipt_id"],
-                                    "trigger_kind": "idle_game_frame_pressure_reconciliation",
-                                    "serving_session_id": session.session_id,
-                                    "active_inference_cancellation_confirmed": frame_release[
-                                        "active_inference_cancellation_confirmed"]}
-                            residency_release = self._release_after_gpu_model_residency(
-                                session, model, pending_workload,
-                                preempt_active_generation=True)
-                            if residency_release is not None:
-                                return {"status": residency_release["status"],
-                                    "release_receipt_id": residency_release["receipt_id"],
-                                    "trigger_kind": residency_release["trigger_kind"],
-                                    "serving_session_id": session.session_id,
-                                    "active_inference_cancellation_confirmed": (
-                                        residency_release[
-                                            "active_inference_cancellation_confirmed"])}
                 if resource_entitlement_owner is not None:
                     entitlement_preemption = (
                         self._preempt_active_inference_for_invalidated_entitlement(
