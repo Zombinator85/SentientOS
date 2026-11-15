@@ -365,6 +365,50 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
                         entitlement.get("allocation_digest")
                     or not _active_preemption_matches_invocation(preemption, request)):
                 return False
+        if (actor == "production_chat_game_performance_governor"
+                and value.get("schema_version") ==
+                    CANCELLATION_ADMISSION_DECISION_WITNESS_SCHEMA_V2):
+            preemption = evidence_refs.get("active_inference_preemption")
+            performance = evidence_refs.get("game_performance_evidence")
+            if (not isinstance(preemption, Mapping)
+                    or set(preemption) != {
+                        "schema_version", "preemption_kind", "workload_mode",
+                        "serving_session_id", "model_identity_digest",
+                        "game_performance_message_id", "game_performance_payload_digest",
+                        "game_performance_process_id_digest",
+                        "game_performance_process_name_digest", "game_performance_source_id",
+                        "game_performance_generation_id", "game_performance_sequence",
+                        "game_performance_observed_at", "process_cpu_percent",
+                        "active_inference_request_reference"}
+                    or preemption.get("schema_version") !=
+                        "sentientos.active_inference_preemption:v5"
+                    or preemption.get("preemption_kind") != "game_process_cpu_pressure"
+                    or preemption.get("workload_mode") != "normal"
+                    or not isinstance(performance, Mapping)
+                    or performance.get("status") != "current"
+                    or any(preemption.get(field) != performance.get(source)
+                        for field, source in (
+                            ("game_performance_message_id", "message_id"),
+                            ("game_performance_payload_digest", "payload_digest"),
+                            ("game_performance_process_id_digest", "process_id_digest"),
+                            ("game_performance_process_name_digest", "process_name_digest"),
+                            ("game_performance_source_id", "source_id"),
+                            ("game_performance_generation_id", "generation_id"),
+                            ("game_performance_sequence", "sequence"),
+                            ("game_performance_observed_at", "source_observed_at"),
+                            ("process_cpu_percent", "process_cpu_percent")))
+                    or not isinstance(preemption.get("process_cpu_percent"), (int, float))
+                    or isinstance(preemption.get("process_cpu_percent"), bool)
+                    or not math.isfinite(float(preemption["process_cpu_percent"]))
+                    or float(preemption["process_cpu_percent"]) < 100.0
+                    or preemption.get("active_inference_request_reference") != {
+                        key: request.get(key) for key in (
+                            "request_id", "request_digest", "correlation_id")}
+                    or evidence_refs.get("active_inference_request_reference") != {
+                        key: request.get(key) for key in (
+                            "request_id", "request_digest", "correlation_id")}
+                    or not _active_preemption_matches_invocation(preemption, request)):
+                return False
         if (actor == "production_chat_game_resource_governor"
                 and not any(isinstance(evidence_refs.get(key), Mapping)
                     and evidence_refs[key].get("status") == "current"
@@ -390,6 +434,7 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
             and value.get("actor") in {
                 "production_chat_host_resource_governor",
                 "production_chat_game_workload_governor",
+                "production_chat_game_performance_governor",
                 "production_chat_resource_entitlement_governor"}):
         if governor is None and not require_runtime_evidence:
             return True
@@ -398,6 +443,7 @@ def _valid_cancellation_admission_decision(value: object, *, reference: object,
             and governor.get("reason") in {
                 "allowed_host_resource_pressure_inference_preemption",
                 "allowed_verified_game_workload_inference_preemption",
+                "allowed_game_process_cpu_pressure_inference_preemption",
                 "allowed_resource_entitlement_invalidation_inference_preemption"})
     release_scope_valid = (value.get("authority_class") ==
                 AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE.value
@@ -1276,6 +1322,7 @@ class GovernedLocalModelInvoker:
                 and decision.actor in {
                     "production_chat_host_resource_governor",
                     "production_chat_game_workload_governor",
+                    "production_chat_game_performance_governor",
                     "production_chat_resource_entitlement_governor"})
             resource_release = (
                 decision.outcome == AdmissionOutcome.ALLOW

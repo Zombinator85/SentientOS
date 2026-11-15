@@ -21,6 +21,10 @@ from .windows_game_performance import GamePerformanceObservation, WindowsGamePer
 _SCHEMA = "sentientos.game_performance_observation:v2"
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _MAX_AGE_SECONDS = 10.0
+# psutil reports process CPU as a percentage of one logical processor; 100%
+# therefore means the allowlisted game has consumed at least one full core.
+# Treat that as a conservative yield signal for optional local inference.
+GAME_PROCESS_CPU_PRESSURE_PERCENT = 100.0
 
 
 class _PerformanceReceiver(Protocol):

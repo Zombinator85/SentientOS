@@ -3535,8 +3535,67 @@ class RuntimeGovernor:
                     sort_keys=True, separators=(",", ":"),
                     ensure_ascii=False).encode("utf-8")).hexdigest() + ":")
         )
+        game_cpu_preemption_fields = {
+            "schema_version", "preemption_kind", "workload_mode",
+            "serving_session_id", "model_identity_digest",
+            "game_performance_message_id", "game_performance_payload_digest",
+            "game_performance_process_id_digest",
+            "game_performance_process_name_digest", "game_performance_source_id",
+            "game_performance_generation_id", "game_performance_sequence",
+            "game_performance_observed_at", "process_cpu_percent",
+            "active_inference_request_reference",
+        }
+        performance_cpu = (game_evidence_ref.get("process_cpu_percent")
+            if isinstance(game_evidence_ref, Mapping) else None)
+        performance_cpu_preemption_valid = (
+            isinstance(preemption, Mapping)
+            and set(preemption) == game_cpu_preemption_fields
+            and preemption.get("schema_version") ==
+                "sentientos.active_inference_preemption:v5"
+            and preemption.get("preemption_kind") == "game_process_cpu_pressure"
+            and preemption.get("workload_mode") == "normal"
+            and actor == "production_chat_game_performance_governor"
+            and subject == actor
+            and isinstance(preemption.get("serving_session_id"), str)
+            and re.fullmatch(r"serving-session-[0-9a-f]{24}", str(
+                preemption.get("serving_session_id"))) is not None
+            and isinstance(preemption.get("model_identity_digest"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", str(
+                preemption.get("model_identity_digest"))) is not None
+            and isinstance(game_evidence_ref, Mapping)
+            and game_evidence_ref.get("status") == "current"
+            and all(preemption.get(field) == game_evidence_ref.get(evidence_field)
+                for field, evidence_field in (
+                    ("game_performance_message_id", "message_id"),
+                    ("game_performance_payload_digest", "payload_digest"),
+                    ("game_performance_process_id_digest", "process_id_digest"),
+                    ("game_performance_process_name_digest", "process_name_digest"),
+                    ("game_performance_source_id", "source_id"),
+                    ("game_performance_generation_id", "generation_id"),
+                    ("game_performance_sequence", "sequence"),
+                    ("game_performance_observed_at", "source_observed_at"),
+                    ("process_cpu_percent", "process_cpu_percent")))
+            and isinstance(performance_cpu, (int, float))
+            and not isinstance(performance_cpu, bool)
+            and math.isfinite(float(performance_cpu))
+            and float(performance_cpu) >= 100.0
+            and isinstance(preemption.get("active_inference_request_reference"), Mapping)
+            and set(preemption["active_inference_request_reference"]) == {
+                "request_id", "request_digest", "correlation_id"}
+            and all(isinstance(preemption["active_inference_request_reference"].get(key), str)
+                and preemption["active_inference_request_reference"].get(key)
+                for key in ("request_id", "request_digest", "correlation_id"))
+            and preemption.get("active_inference_request_reference")
+                == payload.get("active_inference_request_reference")
+            and isinstance(correlation_id, str)
+            and correlation_id.startswith(
+                "active-inference-preemption:" + hashlib.sha256(json.dumps(
+                    dict(preemption["active_inference_request_reference"]),
+                    sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False).encode("utf-8")).hexdigest() + ":")
+        )
         preemption_valid = (game_preemption_valid or host_pressure_preemption_valid
-            or entitlement_preemption_valid)
+            or entitlement_preemption_valid or performance_cpu_preemption_valid)
         if preemption_requested:
             reason = ("allowed_verified_game_workload_inference_preemption"
                 if game_preemption_valid else
@@ -3544,6 +3603,8 @@ class RuntimeGovernor:
                 if host_pressure_preemption_valid else
                 "allowed_resource_entitlement_invalidation_inference_preemption"
                 if entitlement_preemption_valid else
+                "allowed_game_process_cpu_pressure_inference_preemption"
+                if performance_cpu_preemption_valid else
                 "deferred_active_inference_preemption_game_evidence_unavailable")
             blocks = not preemption_valid
 

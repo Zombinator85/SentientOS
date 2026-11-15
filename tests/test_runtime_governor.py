@@ -1013,6 +1013,62 @@ def test_host_pressure_preemption_persists_exact_active_invocation(
 
 
 @pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(("process_cpu_percent", "expected"), [
+    (99.9, False), (100.0, True)])
+def test_game_process_cpu_preemption_requires_saturated_authenticated_sample(
+        monkeypatch, tmp_path, process_cpu_percent, expected):
+    from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    governor = RuntimeGovernor()
+    observed_at = datetime.now(timezone.utc).isoformat()
+    sample = VerifiedGamePerformanceObservation(
+        source_id="windows-edge", generation_id="edge-generation-1", sequence=7,
+        message_id="a" * 64, payload_digest="b" * 64,
+        observed_at=observed_at, process_id_digest="c" * 64,
+        frame_time_p95_ms=None, hitch_count_over_50ms=None,
+        process_cpu_percent=process_cpu_percent, process_rss_bytes=4096,
+        status="available", source_observed_at=observed_at,
+        process_name_digest="d" * 64)
+    assert governor.observe_verified_game_performance(sample)
+    request_reference = {"request_id": "lmreq-" + "e" * 24,
+        "request_digest": "f" * 64,
+        "correlation_id": "active-game-cpu-pressure-request"}
+    request_digest = hashlib.sha256(json.dumps(request_reference,
+        sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+            "utf-8")).hexdigest()
+    correlation_id = "active-inference-preemption:" + request_digest + ":attempt-1"
+    preemption = {
+        "schema_version": "sentientos.active_inference_preemption:v5",
+        "preemption_kind": "game_process_cpu_pressure",
+        "workload_mode": "normal",
+        "serving_session_id": "serving-session-" + "1" * 24,
+        "model_identity_digest": "2" * 64,
+        "game_performance_message_id": "a" * 64,
+        "game_performance_payload_digest": "b" * 64,
+        "game_performance_process_id_digest": "c" * 64,
+        "game_performance_process_name_digest": "d" * 64,
+        "game_performance_source_id": "windows-edge",
+        "game_performance_generation_id": "edge-generation-1",
+        "game_performance_sequence": 7,
+        "game_performance_observed_at": observed_at,
+        "process_cpu_percent": process_cpu_percent,
+        "active_inference_request_reference": request_reference,
+    }
+    decision = governor._admit_local_model_inference(
+        actor="production_chat_game_performance_governor",
+        subject="production_chat_game_performance_governor",
+        correlation_id=correlation_id,
+        metadata={"purpose": "local_user_chat",
+            "active_inference_preemption": preemption,
+            "active_inference_request_reference": request_reference})
+    assert decision.allowed is expected
+    assert decision.reason == ("allowed_game_process_cpu_pressure_inference_preemption"
+        if expected else "deferred_active_inference_preemption_game_evidence_unavailable")
+
+
+@pytest.mark.no_legacy_skip
 @pytest.mark.parametrize("accelerator_route,gpu_layers", [("gpu", 1), ("cpu", 0)])
 @pytest.mark.parametrize("governor_mode", ["enforce", "advisory", "shadow", None])
 @pytest.mark.parametrize("operation_kind", ["inference", "model_serving"])

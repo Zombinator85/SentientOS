@@ -3132,7 +3132,7 @@ def test_verified_game_presence_preempts_active_cpu_inference_without_pressure(
     worker.join(timeout=5)
 
     assert not worker.is_alive()
-    assert preemption["status"] == "preempted"
+    assert preemption["status"] == "preempted", preemption
     assert preemption["trigger_kind"] == (
         "verified_game_workload_active_inference_preemption")
     assert preemption["game_workload_message_id"] == message_id
@@ -3199,6 +3199,85 @@ def test_verified_game_presence_preempts_active_cpu_inference_without_pressure(
         decisions_before_inactive_check)
     assert model.closed is False
     assert serving.current_session() == session
+    serving.close()
+
+
+def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
+        monkeypatch, tmp_path):
+    from sentientos.game_performance_bridge import (
+        GAME_PROCESS_CPU_PRESSURE_PERCENT, VerifiedGamePerformanceObservation,
+    )
+
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    started = threading.Event()
+    cancelled = threading.Event()
+
+    def active_generation():
+        started.set()
+        if not cancelled.wait(timeout=5):
+            raise AssertionError("authenticated game CPU pressure did not preempt inference")
+        raise RuntimeError("fixture_cancelled_for_game_cpu_priority")
+
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, gpu_layers=0, on_generate=active_generation)
+    model.cancel_pending_generation = lambda: (cancelled.set() or True)
+    bridge.set_workload_mode("normal")
+    results = {}
+    worker = threading.Thread(target=lambda: results.setdefault("receipt",
+        bridge.generate(prompt=("[SYSTEM_INSTRUCTION]\nRules.\n"
+            "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\n"
+            "USER_DATA: optional inference"), caller="chat_service",
+            correlation_id="active-game-cpu-pressure")))
+    worker.start()
+    assert started.wait(timeout=5)
+
+    sample = VerifiedGamePerformanceObservation(
+        source_id="windows-edge", generation_id="edge-generation", sequence=1,
+        message_id=hashlib.sha256(b"game-cpu-pressure-message").hexdigest(),
+        payload_digest=hashlib.sha256(b"game-cpu-pressure-payload").hexdigest(),
+        observed_at=now.isoformat(),
+        process_id_digest=hashlib.sha256(b"allowlisted-game-process-id").hexdigest(),
+        frame_time_p95_ms=None, hitch_count_over_50ms=None,
+        process_cpu_percent=GAME_PROCESS_CPU_PRESSURE_PERCENT,
+        process_rss_bytes=2_000_000_000, status="available",
+        source_observed_at=now.isoformat(),
+        process_name_digest=hashlib.sha256(b"examplegame.exe").hexdigest())
+    assert kernel.observe_verified_game_performance(sample)
+    preemption = bridge.reconcile_idle_game_resource_state()
+    worker.join(timeout=5)
+
+    assert not worker.is_alive()
+    assert preemption["status"] == "preempted", preemption
+    assert preemption["trigger_kind"] == (
+        "verified_game_process_cpu_pressure_active_inference_preemption")
+    assert preemption["process_cpu_percent"] == GAME_PROCESS_CPU_PRESSURE_PERCENT
+    assert preemption["active_inference_cancellation_confirmed"] is True
+    receipt = results["receipt"]
+    assert receipt.status == "cancelled"
+    assert receipt.output_text is None
+    assert serving.current_session() == session
+    assert model.closed is False
+    persisted_path = (tmp_path / "state" / "installations" / "install-1" /
+        "state" / "local-model" / "inference" / "receipts" /
+        (receipt.receipt_id + ".json"))
+    persisted = json.loads(persisted_path.read_text(encoding="utf-8"))
+    valid, findings = validate_receipt(persisted)
+    assert valid, findings
+    evidence = persisted["cancellation_admission_decision"][
+        "delegated_outcomes"]["runtime_governor"]["evidence_refs"]
+    assert evidence["active_inference_preemption"]["process_cpu_percent"] == (
+        GAME_PROCESS_CPU_PRESSURE_PERCENT)
+    assert evidence["active_inference_preemption"]["serving_session_id"] == (
+        session.session_id)
+    assert evidence["active_inference_preemption"][
+        "active_inference_request_reference"] == {
+            key: receipt.request[key] for key in (
+                "request_id", "request_digest", "correlation_id")}
     serving.close()
 
 

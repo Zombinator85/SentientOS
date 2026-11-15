@@ -41,6 +41,7 @@ from .local_model_resource_profile import (
 )
 from .installation_state import InstallationStateError
 from .gaming_workload_policy import EffectiveWorkloadMode, GamingWorkloadPolicy, WorkloadMode
+from .game_performance_bridge import GAME_PROCESS_CPU_PRESSURE_PERCENT
 from .host_resource_policy import (
     host_resource_policy_decision_digest,
     host_resource_policy_decision_from_dict,
@@ -1112,6 +1113,10 @@ class ProductionServingInferenceController:
                         except ProductionServingError:
                             model = None
                         if model is not None:
+                            cpu_preemption = self._preempt_for_game_process_cpu_pressure(
+                                session, model, pending_workload, active_invoker)
+                            if cpu_preemption is not None:
+                                return cpu_preemption
                             frame_release = self._release_after_game_frame_pressure(
                                 session, model, pending_workload,
                                 preempt_active_generation=True)
@@ -2012,6 +2017,110 @@ class ProductionServingInferenceController:
             "trigger_kind": "verified_game_workload_active_inference_preemption",
             "serving_session_id": session.session_id,
             "active_inference_cancellation_confirmed": cancelled}
+
+    def _preempt_for_game_process_cpu_pressure(
+            self, session: ServingSession, model: Any,
+            workload: Mapping[str, Any],
+            active_invoker: GovernedLocalModelInvoker) -> dict[str, Any] | None:
+        """Yield the exact active optional call when authenticated game CPU is saturated."""
+        if workload.get("configured_mode") != "normal":
+            return None
+        getter = getattr(self._serving._kernel,
+            "current_verified_game_performance_evidence", None)
+        if not callable(getter):
+            return None
+        try:
+            performance = getter()
+        except Exception:
+            return None
+        if not isinstance(performance, Mapping):
+            return None
+        process_cpu = performance.get("process_cpu_percent")
+        if (isinstance(process_cpu, bool)
+                or not isinstance(process_cpu, (int, float))
+                or not math.isfinite(float(process_cpu))
+                or float(process_cpu) < GAME_PROCESS_CPU_PRESSURE_PERCENT):
+            return None
+        required = ("message_id", "payload_digest", "process_id_digest",
+            "process_name_digest", "source_id", "generation_id", "sequence",
+            "observed_at", "source_observed_at")
+        if any(not performance.get(key) for key in required):
+            return None
+        process_name_digest = performance.get("process_name_digest")
+        if (not isinstance(process_name_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", process_name_digest) is None):
+            return None
+        active_reference = active_invoker.active_invocation_request_reference()
+        if (not isinstance(active_reference, Mapping)
+                or set(active_reference) != {
+                    "request_id", "request_digest", "correlation_id"}
+                or not all(isinstance(active_reference.get(key), str)
+                    and active_reference.get(key)
+                    for key in ("request_id", "request_digest", "correlation_id"))):
+            return {"status": "skipped", "reason": "active_invocation_identity_required"}
+        identity = getattr(model, "active_identity", None)
+        if identity is None or not callable(getattr(identity, "to_dict", None)):
+            return {"status": "skipped", "reason": "exact_loaded_model_identity_required"}
+        attempt_nonce = str(time.time_ns())
+        correlation_id = ("active-inference-preemption:"
+            + digest_payload(dict(active_reference)) + ":"
+            + hashlib.sha256((session.session_id + ":"
+                + str(performance["message_id"]) + ":" + attempt_nonce
+                ).encode("utf-8")).hexdigest()[:24])
+        preemption = {
+            "schema_version": "sentientos.active_inference_preemption:v5",
+            "preemption_kind": "game_process_cpu_pressure",
+            "workload_mode": "normal",
+            "serving_session_id": session.session_id,
+            "model_identity_digest": digest_payload(identity.to_dict()),
+            "game_performance_message_id": performance["message_id"],
+            "game_performance_payload_digest": performance["payload_digest"],
+            "game_performance_process_id_digest": performance["process_id_digest"],
+            "game_performance_process_name_digest": process_name_digest,
+            "game_performance_source_id": performance["source_id"],
+            "game_performance_generation_id": performance["generation_id"],
+            "game_performance_sequence": performance["sequence"],
+            "game_performance_observed_at": performance["source_observed_at"],
+            "process_cpu_percent": float(process_cpu),
+            "active_inference_request_reference": dict(active_reference),
+        }
+        decision = self._serving._kernel.admit(ControlActionRequest(
+            action_kind="local_model_inference_preemption",
+            authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+            actor="production_chat_game_performance_governor",
+            target_subsystem="governed_local_model_invocation",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"correlation_id": correlation_id,
+                "purpose": "local_user_chat",
+                "active_inference_preemption": preemption,
+                "active_inference_request_reference": dict(active_reference)}))
+        governor = decision.delegated_outcomes.get("runtime_governor")
+        admitted = (decision.allowed
+            and decision.outcome == AdmissionOutcome.ALLOW
+            and decision.authority_class == AuthorityClass.LOCAL_MODEL_INFERENCE
+            and decision.action_kind == "local_model_inference_preemption"
+            and decision.actor == "production_chat_game_performance_governor"
+            and decision.target_subsystem == "governed_local_model_invocation"
+            and decision.correlation_id == correlation_id
+            and isinstance(governor, Mapping)
+            and governor.get("reason") ==
+                "allowed_game_process_cpu_pressure_inference_preemption")
+        if not admitted:
+            return {"status": "denied",
+                "reason": "game_process_cpu_pressure_preemption_admission_required",
+                "cancellation_admission_decision_ref": decision.admission_decision_ref}
+        cancelled = active_invoker.cancel_pending_generation(
+            reason="workload_transition", cancellation_admission_decision=decision)
+        return {"status": "preempted" if cancelled else "preemption_unconfirmed",
+            "reason": ("authenticated_game_process_cpu_priority" if cancelled else
+                "active_inference_cancellation_unconfirmed"),
+            "trigger_kind": "verified_game_process_cpu_pressure_active_inference_preemption",
+            "serving_session_id": session.session_id,
+            "game_performance_message_id": performance["message_id"],
+            "process_cpu_percent": float(process_cpu),
+            "cancellation_admission_decision_ref": decision.admission_decision_ref,
+            "active_inference_cancellation_confirmed": cancelled,
+            "model_residency_released": False}
 
     def _release_after_game_frame_pressure(
             self, session: ServingSession, model: Any,
