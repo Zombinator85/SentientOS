@@ -6189,6 +6189,25 @@ class ResidentDevelopmentalCognitionOwner:
                     receipt.output_text, set(current.fact_ids), set(record_ids),
                     allowed_memory_ids,
                     controlled_history_intervention=companion_intervention)
+                memory_context_incomplete = (canonical_memory_context is not None and (
+                    canonical_memory_context.get("retrieval_posture") != "complete"
+                    or canonical_memory_context.get("selection_posture")
+                        != "all_matching_records_selected"))
+                if (memory_context_incomplete
+                        and decision["disposition"] == "answer"
+                        and decision["memory_record_ids"]):
+                    decision = {**decision,
+                        "model_disposition": "answer",
+                        "disposition": "ask",
+                        "response": (
+                            "I found relevant retained statements, but the available "
+                            "memory context is incomplete. Which statement should I use?"),
+                        "disposition_normalization": (
+                            "incomplete_memory_context_requires_clarification"),
+                        "evidence_ids": [],
+                        "history_record_ids": [],
+                        "memory_record_ids": [],
+                    }
             except (TypeError, ValueError, json.JSONDecodeError) as exc:
                 raise ResidentDevelopmentalCognitionError(
                     "companion_interaction_decision_invalid") from exc

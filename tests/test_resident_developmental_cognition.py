@@ -4510,6 +4510,52 @@ def test_canonical_user_memory_is_prompt_bound_historical_context_not_evidence(
     assert len(fake.requests) == before
 
 
+def test_incomplete_memory_selection_forces_clarification_when_memory_cited(
+        tmp_path: Path) -> None:
+    cognition, fake = owner(tmp_path)
+    text = "Concise answers work best for me."
+    memory_id = "memory-" + "f" * 24
+    semantic = {
+        "schema_version": "sentientos.canonical_user_memory_cognition_context:v1",
+        "source_snapshot_digest": "1" * 64,
+        "retrieval_posture": "complete",
+        "selection_posture": "matching_records_omitted",
+        "records": [{
+            "memory_id": memory_id,
+            "text": text,
+            "text_digest": digest_payload({"text": text}),
+            "memory_record_digest": "2" * 64,
+            "source_turn_id": "turn-" + "3" * 24,
+            "source_turn_text_digest": digest_payload({"text": text}),
+            "admission_receipt_digest": "4" * 64,
+            "timestamp": "2026-01-01T00:00:00+00:00",
+            "historical_only": True, "current_truth": False, "authority": False,
+        }],
+        "read_only": True, "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False,
+    }
+    context = {**semantic, "selection_digest": digest_payload(semantic)}
+    fake.companion_output_override = {
+        "disposition": "answer", "response": "You prefer concise answers.",
+        "evidence_ids": [], "history_record_ids": [],
+        "memory_record_ids": [memory_id],
+    }
+
+    result = cognition.run_companion_interaction(snapshot=snapshot(),
+        request_id="incomplete-memory-selection", question="What answer style do I prefer?",
+        canonical_memory_context=context)
+
+    assert result.disposition == "ask"
+    assert result.response == (
+        "I found relevant retained statements, but the available memory context is "
+        "incomplete. Which statement should I use?")
+    assert result.evidence_ids == ()
+    assert result.memory_record_ids == ()
+    observation = cognition.verified_cognition_observation(
+        result.cognition_observation_id, result.cognition_observation_digest)
+    assert observation["companion_memory_citation_ids"] == []
+
+
 @pytest.mark.parametrize("payload", [
     {"disposition": "answer", "response": "unsupported",
         "evidence_ids": ["not-current"], "history_record_ids": [], "memory_record_ids": []},
