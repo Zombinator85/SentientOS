@@ -2964,6 +2964,7 @@ class RuntimeGovernor:
                     entitlement_age_seconds = None
                 entitlement_fresh = (
                     checked_at is not None and checked_at.tzinfo is not None
+                    and entitlement_age_seconds is not None
                     and 0 <= entitlement_age_seconds
                     <= HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS)
                 serving_entitlement_freshness = {
