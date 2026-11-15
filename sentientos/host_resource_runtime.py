@@ -813,7 +813,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         "sentientos.production_chat_resource_release_receipt:v3",
                         "sentientos.production_chat_resource_release_receipt:v4",
                         "sentientos.production_chat_resource_release_receipt:v5",
-                        "sentientos.production_chat_resource_release_receipt:v6"}):
+                        "sentientos.production_chat_resource_release_receipt:v6",
+                        "sentientos.production_chat_resource_release_receipt:v7"}):
                 raise ValueError("resource_release_receipt_invalid")
             receipt_id = release_receipt.get("receipt_id")
             receipt_digest = release_receipt.get("receipt_semantic_digest")
@@ -828,6 +829,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "cancelled_invocation_receipt_digest",
                 "cancelled_invocation_preemption_ref",
                 "host_measurement_binding_posture",
+                "preemption_release_linkage_posture",
+                "preemption_cause_invocation_receipt_id",
+                "preemption_cause_invocation_receipt_digest",
+                "preemption_cause_admission_decision_ref",
             }
             release_body = {key: value for key, value in release_receipt.items()
                 if key not in enriched_fields and key != "receipt_semantic_digest"}
@@ -867,12 +872,14 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     and release_receipt.get("schema_version") not in {
                         "sentientos.production_chat_resource_release_receipt:v4",
                         "sentientos.production_chat_resource_release_receipt:v5",
-                        "sentientos.production_chat_resource_release_receipt:v6"}):
+                        "sentientos.production_chat_resource_release_receipt:v6",
+                        "sentientos.production_chat_resource_release_receipt:v7"}):
                 raise ValueError("resource_release_admission_witness_invalid")
             if release_receipt.get("schema_version") in {
                     "sentientos.production_chat_resource_release_receipt:v4",
                     "sentientos.production_chat_resource_release_receipt:v5",
-                    "sentientos.production_chat_resource_release_receipt:v6"}:
+                    "sentientos.production_chat_resource_release_receipt:v6",
+                    "sentientos.production_chat_resource_release_receipt:v7"}:
                 witness = release_receipt.get("release_admission_witness")
                 witness_fields = {
                     "schema_version", "outcome", "reason_codes", "current_phase",
@@ -911,7 +918,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             admission_record = release_receipt.get("release_admission_record")
             if release_receipt.get("schema_version") in {
                     "sentientos.production_chat_resource_release_receipt:v5",
-                    "sentientos.production_chat_resource_release_receipt:v6"}:
+                    "sentientos.production_chat_resource_release_receipt:v6",
+                    "sentientos.production_chat_resource_release_receipt:v7"}:
                 witness = release_receipt.get("release_admission_witness")
                 if not isinstance(witness, Mapping):
                     raise ValueError("resource_release_admission_witness_invalid")
@@ -978,7 +986,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     raise ValueError("resource_release_invocation_linkage_invalid")
             seen_release_receipt_ids.add(receipt_id)
             summary = {key: release_receipt.get(key) for key in (
-                "receipt_id", "receipt_semantic_digest", "status", "trigger_kind",
+                "schema_version", "receipt_id", "receipt_semantic_digest", "status", "trigger_kind",
                 "trigger_correlation_id", "release_correlation_id",
                 "serving_session_id", "serving_operation_id", "model_identity_digest",
                 "serving_receipt_linkage_posture", "serving_receipt_id",
@@ -987,6 +995,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "cancelled_invocation_receipt_digest",
                 "cancelled_invocation_preemption_ref",
                 "host_measurement_binding_posture",
+                "preemption_cause", "preemption_release_linkage_posture",
+                "preemption_cause_invocation_receipt_id",
+                "preemption_cause_invocation_receipt_digest",
+                "preemption_cause_admission_decision_ref",
                 "release_admission_decision_ref", "release_admission_outcome",
                 "release_admission_witness", "release_admission_record",
                 "active_inference_preemption_requested",
@@ -1371,6 +1383,51 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             release_receipt.pop("cancelled_invocation_preemption_ref", None)
             release_lineage_findings.append(
                 f"resource_release_preemption_linkage_unexpected:{release_receipt.get('receipt_id')}")
+    for release_receipt in release_receipt_summaries:
+        if release_receipt.get("schema_version") != (
+                "sentientos.production_chat_resource_release_receipt:v7"):
+            continue
+        cause = release_receipt.get("preemption_cause")
+        cause_reference = (cause.get("cancellation_admission_decision_ref")
+            if isinstance(cause, Mapping) else None)
+        request_reference = (cause.get("active_inference_request_reference")
+            if isinstance(cause, Mapping) else None)
+        invocation = next((item for item in invocation_by_id.values()
+            if isinstance(item.get("request"), Mapping)
+            and isinstance(request_reference, Mapping)
+            and all(item["request"].get(key) == request_reference.get(key)
+                for key in ("request_id", "request_digest", "correlation_id"))), None)
+        invocation_request = (invocation.get("request")
+            if isinstance(invocation, Mapping) else None)
+        invocation_linkage = (invocation_request.get("linkage")
+            if isinstance(invocation_request, Mapping) else None)
+        active_model_identity = (invocation_request.get("active_model_identity")
+            if isinstance(invocation_request, Mapping) else None)
+        release_model_digest = release_receipt.get("model_identity_digest")
+        if (isinstance(release_model_digest, str)
+                and release_model_digest.startswith("sha256:")):
+            release_model_digest = release_model_digest[7:]
+        from sentientos.local_model_authority import digest_payload
+        valid_cause_link = (release_receipt.get(
+                "preemption_release_linkage_posture") == "verified"
+            and isinstance(invocation, Mapping)
+            and invocation.get("receipt_id") == release_receipt.get(
+                "preemption_cause_invocation_receipt_id")
+            and invocation.get("receipt_digest") == release_receipt.get(
+                "preemption_cause_invocation_receipt_digest")
+            and invocation.get("status") == "cancelled"
+            and invocation.get("cancellation_admission_decision_ref") == cause_reference
+            and isinstance(invocation_linkage, Mapping)
+            and invocation_linkage.get("serving_session_id") == release_receipt.get(
+                "serving_session_id")
+            and isinstance(active_model_identity, Mapping)
+            and digest_payload(dict(active_model_identity)) == release_model_digest
+            and release_receipt.get("preemption_cause_admission_decision_ref")
+                == cause_reference)
+        if not valid_cause_link:
+            release_lineage_findings.append(
+                "resource_release_preemption_cause_linkage_missing_or_mismatched:"
+                + str(release_receipt.get("receipt_id")))
     # An invalidation can first cancel a running invocation, then release the
     # resident model on the next reconciliation pass. In that two-step path,
     # the release admission has its own decision reference, so the older

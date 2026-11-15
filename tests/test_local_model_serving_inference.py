@@ -1875,12 +1875,27 @@ def test_selected_gaming_profile_cancels_active_inference_on_host_pressure(
 ], ids=["cpu-yields-inference", "gpu-pressure-releases-residency"])
 def test_normal_host_pressure_cancels_active_optional_inference(
         monkeypatch, tmp_path, pressure_kind, gpu_layers, expect_residency_release):
+    from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+    from sentientos.production_chat_resource_observation import (
+        ProductionChatResourceObservationOwner,
+    )
+    from sentientos.production_chat_resource_provisioning_bundle_producer import (
+        produce_production_chat_resource_provisioning_bundle,
+    )
+    from tests.test_production_chat_resource_provisioning_bundle_producer import (
+        inputs as resource_provisioning_inputs,
+    )
+
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
     kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
         decisions_path=tmp_path / "kernel-decisions.jsonl")
+    resource_handle, resource_values = resource_provisioning_inputs(
+        tmp_path, calls=2)
+    produce_production_chat_resource_provisioning_bundle(
+        resource_handle, "runtime-test", **resource_values)
     pressure_active = {"active": False}
 
     def collector(collector_id, **values):
@@ -1929,7 +1944,8 @@ def test_normal_host_pressure_cancels_active_optional_inference(
 
     bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
         kernel_override=kernel, host_resource_observation_owner=host_owner,
-        gpu_layers=gpu_layers, on_generate=active_generation)
+        installation_identity="production", gpu_layers=gpu_layers,
+        on_generate=active_generation)
     model.cancel_pending_generation = lambda: (cancelled.set() or True)
     result = {}
     invocation = threading.Thread(target=lambda: result.setdefault(
@@ -2001,7 +2017,7 @@ def test_normal_host_pressure_cancels_active_optional_inference(
                 "resource_observation_evidence"]
             assert release_evidence["status"] == "current"
             assert release_evidence["pressure_labels"] == ["gpu_pressure"]
-            release_files = list((tmp_path / "state" / "installations" / "install-1" /
+            release_files = list((tmp_path / "state" / "installations" / "production" /
                 "state" / "local-model" / "serving" /
                 "resource-release-receipts").glob("*.json"))
             assert len(release_files) == 1
@@ -2011,6 +2027,11 @@ def test_normal_host_pressure_cancels_active_optional_inference(
             assert release_receipt["status"] == "worker_closed"
             assert release_receipt["trigger_kind"] == (
                 "idle_host_gpu_resource_reconciliation")
+            assert release_receipt["preemption_cause"][
+                "cancellation_admission_decision_ref"] == (
+                    reconciliation["cancellation_admission_decision_ref"])
+            assert release_receipt["preemption_cause"][
+                "active_inference_request_reference"] == request_reference
             assert release_receipt["resource_observation"][
                 "host_report_id"] == release_evidence["host_report_id"]
             assert release_receipt["resource_observation"][
@@ -2019,6 +2040,30 @@ def test_normal_host_pressure_cancels_active_optional_inference(
                 "gpu_telemetry_sources"][0][
                 "source"] == "synthetic_test_fixture"
             assert release_receipt["host_mutation_performed"] is False
+            resource_observer = ProductionChatResourceObservationOwner(
+                InstallationStateRegistry(tmp_path / "state", _test_only=True)
+                    .open_read_only(InstallationIdentity.parse("production")),
+                "runtime-test")
+            observed_resources = resource_observer.observe()
+            observed_release = next(item for item in
+                observed_resources.verified_resource_release_receipts
+                if item.get("receipt_id") == release_receipt["receipt_id"])
+            assert observed_release["preemption_release_linkage_posture"] == "verified"
+            assert observed_release["preemption_cause_invocation_receipt_id"] == (
+                result["receipt"].receipt_id)
+            from sentientos.governed_local_model_resource_allocation import (
+                GovernedLocalModelResourceLedger,
+            )
+            from sentientos.host_resource_runtime import (
+                resource_consumption_world_state_records,
+            )
+            lineage_projection = resource_consumption_world_state_records(
+                ledger=GovernedLocalModelResourceLedger(
+                    tmp_path / "resource-lineage.json"),
+                invocation_receipts=(result["receipt"].to_dict(),),
+                verified_resource_release_receipts=(observed_release,))[0]
+            assert lineage_projection["payload"]["resource_release_receipts"][0][
+                "preemption_release_linkage_posture"] == "verified"
     finally:
         if invocation.is_alive():
             model.cancel_pending_generation()

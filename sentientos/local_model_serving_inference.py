@@ -597,7 +597,8 @@ class ProductionServingInferenceController:
             trigger_kind: str = "deferred_inference",
             preempt_active_generation: bool = False,
             serving_entitlement_binding: Mapping[str, Any] | None = None,
-            resource_entitlement_observation: Mapping[str, Any] | None = None
+            resource_entitlement_observation: Mapping[str, Any] | None = None,
+            preemption_cause: Mapping[str, Any] | None = None
             ) -> dict[str, Any] | None:
         """Release optional chat residency after exact game/profile and host evidence."""
         if receipt is not None:
@@ -688,6 +689,29 @@ class ProductionServingInferenceController:
             return None
         if not isinstance(trigger_correlation_id, str) or not trigger_correlation_id:
             return None
+        if preemption_cause is not None:
+            cause_reference = preemption_cause.get(
+                "cancellation_admission_decision_ref")
+            cause_request = preemption_cause.get(
+                "active_inference_request_reference")
+            if (set(preemption_cause) != {
+                    "schema_version", "cancellation_admission_decision_ref",
+                    "active_inference_request_reference"}
+                    or preemption_cause.get("schema_version") !=
+                        "sentientos.host_resource_preemption_cause:v1"
+                    or not isinstance(cause_reference, str)
+                    or not cause_reference.startswith("kernel_decision:")
+                    or not isinstance(cause_request, Mapping)
+                    or set(cause_request) != {
+                        "request_id", "request_digest", "correlation_id"}
+                    or not isinstance(cause_request.get("request_id"), str)
+                    or not 1 <= len(cause_request["request_id"]) <= 128
+                    or not isinstance(cause_request.get("request_digest"), str)
+                    or re.fullmatch(r"[0-9a-f]{64}",
+                        cause_request["request_digest"]) is None
+                    or not isinstance(cause_request.get("correlation_id"), str)
+                    or not 1 <= len(cause_request["correlation_id"]) <= 256):
+                return None
         source_correlation = trigger_correlation_id
         active_inference_request_reference = (
             self._active_inference_request_reference()
@@ -959,7 +983,9 @@ class ProductionServingInferenceController:
             except Exception as exc:
                 close_failure = type(exc).__name__
         outcome = {
-            "schema_version": "sentientos.production_chat_resource_release_receipt:v6",
+            "schema_version": ("sentientos.production_chat_resource_release_receipt:v7"
+                if preemption_cause is not None else
+                "sentientos.production_chat_resource_release_receipt:v6"),
             "status": ("worker_closed" if close_completed else
                 "release_effect_unconfirmed" if decision_valid else
                 "admission_unrecorded" if decision.allowed
@@ -1042,6 +1068,8 @@ class ProductionServingInferenceController:
                 if active_inference_request_reference is not None else None),
             "post_release_observation": post_release_observation,
             "resource_measurement_comparison": resource_measurement_comparison,
+            **({"preemption_cause": dict(preemption_cause)}
+                if preemption_cause is not None else {}),
             "inference_performed": False,
             "host_mutation_performed": False,
         }
@@ -1313,7 +1341,9 @@ class ProductionServingInferenceController:
         finally:
             self._receipt_capacity_lock.release()
 
-    def _reconcile_idle_normal_resource_pressure(self) -> dict[str, Any]:
+    def _reconcile_idle_normal_resource_pressure(
+            self, *, preemption_cause: Mapping[str, Any] | None = None
+            ) -> dict[str, Any]:
         """Release idle optional residency under fresh host GPU or RAM pressure."""
         with self._active_invoker_lock:
             active_invoker = self._active_invoker
@@ -1382,7 +1412,8 @@ class ProductionServingInferenceController:
         release = self._release_after_host_pressure(
             session, model, None, resource_observation=observation,
             workload_evidence=evidence, trigger_correlation_id=correlation_id,
-            trigger_kind=trigger_kind)
+            trigger_kind=trigger_kind,
+            preemption_cause=(preemption_cause if gpu_pressure else None))
         if release is None:
             return {"status": "skipped", "reason": "release_evidence_invalid",
                 "observation_correlation_id": observation.get(
@@ -1514,7 +1545,14 @@ class ProductionServingInferenceController:
                 # Cancellation yields accelerator execution. Then run the
                 # ordinary independently admitted idle host pressure release
                 # path so persistent GPU residency can yield VRAM as well.
-                residency_release = self._reconcile_idle_normal_resource_pressure()
+                residency_release = self._reconcile_idle_normal_resource_pressure(
+                    preemption_cause={
+                        "schema_version": "sentientos.host_resource_preemption_cause:v1",
+                        "cancellation_admission_decision_ref": (
+                            admission.admission_decision_ref),
+                        "active_inference_request_reference": dict(
+                            active_request_reference),
+                    })
             residency_released = (isinstance(residency_release, Mapping)
                 and residency_release.get("status") == "worker_closed")
             return {"status": "preempted" if cancelled else "preemption_unconfirmed",

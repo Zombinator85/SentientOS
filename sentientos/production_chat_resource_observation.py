@@ -98,6 +98,8 @@ _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5 = (
     "sentientos.production_chat_resource_release_receipt:v5")
 _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6 = (
     "sentientos.production_chat_resource_release_receipt:v6")
+_RESOURCE_RELEASE_RECEIPT_SCHEMA_V7 = (
+    "sentientos.production_chat_resource_release_receipt:v7")
 _RESOURCE_RELEASE_NAME = re.compile(
     r"serving-resource-release-[0-9a-f]{24}\.json\Z")
 _MAX_RESOURCE_RELEASE_RECEIPTS = 256
@@ -634,12 +636,14 @@ class ProductionChatResourceObservationOwner:
                         _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3,
                         _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,
                         _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
-                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6}
+                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6,
+                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V7}
                     or (value.get("status") == "admission_unrecorded"
                         and value.get("schema_version")
                             not in {_RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,
                                 _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
-                                _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6})
+                                _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6,
+                                _RESOURCE_RELEASE_RECEIPT_SCHEMA_V7})
                     or semantic_digest != actual_semantic_digest
                     or receipt_id != actual_receipt_id
                     or value.get("status") not in {
@@ -678,7 +682,8 @@ class ProductionChatResourceObservationOwner:
             if value.get("schema_version") in {
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
-                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6}:
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6,
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V7}:
                 witness = value.get("release_admission_witness")
                 witness_fields = {
                     "schema_version", "outcome", "reason_codes", "current_phase",
@@ -716,7 +721,8 @@ class ProductionChatResourceObservationOwner:
                         "resource_release_admission_witness_invalid")
             if value.get("schema_version") in {
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
-                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6}:
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6,
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V7}:
                 host_measurement_binding_posture: str | None = None
                 witness = value.get("release_admission_witness")
                 if not isinstance(witness, Mapping):
@@ -785,7 +791,8 @@ class ProductionChatResourceObservationOwner:
                             and receipt_model_digest.startswith("sha256:")):
                         receipt_model_digest = receipt_model_digest[7:]
                     target_required = (value.get("schema_version") ==
-                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6)
+                        _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6 or value.get(
+                            "schema_version") == _RESOURCE_RELEASE_RECEIPT_SCHEMA_V7)
                     if ((target_required or release_target is not None)
                             and (not isinstance(release_target, Mapping)
                             or set(release_target) != {
@@ -1002,9 +1009,123 @@ class ProductionChatResourceObservationOwner:
             verified_value["serving_receipt_linkage_posture"] = "verified"
             verified_value["serving_receipt_id"] = serving_binding[1]
             verified_value["serving_receipt_semantic_digest"] = serving_binding[2]
+            if value.get("schema_version") == _RESOURCE_RELEASE_RECEIPT_SCHEMA_V7:
+                cause = value.get("preemption_cause")
+                cause_reference = (cause.get("cancellation_admission_decision_ref")
+                    if isinstance(cause, Mapping) else None)
+                cause_request = (cause.get("active_inference_request_reference")
+                    if isinstance(cause, Mapping) else None)
+                if (not isinstance(cause, Mapping)
+                        or set(cause) != {"schema_version",
+                            "cancellation_admission_decision_ref",
+                            "active_inference_request_reference"}
+                        or cause.get("schema_version") !=
+                            "sentientos.host_resource_preemption_cause:v1"
+                        or not isinstance(cause_reference, str)
+                        or not cause_reference.startswith("kernel_decision:")
+                        or not isinstance(cause_request, Mapping)
+                        or set(cause_request) != {
+                            "request_id", "request_digest", "correlation_id"}
+                        or not isinstance(cause_request.get("request_id"), str)
+                        or not 1 <= len(cause_request["request_id"]) <= 128
+                        or not isinstance(cause_request.get("request_digest"), str)
+                        or re.fullmatch(r"[0-9a-f]{64}",
+                            cause_request["request_digest"]) is None
+                        or not isinstance(cause_request.get("correlation_id"), str)
+                        or not 1 <= len(cause_request["correlation_id"]) <= 256):
+                    raise ProductionChatResourceObservationError(
+                        "resource_release_preemption_cause_invalid")
+                matched_preemptions = []
+                for invocation in invocation_receipts:
+                    request = invocation.get("request")
+                    if (isinstance(request, Mapping)
+                            and all(request.get(key) == cause_request.get(key)
+                                for key in ("request_id", "request_digest",
+                                    "correlation_id"))):
+                        matched_preemptions.append(invocation)
+                # A preemption receipt may be durable before its invocation
+                # receipt, and some legacy/runtime paths do not carry the
+                # current allocation digest on the invocation. Resolve this
+                # exact request reference from the bounded receipt directory
+                # without widening the allocation-scoped invocation list.
+                if not matched_preemptions:
+                    try:
+                        invocation_names = self._handle.list_regular_names(
+                            "local-model/inference/receipts",
+                            max_entries=MAX_INVOCATION_RECEIPTS)
+                    except InstallationStateError as exc:
+                        if exc.code != "state_directory_missing":
+                            raise ProductionChatResourceObservationError(
+                                "preemption_invocation_receipt_directory_invalid") from exc
+                        invocation_names = ()
+                    for invocation_name in invocation_names:
+                        if _RECEIPT_TEMP_NAME.fullmatch(invocation_name) is not None:
+                            continue
+                        if _RECEIPT_NAME.fullmatch(invocation_name) is None:
+                            raise ProductionChatResourceObservationError(
+                                "invocation_receipt_name_invalid")
+                        try:
+                            raw_invocation = self._handle.read_regular_bounded(
+                                "local-model/inference/receipts/" + invocation_name,
+                                max_bytes=MAX_INVOCATION_RECEIPT_BYTES)
+                            preemption_invocation = _mapping(raw_invocation,
+                                "invocation_receipt_json_invalid")
+                        except (InstallationStateError, ValueError) as exc:
+                            raise ProductionChatResourceObservationError(
+                                "preemption_invocation_receipt_read_invalid") from exc
+                        if preemption_invocation.get("receipt_id") != invocation_name[:-5]:
+                            raise ProductionChatResourceObservationError(
+                                "invocation_receipt_filename_mismatch")
+                        valid, findings = validate_receipt(preemption_invocation)
+                        if not valid:
+                            raise ProductionChatResourceObservationError(
+                                "invocation_receipt_invalid:" + findings[0])
+                        request = preemption_invocation.get("request")
+                        if (isinstance(request, Mapping)
+                                and all(request.get(key) == cause_request.get(key)
+                                    for key in ("request_id", "request_digest",
+                                        "correlation_id"))):
+                            matched_preemptions.append(preemption_invocation)
+                if len(matched_preemptions) > 1:
+                    raise ProductionChatResourceObservationError(
+                        "resource_release_preemption_invocation_identity_collision")
+                if not matched_preemptions:
+                    verified_value["preemption_release_linkage_posture"] = (
+                        "pending_invocation_receipt")
+                else:
+                    invocation = matched_preemptions[0]
+                    invocation_request = invocation.get("request")
+                    invocation_linkage = (invocation_request.get("linkage")
+                        if isinstance(invocation_request, Mapping) else None)
+                    active_model_identity = (invocation_request.get(
+                        "active_model_identity")
+                        if isinstance(invocation_request, Mapping) else None)
+                    release_model_digest = value.get("model_identity_digest")
+                    if (isinstance(release_model_digest, str)
+                            and release_model_digest.startswith("sha256:")):
+                        release_model_digest = release_model_digest[7:]
+                    if (invocation.get("status") != "cancelled"
+                            or invocation.get("cancellation_admission_decision_ref")
+                                != cause_reference
+                            or not isinstance(invocation_linkage, Mapping)
+                            or invocation_linkage.get("serving_session_id")
+                                != session_id
+                            or not isinstance(active_model_identity, Mapping)
+                            or digest_payload(dict(active_model_identity))
+                                != release_model_digest):
+                        raise ProductionChatResourceObservationError(
+                            "resource_release_preemption_cause_binding_invalid")
+                    verified_value["preemption_release_linkage_posture"] = "verified"
+                    verified_value["preemption_cause_invocation_receipt_id"] = (
+                        invocation.get("receipt_id"))
+                    verified_value["preemption_cause_invocation_receipt_digest"] = (
+                        invocation.get("receipt_digest"))
+                    verified_value["preemption_cause_admission_decision_ref"] = (
+                        cause_reference)
             if (value.get("schema_version") in {
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
-                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6}
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6,
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V7}
                     and host_measurement_binding_posture is not None):
                 verified_value["host_measurement_binding_posture"] = (
                     host_measurement_binding_posture)
@@ -1012,7 +1133,8 @@ class ProductionChatResourceObservationOwner:
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V3,
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V4,
                     _RESOURCE_RELEASE_RECEIPT_SCHEMA_V5,
-                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6}:
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V6,
+                    _RESOURCE_RELEASE_RECEIPT_SCHEMA_V7}:
                 request_reference = value.get("active_inference_request_reference")
                 cancellation_confirmed = (
                     value.get("active_inference_cancellation_confirmed") is True)
