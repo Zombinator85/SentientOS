@@ -661,7 +661,7 @@ class ProductionServingInferenceController:
             "host_report_id": resource_observation.get("report_id"),
             "host_report_digest": resource_observation.get("report_digest"),
             "observed_at": resource_observation.get("observed_at"),
-            "pressure_labels": list(labels),
+            "pressure_labels": list(labels or []),
         }
         if entitlement_release:
             host_release_evidence.update({
@@ -931,7 +931,7 @@ class ProductionServingInferenceController:
                     "observation_correlation_id"],
                 "host_report_id": host_release_evidence["host_report_id"],
                 "host_report_digest": host_release_evidence["host_report_digest"],
-                "pressure_labels": list(labels),
+                "pressure_labels": list(labels or []),
                 "thermal_zone_temperatures_c": _bounded_thermal_zone_temperatures(
                     resource_observation),
                 "cpu_utilization_percent": resource_observation.get(

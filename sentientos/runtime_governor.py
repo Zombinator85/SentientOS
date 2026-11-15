@@ -1454,7 +1454,7 @@ class RuntimeGovernor:
             serving_binding = payload.get("serving_entitlement_binding")
             evidence_valid = False
             if isinstance(observation_value, Mapping) and isinstance(serving_binding, Mapping):
-                observation_id = observation_value.get("observation_id")
+                entitlement_observation_id = observation_value.get("observation_id")
                 checked_at = observation_value.get("checked_at")
                 try:
                     observed = datetime.fromisoformat(
@@ -1462,17 +1462,19 @@ class RuntimeGovernor:
                         if isinstance(checked_at, str) else "")
                 except ValueError:
                     observed = None
-                age_seconds = ((datetime.now(timezone.utc) - observed).total_seconds()
+                entitlement_age_seconds = ((datetime.now(timezone.utc) - observed).total_seconds()
                     if observed is not None and observed.tzinfo is not None else None)
                 with self._resource_evidence_lock:
                     retained = (self._resource_entitlement_evidence_by_id.get(
-                        observation_id) if isinstance(observation_id, str) else None)
+                        entitlement_observation_id)
+                        if isinstance(entitlement_observation_id, str) else None)
                     retained = dict(retained) if retained is not None else None
                 bound_fields = (
                     "allocation_id", "allocation_digest", "allocator_id", "resource_kind",
                     "policy_digest", "policy_epoch", "principal_binding_digest")
                 evidence_valid = bool(
                     retained is not None
+                    and isinstance(resource_observation, Mapping)
                     and {key: value for key, value in observation_value.items()
                         if key != "serving_session_id"} == retained
                     and resource_observation.get("serving_session_id") ==
@@ -1485,11 +1487,11 @@ class RuntimeGovernor:
                     and isinstance(observation_value.get("observation_digest"), str)
                     and re.fullmatch(r"[0-9a-f]{64}", observation_value.get(
                         "observation_digest", "")) is not None
-                    and isinstance(observation_id, str)
-                    and observation_id.startswith("lmentitlement-")
+                    and isinstance(entitlement_observation_id, str)
+                    and entitlement_observation_id.startswith("lmentitlement-")
                     and isinstance(checked_at, str)
-                    and age_seconds is not None
-                    and 0 <= age_seconds <= 15.0
+                    and entitlement_age_seconds is not None
+                    and 0 <= entitlement_age_seconds <= 15.0
                     and payload.get("serving_session_id")
                     and all(serving_binding.get(key) == observation_value.get(key)
                         for key in bound_fields)
@@ -2628,10 +2630,12 @@ class RuntimeGovernor:
             if key not in {"observation_id", "observation_digest"}}
         observation_digest = payload.get("observation_digest")
         observation_id = payload.get("observation_id")
+        remaining_call_entitlement = payload.get("remaining_call_entitlement")
         if (payload.get("schema_version") !=
                 "sentientos.governed_local_model_resource_entitlement_observation:v1"
-                or type(payload.get("remaining_call_entitlement")) is not int
-                or payload["remaining_call_entitlement"] < 0
+                or not isinstance(remaining_call_entitlement, int)
+                or isinstance(remaining_call_entitlement, bool)
+                or remaining_call_entitlement < 0
                 or type(payload.get("policy_epoch")) is not int
                 or not isinstance(payload.get("checked_at"), str)
                 or not isinstance(observation_digest, str)

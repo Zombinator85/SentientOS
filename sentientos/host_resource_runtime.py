@@ -769,20 +769,25 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 admission_evidence = (evidence_refs.get(
                     "resource_observation_evidence")
                     if isinstance(evidence_refs, Mapping) else None)
+                if not isinstance(resource_observation, Mapping):
+                    raise ValueError("resource_release_entitlement_evidence_invalid")
+                if not isinstance(entitlement, Mapping):
+                    raise ValueError("resource_release_entitlement_evidence_invalid")
+                if not isinstance(serving_binding, Mapping):
+                    raise ValueError("resource_release_entitlement_evidence_invalid")
+                if not isinstance(admission_evidence, Mapping):
+                    raise ValueError("resource_release_entitlement_evidence_invalid")
                 entitlement_digest = None
-                if isinstance(entitlement, Mapping):
-                    entitlement_body = {key: item for key, item in entitlement.items()
-                        if key not in {"observation_id", "observation_digest"}}
-                    entitlement_digest = hashlib.sha256(canonical_json(
-                        entitlement_body).encode("utf-8")).hexdigest()
+                entitlement_body = {key: item for key, item in entitlement.items()
+                    if key not in {"observation_id", "observation_digest"}}
+                entitlement_digest = hashlib.sha256(canonical_json(
+                    entitlement_body).encode("utf-8")).hexdigest()
                 if (not isinstance(entitlement, Mapping)
                         or set(entitlement) != {"schema_version", "allocation_id",
                             "allocation_digest", "allocator_id", "resource_kind",
                             "policy_digest", "policy_epoch", "principal_binding_digest",
                             "remaining_call_entitlement", "checked_at", "observation_id",
                             "observation_digest"}
-                        or not isinstance(serving_binding, Mapping)
-                        or not isinstance(admission_evidence, Mapping)
                         or admission_evidence.get("status") != "current"
                         or admission_evidence.get("resource_entitlement_observation")
                             != entitlement
