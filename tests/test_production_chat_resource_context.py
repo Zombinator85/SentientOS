@@ -435,6 +435,8 @@ def test_entitlement_observation_is_owner_minted_current_and_kernel_retained(
         "invalidated", "allocation_expired"),
     (2, "2026-09-21T09:16:00Z", "resource_entitlement_invalidated",
         "invalidated", "policy_expired"),
+    (2, "2026-09-21T09:30:00Z", "resource_entitlement_invalidated",
+        "invalidated", "currentness_stale"),
 ])
 def test_governed_entitlement_release_closes_idle_session_through_runtime(
         monkeypatch, tmp_path, calls, release_time, expected_trigger, expected_status,
