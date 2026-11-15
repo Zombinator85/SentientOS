@@ -238,10 +238,12 @@ def test_restart_reloads_same_allocation_without_replenishing(tmp_path: Path) ->
     result = produce_production_chat_resource_provisioning_bundle(handle, "restart", **kwargs)
     first = load_production_chat_resource_context_owner(
         handle, "restart", clock=lambda: NOW, nonce_source=lambda: "first")
-    first.allocator.final_gate(
+    attempt_id = first.allocator.final_gate(
         allocation=first.allocation, principal=first.principal,
         authenticated=first.authenticated, current=first.current, policy=first.policy,
         current_time=NOW, durable_attempt_nonce="first")
+    first.allocator.record_backend_entry(
+        first.allocation, attempt_id, observed_at=NOW)
     assert first.allocator.ledger.remaining_calls(result.allocation_id) == 1
     first.close()  # Release the single-process owner as process death would.
     restarted = load_production_chat_resource_context_owner(
@@ -249,6 +251,9 @@ def test_restart_reloads_same_allocation_without_replenishing(tmp_path: Path) ->
     assert (restarted.allocation.allocation_id, restarted.allocation.allocation_digest) == (
         result.allocation_id, result.allocation_digest)
     assert restarted.allocator.ledger.remaining_calls(result.allocation_id) == 1
+    assert restarted.allocator.ledger._state["attempts"][attempt_id]["status"] == "begun"
+    assert [receipt["state"] for receipt in restarted.allocator.ledger._state["receipts"]
+        if receipt["attempt_id"] == attempt_id] == ["attempt_begun"]
     restarted.allocator.final_gate(
         allocation=restarted.allocation, principal=restarted.principal,
         authenticated=restarted.authenticated, current=restarted.current, policy=restarted.policy,
