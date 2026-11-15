@@ -2162,6 +2162,32 @@ def test_scheduled_resource_priority_cancels_active_optional_inference(
     serving.close()
 
 
+def test_active_preemption_dedupe_uses_exact_invocation_reference():
+    class InvocationReference:
+        def __init__(self, correlation_id):
+            self.reference = {
+                "request_id": "request-" + correlation_id,
+                "request_digest": hashlib.sha256(
+                    correlation_id.encode("utf-8")).hexdigest(),
+                "correlation_id": correlation_id,
+            }
+
+        def active_invocation_request_reference(self):
+            return self.reference
+
+    first = InvocationReference("first")
+    same_request = InvocationReference("first")
+    next_request = InvocationReference("next")
+    key = ProductionServingInferenceController._active_invocation_attempt_key
+
+    assert key("serving-session", "gaming-profile", first) == key(
+        "serving-session", "gaming-profile", same_request)
+    assert key("serving-session", "gaming-profile", first) != key(
+        "serving-session", "gaming-profile", next_request)
+    assert key("serving-session", "conservative-automatic", first) != key(
+        "serving-session", "gaming-profile", first)
+
+
 def test_governed_resource_release_retries_after_worker_close_failure(monkeypatch, tmp_path):
     now = datetime.now(timezone.utc)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")

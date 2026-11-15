@@ -181,7 +181,7 @@ class ProductionServingInferenceController:
         self._resource_reconciliation_wakeup: Callable[[], None] | None = None
         self._preemption_lock = threading.Lock()
         self._last_active_game_preemption_attempt: (
-            tuple[str, str] | tuple[str, str, GovernedLocalModelInvoker] | None) = None
+            tuple[str, ...] | None) = None
         self._last_active_host_resource_sample_at: float | None = None
 
     def cancel_pending_generation(self, *, reason: str = "client_disconnect",
@@ -202,6 +202,18 @@ class ProductionServingInferenceController:
         if invoker is None:
             return None
         return invoker.active_invocation_request_reference()
+
+    @staticmethod
+    def _active_invocation_attempt_key(session_id: str, purpose: str,
+            invoker: GovernedLocalModelInvoker) -> tuple[str, str] | None:
+        """Deduplicate against the request identity, not a recyclable object id."""
+        reference = invoker.active_invocation_request_reference()
+        if (not isinstance(reference, Mapping)
+                or set(reference) != {"request_id", "request_digest", "correlation_id"}
+                or not all(isinstance(reference.get(key), str) and reference.get(key)
+                    for key in ("request_id", "request_digest", "correlation_id"))):
+            return None
+        return (session_id, purpose + ":" + digest_payload(dict(reference)))
 
     def resource_reconciliation_interval_seconds(self) -> float:
         """Poll resource governance faster while optional inference is active.
@@ -1608,7 +1620,11 @@ class ProductionServingInferenceController:
                 load_configuration = session.binding.get("load_configuration")
                 gpu_layers = (load_configuration.get("n_gpu_layers")
                     if isinstance(load_configuration, Mapping) else None)
-                attempt_key = (session.session_id, "gaming-profile:" + str(id(active_invoker)))
+                attempt_key = self._active_invocation_attempt_key(
+                    session.session_id, "gaming-profile", active_invoker)
+                if attempt_key is None:
+                    return {"status": "skipped",
+                        "reason": "active_invocation_identity_required"}
                 if attempt_key == self._last_active_game_preemption_attempt:
                     return {"status": "skipped",
                         "reason": "gaming_profile_release_already_attempted_for_invocation"}
@@ -1690,8 +1706,11 @@ class ProductionServingInferenceController:
                     model = self._serving._current_inference_model(session)
                 except ProductionServingError:
                     return {"status": "skipped", "reason": "current_serving_session_required"}
-                attempt_key = (session.session_id,
-                    "conservative-automatic:" + str(id(active_invoker)))
+                attempt_key = self._active_invocation_attempt_key(
+                    session.session_id, "conservative-automatic", active_invoker)
+                if attempt_key is None:
+                    return {"status": "skipped",
+                        "reason": "active_invocation_identity_required"}
                 if attempt_key == self._last_active_game_preemption_attempt:
                     return {"status": "skipped",
                         "reason": "conservative_automatic_release_already_attempted_for_invocation"}
