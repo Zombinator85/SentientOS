@@ -930,12 +930,22 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
                     "vram_utilization_percent": 20.0}])),
         ]), clock=lambda: now.isoformat())
     factory_calls = []
-    model = Model(identity())
+    factory_models = []
     current = evidence(gpu_layers=16)
-    ctl = controller(monkeypatch, handle, [current] * 8, kernel=kernel,
-        factory=lambda _chain, _load: factory_calls.append("loaded") or model)
     entitlement_checks = []
     gpu_layer_entitlement = {"value": 16}
+    shrink_entitlement_during_load = {"enabled": False}
+
+    def model_factory(_chain, _load):
+        factory_calls.append("loaded")
+        model = Model(identity())
+        factory_models.append(model)
+        if shrink_entitlement_during_load["enabled"]:
+            gpu_layer_entitlement["value"] = 8
+        return model
+
+    ctl = controller(monkeypatch, handle, [current] * 8, kernel=kernel,
+        factory=model_factory)
 
     def admission_context(correlation_id, activation_state):
         observation_id = "local-chat-serving-" + hashlib.sha256(
@@ -1004,9 +1014,21 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
             assert factory_calls == []
 
         gpu_layer_entitlement["value"] = 16
+        shrink_entitlement_during_load["enabled"] = True
+        with pytest.raises(ProductionServingError,
+                match="model_serving_resource_entitlement_changed_during_load"):
+            ctl.establish(operation_id="serving-game-idle-cap-shrunk-during-load",
+                admission_context_provider=admission_context)
+        assert factory_calls == ["loaded"]
+        assert factory_models[0].closed is True
+        assert ctl.current_session() is None
+
+        shrink_entitlement_during_load["enabled"] = False
+        gpu_layer_entitlement["value"] = 16
         session = ctl.establish(operation_id="serving-game-idle",
             admission_context_provider=admission_context)
-        assert factory_calls == ["loaded"]
+        assert factory_calls == ["loaded", "loaded"]
+        assert factory_models[1].closed is False
         assert ctl.current_session() == session
 
         decisions = [json.loads(line) for line in
@@ -1014,8 +1036,8 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
                 encoding="utf-8").splitlines()]
         serving_decisions = [item for item in decisions
             if item.get("authority_class") == AuthorityClass.MODEL_SERVING.value]
-        expected_dispositions = (["defer", "defer", "allow", "allow"]
-            if governor_mode == "enforce" else ["defer", "allow", "allow"])
+        expected_dispositions = (["defer", "defer", "allow", "allow", "allow"]
+            if governor_mode == "enforce" else ["defer", "allow", "allow", "allow"])
         assert [item["final_disposition"] for item in serving_decisions] == (
             expected_dispositions)
         assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
@@ -1027,7 +1049,7 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
         assert serving_decisions[0]["delegated_outcomes"]["runtime_governor"][
             "evidence_refs"]["game_workload_evidence"]["message_id"] == (
                 active_message.payload["message_id"])
-        success_index = 2 if governor_mode == "enforce" else 1
+        success_index = 3 if governor_mode == "enforce" else 2
         revalidation_index = success_index + 1
         if governor_mode == "enforce":
             assert serving_decisions[1]["delegated_outcomes"]["runtime_governor"][
@@ -1047,7 +1069,8 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
         assert session.binding["governed_inference_entitlement_binding"][
             "max_gpu_layers"] == 16
         assert [item["remaining_call_entitlement"] for item in entitlement_checks] == (
-            [2, 2, 2, 1] if governor_mode == "enforce" else [2, 2, 1])
+            [2, 2, 2, 1, 2, 1] if governor_mode == "enforce"
+            else [2, 2, 1, 2, 1])
         assert _valid_resource_admission_evidence_binding(session.binding)
         incomplete_evidence_binding = dict(session.binding)
         incomplete_evidence_binding[
@@ -1088,7 +1111,7 @@ def test_authenticated_game_evidence_gates_actual_serving_load_until_idle(
                 "runtime_governor"]["evidence_refs"]["game_workload_evidence"][
                     "message_id"] == idle_message.payload["message_id"]
         assert host_owner.collector_call_count == (
-            12 if governor_mode == "enforce" else 9)
+            18 if governor_mode == "enforce" else 15)
     finally:
         ctl.close()
         detector.close()
