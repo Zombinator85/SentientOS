@@ -1118,10 +1118,11 @@ class ProductionChatResourceObservationOwner:
             evidence = runtime.get("evidence_refs") if isinstance(runtime, Mapping) else None
             admission_binding = (evidence.get("resource_allocation_binding")
                 if isinstance(evidence, Mapping) else None)
+            raw_effects = value.get("effects")
             no_effect_admission_status = (
                 value.get("status") in {"resource_denied", "denied", "deferred"}
-                and isinstance(value.get("effects"), Mapping)
-                and value["effects"].get("local_model_inference") is False)
+                and isinstance(raw_effects, Mapping)
+                and raw_effects.get("local_model_inference") is False)
             if (value.get("resource_allocation_digest") == allocation.allocation_digest
                     or (no_effect_admission_status
                         and isinstance(admission_binding, Mapping)
