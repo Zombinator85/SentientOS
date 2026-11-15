@@ -785,6 +785,7 @@ class ProductionServingController:
         ] | None = None
         self._resource_recovery_activation_digest: str | None = None
         self._resource_recovery_pending = False
+        self._resource_recovery_requires_game_clearance = False
         self._lifecycle_lock = threading.RLock()
         for relative in ("local-model", "local-model/serving", "local-model/serving/receipts",
                 SERVING_ATTEMPT_ROOT):
@@ -866,6 +867,18 @@ class ProductionServingController:
         with self._lifecycle_lock:
             if not self._resource_recovery_pending:
                 return {"status": "not_pending"}
+            if self._resource_recovery_requires_game_clearance:
+                getter = getattr(self._kernel,
+                    "current_verified_game_workload_evidence", None)
+                try:
+                    evidence = getter() if callable(getter) else None
+                except Exception:
+                    evidence = None
+                if (not isinstance(evidence, Mapping)
+                        or evidence.get("game_foreground") is not False
+                        or evidence.get("game_process_running") is not False):
+                    return {"status": "deferred",
+                        "reason_code": "fresh_verified_game_clearance_required"}
             if self._session is not None or self._model is not None:
                 return {"status": "skipped", "reason_code": "serving_session_already_current"}
             provider = self._admission_context_provider
@@ -881,6 +894,7 @@ class ProductionServingController:
             except ProductionServingError as exc:
                 return {"status": "deferred", "reason_code": exc.code}
             self._resource_recovery_pending = False
+            self._resource_recovery_requires_game_clearance = False
             return {"status": "restored", "serving_operation_id": operation_id,
                 "serving_session_id": session.session_id,
                 "serving_operation_attempt_id": session.binding.get(
@@ -919,6 +933,7 @@ class ProductionServingController:
             self._resource_recovery_activation_digest = session.binding.get(
                 "activation_state_semantic_digest")
             self._resource_recovery_pending = False
+            self._resource_recovery_requires_game_clearance = False
             return session
 
     def _establish_locked(self, *, operation_id: str,
@@ -1239,7 +1254,8 @@ class ProductionServingController:
 
     def release_current_session_after_resource_admission(
             self, expected: ServingSession, *, reason: str,
-            admission_decision: ControlActionDecision | None = None) -> bool:
+            admission_decision: ControlActionDecision | None = None,
+            require_verified_game_clearance_for_recovery: bool = False) -> bool:
         """Close this exact serving worker only for this kernel-owned release admission."""
         if not self._owns_resource_release_admission(admission_decision, expected):
             raise ProductionServingError("resource_release_admission_not_owned")
@@ -1255,11 +1271,14 @@ class ProductionServingController:
             released = self._session is None and self._model is None
             if released and self._admission_context_provider is not None:
                 self._resource_recovery_pending = True
+                self._resource_recovery_requires_game_clearance = bool(
+                    require_verified_game_clearance_for_recovery)
             return released
 
     def close(self) -> None:
         with self._lifecycle_lock:
             self._invalidate_locked("controller_closed")
             self._resource_recovery_pending = False
+            self._resource_recovery_requires_game_clearance = False
             self._admission_context_provider = None
             self._resource_recovery_activation_digest = None

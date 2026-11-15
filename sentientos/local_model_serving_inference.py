@@ -2146,7 +2146,8 @@ class ProductionServingInferenceController:
             # exact worker is confirmed quiescent, separately admit release of
             # its GPU-backed model residency so the game can use that headroom.
             residency_release = self._release_after_gpu_model_residency(
-                session, model, workload)
+                session, model, workload,
+                require_verified_game_clearance_for_recovery=True)
         return {"status": "preempted" if cancelled else "preemption_unconfirmed",
             "reason": ("authenticated_game_process_cpu_priority" if cancelled else
                 "active_inference_cancellation_unconfirmed"),
@@ -2422,7 +2423,9 @@ class ProductionServingInferenceController:
             self, session: ServingSession, model: Any,
             workload: Mapping[str, Any], *,
             selected_gaming_profile: bool = False,
-            preempt_active_generation: bool = False) -> dict[str, Any] | None:
+            preempt_active_generation: bool = False,
+            require_verified_game_clearance_for_recovery: bool = False
+            ) -> dict[str, Any] | None:
         """Release GPU-backed optional chat residency for a game or explicit profile."""
         provenance = workload.get("transport_provenance")
         message_id = provenance.get("message_id") if isinstance(provenance, Mapping) else None
@@ -2585,7 +2588,9 @@ class ProductionServingInferenceController:
                 if (not preempt_active_generation
                         or active_inference_cancellation_confirmed):
                     closed = self._serving.release_current_session_after_resource_admission(
-                        session, reason=reason_code, admission_decision=decision)
+                        session, reason=reason_code, admission_decision=decision,
+                        require_verified_game_clearance_for_recovery=(
+                            require_verified_game_clearance_for_recovery))
                 worker = getattr(model, "_process", None)
                 poll = getattr(worker, "poll", None)
                 worker_exit_observed = poll() is not None if callable(poll) else None

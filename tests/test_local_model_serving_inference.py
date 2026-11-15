@@ -3339,6 +3339,49 @@ def test_authenticated_game_cpu_pressure_preempts_exact_active_normal_mode_call(
         assert release_evidence["game_performance_message_id"] == (
             sample.message_id)
         assert release["host_mutation_performed"] is False
+        from sentientos.foreground_game_detection import ForegroundGameObservation
+
+        assert serving.recover_after_resource_release() == {
+            "status": "deferred",
+            "reason_code": "fresh_verified_game_clearance_required"}
+        for sequence, active in ((1, True), (2, False)):
+            observed_at = datetime.now(timezone.utc).isoformat()
+            workload_message_id = hashlib.sha256(
+                f"game-clearance-{sequence}-{active}".encode()).hexdigest()
+            observation = ForegroundGameObservation(
+                "available", active, hashlib.sha256(b"examplegame.exe").hexdigest(),
+                observed_at, transport_provenance={
+                    "message_id": workload_message_id, "source_id": "windows-edge",
+                    "session_id": "cpu-pressure-game-session",
+                    "generation_id": "edge-generation", "sequence": sequence,
+                    "envelope_created_at": observed_at},
+                game_process_running=active,
+                running_process_name_digests=(
+                    (hashlib.sha256(b"examplegame.exe").hexdigest(),)
+                    if active else ()))
+            assert kernel.observe_verified_game_workload(observation)
+            if active:
+                assert serving.recover_after_resource_release() == {
+                    "status": "deferred",
+                    "reason_code": "fresh_verified_game_clearance_required"}
+        kernel._runtime_governor._game_workload_evidence["observed_at"] = (
+            (datetime.now(timezone.utc) - timedelta(seconds=11)).isoformat())
+        assert serving.recover_after_resource_release() == {
+            "status": "deferred",
+            "reason_code": "fresh_verified_game_clearance_required"}
+        fresh_inactive_at = datetime.now(timezone.utc).isoformat()
+        fresh_inactive = ForegroundGameObservation(
+            "available", False, hashlib.sha256(b"examplegame.exe").hexdigest(),
+            fresh_inactive_at, transport_provenance={
+                "message_id": hashlib.sha256(b"game-clearance-fresh-inactive").hexdigest(),
+                "source_id": "windows-edge", "session_id": "cpu-pressure-game-session",
+                "generation_id": "edge-generation", "sequence": 3,
+                "envelope_created_at": fresh_inactive_at},
+            game_process_running=False, running_process_name_digests=())
+        assert kernel.observe_verified_game_workload(fresh_inactive)
+        recovery = serving.recover_after_resource_release()
+        assert recovery["status"] == "restored", recovery
+        assert serving.serving_is_current()
     else:
         assert serving.current_session() == session
         assert model.closed is False

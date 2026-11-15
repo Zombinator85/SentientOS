@@ -336,6 +336,18 @@ class ControlPlaneKernel:
             return None
         return dict(evidence) if isinstance(evidence, dict) else None
 
+    def current_verified_game_workload_evidence(self) -> dict[str, object] | None:
+        """Read fresh authenticated game presence from the scheduling owner."""
+        getter = getattr(self._runtime_governor,
+            "current_verified_game_workload_evidence", None)
+        if not callable(getter):
+            return None
+        try:
+            evidence = getter()
+        except Exception:
+            return None
+        return dict(evidence) if isinstance(evidence, dict) else None
+
     def observe_verified_game_workload(self, observation: object) -> bool:
         """Pass bridge-verified allowlisted game presence to runtime scheduling."""
         observer = getattr(self._runtime_governor,

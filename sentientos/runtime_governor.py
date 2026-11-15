@@ -1386,6 +1386,21 @@ class RuntimeGovernor:
             return None
         return evidence if 0 <= age <= 10 else None
 
+    def current_verified_game_workload_evidence(self) -> dict[str, object] | None:
+        """Return fresh authenticated game-presence evidence for bounded consumers."""
+        with self._resource_evidence_lock:
+            evidence = (dict(self._game_workload_evidence)
+                if self._game_workload_evidence is not None else None)
+        if evidence is None:
+            return None
+        try:
+            observed_at = datetime.fromisoformat(str(evidence["observed_at"]))
+            age = (datetime.now(timezone.utc)
+                - observed_at.astimezone(timezone.utc)).total_seconds()
+        except (KeyError, TypeError, ValueError):
+            return None
+        return evidence if 0 <= age <= 10 else None
+
     def observe_verified_game_workload(self, observation: object) -> bool:
         """Retain fresh bridge-verified allowlisted game-presence evidence."""
         try:
