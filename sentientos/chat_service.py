@@ -4223,11 +4223,12 @@ async def _startup_event() -> None:
                 except Exception as exc:
                     LOGGER.warning("Idle workload resource reconciliation failed: %s",
                         type(exc).__name__)
+                timeout = composition.resource_reconciliation_interval_seconds()
+                timer = loop.call_later(timeout, reconciliation_wakeup.set)
                 try:
-                    timeout = composition.resource_reconciliation_interval_seconds()
-                    await asyncio.wait_for(reconciliation_wakeup.wait(), timeout=timeout)
-                except asyncio.TimeoutError:
-                    pass
+                    await reconciliation_wakeup.wait()
+                finally:
+                    timer.cancel()
         _RESOURCE_RECONCILIATION_TASK = asyncio.create_task(reconcile_resources())
 
 
