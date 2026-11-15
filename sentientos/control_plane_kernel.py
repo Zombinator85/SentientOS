@@ -287,6 +287,32 @@ class ControlPlaneKernel:
         except Exception:
             return False
 
+    def observe_governed_local_model_resource_entitlement(
+            self, owner: object, observation: object) -> bool:
+        """Retain a current entitlement snapshot only from its exact custody owner."""
+        try:
+            from sentientos.production_chat_resource_context import (
+                GovernedLocalModelResourceEntitlementObservation,
+                ProductionChatResourceContextOwner,
+            )
+
+            if (type(owner) is not ProductionChatResourceContextOwner
+                    or type(observation) is not
+                        GovernedLocalModelResourceEntitlementObservation
+                    or not owner.has_single_process_custody
+                    or not owner.verifies_current_entitlement_observation(observation)):
+                return False
+        except (ImportError, AttributeError, TypeError):
+            return False
+        observer = getattr(self._runtime_governor,
+            "observe_governed_local_model_resource_entitlement", None)
+        if not callable(observer):
+            return False
+        try:
+            return bool(observer(observation))
+        except Exception:
+            return False
+
     def observe_verified_game_performance(self, observation: object) -> bool:
         """Pass authenticated, bounded game-performance evidence to scheduling."""
         observer = getattr(self._runtime_governor,

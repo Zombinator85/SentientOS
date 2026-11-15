@@ -455,7 +455,8 @@ class ProductionChatResourceObservationOwner:
                         or witness.get("actor") not in {
                             "production_chat_host_resource_governor",
                             "production_chat_workload_resource_governor",
-                            "production_chat_game_resource_governor"}
+                            "production_chat_game_resource_governor",
+                            "production_chat_resource_entitlement_governor"}
                         or witness.get("target_subsystem") != "production_chat"
                         or witness.get("correlation_id") != release_correlation
                         or not isinstance(witness.get("correlation_id"), str)
@@ -560,6 +561,67 @@ class ProductionChatResourceObservationOwner:
                         raise ProductionChatResourceObservationError(
                             "resource_release_target_binding_invalid")
                 receipt_observation = value.get("resource_observation")
+                if value.get("trigger_kind") == "call_entitlement_exhausted":
+                    entitlement = (receipt_observation.get(
+                        "resource_entitlement_observation")
+                        if isinstance(receipt_observation, Mapping) else None)
+                    serving_binding = (receipt_observation.get(
+                        "serving_entitlement_binding")
+                        if isinstance(receipt_observation, Mapping) else None)
+                    delegated = (admission_record.get("delegated_outcomes")
+                        if isinstance(admission_record, Mapping) else None)
+                    runtime_governor = (delegated.get("runtime_governor")
+                        if isinstance(delegated, Mapping) else None)
+                    evidence_refs = (runtime_governor.get("evidence_refs")
+                        if isinstance(runtime_governor, Mapping) else None)
+                    evidence = (evidence_refs.get("resource_observation_evidence")
+                        if isinstance(evidence_refs, Mapping) else None)
+                    if isinstance(entitlement, Mapping):
+                        entitlement_body = {key: item for key, item in entitlement.items()
+                            if key not in {"observation_id", "observation_digest"}}
+                        entitlement_digest = hashlib.sha256(json.dumps(
+                            entitlement_body, sort_keys=True, separators=(",", ":"),
+                            ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+                    else:
+                        entitlement_digest = None
+                    if (not isinstance(entitlement, Mapping)
+                            or set(entitlement) != {"schema_version", "allocation_id",
+                                "allocation_digest", "allocator_id", "resource_kind",
+                                "policy_digest", "policy_epoch", "principal_binding_digest",
+                                "remaining_call_entitlement", "checked_at", "observation_id",
+                                "observation_digest"}
+                            or not isinstance(serving_binding, Mapping)
+                            or not isinstance(evidence, Mapping)
+                            or evidence.get("status") != "current"
+                            or evidence.get("resource_entitlement_observation") != entitlement
+                            or entitlement.get("schema_version") !=
+                                "sentientos.governed_local_model_resource_entitlement_observation:v1"
+                            or type(entitlement.get("remaining_call_entitlement")) is not int
+                            or entitlement.get("remaining_call_entitlement") != 0
+                            or type(entitlement.get("policy_epoch")) is not int
+                            or not isinstance(entitlement.get("checked_at"), str)
+                            or entitlement.get("observation_digest") != entitlement_digest
+                            or entitlement.get("observation_id") !=
+                                "lmentitlement-" + str(entitlement_digest)[:24]
+                            or len(json.dumps(dict(entitlement), sort_keys=True,
+                                separators=(",", ":"), ensure_ascii=False,
+                                allow_nan=False).encode("utf-8")) > 4096
+                            or serving_binding.get("schema_version") !=
+                                "sentientos.governed_local_model_serving_entitlement_binding:v1"
+                            or serving_binding.get("binding_scope") !=
+                                "inference_call_entitlement"
+                            or any(serving_binding.get(key) != entitlement.get(key)
+                                for key in ("allocation_id", "allocation_digest", "allocator_id",
+                                    "resource_kind", "policy_digest", "policy_epoch",
+                                    "principal_binding_digest"))
+                            or not isinstance(receipt_observation, Mapping)
+                            or receipt_observation.get(
+                                "host_telemetry_used_for_admission") is not False
+                            or receipt_observation.get("host_report_id") is not None
+                            or receipt_observation.get("host_report_digest") is not None
+                            or receipt_observation.get("pressure_labels") != []):
+                        raise ProductionChatResourceObservationError(
+                            "resource_release_entitlement_evidence_invalid")
                 if (isinstance(receipt_observation, Mapping)
                         and (receipt_observation.get(
                             "host_telemetry_used_for_admission") is True

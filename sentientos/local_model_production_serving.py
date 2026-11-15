@@ -632,6 +632,7 @@ class ProductionServingController:
         "production_chat_host_resource_governor",
         "production_chat_game_resource_governor",
         "production_chat_workload_resource_governor",
+        "production_chat_resource_entitlement_governor",
     })
 
     def __init__(self, installation_handle: InstallationStateHandle, control_plane_kernel: ControlPlaneKernel,

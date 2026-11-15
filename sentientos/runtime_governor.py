@@ -24,6 +24,7 @@ from sentientos.trust_ledger import get_trust_ledger
 
 MAX_RETAINED_HOST_RESOURCE_EVIDENCE = 64
 MAX_RETAINED_GAME_WORKLOAD_EVIDENCE = 64
+MAX_RETAINED_RESOURCE_ENTITLEMENT_EVIDENCE = 64
 
 
 def _host_resource_policy_binding(evidence: Mapping[str, object]
@@ -302,6 +303,7 @@ class RuntimeGovernor:
         # telemetry is pressured or incomplete without implying process control.
         self._game_workload_evidence: dict[str, object] | None = None
         self._game_workload_evidence_by_message_id: dict[str, dict[str, object]] = {}
+        self._resource_entitlement_evidence_by_id: dict[str, dict[str, object]] = {}
         self._resource_evidence_lock = threading.Lock()
 
     @staticmethod
@@ -1441,8 +1443,64 @@ class RuntimeGovernor:
         payload = dict(metadata or {})
         identity_digest = payload.get("model_identity_digest")
         reason_code = payload.get("reason_code")
+        entitlement_release = reason_code == "governed_call_entitlement_exhausted"
+        entitlement_evidence: dict[str, object] | None = None
+        entitlement_valid = not entitlement_release
+        if entitlement_release:
+            resource_observation = payload.get("resource_observation")
+            observation_value = (resource_observation.get(
+                "resource_entitlement_observation")
+                if isinstance(resource_observation, Mapping) else None)
+            serving_binding = payload.get("serving_entitlement_binding")
+            evidence_valid = False
+            if isinstance(observation_value, Mapping) and isinstance(serving_binding, Mapping):
+                observation_id = observation_value.get("observation_id")
+                checked_at = observation_value.get("checked_at")
+                try:
+                    observed = datetime.fromisoformat(
+                        checked_at.replace("Z", "+00:00")
+                        if isinstance(checked_at, str) else "")
+                except ValueError:
+                    observed = None
+                age_seconds = ((datetime.now(timezone.utc) - observed).total_seconds()
+                    if observed is not None and observed.tzinfo is not None else None)
+                with self._resource_evidence_lock:
+                    retained = (self._resource_entitlement_evidence_by_id.get(
+                        observation_id) if isinstance(observation_id, str) else None)
+                    retained = dict(retained) if retained is not None else None
+                bound_fields = (
+                    "allocation_id", "allocation_digest", "allocator_id", "resource_kind",
+                    "policy_digest", "policy_epoch", "principal_binding_digest")
+                evidence_valid = bool(
+                    retained is not None
+                    and {key: value for key, value in observation_value.items()
+                        if key != "serving_session_id"} == retained
+                    and resource_observation.get("serving_session_id") ==
+                        payload.get("serving_session_id")
+                    and observation_value.get("schema_version") ==
+                        "sentientos.governed_local_model_resource_entitlement_observation:v1"
+                    and type(observation_value.get("remaining_call_entitlement")) is int
+                    and observation_value.get("remaining_call_entitlement") == 0
+                    and type(observation_value.get("policy_epoch")) is int
+                    and isinstance(observation_value.get("observation_digest"), str)
+                    and re.fullmatch(r"[0-9a-f]{64}", observation_value.get(
+                        "observation_digest", "")) is not None
+                    and isinstance(observation_id, str)
+                    and observation_id.startswith("lmentitlement-")
+                    and isinstance(checked_at, str)
+                    and age_seconds is not None
+                    and 0 <= age_seconds <= 15.0
+                    and payload.get("serving_session_id")
+                    and all(serving_binding.get(key) == observation_value.get(key)
+                        for key in bound_fields)
+                    and serving_binding.get("binding_scope") ==
+                        "inference_call_entitlement")
+                if evidence_valid and retained is not None:
+                    entitlement_evidence = retained
+            entitlement_valid = evidence_valid
         valid = (
-            payload.get("purpose") == "local_model_resource_release"
+            entitlement_valid
+            and payload.get("purpose") == "local_model_resource_release"
             and reason_code in {
                 "gaming_mode_entered",
                 "development_chat_shutdown",
@@ -1456,13 +1514,18 @@ class RuntimeGovernor:
                 "verified_game_frame_pressure",
                 "selected_gaming_profile_host_pressure",
                 "conservative_automatic_profile_host_pressure",
+                "governed_call_entitlement_exhausted",
                 "rootless_experimental_epistemic_complete",
                 "rootless_experimental_developmental_complete",
             }
             and isinstance(identity_digest, str)
             and re.fullmatch(r"[0-9a-f]{64}", identity_digest) is not None
         )
-        evidence_ref: dict[str, object] = {"status": "not_required"}
+        evidence_ref: dict[str, object] = (
+            {"status": "current", "resource_entitlement_observation": entitlement_evidence}
+            if entitlement_release and entitlement_evidence is not None else
+            {"status": "missing_stale_or_unverified_resource_entitlement"}
+            if entitlement_release else {"status": "not_required"})
         if reason_code == "vram_pressure_observed":
             observation_value = payload.get("resource_observation")
             evidence_valid = False
@@ -2508,7 +2571,8 @@ class RuntimeGovernor:
         if actor in {
                 "production_chat_host_resource_governor",
                 "production_chat_game_resource_governor",
-                "production_chat_workload_resource_governor"}:
+                "production_chat_workload_resource_governor",
+                "production_chat_resource_entitlement_governor"}:
             target_session_id = payload.get("serving_session_id")
             observation_value = payload.get("resource_observation")
             observation_session_id = (observation_value.get("serving_session_id")
@@ -2542,11 +2606,54 @@ class RuntimeGovernor:
                         "verified_game_host_pressure",
                         "verified_game_frame_pressure",
                         "selected_gaming_profile_host_pressure",
-                        "conservative_automatic_profile_host_pressure"} else
+                    "conservative_automatic_profile_host_pressure",
+                    "governed_call_entitlement_exhausted"} else
                     "model_resource_release_request_invalid"),
             subject=subject, scope="local", origin=actor,
             pressure=self.sample_pressure(), metadata=payload,
             correlation_id=correlation_id)
+
+    def observe_governed_local_model_resource_entitlement(
+            self, observation: object) -> bool:
+        """Retain exact custody-owner entitlement evidence for release admission."""
+        from sentientos.local_model_authority import digest_payload
+        from sentientos.production_chat_resource_context import (
+            GovernedLocalModelResourceEntitlementObservation,
+        )
+
+        if type(observation) is not GovernedLocalModelResourceEntitlementObservation:
+            return False
+        payload = observation.to_dict()
+        digest_body = {key: value for key, value in payload.items()
+            if key not in {"observation_id", "observation_digest"}}
+        observation_digest = payload.get("observation_digest")
+        observation_id = payload.get("observation_id")
+        if (payload.get("schema_version") !=
+                "sentientos.governed_local_model_resource_entitlement_observation:v1"
+                or type(payload.get("remaining_call_entitlement")) is not int
+                or payload["remaining_call_entitlement"] < 0
+                or type(payload.get("policy_epoch")) is not int
+                or not isinstance(payload.get("checked_at"), str)
+                or not isinstance(observation_digest, str)
+                or observation_digest != digest_payload(digest_body)
+                or observation_id != "lmentitlement-" + observation_digest[:24]):
+            return False
+        try:
+            checked_at = datetime.fromisoformat(
+                str(payload["checked_at"]).replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        age_seconds = (datetime.now(timezone.utc)
+            - checked_at.astimezone(timezone.utc)).total_seconds()
+        if checked_at.tzinfo is None or not 0 <= age_seconds <= 15.0:
+            return False
+        with self._resource_evidence_lock:
+            self._resource_entitlement_evidence_by_id[str(observation_id)] = payload
+            while (len(self._resource_entitlement_evidence_by_id)
+                    > MAX_RETAINED_RESOURCE_ENTITLEMENT_EVIDENCE):
+                oldest = next(iter(self._resource_entitlement_evidence_by_id))
+                del self._resource_entitlement_evidence_by_id[oldest]
+        return True
 
     def _admit_local_model_serving(
         self, *, actor: str, subject: str, metadata: dict[str, object] | None,

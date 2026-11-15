@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime, timezone
-from threading import Event, Thread
+from threading import Event, Lock, Thread
 
 import pytest
 
@@ -17,7 +17,7 @@ from sentientos.control_plane_kernel import ControlPlaneKernel
 from sentientos.host_collectors import HostCollectorResult
 from sentientos.host_resource_runtime import (
     HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
-    build_observation_plan,
+    build_observation_plan, resource_consumption_world_state_records,
 )
 from sentientos.canonical_memory import CanonicalMemoryStore
 import sentientos.chat_service as chat_service
@@ -44,7 +44,8 @@ from sentientos.foreground_game_detection import ForegroundGameObservation
 pytestmark = pytest.mark.no_legacy_skip
 
 
-def owner(tmp_path, *, calls=2, nonces=None, clock=lambda: NOW):
+def owner(tmp_path, *, calls=2, nonces=None, clock=lambda: NOW,
+        ledger_owner_lock=None):
     model, invoker, request, context, ledger = setup(tmp_path, calls=calls)
     values = iter(nonces or ["nonce-one", "nonce-two", "nonce-three"])
     result = ProductionChatResourceContextOwner(
@@ -58,6 +59,7 @@ def owner(tmp_path, *, calls=2, nonces=None, clock=lambda: NOW):
         provisioning_id="test-resource.v1",
         nonce_source=lambda: next(values),
         clock=clock,
+        ledger_owner_lock=ledger_owner_lock,
     )
     return result, model, invoker, request, ledger
 
@@ -344,6 +346,169 @@ def test_duplicate_nonce_and_exhaustion_fail_without_retry_or_backend_generation
     assert second.status == "resource_denied"
     assert "resource_gate:duplicate_attempt_id" in second.reason_codes
     assert model.calls == 1 and ledger.remaining_calls(custody.allocation.allocation_id) == 1
+
+
+def test_entitlement_observation_is_owner_minted_current_and_kernel_retained(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    ledger_owner_lock = Lock()
+    ledger_owner_lock.__enter__()
+    custody, model, invoker, request, ledger = owner(tmp_path, calls=1,
+        ledger_owner_lock=ledger_owner_lock)
+    fixed_now = datetime.fromisoformat(NOW.replace("Z", "+00:00"))
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_now if tz is None else fixed_now.astimezone(tz)
+
+    monkeypatch.setattr("sentientos.runtime_governor.datetime", FixedDateTime)
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    try:
+        assert invoker.invoke(request, resource_context=custody.next_context()).status == (
+            "admitted_completed")
+        assert ledger.remaining_calls(custody.allocation.allocation_id) == 0
+        observation = custody.current_entitlement_observation()
+        assert observation.remaining_call_entitlement == 0
+        assert custody.verifies_current_entitlement_observation(observation)
+        assert governor.observe_governed_local_model_resource_entitlement(observation)
+        assert kernel.observe_governed_local_model_resource_entitlement(
+            custody, observation) is True
+        assert kernel.observe_governed_local_model_resource_entitlement(
+            custody, replace(observation)) is False
+        newer = custody.current_entitlement_observation()
+        assert kernel.observe_governed_local_model_resource_entitlement(
+            custody, observation) is False
+        assert kernel.observe_governed_local_model_resource_entitlement(
+            custody, newer) is True
+        session_id = "serving-session-" + "a" * 24
+        binding = {key: getattr(newer, key) for key in (
+            "allocation_id", "allocation_digest", "allocator_id", "resource_kind",
+            "policy_digest", "policy_epoch", "principal_binding_digest")}
+        binding["binding_scope"] = "inference_call_entitlement"
+        release_metadata = {
+            "purpose": "local_model_resource_release",
+            "reason_code": "governed_call_entitlement_exhausted",
+            "target_subsystem": "production_chat",
+            "serving_session_id": session_id,
+            "model_identity_digest": "d" * 64,
+            "serving_entitlement_binding": binding,
+            "resource_observation": {
+                "schema_version": (
+                    "sentientos.production_local_model_resource_entitlement_release_evidence:v1"),
+                "serving_session_id": session_id,
+                "resource_entitlement_observation": newer.to_dict(),
+            },
+        }
+        release = governor._admit_local_model_resource_release(
+            actor="production_chat_resource_entitlement_governor",
+            subject="production_chat_resource_entitlement_governor",
+            correlation_id="resource-entitlement-exhausted-" + newer.observation_id,
+            metadata=release_metadata)
+        assert release.allowed is True
+        forged_release = dict(release_metadata)
+        forged_release["resource_observation"][
+            "resource_entitlement_observation"] = {
+                **newer.to_dict(), "remaining_call_entitlement": 1}
+        forged = governor._admit_local_model_resource_release(
+            actor="production_chat_resource_entitlement_governor",
+            subject="production_chat_resource_entitlement_governor",
+            correlation_id="forged-entitlement-release", metadata=forged_release)
+        assert forged.allowed is False
+        assert model.calls == 1
+    finally:
+        custody.close()
+
+
+def test_exhausted_call_entitlement_releases_idle_serving_session_through_runtime(
+        monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    fixed_now = datetime.fromisoformat(NOW.replace("Z", "+00:00"))
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_now if tz is None else fixed_now.astimezone(tz)
+
+    monkeypatch.setattr("sentientos.runtime_governor.datetime", FixedDateTime)
+    installation, artifacts = provisioning_inputs(tmp_path / "allocation", calls=1)
+    bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 1)
+    policy = GovernedLocalModelResourcePolicy.create(
+        epoch=1, max_resource_specific_bounds=bounds,
+        not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
+    artifacts["requested_bounds"] = bounds
+    artifacts["resource_policy_artifact"] = encoded(policy.to_dict())
+    bundle = produce_production_chat_resource_provisioning_bundle(
+        installation, "entitlement-release", **artifacts)
+    custody = load_production_chat_resource_context_owner(
+        installation, "entitlement-release", clock=lambda: NOW,
+        nonce_source=lambda: "one-entitled-call")
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor,
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+    bridge, serving, _, model, _, _ = serving_setup(
+        monkeypatch, tmp_path / "serving", installation_identity="production",
+        kernel_override=kernel,
+        serving_admission_context_provider=lambda _correlation, _state: {
+            "governed_inference_entitlement_binding":
+                dict(custody.serving_admission_entitlement_binding())})
+    inference = ResourceBackedProductionChatInference(bridge, custody)
+    try:
+        receipt = inference.generate(prompt="synthetic fixture prompt",
+            caller="chat_service", correlation_id="entitlement-release-call",
+            budget=LocalModelInvocationBudget(8000, 4000, 512, 30.0, 1),
+            caller_linkage={})
+        assert receipt.status == "admitted_completed"
+        assert model.calls == 1
+        assert custody.allocator.ledger.remaining_calls(bundle.allocation_id) == 0
+
+        released = inference.reconcile_workload_state()
+
+        assert released["status"] == "worker_closed", released
+        assert released["trigger_kind"] == "call_entitlement_exhausted"
+        assert serving.current_session() is None
+        assert model.closed is True
+        assert model.calls == 1
+        receipt_path = (tmp_path / "serving" / "state" / "installations" / "production"
+            / "state" / "local-model" / "serving" / "resource-release-receipts")
+        release_receipts = list(receipt_path.glob("*.json"))
+        assert len(release_receipts) == 1
+        import json
+        release = json.loads(release_receipts[0].read_text(encoding="utf-8"))
+        assert release["resource_observation"][
+            "resource_entitlement_observation"]["remaining_call_entitlement"] == 0
+        assert release["resource_observation"]["host_telemetry_used_for_admission"] is False
+        assert release["inference_performed"] is False
+        assert release["host_mutation_performed"] is False
+        serving_receipt_path = (tmp_path / "serving" / "state" / "installations"
+            / "production" / "state" / "local-model" / "serving" / "receipts")
+        serving_record = json.loads(next(serving_receipt_path.glob("*.json")).read_text(
+            encoding="utf-8"))
+        # Model the linkage fields added by the independent recovery observer.
+        release.update({
+            "serving_receipt_linkage_posture": "verified",
+            "serving_receipt_id": serving_record["receipt_id"],
+            "serving_receipt_semantic_digest": serving_record[
+                "receipt_semantic_digest"],
+            "invocation_linkage_posture": "not_required",
+        })
+        projected = resource_consumption_world_state_records(
+            ledger=custody.allocator.ledger,
+            verified_resource_release_receipts=[release])[0]
+        projected_release = projected["payload"]["resource_release_receipts"][0]
+        assert projected_release["resource_observation"][
+            "resource_entitlement_observation"]["observation_id"] == (
+                release["resource_observation"][
+                    "resource_entitlement_observation"]["observation_id"])
+    finally:
+        custody.close()
+        serving.close()
 
 
 def test_two_contexts_conserve_one_allocation_and_stale_currentness_fails_closed(tmp_path):

@@ -541,7 +541,10 @@ class ProductionServingInferenceController:
             workload_evidence: Mapping[str, Any] | None = None,
             trigger_correlation_id: str | None = None,
             trigger_kind: str = "deferred_inference",
-            preempt_active_generation: bool = False) -> dict[str, Any] | None:
+            preempt_active_generation: bool = False,
+            serving_entitlement_binding: Mapping[str, Any] | None = None,
+            resource_entitlement_observation: Mapping[str, Any] | None = None
+            ) -> dict[str, Any] | None:
         """Release optional chat residency after exact game/profile and host evidence."""
         if receipt is not None:
             if (receipt.status != "deferred"
@@ -558,6 +561,13 @@ class ProductionServingInferenceController:
             trigger_kind = "deferred_inference"
         if not isinstance(resource_observation, Mapping) or not isinstance(workload_evidence, Mapping):
             return None
+        entitlement_release = trigger_kind == "call_entitlement_exhausted"
+        if entitlement_release and (
+                not isinstance(serving_entitlement_binding, Mapping)
+                or not isinstance(resource_entitlement_observation, Mapping)
+                or resource_entitlement_observation.get(
+                    "remaining_call_entitlement") != 0):
+            return None
         selected_gaming_profile = trigger_kind in {
             "gaming_profile_resource_reconciliation",
             "active_gaming_profile_resource_reconciliation",
@@ -568,7 +578,9 @@ class ProductionServingInferenceController:
             "conservative_automatic_gaming_resource_reconciliation",
             "active_conservative_automatic_gaming_resource_reconciliation",
         }
-        if selected_gaming_profile:
+        if entitlement_release:
+            game_message_id = None
+        elif selected_gaming_profile:
             if (workload_evidence.get("configured_mode") != "gaming"
                     or workload_evidence.get("mode_source") != "operator_selected"
                     or workload_evidence.get("observation_status") != "not_requested"):
@@ -593,7 +605,9 @@ class ProductionServingInferenceController:
                 return None
             game_message_id = provenance.get("message_id")
         labels = resource_observation.get("pressure_labels")
-        if (resource_observation.get("status") != "current"
+        if entitlement_release:
+            labels = []
+        if (not entitlement_release and (resource_observation.get("status") != "current"
                 or resource_observation.get("no_effect_authority") is not True
                 or not isinstance(labels, (tuple, list))
                 or not all(isinstance(label, str) for label in labels)
@@ -606,7 +620,7 @@ class ProductionServingInferenceController:
                     workload_evidence.get("observation_status") != "available"
                     or (workload_evidence.get("game_foreground") is not True
                         and workload_evidence.get("game_process_running") is not True)
-                    or not isinstance(game_message_id, str)))):
+                    or not isinstance(game_message_id, str))))):
             return None
         if (trigger_kind == "deferred_inference"
                 and not self._host_observation_is_current_for_release(
@@ -624,12 +638,14 @@ class ProductionServingInferenceController:
         loaded_identity = getattr(model, "active_identity", None)
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):
             return None
-        if not self._release_workload_evidence_is_current(
-                trigger_kind, str(workload_evidence.get("configured_mode"))):
+        if (not entitlement_release and not self._release_workload_evidence_is_current(
+                trigger_kind, str(workload_evidence.get("configured_mode")))):
             return None
         profile_release = selected_gaming_profile or conservative_automatic_profile
         host_release_evidence = {
-            "schema_version": ("sentientos.production_host_gpu_pressure_release_evidence:v1"
+            "schema_version": ("sentientos.production_local_model_resource_entitlement_release_evidence:v1"
+                if entitlement_release else
+                "sentientos.production_host_gpu_pressure_release_evidence:v1"
                 if general_gpu_pressure else
                 "sentientos.production_host_memory_pressure_release_evidence:v1"
                 if general_memory_pressure else
@@ -647,7 +663,14 @@ class ProductionServingInferenceController:
             "observed_at": resource_observation.get("observed_at"),
             "pressure_labels": list(labels),
         }
-        if general_gpu_pressure:
+        if entitlement_release:
+            host_release_evidence.update({
+                "resource_entitlement_observation": dict(
+                    resource_entitlement_observation or {}),
+                "serving_session_id": session.session_id,
+                "active_inference_preemption_requested": False,
+            })
+        elif general_gpu_pressure:
             load_configuration = session.binding.get("load_configuration")
             gpu_layers = (load_configuration.get("n_gpu_layers")
                 if isinstance(load_configuration, Mapping) else None)
@@ -694,7 +717,8 @@ class ProductionServingInferenceController:
                 "vram_utilization_percent": resource_observation.get(
                     "vram_utilization_percent"),
             })
-        reason_code = ("host_gpu_pressure_observed" if general_gpu_pressure else
+        reason_code = ("governed_call_entitlement_exhausted" if entitlement_release else
+            "host_gpu_pressure_observed" if general_gpu_pressure else
             "host_memory_pressure_observed" if general_memory_pressure else
             "selected_gaming_profile_host_pressure" if selected_gaming_profile
             else "conservative_automatic_profile_host_pressure"
@@ -702,6 +726,7 @@ class ProductionServingInferenceController:
             else "verified_game_host_pressure")
         actor = ("production_chat_host_resource_governor"
             if general_gpu_pressure or general_memory_pressure else
+            "production_chat_resource_entitlement_governor" if entitlement_release else
             "production_chat_workload_resource_governor" if profile_release
             else "production_chat_game_resource_governor")
         metadata: dict[str, Any] = {
@@ -713,6 +738,9 @@ class ProductionServingInferenceController:
             "model_identity_digest": digest_payload(loaded_identity.to_dict()),
             "resource_observation": host_release_evidence,
         }
+        if entitlement_release and serving_entitlement_binding is not None:
+            metadata["serving_entitlement_binding"] = dict(
+                serving_entitlement_binding)
         if preempt_active_generation:
             metadata["active_inference_preemption_requested"] = True
             metadata["active_inference_request_reference"] = (
@@ -888,7 +916,17 @@ class ProductionServingInferenceController:
             "release_admission_record": dict(admission_record)
                 if admission_record is not None else None,
             "release_reason_codes": list(decision.reason_codes),
-            "resource_observation": {
+            "resource_observation": ({
+                "observation_correlation_id": None,
+                "host_report_id": None,
+                "host_report_digest": None,
+                "pressure_labels": [],
+                "resource_entitlement_observation": dict(
+                    resource_entitlement_observation or {}),
+                "serving_entitlement_binding": dict(
+                    serving_entitlement_binding or {}),
+                "host_telemetry_used_for_admission": False,
+            } if entitlement_release else {
                 "observation_correlation_id": host_release_evidence[
                     "observation_correlation_id"],
                 "host_report_id": host_release_evidence["host_report_id"],
@@ -931,7 +969,7 @@ class ProductionServingInferenceController:
                      "vram_utilization_percent": resource_observation.get(
                          "vram_utilization_percent"),
                      "host_telemetry_used_for_admission": True}),
-            },
+            }),
             "worker_exit_observed": worker_exit_observed,
             "close_failure": close_failure,
             "active_inference_preemption_requested": preempt_active_generation,
@@ -967,8 +1005,13 @@ class ProductionServingInferenceController:
                     "resource_release_receipt_publication_failed") from exc
         return outcome
 
-    def reconcile_idle_game_resource_state(self) -> dict[str, Any]:
+    def reconcile_idle_game_resource_state(
+            self, *, resource_entitlement_owner: object | None = None) -> dict[str, Any]:
         """Release idle optional residency for game priority or host GPU pressure."""
+        from .production_chat_resource_context import (
+            GovernedLocalModelResourceError,
+            ProductionChatResourceContextOwner,
+        )
         # A bounded client timeout can finish while the backend worker ignores
         # cancellation. The request then releases the receipt-capacity lock,
         # but the invocation owner still holds the exact worker handle. Route
@@ -999,6 +1042,46 @@ class ProductionServingInferenceController:
             return self._preempt_for_verified_game_workload()
         try:
             workload = self.current_workload_state()
+            if resource_entitlement_owner is not None:
+                if type(resource_entitlement_owner) is not ProductionChatResourceContextOwner:
+                    return {"status": "skipped", "reason": "exact_resource_entitlement_owner_required"}
+                session = self._serving.current_session()
+                if session is not None:
+                    binding = session.binding.get("governed_inference_entitlement_binding")
+                    try:
+                        entitlement = resource_entitlement_owner.current_entitlement_observation()
+                    except (GovernedLocalModelResourceError, TypeError, ValueError):
+                        entitlement = None
+                    if (entitlement is not None
+                            and self._serving._kernel.observe_governed_local_model_resource_entitlement(
+                                resource_entitlement_owner, entitlement)
+                            and entitlement.remaining_call_entitlement == 0):
+                        if not isinstance(binding, Mapping):
+                            return {"status": "skipped", "reason": "serving_entitlement_binding_required"}
+                        try:
+                            model = self._serving._current_inference_model(session)
+                        except ProductionServingError:
+                            return {"status": "skipped", "reason": "current_serving_session_required"}
+                        binding_fields = (
+                            "allocation_id", "allocation_digest", "allocator_id", "resource_kind",
+                            "policy_digest", "policy_epoch", "principal_binding_digest")
+                        if (binding.get("binding_scope") != "inference_call_entitlement"
+                                or any(binding.get(key) != getattr(entitlement, key)
+                                    for key in binding_fields)):
+                            return {"status": "skipped", "reason": "serving_entitlement_binding_mismatch"}
+                        correlation_id = "resource-entitlement-exhausted-" + entitlement.observation_id
+                        released = self._release_after_host_pressure(
+                            session, model, None, resource_observation={}, workload_evidence={},
+                            trigger_correlation_id=correlation_id,
+                            trigger_kind="call_entitlement_exhausted",
+                            serving_entitlement_binding=binding,
+                            resource_entitlement_observation=entitlement.to_dict())
+                        if released is None:
+                            return {"status": "skipped", "reason": "release_evidence_invalid"}
+                        return {"status": released["status"],
+                            "release_receipt_id": released["receipt_id"],
+                            "trigger_kind": "call_entitlement_exhausted",
+                            "serving_session_id": session.session_id}
             if workload.get("configured_mode") == "normal":
                 return self._reconcile_idle_normal_resource_pressure()
             selected_gaming_profile = workload.get("configured_mode") == "gaming"

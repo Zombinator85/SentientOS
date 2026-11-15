@@ -519,7 +519,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "cpu_utilization_percent", "model_gpu_layers",
                 "gpu_telemetry_available", "gpu_telemetry_complete",
                 "gpu_telemetry_sources", "host_telemetry_used_for_admission",
-                "active_inference_preemption_requested", "host_policy_binding"})
+                "active_inference_preemption_requested", "host_policy_binding",
+                "resource_entitlement_observation", "serving_entitlement_binding"})
             summary = {key: value[key] for key in allowed if key in value}
             labels = summary.get("pressure_labels")
             if isinstance(labels, (list, tuple)):
@@ -650,7 +651,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         or witness.get("actor") not in {
                             "production_chat_host_resource_governor",
                             "production_chat_workload_resource_governor",
-                            "production_chat_game_resource_governor"}
+                            "production_chat_game_resource_governor",
+                            "production_chat_resource_entitlement_governor"}
                         or witness.get("target_subsystem") != "production_chat"
                         or witness.get("correlation_id") != correlation
                         or not isinstance(witness.get("correlation_id"), str)
@@ -751,6 +753,63 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             summary["post_release_observation"] = bounded_release_observation(
                 release_receipt.get("post_release_observation"), post_release=True)
             resource_observation = release_receipt.get("resource_observation")
+            if release_receipt.get("trigger_kind") == "call_entitlement_exhausted":
+                entitlement = (resource_observation.get(
+                    "resource_entitlement_observation")
+                    if isinstance(resource_observation, Mapping) else None)
+                serving_binding = (resource_observation.get(
+                    "serving_entitlement_binding")
+                    if isinstance(resource_observation, Mapping) else None)
+                delegated = (admission_record.get("delegated_outcomes")
+                    if isinstance(admission_record, Mapping) else None)
+                governor = (delegated.get("runtime_governor")
+                    if isinstance(delegated, Mapping) else None)
+                evidence_refs = (governor.get("evidence_refs")
+                    if isinstance(governor, Mapping) else None)
+                admission_evidence = (evidence_refs.get(
+                    "resource_observation_evidence")
+                    if isinstance(evidence_refs, Mapping) else None)
+                entitlement_digest = None
+                if isinstance(entitlement, Mapping):
+                    entitlement_body = {key: item for key, item in entitlement.items()
+                        if key not in {"observation_id", "observation_digest"}}
+                    entitlement_digest = hashlib.sha256(canonical_json(
+                        entitlement_body).encode("utf-8")).hexdigest()
+                if (not isinstance(entitlement, Mapping)
+                        or set(entitlement) != {"schema_version", "allocation_id",
+                            "allocation_digest", "allocator_id", "resource_kind",
+                            "policy_digest", "policy_epoch", "principal_binding_digest",
+                            "remaining_call_entitlement", "checked_at", "observation_id",
+                            "observation_digest"}
+                        or not isinstance(serving_binding, Mapping)
+                        or not isinstance(admission_evidence, Mapping)
+                        or admission_evidence.get("status") != "current"
+                        or admission_evidence.get("resource_entitlement_observation")
+                            != entitlement
+                        or entitlement.get("schema_version") !=
+                            "sentientos.governed_local_model_resource_entitlement_observation:v1"
+                        or type(entitlement.get("remaining_call_entitlement")) is not int
+                        or entitlement.get("remaining_call_entitlement") != 0
+                        or type(entitlement.get("policy_epoch")) is not int
+                        or not isinstance(entitlement.get("checked_at"), str)
+                        or entitlement.get("observation_digest") != entitlement_digest
+                        or entitlement.get("observation_id") !=
+                            "lmentitlement-" + str(entitlement_digest)[:24]
+                        or len(canonical_json(dict(entitlement)).encode("utf-8")) > 4096
+                        or serving_binding.get("schema_version") !=
+                            "sentientos.governed_local_model_serving_entitlement_binding:v1"
+                        or serving_binding.get("binding_scope") !=
+                            "inference_call_entitlement"
+                        or len(canonical_json(dict(serving_binding)).encode("utf-8")) > 4096
+                        or any(serving_binding.get(key) != entitlement.get(key)
+                            for key in ("allocation_id", "allocation_digest", "allocator_id",
+                                "resource_kind", "policy_digest", "policy_epoch",
+                                "principal_binding_digest"))
+                        or resource_observation.get("host_telemetry_used_for_admission") is not False
+                        or resource_observation.get("host_report_id") is not None
+                        or resource_observation.get("host_report_digest") is not None
+                        or resource_observation.get("pressure_labels") != []):
+                    raise ValueError("resource_release_entitlement_evidence_invalid")
             policy_binding = (resource_observation.get("host_policy_binding")
                 if isinstance(resource_observation, Mapping) else None)
             if policy_binding is not None:

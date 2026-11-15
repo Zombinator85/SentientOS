@@ -1,6 +1,7 @@
 """Trusted process-local resource custody for persistent production chat."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from threading import Lock
 from typing import Any, Callable, Mapping, cast
 
@@ -21,7 +22,42 @@ from .governed_local_model_resource_allocation import (
     GovernedLocalModelResourcePolicy,
 )
 from .installation_state import InstallationIdentity
+from .local_model_authority import digest_payload
 from .local_model_serving_inference import ProductionServingInferenceController
+
+
+@dataclass(frozen=True, slots=True)
+class GovernedLocalModelResourceEntitlementObservation:
+    """One owner-minted, read-only snapshot of the current call entitlement."""
+
+    allocation_id: str
+    allocation_digest: str
+    allocator_id: str
+    resource_kind: str
+    policy_digest: str
+    policy_epoch: int
+    principal_binding_digest: str
+    remaining_call_entitlement: int
+    checked_at: str
+    observation_id: str
+    observation_digest: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": (
+                "sentientos.governed_local_model_resource_entitlement_observation:v1"),
+            "allocation_id": self.allocation_id,
+            "allocation_digest": self.allocation_digest,
+            "allocator_id": self.allocator_id,
+            "resource_kind": self.resource_kind,
+            "policy_digest": self.policy_digest,
+            "policy_epoch": self.policy_epoch,
+            "principal_binding_digest": self.principal_binding_digest,
+            "remaining_call_entitlement": self.remaining_call_entitlement,
+            "checked_at": self.checked_at,
+            "observation_id": self.observation_id,
+            "observation_digest": self.observation_digest,
+        }
 
 
 class ProductionChatResourceContextOwner:
@@ -35,7 +71,7 @@ class ProductionChatResourceContextOwner:
         "allocator", "allocation", "principal", "authenticated", "current",
         "policy", "_installation_identity", "_provisioning_id", "_nonce_source",
         "_clock", "_ledger_owner_lock", "_closed", "_released", "_custody_lease",
-        "_close_lock",
+        "_close_lock", "_last_entitlement_observation",
     )
 
     def __init__(
@@ -104,6 +140,8 @@ class ProductionChatResourceContextOwner:
         self._released = False
         self._custody_lease = GovernedLocalModelResourceCustodyLease()
         self._close_lock = Lock()
+        self._last_entitlement_observation: (
+            GovernedLocalModelResourceEntitlementObservation | None) = None
 
     @property
     def has_single_process_custody(self) -> bool:
@@ -194,6 +232,82 @@ class ProductionChatResourceContextOwner:
         finally:
             self._custody_lease.release()
 
+    def current_entitlement_observation(
+            self) -> GovernedLocalModelResourceEntitlementObservation:
+        """Mint evidence from the current allocation ledger while holding custody."""
+        self._require_open()
+        self._custody_lease.acquire()
+        try:
+            self._require_open()
+            current_time = self._clock()
+            if type(current_time) is not str or not current_time:
+                raise GovernedLocalModelResourceError("invalid_current_time")
+            allocation, remaining_calls = self.allocator.current_entitlement(
+                allocation=self.allocation,
+                principal=self.principal,
+                authenticated=self.authenticated,
+                current=self.current,
+                policy=self.policy,
+                current_time=current_time)
+            body: dict[str, object] = {
+                "schema_version": (
+                    "sentientos.governed_local_model_resource_entitlement_observation:v1"),
+                "allocation_id": allocation.allocation_id,
+                "allocation_digest": allocation.allocation_digest,
+                "allocator_id": allocation.allocator_id,
+                "resource_kind": allocation.resource_kind,
+                "policy_digest": allocation.policy_digest,
+                "policy_epoch": allocation.epoch,
+                "principal_binding_digest": allocation.principal_binding_digest,
+                "remaining_call_entitlement": remaining_calls,
+                "checked_at": current_time,
+            }
+            observation_digest = digest_payload(body)
+            observation = GovernedLocalModelResourceEntitlementObservation(
+                allocation_id=allocation.allocation_id,
+                allocation_digest=allocation.allocation_digest,
+                allocator_id=allocation.allocator_id,
+                resource_kind=allocation.resource_kind,
+                policy_digest=allocation.policy_digest,
+                policy_epoch=allocation.epoch,
+                principal_binding_digest=allocation.principal_binding_digest,
+                remaining_call_entitlement=remaining_calls,
+                checked_at=current_time,
+                observation_id="lmentitlement-" + observation_digest[:24],
+                observation_digest=observation_digest)
+            self._last_entitlement_observation = observation
+            return observation
+        finally:
+            self._custody_lease.release()
+
+    def verifies_current_entitlement_observation(self, observation: object) -> bool:
+        """Verify exact owner provenance and that its zero remains current."""
+        if (type(observation) is not GovernedLocalModelResourceEntitlementObservation
+                or observation is not self._last_entitlement_observation):
+            return False
+        try:
+            self._require_open()
+            self._custody_lease.acquire()
+            try:
+                self._require_open()
+                current_time = self._clock()
+                allocation, remaining_calls = self.allocator.current_entitlement(
+                    allocation=self.allocation,
+                    principal=self.principal,
+                    authenticated=self.authenticated,
+                    current=self.current,
+                    policy=self.policy,
+                    current_time=current_time)
+            finally:
+                self._custody_lease.release()
+        except (GovernedLocalModelResourceError, TypeError, ValueError):
+            return False
+        return (type(current_time) is str and bool(current_time)
+            and allocation.allocation_digest == observation.allocation_digest
+            and remaining_calls == observation.remaining_call_entitlement
+            and allocation.policy_digest == observation.policy_digest
+            and allocation.principal_binding_digest == observation.principal_binding_digest)
+
     def _serving_admission_entitlement_binding(self) -> Mapping[str, object]:
         current_time = self._clock()
         if type(current_time) is not str or not current_time:
@@ -251,7 +365,8 @@ class ResourceBackedProductionChatInference:
         return self._delegate.current_workload_state()
 
     def reconcile_workload_state(self) -> Mapping[str, Any]:
-        return self._delegate.reconcile_idle_game_resource_state()
+        return self._delegate.reconcile_idle_game_resource_state(
+            resource_entitlement_owner=self._owner)
 
     def resource_reconciliation_interval_seconds(self) -> float:
         return self._delegate.resource_reconciliation_interval_seconds()
