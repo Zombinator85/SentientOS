@@ -460,7 +460,8 @@ class ProductionServingInferenceController:
                 and current.get("observation_status") in
                     CONSERVATIVE_RESOURCE_GOVERNANCE_FAILURE_STATUSES)
         if (expected_configured_mode == "normal"
-                and trigger_kind in {"idle_host_gpu_resource_reconciliation",
+                and trigger_kind in {"idle_game_frame_pressure_reconciliation",
+                    "idle_host_gpu_resource_reconciliation",
                     "idle_host_memory_resource_reconciliation"}):
             return current.get("configured_mode") == "normal"
         provenance = current.get("transport_provenance")
@@ -1051,6 +1052,24 @@ class ProductionServingInferenceController:
                 and pending_workload.get("game_process_running") is False)
             if (pending_workload.get("configured_mode") == "normal"
                     or automatic_no_game):
+                if pending_workload.get("configured_mode") == "normal":
+                    session = self._serving.current_session()
+                    if session is not None:
+                        try:
+                            model = self._serving._current_inference_model(session)
+                        except ProductionServingError:
+                            model = None
+                        if model is not None:
+                            frame_release = self._release_after_game_frame_pressure(
+                                session, model, pending_workload,
+                                preempt_active_generation=True)
+                            if frame_release is not None:
+                                return {"status": frame_release["status"],
+                                    "release_receipt_id": frame_release["receipt_id"],
+                                    "trigger_kind": "idle_game_frame_pressure_reconciliation",
+                                    "serving_session_id": session.session_id,
+                                    "active_inference_cancellation_confirmed": frame_release[
+                                        "active_inference_cancellation_confirmed"]}
                 if resource_entitlement_owner is not None:
                     entitlement_preemption = (
                         self._preempt_active_inference_for_invalidated_entitlement(
@@ -1229,6 +1248,13 @@ class ProductionServingInferenceController:
             model = self._serving._current_inference_model(session)
         except ProductionServingError:
             return {"status": "skipped", "reason": "current_serving_session_required"}
+        frame_release = self._release_after_game_frame_pressure(
+            session, model, self.current_workload_state())
+        if frame_release is not None:
+            return {"status": frame_release["status"],
+                "release_receipt_id": frame_release["receipt_id"],
+                "trigger_kind": "idle_game_frame_pressure_reconciliation",
+                "serving_session_id": session.session_id}
         load_configuration = session.binding.get("load_configuration")
         gpu_layers = (load_configuration.get("n_gpu_layers")
             if isinstance(load_configuration, Mapping) else None)
@@ -1942,7 +1968,7 @@ class ProductionServingInferenceController:
                 if isinstance(provenance, Mapping) else None)
             if not isinstance(workload_message_id, str):
                 return None
-        elif configured_mode != "gaming":
+        elif configured_mode not in {"gaming", "normal"}:
             return None
         loaded_identity = getattr(model, "active_identity", None)
         if loaded_identity is None or not callable(getattr(loaded_identity, "to_dict", None)):

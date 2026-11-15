@@ -2045,7 +2045,9 @@ class RuntimeGovernor:
                 current_workload: dict[str, object] | None = None
                 latest_workload: dict[str, object] | None = None
                 workload_age_seconds: float | None = None
-                workload_matches_process = workload_mode == "gaming" and workload_message_id is None
+                workload_matches_process = (
+                    workload_mode in {"gaming", "normal"}
+                    and workload_message_id is None)
                 if workload_mode == "automatic" and isinstance(workload_message_id, str):
                     with self._resource_evidence_lock:
                         retained = self._game_workload_evidence_by_message_id.get(
@@ -2108,7 +2110,7 @@ class RuntimeGovernor:
                     and isinstance(source_id, str) and source_id
                     and isinstance(generation_id, str) and generation_id
                     and type(sequence) is int and sequence > 0
-                    and workload_mode in {"automatic", "gaming"}
+                    and workload_mode in {"automatic", "gaming", "normal"}
                     and (workload_message_id is None or
                         (isinstance(workload_message_id, str)
                          and re.fullmatch(r"[0-9a-f]{64}", workload_message_id) is not None))

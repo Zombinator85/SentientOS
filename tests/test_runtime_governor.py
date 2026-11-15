@@ -679,7 +679,8 @@ def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
         "d" * 64)
     assert governor.observe_verified_game_performance(performance)
 
-    def request(trigger, *, digest="b" * 64, process_digest="c" * 64,
+    def request(trigger, *, workload_mode="gaming", digest="b" * 64,
+            process_digest="c" * 64,
             process_name_digest="d" * 64):
         evidence = {
             "schema_version": "sentientos.production_game_frame_pressure_release_evidence:v3",
@@ -693,7 +694,7 @@ def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
             "game_performance_source_id": "windows-edge",
             "game_performance_generation_id": "edge-generation-1",
             "game_performance_sequence": 7,
-            "workload_mode": "gaming",
+            "workload_mode": workload_mode,
             "game_workload_message_id": None,
             "observed_at": observed_at,
             "frame_time_p95_ms": 52.0,
@@ -714,6 +715,9 @@ def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
                 "resource_observation": evidence})
 
     accepted = request("idle-game-frame-pressure-reconcile-valid")
+    accepted_normal_mode = request(
+        "idle-game-frame-pressure-reconcile-normal-mode",
+        workload_mode="normal")
     rejected = request("idle-game-frame-pressure-reconcile-forged", digest="e" * 64)
     wrong_process = request("idle-game-frame-pressure-reconcile-wrong-process",
         process_digest="f" * 64)
@@ -721,6 +725,9 @@ def test_game_frame_pressure_release_requires_exact_current_pacing_evidence(
         process_name_digest="e" * 64)
 
     assert accepted.allowed is True
+    assert accepted_normal_mode.allowed is True
+    assert accepted_normal_mode.evidence_refs["resource_observation_evidence"][
+        "workload_mode"] == "normal"
     assert accepted.reason == "model_resource_release_fail_safe"
     assert accepted.evidence_refs["resource_observation_evidence"]["status"] == "current"
     assert rejected.allowed is False
