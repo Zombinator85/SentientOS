@@ -57,5 +57,23 @@ background thread, or cadence. Immutable custody and admission ledgers provide
 restart truth: exact existing bindings are not re-appended and an incomplete state
 stage requires a fresh admission against the current predecessor.
 
+## Counterfactual use in later allocation
+
+`tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption`
+exercises a bounded synthetic longitudinal path. A task-family history
+intervention first supports a scoped proposition; a later contradictory
+intervention is admitted through the epistemic mutation runtime. After owner
+reconstruction, canonical planning receives the contested projection. Without
+that projection it selects the history-sensitive goal; with the projection it
+defers that goal for epistemic review while still selecting an independent goal.
+The fixture also checks that a different active model identity leaves
+applicability unresolved.
+
+This demonstrates a persistent evidence change in a later software allocation
+decision under a deterministic fake-model fixture. Planning is verified not to
+invoke a model, acquire a serving session, or execute a goal. The result does not
+establish real-model learning, external truth, improved task performance, or
+execution authority.
+
 This composition is not production sensor evidence, beneficial learning,
 objective truth, or improved intelligence.
