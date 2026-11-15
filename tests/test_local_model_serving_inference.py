@@ -23,6 +23,9 @@ from sentientos.governed_local_model_invocation import (
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_model_authority import build_local_model_authority_map, digest_payload
+from sentientos.production_chat_resource_context import (
+    GovernedLocalModelResourceEntitlementObservation,
+)
 from sentientos.local_model_production_serving import ProductionServingController, ServingSession
 from sentientos.local_model_serving_inference import (
     ProductionServingInferenceController,
@@ -513,6 +516,44 @@ def serving_entitlement_binding(checked_at: str, max_gpu_layers: int) -> dict[st
     }
 
 
+def retain_synthetic_serving_entitlement(kernel, context):
+    """Install a synthetic retained-owner snapshot for integration fixtures."""
+    if context.get("resource_entitlement_observation_id"):
+        return
+    binding = context.get("governed_inference_entitlement_binding")
+    if (not isinstance(binding, Mapping)
+            or binding.get("schema_version") !=
+                "sentientos.governed_local_model_serving_entitlement_binding:v2"):
+        return
+    body = {
+        "schema_version": (
+            "sentientos.governed_local_model_resource_entitlement_observation:v2"),
+        **{key: binding[key] for key in (
+            "allocation_id", "allocation_digest", "allocator_id", "resource_kind",
+            "policy_digest", "policy_epoch", "principal_binding_digest",
+            "remaining_call_entitlement")},
+        "entitlement_status": "current", "invalidation_reason_code": None,
+        "checked_at": str(binding["checked_at"]),
+    }
+    observation_digest = digest_payload(body)
+    observation = GovernedLocalModelResourceEntitlementObservation(
+        allocation_id=str(body["allocation_id"]),
+        allocation_digest=str(body["allocation_digest"]),
+        allocator_id=str(body["allocator_id"]),
+        resource_kind=str(body["resource_kind"]),
+        policy_digest=str(body["policy_digest"]),
+        policy_epoch=int(body["policy_epoch"]),
+        principal_binding_digest=str(body["principal_binding_digest"]),
+        remaining_call_entitlement=int(body["remaining_call_entitlement"]),
+        entitlement_status="current", invalidation_reason_code=None,
+        checked_at=str(body["checked_at"]),
+        observation_id="lmentitlement-" + observation_digest[:24],
+        observation_digest=observation_digest)
+    assert kernel._runtime_governor.observe_governed_local_model_resource_entitlement(
+        observation)
+    context["resource_entitlement_observation_id"] = observation.observation_id
+
+
 def default_serving_preflight_context_provider(
         kernel: ControlPlaneKernel, state_root, *, clock=None):
     def collector(collector_id, values):
@@ -542,10 +583,42 @@ def default_serving_preflight_context_provider(
         assert kernel.observe_host_resource_evaluation(evaluation) is True
         load_configuration = activation_state["load_configuration"]
         gpu_layers = load_configuration["n_gpu_layers"]
+        entitlement_checked_at = observation_clock()
+        entitlement_binding = serving_entitlement_binding(
+            entitlement_checked_at, gpu_layers)
+        entitlement_body = {
+            "schema_version": (
+                "sentientos.governed_local_model_resource_entitlement_observation:v2"),
+            **{key: entitlement_binding[key] for key in (
+                "allocation_id", "allocation_digest", "allocator_id", "resource_kind",
+                "policy_digest", "policy_epoch", "principal_binding_digest",
+                "remaining_call_entitlement")},
+            "entitlement_status": "current", "invalidation_reason_code": None,
+            "checked_at": entitlement_checked_at,
+        }
+        entitlement_digest = digest_payload(entitlement_body)
+        entitlement_observation = GovernedLocalModelResourceEntitlementObservation(
+            allocation_id=str(entitlement_body["allocation_id"]),
+            allocation_digest=str(entitlement_body["allocation_digest"]),
+            allocator_id=str(entitlement_body["allocator_id"]),
+            resource_kind=str(entitlement_body["resource_kind"]),
+            policy_digest=str(entitlement_body["policy_digest"]),
+            policy_epoch=int(entitlement_body["policy_epoch"]),
+            principal_binding_digest=str(entitlement_body[
+                "principal_binding_digest"]),
+            remaining_call_entitlement=int(entitlement_body[
+                "remaining_call_entitlement"]),
+            entitlement_status="current", invalidation_reason_code=None,
+            checked_at=str(entitlement_body["checked_at"]),
+            observation_id="lmentitlement-" + entitlement_digest[:24],
+            observation_digest=entitlement_digest)
+        assert kernel._runtime_governor.observe_governed_local_model_resource_entitlement(
+            entitlement_observation)
         return {
             "resource_governance_required": True,
-            "governed_inference_entitlement_binding": serving_entitlement_binding(
-                datetime.now(timezone.utc).isoformat(), gpu_layers),
+            "governed_inference_entitlement_binding": entitlement_binding,
+            "resource_entitlement_observation_id": (
+                entitlement_observation.observation_id),
             "purpose": "local_model_serving",
             "host_resource_observation_namespace": "local-chat-serving",
             "host_resource_observation_id": observation_id,
@@ -615,9 +688,14 @@ def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generat
                 context = dict(explicit_provider(correlation_id, activation_state))
                 if context.get("host_resource_observation_id"):
                     context.setdefault("resource_governance_required", True)
+                    retain_synthetic_serving_entitlement(kernel, context)
                     return context
                 preflight = dict(default_preflight(correlation_id, activation_state))
+                if ("governed_inference_entitlement_binding" in context
+                        and "resource_entitlement_observation_id" not in context):
+                    preflight.pop("resource_entitlement_observation_id", None)
                 preflight.update(context)
+                retain_synthetic_serving_entitlement(kernel, preflight)
                 return preflight
     model = Model(identity, on_generate)
     factory = model_factory(identity, model) if model_factory is not None else (lambda c, l: model)

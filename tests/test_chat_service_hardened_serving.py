@@ -16,6 +16,7 @@ from control_plane.records import AuthorizationRecord
 from control_plane.task_admission import AdmissionResponse
 from sentientos.canonical_memory import CanonicalMemoryStore
 from sentientos.chat_avatar_output import ChatAvatarOutputController
+from sentientos.control_plane_kernel import ControlPlaneKernel
 from sentientos.gaming_companion_core_runtime import WSLCoreAvatarOutputSession
 from sentientos.foreground_game_bridge import BridgeForegroundGameDetector
 from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator
@@ -165,6 +166,11 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     class AdmissionOwner:
         def observe_verified_game_performance(self, _observation): return True
         def observe_verified_game_workload(self, _observation): return True
+        def observe_governed_local_model_resource_entitlement(self, owner, observation):
+            assert isinstance(owner, ResourceOwner)
+            events.append(("entitlement_observation_retained",
+                observation.observation_id))
+            return True
 
     admission_owner = AdmissionOwner()
     bridge_runtime = CompanionBridgeLoopbackRuntime(
@@ -178,6 +184,9 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     monkeypatch.setattr(chat_service, "ProductionServingController", Serving)
     monkeypatch.setattr(chat_service, "ProductionServingInferenceController", InferenceBridge)
     class ResourceOwner:
+        def current_entitlement_observation(self):
+            return SimpleNamespace(observation_id="lmentitlement-fixture")
+
         def serving_admission_entitlement_binding(self):
             events.append("serving_entitlement_checked")
             return {"schema_version": "fixture", "allocation_id": "fixture-allocation"}
@@ -251,6 +260,8 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     assert serving_admission[3]["mode_source"] == (
         "foreground_observation_unavailable_conservative_gaming")
     assert "serving_entitlement_checked" in events
+    assert events.index(("entitlement_observation_retained",
+        "lmentitlement-fixture")) < events.index("serving_entitlement_checked")
     assert serving_admission[4] == {
         "schema_version": "fixture", "allocation_id": "fixture-allocation"}
     chat_service.close_production_chat()
@@ -317,6 +328,9 @@ def test_setup_failure_stops_resource_admission_before_serving_close(
             return {"configured_mode": "gaming", "effective_mode": "gaming"}
 
     class ResourceOwner:
+        def current_entitlement_observation(self):
+            return SimpleNamespace(observation_id="lmentitlement-fixture")
+
         def serving_admission_entitlement_binding(self):
             return {"schema_version": "fixture", "allocation_id": "fixture"}
 
@@ -343,13 +357,17 @@ def test_setup_failure_stops_resource_admission_before_serving_close(
     monkeypatch.setattr(
         "sentientos.production_chat_resource_provisioning.load_production_chat_resource_context_owner",
         lambda *_args: ResourceOwner())
+    kernel = ControlPlaneKernel()
+    monkeypatch.setattr(kernel, "observe_governed_local_model_resource_entitlement",
+        lambda _owner, _observation: True)
     monkeypatch.setattr(HostResourceRuntimeCoordinator, "run_cycle",
         lambda _owner, **_kwargs: None)
     chat_service.close_production_chat()
     with pytest.raises(RuntimeError, match="fixture_setup_failure"):
         chat_service.configure_production_chat(
             installation_identity="Install-1", serving_operation_id="serve-failure",
-            runtime_handoff_id="handoff-failure", resource_provisioning_id="fixture.v1")
+            runtime_handoff_id="handoff-failure", resource_provisioning_id="fixture.v1",
+            control_plane_kernel=kernel)
     assert events.index("resource_admission_closed") < events.index("serving_closed")
     assert events.index("serving_closed") < events.index("resource_custody_released")
 

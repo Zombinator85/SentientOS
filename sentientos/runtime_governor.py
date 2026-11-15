@@ -2983,6 +2983,7 @@ class RuntimeGovernor:
         resource_governance_required = (
             operation_kind == "model_serving"
             and payload.get("resource_governance_required") is True)
+        observation = entitlement_evidence
         if (resource_governance_required
                 and (not isinstance(serving_entitlement_binding, Mapping)
                     or serving_entitlement_binding.get("schema_version") != (
@@ -2995,6 +2996,59 @@ class RuntimeGovernor:
                 and not _valid_governed_serving_entitlement_binding(
                     serving_entitlement_binding)):
             serving_gpu_layer_cap_invalid = True
+        if resource_governance_required:
+            observation_checked_at = None
+            observation_age_seconds = None
+            remaining_entitlement: object = None
+            if isinstance(observation, Mapping):
+                remaining_entitlement = observation.get(
+                    "remaining_call_entitlement")
+                try:
+                    observation_checked_at = datetime.fromisoformat(str(
+                        observation.get("checked_at")).replace("Z", "+00:00"))
+                except (TypeError, ValueError):
+                    observation_checked_at = None
+                if (observation_checked_at is not None
+                        and observation_checked_at.tzinfo is not None
+                        and observation_checked_at.utcoffset() is not None):
+                    observation_age_seconds = (now - observation_checked_at
+                        .astimezone(timezone.utc)).total_seconds()
+            binding_fields = (
+                "allocation_id", "allocation_digest", "allocator_id",
+                "resource_kind", "policy_digest", "policy_epoch",
+                "principal_binding_digest", "remaining_call_entitlement")
+            observation_bound = (
+                isinstance(observation, Mapping)
+                and observation.get("entitlement_status") == "current"
+                and observation.get("invalidation_reason_code") is None
+                and isinstance(remaining_entitlement, int)
+                and not isinstance(remaining_entitlement, bool)
+                and remaining_entitlement > 0
+                and observation_age_seconds is not None
+                and 0 <= observation_age_seconds <= 15.0
+                and isinstance(serving_entitlement_binding, Mapping)
+                and all(serving_entitlement_binding.get(key) == observation.get(key)
+                    for key in binding_fields)
+                and payload.get("resource_entitlement_observation_id") ==
+                    observation.get("observation_id"))
+            if not observation_bound:
+                serving_gpu_layer_cap_invalid = True
+                serving_entitlement_freshness = {
+                    "status": "owner_observation_missing_or_mismatched",
+                    "observation_id": payload.get(
+                        "resource_entitlement_observation_id"),
+                }
+            elif (isinstance(observation, Mapping)
+                    and observation_age_seconds is not None):
+                serving_entitlement_freshness.update({
+                    "owner_observation_id": observation.get("observation_id"),
+                    "owner_observation_digest": observation.get(
+                        "observation_digest"),
+                    "owner_observation_status": observation.get(
+                        "entitlement_status"),
+                    "owner_observation_age_seconds": round(
+                        observation_age_seconds, 3),
+                })
         if operation_kind == "model_serving" and isinstance(
                 serving_entitlement_binding, Mapping):
             binding_schema = serving_entitlement_binding.get("schema_version")
@@ -3024,6 +3078,15 @@ class RuntimeGovernor:
                     "age_seconds": (round(entitlement_age_seconds, 3)
                         if entitlement_age_seconds is not None else None),
                     "max_age_seconds": HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS,
+                    **({"owner_observation_id": observation.get("observation_id"),
+                        "owner_observation_digest": observation.get(
+                            "observation_digest"),
+                        "owner_observation_status": observation.get(
+                            "entitlement_status"),
+                        "owner_observation_age_seconds": round(
+                            observation_age_seconds, 3)}
+                        if isinstance(observation, Mapping)
+                            and observation_age_seconds is not None else {}),
                 }
                 if not entitlement_fresh:
                     serving_gpu_layer_cap_invalid = True

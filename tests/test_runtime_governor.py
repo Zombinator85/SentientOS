@@ -10,6 +10,10 @@ import tempfile
 import pytest
 
 from sentientos.foreground_game_detection import ForegroundGameObservation
+from sentientos.local_model_authority import digest_payload
+from sentientos.production_chat_resource_context import (
+    GovernedLocalModelResourceEntitlementObservation,
+)
 from sentientos.runtime_governor import get_runtime_governor, reset_runtime_governor
 from sentientos.runtime_governor import RuntimeGovernor
 
@@ -1190,6 +1194,35 @@ def test_model_serving_enforces_owner_entitled_gpu_layer_ceiling(
         "checked_at": (datetime.now(timezone.utc)
             - timedelta(seconds=entitlement_age_seconds)).isoformat(),
     }
+    entitlement_body = {
+        "schema_version": (
+            "sentientos.governed_local_model_resource_entitlement_observation:v2"),
+        **{key: binding[key] for key in (
+            "allocation_id", "allocation_digest", "allocator_id", "resource_kind",
+            "policy_digest", "policy_epoch", "principal_binding_digest",
+            "remaining_call_entitlement")},
+        "entitlement_status": "current", "invalidation_reason_code": None,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
+    entitlement_observation_digest = digest_payload(entitlement_body)
+    entitlement_observation_id = (
+        "lmentitlement-" + entitlement_observation_digest[:24])
+    entitlement_observation = GovernedLocalModelResourceEntitlementObservation(
+        allocation_id=str(entitlement_body["allocation_id"]),
+        allocation_digest=str(entitlement_body["allocation_digest"]),
+        allocator_id=str(entitlement_body["allocator_id"]),
+        resource_kind=str(entitlement_body["resource_kind"]),
+        policy_digest=str(entitlement_body["policy_digest"]),
+        policy_epoch=int(entitlement_body["policy_epoch"]),
+        principal_binding_digest=str(entitlement_body["principal_binding_digest"]),
+        remaining_call_entitlement=int(entitlement_body[
+            "remaining_call_entitlement"]),
+        entitlement_status="current", invalidation_reason_code=None,
+        checked_at=str(entitlement_body["checked_at"]),
+        observation_id=entitlement_observation_id,
+        observation_digest=entitlement_observation_digest)
+    assert governor.observe_governed_local_model_resource_entitlement(
+        entitlement_observation)
     if entitlement_schema == "v1":
         binding["schema_version"] = (
             "sentientos.governed_local_model_serving_entitlement_binding:v1")
@@ -1218,10 +1251,32 @@ def test_model_serving_enforces_owner_entitled_gpu_layer_ceiling(
             "workload_mode": "normal", "effective_workload_mode": "normal",
             "workload_evidence": {"configured_mode": "normal"},
             "governed_inference_entitlement_binding": binding,
+            "resource_entitlement_observation_id": entitlement_observation_id,
         }, operation_kind="model_serving")
 
     assert decision.allowed is expected_allowed
     assert decision.reason == expected_reason
+    if expected_allowed:
+        retained_entitlement = decision.evidence_refs[
+            "resource_entitlement_evidence"]
+        assert retained_entitlement["observation_id"] == entitlement_observation_id
+        unretained = governor._admit_local_model_inference(
+            actor="deterministic_activated_model_serving_controller",
+            subject="local_model_chat", correlation_id=correlation_id,
+            metadata={
+                "purpose": "local_model_serving",
+                "resource_governance_required": True,
+                "host_resource_observation_namespace": "local-chat-serving",
+                "host_resource_observation_id": observation_id,
+                "model_execution_profile": profile,
+                "workload_mode": "normal", "effective_workload_mode": "normal",
+                "workload_evidence": {"configured_mode": "normal"},
+                "governed_inference_entitlement_binding": binding,
+                "resource_entitlement_observation_id": "lmentitlement-not-retained",
+            }, operation_kind="model_serving")
+        assert unretained.allowed is False
+        assert unretained.reason == (
+            "deferred_model_serving_resource_entitlement_invalid")
 
 
 @pytest.mark.parametrize("age_seconds,expected_status", [

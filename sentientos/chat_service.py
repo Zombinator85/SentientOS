@@ -3961,6 +3961,12 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                 ) -> Mapping[str, Any]:
             if resource_context_owner is None:
                 raise RuntimeError("production_resource_entitlement_owner_unavailable")
+            entitlement_observation = (
+                resource_context_owner.current_entitlement_observation())
+            if not serving_kernel.observe_governed_local_model_resource_entitlement(
+                    resource_context_owner, entitlement_observation):
+                raise RuntimeError(
+                    "production_resource_entitlement_observation_not_retained")
             inference_entitlement_binding = (
                 resource_context_owner.serving_admission_entitlement_binding())
             observation_id = "local-chat-serving-" + hashlib.sha256(
@@ -3991,6 +3997,8 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                 "effective_workload_mode": workload.get("effective_mode"),
                 "governed_inference_entitlement_binding": dict(
                     inference_entitlement_binding),
+                "resource_entitlement_observation_id": (
+                    entitlement_observation.observation_id),
                 "serving_workload_evidence": {key: workload.get(key) for key in (
                     "configured_mode", "mode_source", "observation_status",
                     "game_foreground", "game_process_running", "observed_at",
