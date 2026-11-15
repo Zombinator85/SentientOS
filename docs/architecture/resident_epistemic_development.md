@@ -157,9 +157,10 @@ and resident owner binding and fail-closed authority handling by
 That source test also rewrites a retained artifact and its local text digest;
 source-turn and receipt verification then keep the altered content out of the
 resident context. The end-to-end deterministic bridge test
-`tests/test_persistent_governed_conversation.py::test_verified_retained_memory_can_support_a_cited_resident_answer`
-shows that an explicitly retained preference can be selected for a later
-question, cited through `memory_record_ids`, and linked to the committed
+`tests/test_persistent_governed_conversation.py::test_verified_retained_memory_supports_cited_answer_after_service_reconstruction`
+reconstructs both the resident owner and conversation service over durable
+roots, then shows that an explicitly retained preference can be selected for
+a later question, cited through `memory_record_ids`, and linked to the committed
 observation. The citation parser rejects IDs outside the selected memory set.
 The conflict path is exercised by
 `tests/test_persistent_governed_conversation.py::test_conflicting_retained_preferences_reach_resident_and_prompt_clarification`:
