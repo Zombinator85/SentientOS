@@ -1032,11 +1032,20 @@ def test_gaming_host_pressure_deferral_does_not_debit_production_chat_allocation
             observed_at or now.isoformat(), "synthetic_test_fixture",
             values={"used_percent": 40.0})
 
+    def unavailable(collector_id, sensor):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "unavailable", observed_at or now.isoformat(),
+            "synthetic_test_fixture", warnings=(f"sensor_unavailable:{sensor}",))
+
     host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
         runtime_state_root=tmp_path / "host-resource",
         plan=build_observation_plan(specs=[
             HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1, cpu),
             HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2, memory),
+            HostObservationCollectorSpec("thermal_sensors", False,
+                ("linux", "unknown"), 3, unavailable("thermal_sensors", "thermal")),
+            HostObservationCollectorSpec("fan_pwm", False,
+                ("linux", "unknown"), 4, unavailable("fan_pwm", "fan_pwm")),
         ]), clock=lambda: now.isoformat())
     installation, artifacts = provisioning_inputs(tmp_path / "allocation", calls=2,
         current_time=now_text)
@@ -1084,8 +1093,23 @@ def test_gaming_host_pressure_deferral_does_not_debit_production_chat_allocation
         assert resource_evidence["status"] == "deferred_before_model_effect"
         assert resource_evidence["model_inference_performed"] is False
         assert resource_evidence["host_resource_observation"]["pressure_labels"] == [
-            "cpu_pressure"]
+            "cpu_pressure", "sensor_unavailable"]
         assert resource_evidence["host_resource_observation"]["no_effect_authority"] is True
+        observation = host_owner.latest_evaluation()
+        assert observation is not None
+        assert observation.pressure_report.pressure_labels == (
+            "cpu_pressure", "sensor_unavailable")
+        assert observation.policy_decision.status == (
+            "host_resource_policy_proposal_ready")
+        assert "sensor_gaps_do_not_authorize_fulfillment" in (
+            observation.policy_decision.warning_codes)
+        proposal_kinds = {receipt.proposal_kind
+            for receipt in observation.proposal_receipts}
+        assert "reduce_model_load_candidate" in proposal_kinds
+        assert "request_operator_review_candidate" in proposal_kinds
+        assert all(receipt.does_not_execute and receipt.does_not_mutate_host
+            and receipt.not_authorized_for_fulfillment
+            for receipt in observation.proposal_receipts)
     finally:
         custody.close()
         serving.close()
