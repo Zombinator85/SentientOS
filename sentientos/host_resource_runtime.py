@@ -513,7 +513,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                               verified_serving_operation_attempts: Sequence[Mapping[str, Any]] = (),
                                               verified_serving_operation_history: Sequence[Mapping[str, Any]] = (),
                                               verified_inference_admission_decisions: Sequence[Mapping[str, Any]] | None = None,
-                                              verified_resource_release_receipts: Sequence[Mapping[str, Any]] | None = None) -> list[dict[str, Any]]:
+                                              verified_resource_release_receipts: Sequence[Mapping[str, Any]] | None = None,
+                                              verified_game_resource_recovery_holds: Sequence[Mapping[str, Any]] | None = None,
+                                              game_resource_recovery_posture: str | None = None) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
 
     The projection carries exact ledger identities and invocation linkage. It
@@ -553,6 +555,27 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     if (verified_resource_release_receipts is not None
             and len(verified_resource_release_receipts) > 256):
         raise ValueError("resource_release_receipt_bound_exceeded")
+    recovery_postures = {"verified_no_recovery_holds",
+        "verified_pending_recovery", "verified_recovery_cleared"}
+    if (verified_game_resource_recovery_holds is not None
+            and len(verified_game_resource_recovery_holds) > 4096):
+        raise ValueError("game_resource_recovery_hold_bound_exceeded")
+    if ((verified_game_resource_recovery_holds is None
+            and game_resource_recovery_posture is not None)
+            or (verified_game_resource_recovery_holds is not None
+                and game_resource_recovery_posture not in recovery_postures)):
+        raise ValueError("game_resource_recovery_posture_invalid")
+    if (verified_game_resource_recovery_holds is not None
+            and ((game_resource_recovery_posture == "verified_no_recovery_holds"
+                    and verified_game_resource_recovery_holds)
+                or (game_resource_recovery_posture == "verified_pending_recovery"
+                    and not any(item.get("clearance") is None
+                        for item in verified_game_resource_recovery_holds))
+                or (game_resource_recovery_posture == "verified_recovery_cleared"
+                    and (not verified_game_resource_recovery_holds
+                        or any(item.get("clearance") is None
+                            for item in verified_game_resource_recovery_holds))))):
+        raise ValueError("game_resource_recovery_posture_mismatch")
     release_receipt_summaries: list[dict[str, Any]] = []
     release_lineage_findings: list[str] = []
     seen_release_receipt_ids: set[str] = set()
@@ -1947,6 +1970,14 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                    else "degraded" if release_lineage_findings
                    else "verified" if release_receipt_summaries
                    else "verified_no_release_receipts"),
+               "game_resource_recovery_hold_count": (
+                   0 if verified_game_resource_recovery_holds is None
+                   else len(verified_game_resource_recovery_holds)),
+               "game_resource_recovery_holds": tuple(
+                   dict(item) for item in (verified_game_resource_recovery_holds or ())[-16:]),
+               "game_resource_recovery_posture": (
+                   "not_requested" if verified_game_resource_recovery_holds is None
+                   else game_resource_recovery_posture),
                "inference_admission_decision_count": len(admission_by_receipt),
                "inference_admission_decision_posture": (
                    "not_requested" if verified_inference_admission_decisions is None
@@ -1980,7 +2011,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
              "schema_version": RESOURCE_CONSUMPTION_WORLD_STATE_SCHEMA,
              "subject_kind": "causal_resource_consumption",
              "subject_id": str(snapshot["ledger_digest"]), "stage": "observation",
-             "disposition": "recorded" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" else "degraded", "evidence_strength": "receipt_bound" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" else "incomplete",
+             "disposition": "recorded" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" and payload["game_resource_recovery_posture"] not in {"verified_pending_recovery", "degraded"} else "degraded", "evidence_strength": "receipt_bound" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" and payload["game_resource_recovery_posture"] not in {"verified_pending_recovery", "degraded"} else "incomplete",
              "effect_claimed": False, "effect_proven": False,
              # The ledger receipt's event time is historical custody. Do not
              # let a restart/reprojection timestamp make old consumption

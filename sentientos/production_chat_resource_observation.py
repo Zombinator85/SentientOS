@@ -7,6 +7,7 @@ ledger image; it never constructs an allocator or ledger writer.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -48,8 +49,12 @@ from .installation_state import (
     InstallationStateError, InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView,
 )
 from .local_model_production_serving import (
-    ProductionServingError, read_serving_operation_attempts, read_serving_operation_history,
+    GAME_RECOVERY_CLEARANCE_ROOT, GAME_RECOVERY_CLEARANCE_SCHEMA,
+    GAME_RECOVERY_HOLD_ROOT, GAME_RECOVERY_HOLD_SCHEMA, MAX_GAME_RECOVERY_HOLDS,
+    MAX_SERVING_OPERATION_ATTEMPT_BYTES, ProductionServingError,
+    read_serving_operation_attempts, read_serving_operation_history,
 )
+from .local_runtime_provisioning import semantic_digest
 from .local_model_authority import digest_payload
 from .production_chat_resource_provisioning import (
     _NAMES,
@@ -200,6 +205,8 @@ class ProductionChatResourceObservation:
     inference_admission_decision_posture: str = "unknown"
     verified_resource_release_receipts: tuple[Mapping[str, Any], ...] = ()
     resource_release_receipt_posture: str = "unknown"
+    game_resource_recovery_holds: tuple[Mapping[str, Any], ...] = ()
+    game_resource_recovery_posture: str = "unknown"
 
 
 class ProductionChatResourceObservationOwner:
@@ -356,6 +363,7 @@ class ProductionChatResourceObservationOwner:
         resource_release_receipts, resource_release_posture = (
             self._resource_release_receipts(serving_operation_history,
                 invocation_receipts))
+        recovery_holds, recovery_posture = self._game_resource_recovery_custody()
         return ProductionChatResourceObservation(
             self._handle.identity.value, self._provisioning_id,
             str(manifest["manifest_digest"]), ledger, invocation_receipts, receipt_posture,
@@ -364,7 +372,182 @@ class ProductionChatResourceObservationOwner:
             serving_attempts, serving_attempt_posture, serving_operation_history,
             predecessor_receipts, predecessor_receipt_posture,
             admission_witnesses, admission_posture,
-            resource_release_receipts, resource_release_posture)
+            resource_release_receipts, resource_release_posture,
+            recovery_holds, recovery_posture)
+
+    def _game_resource_recovery_custody(
+            self) -> tuple[tuple[Mapping[str, Any], ...], str]:
+        """Read durable game-priority recovery holds without granting control authority."""
+        try:
+            names = self._handle.list_regular_names(
+                GAME_RECOVERY_HOLD_ROOT, max_entries=MAX_GAME_RECOVERY_HOLDS)
+        except InstallationStateError as exc:
+            if exc.code == "state_directory_missing":
+                return (), "verified_no_recovery_holds"
+            raise ProductionChatResourceObservationError(
+                "game_resource_recovery_hold_custody_unavailable") from exc
+        holds: list[Mapping[str, Any]] = []
+        seen: set[str] = set()
+        for name in names:
+            if re.fullmatch(r"game-recovery-[0-9a-f]{32}\.json", name) is None:
+                raise ProductionChatResourceObservationError(
+                    "game_resource_recovery_hold_name_invalid")
+            try:
+                raw = self._handle.read_optional_regular_bounded(
+                    f"{GAME_RECOVERY_HOLD_ROOT}/{name}",
+                    max_bytes=MAX_SERVING_OPERATION_ATTEMPT_BYTES)
+                marker = json.loads(raw) if raw is not None else None
+            except (InstallationStateError, OSError, ValueError, UnicodeError) as exc:
+                raise ProductionChatResourceObservationError(
+                    "game_resource_recovery_hold_invalid") from exc
+            body = ({key: value for key, value in marker.items()
+                if key != "marker_semantic_digest"} if isinstance(marker, Mapping) else {})
+            hold_id = marker.get("hold_id") if isinstance(marker, Mapping) else None
+            release_ref = (marker.get("release_admission_decision_ref")
+                if isinstance(marker, Mapping) else None)
+            record = marker.get("release_admission_record") if isinstance(
+                marker, Mapping) else None
+            delegated = record.get("delegated_outcomes") if isinstance(record, Mapping) else None
+            governor = delegated.get("runtime_governor") if isinstance(delegated, Mapping) else None
+            evidence_refs = governor.get("evidence_refs") if isinstance(governor, Mapping) else None
+            evidence = (evidence_refs.get("resource_observation_evidence")
+                if isinstance(evidence_refs, Mapping) else None)
+            target = (evidence_refs.get("resource_release_target")
+                if isinstance(evidence_refs, Mapping) else None)
+            if (not isinstance(marker, Mapping)
+                    or set(marker) != {"schema_version", "hold_id",
+                        "release_admission_decision_ref", "release_admission_record",
+                        "serving_session_id", "model_identity_digest", "game_source_id",
+                        "game_generation_id", "game_pressure_observed_at",
+                        "marker_semantic_digest"}
+                    or marker.get("schema_version") != GAME_RECOVERY_HOLD_SCHEMA
+                    or not isinstance(hold_id, str)
+                    or name != f"game-recovery-{hold_id}.json"
+                    or not isinstance(release_ref, str)
+                    or not release_ref.startswith("kernel_decision:")
+                    or hold_id != hashlib.sha256(release_ref.encode("utf-8")).hexdigest()[:32]
+                    or not isinstance(marker.get("marker_semantic_digest"), str)
+                    or semantic_digest(body) != marker.get("marker_semantic_digest")
+                    or not isinstance(record, Mapping)
+                    or record.get("event_type") != "control_plane_decision"
+                    or record.get("final_disposition") != "allow"
+                    or record.get("admission_decision_ref") != release_ref
+                    or record.get("actor") != "production_chat_game_resource_governor"
+                    or record.get("action_kind") != "local_model_resource_release"
+                    or record.get("authority_class") != "local_model_resource_release"
+                    or record.get("target_subsystem") != "production_chat"
+                    or record.get("current_phase") != "runtime"
+                    or record.get("requested_phase") != "runtime"
+                    or not isinstance(evidence, Mapping)
+                    or evidence.get("status") != "current"
+                    or evidence.get("workload_mode") != "normal"
+                    or not isinstance(evidence.get("process_cpu_percent"), (int, float))
+                    or isinstance(evidence.get("process_cpu_percent"), bool)
+                    or evidence.get("process_cpu_percent", 0) < 100
+                    or evidence.get("game_performance_source_id") != marker.get("game_source_id")
+                    or evidence.get("game_performance_generation_id") != marker.get("game_generation_id")
+                    or evidence.get("game_performance_observed_at") != marker.get("game_pressure_observed_at")
+                    or not isinstance(target, Mapping)
+                    or target.get("schema_version") != (
+                        "sentientos.production_chat_resource_release_target:v1")
+                    or target.get("serving_session_id") != marker.get("serving_session_id")
+                    or target.get("model_identity_digest") != marker.get("model_identity_digest")
+                    or not isinstance(marker.get("serving_session_id"), str)
+                    or re.fullmatch(r"serving-session-[0-9a-f]{24}",
+                        str(marker.get("serving_session_id"))) is None
+                    or not isinstance(marker.get("model_identity_digest"), str)
+                    or re.fullmatch(r"[0-9a-f]{64}",
+                        str(marker.get("model_identity_digest"))) is None
+                    or not all(isinstance(marker.get(key), str) and marker.get(key)
+                        for key in ("game_source_id", "game_generation_id",
+                            "game_pressure_observed_at"))
+                    or not self._game_timestamp_is_aware(
+                        marker.get("game_pressure_observed_at"))):
+                raise ProductionChatResourceObservationError(
+                    "game_resource_recovery_hold_binding_invalid")
+            if hold_id in seen:
+                raise ProductionChatResourceObservationError(
+                    "game_resource_recovery_hold_collision")
+            seen.add(hold_id)
+            clearance_name = hold_id + ".json"
+            try:
+                clearance_raw = self._handle.read_optional_regular_bounded(
+                    f"{GAME_RECOVERY_CLEARANCE_ROOT}/{clearance_name}",
+                    max_bytes=MAX_SERVING_OPERATION_ATTEMPT_BYTES)
+                clearance = json.loads(clearance_raw) if clearance_raw is not None else None
+            except InstallationStateError as exc:
+                if exc.code in {"state_parent_missing", "state_directory_missing"}:
+                    clearance = None
+                else:
+                    raise ProductionChatResourceObservationError(
+                        "game_resource_recovery_clearance_invalid") from exc
+            except (OSError, ValueError, UnicodeError) as exc:
+                raise ProductionChatResourceObservationError(
+                    "game_resource_recovery_clearance_invalid") from exc
+            if clearance is not None:
+                clearance_body = {key: value for key, value in clearance.items()
+                    if key != "clearance_semantic_digest"} if isinstance(
+                        clearance, Mapping) else {}
+                if (not isinstance(clearance, Mapping)
+                        or set(clearance) != {"schema_version", "hold_id",
+                            "hold_semantic_digest", "game_source_id", "game_generation_id",
+                            "game_message_id", "game_observed_at", "game_foreground",
+                            "game_process_running", "clearance_semantic_digest"}
+                        or clearance.get("schema_version") != GAME_RECOVERY_CLEARANCE_SCHEMA
+                        or clearance.get("hold_id") != hold_id
+                        or clearance.get("hold_semantic_digest") != marker[
+                            "marker_semantic_digest"]
+                        or clearance.get("game_source_id") != marker.get("game_source_id")
+                        or clearance.get("game_generation_id") != marker.get("game_generation_id")
+                        or clearance.get("game_foreground") is not False
+                        or clearance.get("game_process_running") is not False
+                        or not isinstance(clearance.get("game_message_id"), str)
+                        or re.fullmatch(r"[0-9a-f]{64}", str(
+                            clearance.get("game_message_id"))) is None
+                        or not isinstance(clearance.get("clearance_semantic_digest"), str)
+                        or semantic_digest(clearance_body) != clearance.get(
+                            "clearance_semantic_digest")
+                        or not self._game_clearance_is_newer(
+                            clearance.get("game_observed_at"),
+                            marker.get("game_pressure_observed_at"))):
+                    raise ProductionChatResourceObservationError(
+                        "game_resource_recovery_clearance_binding_invalid")
+            holds.append({"hold_id": hold_id,
+                "hold_semantic_digest": marker["marker_semantic_digest"],
+                "release_admission_decision_ref": release_ref,
+                "release_admission_record": dict(record),
+                "serving_session_id": marker["serving_session_id"],
+                "model_identity_digest": marker["model_identity_digest"],
+                "game_source_id": marker["game_source_id"],
+                "game_generation_id": marker["game_generation_id"],
+                "game_pressure_observed_at": marker["game_pressure_observed_at"],
+                "clearance": dict(clearance) if isinstance(clearance, Mapping) else None,
+                "posture": "cleared_by_matching_game_exit_evidence"
+                    if clearance is not None else "pending_fresh_game_exit_evidence"})
+        holds.sort(key=lambda item: str(item.get("hold_id", "")))
+        posture = ("verified_pending_recovery" if any(
+            item.get("clearance") is None for item in holds) else
+            "verified_recovery_cleared" if holds else "verified_no_recovery_holds")
+        return tuple(holds), posture
+
+    @staticmethod
+    def _game_timestamp_is_aware(value: object) -> bool:
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return False
+        return parsed.tzinfo is not None and parsed.utcoffset() is not None
+
+    @staticmethod
+    def _game_clearance_is_newer(clearance_at: object, pressure_at: object) -> bool:
+        try:
+            cleared = datetime.fromisoformat(str(clearance_at).replace("Z", "+00:00"))
+            pressure = datetime.fromisoformat(str(pressure_at).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return False
+        return (cleared.tzinfo is not None and cleared.utcoffset() is not None
+            and pressure.tzinfo is not None and pressure.utcoffset() is not None
+            and cleared.astimezone(timezone.utc) > pressure.astimezone(timezone.utc))
 
     def _resource_release_receipts(
             self, serving_operation_history: tuple[Mapping[str, Any], ...],

@@ -22,6 +22,104 @@ from tests.test_production_chat_resource_provisioning_bundle_producer import inp
 pytestmark = pytest.mark.no_legacy_skip
 
 
+def test_read_only_observer_exposes_digest_bound_game_recovery_hold_and_clearance(
+        tmp_path: Path) -> None:
+    from sentientos.local_runtime_provisioning import semantic_digest
+
+    handle, values = inputs(tmp_path, calls=1)
+    produce_production_chat_resource_provisioning_bundle(handle, "recovery", **values)
+    identity = InstallationIdentity.parse("production")
+    registry = InstallationStateRegistry(tmp_path / "state", _test_only=True)
+    observer = ProductionChatResourceObservationOwner(
+        registry.open_read_only(identity), "recovery")
+    release_ref = "kernel_decision:synthetic-game-release"
+    hold_id = hashlib.sha256(release_ref.encode()).hexdigest()[:32]
+    pressure_at = "2026-11-15T10:00:00+00:00"
+    evidence_refs = {
+        "resource_observation_evidence": {
+            "status": "current", "workload_mode": "normal",
+            "process_cpu_percent": 100.0,
+            "game_performance_source_id": "game-source",
+            "game_performance_generation_id": "generation-4",
+            "game_performance_observed_at": pressure_at},
+        "resource_release_target": {
+            "schema_version": "sentientos.production_chat_resource_release_target:v1",
+            "serving_session_id": "serving-session-" + "a" * 24,
+            "model_identity_digest": "b" * 64},
+    }
+    admission_record = {
+        "event_type": "control_plane_decision", "final_disposition": "allow",
+        "admission_decision_ref": release_ref,
+        "actor": "production_chat_game_resource_governor",
+        "action_kind": "local_model_resource_release",
+        "authority_class": "local_model_resource_release",
+        "target_subsystem": "production_chat", "current_phase": "runtime",
+        "requested_phase": "runtime",
+        "delegated_outcomes": {"runtime_governor": {"evidence_refs": evidence_refs}},
+    }
+    hold = {
+        "schema_version": "sentientos.game_resource_recovery_hold:v1",
+        "hold_id": hold_id, "release_admission_decision_ref": release_ref,
+        "release_admission_record": admission_record,
+        "serving_session_id": "serving-session-" + "a" * 24,
+        "model_identity_digest": "b" * 64, "game_source_id": "game-source",
+        "game_generation_id": "generation-4", "game_pressure_observed_at": pressure_at,
+    }
+    hold["marker_semantic_digest"] = semantic_digest(hold)
+    hold_root = "local-model/serving/resource-recovery-holds"
+    handle.ensure_directory(handle.fixed_object(hold_root))
+    handle.durable_create(handle.fixed_object(f"{hold_root}/game-recovery-{hold_id}.json"),
+        (json.dumps(hold, sort_keys=True, separators=(",", ":")) + "\n").encode())
+
+    pending = observer.observe()
+    assert pending.game_resource_recovery_posture == "verified_pending_recovery"
+    assert pending.game_resource_recovery_holds[0]["hold_id"] == hold_id
+    assert pending.game_resource_recovery_holds[0]["release_admission_decision_ref"] == release_ref
+    assert pending.game_resource_recovery_holds[0]["posture"] == (
+        "pending_fresh_game_exit_evidence")
+    from sentientos.host_resource_runtime import resource_consumption_world_state_records
+    pending_runtime = resource_consumption_world_state_records(
+        ledger=pending.ledger,
+        verified_game_resource_recovery_holds=pending.game_resource_recovery_holds,
+        game_resource_recovery_posture=pending.game_resource_recovery_posture)[0]
+    assert pending_runtime["payload"]["game_resource_recovery_posture"] == (
+        "verified_pending_recovery")
+    assert pending_runtime["payload"]["game_resource_recovery_holds"][0][
+        "release_admission_decision_ref"] == release_ref
+    assert pending_runtime["disposition"] == "degraded"
+
+    clearance = {
+        "schema_version": "sentientos.game_resource_recovery_clearance:v1",
+        "hold_id": hold_id, "hold_semantic_digest": hold["marker_semantic_digest"],
+        "game_source_id": "game-source", "game_generation_id": "generation-4",
+        "game_message_id": "c" * 64, "game_observed_at": "2026-11-15T10:01:00+00:00",
+        "game_foreground": False, "game_process_running": False,
+    }
+    clearance["clearance_semantic_digest"] = semantic_digest(clearance)
+    clearance_root = "local-model/serving/resource-recovery-clearances"
+    handle.ensure_directory(handle.fixed_object(clearance_root))
+    clearance_path = handle.fixed_object(f"{clearance_root}/{hold_id}.json")
+    handle.durable_create(clearance_path,
+        (json.dumps(clearance, sort_keys=True, separators=(",", ":")) + "\n").encode())
+    cleared = observer.observe()
+    assert cleared.game_resource_recovery_posture == "verified_recovery_cleared"
+    assert cleared.game_resource_recovery_holds[0]["posture"] == (
+        "cleared_by_matching_game_exit_evidence")
+    cleared_runtime = resource_consumption_world_state_records(
+        ledger=cleared.ledger,
+        verified_game_resource_recovery_holds=cleared.game_resource_recovery_holds,
+        game_resource_recovery_posture=cleared.game_resource_recovery_posture)[0]
+    assert cleared_runtime["payload"]["game_resource_recovery_posture"] == (
+        "verified_recovery_cleared")
+    assert cleared_runtime["disposition"] == "recorded"
+
+    clearance["game_generation_id"] = "wrong-generation"
+    clearance_path.path.write_text(json.dumps(clearance), encoding="utf-8")
+    with pytest.raises(ProductionChatResourceObservationError,
+            match="game_resource_recovery_clearance_binding_invalid"):
+        observer.observe()
+
+
 def test_legacy_entitlement_release_observation_remains_exhaustion_only() -> None:
     from sentientos.host_resource_runtime import (
         _resource_entitlement_observation_shape_valid as host_shape_valid,
