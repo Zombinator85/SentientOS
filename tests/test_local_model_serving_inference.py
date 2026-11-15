@@ -859,6 +859,111 @@ def test_automatic_game_detection_accelerates_for_gpu_resident_model(
     serving.close()
 
 
+def test_idle_scheduler_releases_gpu_residency_after_automatic_game_arrives(
+        monkeypatch, tmp_path):
+    import asyncio
+    from types import SimpleNamespace
+    from sentientos import chat_service
+
+    now = datetime.now(timezone.utc)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "kernel-decisions.jsonl")
+
+    class ToggleGamePresence:
+        active = False
+        message_id = "a" * 64
+
+        def observe(self, _names):
+            provenance = {"message_id": self.message_id,
+                "source_id": "windows-edge", "session_id": "game-session",
+                "generation_id": "game-generation", "sequence": 1,
+                "envelope_created_at": now.isoformat()}
+            process_digest = hashlib.sha256(b"examplegame.exe").hexdigest()
+            return ForegroundGameObservation(
+                "available", self.active, process_digest, now.isoformat(),
+                game_process_running=self.active,
+                running_process_name_digests=(
+                    (process_digest,) if self.active else ()),
+                transport_provenance=provenance)
+
+    detector = ToggleGamePresence()
+
+    def collector(collector_id, values):
+        return lambda *, observed_at=None: HostCollectorResult(
+            collector_id, "available", observed_at or now.isoformat(),
+            "synthetic_test_fixture", values=values)
+
+    host_owner = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "host-resource",
+        plan=build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                collector("cpu", {"utilization_percent": 20.0})),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                collector("memory", {"used_percent": 40.0})),
+            HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 3,
+                collector("nvidia_gpu", {"device_count": 1, "devices": [{
+                    "index": 0, "gpu_utilization_percent": 10.0,
+                    "vram_utilization_percent": 20.0}]})),
+        ]), clock=lambda: now.isoformat())
+    bridge, serving, session, model, _, _ = setup(monkeypatch, tmp_path,
+        kernel_override=kernel, foreground_game_detector=detector,
+        host_resource_observation_owner=host_owner, gpu_layers=8)
+    bridge.set_workload_mode("automatic", ["ExampleGame.exe"])
+    first_reconciliation = threading.Event()
+    release_completed = threading.Event()
+    reconciliations = []
+
+    def reconcile():
+        result = bridge.reconcile_workload_state()
+        reconciliations.append(result)
+        if len(reconciliations) == 1:
+            first_reconciliation.set()
+        if result.get("status") == "worker_closed":
+            release_completed.set()
+        return result
+
+    composition = chat_service.ProductionChatComposition(SimpleNamespace(
+        reconcile_workload_state=reconcile,
+        resource_reconciliation_interval_seconds=(
+            bridge.resource_reconciliation_interval_seconds),
+        set_resource_reconciliation_wakeup=bridge.set_resource_reconciliation_wakeup,
+        close_outputs=lambda: None), serving)
+    previous_composition = chat_service._PRODUCTION_COMPOSITION
+    previous_task = chat_service._RESOURCE_RECONCILIATION_TASK
+
+    async def run_scheduler():
+        await chat_service._startup_event()
+        try:
+            if not await asyncio.to_thread(first_reconciliation.wait, 3):
+                raise AssertionError("initial idle reconciliation did not run")
+            detector.active = True
+            detector.message_id = "b" * 64
+            assert kernel.observe_verified_game_workload(detector.observe(
+                ("ExampleGame.exe",)))
+            if not await asyncio.to_thread(release_completed.wait, 3):
+                raise AssertionError(("automatic game polling did not release GPU "
+                    f"residency within its accelerated cadence: {reconciliations}"))
+        finally:
+            await chat_service._shutdown_event()
+
+    chat_service._PRODUCTION_COMPOSITION = composition
+    chat_service._RESOURCE_RECONCILIATION_TASK = None
+    try:
+        asyncio.run(run_scheduler())
+    finally:
+        chat_service._PRODUCTION_COMPOSITION = previous_composition
+        chat_service._RESOURCE_RECONCILIATION_TASK = previous_task
+
+    assert bridge.resource_reconciliation_interval_seconds() == 5.0
+    assert model.closed is True
+    assert serving.current_session() is None
+    assert host_owner.collector_call_count >= 2
+    serving.close()
+
+
 @pytest.mark.parametrize(("mode", "expected_status", "expected_calls"), [
     ("normal", "deferred", 0),
     ("gaming", "deferred", 0),
