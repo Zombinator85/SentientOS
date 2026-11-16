@@ -73,6 +73,31 @@ def test_resident_context_ranks_rare_query_anchor_above_common_recent_term() -> 
     assert sum(len(str(item["text"])) for item in selected) <= 4000
 
 
+def test_resident_context_keeps_recent_antecedent_for_anaphoric_followup() -> None:
+    def turn(turn_id: str, role: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": role, "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}),
+            "linkage": {}}
+
+    turns = [turn(f"old-{index}", "user",
+        "We can revisit this tomorrow. " + "tomorrow planning note " * 45)
+        for index in range(20)]
+    turns.extend((
+        turn("antecedent-user", "user",
+            "The west sensor is overheating and reads ninety degrees."),
+        turn("antecedent-assistant", "assistant",
+            "It reached ninety degrees during the calibration run."),
+    ))
+
+    selected = _select_resident_conversation_context_turns(
+        tuple(turns), question="How should I handle it tomorrow?")
+
+    selected_ids = [item["turn_id"] for item in selected]
+    assert selected_ids[-2:] == ["antecedent-user", "antecedent-assistant"]
+    assert len(selected_ids) <= 16
+    assert sum(len(str(item["text"])) for item in selected) <= 4000
+
+
 class Identity:
     def to_dict(self):
         return {"model_id": "commissioned-local", "route_id": "route-a", "posture": "production"}

@@ -79,6 +79,9 @@ LOGGER = logging.getLogger(__name__)
 MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES = 16
 MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS = 16
 MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS = 4000
+RESIDENT_CONTEXT_ANAPHORA_TERMS = frozenset((
+    "it", "its", "this", "that", "they", "them", "these", "those",
+    "there", "same", "former", "latter"))
 
 
 def _select_resident_conversation_context_turns(
@@ -106,6 +109,8 @@ def _select_resident_conversation_context_turns(
     costs = [context_cost(turn) for turn in candidates]
 
     query_terms = transcript_recall_terms(question)
+    question_tokens = set(re.findall(r"[a-z0-9]+", question.casefold()))
+    anaphoric = bool(question_tokens & RESIDENT_CONTEXT_ANAPHORA_TERMS)
     ranked: list[tuple[float, int]] = []
     if query_terms:
         turn_terms = [transcript_recall_terms(str(turn["text"]))
@@ -124,8 +129,11 @@ def _select_resident_conversation_context_turns(
     else:
         selection_order = list(reversed(range(len(candidates))))
 
-    selected_indexes: set[int] = set()
-    used = 0
+    selected_indexes = (set(range(max(0, len(candidates) - 2), len(candidates)))
+        if anaphoric else set())
+    used = sum(costs[index] for index in selected_indexes)
+    selection_order = [index for index in selection_order
+        if index not in selected_indexes]
     for index in selection_order:
         if len(selected_indexes) >= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:
             break
