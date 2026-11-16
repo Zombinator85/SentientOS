@@ -3332,15 +3332,27 @@ def _validated_historical_citation_context(value: Mapping[str, Any] | None, *,
     """Bind transient transcript excerpts to citations in the selected history."""
     if value is None:
         return None
-    expected_fields = {"schema_version", "turns", "historical_only",
+    base_fields = {"schema_version", "turns", "historical_only",
         "current_truth", "authority", "mutation_performed", "selection_digest"}
+    schema_version = value.get("schema_version")
+    expected_fields = (base_fields | {"epistemic_state_citation_ids"}
+        if schema_version == "sentientos.historical_cited_conversation_context:v2"
+        else base_fields)
     semantic = {key: item for key, item in value.items()
         if key != "selection_digest"}
     turns = value.get("turns")
+    aggregate_state_ids = value.get("epistemic_state_citation_ids", [])
     if (set(value) != expected_fields
-            or value.get("schema_version")
-                != "sentientos.historical_cited_conversation_context:v1"
+            or schema_version not in {
+                "sentientos.historical_cited_conversation_context:v1",
+                "sentientos.historical_cited_conversation_context:v2"}
             or not isinstance(turns, list) or not turns or len(turns) > 16
+            or not isinstance(aggregate_state_ids, list)
+            or len(aggregate_state_ids) > 64
+            or any(not isinstance(state_id, str)
+                or re.fullmatch(r"epistemic-state:[0-9a-f]{24}", state_id) is None
+                for state_id in aggregate_state_ids)
+            or len(set(aggregate_state_ids)) != len(aggregate_state_ids)
             or value.get("historical_only") is not True
             or value.get("current_truth") is not False
             or value.get("authority") is not False
@@ -3380,13 +3392,25 @@ def _validated_historical_citation_context(value: Mapping[str, Any] | None, *,
         if isinstance(conversation_context, Mapping) else set())
     used_chars = 0
     seen: set[tuple[str, str, str]] = set()
+    row_state_ids: list[str] = []
     for row in turns:
         row_fields = {"feedback_record_id", "feedback_record_digest",
             "feedback_fact_id", "feedback_assertion_digest", "session_id",
             "session_snapshot_digest", "turn_id", "role", "text",
             "text_digest", "linkage_digest"}
+        if schema_version == "sentientos.historical_cited_conversation_context:v2":
+            row_fields.add("epistemic_state_citation_ids")
         if not isinstance(row, Mapping) or set(row) != row_fields:
             return None
+        cited_state_ids = row.get("epistemic_state_citation_ids", [])
+        if (not isinstance(cited_state_ids, list) or len(cited_state_ids) > 16
+                or any(not isinstance(state_id, str)
+                    or re.fullmatch(r"epistemic-state:[0-9a-f]{24}", state_id) is None
+                    for state_id in cited_state_ids)
+                or len(set(cited_state_ids)) != len(cited_state_ids)
+                or (cited_state_ids and row.get("role") != "assistant")):
+            return None
+        row_state_ids.extend(cited_state_ids)
         session_id, turn_id, text, text_digest = (row.get("session_id"),
             row.get("turn_id"), row.get("text"), row.get("text_digest"))
         feedback_link = (row.get("feedback_record_id"),
@@ -3418,6 +3442,9 @@ def _validated_historical_citation_context(value: Mapping[str, Any] | None, *,
         if used_chars > 4000 or identity in seen:
             return None
         seen.add(identity)
+    if (schema_version == "sentientos.historical_cited_conversation_context:v2"
+            and list(dict.fromkeys(row_state_ids)) != aggregate_state_ids):
+        return None
     return {**semantic, "selection_digest": value["selection_digest"]}
 
 
