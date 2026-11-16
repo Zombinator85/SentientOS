@@ -917,6 +917,7 @@ class DevelopmentalCycleRequest(BaseModel):
     operator_confirmed: bool = False
     avatar_nod_confirmed: bool = False
     operator_feedback: str | None = None
+    correction_target_turn_id: str | None = None
 
 
 class ChatRequest(BaseModel):
@@ -1060,6 +1061,22 @@ def _saved_transcript_response_diagnostics(
     saved_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
     result["saved_transcript_text_sha256"] = saved_digest
     if isinstance(linkage, Mapping):
+        citation_ids = linkage.get("cognition_conversation_turn_citation_ids", [])
+        citation_digests = linkage.get(
+            "cognition_conversation_turn_citation_digests", [])
+        if (isinstance(citation_ids, list)
+                and isinstance(citation_digests, list)
+                and len(citation_ids) == len(citation_digests) <= 16
+                and all(isinstance(turn_id, str)
+                    and re.fullmatch(r"turn-[0-9a-f]{24}", turn_id) is not None
+                    for turn_id in citation_ids)
+                and len(set(citation_ids)) == len(citation_ids)
+                and all(isinstance(digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", digest) is not None
+                    for digest in citation_digests)):
+            result["conversation_citations"] = [
+                {"turn_id": turn_id, "text_digest": digest}
+                for turn_id, digest in zip(citation_ids, citation_digests)]
         result["developmental_history_intervention_available"] = (
             linkage.get("response_origin") == "resident_developmental_cognition"
             and isinstance(linkage.get("cognition_observation_id"), str)
@@ -1311,6 +1328,7 @@ class PersistentConversationService:
     def run_developmental_cycle(self, *, session_id: str,
             assistant_turn_id: str, request_id: str,
             operator_feedback: str | None = None,
+            correction_target_turn_id: str | None = None,
             avatar_nod_confirmed: bool = False) -> dict[str, Any]:
         """Capture fresh local evidence and invoke the existing governed writeback owner."""
         if (not isinstance(session_id, str) or not session_id
@@ -1325,6 +1343,15 @@ class PersistentConversationService:
             raise ChatRequestStateError("developmental_cycle_path_unavailable")
         if type(avatar_nod_confirmed) is not bool:
             raise ChatRequestStateError("developmental_cycle_avatar_confirmation_invalid")
+        if (correction_target_turn_id is not None
+                and (not isinstance(correction_target_turn_id, str)
+                    or re.fullmatch(r"turn-[0-9a-f]{24}",
+                        correction_target_turn_id) is None)):
+            raise ChatRequestStateError(
+                "developmental_cycle_correction_target_invalid")
+        if correction_target_turn_id is not None and operator_feedback is None:
+            raise ChatRequestStateError(
+                "developmental_cycle_correction_target_requires_feedback")
         if not self.developmental_cycle_available():
             raise CognitionWorkloadUnavailable()
         cognition_available = getattr(self._inference, "cognition_available", None)
@@ -1358,6 +1385,11 @@ class PersistentConversationService:
                     request_id=cognition_request_id) is not True):
                 raise ChatRequestStateError(
                     "developmental_cycle_prior_response_unverified")
+            if (correction_target_turn_id is not None
+                    and correction_target_turn_id not in linkage.get(
+                        "cognition_conversation_turn_citation_ids", [])):
+                raise ChatRequestStateError(
+                    "developmental_cycle_correction_target_not_cited")
             feedback_record = None
             source_capture_digest: str | None = None
             feedback_observed_at = datetime.now(timezone.utc).isoformat().replace(
@@ -1470,6 +1502,10 @@ class PersistentConversationService:
                 if not citation_lineage_valid:
                     raise ChatRequestStateError(
                         "developmental_cycle_conversation_citation_lineage_invalid")
+                if (correction_target_turn_id is not None
+                        and correction_target_turn_id not in citation_ids):
+                    raise ChatRequestStateError(
+                        "developmental_cycle_correction_target_not_cited")
                 feedback_record = make_operator_feedback_record(
                     operator_feedback, request_id=request_id,
                     assistant_turn_id=assistant_turn_id,
@@ -1479,7 +1515,8 @@ class PersistentConversationService:
                     observed_at=feedback_observed_at,
                     conversation_citation_ids=citation_ids,
                     conversation_citation_digests=citation_digests,
-                    conversation_session_id=session_id)
+                    conversation_session_id=session_id,
+                    correction_target_turn_id=correction_target_turn_id)
             cycle_kwargs: dict[str, Any] = {
                 "tick_id": tick_id, "screen_observation": observation,
                 "operator_feedback": feedback_record,
@@ -4832,6 +4869,7 @@ async def developmental_cycle_endpoint(session_id: str,
             session_id=session_id, assistant_turn_id=request.assistant_turn_id,
             request_id=request.request_id,
             operator_feedback=request.operator_feedback,
+            correction_target_turn_id=request.correction_target_turn_id,
             avatar_nod_confirmed=request.avatar_nod_confirmed)
     except CognitionWorkloadUnavailable as exc:
         raise HTTPException(status_code=409,
@@ -6170,7 +6208,10 @@ async def root_page() -> HTMLResponse:
                                     cycleButton.addEventListener('click', () =>
                                         runDevelopmentalCycle(turn.turn_id, cycleButton, entry,
                                             turn.response_diagnostics.operator_feedback_available
-                                                === true));
+                                                === true,
+                                            Array.isArray(turn.response_diagnostics.conversation_citations)
+                                                ? turn.response_diagnostics.conversation_citations
+                                                : [], data.turns));
                                     entry.appendChild(cycleButton);
                                 }
                             }
@@ -6256,8 +6297,9 @@ async def root_page() -> HTMLResponse:
 
 
                 async function runDevelopmentalCycle(assistantTurnId, button, entry,
-                        feedbackAvailable) {
+                        feedbackAvailable, conversationCitations, transcriptTurns) {
                     let feedback = null;
+                    let correctionTargetTurnId = null;
                     if (feedbackAvailable) {
                         feedback = window.prompt(
                             'Optional: enter your correction or independently noticed detail. It will be stored as an unverified operator report, separate from the screen capture, and may be retained if the governed owner selects it. Leave blank to run without a correction.',
@@ -6266,6 +6308,36 @@ async def root_page() -> HTMLResponse:
                         if (feedback.length > 800) {
                             window.alert('Keep the operator report under 800 characters.');
                             return;
+                        }
+                        if (feedback.trim()) {
+                            const citedTurns = conversationCitations.slice(0, 16)
+                                .map((citation) => ({
+                                    citation,
+                                    turn: transcriptTurns.find((candidate) =>
+                                        candidate.turn_id === citation.turn_id),
+                                }))
+                                .filter((item) => item.turn
+                                    && typeof item.turn.text === 'string');
+                            if (citedTurns.length) {
+                                const choices = citedTurns.map((item, index) =>
+                                    (index + 1) + '. '
+                                    + (item.turn.role === 'user' ? 'You: ' : 'SentientOS: ')
+                                    + item.turn.text.slice(0, 180)).join('\n');
+                                const selected = window.prompt(
+                                    'If this report corrects one cited turn, enter its number. Enter 0 for a general observation.\n\n'
+                                        + choices, '0');
+                                if (selected === null) return;
+                                const choice = Number.parseInt(selected.trim(), 10);
+                                if (!Number.isInteger(choice) || choice < 0
+                                        || choice > citedTurns.length) {
+                                    window.alert('Choose 0 or one of the listed turn numbers.');
+                                    return;
+                                }
+                                if (choice > 0) {
+                                    correctionTargetTurnId = citedTurns[choice - 1]
+                                        .citation.turn_id;
+                                }
+                            }
                         }
                     }
                     if (!window.confirm('Capture one fresh, consented observation from the allowlisted foreground application and run the existing resident cognition tick? The screen evidence and your optional unverified report may be retained through governed developmental writeback. This can make local model inference calls. Raw screen frames are discarded. No avatar motion is sent unless you approve it separately next.')) return;
@@ -6306,6 +6378,7 @@ async def root_page() -> HTMLResponse:
                                     avatar_nod_confirmed: avatarNodConfirmed,
                                     operator_feedback: (typeof feedback === 'string'
                                         ? feedback.trim() || null : null),
+                                    correction_target_turn_id: correctionTargetTurnId,
                                 }),
                             });
                         const data = await response.json().catch(() => ({}));
