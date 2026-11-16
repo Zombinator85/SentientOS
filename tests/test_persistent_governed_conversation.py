@@ -1807,6 +1807,62 @@ def test_explicit_memory_correction_changes_personalization_and_preserves_histor
         "memory_id"] == old_memory_id
 
 
+def test_corrected_memory_changes_later_response_across_sessions(
+        tmp_path: Path) -> None:
+    class MemoryApplyingInvoker(FakeInvoker):
+        prompts: list[str]
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.prompts = []
+
+        def invoke(self, request):
+            self.prompts.append(request.prompt)
+            corrected = 'MEMORY_DATA: "Keep responses spare and direct."' in request.prompt
+            output = ("I will keep it spare and direct." if corrected
+                else "I will use an expansive, detailed style.")
+            return SimpleNamespace(status="admitted_completed", output_text=output,
+                output_digest=chat_service.digest_payload({"output": output}),
+                output_truncated=False,
+                request={"request_id": request.request_id,
+                    "active_model_identity": request.active_model_identity},
+                receipt_id="fixture-receipt-" + request.request_id,
+                receipt_digest="fixture-digest-" + request.request_id)
+
+    # Construct both stores with their required private roots already present.
+    for child in ("sessions", "memory"):
+        path = tmp_path / child
+        path.mkdir(mode=0o700)
+        os.chmod(path, 0o700)
+    invoker = MemoryApplyingInvoker()
+    app = service(tmp_path, invoker)
+    query = "How should I write expansive detailed replies?"
+
+    baseline_session = app.create_session()
+    baseline = app.chat(query, session_id=baseline_session)
+    retention_session = app.create_session()
+    app.chat("I prefer expansive, detailed replies.", session_id=retention_session,
+        request_id="retain-expansive-style", retain=True)
+    old_turn = next(turn for turn in app.sessions.load(retention_session)["turns"]
+        if turn.get("linkage", {}).get("client_request_id_digest")
+            == chat_service.digest_payload({"client_request_id": "retain-expansive-style"}))
+    old_memory_id = old_turn["retention_receipt"]["memory_id"]
+    app.chat("Keep responses spare and direct.", session_id=retention_session,
+        request_id="correct-expansive-style", retain=True,
+        corrects_memory_ids=(old_memory_id,))
+
+    later_session = app.create_session()
+    later = app.chat(query, session_id=later_session)
+
+    assert baseline.response == "I will use an expansive, detailed style."
+    assert later.response == "I will keep it spare and direct."
+    assert later.response != baseline.response
+    later_prompt = invoker.prompts[-1]
+    assert 'MEMORY_DATA: "Keep responses spare and direct."' in later_prompt
+    assert 'MEMORY_DATA: "I prefer expansive, detailed replies."' not in later_prompt
+    assert "I prefer expansive, detailed replies." not in later_prompt
+
+
 def test_memory_correction_requires_verified_target_and_explicit_retention(
         tmp_path: Path) -> None:
     app = service(tmp_path)
