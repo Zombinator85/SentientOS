@@ -279,8 +279,11 @@ class FakeInvoker:
                         "record_ids", [])
             decision.setdefault("memory_record_ids", [])
             decision.setdefault("self_model_claim_ids", [])
-            decision.setdefault("epistemic_state_ids",
-                request.upstream_evidence.get("epistemic_state_ids", []))
+            prompt_context = json.loads(request.prompt)
+            prompt_epistemic = prompt_context.get("prior_epistemic_state") or {}
+            decision.setdefault("epistemic_state_ids", [
+                packet["state"]["state_id"] for packet in
+                prompt_epistemic.get("semantic_packets", ())])
             if "conversation_turn_ids" in request.structured_output_schema.get(
                     "required", ()):
                 decision.setdefault("conversation_turn_ids", [])
@@ -6988,6 +6991,8 @@ def test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget(
         irrelevant_context["prior_epistemic_state"]["semantic_packets"]]
     assert irrelevant_ids == baseline_ids
     assert prior["omitted_packets_digest"] == metadata["epistemic_omitted_packets_digest"]
+    assert cognition_module._delivered_epistemic_state_ids(context, projection) == {
+        delivered["state"]["state_id"]}
 
 
 def test_epistemic_budget_selection_prefers_question_relevant_complete_packets(

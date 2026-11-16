@@ -58,9 +58,10 @@ The bounded mutation controller implements two independent transactions. An expl
 
 Resident cognition receives four separately typed channels: current World-State evidence, prior self-model, prior epistemic state, and developmental history. The epistemic projection binds proposition/state identities, generations, and evidence-set digests. Before inference, the owner verifies custody and captures the exact immutable update/state inventory as an epistemic epoch; only paired states in that capture are eligible. Update ticks order generations inside that epoch, while the daemon's string tick is never parsed, hashed, or treated as epistemic chronology. A second inventory comparison fails closed on concurrent advancement. Current evidence outranks a stale prior for current-condition reasoning while both remain visible.
 
-Ordinary companion responses now return `epistemic_state_ids` for delivered
-stored positions that materially influenced an answer. The parser checks each
-ID against the exact cognitive projection, and the durable cognition
+Ordinary companion responses now return `epistemic_state_ids` for stored
+positions whose complete semantic packets reached the prompt and materially
+influenced an answer. The parser checks each ID against those delivered packets,
+and the durable cognition
 observation records those citations beside the projection's state IDs and
 digests. This makes claimed use observable across the response lineage; it does
 not prove that the model reasoned correctly or make the cited position evidence,

@@ -229,6 +229,29 @@ def _parse_companion_interaction_output(text: str,
     return value
 
 
+def _delivered_epistemic_state_ids(context: Mapping[str, Any],
+        projection: EpistemicCognitiveProjection | None) -> set[str]:
+    """Return only states whose complete semantic packet reached the prompt."""
+    if projection is None:
+        return set()
+    prior = context.get("prior_epistemic_state")
+    packets = prior.get("semantic_packets") if isinstance(prior, Mapping) else None
+    if not isinstance(packets, list):
+        raise ResidentDevelopmentalCognitionError(
+            "cognition_epistemic_citation_context_invalid")
+    projected_ids = set(projection.state_ids)
+    delivered: set[str] = set()
+    for packet in packets:
+        state = packet.get("state") if isinstance(packet, Mapping) else None
+        state_id = state.get("state_id") if isinstance(state, Mapping) else None
+        if (not isinstance(state_id, str) or not state_id
+                or state_id not in projected_ids or state_id in delivered):
+            raise ResidentDevelopmentalCognitionError(
+                "cognition_epistemic_citation_context_invalid")
+        delivered.add(state_id)
+    return delivered
+
+
 def _aware_event_time(value: Any) -> bool:
     if not isinstance(value, str) or not value:
         return False
@@ -7660,8 +7683,8 @@ class ResidentDevelopmentalCognitionOwner:
                     if canonical_memory_context is not None else set())
                 allowed_self_model_ids = set(context.get(
                     "self_model_citation_allowlist", ()))
-                allowed_epistemic_state_ids = set(
-                    prior_epistemic_state.state_ids if prior_epistemic_state else ())
+                allowed_epistemic_state_ids = _delivered_epistemic_state_ids(
+                    context, prior_epistemic_state)
                 allowed_conversation_turn_ids = ({str(row["turn_id"]) for row in
                     conversation_context.get("turns", ())}
                     if conversation_context is not None else None)
