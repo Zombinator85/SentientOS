@@ -1797,7 +1797,7 @@ def _task_family_corroborated_favorable_runs(experiences_by_record: Mapping[str,
     ranking evidence, not a statistical independence or learning claim.
     """
     outcomes_by_group: dict[
-        tuple[str, str], dict[str, set[tuple[str, bool]]]
+        tuple[str, str], dict[str, set[tuple[str, bool, str, str]]]
     ] = {}
     for experiences in experiences_by_record.values():
         if not isinstance(experiences, (list, tuple)):
@@ -1812,12 +1812,19 @@ def _task_family_corroborated_favorable_runs(experiences_by_record: Mapping[str,
             task_digest = experience.get("source_task_digest")
             model_digest = experience.get("source_active_model_identity_digest")
             run_id = experience.get("source_run_id")
+            run_digest = experience.get("source_run_digest")
             effect = experience.get("controlled_task_effect")
+            comparison_digest = (effect.get("comparison_digest")
+                if isinstance(effect, Mapping) else None)
             if (not isinstance(task_digest, str) or not task_digest
                     or not isinstance(model_digest, str) or not model_digest
                     or not isinstance(run_id, str) or not run_id
+                    or not isinstance(run_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", run_digest) is None
                     or not isinstance(effect, Mapping)
-                    or effect.get("posture") != "complete_comparable_condition_scores"):
+                    or effect.get("posture") != "complete_comparable_condition_scores"
+                    or not isinstance(comparison_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", comparison_digest) is None):
                 continue
             classification = effect.get("effect_classification")
             restoration_stable = effect.get("restored_matches_present_score")
@@ -1827,16 +1834,210 @@ def _task_family_corroborated_favorable_runs(experiences_by_record: Mapping[str,
                 continue
             group = (task_digest, model_digest)
             outcomes_by_group.setdefault(group, {}).setdefault(run_id, set()).add(
-                (classification, restoration_stable))
+                (classification, restoration_stable, run_digest, comparison_digest))
 
     corroborated: set[tuple[str, str, str]] = set()
     for (task_digest, model_digest), run_outcomes in outcomes_by_group.items():
         if (len(run_outcomes) >= 2
-                and all(outcomes == {("history_favorable", True)}
+                and all(len(outcomes) == 1 and next(iter(outcomes))[:2]
+                    == ("history_favorable", True)
                     for outcomes in run_outcomes.values())):
+            run_signatures = [next(iter(outcomes)) for outcomes in run_outcomes.values()]
+            if len({signature[2] for signature in run_signatures}) != len(run_signatures):
+                continue
             corroborated.update((task_digest, model_digest, run_id)
                 for run_id in run_outcomes)
     return corroborated
+
+
+def _task_family_outcome_corroboration_summaries(
+        experiences_by_record: Mapping[str, object], *,
+        corroborated_runs: set[tuple[str, str, str]],
+        selected_record_ids: set[str]) -> tuple[Mapping[str, Any], ...]:
+    """Bind retrieval corroboration to exact run and comparison references."""
+    selected_groups: set[tuple[str, str]] = set()
+    for record_id in selected_record_ids:
+        experiences = experiences_by_record.get(record_id, ())
+        if not isinstance(experiences, (list, tuple)):
+            continue
+        for experience in experiences:
+            if not isinstance(experience, Mapping):
+                continue
+            key = (experience.get("source_task_digest"),
+                experience.get("source_active_model_identity_digest"),
+                experience.get("source_run_id"))
+            if (all(isinstance(part, str) and part for part in key)
+                    and key in corroborated_runs):
+                selected_groups.add((key[0], key[1]))
+
+    references_by_group: dict[tuple[str, str], dict[str, tuple[str, str, str]]] = {}
+    for experiences in experiences_by_record.values():
+        if not isinstance(experiences, (list, tuple)):
+            continue
+        for experience in experiences:
+            if not isinstance(experience, Mapping):
+                continue
+            key = (experience.get("source_task_digest"),
+                experience.get("source_active_model_identity_digest"),
+                experience.get("source_run_id"))
+            if (not all(isinstance(part, str) and part for part in key)
+                    or key not in corroborated_runs
+                    or (key[0], key[1]) not in selected_groups):
+                continue
+            run_digest = experience.get("source_run_digest")
+            effect = experience.get("controlled_task_effect")
+            comparison_digest = (effect.get("comparison_digest")
+                if isinstance(effect, Mapping) else None)
+            task_family_id = experience.get("task_family_id")
+            if (not isinstance(run_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", run_digest) is None
+                    or not isinstance(comparison_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", comparison_digest) is None
+                    or not isinstance(task_family_id, str) or not task_family_id):
+                continue
+            group = (key[0], key[1])
+            reference = (run_digest, comparison_digest, task_family_id)
+            references_by_group.setdefault(group, {}).setdefault(key[2], reference)
+
+    summaries: list[Mapping[str, Any]] = []
+    for (task_digest, model_digest), run_refs in sorted(references_by_group.items()):
+        if len(run_refs) < 2:
+            continue
+        if len(set(run_refs.values())) != len(run_refs):
+            # A run ID cannot silently point at shared or conflicting custody.
+            continue
+        task_family_ids = {reference[2] for reference in run_refs.values()}
+        if len(task_family_ids) != 1:
+            continue
+        ordered_refs = [{"run_id": run_id, "run_digest": values[0],
+            "comparison_digest": values[1]}
+            for run_id, values in sorted(run_refs.items())]
+        summary: dict[str, Any] = {
+            "schema_version": "sentientos.task_family_outcome_corroboration:v1",
+            "task_family_id": next(iter(task_family_ids)),
+            "source_task_digest": task_digest,
+            "source_active_model_identity_digest": model_digest,
+            "posture": "repeat_run_consistent_history_favorable",
+            "source_run_count": len(ordered_refs),
+            "source_run_references": ordered_refs[:16],
+            "omitted_source_run_reference_count": max(0, len(ordered_refs) - 16),
+            "scope": "same_exact_task_commitment_and_source_model_identity",
+            "historical_only": True, "current_truth": False, "authority": False,
+            "statistical_independence_established": False,
+            "causality_established": False, "learning_established": False,
+        }
+        summary["summary_digest"] = _digest(summary)
+        summaries.append(summary)
+    return tuple(summaries)
+
+
+def _task_family_outcome_corroboration_for_prompt(
+        summaries: object, *, task_family_id: str | None,
+        with_history: bool) -> list[dict[str, Any]]:
+    """Validate retrieval-derived corroboration before placing it in a prompt."""
+    if not with_history or not isinstance(task_family_id, str) or not task_family_id:
+        return []
+    if not isinstance(summaries, (list, tuple)):
+        raise ResidentDevelopmentalCognitionError(
+            "task_family_outcome_corroboration_invalid")
+    result: list[dict[str, Any]] = []
+    expected_fields = {
+        "schema_version", "task_family_id", "source_task_digest",
+        "source_active_model_identity_digest", "posture", "source_run_count",
+        "source_run_references", "omitted_source_run_reference_count", "scope",
+        "historical_only", "current_truth", "authority",
+        "statistical_independence_established", "causality_established",
+        "learning_established", "summary_digest",
+    }
+    for summary in summaries:
+        if (not isinstance(summary, Mapping)
+                or set(summary) != expected_fields
+                or summary.get("schema_version")
+                    != "sentientos.task_family_outcome_corroboration:v1"
+                or summary.get("task_family_id") != task_family_id
+                or not isinstance(summary.get("source_task_digest"), str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                    summary["source_task_digest"]) is None
+                or not isinstance(summary.get(
+                    "source_active_model_identity_digest"), str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                    summary["source_active_model_identity_digest"]) is None
+                or summary.get("posture")
+                    != "repeat_run_consistent_history_favorable"
+                or type(summary.get("source_run_count")) is not int
+                or summary["source_run_count"] < 2
+                or type(summary.get("omitted_source_run_reference_count")) is not int
+                or summary["omitted_source_run_reference_count"] < 0
+                or summary.get("scope")
+                    != "same_exact_task_commitment_and_source_model_identity"
+                or summary.get("historical_only") is not True
+                or summary.get("current_truth") is not False
+                or summary.get("authority") is not False
+                or summary.get("statistical_independence_established") is not False
+                or summary.get("causality_established") is not False
+                or summary.get("learning_established") is not False):
+            raise ResidentDevelopmentalCognitionError(
+                "task_family_outcome_corroboration_invalid")
+        refs = summary.get("source_run_references")
+        if (not isinstance(refs, (list, tuple)) or not refs or len(refs) > 16
+                or len(refs) + summary["omitted_source_run_reference_count"]
+                    != summary["source_run_count"]
+                or any(not isinstance(ref, Mapping)
+                    or set(ref) != {"run_id", "run_digest", "comparison_digest"}
+                    or not isinstance(ref.get("run_id"), str) or not ref["run_id"]
+                    or any(not isinstance(ref.get(field), str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}", ref[field]) is None
+                        for field in ("run_digest", "comparison_digest"))
+                    for ref in refs)
+                or len({ref["run_id"] for ref in refs}) != len(refs)
+                or len({ref["run_digest"] for ref in refs}) != len(refs)):
+            raise ResidentDevelopmentalCognitionError(
+                "task_family_outcome_corroboration_invalid")
+        semantic = {key: value for key, value in summary.items()
+            if key != "summary_digest"}
+        if (not isinstance(summary.get("summary_digest"), str)
+                or summary["summary_digest"] != _digest(semantic)):
+            raise ResidentDevelopmentalCognitionError(
+                "task_family_outcome_corroboration_invalid")
+        result.append(dict(summary))
+    return result
+
+
+def _task_family_corroboration_for_selected_packets(
+        summaries: object, packets: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """Keep only corroboration summaries anchored by an included source run."""
+    if not isinstance(summaries, (list, tuple)) or not packets:
+        return []
+    selected_runs: set[tuple[str, str, str]] = set()
+    for packet in packets:
+        experiences = packet.get("task_relevant_experience", ())
+        if not isinstance(experiences, (list, tuple)):
+            continue
+        for experience in experiences:
+            if not isinstance(experience, Mapping):
+                continue
+            task_digest = experience.get("source_task_digest")
+            model_digest = experience.get("source_active_model_identity_digest")
+            run_id = experience.get("source_run_id")
+            if (isinstance(task_digest, str) and task_digest
+                    and isinstance(model_digest, str) and model_digest
+                    and isinstance(run_id, str) and run_id):
+                selected_runs.add((task_digest, model_digest, run_id))
+    selected_summaries: list[Mapping[str, Any]] = []
+    for summary in summaries:
+        if not isinstance(summary, Mapping):
+            continue
+        task_digest = summary.get("source_task_digest")
+        model_digest = summary.get("source_active_model_identity_digest")
+        references = summary.get("source_run_references")
+        if (not isinstance(task_digest, str) or not isinstance(model_digest, str)
+                or not isinstance(references, (list, tuple))):
+            continue
+        if any(isinstance(reference, Mapping)
+                and (task_digest, model_digest, reference.get("run_id")) in selected_runs
+                for reference in references):
+            selected_summaries.append(summary)
+    return selected_summaries
 
 
 def _task_family_conflicting_probe_inputs(experiences_by_record: Mapping[str, object], *,
@@ -3332,7 +3533,17 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                                     **dict(report)})
                     prompt_packets.append(prompt_packet)
                 prompt_packets = _withhold_conflicting_task_family_examples(prompt_packets)
-                candidate = {**dict(context), "prior_self_model": prompt_self_model,
+                candidate_context = dict(context)
+                corroboration = _task_family_corroboration_for_selected_packets(
+                    context.get("developmental_history_outcome_corroboration"),
+                    prompt_packets)
+                if corroboration:
+                    candidate_context[
+                        "developmental_history_outcome_corroboration"] = corroboration
+                else:
+                    candidate_context.pop(
+                        "developmental_history_outcome_corroboration", None)
+                candidate = {**candidate_context, "prior_self_model": prompt_self_model,
                     "developmental_history": prompt_packets,
                     "historical_embodiment_reports": historical_embodiment_reports,
                     "developmental_history_selection": prompt_selection}
@@ -6577,6 +6788,7 @@ class ResidentDevelopmentalCognitionOwner:
             raise ResidentDevelopmentalCognitionError("history_relevance_context_invalid")
         family = task_family_id or (self.objective_task.public_descriptor().get("task_family_id")
             if self.objective_task is not None else None)
+        task_family_outcome_corroboration: tuple[Mapping[str, Any], ...] = ()
         if isinstance(family, str):
             # The completed-tick checkpoint bounds this search to
             # MAX_RECOVERED_TICKS. Search newest-first across that complete
@@ -6654,6 +6866,11 @@ class ResidentDevelopmentalCognitionOwner:
                 ids.index(record_id)), reverse=True)
             selected = list(relevant_newest_first[:self.config.max_retrieved_records])
             selected_set = set(selected)
+            task_family_outcome_corroboration = (
+                _task_family_outcome_corroboration_summaries(
+                    experiences_by_record,
+                    corroborated_runs=corroborated_favorable_runs,
+                    selected_record_ids=selected_set))
             if not require_task_family_history:
                 for record_id in reversed(ids):
                     if len(selected) >= self.config.max_retrieved_records:
@@ -6753,7 +6970,12 @@ class ResidentDevelopmentalCognitionOwner:
             ids = sorted(selected, key=lambda record_id: (
                 overlap_by_id.get(record_id, 0), ids.index(record_id)))
         ids = ids[-self.config.max_retrieved_records:]
-        return self.writeback.retrieve(ids, limit=self.config.max_retrieved_records)
+        projection = self.writeback.retrieve(ids,
+            limit=self.config.max_retrieved_records)
+        if task_family_outcome_corroboration:
+            return replace(projection, task_family_outcome_corroboration=(
+                task_family_outcome_corroboration))
+        return projection
 
     def selected_historical_operator_citations(self, *, request_id: str,
             question: str,
@@ -7553,6 +7775,20 @@ class ResidentDevelopmentalCognitionOwner:
                 else None if target_model_identity_observed
                 else _observed_current_cognition_model_identity(self.invoker))
         context["developmental_history_target_model_identity"] = observed_target_identity
+        corroboration_context = _task_family_outcome_corroboration_for_prompt(
+            projection.task_family_outcome_corroboration,
+            task_family_id=task_family_id if isinstance(task_family_id, str) else None,
+            with_history=with_history)
+        if corroboration_context:
+            context["developmental_history_outcome_corroboration"] = (
+                corroboration_context)
+            context["instruction"] += (
+                " developmental_history_outcome_corroboration is a retrieval-derived, "
+                "historical qualifier for exact task commitments and source model "
+                "identities. Its run references bind the counted observations; they "
+                "do not establish statistical independence, causality, general learning, "
+                "current truth, or authority. Do not transfer this pattern beyond its "
+                "recorded task and source-model scope.")
         context["developmental_history_retrieval_policy_id"] = (
             "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v5"
             if (isinstance(task_family_id, str)

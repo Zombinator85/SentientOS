@@ -2378,8 +2378,10 @@ def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
     run_a = {**favorable, "source_task_digest": task_digest,
         "source_active_model_identity": identity,
         "source_active_model_identity_digest": cognition_digest(identity),
+        "source_run_digest": cognition_digest({"run_id": "run-a"}),
         "source_run_id": "run-a"}
-    run_b = {**run_a, "source_run_id": "run-b"}
+    run_b = {**run_a, "source_run_id": "run-b",
+        "source_run_digest": cognition_digest({"run_id": "run-b"})}
     corroborated = _task_family_corroborated_favorable_runs({
         "record-a": [run_a], "record-b": [run_b]},
         target_model_identity=identity)
@@ -9528,12 +9530,16 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
 
     def experience(run_id: str) -> dict[str, Any]:
         return {"source_task_digest": task_digest,
+            "task_family_id": "integer_affine_prediction",
             "source_active_model_identity": identity,
             "source_active_model_identity_digest": identity_digest,
             "source_run_id": run_id,
+            "source_run_digest": cognition_module._digest({"run_id": run_id}),
             "examples": [{"probe_input": 7, "observed_answer": 23,
                 "evaluator_correct": True}],
-            "controlled_task_effect": effect}
+            "controlled_task_effect": {**effect,
+                "comparison_digest": cognition_module._digest({
+                    "comparison_run_id": run_id})}}
 
     experiences = {"repeat-a": experience("run-a"),
         "repeat-b": experience("run-b"), "newer-single": experience("run-single")}
@@ -9544,9 +9550,15 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
             "active_model_identity": identity,
             "active_model_identity_digest": identity_digest}}
         records[record_id] = SimpleNamespace(candidate={
+            "candidate_id": "candidate-" + record_id,
+            "candidate_digest": cognition_module._digest({"candidate": record_id}),
             "selected_facts": [fact], "experiences": [projected_experience]})
 
-    cognition, _ = owner(tmp_path, max_retrieved_records=1)
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="integer_affine_prediction",
+        requires_task_family_history=True)
+    cognition, fake = owner(tmp_path, comparison=True, max_retrieved_records=1,
+        objective_task=task)
     monkeypatch.setattr(cognition_module, "_task_family_history_examples",
         lambda candidate, *, task_family_id: candidate["experiences"])
     observed_utility: dict[str, tuple[int, int, int]] = {}
@@ -9560,8 +9572,15 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
         observe_utility)
     monkeypatch.setattr(cognition.writeback.store, "get",
         lambda record_id: records[record_id])
+    projection_records = {record_id: {
+        "record_id": record_id,
+        "record_digest": cognition_module._digest({"record_id": record_id}),
+        "candidate": record.candidate,
+        "created_at": "2026-01-01T00:00:00Z",
+        "epistemic_posture": "historical_interpretation_not_current_truth",
+    } for record_id, record in records.items()}
     monkeypatch.setattr(cognition.writeback, "retrieve", lambda record_ids, *, limit:
-        DevelopmentalHistoryProjection(tuple(records[record_id]
+        DevelopmentalHistoryProjection(tuple(projection_records[record_id]
             for record_id in record_ids), tuple(record_ids)))
 
     selected = cognition._prior_projection({"completed_ticks": [
@@ -9575,6 +9594,40 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
     assert observed_utility == {"run-a": (4, 1, 1),
         "run-b": (4, 1, 1), "run-single": (3, 1, 1)}
     assert selected.requested_record_ids == ("repeat-b",)
+    [corroboration] = selected.task_family_outcome_corroboration
+    assert corroboration["source_run_count"] == 2
+    assert {row["run_id"] for row in corroboration["source_run_references"]} == {
+        "run-a", "run-b"}
+    assert corroboration["source_active_model_identity_digest"] == identity_digest
+
+    current_snapshot = snapshot()
+    current_projection = cognition._current_projection(current_snapshot)
+    cognition._cognize(snapshot=current_snapshot, current=current_projection,
+        tick_id="repeat-corroboration-context-present", projection=selected,
+        with_history=True, condition_id="with-history",
+        target_model_identity=identity, target_model_identity_observed=True)
+    presented_prompt = fake.requests[-1].prompt
+    assert "developmental_history_outcome_corroboration" in presented_prompt
+    assert corroboration["summary_digest"] in presented_prompt
+    assert '"statistical_independence_established":false' in presented_prompt
+
+    cognition._cognize(snapshot=current_snapshot, current=current_projection,
+        tick_id="repeat-corroboration-context-withheld", projection=selected,
+        with_history=False, condition_id="history-withheld",
+        target_model_identity=identity, target_model_identity_observed=True)
+    withheld_prompt = fake.requests[-1].prompt
+    assert "developmental_history_outcome_corroboration" not in withheld_prompt
+
+    from sentientos.resident_developmental_cognition import (
+        _bind_history_and_epistemic_context,
+    )
+    empty_context, _, empty_prompt, _, _ = _bind_history_and_epistemic_context(
+        context={"instruction": "empty history control", "current_evidence": {},
+            "developmental_history": [],
+            "developmental_history_outcome_corroboration": [corroboration]},
+        records=(), projection=None)
+    assert "developmental_history_outcome_corroboration" not in empty_context
+    assert "developmental_history_outcome_corroboration" not in empty_prompt
 
 
 def test_tick_n_admitted_developmental_writeback_is_durable_and_bounded(tmp_path: Path) -> None:
