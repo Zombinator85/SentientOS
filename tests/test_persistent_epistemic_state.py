@@ -66,6 +66,57 @@ def test_question_relevance_ranks_current_propositions_before_projection_bound()
         query=None, limit=1) == ()
 
 
+def test_inflected_epistemic_query_selects_only_matching_proposition():
+    overheating = make_proposition(namespace="embodiment",
+        subject="mechanism:west", predicate="has_status", object_value="active",
+        polarity="positive", qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive", statement="The mechanism is overheating.")
+    stable = make_proposition(namespace="embodiment",
+        subject="mechanism:east", predicate="has_status", object_value="stable",
+        polarity="positive", qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive", statement="The mechanism remains stable.")
+    propositions = {item.proposition_id: item for item in (overheating, stable)}
+
+    assert _question_relevant_proposition_ids(propositions,
+        query="overheat", limit=1) == (overheating.proposition_id,)
+    assert _question_relevant_proposition_ids(propositions,
+        query="lunar mission", limit=1) == ()
+
+
+def test_inflected_query_selects_prior_epistemic_packet_with_provenance(tmp_path):
+    owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    overheating = make_proposition(namespace="embodiment",
+        subject="mechanism:west", predicate="has_status", object_value="active",
+        polarity="positive", qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive", statement="The mechanism is overheating.")
+    stable = make_proposition(namespace="embodiment",
+        subject="mechanism:east", predicate="has_status", object_value="stable",
+        polarity="positive", qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive", statement="The mechanism remains stable.")
+    for index, item in enumerate((overheating, stable), start=1):
+        owner.register_proposition(item)
+        support = binding(item, f"support-{index}")
+        owner.bind_evidence(support)
+        owner.commit_update(proposition_id=item.proposition_id,
+            expected_predecessor_digest=None, stance="provisionally_supported",
+            reason="initialization", active_binding_ids=[support.binding_id],
+            added_binding_ids=[support.binding_id],
+            correlation_id=f"inflection-{index}", tick=index,
+            recorded_at=f"2026-01-01T00:00:0{index}Z")
+
+    projection = owner.cognitive_projection(max_states=1, current_tick=3,
+        relevance_query="overheat")
+    assert isinstance(projection, MeaningBearingEpistemicCognitiveProjection)
+    assert projection.proposition_ids == (overheating.proposition_id,)
+    [packet] = semantic_packets_for_projection(projection)
+    assert packet["proposition"]["statement"] == overheating.statement
+    assert packet["state"]["stance"] == "provisionally_supported"
+    assert packet["active_evidence_bindings"][0]["binding_id"] == (
+        packet["state"]["support_binding_ids"][0])
+    assert packet["authority"] is False
+
+
 def test_projection_question_priority_ignores_propositions_without_prior_state():
     never_updated = make_proposition(namespace="embodiment",
         subject="sensor:west", predicate="reports_measurement",

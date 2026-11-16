@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
+from .cognition_retrieval import normalize_cognition_term
 from .platform_fcntl import fcntl, require_flock
 from .private_file_custody import (
     PrivateFileCustodyError, list_bounded_json_names_at, open_private_directory,
@@ -69,13 +70,7 @@ def _epistemic_query_terms(text: str) -> set[str]:
     for token in re.findall(r"[A-Za-z0-9]{3,}", text.casefold()):
         if token in _EPISTEMIC_QUERY_STOP_WORDS:
             continue
-        if len(token) > 4 and token.endswith("ies"):
-            token = token[:-3] + "y"
-        elif len(token) > 4 and token.endswith(("ches", "shes", "sses", "xes", "zes")):
-            token = token[:-2]
-        elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
-            token = token[:-1]
-        terms.add(token)
+        terms.add(normalize_cognition_term(token))
     return terms
 
 
