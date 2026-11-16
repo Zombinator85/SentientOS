@@ -167,6 +167,55 @@ def test_historical_citation_context_resolves_only_digest_bound_source_turn(
         conversation_context=None) is None
 
 
+def test_historical_citation_context_skips_oversized_excerpt_and_keeps_later_fit(
+        tmp_path: Path) -> None:
+    for child in ("sessions", "memory"):
+        (tmp_path / child).mkdir(mode=0o700)
+    app = service(tmp_path)
+    excerpts = (
+        ("first", "A" * 1900),
+        ("second", "B" * 1900),
+        ("too-large-for-remainder", "C" * 500),
+        ("later-fit", "D" * 100),
+    )
+    session_id = "session-" + "c" * 24
+    turns = [{"turn_id": "turn-" + f"{index:024x}", "role": "user",
+        "text": text, "text_digest": chat_service.digest_payload({"text": text}),
+        "linkage": {}}
+        for index, (_label, text) in enumerate(excerpts)]
+
+    class SessionReader:
+        def load(self, requested_session_id: str):
+            assert requested_session_id == session_id
+            return {"session_id": session_id, "revision": 1, "turns": turns}
+
+    app.sessions = SessionReader()
+    references = tuple({
+        "feedback_record_id": f"record-{index}",
+        "feedback_record_digest": f"{index + 1:064x}",
+        "feedback_fact_id": f"fact-{index}",
+        "feedback_assertion_digest": f"{index + 5:064x}",
+        "conversation_session_id": session_id,
+        "turn_id": turn["turn_id"],
+        "text_digest": turn["text_digest"],
+    } for index, turn in enumerate(turns))
+
+    class CitationBridge:
+        def selected_historical_operator_citations(self, **_kwargs):
+            return references
+
+    context = app._resident_historical_citation_context(
+        bridge=CitationBridge(), request_id="new-session:turn-" + "c" * 24,
+        question="Revisit the cited observations.", conversation_context=None)
+
+    assert context is not None
+    assert [row["text"] for row in context["turns"]] == [
+        excerpts[0][1], excerpts[1][1], excerpts[3][1]]
+    assert [row["feedback_fact_id"] for row in context["turns"]] == [
+        "fact-0", "fact-1", "fact-3"]
+    assert sum(len(row["text"]) for row in context["turns"]) == 3900
+
+
 
 
 

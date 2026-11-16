@@ -2508,9 +2508,9 @@ class PersistentConversationService:
                     or digest_payload({"text": turn["text"]}) != expected_digest
                     or not isinstance(turn.get("linkage"), Mapping)):
                 continue
+            if used_chars + len(turn["text"]) > 4000:
+                continue
             used_chars += len(turn["text"])
-            if used_chars > 4000:
-                break
             selected.append({
                 "feedback_record_id": reference["feedback_record_id"],
                 "feedback_record_digest": reference["feedback_record_digest"],
