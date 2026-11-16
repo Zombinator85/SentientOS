@@ -396,6 +396,15 @@ context contains enough bound information for a controlled response policy to
 apply a correction without promoting it to truth. It does not establish that a
 real model will correctly interpret feedback or improve open-ended decisions.
 
+When the correction is compared with a cited prior epistemic state, the later
+response now names that state as an earlier evidence-bound position and cites
+its exact state ID alongside the feedback record and historical dialogue turn.
+The same deterministic restart test checks those three citations and confirms
+that the epistemic state itself remains unchanged. This demonstrates
+provenance-preserving comparison in the production path; it does not establish
+that a real model will recognize when both sides are relevant or resolve their
+disagreement correctly.
+
 Historical dialogue citations now remain distinct from same-session citations
 through the interaction result, observation schema v15, and committed assistant
 transcript linkage. Each selected citation stores the exact offered turn ID and

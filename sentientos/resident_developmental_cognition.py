@@ -8233,6 +8233,15 @@ class ResidentDevelopmentalCognitionOwner:
                 "influenced your response using its exact turn_id and text_digest in "
                 "historical_conversation_citations. Cite only pairs in the supplied "
                 "allowlist; citation records influence, not truth or authority.")
+            if historical_citation_context.get("epistemic_state_citation_ids"):
+                context["instruction"] += (
+                    " If this correction also concerns a supplied prior epistemic state, "
+                    "describe that state as the system's earlier evidence-bound position, "
+                    "not present truth. When it materially informs your comparison, name "
+                    "its proposition and cite its exact state ID in epistemic_state_ids, "
+                    "alongside the developmental record and historical dialogue citations. "
+                    "Keep the operator report unverified and do not revise the epistemic "
+                    "state from that report alone.")
         if epistemic_revision_probe:
             context["epistemic_revision_probe"] = {
                 "schema_version": "sentientos.epistemic_revision_probe:v3",
