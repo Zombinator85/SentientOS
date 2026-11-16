@@ -84,9 +84,10 @@ MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS = 4000
 def _select_resident_conversation_context_turns(
         turns: Any, *, question: str) -> list[Mapping[str, Any]]:
     """Keep a bounded, query-relevant transcript slice for resident cognition."""
-    candidates = list(turns[-MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:])
-    costs: list[int] = []
-    for turn in candidates:
+    all_turns = list(turns)
+    recent_turns = all_turns[-MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:]
+
+    def context_cost(turn: Any) -> int:
         text = turn.get("text") if isinstance(turn, Mapping) else None
         role = turn.get("role") if isinstance(turn, Mapping) else None
         if (not isinstance(text, str) or not text
@@ -95,9 +96,14 @@ def _select_resident_conversation_context_turns(
                 or not isinstance(turn.get("turn_id"), str)
                 or not isinstance(turn.get("linkage", {}), Mapping)):
             raise ChatRequestStateError("resident_conversation_context_invalid")
-        costs.append(len(text))
+        return len(text)
+
+    costs = [context_cost(turn) for turn in recent_turns]
     if sum(costs) <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS:
-        return candidates
+        return recent_turns
+
+    candidates = all_turns
+    costs = [context_cost(turn) for turn in candidates]
 
     query_terms = transcript_recall_terms(question)
     ranked: list[tuple[int, int]] = []
@@ -115,6 +121,8 @@ def _select_resident_conversation_context_turns(
     selected_indexes: set[int] = set()
     used = 0
     for index in selection_order:
+        if len(selected_indexes) >= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:
+            break
         cost = costs[index]
         if cost <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS - used:
             selected_indexes.add(index)
@@ -2345,7 +2353,15 @@ class PersistentConversationService:
             if callable(verifier):
                 by_id = {str(turn.get("turn_id")): turn for turn in history.turns
                     if isinstance(turn, Mapping)}
-                for turn in history.turns[-MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:]:
+                citation_turns: list[Mapping[str, Any]] = []
+                seen_citation_turn_ids: set[str] = set()
+                for turn in (*history.turns[-MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:],
+                        *selected_turns):
+                    turn_id = str(turn.get("turn_id"))
+                    if turn_id not in seen_citation_turn_ids:
+                        citation_turns.append(turn)
+                        seen_citation_turn_ids.add(turn_id)
+                for turn in citation_turns:
                     if turn.get("role") != "assistant":
                         continue
                     linkage = turn.get("linkage", {})

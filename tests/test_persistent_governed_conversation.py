@@ -461,7 +461,7 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
             "We discussed the north display status. "
             + "unrelated display detail " * 70)}),
         "linkage": {},
-    } for index in range(4))
+    } for index in range(20))
 
     app = object.__new__(PersistentConversationService)
     app._resident_cognition_bridge = CognitionBridge()
