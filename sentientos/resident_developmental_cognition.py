@@ -1792,7 +1792,8 @@ def _candidate_integer_affine_strategy(experience: Mapping[str, Any],
     if (any(not isinstance(provenance[key], str) or not provenance[key]
             for key in ("source_fact_id", "source_run_id"))
             or any(not isinstance(provenance[key], str)
-                or re.fullmatch(r"sha256:[0-9a-f]{64}", provenance[key]) is None
+                or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                    str(provenance[key])) is None
                 for key in ("source_run_digest", "source_task_digest", "source_score_digest"))
             or experience.get("evaluator")
                 != "deterministic_exact_integer_suite_oracle_v2"
