@@ -7,6 +7,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from collections.abc import Iterator, Mapping
+from types import SimpleNamespace
 
 import pytest
 import scripts.doctor_resident_objective_experiment as readiness
@@ -6467,16 +6468,91 @@ def test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget(
             active_binding_ids=[], correlation_id=f"long-{index}", tick=index + 1,
             recorded_at="2026-01-01T00:00:00Z")
     projection = epistemic.cognitive_projection(max_states=2, current_tick=3)
-    context, metadata, prompt = _bind_epistemic_context(
+    baseline_context, _, _ = _bind_epistemic_context(
         context={"instruction": "prior positions are not truth"}, projection=projection)
+    context, metadata, prompt = _bind_epistemic_context(
+        context={"instruction": "prior positions are not truth",
+            "companion_question": (
+                "Which long_scoped_measurement came from facility-1 during exact-window-1?")},
+        projection=projection)
+    irrelevant_context, _, _ = _bind_epistemic_context(
+        context={"instruction": "prior positions are not truth",
+            "companion_question": "What happened in the lunar mission?"},
+        projection=projection)
     assert len(prompt) <= 16_000
     prior = context["prior_epistemic_state"]
     assert len(prior["semantic_packets"]) == 1
     assert len(metadata["epistemic_omitted_packets"]) == 1
     delivered = prior["semantic_packets"][0]
     assert delivered["proposition"]["qualifiers"]["canonical_qualifier"] == "q" * 4500
-    assert delivered["proposition"]["context_scope"]["facility"] in {"facility-0", "facility-1"}
+    assert delivered["proposition"]["context_scope"]["facility"] == "facility-1"
+    baseline_ids = [packet["packet_id"] for packet in
+        baseline_context["prior_epistemic_state"]["semantic_packets"]]
+    irrelevant_ids = [packet["packet_id"] for packet in
+        irrelevant_context["prior_epistemic_state"]["semantic_packets"]]
+    assert irrelevant_ids == baseline_ids
     assert prior["omitted_packets_digest"] == metadata["epistemic_omitted_packets_digest"]
+
+
+def test_epistemic_budget_selection_prefers_question_relevant_complete_packets(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    import sentientos.resident_developmental_cognition as cognition_module
+    monkeypatch.setattr(cognition_module, "MAX_RESIDENT_COGNITION_INPUT_CHARS", 15_000)
+    packets = [
+        {"packet_id": "epistemic-packet:a", "packet_digest": "sha256:" + "a" * 64,
+            "proposition": {"proposition_id": "proposition:a", "state_id": "state:a",
+                "subject": "design launch", "predicate": "has_status",
+                    "object_value": "unrelated", "statement": "unrelated " + "x" * 8000,
+                "temporal_scope": {}, "context_scope": {}, "qualifiers": {}},
+            "state": {"state_id": "state:a", "stance": "unknown"},
+            "removed_evidence_history": [], "contradicting_evidence": [],
+            "evidence_posture": {"dependency_unresolved": False}},
+        {"packet_id": "epistemic-packet:z", "packet_digest": "sha256:" + "z" * 64,
+            "proposition": {"proposition_id": "proposition:z", "state_id": "state:z",
+                "subject": "sensor facility-1", "predicate": "long_scoped_measurement",
+                    "object_value": "exact-window-1", "statement": "relevant " + "y" * 8000,
+                "temporal_scope": {"window": "exact-window-1"},
+                "context_scope": {"facility": "facility-1"}, "qualifiers": {}},
+            "state": {"state_id": "state:z", "stance": "unknown"},
+            "removed_evidence_history": [], "contradicting_evidence": [],
+            "evidence_posture": {"dependency_unresolved": False}},
+    ]
+    projection = cognition_module.MeaningBearingEpistemicCognitiveProjection(
+        projection_id="epistemic-projection:fixture",
+        projection_digest="sha256:" + "d" * 64, source_tick=1,
+        proposition_ids=("proposition:a", "proposition:z"),
+        state_ids=("state:a", "state:z"),
+        state_digests=("sha256:" + "1" * 64, "sha256:" + "2" * 64),
+        generations=(0, 0), evidence_set_digests=("sha256:" + "3" * 64,
+            "sha256:" + "4" * 64), states=(), current_tick=2)
+    monkeypatch.setattr(cognition_module, "validate_cognitive_projection",
+        lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(cognition_module, "semantic_packets_for_projection",
+        lambda _projection: tuple(packets))
+
+    baseline, _, _ = _bind_epistemic_context(
+        context={"instruction": "historical positions remain uncertain"},
+        projection=projection)
+    irrelevant, _, _ = _bind_epistemic_context(
+        context={"instruction": "historical positions remain uncertain",
+            "companion_question": "What happened in the lunar mission?"},
+        projection=projection)
+    relevant, metadata, _ = _bind_epistemic_context(
+        context={"instruction": "historical positions remain uncertain",
+            "companion_question": (
+                "Which sensor measurement came from facility-1 during exact-window-1?")},
+        projection=projection)
+
+    baseline_ids = [item["packet_id"] for item in
+        baseline["prior_epistemic_state"]["semantic_packets"]]
+    irrelevant_ids = [item["packet_id"] for item in
+        irrelevant["prior_epistemic_state"]["semantic_packets"]]
+    relevant_packets = relevant["prior_epistemic_state"]["semantic_packets"]
+    assert baseline_ids == irrelevant_ids == ["epistemic-packet:a"]
+    assert [item["packet_id"] for item in relevant_packets] == ["epistemic-packet:z"]
+    assert metadata["epistemic_omitted_packets"][0]["packet_id"] == "epistemic-packet:a"
+    assert metadata["epistemic_omitted_packets_digest"] == cognition_module._digest(
+        metadata["epistemic_omitted_packets"])
 
 
 def self_model_projection(root: Path):

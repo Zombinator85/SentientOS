@@ -2531,6 +2531,26 @@ def _history_retrieval_terms(text: str) -> set[str]:
     return terms
 
 
+_EPISTEMIC_RELEVANCE_STOP_WORDS = frozenset((
+    "a", "an", "and", "are", "as", "at", "be", "by", "did", "do", "does",
+    "for", "from", "how", "in", "is", "it", "of", "on", "or", "the", "to",
+    "was", "what", "which", "who", "with",
+))
+
+
+def _epistemic_packet_question_relevance(packet: Mapping[str, Any], *,
+        question_terms: set[str]) -> int:
+    """Count distinctive query anchors shared with the packet's proposition."""
+    proposition = packet.get("proposition")
+    if not isinstance(proposition, Mapping) or not question_terms:
+        return 0
+    searchable = " ".join(str(proposition.get(key, "")) for key in (
+        "subject", "predicate", "object_value", "statement", "temporal_scope",
+        "context_scope", "qualifiers"))
+    packet_terms = _history_retrieval_terms(searchable)
+    return len((question_terms - _EPISTEMIC_RELEVANCE_STOP_WORDS) & packet_terms)
+
+
 def _history_context_packet(record: Mapping[str, Any], *,
         include_source_evidence_context: bool = True,
         compact_for_input_budget: bool = False,
@@ -3064,10 +3084,19 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
     except (TypeError, ValueError, KeyError) as exc:
         raise ResidentDevelopmentalCognitionError("prior_epistemic_semantics_invalid") from exc
     # When the inference bound cannot carry every complete meaning packet,
-    # surface the most decision-relevant evidence first: withdrawn history,
-    # then contradiction, then unresolved dependency. Stable packet identity
-    # breaks ties; omitted packets remain explicitly digest-bound below.
+    # question-matching propositions come first. Epistemic severity then
+    # preserves withdrawn history, contradictions, and unresolved dependencies;
+    # stable packet identity breaks ties. With no lexical match this retains the
+    # established severity order, and omissions remain explicitly digest-bound.
+    question = context.get("companion_question")
+    if not isinstance(question, str):
+        probe = context.get("epistemic_revision_probe")
+        question = probe.get("question") if isinstance(probe, Mapping) else None
+    question_terms = (_history_retrieval_terms(question)
+        if isinstance(question, str) and question.strip() else set())
     packets = tuple(sorted(packets, key=lambda packet: (
+        -_epistemic_packet_question_relevance(packet,
+            question_terms=question_terms),
         0 if packet.get("removed_evidence_history") else 1,
         0 if packet.get("contradicting_evidence") else 1,
         0 if (isinstance(packet.get("evidence_posture"), Mapping)
