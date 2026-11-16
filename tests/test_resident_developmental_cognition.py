@@ -3119,6 +3119,27 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert fourth_scores["history_present"]["correct_count"] == 3
     assert fourth_scores["history_withheld"]["correct_count"] == 0
     assert fourth_scores["history_restored"]["correct_count"] == 3
+    fourth_progression = fourth_episode["progression"]
+    assert fourth_progression["schema_version"] == \
+        "sentientos.objective_task_family_progression:v2"
+    assert fourth_progression["target_model_outcome_summary_posture"] == \
+        "descriptive_exact_episode_contrasts_only"
+    cross_model_summary = next(item for item in
+        fourth_progression["target_model_outcome_summaries"]
+        if item["target_model_identity_digest"] == cognition_digest(cross_model_identity))
+    assert cross_model_summary["episode_count"] == 1
+    assert cross_model_summary["task_suite_count"] == 1
+    assert cross_model_summary["history_favorable_episode_count"] == 1
+    assert cross_model_summary[
+        "actual_nonsynthetic_inference_verified_episode_count"] == 0
+    assert cross_model_summary[
+        "actual_nonsynthetic_inference_unverified_episode_count"] == 1
+    assert cross_model_summary["learning_established"] is False
+    assert cross_model_summary["cross_task_generalization_established"] is False
+    third_model_summary = next(item for item in
+        fourth_progression["target_model_outcome_summaries"]
+        if item["target_model_identity_digest"] == cognition_digest(third_model_identity))
+    assert third_model_summary["history_favorable_episode_count"] == 1
     fourth_prompt = json.loads(fourth_episode["prompts"]["history_present"])
     fourth_history = fourth_prompt["developmental_history"]
     cross_retained = next(experience for packet in fourth_history

@@ -4701,9 +4701,67 @@ class ResidentDevelopmentalCognitionOwner:
                 "output_size_bytes": row.get("output_size_bytes"),
                 "posture": row.get("output_size_posture")} for row in condition_rows],
         }
+        target_model_outcomes: dict[str, dict[str, Any]] = {}
+        target_identity_unresolved_episode_count = 0
+        for episode in episodes:
+            profiles = episode.get("model_generation_profiles", ())
+            identity_digests = [
+                _digest(dict(profile["active_model_identity"]))
+                for profile in profiles if isinstance(profile, Mapping)
+                and isinstance(profile.get("active_model_identity"), Mapping)
+                and bool(profile["active_model_identity"])]
+            if (len(profiles) != len(CONDITION_ORDER)
+                    or len(identity_digests) != len(CONDITION_ORDER)
+                    or len(set(identity_digests)) != 1):
+                target_identity_unresolved_episode_count += 1
+                continue
+            target_digest = identity_digests[0]
+            summary = target_model_outcomes.setdefault(target_digest, {
+                "target_model_identity_digest": target_digest,
+                "episode_count": 0, "task_suite_digests": set(),
+                "history_favorable_episode_count": 0,
+                "history_adverse_episode_count": 0,
+                "no_difference_observed_episode_count": 0,
+                "unscoreable_episode_count": 0,
+                "restored_score_matches_present_count": 0,
+                "actual_nonsynthetic_inference_verified_episode_count": 0,
+                "actual_nonsynthetic_inference_unverified_episode_count": 0,
+            })
+            summary["episode_count"] += 1
+            task_digest = episode.get("task_family", {}).get("task_digest")
+            if isinstance(task_digest, str):
+                summary["task_suite_digests"].add(task_digest)
+            contrast = episode.get("score_contrasts", {}).get(
+                "history_present_minus_withheld_correct_count")
+            if type(contrast) is not int:
+                summary["unscoreable_episode_count"] += 1
+            elif contrast > 0:
+                summary["history_favorable_episode_count"] += 1
+            elif contrast < 0:
+                summary["history_adverse_episode_count"] += 1
+            else:
+                summary["no_difference_observed_episode_count"] += 1
+            if episode.get("score_contrasts", {}).get(
+                    "history_restored_minus_present_correct_count") == 0:
+                summary["restored_score_matches_present_count"] += 1
+            if episode.get("actual_nonsynthetic_inference_verified") is True:
+                summary["actual_nonsynthetic_inference_verified_episode_count"] += 1
+            else:
+                summary["actual_nonsynthetic_inference_unverified_episode_count"] += 1
+        target_model_outcome_summaries: list[dict[str, Any]] = []
+        for _, summary in sorted(target_model_outcomes.items()):
+            task_suite_digests = sorted(summary.pop("task_suite_digests"))
+            target_model_outcome_summaries.append({**summary,
+                "task_suite_count": len(task_suite_digests),
+                "task_suite_digests": task_suite_digests,
+                "posture": "descriptive_exact_episode_contrasts_only",
+                "historical_only": True, "current_truth": False, "authority": False,
+                "learning_established": False,
+                "cross_task_generalization_established": False,
+            })
         comparable = (len(episodes) >= 2 and len(family_ids) == 1 and distinct_tasks and distinct_probes
             and same_profile and scored)
-        semantic = {"schema_version": "sentientos.objective_task_family_progression:v1",
+        semantic = {"schema_version": "sentientos.objective_task_family_progression:v2",
             "status": "comparable_scored_episodes" if comparable else
                 "insufficient_episode_count" if len(episodes) < 2 else
                 "descriptive_episodes_not_comparable",
@@ -4724,6 +4782,11 @@ class ResidentDevelopmentalCognitionOwner:
             "same_model_generation_controls": same_profile,
             "distinct_task_instances": distinct_tasks,
             "distinct_probe_sets": distinct_probes,
+            "target_model_outcome_summaries": target_model_outcome_summaries,
+            "target_identity_unresolved_episode_count": (
+                target_identity_unresolved_episode_count),
+            "target_model_outcome_summary_posture": (
+                "descriptive_exact_episode_contrasts_only"),
             "all_episodes_scoreable": scored,
             "execution_cost_summary": execution_cost_summary,
             "actual_nonsynthetic_inference_verified": all(
