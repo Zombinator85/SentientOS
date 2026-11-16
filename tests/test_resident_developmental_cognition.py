@@ -10137,6 +10137,13 @@ def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_pat
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
     value.pop("companion_self_model_citation_ids")
+    for field in ("companion_conversation_context_snapshot_digest",
+            "companion_conversation_context_selection_digest",
+            "companion_conversation_context_turn_ids",
+            "companion_conversation_context_turn_digests",
+            "companion_conversation_citation_ids",
+            "companion_conversation_citation_digests"):
+        value.pop(field)
     value.pop("companion_history_citation_ids")
     for field in ("canonical_user_memory_selection_digest",
             "canonical_user_memory_source_snapshot_digest",
@@ -10184,6 +10191,13 @@ def test_rehashed_v7_history_selection_substitution_fails_receipt_reconciliation
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
     value.pop("companion_self_model_citation_ids")
+    for field in ("companion_conversation_context_snapshot_digest",
+            "companion_conversation_context_selection_digest",
+            "companion_conversation_context_turn_ids",
+            "companion_conversation_context_turn_digests",
+            "companion_conversation_citation_ids",
+            "companion_conversation_citation_digests"):
+        value.pop(field)
     value.pop("companion_history_citation_ids")
     for field in ("canonical_user_memory_selection_digest",
             "canonical_user_memory_source_snapshot_digest",
