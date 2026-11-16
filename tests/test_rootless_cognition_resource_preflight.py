@@ -140,6 +140,28 @@ def runner(monkeypatch, tmp_path):
     return module
 
 
+def test_runner_uses_explicit_manifest_path_only_inside_experiment_custody(
+        runner, monkeypatch, tmp_path):
+    experiment_root = tmp_path / "rootless-experimental"
+    experiment_root.mkdir()
+    monkeypatch.setattr(runner, "EXPERIMENT_ROOT", experiment_root)
+    manifest = (experiment_root / "ollama-model-manifests"
+        / ("a" * 64 + ".json"))
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("SENTIENTOS_HERMES_MODEL_MANIFEST_PATH", str(manifest))
+
+    assert runner._configured_model_manifest_path() == manifest
+    assert runner._resolve_pinned_model_manifest_path(
+        runner._configured_model_manifest_path()) == manifest.resolve()
+
+    outside = tmp_path / "outside-manifest.json"
+    outside.write_text("{}", encoding="utf-8")
+    with pytest.raises(RootlessExperimentalError,
+            match="pinned_hermes_manifest_outside_experimental_custody"):
+        runner._resolve_pinned_model_manifest_path(outside)
+
+
 def test_rootless_cycle_input_bound_keeps_history_with_large_current_evidence(runner):
     from sentientos.resident_developmental_cognition import (
         EXPERIMENT_CONTEXT_INSTRUCTION,
