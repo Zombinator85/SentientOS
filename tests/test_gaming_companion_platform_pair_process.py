@@ -160,6 +160,43 @@ def test_process_profile_factory_uses_loaded_specs_without_starting_children(
     assert spawns == []
 
 
+def test_edge_only_supervisor_owns_publisher_without_starting_second_core(
+        tmp_path: Path) -> None:
+    events: list[str] = []
+    spawns: list[str] = []
+    process_bindings: list[dict[str, object]] = []
+    generation_roles: list[str] = []
+
+    def spawner(argv, *, cwd, env, **kwargs):
+        del cwd, env, kwargs
+        role = _role_from_argv(argv)
+        spawns.append(role)
+        return _Child(len(spawns), events)
+
+    roles = ("windows_edge", "wsl_core")
+    provider = GamingCompanionPlatformPairProcessProvider(
+        installation=_installation(process_bindings=process_bindings),
+        launch_specs={role: _spec(role, tmp_path) for role in roles},
+        generation_pair_factories={role: lambda _previous, role=role:
+            generation_roles.append(role) or _pair(role) for role in roles},
+        health_probes={role: lambda _child, _spec: True for role in roles},
+        spawner=spawner, process_poll_interval_seconds=0.01,
+        pair_poll_interval_seconds=0.05, system_name="Windows")
+
+    edge = provider.windows_edge_supervisor(_launch_manifest())
+    assert spawns == []
+    status = edge.start()
+    assert status.state == "running"
+    assert status.role == "windows_edge"
+    assert spawns == ["windows_edge"]
+    assert generation_roles == ["windows_edge"]
+    assert [binding["deployment_id"] for binding in process_bindings] == [
+        "glorp-prehardware"]
+    edge.close()
+    assert events == ["stop:1"]
+    assert edge.status().state == "stopped"
+
+
 def test_pair_provider_rejects_missing_roles_and_wrong_host_before_spawning(
         tmp_path: Path) -> None:
     spec_by_role = {role: _spec(role, tmp_path)

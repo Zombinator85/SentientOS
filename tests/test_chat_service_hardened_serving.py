@@ -16,7 +16,12 @@ from control_plane.records import AuthorizationRecord
 from control_plane.task_admission import AdmissionResponse
 from sentientos.canonical_memory import CanonicalMemoryStore
 from sentientos.chat_avatar_output import ChatAvatarOutputController
+from sentientos.control_plane_kernel import ControlPlaneKernel
 from sentientos.gaming_companion_core_runtime import WSLCoreAvatarOutputSession
+from sentientos.foreground_game_bridge import BridgeForegroundGameDetector
+from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator
+from sentientos.gaming_companion_bridge import CompanionBridgeReceiver
+from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackRuntime
 from sentientos.conversation_session import ConversationSessionStore
 from sentientos.governed_local_model_invocation import LocalModelInvocationReceipt
 from sentientos.installation_state import InstallationIdentity
@@ -113,7 +118,8 @@ def test_production_chat_requires_process_generation_handoff_before_custody(monk
     monkeypatch.setattr(chat_service, "sentientos_data_dir", lambda: tmp_path)
     chat_service.close_production_chat()
     with pytest.raises(RuntimeError, match="chat_process_generation_handoff_required"):
-        chat_service.configure_production_chat(installation_identity="Install-1", serving_operation_id="serve-explicit")
+        chat_service.configure_production_chat(installation_identity="Install-1",
+            serving_operation_id="serve-explicit", resource_provisioning_id="fixture.v1")
     assert events == []
 
 
@@ -132,15 +138,85 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
 
     class Serving:
         def __init__(self, _handle, _kernel): pass
-        def establish(self, **_kwargs): events.append("serving_established")
+        def establish(self, **kwargs):
+            events.append("serving_established")
+            context = kwargs["admission_context_provider"](
+                "fixture-serving-correlation", {
+                    "load_configuration": {"n_gpu_layers": 16}})
+            events.append(("serving_workload_mode", context["workload_mode"],
+                context["effective_workload_mode"],
+                context["serving_workload_evidence"],
+                context["governed_inference_entitlement_binding"]))
         def close(self): events.append("serving_closed")
         def serving_is_current(self): return True
 
     class InferenceBridge:
-        def __init__(self, *_args, **_kwargs): pass
+        def __init__(self, *_args, **kwargs):
+            self.host_resource_observation_owner = kwargs.get(
+                "host_resource_observation_owner")
+        def set_workload_mode(self, _mode, _game_process_names=()):
+            events.append("workload_mode_initialized")
+        def current_workload_state(self):
+            return {"configured_mode": "automatic", "effective_mode": "gaming",
+                "mode_source": "foreground_observation_unavailable_conservative_gaming",
+                "observation_status": "unavailable", "game_foreground": None,
+                "game_process_running": None, "observed_at": None,
+                "transport_provenance": None}
+
+    class AdmissionOwner:
+        def observe_verified_game_performance(self, _observation): return True
+        def observe_verified_game_workload(self, _observation): return True
+        def observe_governed_local_model_resource_entitlement(self, owner, observation):
+            assert isinstance(owner, ResourceOwner)
+            events.append(("entitlement_observation_retained",
+                observation.observation_id))
+            return True
+
+    admission_owner = AdmissionOwner()
+    bridge_runtime = CompanionBridgeLoopbackRuntime(
+        receiver=CompanionBridgeReceiver(source_keys={"windows-edge": b"x" * 32},
+            expected_generations={"windows-edge": "generation-1"}),
+        acknowledgment_source_id="core", acknowledgment_generation_id="core-1",
+        acknowledgment_key=b"y" * 32)
+    detector = BridgeForegroundGameDetector(runtime=bridge_runtime,
+        source_id="windows-edge", generation_id="generation-1")
 
     monkeypatch.setattr(chat_service, "ProductionServingController", Serving)
     monkeypatch.setattr(chat_service, "ProductionServingInferenceController", InferenceBridge)
+    class ResourceOwner:
+        def current_entitlement_observation(self):
+            return SimpleNamespace(observation_id="lmentitlement-fixture")
+
+        def serving_admission_entitlement_binding(self):
+            events.append("serving_entitlement_checked")
+            return {"schema_version": "fixture", "allocation_id": "fixture-allocation"}
+
+        def begin_close(self): events.append("resource_owner_admissions_closed")
+        def close(self): events.append("resource_owner_closed")
+
+    class ResourceBackedInference:
+        def __init__(self, delegate, owner):
+            self._delegate = delegate
+            self._owner = owner
+            self.host_resource_observation_owner = (
+                delegate.host_resource_observation_owner)
+
+        def __getattr__(self, name):
+            return getattr(self._delegate, name)
+
+    loaded_resource_contexts = []
+
+    def load_resource_context(actual_handle, provisioning_id):
+        loaded_resource_contexts.append((actual_handle, provisioning_id))
+        return ResourceOwner()
+
+    monkeypatch.setattr(chat_service, "ResourceBackedProductionChatInference",
+        ResourceBackedInference)
+    monkeypatch.setattr(
+        "sentientos.production_chat_resource_provisioning.load_production_chat_resource_context_owner",
+        load_resource_context)
+    monkeypatch.setattr(HostResourceRuntimeCoordinator, "run_cycle",
+        lambda _owner, **_kwargs: None)
     monkeypatch.setattr(chat_service, "sentientos_data_dir", lambda: tmp_path / "data")
     monkeypatch.setattr(chat_service, "sentientos_memory_dir", lambda _root=None: tmp_path / "memory")
 
@@ -158,20 +234,142 @@ def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monke
     chat_service.close_production_chat()
     chat_service.configure_production_chat(
         installation_identity="Install-1", serving_operation_id="serve-1",
-        runtime_handoff_id="handoff-1", avatar_output_session=session)
+        runtime_handoff_id="handoff-1", resource_provisioning_id="fixture.v1",
+        avatar_output_session=session,
+        foreground_game_detector=detector, control_plane_kernel=admission_owner)
     composition = chat_service._PRODUCTION_COMPOSITION
     assert composition is not None
     assert composition.service._avatar_output is not None
     assert isinstance(composition.service._avatar_output, ChatAvatarOutputController)
     assert composition._avatar_output_owner is session
+    assert loaded_resource_contexts == [(handle, "fixture.v1")]
+    assert detector._game_performance_observer.__self__ is admission_owner
+    assert detector._game_workload_observer.__self__ is admission_owner
+    resource_owner = composition.service._inference.host_resource_observation_owner
+    assert type(resource_owner) is HostResourceRuntimeCoordinator
+    assert resource_owner.kernel is admission_owner
+    assert {item.collector_id for item in resource_owner.plan.collectors} == {
+        "cpu", "memory", "nvidia_gpu", "thermal_sensors"}
+    assert resource_owner.plan.budget.max_collectors == 4
+    assert resource_owner.plan.budget.max_workers == 4
+    serving_admission = next(item for item in events
+        if isinstance(item, tuple) and item[0] == "serving_workload_mode")
+    assert serving_admission[1] == "automatic"
+    assert serving_admission[2] == "gaming"
+    assert serving_admission[3]["configured_mode"] == "automatic"
+    assert serving_admission[3]["mode_source"] == (
+        "foreground_observation_unavailable_conservative_gaming")
+    assert "serving_entitlement_checked" in events
+    assert events.index(("entitlement_observation_retained",
+        "lmentitlement-fixture")) < events.index("serving_entitlement_checked")
+    assert serving_admission[4] == {
+        "schema_version": "fixture", "allocation_id": "fixture-allocation"}
     chat_service.close_production_chat()
     assert events[-1] == "avatar_session_closed"
+    assert events.index("resource_owner_admissions_closed") < events.index("serving_closed")
+    assert events.index("serving_closed") < events.index("resource_owner_closed")
 
 
 def test_invalid_installation_identity_fails_before_custody(monkeypatch):
     monkeypatch.setattr(chat_service.InstallationStateRegistry, "system", classmethod(lambda cls: pytest.fail("custody opened")))
     with pytest.raises(ValueError, match="invalid_installation_identity"):
         chat_service.configure_production_chat(installation_identity="../bad", serving_operation_id="serve-1")
+
+
+def test_composition_stops_resource_admission_before_serving_close():
+    events = []
+
+    class Service:
+        def close_outputs(self): events.append("outputs_closed")
+
+    class Serving:
+        def close(self): events.append("serving_closed")
+
+    class ResourceOwner:
+        def begin_close(self): events.append("resource_admission_closed")
+        def close(self): events.append("resource_custody_released")
+
+    composition = chat_service.ProductionChatComposition(
+        Service(), Serving(), ResourceOwner())
+    composition.close()
+    assert events == ["resource_admission_closed", "outputs_closed",
+        "serving_closed", "resource_custody_released"]
+
+
+def test_setup_failure_stops_resource_admission_before_serving_close(
+        monkeypatch, tmp_path):
+    events = []
+
+    class Handle:
+        root = tmp_path / "installation"
+
+        def fixed_object(self, _name):
+            return SimpleNamespace(path=self.root / "chat" / "conversations")
+
+        def ensure_directory(self, _directory): events.append("conversation_root_ready")
+
+    class Serving:
+        def __init__(self, _handle, _kernel): pass
+
+        def establish(self, **kwargs):
+            kwargs["admission_context_provider"]("setup-correlation", {
+                "load_configuration": {"n_gpu_layers": 0}})
+            events.append("serving_established")
+
+        def close(self): events.append("serving_closed")
+
+    class InferenceBridge:
+        def __init__(self, *_args, **_kwargs):
+            self.host_resource_observation_owner = None
+
+        def set_workload_mode(self, *_args): pass
+
+        def current_workload_state(self):
+            return {"configured_mode": "gaming", "effective_mode": "gaming"}
+
+    class ResourceOwner:
+        def current_entitlement_observation(self):
+            return SimpleNamespace(observation_id="lmentitlement-fixture")
+
+        def serving_admission_entitlement_binding(self):
+            return {"schema_version": "fixture", "allocation_id": "fixture"}
+
+        def begin_close(self): events.append("resource_admission_closed")
+
+        def close(self): events.append("resource_custody_released")
+
+    class ResourceBackedInference:
+        def __init__(self, *_args): pass
+
+    handle = Handle()
+    monkeypatch.setattr(chat_service, "open_chat_process_handoff",
+        lambda **_kwargs: (handle, {}))
+    monkeypatch.setattr(chat_service, "ProductionServingController", Serving)
+    monkeypatch.setattr(chat_service, "ProductionServingInferenceController",
+        InferenceBridge)
+    monkeypatch.setattr(chat_service, "ResourceBackedProductionChatInference",
+        ResourceBackedInference)
+    monkeypatch.setattr(chat_service, "sentientos_data_dir", lambda: tmp_path / "data")
+    monkeypatch.setattr(chat_service, "sentientos_memory_dir",
+        lambda _root=None: tmp_path / "memory")
+    monkeypatch.setattr(chat_service, "ConversationSessionStore",
+        lambda _root: (_ for _ in ()).throw(RuntimeError("fixture_setup_failure")))
+    monkeypatch.setattr(
+        "sentientos.production_chat_resource_provisioning.load_production_chat_resource_context_owner",
+        lambda *_args: ResourceOwner())
+    kernel = ControlPlaneKernel()
+    monkeypatch.setattr(kernel, "observe_governed_local_model_resource_entitlement",
+        lambda _owner, _observation: True)
+    monkeypatch.setattr(HostResourceRuntimeCoordinator, "run_cycle",
+        lambda _owner, **_kwargs: None)
+    chat_service.close_production_chat()
+    with pytest.raises(RuntimeError, match="fixture_setup_failure"):
+        chat_service.configure_production_chat(
+            installation_identity="Install-1", serving_operation_id="serve-failure",
+            runtime_handoff_id="handoff-failure", resource_provisioning_id="fixture.v1",
+            control_plane_kernel=kernel)
+    assert events.index("resource_admission_closed") < events.index("serving_closed")
+    assert events.index("serving_closed") < events.index("resource_custody_released")
 
 
 def test_successful_turn_and_second_turn_have_distinct_inference_correlations(tmp_path):

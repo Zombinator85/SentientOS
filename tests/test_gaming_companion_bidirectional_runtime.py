@@ -120,7 +120,7 @@ def test_windows_edge_and_wsl_core_exchange_observations_and_governed_avatar_out
             kind="observation", source_id="windows-edge",
             session_id="edge-session-1", generation_id="edge-observation-generation-1",
             sequence=1,
-            payload={"schema_version": "sentientos.game_performance_observation:v1",
+            payload={"schema_version": "sentientos.game_performance_observation:v2",
                 "frame_time_p95_ms": 23.4, "process_cpu_percent": 17.0},
             key=observation_key,
         )

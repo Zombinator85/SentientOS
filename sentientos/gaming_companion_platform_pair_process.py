@@ -140,6 +140,24 @@ class GamingCompanionPlatformPairProcessProvider:
 
     def __call__(self, manifest: Mapping[str, object]) -> GamingCompanionPairSupervisor:
         """Return a stopped supervisor pair; no process starts during composition."""
+        normalized = self._validate_deployment(manifest)
+        roles = {role: self._build_role_supervisor(role, normalized)
+                 for role in ("wsl_core", "windows_edge")}
+        return GamingCompanionPairSupervisor(core=roles["wsl_core"],
+            edge=roles["windows_edge"], poll_interval_seconds=self._pair_poll)
+
+    def windows_edge_supervisor(self, manifest: Mapping[str, object]
+            ) -> GamingCompanionProcessSupervisor:
+        """Compose only the Windows publisher when WSL core is chat-owned.
+
+        This reuses the exact process, generation, launch-authority, health,
+        and recovery owner used by the paired deployment. It does not create
+        a second WSL-core listener.
+        """
+        return self._build_role_supervisor("windows_edge",
+            self._validate_deployment(manifest))
+
+    def _validate_deployment(self, manifest: Mapping[str, object]) -> dict[str, object]:
         normalized = validate_manifest(dict(manifest))
         if normalized.get("schema_version") != SCHEMA_MUTUAL_TLS_REVERSE:
             raise CompanionBridgeError("companion_role_manifest_v3_required")
@@ -149,38 +167,36 @@ class GamingCompanionPlatformPairProcessProvider:
                 raise CompanionBridgeError("companion_role_authority_reference_missing")
         if self._system != "Windows":
             raise CompanionBridgeError("companion_pair_windows_host_required")
-        roles: dict[str, GamingCompanionProcessSupervisor] = {}
-        for role in ("wsl_core", "windows_edge"):
-            spec = self._specs[role]
-            generation_factory = self._generation_factories[role]
+        return normalized
 
-            def process_factory(previous: BridgeGenerationPair | None, *,
-                    launch_spec: CompanionProcessLaunchSpec = spec,
-                    load_pair: GenerationPairFactory = generation_factory
-                    ) -> tuple[CompanionProcessLaunchSpec, BridgeGenerationPair]:
-                generation = load_pair(previous)
-                if type(generation) is not BridgeGenerationPair:
-                    raise CompanionBridgeError("bridge_generation_pair_record_invalid")
-                return launch_spec, generation
+    def _build_role_supervisor(self, role: str, deployment: Mapping[str, object]
+            ) -> GamingCompanionProcessSupervisor:
+        spec = self._specs[role]
+        generation_factory = self._generation_factories[role]
 
-            def authorize_process_launch(role: str, command_digest: str,
-                    generation: BridgeGenerationPair, *,
-                    deployment: Mapping[str, object] = normalized) -> bool:
-                return self._installation.authority.authorize_process_launch(
-                    role, command_digest, generation, deployment)
+        def process_factory(previous: BridgeGenerationPair | None
+                ) -> tuple[CompanionProcessLaunchSpec, BridgeGenerationPair]:
+            generation = generation_factory(previous)
+            if type(generation) is not BridgeGenerationPair:
+                raise CompanionBridgeError("bridge_generation_pair_record_invalid")
+            return spec, generation
 
-            roles[role] = GamingCompanionProcessSupervisor(
-                process_factory=process_factory,
-                authority_receipt_verifier=self._verify_generation,
-                launch_authorizer=authorize_process_launch,
-                health_probe=self._health_probes[role],
-                force_stop_authorizer=self._force_stop.get(role),
-                max_restarts=self._max_restarts,
-                poll_interval_seconds=self._process_poll,
-                spawner=self._spawner,
-            )
-        return GamingCompanionPairSupervisor(core=roles["wsl_core"],
-            edge=roles["windows_edge"], poll_interval_seconds=self._pair_poll)
+        def authorize_process_launch(launch_role: str, command_digest: str,
+                generation: BridgeGenerationPair) -> bool:
+            return self._installation.authority.authorize_process_launch(
+                launch_role, command_digest, generation, deployment)
+
+        return GamingCompanionProcessSupervisor(
+            process_factory=process_factory,
+            authority_receipt_verifier=self._verify_generation,
+            launch_authorizer=authorize_process_launch,
+            health_probe=self._health_probes[role],
+            expected_role=role,
+            force_stop_authorizer=self._force_stop.get(role),
+            max_restarts=self._max_restarts,
+            poll_interval_seconds=self._process_poll,
+            spawner=self._spawner,
+        )
 
     def _verify_generation(self, receipt_digest: str, record: object) -> bool:
         if type(record) is not BridgeGenerationCustodyRecord:

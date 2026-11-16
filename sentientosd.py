@@ -112,6 +112,10 @@ from sentientos.production_chat_resource_observation import (
     ProductionChatResourceObservationError,
     ProductionChatResourceObservationOwner,
 )
+from sentientos.production_chat_resource_provisioning import (
+    ProductionChatResourceProvisioningError,
+    validate_resource_provisioning_id,
+)
 from sentientos.host_privilege_review_runtime import HostPrivilegeReviewRuntimeCoordinator, HostPrivilegeReviewEvaluation, summary_for_evaluation as privilege_review_summary, world_state_records as privilege_review_world_state_records
 from sentientos.host_execution_readiness_runtime import HostExecutionReadinessRuntimeCoordinator, HostExecutionReadinessEvaluation, summary_for_evaluation as execution_readiness_summary, world_state_records as execution_readiness_world_state_records
 from sentientos.host_controlled_authorization_runtime import HostControlledAuthorizationRuntimeCoordinator, HostControlledAuthorizationEvaluation, summary_for_evaluation as controlled_authorization_summary, world_state_records as controlled_authorization_world_state_records
@@ -203,13 +207,21 @@ def _load_resource_observation_configuration(
             "read_only": True, "effect_authority": False,
         }
     try:
+        # Reject malformed provisioning selectors before opening any
+        # installation-scoped custody, even through a read-only handle.
+        provisioning_id = validate_resource_provisioning_id(provisioning_selector)
         identity = InstallationIdentity.parse(installation_selector)
         handle = InstallationStateRegistry.system().open_read_only(identity)
-        owner = ProductionChatResourceObservationOwner(handle, provisioning_selector)
+        owner = ProductionChatResourceObservationOwner(handle, provisioning_id)
         return owner, {
             "status": "degraded", "reason_code": "source_not_yet_observed",
             "installation_identity": handle.identity.value,
-            "provisioning_id": provisioning_selector,
+            "provisioning_id": provisioning_id,
+            "read_only": True, "effect_authority": False,
+        }
+    except ProductionChatResourceProvisioningError as exc:
+        return None, {
+            "status": "invalid", "reason_code": str(exc),
             "read_only": True, "effect_authority": False,
         }
     except InstallationStateError as exc:
@@ -2025,8 +2037,23 @@ class RuntimeMaintenanceSurfaces:
                     verified_serving_operation_attempts=(
                         observation.serving_operation_attempts),
                     verified_serving_operation_history=(
-                        observation.serving_operation_history))
+                        observation.serving_operation_history),
+                    verified_inference_admission_decisions=(
+                        observation.verified_inference_admission_decisions),
+                    verified_resource_release_receipts=(
+                        observation.verified_resource_release_receipts),
+                    verified_preemption_invocation_receipts=(
+                        observation.verified_preemption_invocation_receipts),
+                    verified_game_resource_recovery_holds=(
+                        observation.game_resource_recovery_holds),
+                    game_resource_recovery_posture=(
+                        observation.game_resource_recovery_posture))
                 records.extend(resource_records)
+                resource_record = next((item for item in resource_records
+                    if item.get("subject_kind") == "causal_resource_consumption"), None)
+                resource_payload = (resource_record.get("payload", {})
+                    if isinstance(resource_record, Mapping)
+                    and isinstance(resource_record.get("payload"), Mapping) else {})
                 degraded = (observation.invocation_receipt_posture != "verified"
                             or any(item.get("disposition") != "recorded" for item in resource_records)
                             or observation.predecessor_invocation_receipt_posture
@@ -2061,6 +2088,16 @@ class RuntimeMaintenanceSurfaces:
                     "serving_operation_attempt_posture": observation.serving_operation_attempt_posture,
                     "serving_operation_attempt_count": len(observation.serving_operation_attempts),
                     "serving_operation_history_count": len(observation.serving_operation_history),
+                    "game_resource_recovery_posture": (
+                        observation.game_resource_recovery_posture),
+                    "game_resource_recovery_hold_count": len(
+                        observation.game_resource_recovery_holds),
+                    "pending_game_resource_recovery_hold_count": sum(
+                        item.get("clearance") is None
+                        for item in observation.game_resource_recovery_holds),
+                    "game_resource_recovery_release_linkage_posture": str(
+                        resource_payload.get(
+                            "game_resource_recovery_release_linkage_posture", "unknown")),
                     "serving_operation_history_posture": (
                         "complete_receipts_present" if observation.serving_operation_history
                         and all(item.get("status") == "serving_receipt_verified"
@@ -4541,7 +4578,17 @@ def _compose_causal_introspection(
                 verified_serving_operation_attempts=(
                     observation.serving_operation_attempts),
                 verified_serving_operation_history=(
-                    observation.serving_operation_history))
+                    observation.serving_operation_history),
+                verified_inference_admission_decisions=(
+                    observation.verified_inference_admission_decisions),
+                verified_resource_release_receipts=(
+                    observation.verified_resource_release_receipts),
+                verified_preemption_invocation_receipts=(
+                    observation.verified_preemption_invocation_receipts),
+                verified_game_resource_recovery_holds=(
+                    observation.game_resource_recovery_holds),
+                game_resource_recovery_posture=(
+                    observation.game_resource_recovery_posture))
             resource_record = next((item for item in records
                 if item.get("subject_kind") == "causal_resource_consumption"), None)
             if not isinstance(resource_record, Mapping) or not isinstance(resource_record.get("payload"), Mapping):
@@ -4574,6 +4621,15 @@ def _compose_causal_introspection(
                     len(payload.get("lineage_findings", ())))),
                 "lineage_posture": str(payload.get("lineage_posture", "unknown")),
                 "recovery_posture": str(payload.get("recovery_posture", "unknown")),
+                "game_resource_recovery_posture": str(payload.get(
+                    "game_resource_recovery_posture", "unknown")),
+                "game_resource_recovery_release_linkage_posture": str(payload.get(
+                    "game_resource_recovery_release_linkage_posture", "unknown")),
+                "game_resource_recovery_hold_count": int(payload.get(
+                    "game_resource_recovery_hold_count", 0)),
+                "pending_game_resource_recovery_hold_count": sum(
+                    item.get("clearance") is None for item in
+                    observation.game_resource_recovery_holds),
                 "invocation_receipt_posture": observation.invocation_receipt_posture,
                 "chat_process_generation_posture": observation.chat_process_generation_posture,
                 "verified_chat_process_generation_attribution_count": len(
@@ -4603,6 +4659,10 @@ def _compose_causal_introspection(
                     "retained_invocation_receipt_count": "count", "incomplete_attempt_count": "count",
                     "lineage_finding_count": "count", "lineage_posture": "lineage",
                     "recovery_posture": "lifecycle", "invocation_receipt_posture": "health",
+                    "game_resource_recovery_posture": "lifecycle",
+                    "game_resource_recovery_release_linkage_posture": "lineage",
+                    "game_resource_recovery_hold_count": "count",
+                    "pending_game_resource_recovery_hold_count": "count",
                     "chat_process_generation_posture": "lifecycle",
                     "verified_chat_process_generation_attribution_count": "count",
                     "identity_retention_posture": "lifecycle",

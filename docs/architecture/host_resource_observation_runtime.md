@@ -23,13 +23,16 @@ installed automatically or required for startup. The adapter does not collect
 per-process GPU utilization, attribute work to the model worker, alter collector
 scheduling, or control the GPU.
 
-When the existing optional `runtime` dependency group provides `psutil`, the
-default CPU and memory collectors also take a bounded 100 ms CPU utilization
-sample and read system memory utilization. Without that dependency, they retain
-the standard-library partial observations and report utilization as
-unavailable. These measurements describe host-wide state; they are not
-attributed to a model process and do not themselves change scheduling, thread
-counts, GPU allocation, or other host behavior.
+Install `pip install -e '.[resource-governance]'` to enable the supported
+read-only CPU, memory, and NVIDIA GPU telemetry providers together. The
+`runtime` extra also supplies `psutil`, and `gpu-telemetry` supplies
+`nvidia-ml-py` separately for deployments that select those capabilities
+individually. The default CPU and memory collectors take a bounded 100 ms CPU
+utilization sample and read system memory utilization when `psutil` is
+available. Without it, they retain the standard-library partial observations
+and report utilization as unavailable. These measurements describe host-wide
+state; they are not attributed to a model process and do not themselves change
+scheduling, thread counts, GPU allocation, or other host behavior.
 
 ## Validation, redaction, and identity
 

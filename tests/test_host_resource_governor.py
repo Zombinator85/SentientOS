@@ -41,6 +41,50 @@ def test_pressure_classification_for_cpu_memory_gpu_disk_and_thermal() -> None:
     assert validate_host_resource_pressure_report(report, snapshot).ok
 
 
+def test_vram_pressure_has_a_separate_lower_threshold_than_gpu_compute() -> None:
+    snapshot = build_host_resource_telemetry_snapshot(
+        snapshot_id="snap-vram-pressure", observed_at="t",
+        cpu_utilization_percent=10, ram_utilization_percent=30,
+        disk_utilization_percent=20, gpu_utilization_percent=15,
+        vram_utilization_percent=86)
+    report = evaluate_host_resource_pressure(snapshot)
+
+    assert "gpu_pressure" in report.pressure_labels
+    assert validate_host_resource_pressure_report(report, snapshot).ok
+
+    below_threshold = replace(snapshot, snapshot_id="snap-vram-below",
+        vram_utilization_percent=84)
+    below_report = evaluate_host_resource_pressure(below_threshold)
+    assert "gpu_pressure" not in below_report.pressure_labels
+    assert validate_host_resource_pressure_report(below_report, below_threshold).ok
+
+
+def test_pressure_report_binds_threshold_policy_into_its_identity() -> None:
+    snapshot = build_host_resource_telemetry_snapshot(
+        snapshot_id="snap-threshold-binding", observed_at="t",
+        cpu_utilization_percent=10, ram_utilization_percent=30,
+        disk_utilization_percent=20, gpu_utilization_percent=15,
+        vram_utilization_percent=86)
+    report = evaluate_host_resource_pressure(snapshot)
+    alternate = evaluate_host_resource_pressure(
+        snapshot, vram_pressure_percent=90.0)
+
+    assert report.threshold_policy["vram_pressure_percent"] == 85.0
+    assert alternate.threshold_policy["vram_pressure_percent"] == 90.0
+    assert report.pressure_labels != alternate.pressure_labels
+    assert report.report_id != alternate.report_id
+    assert validate_host_resource_pressure_report(report, snapshot).ok
+    assert validate_host_resource_pressure_report(alternate, snapshot).ok
+
+    substituted_policy = dict(report.threshold_policy)
+    substituted_policy["vram_pressure_percent"] = 90.0
+    substituted = replace(report, threshold_policy=substituted_policy)
+    validation = validate_host_resource_pressure_report(substituted, snapshot)
+    assert not validation.ok
+    assert "pressure_report_not_derived_from_threshold_policy" in (
+        validation.findings)
+
+
 def test_fan_rpm_observation_is_telemetry_only() -> None:
     snapshot, report = _report(cpu_utilization_percent=10, ram_utilization_percent=20, disk_utilization_percent=30, fan_rpm_observations={"fan0": 1200})
     assert "fan_signal_present" in report.pressure_labels
@@ -209,6 +253,68 @@ def test_nvml_device_wide_samples_reach_pressure_using_worst_device() -> None:
     assert snapshot.vram_utilization_percent == 96.0
     assert "gpu_pressure" in report.pressure_labels
     assert validate_host_resource_pressure_report(report, snapshot).ok
+
+
+def test_nvml_gpu_temperature_reaches_thermal_pressure_without_host_thermal_zones() -> None:
+    from sentientos.host_collectors import HostCollectorResult
+    from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results
+
+    gpu = HostCollectorResult(
+        collector_id="nvidia_gpu",
+        status="available",
+        observed_at="2026-11-02T00:00:00+00:00",
+        source="test:NVML",
+        values={
+            "device_count": 1,
+            "sample_scope": "device_wide",
+            "per_process_attribution_available": False,
+            "devices": [{
+                "index": 0,
+                "gpu_utilization_percent": 18.0,
+                "vram_utilization_percent": 25.0,
+                "temperature_c": 90.0,
+            }],
+        },
+    )
+    thermal = HostCollectorResult(
+        collector_id="thermal_sensors",
+        status="unavailable",
+        observed_at="2026-11-02T00:00:00+00:00",
+        source="test:unavailable",
+        warnings=("sensor_unavailable:thermal",),
+    )
+
+    snapshot = build_host_resource_telemetry_from_collector_results(
+        (gpu, thermal), snapshot_id="nvml-gpu-thermal")
+    report = evaluate_host_resource_pressure(snapshot)
+
+    assert snapshot.thermal_zone_temperatures_c == {"nvidia_gpu_0": 90.0}
+    assert "thermal_pressure" in report.pressure_labels
+    assert "sensor_unavailable" in report.pressure_labels
+    assert validate_host_resource_pressure_report(report, snapshot).ok
+
+
+def test_malformed_nvml_gpu_temperature_is_unavailable_not_thermal_pressure() -> None:
+    from sentientos.host_collectors import HostCollectorResult
+    from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results
+
+    gpu = HostCollectorResult(
+        collector_id="nvidia_gpu",
+        status="available",
+        observed_at="2026-11-02T00:00:00+00:00",
+        source="test:NVML",
+        values={"device_count": 1, "devices": [{
+            "index": 0, "temperature_c": 151.0,
+        }]},
+    )
+
+    snapshot = build_host_resource_telemetry_from_collector_results(
+        (gpu,), snapshot_id="nvml-gpu-temperature-invalid")
+    report = evaluate_host_resource_pressure(snapshot)
+
+    assert snapshot.thermal_zone_temperatures_c == {}
+    assert "nvidia_gpu_temperature_c_malformed:0" in snapshot.unavailable_sensor_labels
+    assert "thermal_pressure" not in report.pressure_labels
 
 
 def test_nvml_malformed_device_sample_is_unavailable_not_idle() -> None:

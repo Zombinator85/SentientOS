@@ -180,11 +180,17 @@ def test_exact_runtime_worker_identity_environment_protocol_and_shutdown(tmp_pat
             self.stdin=Pipe(); self.stdout=Pipe(["SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps(ready)+"\n",
                 "SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps({"type":"generated","output":"bounded",
                     "peak_rss_kib":2048,"user_cpu_seconds":0.2,"system_cpu_seconds":0.02,
+                    "backend_thread_limit_control":{"schema_version":"sentientos.llama_cpp_backend_thread_limit_control:v1",
+                        "requested_ceiling":2,"setter_function":"llama_set_n_threads",
+                        "n_threads_argument":2,"n_threads_batch_argument":2},
                     "invocation_resources":{"schema_version":"sentientos.llama_cpp_invocation_resource_observation:v1",
                         "user_cpu_seconds":0.08,"system_cpu_seconds":0.01,"wall_seconds":0.2,
                         "process_peak_rss_bytes":2097152}})+"\n",
                 "SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps({"type":"generated","output":"chat-bounded",
                     "peak_rss_kib":3072,"user_cpu_seconds":0.3,"system_cpu_seconds":0.03,
+                    "backend_thread_limit_control":{"schema_version":"sentientos.llama_cpp_backend_thread_limit_control:v1",
+                        "requested_ceiling":None,"setter_function":None,
+                        "n_threads_argument":None,"n_threads_batch_argument":None},
                     "invocation_resources":{"schema_version":"sentientos.llama_cpp_invocation_resource_observation:v1",
                         "user_cpu_seconds":0.09,"system_cpu_seconds":0.01,"wall_seconds":0.3,
                         "process_peak_rss_bytes":3145728}})+"\n",
@@ -205,9 +211,11 @@ def test_exact_runtime_worker_identity_environment_protocol_and_shutdown(tmp_pat
     assert captured["argv"][0] == str(interpreter.resolve())  # type: ignore[index]
     assert json.loads(captured["argv"][11]) == profile  # type: ignore[index]
     assert "PYTHONPATH" not in captured["kwargs"]["env"] and "VIRTUAL_ENV" not in captured["kwargs"]["env"]  # type: ignore[index]
-    output, completion = worker.generate_governed_with_metadata("hello")
+    output, completion = worker.generate_governed_with_metadata(
+        "hello", max_backend_threads=2)
     assert output == "bounded"
-    assert completion["schema_version"] == "sentientos.llama_cpp_completion_observation:v2"
+    assert completion["schema_version"] == "sentientos.llama_cpp_completion_observation:v3"
+    assert completion["backend_thread_limit_control"]["n_threads_argument"] == 2
     assert completion["invocation_resources"]["user_cpu_seconds"] == 0.08
     assert completion["invocation_resources"]["process_peak_rss_bytes"] == 2097152
     assert worker.generate('{"instruction":"Return JSON."}',

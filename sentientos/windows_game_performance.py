@@ -44,6 +44,7 @@ class GamePerformanceObservation:
     hitch_count_over_50ms: int | None
     frame_time_digest: str | None
     unsupported_reasons: tuple[str, ...] = ()
+    process_name_digest: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -377,9 +378,156 @@ def _windows_process_sample(process_id: int) -> Mapping[str, object] | None:
         # psutil documents the first nonblocking sample as meaningless zero.
         # A short bounded interval yields an actual per-process CPU reading.
         cpu_percent = process.cpu_percent(interval=PROCESS_CPU_SAMPLE_INTERVAL_SECONDS)
+        name = process.name()
     except psutil.Error:
         return None
-    return {"cpu_percent": cpu_percent, "rss_bytes": memory.rss}
+    return {"name": name, "cpu_percent": cpu_percent, "rss_bytes": memory.rss}
+
+
+def _windows_foreground_process_identity() -> tuple[int, str] | None:
+    """Read the foreground PID and basename without changing process state."""
+    if platform.system().casefold() != "windows":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+        windll = getattr(ctypes, "windll")
+        user32 = windll.user32
+        kernel32 = windll.kernel32
+        window = user32.GetForegroundWindow()
+        if not window:
+            return None
+        process_id = wintypes.DWORD()
+        user32.GetWindowThreadProcessId.argtypes = (
+            wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
+        user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+        if not user32.GetWindowThreadProcessId(window, ctypes.byref(process_id)):
+            return None
+        if process_id.value < 1:
+            return None
+        kernel32.OpenProcess.argtypes = (
+            wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.QueryFullProcessImageNameW.argtypes = (
+            wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+            ctypes.POINTER(wintypes.DWORD))
+        kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        handle = kernel32.OpenProcess(0x1000, False, process_id.value)
+        if not handle:
+            return None
+        try:
+            buffer = ctypes.create_unicode_buffer(32768)
+            size = wintypes.DWORD(len(buffer))
+            if not kernel32.QueryFullProcessImageNameW(
+                    handle, 0, buffer, ctypes.byref(size)):
+                return None
+            name = buffer.value.replace("\\", "/").rsplit("/", 1)[-1]
+        finally:
+            kernel32.CloseHandle(handle)
+    except (AttributeError, OSError, RuntimeError, ValueError):
+        return None
+    except ImportError:
+        return None
+    return int(process_id.value), name
+
+
+def _windows_running_process_identities() -> tuple[tuple[int, str], ...]:
+    """Read process IDs and executable basenames without retaining paths."""
+    if platform.system().casefold() != "windows":
+        return ()
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class ProcessEntry32W(ctypes.Structure):
+            _fields_ = [
+                ("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                ("th32ProcessID", wintypes.DWORD),
+                ("th32DefaultHeapID", ctypes.c_size_t),
+                ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
+                ("th32ParentProcessID", wintypes.DWORD),
+                ("pcPriClassBase", wintypes.LONG), ("dwFlags", wintypes.DWORD),
+                ("szExeFile", wintypes.WCHAR * 260),
+            ]
+
+        kernel32 = getattr(ctypes, "windll").kernel32
+        kernel32.CreateToolhelp32Snapshot.argtypes = (wintypes.DWORD, wintypes.DWORD)
+        kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+        kernel32.Process32FirstW.argtypes = (
+            wintypes.HANDLE, ctypes.POINTER(ProcessEntry32W))
+        kernel32.Process32FirstW.restype = wintypes.BOOL
+        kernel32.Process32NextW.argtypes = (
+            wintypes.HANDLE, ctypes.POINTER(ProcessEntry32W))
+        kernel32.Process32NextW.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        snapshot = kernel32.CreateToolhelp32Snapshot(0x00000002, 0)
+        if not snapshot or snapshot == ctypes.c_void_p(-1).value:
+            return ()
+        try:
+            entry = ProcessEntry32W()
+            entry.dwSize = ctypes.sizeof(entry)
+            if not kernel32.Process32FirstW(snapshot, ctypes.byref(entry)):
+                return ()
+            identities: list[tuple[int, str]] = []
+            while True:
+                if entry.th32ProcessID > 0 and entry.szExeFile:
+                    identities.append((int(entry.th32ProcessID), entry.szExeFile))
+                entry.dwSize = ctypes.sizeof(entry)
+                if not kernel32.Process32NextW(snapshot, ctypes.byref(entry)):
+                    break
+            return tuple(identities)
+        finally:
+            kernel32.CloseHandle(snapshot)
+    except (AttributeError, OSError, RuntimeError, ValueError, ImportError):
+        return ()
+
+
+def allowlisted_game_process_id(
+        process_names: Sequence[str], *,
+        identity_provider: Callable[[], tuple[int, str] | None] | None = None,
+        running_identities_provider: Callable[[], Sequence[tuple[int, str]]]
+            | None = None,
+        ) -> int | None:
+    """Select an allowlisted game PID, preferring the foreground game."""
+    from .foreground_game_detection import normalize_game_process_names
+
+    try:
+        allowed = set(normalize_game_process_names(tuple(process_names)))
+    except (TypeError, ValueError):
+        return None
+    if not allowed:
+        return None
+    try:
+        identity = (identity_provider or _windows_foreground_process_identity)()
+    except Exception:
+        identity = None
+    if (isinstance(identity, tuple) and len(identity) == 2
+            and type(identity[0]) is int and identity[0] > 0
+            and isinstance(identity[1], str)):
+        foreground_name = identity[1].strip().casefold()
+        if ("/" not in foreground_name and "\\" not in foreground_name
+                and foreground_name in allowed):
+            return identity[0]
+    try:
+        running = (running_identities_provider or
+            _windows_running_process_identities)()
+    except Exception:
+        return None
+    if not isinstance(running, (tuple, list)):
+        return None
+    matches: list[int] = []
+    for item in running:
+        if (not isinstance(item, tuple) or len(item) != 2
+                or type(item[0]) is not int or item[0] < 1
+                or not isinstance(item[1], str)):
+            continue
+        name = item[1].strip().casefold()
+        if "/" not in name and "\\" not in name and name in allowed:
+            matches.append(item[0])
+    return min(matches) if matches else None
 
 
 def _presentmon_file_sample(path: Path, process_id: int) -> tuple[tuple[float, ...], str]:
@@ -410,12 +558,13 @@ class WindowsGamePerformanceObserver:
         unsupported: list[str] = []
         if self._system_provider().casefold() != "windows":
             return GamePerformanceObservation(
-                "sentientos.game_performance_observation:v1", "unsupported_platform", observed_at,
+                "sentientos.game_performance_observation:v2", "unsupported_platform", observed_at,
                 process_digest, None, None, "unsupported", 0, None, None, None, None, None,
                 ("windows_required",),
             )
         cpu_percent: float | None = None
         rss_bytes: int | None = None
+        process_name_digest: str | None = None
         try:
             process = self._process_provider(process_id)
         except (OSError, RuntimeError, ValueError):
@@ -424,6 +573,17 @@ class WindowsGamePerformanceObserver:
         if process is None:
             unsupported.append("process_provider_unavailable")
         else:
+            process_name = process.get("name")
+            if isinstance(process_name, str):
+                normalized_name = (process_name.strip().casefold()
+                    .replace("\\", "/").rsplit("/", 1)[-1])
+                if re.fullmatch(r"[a-z0-9][a-z0-9 ._-]{0,126}\.exe", normalized_name):
+                    process_name_digest = hashlib.sha256(
+                        normalized_name.encode("utf-8")).hexdigest()
+                else:
+                    unsupported.append("process_name_unavailable")
+            else:
+                unsupported.append("process_name_unavailable")
             cpu = process.get("cpu_percent")
             rss = process.get("rss_bytes")
             if (isinstance(cpu, bool) or not isinstance(cpu, (int, float))
@@ -456,15 +616,17 @@ class WindowsGamePerformanceObserver:
                     raise GamePerformanceObservationError("presentmon_digest_invalid")
                 p50, p95, p99, hitch_count = summarize_frame_times_ms(values)
                 frame_count = len(values)
+            else:
+                frame_digest = None
         except (OSError, GamePerformanceObservationError):
             values = ()
             frame_source = "unavailable"
             unsupported.append("presentmon_observation_unavailable")
         status = "available" if not unsupported else "partial" if cpu_percent is not None or p50 is not None else "unavailable"
         return GamePerformanceObservation(
-            "sentientos.game_performance_observation:v1", status, observed_at, process_digest,
+            "sentientos.game_performance_observation:v2", status, observed_at, process_digest,
             cpu_percent, rss_bytes, frame_source, frame_count, p50, p95, p99, hitch_count,
-            frame_digest, tuple(sorted(set(unsupported))),
+            frame_digest, tuple(sorted(set(unsupported))), process_name_digest,
         )
 
 
@@ -472,4 +634,5 @@ __all__ = ["GamePerformanceObservation", "GamePerformanceObservationError",
            "PresentMonFrameTiming", "PresentMonTimelineSummary",
            "WindowsGamePerformanceObserver", "parse_presentmon_csv",
            "parse_presentmon_timeline", "summarize_frame_times_ms",
+           "allowlisted_game_process_id",
            "summarize_presentmon_timeline"]

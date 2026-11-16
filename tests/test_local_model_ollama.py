@@ -131,8 +131,15 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
         {"role": "user", "content": "[SESSION_HISTORY_DATA]\nUSER_DATA: hello"},
     ]
 
-    ticks = iter((1_000_000, 1_075_000, 2_000_000, 2_075_000,
-        3_000_000, 3_075_000))
+    def monotonic_ticks():
+        yield from (1_000_000, 1_075_000, 2_000_000, 2_075_000,
+            3_000_000, 3_075_000)
+        tick = 4_000_000
+        while True:
+            yield tick
+            tick += 1_000_000
+
+    ticks = iter(monotonic_ticks())
     monkeypatch.setattr("sentientos.local_model.time.monotonic_ns", lambda: next(ticks))
     streamed_parts = []
     text, completion = backend.generate_with_metadata("Say hello", (),

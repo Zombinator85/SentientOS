@@ -95,6 +95,8 @@ def _custody(root: Path, *, wsl: bool):
         "wsl:/etc/sentientos/bridge/core-client.pem": CompanionCustodyReference("certificate", "client.pem", "public_file"),
         "windows:dpapi/edge-server-key": CompanionCustodyReference("private_key", "server.key", "encrypted_pem", "secret:tls-password"),
         "wsl:/etc/sentientos/bridge/core-client.key": CompanionCustodyReference("private_key", "client.key", "encrypted_pem", "secret:tls-password"),
+        "windows:credential-store/edge-cert": CompanionCustodyReference("certificate", "server.pem", "public_file"),
+        "windows:dpapi/edge-key": CompanionCustodyReference("private_key", "server.key", "encrypted_pem", "secret:tls-password"),
         "secret:tls-password": CompanionCustodyReference("secret", "tls-password.bin",
             "posix_private_file" if wsl else "windows_dpapi"),
     })
@@ -117,6 +119,7 @@ def test_platform_provider_composes_windows_edge_with_custody_and_explicit_rende
         authority=_authority(), windows_avatar_state_path=tmp_path / "avatar-state.json",
         command_receipt_verifier=lambda _receipt_id, _digest, _message: True,
         receipt_replay_guard=replay_guard,
+        game_process_names=("Cronos.exe",),
         system_name="Windows", is_wsl2=False)
 
     runtime = provider.create_runtime("windows_edge", _reverse_mutual_tls_manifest())
@@ -124,6 +127,10 @@ def test_platform_provider_composes_windows_edge_with_custody_and_explicit_rende
     assert type(runtime) is WindowsEdgeAvatarRuntime
     assert runtime.status().state == "stopped"
     assert runtime.status().renderer_effect_proven is False
+    assert runtime.status().game_performance_publisher_configured is True
+    assert runtime.status().game_performance_publisher_running is False
+    assert runtime._game_performance_pump is not None
+    assert runtime._game_performance_pump._process_names == ("cronos.exe",)
     assert runtime._dispatcher._receipt_replay_guard is replay_guard
 
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import platform
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 from avatar_state import AvatarStateEmitter
 
@@ -49,6 +49,7 @@ class GamingCompanionPlatformRoleProvider:
                  admission_receipt_builder: AdmissionReceiptBuilder | None = None,
                  command_receipt_verifier: CommandReceiptVerifier | None = None,
                  receipt_replay_guard: AdmissionReceiptReplayGuard | None = None,
+                 game_process_names: Sequence[str] = (),
                  system_name: str | None = None,
                  is_wsl2: bool | None = None) -> None:
         if type(custody) is not CompanionPlatformCustodyResolver:
@@ -62,6 +63,12 @@ class GamingCompanionPlatformRoleProvider:
         self._admission_builder = admission_receipt_builder
         self._command_verifier = command_receipt_verifier
         self._receipt_replay_guard = receipt_replay_guard
+        from .foreground_game_detection import normalize_game_process_names
+        if game_process_names:
+            self._game_process_names = normalize_game_process_names(
+                tuple(game_process_names))
+        else:
+            self._game_process_names = ()
         self._system = system_name or platform.system()
         self._is_wsl2 = _detect_wsl2() if is_wsl2 is None else is_wsl2
 
@@ -71,6 +78,7 @@ class GamingCompanionPlatformRoleProvider:
             admission_receipt_builder: AdmissionReceiptBuilder | None = None,
             command_receipt_verifier: CommandReceiptVerifier | None = None,
             receipt_replay_guard: AdmissionReceiptReplayGuard | None = None,
+            game_process_names: Sequence[str] = (),
             system_name: str | None = None,
             is_wsl2: bool | None = None) -> GamingCompanionPlatformRoleProvider:
         """Compose custody and authority from the same verified installation."""
@@ -81,6 +89,7 @@ class GamingCompanionPlatformRoleProvider:
             admission_receipt_builder=admission_receipt_builder,
             command_receipt_verifier=command_receipt_verifier,
             receipt_replay_guard=receipt_replay_guard,
+            game_process_names=game_process_names,
             system_name=system_name, is_wsl2=is_wsl2)
 
     def __call__(self, role: str, manifest: Mapping[str, Any]) -> (
@@ -119,6 +128,8 @@ class GamingCompanionPlatformRoleProvider:
                 command_receipt_verifier=self._command_verifier,
                 renderer_sink=renderer.enqueue,
                 receipt_replay_guard=self._receipt_replay_guard,
+                client_tls_context_factory=self._custody.client_tls_context,
+                game_process_names=self._game_process_names,
             )
         self._require_wsl_core()
         if self._admission_builder is None:
