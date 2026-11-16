@@ -53,6 +53,13 @@ from .rootless_experimental_epistemic_session import MAX_CALL_TIMEOUT_SECONDS
 from .private_file_custody import (PrivateFileCustodyError, list_bounded_json_names_at,
     open_private_directory, publish_immutable_bytes, read_private_file_at,
     replace_private_bytes)
+from .windows_handle_custody import (
+    WindowsHandleCustodyError, observe_private_directory_identity,
+    read_explicit_file, read_regular_files, verify_explicit_directory,
+)
+from .windows_peer_replay_custody import (
+    WindowsReplayCustodyError, publish_immutable_replay_bytes,
+)
 from .platform_fcntl import fcntl, require_flock
 from .longitudinal_self_model import CognitiveSelfModelProjection
 from .persistent_epistemic_state import (EpistemicCognitiveProjection,
@@ -847,6 +854,19 @@ def _validate_root_separation(history_root: Path, state_root: Path,
 def _replace_cognition_state(path: Path, payload: Mapping[str, Any]) -> None:
     """Atomically replace mutable cognition state through shared private custody."""
     data = json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n"
+    if os.name == "nt":
+        try:
+            verify_explicit_directory(path.parent, require_private_acl=True)
+            root_identity = observe_private_directory_identity(path.parent)
+            publish_immutable_replay_bytes(path, data,
+                max_bytes=MAX_COMPOSITION_STATE_BYTES, max_entries=8192,
+                expected_root_identity=root_identity,
+                filename_policy="resident_cognition_state", replace_existing=True)
+            return
+        except (WindowsHandleCustodyError, WindowsReplayCustodyError,
+                OSError) as exc:
+            raise ResidentDevelopmentalCognitionError(
+                "composition_state_publication_failed") from exc
     try:
         replace_private_bytes(path, data, max_bytes=MAX_COMPOSITION_STATE_BYTES)
     except PrivateFileCustodyError as exc:
@@ -4087,6 +4107,22 @@ class ResidentDevelopmentalCognitionOwner:
         self._epistemic_probe_purpose = COGNITION_PURPOSE
         self._epistemic_probe_session_binding: Mapping[str, Any] | None = None
 
+    def _ensure_windows_state_collection(self, collection: Path) -> tuple[int, bytes]:
+        if os.name != "nt" or collection.parent != self.config.state_root:
+            raise ResidentDevelopmentalCognitionError(
+                "composition_windows_collection_invalid")
+        try:
+            verify_explicit_directory(self.config.state_root,
+                require_private_acl=True)
+            try:
+                collection.mkdir()
+            except FileExistsError:
+                pass
+            return observe_private_directory_identity(collection)
+        except (WindowsHandleCustodyError, OSError) as exc:
+            raise ResidentDevelopmentalCognitionError(
+                "composition_windows_collection_custody_invalid") from exc
+
     def bind_rootless_experimental_epistemic_session(
             self, binding: Mapping[str, Any]) -> None:
         """Bind a preregistered, non-serving rootless probe session once.
@@ -4227,7 +4263,7 @@ class ResidentDevelopmentalCognitionOwner:
                     entries = read_regular_files(self.state_path.parent,
                         max_entries=1, max_file_bytes=MAX_COMPOSITION_STATE_BYTES,
                         max_total_bytes=MAX_COMPOSITION_STATE_BYTES,
-                        suffix=self.state_path.name)
+                        suffix=self.state_path.name, require_private_acl=True)
                 except WindowsHandleCustodyError as exc:
                     raise ResidentDevelopmentalCognitionError("composition_state_safe_read_failed") from exc
                 if len(entries) > 1:
@@ -5263,7 +5299,8 @@ class ResidentDevelopmentalCognitionOwner:
                 entries = read_regular_files(self.observations_root,
                     max_entries=MAX_COGNITION_OBSERVATIONS,
                     max_file_bytes=MAX_COGNITION_OBSERVATION_BYTES,
-                    max_total_bytes=MAX_COGNITION_OBSERVATION_ROOT_BYTES)
+                    max_total_bytes=MAX_COGNITION_OBSERVATION_ROOT_BYTES,
+                    require_private_acl=True)
             except WindowsHandleCustodyError as exc:
                 raise ResidentDevelopmentalCognitionError("cognition_observation_windows_recovery_failed") from exc
             total_bytes = sum(len(raw) for _name, raw in entries)
@@ -5576,7 +5613,7 @@ class ResidentDevelopmentalCognitionOwner:
                 entries = read_regular_files(self.epistemic_revision_probe_captures_root,
                     max_entries=1, max_file_bytes=MAX_COMPOSITION_STATE_BYTES,
                     max_total_bytes=MAX_COMPOSITION_STATE_BYTES,
-                    selected_names=(filename,))
+                    selected_names=(filename,), require_private_acl=True)
                 if len(entries) != 1 or entries[0][0] != filename:
                     raise ResidentDevelopmentalCognitionError(
                         "epistemic_revision_probe_capture_unavailable")
@@ -5852,7 +5889,7 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError("transition_retrieved_history_digest_mismatch")
 
     def _save_state(self, state: Mapping[str, Any]) -> None:
-        if os.name != "posix":
+        if os.name not in {"posix", "nt"}:
             raise ResidentDevelopmentalCognitionError("composition_state_publication_unsupported_platform")
         semantic = {k: v for k, v in state.items() if k != "state_digest"}
         if (len(semantic.get("processed_selection_ids", ())) > MAX_RECOVERED_FACT_IDS
@@ -7266,21 +7303,45 @@ class ResidentDevelopmentalCognitionOwner:
             }
             capture["capture_digest"] = _digest(capture)
             try:
-                directory_fd = _open_store_directory(
-                    self.epistemic_revision_probe_captures_root, create=True)
-                os.close(directory_fd)
-                _publish_store_json(
-                    self.epistemic_revision_probe_captures_root
-                        / f"{observation.observation_id}.json",
-                    capture,
-                    collision_error="epistemic_revision_probe_capture_identity_collision",
-                    max_bytes=MAX_COMPOSITION_STATE_BYTES)
+                if os.name == "nt":
+                    capture_identity = self._ensure_windows_state_collection(
+                        self.epistemic_revision_probe_captures_root)
+                    _publish_store_json(
+                        self.epistemic_revision_probe_captures_root
+                            / f"{observation.observation_id}.json",
+                        capture,
+                        collision_error="epistemic_revision_probe_capture_identity_collision",
+                        max_bytes=MAX_COMPOSITION_STATE_BYTES,
+                        windows_root_identity=capture_identity,
+                        windows_filename_policy="epistemic_probe_capture")
+                else:
+                    capture_root_fd = _open_store_directory(
+                        self.epistemic_revision_probe_captures_root, create=True)
+                    os.close(capture_root_fd)
+                    _publish_store_json(
+                        self.epistemic_revision_probe_captures_root
+                            / f"{observation.observation_id}.json",
+                        capture,
+                        collision_error="epistemic_revision_probe_capture_identity_collision",
+                        max_bytes=MAX_COMPOSITION_STATE_BYTES)
             except (OSError, DevelopmentalWritebackError) as exc:
                 raise ResidentDevelopmentalCognitionError(
                     "epistemic_revision_probe_capture_publication_failed") from exc
         try:
-            _publish_store_json(self.observations_root / f"{observation.observation_id}.json",
-                asdict(observation), collision_error="cognition_observation_identity_collision")
+            if os.name == "nt":
+                observation_identity = self._ensure_windows_state_collection(
+                    self.observations_root)
+                _publish_store_json(
+                    self.observations_root / f"{observation.observation_id}.json",
+                    asdict(observation),
+                    collision_error="cognition_observation_identity_collision",
+                    windows_root_identity=observation_identity,
+                    windows_filename_policy="cognition_observation")
+            else:
+                _publish_store_json(
+                    self.observations_root / f"{observation.observation_id}.json",
+                    asdict(observation),
+                    collision_error="cognition_observation_identity_collision")
         except DevelopmentalWritebackError as exc:
             raise ResidentDevelopmentalCognitionError(
                 "cognition_observation_publication_failed") from exc
@@ -7311,6 +7372,60 @@ class ResidentDevelopmentalCognitionOwner:
     @contextmanager
     def _composition_lock(self) -> Iterator[None]:
         """Serialize the complete durable tick across owner instances/processes."""
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+
+            try:
+                root_identity = observe_private_directory_identity(self.state_path.parent)
+            except WindowsHandleCustodyError as exc:
+                raise ResidentDevelopmentalCognitionError(
+                    "composition_lock_root_unavailable") from exc
+            root_key = _digest({"volume": root_identity[0],
+                "file_id": root_identity[1].hex()})[7:]
+            kernel = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+            create_mutex = kernel.CreateMutexW
+            create_mutex.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+            create_mutex.restype = wintypes.HANDLE
+            wait = kernel.WaitForSingleObject
+            wait.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            wait.restype = wintypes.DWORD
+            release = kernel.ReleaseMutex
+            release.argtypes = [wintypes.HANDLE]
+            release.restype = wintypes.BOOL
+            close = kernel.CloseHandle
+            close.argtypes = [wintypes.HANDLE]
+            close.restype = wintypes.BOOL
+            mutex = create_mutex(None, False,
+                "Local\\SentientOS-ResidentCognition-" + root_key)
+            if not mutex:
+                raise ResidentDevelopmentalCognitionError(
+                    "composition_lock_unavailable")
+            acquired = False
+            try:
+                result = int(wait(mutex, 30_000))
+                if result not in {0, 0x80}:
+                    raise ResidentDevelopmentalCognitionError(
+                        "composition_lock_unavailable")
+                acquired = True
+                try:
+                    if observe_private_directory_identity(
+                            self.state_path.parent) != root_identity:
+                        raise ResidentDevelopmentalCognitionError(
+                            "composition_lock_root_identity_changed")
+                except WindowsHandleCustodyError as exc:
+                    raise ResidentDevelopmentalCognitionError(
+                        "composition_lock_root_unavailable") from exc
+                yield
+            finally:
+                if acquired and not release(mutex):
+                    close(mutex)
+                    raise ResidentDevelopmentalCognitionError(
+                        "composition_lock_release_failed")
+                if not close(mutex):
+                    raise ResidentDevelopmentalCognitionError(
+                        "composition_lock_close_failed")
+            return
         if os.name != "posix":
             raise ResidentDevelopmentalCognitionError("composition_lock_unsupported_platform")
         directory_fd: int | None = None
@@ -7758,8 +7873,6 @@ class ResidentDevelopmentalCognitionOwner:
                  ) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
-        if os.name != "posix":
-            raise ResidentDevelopmentalCognitionError("composition_publication_unsupported_platform")
         if not isinstance(tick_id, str) or not tick_id or len(tick_id) > 256:
             raise ResidentDevelopmentalCognitionError("composition_tick_identity_invalid")
         validation = validate_snapshot(snapshot)

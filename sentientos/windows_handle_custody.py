@@ -528,7 +528,11 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                         fail("cognition_observation_windows_directory_entry_invalid")
                     name = directory_buffer.raw[offset + 64:offset + 64 + name_length].decode("utf-16-le")
                     observed_entries += 1
-                    if observed_entries > max_entries:
+                    # max_entries bounds selected payloads. Exact-name readers
+                    # routinely operate in shared state roots that also contain
+                    # sibling journals and subdirectories, so bound directory
+                    # enumeration independently instead of rejecting those roots.
+                    if observed_entries > 8192:
                         fail("cognition_observation_retention_limit_exceeded")
                     if name not in {".", ".."} and name.endswith(suffix):
                         if attrs_value & FILE_ATTRIBUTE_REPARSE_POINT:

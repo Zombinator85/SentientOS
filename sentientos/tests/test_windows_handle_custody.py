@@ -19,6 +19,13 @@ from sentientos.windows_handle_custody import (
 from sentientos import windows_handle_custody as windows_custody_module
 from sentientos import windows_peer_replay_custody as publication_module
 from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
+from sentientos.resident_developmental_cognition import (
+    ResidentDevelopmentalCognitionOwner, STATE_SCHEMA,
+)
+from sentientos.codex_task_authority_admission import TaskAuthorityDefinition
+from sentientos.runtime_admission import (
+    AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
+)
 from sentientos.resident_developmental_writeback import (
     DevelopmentalHistoryStore, DevelopmentalRecord,
     ResidentDevelopmentalWritebackController, WritebackReceipt,
@@ -635,6 +642,154 @@ def test_windows_developmental_history_record_and_receipt_recover_after_restart(
         assert recovered.records() == (record,)
         assert recovered.receipts() == (receipt,)
         assert recovered.get_receipt(receipt.receipt_id).record_digest == record.record_digest
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows mutable checkpoint custody")
+def test_windows_resident_cognition_checkpoint_replaces_atomically_and_locks(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from tempfile import TemporaryDirectory
+
+    with TemporaryDirectory(prefix=".resident-cognition-state-",
+            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        owner = object.__new__(ResidentDevelopmentalCognitionOwner)
+        owner.state_path = root / "composition_state.json"
+
+        first = {"schema": STATE_SCHEMA, "processed_selection_ids": [],
+            "completed_ticks": [], "incomplete_ticks": []}
+        owner._save_state(first)
+        first_bytes = read_explicit_file(owner.state_path,
+            max_bytes=16_777_216, require_private_acl=True)
+        first_state = json.loads(first_bytes.decode("utf-8"))
+        assert first_state["processed_selection_ids"] == []
+
+        second = {**first, "processed_selection_ids": ["selection-after-restart"]}
+        owner._save_state(second)
+        second_bytes = read_explicit_file(owner.state_path,
+            max_bytes=16_777_216, require_private_acl=True)
+        second_state = json.loads(second_bytes.decode("utf-8"))
+        assert second_state["processed_selection_ids"] == ["selection-after-restart"]
+        assert second_bytes != first_bytes
+        with owner._composition_lock():
+            pass
+
+        def fail_after_replace(phase: str) -> None:
+            if phase == "committed":
+                raise RuntimeError("fixture interrupted after atomic replacement")
+
+        monkeypatch.setattr(publication_module, "_publication_boundary", fail_after_replace)
+        third = {**first, "processed_selection_ids": ["committed-before-interruption"]}
+        with pytest.raises(RuntimeError, match="after atomic replacement"):
+            owner._save_state(third)
+        recovered = json.loads(read_explicit_file(owner.state_path,
+            max_bytes=16_777_216, require_private_acl=True).decode("utf-8"))
+        assert recovered["processed_selection_ids"] == ["committed-before-interruption"]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows admission ledger custody")
+def test_windows_runtime_admission_updates_are_locked_and_recover_after_restart() -> None:
+    from tempfile import TemporaryDirectory
+
+    capability = "fixture.inert.windows_admission"
+    definition = TaskAuthorityDefinition(
+        capability,
+        frozenset({"fixture"}),
+        frozenset({"fixture_controller"}),
+        frozenset({"bounded_external_model_network_egress"}),
+        ("wildcard",),
+        approval_requirements=("operator_fixture_approval",),
+        purpose="Inert Windows admission persistence test",
+    )
+    with TemporaryDirectory(prefix=".runtime-admission-",
+            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        ledger = AdmissionLedger(root / "admissions.json")
+        authority = RuntimeAdmissionAuthority(
+            definitions={capability: definition}, ledger=ledger)
+        evidence = authority.issue_next(
+            admission_id_for_sequence=lambda sequence: f"windows-admission-{sequence}",
+            capability_id=capability, definition_version=1,
+            subsystem_kind="fixture", principal_id="controller",
+            principal_kind="fixture_controller",
+            effects=("bounded_external_model_network_egress",),
+            subject_id="fixture-service", request_configuration_digest="sha256:fixture",
+            provenance="native-windows-fixture",
+            affirmative_preconditions=("operator_fixture_approval",),
+        )
+        authority.revoke(evidence.admission_id, sequence=2,
+            reason_category="fixture_revocation", provenance="native-windows-fixture")
+
+        restarted = RuntimeAdmissionVerifier(
+            definitions={capability: definition},
+            ledger=AdmissionLedger(root / "admissions.json"))
+        assert restarted.recorded_admission(evidence.admission_id) == evidence
+        assert len(restarted._ledger.load()[1]) == 1
+        with restarted._ledger._exclusive_update_lock():
+            pass
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows persistent cognition custody")
+def test_windows_resident_tick_recovers_and_applies_history_after_restart() -> None:
+    from tempfile import TemporaryDirectory
+    from tests.test_resident_developmental_cognition import FakeInvoker
+    from tests.test_resident_developmental_cognition import owner as make_cognition_owner
+    from tests.test_resident_developmental_cognition import snapshot
+
+    with TemporaryDirectory(prefix=".resident-cognition-loop-",
+            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        history_root, state_root = root / "history", root / "state"
+        history_root.mkdir()
+        state_root.mkdir()
+        _make_current_user_private(history_root, directory=True)
+        _make_current_user_private(state_root, directory=True)
+
+        class HistorySensitiveInvoker(FakeInvoker):
+            def invoke(self, request, **kwargs):
+                if request.purpose in {
+                        "resident_developmental_interpretation",
+                        "resident_developmental_retrieval_cognition"}:
+                    prompt = json.loads(request.prompt)
+                    if request.purpose == "resident_developmental_interpretation":
+                        self.history_interpretation = (
+                            "Applied persisted prior experience."
+                            if prompt.get("developmental_history")
+                            else "No prior experience was available.")
+                    else:
+                        self.lesson_statement = (
+                            "Applied persisted prior experience."
+                            if prompt.get("developmental_history")
+                            else "No prior experience was available.")
+                return super().invoke(request, **kwargs)
+
+        first_invoker = HistorySensitiveInvoker()
+        first_owner, _ = make_cognition_owner(root,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=first_invoker)
+        first = first_owner.run_tick(snapshot=snapshot(1), tick_id="windows-cognition-first")
+        assert first.written_record_id
+        assert first_invoker.requests
+        first_record = first_owner.writeback.store.get(first.written_record_id)
+        assert first_record.candidate["interpretation"] == "No prior experience was available."
+
+        restarted_invoker = HistorySensitiveInvoker()
+        restarted_owner, _ = make_cognition_owner(root,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=restarted_invoker)
+        later = restarted_owner.run_tick(snapshot=snapshot(2),
+            tick_id="windows-cognition-after-restart")
+        assert later.written_record_id
+        prompt = json.loads(restarted_invoker.requests[-1].prompt)
+        assert prompt["developmental_history"]
+        assert prompt["developmental_history"][0]["record_id"] == first.written_record_id
+        later_record = restarted_owner.writeback.store.get(later.written_record_id)
+        assert "Applied persisted prior experience." in later_record.candidate["interpretation"]
+        assert later_record.candidate["interpretation"] != first_record.candidate["interpretation"]
+        assert read_explicit_file(restarted_owner.state_path,
+            max_bytes=16_777_216, require_private_acl=True)
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows no-replace rename")

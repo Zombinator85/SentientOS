@@ -11,7 +11,13 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
 
 from sentientos.codex_task_authority_admission import TaskAuthorityDefinition, authority_definition_digest
-from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
+from sentientos.windows_handle_custody import (
+    WindowsHandleCustodyError, observe_private_directory_identity,
+    read_explicit_file, verify_explicit_directory,
+)
+from sentientos.windows_peer_replay_custody import (
+    WindowsReplayCustodyError, publish_immutable_replay_bytes,
+)
 from sentientos.private_file_custody import (
     PrivateFileCustodyError, open_private_directory, read_private_file_at, replace_private_bytes,
 )
@@ -62,6 +68,53 @@ class AdmissionLedger:
     @contextmanager
     def _exclusive_update_lock(self) -> Iterator[None]:
         """Serialize admission read/check/write updates across local processes."""
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+
+            try:
+                root_identity = observe_private_directory_identity(self.path.parent)
+            except WindowsHandleCustodyError as exc:
+                raise AdmissionError("admission_ledger_lock_root_unavailable") from exc
+            root_key = _digest({"volume": root_identity[0],
+                "file_id": root_identity[1].hex()})[7:]
+            kernel = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+            create_mutex = kernel.CreateMutexW
+            create_mutex.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+            create_mutex.restype = wintypes.HANDLE
+            wait = kernel.WaitForSingleObject
+            wait.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            wait.restype = wintypes.DWORD
+            release = kernel.ReleaseMutex
+            release.argtypes = [wintypes.HANDLE]
+            release.restype = wintypes.BOOL
+            close = kernel.CloseHandle
+            close.argtypes = [wintypes.HANDLE]
+            close.restype = wintypes.BOOL
+            mutex = create_mutex(None, False,
+                "Local\\SentientOS-RuntimeAdmission-" + root_key)
+            if not mutex:
+                raise AdmissionError("admission_ledger_lock_unavailable")
+            acquired = False
+            try:
+                result = int(wait(mutex, 30_000))
+                if result not in {0, 0x80}:
+                    raise AdmissionError("admission_ledger_lock_unavailable")
+                acquired = True
+                try:
+                    if observe_private_directory_identity(
+                            self.path.parent) != root_identity:
+                        raise AdmissionError("admission_ledger_lock_root_identity_changed")
+                except WindowsHandleCustodyError as exc:
+                    raise AdmissionError("admission_ledger_lock_root_unavailable") from exc
+                yield
+            finally:
+                if acquired and not release(mutex):
+                    close(mutex)
+                    raise AdmissionError("admission_ledger_lock_release_failed")
+                if not close(mutex):
+                    raise AdmissionError("admission_ledger_lock_close_failed")
+            return
         if os.name != "posix":
             raise AdmissionError("admission_ledger_lock_unsupported_platform")
         directory_fd: int | None = None
@@ -105,7 +158,8 @@ class AdmissionLedger:
     def load(self) -> tuple[tuple[AdmissionEvidence, ...], tuple[RevocationEvidence, ...]]:
         if os.name == "nt":
             try:
-                raw = read_explicit_file(self.path, max_bytes=MAX_LEDGER_BYTES)
+                raw = read_explicit_file(self.path, max_bytes=MAX_LEDGER_BYTES,
+                    require_private_acl=True)
             except WindowsHandleCustodyError as exc:
                 if str(exc) == "explicit_file_missing":
                     return (), ()
@@ -179,6 +233,30 @@ class AdmissionLedger:
 
     def _save_unlocked(self, admissions: tuple[AdmissionEvidence, ...],
                        revocations: tuple[RevocationEvidence, ...]) -> None:
+        if os.name == "nt":
+            if len(admissions) > MAX_ADMISSIONS or len(revocations) > MAX_REVOCATIONS:
+                raise AdmissionError("admission_ledger_retention_limit_exceeded")
+            payload: dict[str, Any] = {
+                "schema": SCHEMA,
+                "admissions": [asdict(item) for item in admissions],
+                "revocations": [asdict(item) for item in revocations],
+            }
+            payload["ledger_digest"] = _digest(payload)
+            raw = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False).encode()
+            if len(raw) > MAX_LEDGER_BYTES:
+                raise AdmissionError("admission_ledger_size_limit_exceeded")
+            try:
+                verify_explicit_directory(self.path.parent, require_private_acl=True)
+                root_identity = observe_private_directory_identity(self.path.parent)
+                publish_immutable_replay_bytes(self.path, raw,
+                    max_bytes=MAX_LEDGER_BYTES, max_entries=8192,
+                    expected_root_identity=root_identity,
+                    filename_policy="runtime_admission_ledger", replace_existing=True)
+            except (WindowsHandleCustodyError, WindowsReplayCustodyError,
+                    OSError) as exc:
+                raise AdmissionError("admission_ledger_publication_failed") from exc
+            return
         if os.name != "posix":
             raise AdmissionError("admission_ledger_publication_unsupported_platform")
         if len(admissions) > MAX_ADMISSIONS or len(revocations) > MAX_REVOCATIONS:

@@ -124,9 +124,7 @@ On Windows, longitudinal self-model reconciliations now use the existing
 handle-bound immutable publisher when the configured custody root already
 exists and passes the private ACL check. A directory-identity-bound local
 mutex serializes reconciliation generations across processes, and restart
-recovery verifies the resulting immutable chain. This does not enable mutable
-resident developmental composition-state publication on Windows; `run_tick`
-and that owner's checkpoint remain fail-closed there.
+recovery verifies the resulting immutable chain.
 
 The developmental-history store now also publishes immutable learning records
 and writeback receipts on Windows when its configured root exists with a
@@ -135,9 +133,22 @@ no-replace publisher, and the writeback operation lock is scoped to the verified
 root identity. A deterministic native test writes both artifacts, acquires the
 lock, reconstructs the store, and verifies their record/receipt linkage after
 restart. This enables durable history storage on Windows; the resident owner
-still cannot complete `run_tick` there because its mutable composition
-checkpoint and composition lock have not yet been made portable. No model
-inference or GPU-backed validation is part of this result.
+also persists its mutable composition checkpoint with atomic replacement and
+serializes ticks through a state-root-identity-bound local mutex. Runtime
+admission ledger updates use the same private-root discipline, and cognition
+observations are durably published and recovered from their own private child
+directory. Exact-name reads now tolerate bounded sibling entries in shared
+state roots while still enforcing the selected-file count and byte limits.
+
+A native Windows integration test exercises two ordinary `run_tick` calls from
+separate owner instances. The first tick admits and retains a lesson; the second
+reconstructs checkpoint, observation, admission, record, and receipt custody
+after restart, selects the earlier record, and changes a deterministic fake
+invoker's interpretation only when that history appears in its prompt. This
+demonstrates the integrated software path with a controlled substitute; it does
+not demonstrate real-model learning or improved real-world decisions. Optional
+objective and comparison experiments still depend on POSIX-only experiment
+artifact publication, and no GPU or real-model validation was performed.
 
 A renderer's proprioceptive report remains a report from the renderer, not an
 independent measurement of the avatar's actual effect. The self-model owner
@@ -233,9 +244,9 @@ and staging is refused when no such history exists. The check never repairs
 composition or history custody. Its output says `staged_not_authorized`: it
 does not load a model, admit a call, or grant serving authority. On the next daemon tick with an exact World-State
 snapshot, the configured resident owner reads the request through bounded
-no-follow file custody on POSIX. The current private publication and cognition
-state owners remain unsupported on Windows; the staging command reports that
-platform blocker and does not fall back to an ordinary write. If eligible prior developmental history exists, the
+no-follow file custody on POSIX. The staged objective-request artifact store
+remains unsupported on Windows; the staging command reports that platform
+blocker and does not fall back to an ordinary write. If eligible prior developmental history exists, the
 owner binds the request and its public descriptor into a durable objective
 plan before the three existing governed inference calls. If no prior history
 exists, it records a terminal blocked request without inference. The request
