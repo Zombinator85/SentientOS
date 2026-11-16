@@ -176,9 +176,12 @@ The fixture shows
 that the ranked GPU claim survives while a large unrelated leading claim is
 omitted; with legacy ordering, the oversized claim causes the projection to be
 omitted from inference input. The prompt retains historical category, status,
-false current-truth posture, and false authority map. Owner projection lineage
-still records the full upstream selection, while prompt selection separately
-states what inference consumed. Because this Windows fixture substitutes the
+false current-truth posture, and false authority map. The same counterfactual
+asserts the current-evidence precedence instruction in the assembled prompt;
+its deterministic response reports and cites the current screen measurement
+while describing the older value as prior. Owner projection lineage still
+records the full upstream selection, while prompt selection separately states
+what inference consumed. Because this Windows fixture substitutes the
 POSIX composition lock and immutable observation publication, it demonstrates
 the behavioral integration path but not durable Windows custody or real-model
 generalization.

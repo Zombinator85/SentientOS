@@ -6876,6 +6876,14 @@ def test_question_selected_self_model_changes_later_companion_response(
     assert baseline_prompt["prior_self_model_prompt_selection"]["omitted_claims"][0][
         "claim_id"] == unrelated.claim_id
     assert query_prompt["prior_self_model"]["relevance_query_digest"]
+    assert ("takes precedence for present-condition claims over conflicting prior self-model claims, "
+        "prior epistemic positions, and developmental-history interpretations") in (
+            query_prompt["instruction"])
+    assert query_result.response.startswith(
+        "The current screen reports 31 percent GPU utilization;")
+    assert query_result.evidence_ids == tuple(
+        query_invoker.requests[-1].upstream_evidence["current_fact_ids"][:1])
+    assert "prior self-model record reports 25 percent" in query_result.response
     assert baseline_prompt["prior_self_model_prompt_selection"]["policy"] == ("owner_ordered_prefix:v1")
     selected_claim = query_prompt["prior_self_model"]["selected_claims"][0]
     assert selected_claim["claim_category"] == "historical_interpretation"
