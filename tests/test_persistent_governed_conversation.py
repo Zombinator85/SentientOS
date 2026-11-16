@@ -1435,6 +1435,18 @@ def test_memory_retrieval_applies_only_explicit_style_preferences_to_new_writing
     assert [record["id"] for record in writing["memories"]] == ["memory-style"]
     assert writing["retrieval_posture"] == "complete"
     assert [record["id"] for record in topical["memories"]] == ["memory-launch"]
+    history = ContextSnapshot("session-test", (), 0, False, "0" * 64)
+    with_preference = assemble_local_chat_context(history=history,
+        memory_snapshot=writing,
+        current_message="Draft an email to Sam about the update.")
+    without_preference = assemble_local_chat_context(history=history,
+        memory_snapshot={"memories": [], "retrieval_posture": "complete",
+            "selection_posture": "all_matching_records_selected",
+            "omitted_memory_count": 0},
+        current_message="Draft an email to Sam about the update.")
+    assert 'MEMORY_DATA: "I prefer brief prose."' in with_preference
+    assert "use it as defeasible personalization" in with_preference
+    assert 'MEMORY_DATA: "I prefer brief prose."' not in without_preference
 
 
 def test_process_restart_resume_composed_success(tmp_path: Path) -> None:
