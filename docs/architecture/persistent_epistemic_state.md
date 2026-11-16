@@ -11,6 +11,18 @@ SentientOS now distinguishes five longitudinal substrates: World-State is curren
 
 **No epistemic-state delta without an attributable epistemic update event.** `PersistentEpistemicStateOwner` uses an explicit custody root, immutable content-addressed proposition and evidence records, immutable state generations, and a paired append-only event chain. Reconstruction checks every digest, predecessor, and paired event. Advancement is compare-and-swap; stale proposals fail rather than rebasing. There is no ambient discovery or legacy import.
 
+On Windows, the owner requires an existing private-ACL root and private child
+collections. Immutable records use the native handle-bound no-replace publisher;
+identity separators are encoded in portable file names. A root-identity-bound
+mutex serializes compare-and-swap, and recovery completes storage-only
+transaction pairs while leaving admission-bound incomplete pairs untouched for
+separate admission-aware recovery; the storage owner does not recreate them from
+state alone. The runtime test demonstrates interrupted
+publication recovery, later contradiction revision, restart reconstruction, and
+the resulting contested evidence packet. This establishes custody and context
+composition with controlled records; it does not establish truth or beneficial
+real-model adaptation.
+
 A proposition identity hashes a bounded semantic key: schema, namespace, subject, predicate, bounded object, polarity, qualifiers, temporal scope, context scope, and class. Display text is excluded. Meaning changes create a new proposition connected by `refines`, `narrows`, `broadens`, `supersedes`, `contradicts`, or `related_to`; old evidence stays on its original proposition.
 
 Evidence bindings retain exact source identity and digest, schema/class, observation time, relation, freshness, reliability posture, withdrawal, and one of `same_source_derivation`, `shared_upstream_evidence`, `repeated_observation`, `independently_sourced_observation`, `duplicate_alias`, or `unknown_dependency`. Mechanical posture reports absence, support, contradiction, mixed evidence, staleness, withdrawal, and dependency limitations. It is not a vote or truth oracle.

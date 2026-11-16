@@ -915,6 +915,75 @@ def test_windows_objective_transfer_recovers_plan_scores_and_run() -> None:
         assert evaluation["restoration_correctness_stable"] is True
 
 
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows epistemic custody")
+def test_windows_epistemic_correction_recovers_interrupted_transaction() -> None:
+    from tempfile import TemporaryDirectory
+    from sentientos.persistent_epistemic_state import (
+        PersistentEpistemicStateOwner, semantic_packets_for_projection,
+    )
+    from tests.test_persistent_epistemic_state import binding, proposition
+    from sentientos import persistent_epistemic_state as epistemic_module
+
+    with TemporaryDirectory(prefix=".resident-epistemic-state-",
+            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("embodiment",))
+        claim = proposition("A controlled sensor claim")
+        owner.register_proposition(claim)
+        support = binding(claim, "1")
+        owner.bind_evidence(support)
+
+        original_write_new = epistemic_module._write_new
+
+        def interrupt_state_publication(path, value):
+            if path.parent.name == "states":
+                raise OSError("fixture interrupted after transaction commit")
+            return original_write_new(path, value)
+
+        epistemic_module._write_new = interrupt_state_publication
+        try:
+            with pytest.raises(OSError, match="interrupted"):
+                owner.commit_update(proposition_id=claim.proposition_id,
+                    expected_predecessor_digest=None, stance="supported",
+                    reason="new_evidence", active_binding_ids=(support.binding_id,),
+                    added_binding_ids=(support.binding_id,), correlation_id="windows-epistemic-1",
+                    tick=1, recorded_at="2026-01-01T00:00:01Z")
+        finally:
+            epistemic_module._write_new = original_write_new
+
+        recovered = PersistentEpistemicStateOwner(root,
+            allowed_namespaces=("embodiment",))
+        first = recovered.current_state(claim.proposition_id)
+        assert first is not None and first.stance == "supported"
+        contradiction = binding(claim, "2", relation="contradicts")
+        recovered.bind_evidence(contradiction)
+        corrected, event = recovered.commit_update(
+            proposition_id=claim.proposition_id,
+            expected_predecessor_digest=first.state_digest, stance="contested",
+            reason="contradiction_arrival",
+            active_binding_ids=(support.binding_id, contradiction.binding_id),
+            added_binding_ids=(contradiction.binding_id,),
+            correlation_id="windows-epistemic-2", tick=2,
+            recorded_at="2026-01-01T00:00:02Z")
+        restarted = PersistentEpistemicStateOwner(root,
+            allowed_namespaces=("embodiment",))
+        current = restarted.current_state(claim.proposition_id)
+        assert current == corrected
+        assert [item.reason for item in restarted.update_events(claim.proposition_id)] == [
+            "new_evidence", "contradiction_arrival"]
+        assert event.reason == "contradiction_arrival"
+        assert restarted.verify()["states"] == 2
+        projection = restarted.cognitive_projection(max_states=1, current_tick=3,
+            relevance_query="controlled sensor claim")
+        assert projection is not None
+        packet = semantic_packets_for_projection(projection)[0]
+        assert packet["state"]["stance"] == "contested"
+        assert packet["supporting_evidence"] == [support.binding_id]
+        assert packet["contradicting_evidence"] == [contradiction.binding_id]
+        assert packet["authority"] is False
+
+
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows no-replace rename")
 def test_windows_replay_publication_preserves_destination_race(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,

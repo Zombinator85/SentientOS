@@ -86,12 +86,25 @@ def publish_immutable_replay_bytes(
         if filename_policy == "objective_condition_score" else None)
     objective_archive_match = (re.fullmatch(r"[0-9a-f]{64}\.json", path.name)
         if filename_policy == "objective_request_archive" else None)
+    epistemic_artifact_patterns = {
+        "epistemic_propositions": r"proposition-[0-9a-f]{24}\.json",
+        "epistemic_bindings": r"evidence-[0-9a-f]{24}\.json",
+        "epistemic_states": r"[0-9]{12}-epistemic-state-[0-9a-f]{24}\.json",
+        "epistemic_updates": r"[0-9]{12}-epistemic-update-[0-9a-f]{24}\.json",
+        "epistemic_relations": r"[0-9a-f]{64}\.json",
+        "epistemic_calibrations": r"epistemic-calibration-[0-9a-f]{24}\.json",
+        "epistemic_transactions": r"[0-9a-f]{24}\.json",
+    }
+    epistemic_artifact_match = (re.fullmatch(
+        epistemic_artifact_patterns[filename_policy], path.name)
+        if filename_policy in epistemic_artifact_patterns else None)
     sequence_number = (int(sequence_match.group(1)) if sequence_match is not None
         else 1 if (content_addressed_match is not None
             or mutable_state_match or cognition_artifact_match is not None
             or experiment_artifact_match is not None
             or objective_artifact_match is not None
-            or objective_archive_match is not None) else 0)
+            or objective_archive_match is not None
+            or epistemic_artifact_match is not None) else 0)
     maximum_file_bytes = (16_777_216 if filename_policy in {
         "resident_cognition_state", "epistemic_probe_capture"}
         else 4_194_304 if filename_policy == "longitudinal_self_model"
@@ -109,6 +122,7 @@ def publish_immutable_replay_bytes(
                 and experiment_artifact_match is None
                 and objective_artifact_match is None
                 and objective_archive_match is None
+                and epistemic_artifact_match is None
                 and not mutable_state_match)
             or type(replace_existing) is not bool
             or (replace_existing and not mutable_state_match)

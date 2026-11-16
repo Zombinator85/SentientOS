@@ -20,7 +20,13 @@ from .private_file_custody import (
     PrivateFileCustodyError, list_bounded_json_names_at, open_private_directory,
     publish_immutable_bytes, read_private_file_at,
 )
-from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
+from .windows_handle_custody import (
+    WindowsHandleCustodyError, observe_private_directory_identity,
+    read_regular_files, verify_explicit_directory,
+)
+from .windows_peer_replay_custody import (
+    WindowsReplayCustodyError, publish_immutable_replay_bytes,
+)
 
 PROPOSITION_SCHEMA = "sentientos.epistemic_proposition:v1"
 BINDING_SCHEMA = "sentientos.epistemic_evidence_binding:v1"
@@ -743,11 +749,23 @@ class EpistemicCalibrationEvent:
 
 
 def _write_new(path: Path, value: Mapping[str, Any]) -> None:
-    if os.name == "nt":
-        raise EpistemicStateError("epistemic_publication_unsupported_platform")
     data = canonical_bytes(value) + b"\n"
     if len(data) > MAX_EPISTEMIC_RECORD_BYTES:
         raise EpistemicStateError("epistemic_record_size_limit_exceeded")
+    if os.name == "nt":
+        try:
+            root_identity = observe_private_directory_identity(path.parent)
+            publish_immutable_replay_bytes(path, data,
+                max_bytes=MAX_EPISTEMIC_RECORD_BYTES, max_entries=8192,
+                expected_root_identity=root_identity,
+                filename_policy="epistemic_" + path.parent.name)
+            return
+        except WindowsHandleCustodyError as exc:
+            raise EpistemicStateError("epistemic_custody_root_invalid") from exc
+        except WindowsReplayCustodyError as exc:
+            if str(exc) == "replay_owner_record_conflict":
+                raise EpistemicStateError("immutable_record_collision") from exc
+            raise EpistemicStateError("epistemic_publication_failed") from exc
     try:
         publish_immutable_bytes(
             path, data, max_bytes=MAX_EPISTEMIC_RECORD_BYTES,
@@ -767,7 +785,8 @@ def _read_record_bytes(path: Path) -> bytes:
         try:
             entries = read_regular_files(path.parent,
                 max_entries=1, max_file_bytes=MAX_EPISTEMIC_RECORD_BYTES,
-                max_total_bytes=MAX_EPISTEMIC_RECORD_BYTES, selected_names=(path.name,))
+                max_total_bytes=MAX_EPISTEMIC_RECORD_BYTES, selected_names=(path.name,),
+                require_private_acl=True)
         except WindowsHandleCustodyError as exc:
             raise EpistemicStateError("epistemic_record_windows_recovery_failed") from exc
         if len(entries) != 1 or entries[0][0] != path.name:
@@ -800,9 +819,17 @@ class PersistentEpistemicStateOwner:
         if not self.allowed_namespaces: raise EpistemicStateError("allowed_namespaces_required")
         if self.root.is_symlink(): raise EpistemicStateError("epistemic_custody_root_invalid")
         if os.name == "nt":
-            # Existing records remain reconstructable through held Windows
-            # handles. Do not manufacture empty custody directories or permit
-            # publication until a matching atomic Windows writer exists.
+            try:
+                verify_explicit_directory(self.root, require_private_acl=True)
+                for part in RECORD_COLLECTIONS:
+                    directory = self.root / part
+                    try:
+                        directory.mkdir()
+                    except FileExistsError:
+                        pass
+                    verify_explicit_directory(directory, require_private_acl=True)
+            except (WindowsHandleCustodyError, OSError) as exc:
+                raise EpistemicStateError("epistemic_custody_root_invalid") from exc
             self.verify()
             return
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -867,7 +894,16 @@ class PersistentEpistemicStateOwner:
             expected = f"{identity.split(':', 1)[1]}.json"
         else:
             return False
-        return filename == expected
+        # Windows forbids ':' in file names. Its writer substitutes '-' for
+        # identity separators; both spellings remain verifiable across hosts.
+        return filename in {expected, expected.replace(":", "-")}
+
+    def _record_path(self, kind: str, filename: str) -> Path:
+        if kind not in RECORD_COLLECTIONS:
+            raise EpistemicStateError("epistemic_collection_invalid")
+        if os.name == "nt":
+            filename = filename.replace(":", "-")
+        return self.root / kind / filename
 
     def _collection_bytes(self, kind: str) -> tuple[tuple[str, bytes], ...]:
         if kind not in RECORD_COLLECTIONS or self.root.is_symlink():
@@ -886,7 +922,8 @@ class PersistentEpistemicStateOwner:
                 return tuple(read_regular_files(directory,
                     max_entries=MAX_EPISTEMIC_RECORDS_PER_COLLECTION,
                     max_file_bytes=MAX_EPISTEMIC_RECORD_BYTES,
-                    max_total_bytes=MAX_EPISTEMIC_COLLECTION_BYTES))
+                    max_total_bytes=MAX_EPISTEMIC_COLLECTION_BYTES,
+                    require_private_acl=True))
             except WindowsHandleCustodyError as exc:
                 raise EpistemicStateError("epistemic_collection_windows_recovery_failed") from exc
 
@@ -1002,41 +1039,28 @@ class PersistentEpistemicStateOwner:
             prepared.append((state, event))
         for state, event in sorted(prepared, key=lambda pair: (
                 pair[0].proposition_id, pair[0].generation, pair[0].state_id)):
-            state_path = self.root / "states" / f"{state.generation:012d}-{state.state_id}.json"
-            event_path = self.root / "updates" / f"{event.generation:012d}-{event.event_id}.json"
-            if os.name == "posix":
-                if state.state_digest in admission_bound_state_digests:
-                    # Admission-bound transactions are not storage-only repair
-                    # intents. Leave a missing pair incomplete for the mutation
-                    # controller to classify; never publish state before it
-                    # authenticates the separately held admission intent.
-                    try:
-                        existing_state = _read_record_bytes(state_path)
-                        existing_event = _read_record_bytes(event_path)
-                    except FileNotFoundError:
-                        incomplete_admission_bound += 1
-                        continue
-                    if (existing_state != canonical_bytes(asdict(state)) + b"\n"
-                            or existing_event != canonical_bytes(asdict(event)) + b"\n"):
-                        raise EpistemicStateError("epistemic_transaction_record_conflict")
-                    published_mutation_bound_state_digests.add(state.state_digest)
-                    continue
-                _write_new(state_path, asdict(state))
-                _write_new(event_path, asdict(event))
-                continue
-            # Windows remains read-only for epistemic mutation. It can inspect
-            # a completely published pair, but cannot synthesize a missing
-            # member without the equivalent atomic publisher.
-            try:
-                existing_state = _read_record_bytes(state_path)
-                existing_event = _read_record_bytes(event_path)
-            except FileNotFoundError as exc:
-                raise EpistemicStateError("epistemic_transaction_recovery_unsupported_platform") from exc
-            if (existing_state != canonical_bytes(asdict(state)) + b"\n"
-                    or existing_event != canonical_bytes(asdict(event)) + b"\n"):
-                raise EpistemicStateError("epistemic_transaction_record_conflict")
+            state_path = self._record_path(
+                "states", f"{state.generation:012d}-{state.state_id}.json")
+            event_path = self._record_path(
+                "updates", f"{event.generation:012d}-{event.event_id}.json")
             if state.state_digest in admission_bound_state_digests:
+                # Admission-bound transactions are not storage-only repair
+                # intents. Leave a missing pair incomplete for the mutation
+                # controller to classify; never publish state before it
+                # authenticates the separately held admission intent.
+                try:
+                    existing_state = _read_record_bytes(state_path)
+                    existing_event = _read_record_bytes(event_path)
+                except FileNotFoundError:
+                    incomplete_admission_bound += 1
+                    continue
+                if (existing_state != canonical_bytes(asdict(state)) + b"\n"
+                        or existing_event != canonical_bytes(asdict(event)) + b"\n"):
+                    raise EpistemicStateError("epistemic_transaction_record_conflict")
                 published_mutation_bound_state_digests.add(state.state_digest)
+                continue
+            _write_new(state_path, asdict(state))
+            _write_new(event_path, asdict(event))
         self._published_mutation_bound_state_digests = published_mutation_bound_state_digests
         self._verified_mutation_bound_state_digests.intersection_update(
             published_mutation_bound_state_digests)
@@ -1047,17 +1071,19 @@ class PersistentEpistemicStateOwner:
         expected = make_proposition(**{k:v for k,v in asdict(proposition).items() if k not in {"proposition_id","proposition_digest","schema_version"}})
         if expected != proposition: raise EpistemicStateError("proposition_identity_mismatch")
         if proposition.namespace not in self.allowed_namespaces: raise EpistemicStateError("proposition_namespace_not_allowed")
-        _write_new(self.root / "propositions" / f"{proposition.proposition_id}.json", asdict(proposition))
+        _write_new(self._record_path("propositions",
+            f"{proposition.proposition_id}.json"), asdict(proposition))
 
     def add_relation(self, relation: PropositionRelation) -> None:
         if relation.relation not in RELATIONS or relation.source_proposition_id == relation.target_proposition_id: raise EpistemicStateError("proposition_relation_invalid")
         self.proposition(relation.source_proposition_id); self.proposition(relation.target_proposition_id)
-        _write_new(self.root / "relations" / f"{digest(asdict(relation))[7:]}.json", asdict(relation))
+        _write_new(self._record_path("relations",
+            f"{digest(asdict(relation))[7:]}.json"), asdict(relation))
 
     def proposition(self, proposition_id: str) -> EpistemicProposition:
         if not _valid_identity(proposition_id, "proposition"):
             raise EpistemicStateError("proposition_identity_invalid")
-        path=self.root/"propositions"/f"{proposition_id}.json"
+        path=self._record_path("propositions", f"{proposition_id}.json")
         try:
             raw = json.loads(_read_record_bytes(path).decode("utf-8"))
         except FileNotFoundError as exc:
@@ -1083,7 +1109,8 @@ class PersistentEpistemicStateOwner:
             if predecessor is None: raise EpistemicStateError("evidence_upstream_not_found")
             if predecessor.get("proposition_id") != binding.proposition_id:
                 raise EpistemicStateError("evidence_upstream_proposition_mismatch")
-        _write_new(self.root/"bindings"/f"{binding.binding_id}.json", asdict(binding))
+        _write_new(self._record_path("bindings",
+            f"{binding.binding_id}.json"), asdict(binding))
 
     def bindings(self, proposition_id: str) -> tuple[EvidenceBinding, ...]:
         return tuple(EvidenceBinding(**{**v, "upstream_binding_ids": tuple(v["upstream_binding_ids"])})
@@ -1098,6 +1125,53 @@ class PersistentEpistemicStateOwner:
     @contextmanager
     def _mutation_lock(self) -> Iterator[None]:
         """Serialize state-generation compare-and-swap through private custody."""
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+
+            try:
+                root_identity = observe_private_directory_identity(self.root)
+            except WindowsHandleCustodyError as exc:
+                raise EpistemicStateError("epistemic_mutation_lock_unavailable") from exc
+            root_key = digest({"volume": root_identity[0],
+                "file_id": root_identity[1].hex()})[7:]
+            kernel = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+            create_mutex = kernel.CreateMutexW
+            create_mutex.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+            create_mutex.restype = wintypes.HANDLE
+            wait = kernel.WaitForSingleObject
+            wait.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            wait.restype = wintypes.DWORD
+            release = kernel.ReleaseMutex
+            release.argtypes = [wintypes.HANDLE]
+            release.restype = wintypes.BOOL
+            close = kernel.CloseHandle
+            close.argtypes = [wintypes.HANDLE]
+            close.restype = wintypes.BOOL
+            mutex = create_mutex(None, False,
+                "Local\\SentientOS-Epistemic-" + root_key)
+            if not mutex:
+                raise EpistemicStateError("epistemic_mutation_lock_unavailable")
+            acquired = False
+            try:
+                result = int(wait(mutex, 30_000))
+                if result not in {0, 0x80}:
+                    raise EpistemicStateError("epistemic_mutation_lock_unavailable")
+                acquired = True
+                try:
+                    if observe_private_directory_identity(self.root) != root_identity:
+                        raise EpistemicStateError("epistemic_mutation_lock_root_changed")
+                except WindowsHandleCustodyError as exc:
+                    raise EpistemicStateError(
+                        "epistemic_mutation_lock_unavailable") from exc
+                yield
+            finally:
+                if acquired and not release(mutex):
+                    close(mutex)
+                    raise EpistemicStateError("epistemic_mutation_lock_release_failed")
+                if not close(mutex):
+                    raise EpistemicStateError("epistemic_mutation_lock_close_failed")
+            return
         if os.name != "posix":
             raise EpistemicStateError("epistemic_mutation_unsupported_platform")
         directory_fd: int | None = None
@@ -1444,9 +1518,11 @@ class PersistentEpistemicStateOwner:
         transaction = {**transaction_semantic, "transaction_id": transaction_id,
                        "transaction_digest": transaction_digest}
         transaction_filename = transaction_id.split(":", 1)[1] + ".json"
-        _write_new(self.root / "transactions" / transaction_filename, transaction)
-        _write_new(self.root/"states"/f"{generation:012d}-{sid}.json",asdict(state))
-        _write_new(self.root/"updates"/f"{generation:012d}-{eid}.json",asdict(event))
+        _write_new(self._record_path("transactions", transaction_filename), transaction)
+        _write_new(self._record_path(
+            "states", f"{generation:012d}-{sid}.json"), asdict(state))
+        _write_new(self._record_path(
+            "updates", f"{generation:012d}-{eid}.json"), asdict(event))
         return state,event
 
     def record_calibration(self, **kwargs: Any) -> EpistemicCalibrationEvent:
@@ -1460,7 +1536,7 @@ class PersistentEpistemicStateOwner:
         if not raw.source_binding_ids: raise EpistemicStateError("calibration_source_bindings_required")
         if set(raw.source_binding_ids)-set(bindings): raise EpistemicStateError("calibration_source_binding_missing_or_foreign")
         cid,dg=_identity("epistemic-calibration",raw.payload()); value=replace(raw,calibration_id=cid,calibration_digest=dg)
-        _write_new(self.root/"calibrations"/f"{cid}.json",asdict(value)); return value
+        _write_new(self._record_path("calibrations", f"{cid}.json"), asdict(value)); return value
 
     def verify(self) -> Mapping[str,int]:
         incomplete_admission_bound = self._recover_transactions()
