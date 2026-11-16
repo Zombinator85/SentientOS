@@ -50,6 +50,8 @@ def _projection_key(projection: CognitiveSelfModelProjection) -> dict[str, Any]:
     semantic = dict(raw)
     semantic.pop("projection_id")
     semantic.pop("projection_digest")
+    if semantic.get("relevance_query_digest") is None:
+        semantic.pop("relevance_query_digest")
     digest = _digest(semantic)
     if (raw["schema"] != PROJECTION_SCHEMA or raw["projection_policy"] != PROJECTION_POLICY
             or raw["projection_digest"] != digest

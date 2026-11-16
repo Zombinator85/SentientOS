@@ -528,7 +528,8 @@ class ResidentDevelopmentalCompanionBridge:
                     "enabled_self_model_projection_owner_required")
             prior_self_model = self._self_model_owner.cognitive_projection(
                 before_tick=tick_id, max_claims=config.max_projection_claims,
-                allowed_predicates=config.allowed_predicates)
+                allowed_predicates=config.allowed_predicates,
+                relevance_query=relevance_query)
         prior_epistemic_state = None
         if (self._epistemic_state_owner is not None
                 and self._epistemic_state_config.get(

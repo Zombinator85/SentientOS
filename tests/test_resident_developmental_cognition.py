@@ -6582,6 +6582,36 @@ def test_companion_bridge_passes_question_to_epistemic_projection() -> None:
         "relevance_query": question}]
 
 
+def test_companion_bridge_passes_question_to_self_model_projection() -> None:
+    from types import SimpleNamespace
+
+    calls = []
+
+    class SelfModelOwner:
+        def cognitive_projection(self, **kwargs):
+            calls.append(kwargs)
+            return "question-relevant-self-model"
+
+    bridge = object.__new__(ResidentDevelopmentalCompanionBridge)
+    bridge._self_model_config = SimpleNamespace(enabled=True,
+        cognitive_consumption_enabled=True, max_projection_claims=4,
+        allowed_predicates=("host_resource_metrics",))
+    bridge._self_model_owner = SelfModelOwner()
+    bridge._epistemic_state_owner = None
+    bridge._epistemic_state_config = {}
+    question = "What is the GPU utilization?"
+
+    self_model, epistemic = bridge._prior_cognitive_context(
+        tick_id="2026-11-15T00:00:00+00:00", projection_tick=100,
+        relevance_query=question)
+
+    assert self_model == "question-relevant-self-model"
+    assert epistemic is None
+    assert calls == [{"before_tick": "2026-11-15T00:00:00+00:00",
+        "max_claims": 4, "allowed_predicates": ("host_resource_metrics",),
+        "relevance_query": question}]
+
+
 def self_model_projection(root: Path):
     from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
     from tests.test_longitudinal_self_model import record, snapshot as self_model_snapshot

@@ -4,16 +4,44 @@ import json
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from sentientos.longitudinal_self_model import LongitudinalSelfModelError, LongitudinalSelfModelOwner
+from sentientos.longitudinal_self_model import (
+    LongitudinalSelfModelError, LongitudinalSelfModelOwner,
+    PROJECTION_POLICY, _rank_self_model_projection_claims,
+)
 from sentientos.world_state_board import WorldStateBoardBuilder
 
 pytestmark = pytest.mark.no_legacy_skip
 
 
 NOW = datetime(2026, 9, 25, 12, 0, tzinfo=timezone.utc)
+
+
+def test_self_model_projection_query_prioritizes_matching_claim_before_bound() -> None:
+    unrelated = SimpleNamespace(claim_id="claim-a", predicate="embodiment.body_generation",
+        value="body-2", temporal_scope="current", subject_id="body:2",
+        subject_kind="installation_body", claim_category="current_observation",
+        lifecycle_stage="observation", interpretation=False)
+    relevant = SimpleNamespace(claim_id="claim-z", predicate="host_resource_metrics",
+        value={"gpu": "gpu-utilization", "ram": "normal"},
+        temporal_scope="current", subject_id="host:1", subject_kind="host_runtime",
+        claim_category="current_observation", lifecycle_stage="observation",
+        interpretation=False)
+
+    ranked, query_digest = _rank_self_model_projection_claims(
+        (unrelated, relevant), relevance_query="What is the GPU utilization?",
+        max_claims=1)
+    baseline, no_query_digest = _rank_self_model_projection_claims(
+        (unrelated, relevant), relevance_query=None, max_claims=1)
+
+    assert ranked[0] is relevant
+    assert query_digest is not None
+    assert baseline[0] is unrelated
+    assert no_query_digest is None
+    assert PROJECTION_POLICY == "predicate_then_claim_id:v1"
 
 
 def record(*, source: str = "runtime:a", subject: str = "sentientos", disposition: str = "serving",

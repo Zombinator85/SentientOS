@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import stat
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
@@ -25,6 +26,7 @@ RECONCILIATION_SCHEMA = "sentientos.longitudinal_self_model_reconciliation:v1"
 CONFIG_SCHEMA = "sentientos.longitudinal_self_model_runtime_config:v1"
 PROJECTION_SCHEMA = "sentientos.cognitive_self_model_projection:v1"
 PROJECTION_POLICY = "predicate_then_claim_id:v1"
+QUESTION_RELEVANT_PROJECTION_POLICY = "question_relevance_then_predicate_then_claim_id:v1"
 MAX_PROJECTION_CLAIMS = 32
 FALSE_AUTHORITY = {
     "decision_authority": False, "admission_authority": False,
@@ -182,11 +184,14 @@ class CognitiveSelfModelProjection:
     derived_evidence: bool = True
     current_truth: bool = False
     interpretation: bool = False
+    relevance_query_digest: str | None = None
 
     def semantic_payload(self) -> dict[str, Any]:
         value = asdict(self)
         value.pop("projection_id")
         value.pop("projection_digest")
+        if value.get("relevance_query_digest") is None:
+            value.pop("relevance_query_digest")
         return value
 
 
@@ -278,6 +283,53 @@ class SelfModelClaim:
     def __post_init__(self) -> None:
         if self.authority is None:
             object.__setattr__(self, "authority", dict(FALSE_AUTHORITY))
+
+
+_SELF_MODEL_QUERY_STOP_WORDS = frozenset(("a", "an", "and", "are", "as", "at",
+    "be", "by", "for", "from", "how", "in", "is", "it", "of", "on", "or",
+    "the", "to", "was", "what", "which", "who", "with"))
+
+
+def _self_model_query_terms(text: str) -> set[str]:
+    terms: set[str] = set()
+    for token in re.findall(r"[A-Za-z0-9]{3,}", text.casefold()):
+        if token in _SELF_MODEL_QUERY_STOP_WORDS:
+            continue
+        if len(token) > 4 and token.endswith("ies"):
+            token = token[:-3] + "y"
+        elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+            token = token[:-1]
+        terms.add(token)
+    return terms
+
+
+def _rank_self_model_projection_claims(claims: Sequence[SelfModelClaim], *,
+        relevance_query: str | None, max_claims: int
+        ) -> tuple[tuple[SelfModelClaim, ...], str | None]:
+    """Rank matching claims before the projection cap and bind an effective query."""
+    baseline = tuple(sorted(claims, key=lambda claim: (claim.predicate, claim.claim_id)))
+    query_terms = (_self_model_query_terms(relevance_query)
+        if isinstance(relevance_query, str) else set())
+    if not query_terms:
+        return baseline, None
+    field_weights = (("predicate", 3), ("value", 2), ("temporal_scope", 2),
+        ("subject_id", 2), ("subject_kind", 1), ("claim_category", 1),
+        ("lifecycle_stage", 1), ("interpretation", 1))
+    scored: list[tuple[int, SelfModelClaim]] = []
+    for claim in claims:
+        term_weights: dict[str, int] = {}
+        for field, weight in field_weights:
+            field_terms = query_terms & _self_model_query_terms(json.dumps(
+                getattr(claim, field), sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False, default=str))
+            for term in field_terms:
+                term_weights[term] = max(term_weights.get(term, 0), weight)
+        scored.append((sum(term_weights.values()), claim))
+    ranked = tuple(claim for _, claim in sorted(scored,
+        key=lambda row: (-row[0], row[1].predicate, row[1].claim_id)))
+    if ranked[:max_claims] == baseline[:max_claims]:
+        return baseline, None
+    return ranked, _digest(relevance_query)
 
 
 @dataclass(frozen=True)
@@ -1191,7 +1243,9 @@ class LongitudinalSelfModelOwner:
         return history[generation - 1]
 
     def cognitive_projection(self, *, before_tick: str, max_claims: int,
-                             allowed_predicates: Sequence[str]) -> CognitiveSelfModelProjection | None:
+                             allowed_predicates: Sequence[str],
+                             relevance_query: str | None = None
+                             ) -> CognitiveSelfModelProjection | None:
         """Project a prior durable reconciliation before this tick's boundary.
 
         The owner generation chain, not wall-clock formatting, establishes
@@ -1203,6 +1257,9 @@ class LongitudinalSelfModelOwner:
                 or not isinstance(max_claims, int) or isinstance(max_claims, bool)
                 or not 1 <= max_claims <= MAX_PROJECTION_CLAIMS):
             raise LongitudinalSelfModelError("invalid_cognitive_projection_boundary")
+        if (relevance_query is not None
+                and (not isinstance(relevance_query, str) or len(relevance_query) > 4000)):
+            raise LongitudinalSelfModelError("invalid_cognitive_projection_query")
         history = self._load()
         cutoff = next((index for index, item in enumerate(history)
                        if item.tick_id == before_tick), len(history))
@@ -1211,8 +1268,12 @@ class LongitudinalSelfModelOwner:
             return None
         source = eligible[-1]
         allowed = set(allowed_predicates)
-        claims = sorted((claim for claim in source.claims if claim.predicate in allowed),
-                        key=lambda claim: (claim.predicate, claim.claim_id))[:max_claims]
+        eligible_claims = tuple(claim for claim in source.claims
+            if claim.predicate in allowed)
+        ranked_claims, relevance_query_digest = _rank_self_model_projection_claims(
+            eligible_claims, relevance_query=relevance_query,
+            max_claims=max_claims)
+        claims = ranked_claims[:max_claims]
         selected: list[Mapping[str, Any]] = []
         digests: list[str] = []
         for claim in claims:
@@ -1246,7 +1307,9 @@ class LongitudinalSelfModelOwner:
             tuple(digests), tuple(sorted({c.software_generation for c in claims if c.software_generation})),
             tuple(sorted({c.cognitive_model_identity for c in claims if c.cognitive_model_identity})),
             tuple(sorted({c.developmental_history_boundary for c in claims if c.developmental_history_boundary})),
-            PROJECTION_POLICY, dict(FALSE_AUTHORITY))
+            (QUESTION_RELEVANT_PROJECTION_POLICY if relevance_query_digest is not None
+                else PROJECTION_POLICY), dict(FALSE_AUTHORITY),
+            relevance_query_digest=relevance_query_digest)
         digest = _digest(raw.semantic_payload())
         return replace(raw, projection_id="cognitive-self-model-" + digest[7:31], projection_digest=digest)
 
@@ -1392,4 +1455,5 @@ class LongitudinalSelfModelOwner:
 
 __all__ = ["CONFIG_SCHEMA", "FALSE_AUTHORITY", "CognitiveSelfModelProjection",
            "LongitudinalSelfModelError", "LongitudinalSelfModelOwner", "LongitudinalSelfModelRuntimeConfig",
-           "SelfModelClaim", "SelfModelReconciliation", "load_runtime_config"]
+           "QUESTION_RELEVANT_PROJECTION_POLICY", "SelfModelClaim",
+           "SelfModelReconciliation", "load_runtime_config"]
