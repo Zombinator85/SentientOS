@@ -797,7 +797,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                 packets = prior.get("semantic_packets", ())
                 if packets:
                     packet = packets[0]
-                    self.companion_output_override = {
+                    output = {
                         "disposition": "answer",
                         "response": ("The admitted prior proposition describes: "
                             + packet["proposition"]["statement"]),
@@ -806,6 +806,52 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                         "history_record_ids": [], "memory_record_ids": [],
                         "epistemic_state_ids": [packet["state"]["state_id"]],
                     }
+                    historical = prompt.get(
+                        "historical_cited_conversation_context", {})
+                    historical_turns = (historical.get("turns", ())
+                        if isinstance(historical, Mapping) else ())
+                    reports = [(history_packet, report) for history_packet in
+                        prompt.get("developmental_history", ())
+                        if isinstance(history_packet, Mapping)
+                        for report in history_packet.get(
+                            "operator_feedback_context", ())
+                        if isinstance(report, Mapping)
+                        and report.get("evidence_posture")
+                            == "operator_assertion_unverified"]
+                    bound_correction = next((
+                        (history_packet, report, turn)
+                        for history_packet, report in reports
+                        if isinstance(history_packet.get("record_id"), str)
+                        for target in (report.get("correction_target"),)
+                        if isinstance(target, Mapping)
+                        and any(isinstance(citation, Mapping)
+                            and citation.get("turn_id") == target.get("turn_id")
+                            and citation.get("text_digest") == target.get("text_digest")
+                            for citation in report.get("conversation_citations", ()))
+                        for turn in historical_turns
+                        if isinstance(turn, Mapping)
+                        and turn.get("role") == "assistant"
+                        and turn.get("turn_id") == target.get("turn_id")
+                        and turn.get("text_digest") == target.get("text_digest")
+                        and turn.get("feedback_assertion_digest")
+                            == report.get("assertion_digest")
+                        and turn.get("feedback_fact_id")
+                            == report.get("operator_feedback_fact_id")), None)
+                    if bound_correction is not None:
+                        history_packet, report, turn = bound_correction
+                        output.update({
+                            "response": (
+                                "The exact earlier cited reply said: "
+                                + turn["text"] + ". The operator later reported: "
+                                + str(report.get("assertion_text", ""))
+                                + ". These reports disagree; I cannot resolve which "
+                                "is accurate from this history, and the operator "
+                                "report remains unverified."),
+                            "evidence_ids": [],
+                            "history_record_ids": [history_packet["record_id"]],
+                            "epistemic_state_ids": [],
+                        })
+                    self.companion_output_override = output
                     if prompt.get("session_conversation_context") is not None:
                         conversation = prompt["session_conversation_context"]
                         allowed_ids = set(prompt.get(
@@ -863,6 +909,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     ep_config = {"cognitive_consumption_enabled": True,
         "max_cognitive_projection_count": 1}
 
+    first_invoker = ProjectionAwareInvoker()
     first_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=ResidentDevelopmentalCompanionBridge(cognition,
             epistemic_state_owner=epistemics,
@@ -871,6 +918,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     first_response = first_app.chat(target_question, session_id=session_id,
         request_id="citation-source-turn", observe_screen=True)
     assert target.statement in first_response.response
+    pre_correction_response = first_response.response
     first_turns = first_app.sessions.load(session_id)["turns"]
     assert first_turns[-1]["linkage"][
         "cognition_epistemic_state_citation_ids"] == [target_state.state_id]
@@ -931,10 +979,14 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert restarted_bridge.operator_feedback_available() is True
     assert correction_assistant["linkage"]["screen_observation_provenance"][
         "capture_digest"] == "f" * 64
+    correction_assertion = (
+        "The west sensor did not report a stable reading."
+        if target.subject == "sensor:west"
+        else "The launch was not delayed.")
     correction_cycle = restarted_app.run_developmental_cycle(
         session_id=session_id, assistant_turn_id=correction_assistant["turn_id"],
         request_id="cross-session-operator-feedback",
-        operator_feedback="The earlier west sensor answer should be revisited.",
+        operator_feedback=correction_assertion,
         correction_target_turn_id=source_assistant["turn_id"])
     assert correction_cycle["status"] == "completed_writeback"
 
@@ -950,7 +1002,18 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         target.proposition_id]
     assert corrected_request.upstream_evidence["epistemic_state_ids"] == [
         target_state.state_id]
-    assert target.statement in corrected_context_response.response
+    assert corrected_context_response.response != pre_correction_response
+    assert source_assistant["text"] in corrected_context_response.response
+    assert correction_assertion in corrected_context_response.response
+    assert "reports disagree" in corrected_context_response.response
+    assert "cannot resolve which is accurate" in corrected_context_response.response
+    assert "remains unverified" in corrected_context_response.response
+    corrected_assistant_turn = restarted_app.sessions.load(
+        correction_session_id)["turns"][-1]
+    assert corrected_assistant_turn["linkage"][
+        "cognition_epistemic_state_citation_ids"] == []
+    assert corrected_assistant_turn["linkage"]["cognition_evidence_ids"] == []
+    assert corrected_assistant_turn["linkage"]["cognition_history_record_ids"]
     corrected_prompt = json.loads(corrected_request.prompt)
     historical_context = corrected_prompt["historical_cited_conversation_context"]
     assert historical_context["historical_only"] is True
