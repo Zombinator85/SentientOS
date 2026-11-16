@@ -1077,6 +1077,23 @@ def _saved_transcript_response_diagnostics(
             result["conversation_citations"] = [
                 {"turn_id": turn_id, "text_digest": digest}
                 for turn_id, digest in zip(citation_ids, citation_digests)]
+        historical_ids = linkage.get(
+            "cognition_historical_conversation_citation_ids", [])
+        historical_digests = linkage.get(
+            "cognition_historical_conversation_citation_digests", [])
+        if (isinstance(historical_ids, list)
+                and isinstance(historical_digests, list)
+                and len(historical_ids) == len(historical_digests) <= 16
+                and all(isinstance(turn_id, str)
+                    and re.fullmatch(r"turn-[0-9a-f]{24}", turn_id) is not None
+                    for turn_id in historical_ids)
+                and len(set(historical_ids)) == len(historical_ids)
+                and all(isinstance(digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", digest) is not None
+                    for digest in historical_digests)):
+            result["historical_conversation_citations"] = [
+                {"turn_id": turn_id, "text_digest": digest}
+                for turn_id, digest in zip(historical_ids, historical_digests)]
         result["developmental_history_intervention_available"] = (
             linkage.get("response_origin") == "resident_developmental_cognition"
             and isinstance(linkage.get("cognition_observation_id"), str)
@@ -2701,6 +2718,20 @@ class PersistentConversationService:
         epistemic_state_citation_ids = getattr(
             result, "epistemic_state_citation_ids", ())
         conversation_citation_ids = getattr(result, "conversation_turn_citation_ids", ())
+        historical_citations = getattr(result, "historical_conversation_citations", ())
+        historical_allowlist = {(row.get("turn_id"), row.get("text_digest"))
+            for row in historical_citation_context.get("turns", ())
+            if isinstance(row, Mapping)} if historical_citation_context is not None else set()
+        if (not isinstance(historical_citations, (tuple, list))
+                or len(historical_citations) > 16
+                or any(not isinstance(item, (tuple, list)) or len(item) != 2
+                    or any(not isinstance(part, str) for part in item)
+                    for item in historical_citations)
+                or len(set(historical_citations)) != len(historical_citations)
+                or not set(historical_citations).issubset(historical_allowlist)):
+            raise RuntimeError("resident_cognition_historical_conversation_lineage_invalid")
+        historical_citation_ids = [item[0] for item in historical_citations]
+        historical_citation_digests = [item[1] for item in historical_citations]
         memory_selection_digest = getattr(
             result, "canonical_user_memory_selection_digest", None)
         if (not isinstance(observation_id, str) or not observation_id.startswith("devcog-")
@@ -2791,6 +2822,8 @@ class PersistentConversationService:
                 conversation_context["turns"]] if conversation_context is not None else [],
             "cognition_conversation_turn_citation_ids": list(conversation_citation_ids),
             "cognition_conversation_turn_citation_digests": conversation_citation_digests,
+            "cognition_historical_conversation_citation_ids": historical_citation_ids,
+            "cognition_historical_conversation_citation_digests": historical_citation_digests,
             "cognition_model_id": model_id,
             "cognition_model_artifact_digest": getattr(result, "model_artifact_digest", None),
             "self_model_projection_id": getattr(result, "self_model_projection_id", None),
@@ -2851,6 +2884,8 @@ class PersistentConversationService:
                     conversation_context["turns"]] if conversation_context is not None else [],
                 "cognition_conversation_turn_citation_ids": list(conversation_citation_ids),
                 "cognition_conversation_turn_citation_digests": conversation_citation_digests,
+                "cognition_historical_conversation_citation_ids": historical_citation_ids,
+                "cognition_historical_conversation_citation_digests": historical_citation_digests,
                 "cognition_model_id": model_id,
                 "self_model_projection_id": getattr(result, "self_model_projection_id", None),
                 "self_model_projection_digest": getattr(result, "self_model_projection_digest", None),

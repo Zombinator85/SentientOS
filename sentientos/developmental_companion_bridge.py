@@ -477,7 +477,7 @@ class ResidentDevelopmentalCompanionBridge:
                             "sentientos.resident_cognition_observation:v11",
                             "sentientos.resident_cognition_observation:v12",
                             "sentientos.resident_cognition_observation:v13",
-                            "sentientos.resident_cognition_observation:v14"}
+                            "sentientos.resident_cognition_observation:v14", "sentientos.resident_cognition_observation:v15"}
                     and linkage.get("cognition_memory_selection_digest")
                         == observation.get("canonical_user_memory_selection_digest")
                     and isinstance(memory_citation_ids, (list, tuple))
@@ -489,7 +489,7 @@ class ResidentDevelopmentalCompanionBridge:
                     "sentientos.resident_cognition_observation:v11",
                     "sentientos.resident_cognition_observation:v12",
                     "sentientos.resident_cognition_observation:v13",
-                    "sentientos.resident_cognition_observation:v14"}:
+                    "sentientos.resident_cognition_observation:v14", "sentientos.resident_cognition_observation:v15"}:
                 self_model_citation_ids = linkage.get(
                     "cognition_self_model_claim_ids", ())
                 selection = observation.get("prior_self_model_prompt_selection")
@@ -542,14 +542,14 @@ class ResidentDevelopmentalCompanionBridge:
                     "sentientos.resident_cognition_observation:v11",
                     "sentientos.resident_cognition_observation:v12",
                     "sentientos.resident_cognition_observation:v13",
-                    "sentientos.resident_cognition_observation:v14"}
+                    "sentientos.resident_cognition_observation:v14", "sentientos.resident_cognition_observation:v15"}
                 and observation.get("companion_history_citation_ids") == list(history_record_ids)
                 and memory_lineage_valid
                 and self_model_lineage_valid
                 and (observation.get("schema_version") not in {
                     "sentientos.resident_cognition_observation:v12",
                     "sentientos.resident_cognition_observation:v13",
-                    "sentientos.resident_cognition_observation:v14"} or (
+                    "sentientos.resident_cognition_observation:v14", "sentientos.resident_cognition_observation:v15"} or (
                     linkage.get("conversation_context_snapshot_digest") ==
                         observation.get("companion_conversation_context_snapshot_digest")
                     and linkage.get("conversation_context_selection_digest") ==
@@ -562,6 +562,23 @@ class ResidentDevelopmentalCompanionBridge:
                         observation.get("companion_conversation_citation_ids", ()))
                     and linkage.get("cognition_conversation_turn_citation_digests", []) == list(
                         observation.get("companion_conversation_citation_digests", ()))
+                    ))
+                and (observation.get("schema_version") !=
+                    "sentientos.resident_cognition_observation:v15" or (
+                    linkage.get("cognition_historical_conversation_citation_ids", []) == list(
+                        observation.get("companion_historical_conversation_citation_ids", ()))
+                    and linkage.get("cognition_historical_conversation_citation_digests", []) == list(
+                        observation.get("companion_historical_conversation_citation_digests", ()))
+                    and len(observation.get(
+                        "companion_historical_conversation_citation_ids", ())) ==
+                        len(observation.get(
+                            "companion_historical_conversation_citation_digests", ()))
+                    and set(zip(
+                        observation.get("companion_historical_conversation_citation_ids", ()),
+                        observation.get("companion_historical_conversation_citation_digests", ())))
+                        <= set(zip(
+                            observation.get("companion_historical_citation_turn_ids", ()),
+                            observation.get("companion_historical_citation_turn_digests", ())))
                     ))
                 and history_lineage_valid
                 and linkage.get("cognition_model_id") == observation.get("model_id")
