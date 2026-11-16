@@ -141,12 +141,18 @@ adds a matched counterfactual through the bridge and actual prompt assembler.
 With the same question, scene, source reconciliation, and CPU-only conditioned
 invoker, question-aware selection places the retained prior GPU measurement in
 the prompt and the later response includes it; the legacy predicate ordering
-selects an unrelated claim and the response lacks the prior measurement. The
-prompt retains the historical category, status, false current-truth posture,
-and false authority map, while the observation binds the selected claim and
-projection digest. Because this Windows fixture substitutes the POSIX
-composition lock and immutable observation publication, it demonstrates the
-behavioral integration path but not durable Windows custody or real-model
+does not. The prompt binder now tries the complete owner projection first, then
+removes a suffix of the owner's ranked claims until the full assembled context
+fits. A digest-bound selection manifest records consumed and omitted claim IDs
+and digests in both prompt context and inference evidence. The fixture shows
+that the ranked GPU claim survives while a large unrelated leading claim is
+omitted; with legacy ordering, the oversized claim causes the projection to be
+omitted from inference input. The prompt retains historical category, status,
+false current-truth posture, and false authority map. Owner projection lineage
+still records the full upstream selection, while prompt selection separately
+states what inference consumed. Because this Windows fixture substitutes the
+POSIX composition lock and immutable observation publication, it demonstrates
+the behavioral integration path but not durable Windows custody or real-model
 generalization.
 
 The focused counterfactual in

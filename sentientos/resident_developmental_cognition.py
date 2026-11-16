@@ -2756,6 +2756,48 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
         task_family_id=scoped_task_family_id,
         target_model_identity=target_model_identity)
         for record in records) for mode in packet_modes}
+    self_model_variants: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
+    raw_self_model = context.get("prior_self_model")
+    if isinstance(raw_self_model, Mapping):
+        claims = raw_self_model.get("selected_claims", ())
+        claim_ids = raw_self_model.get("selected_claim_ids", ())
+        claim_digests = raw_self_model.get("selected_claim_digests", ())
+        if (not isinstance(claims, (list, tuple))
+                or not isinstance(claim_ids, (list, tuple))
+                or not isinstance(claim_digests, (list, tuple))
+                or len(claims) != len(claim_ids)
+                or len(claims) != len(claim_digests)
+                or any(not isinstance(claim, Mapping) for claim in claims)):
+            raise ResidentDevelopmentalCognitionError("invalid_self_model_projection")
+        # The owner already ranks claims for the current question. Preserve that
+        # order while reducing the projection only when the assembled prompt
+        # cannot fit the configured inference input bound.
+        for count in range(len(claims), -1, -1):
+            selected_ids = list(claim_ids[:count])
+            selected_digests = list(claim_digests[:count])
+            omitted = [{"claim_id": str(cid), "claim_digest": str(digest)}
+                for cid, digest in zip(claim_ids[count:], claim_digests[count:])]
+            variant = dict(raw_self_model)
+            variant["selected_claims"] = list(claims[:count])
+            variant["selected_claim_ids"] = selected_ids
+            variant["selected_claim_digests"] = selected_digests
+            selection = {"schema_version": "sentientos.self_model_prompt_selection:v1",
+                "policy": ("question_relevance_ranked_prefix:v1"
+                    if raw_self_model.get("relevance_query_digest")
+                    else "owner_ordered_prefix:v1"),
+                "source_projection_id": raw_self_model.get("projection_id"),
+                "source_projection_digest": raw_self_model.get("projection_digest"),
+                "available_claim_count": len(claims),
+                "selected_claim_ids": selected_ids,
+                "selected_claim_digests": selected_digests,
+                "omitted_claims": omitted,
+                "omitted_claims_digest": _digest(omitted),
+                "omission_reason": "inference_input_budget" if omitted else None}
+            selection["selection_digest"] = _digest(selection)
+            candidate_self_model = variant if count else None
+            self_model_variants.append((candidate_self_model, selection))
+    else:
+        self_model_variants.append((None, None))
     budget_attempts: list[dict[str, Any]] = []
     full_packets = packets_by_mode[packet_modes[0]]
     available = tuple({"record_id": packet["record_id"],
@@ -2764,99 +2806,105 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
     # prefer its richest evidence packet and degrade context only when needed
     # to keep that history available under the cognition input bound.
     counts = range(len(records), -1, -1) if history_present else (0,)
-    for count in counts:
-        for mode in packet_modes:
-            packets = packets_by_mode[mode]
-            selected = packets[len(packets) - count:] if count else ()
-            omitted = packets[:len(packets) - count] if count else packets
-            selected_refs = tuple({"record_id": packet["record_id"],
-                "record_digest": packet["record_digest"]} for packet in selected)
-            omitted_refs = tuple({"record_id": packet["record_id"],
-                "record_digest": packet["record_digest"]} for packet in omitted)
-            omission_reason = ("history_withheld_control" if omitted and not history_present else
-                "inference_input_budget" if omitted else None)
-            retrieval_policy = context.get("developmental_history_retrieval_policy_id",
-                "completed_tick_recency_suffix:v1")
-            custody_selection = {"schema_version": "sentientos.developmental_history_selection:v1",
-                "policy": "most_recent_complete_record_suffix:v1",
-                "retrieval_policy_id": retrieval_policy,
-                "task_family_id": task_family_id,
-                "treatment": "present" if history_present else "withheld",
-                "available_records": list(available),
-                "selected_records": list(selected_refs),
-                "omitted_records": list(omitted_refs),
-                "omitted_records_digest": _digest(list(omitted_refs)),
-                "omission_reason": omission_reason}
-            custody_selection["selection_digest"] = _digest(custody_selection)
-            # The observation retains full omitted identities for recovery.
-            # A withheld condition's model prompt receives no record IDs or
-            # digests, so the control does not leak the withheld history set.
-            prompt_available = list(available) if history_present else []
-            prompt_omitted = list(omitted_refs) if history_present else []
-            prompt_selection = {"schema_version": "sentientos.developmental_history_prompt_selection:v2",
-                "policy": "most_recent_complete_record_suffix:v1",
-                "retrieval_policy_id": retrieval_policy,
-                "task_family_id": task_family_id,
-                "treatment": "present" if history_present else "withheld",
-                "available_records": prompt_available,
-                "selected_records": list(selected_refs),
-                "omitted_records": prompt_omitted,
-                "omitted_records_digest": _digest(prompt_omitted),
-                "omission_reason": ("inference_input_budget" if omitted else None)
-                    if history_present else None}
-            prompt_selection["selection_digest"] = _digest(prompt_selection)
-            prompt_packets: list[dict[str, Any]] = []
-            historical_embodiment_reports: list[dict[str, Any]] = []
-            for packet in selected:
-                prompt_packet = dict(packet)
-                reports = prompt_packet.pop("historical_embodiment_reports", ())
-                if isinstance(reports, (list, tuple)):
-                    for report in reports:
-                        if isinstance(report, Mapping):
-                            historical_embodiment_reports.append({
-                                "record_id": packet["record_id"],
-                                "record_digest": packet["record_digest"],
-                                **dict(report)})
-                prompt_packets.append(prompt_packet)
-            prompt_packets = _withhold_conflicting_task_family_examples(prompt_packets)
-            candidate = {**dict(context), "developmental_history": prompt_packets,
-                "historical_embodiment_reports": historical_embodiment_reports,
-                "developmental_history_selection": prompt_selection}
-            if "companion_question" in context:
-                candidate["history_citation_allowlist"] = [
-                    str(item["record_id"]) for item in selected_refs]
-            try:
-                bound, metadata, prompt = _bind_epistemic_context(
-                    context=candidate, projection=projection,
-                    max_input_chars=max_input_chars)
-            except ResidentDevelopmentalCognitionError as exc:
-                if str(exc) != "cognition_input_budget_exceeded":
-                    raise
-                if len(budget_attempts) < 32:
-                    attempt = dict(getattr(exc, "diagnostic", {}) or {})
-                    attempt.update({"history_record_count": count,
-                        "history_packet_mode": (
-                            "compact_refs_only" if mode[2] else
-                            "source_and_full" if mode == (True, False, False) else
-                            "full" if mode == (False, False, False) else
-                            "compact" if mode == (False, True, False) else "unknown")})
-                    budget_attempts.append(attempt)
-                continue
-            # Do not let newly enriched task/resource history silently consume
-            # the entire semantic epistemic allowance. Try a shorter or more
-            # compact history suffix first; if no complete meaning packet can
-            # fit, fail closed with omission evidence instead of sending an
-            # identity-only epistemic projection as if it were useful context.
-            if (metadata.get("epistemic_owner_packet_count", 0) > 0
-                    and not metadata.get("epistemic_consumed_packet_ids")):
-                continue
-            ids = tuple(str(item["record_id"]) for item in selected_refs)
-            digests = tuple(str(item["record_digest"]) for item in selected_refs)
-            metadata = {**metadata,
-                "developmental_history_selection": custody_selection}
-            if not ids and budget_attempts:
-                metadata["developmental_history_context_budget_attempts"] = budget_attempts
-            return bound, metadata, prompt, ids, digests
+    for prompt_self_model, self_model_selection in self_model_variants:
+        for count in counts:
+            for mode in packet_modes:
+                packets = packets_by_mode[mode]
+                selected = packets[len(packets) - count:] if count else ()
+                omitted = packets[:len(packets) - count] if count else packets
+                selected_refs = tuple({"record_id": packet["record_id"],
+                    "record_digest": packet["record_digest"]} for packet in selected)
+                omitted_refs = tuple({"record_id": packet["record_id"],
+                    "record_digest": packet["record_digest"]} for packet in omitted)
+                omission_reason = ("history_withheld_control" if omitted and not history_present else
+                    "inference_input_budget" if omitted else None)
+                retrieval_policy = context.get("developmental_history_retrieval_policy_id",
+                    "completed_tick_recency_suffix:v1")
+                custody_selection = {"schema_version": "sentientos.developmental_history_selection:v1",
+                    "policy": "most_recent_complete_record_suffix:v1",
+                    "retrieval_policy_id": retrieval_policy,
+                    "task_family_id": task_family_id,
+                    "treatment": "present" if history_present else "withheld",
+                    "available_records": list(available),
+                    "selected_records": list(selected_refs),
+                    "omitted_records": list(omitted_refs),
+                    "omitted_records_digest": _digest(list(omitted_refs)),
+                    "omission_reason": omission_reason}
+                custody_selection["selection_digest"] = _digest(custody_selection)
+                # The observation retains full omitted identities for recovery.
+                # A withheld condition's model prompt receives no record IDs or
+                # digests, so the control does not leak the withheld history set.
+                prompt_available = list(available) if history_present else []
+                prompt_omitted = list(omitted_refs) if history_present else []
+                prompt_selection = {"schema_version": "sentientos.developmental_history_prompt_selection:v2",
+                    "policy": "most_recent_complete_record_suffix:v1",
+                    "retrieval_policy_id": retrieval_policy,
+                    "task_family_id": task_family_id,
+                    "treatment": "present" if history_present else "withheld",
+                    "available_records": prompt_available,
+                    "selected_records": list(selected_refs),
+                    "omitted_records": prompt_omitted,
+                    "omitted_records_digest": _digest(prompt_omitted),
+                    "omission_reason": ("inference_input_budget" if omitted else None)
+                        if history_present else None}
+                prompt_selection["selection_digest"] = _digest(prompt_selection)
+                prompt_packets: list[dict[str, Any]] = []
+                historical_embodiment_reports: list[dict[str, Any]] = []
+                for packet in selected:
+                    prompt_packet = dict(packet)
+                    reports = prompt_packet.pop("historical_embodiment_reports", ())
+                    if isinstance(reports, (list, tuple)):
+                        for report in reports:
+                            if isinstance(report, Mapping):
+                                historical_embodiment_reports.append({
+                                    "record_id": packet["record_id"],
+                                    "record_digest": packet["record_digest"],
+                                    **dict(report)})
+                    prompt_packets.append(prompt_packet)
+                prompt_packets = _withhold_conflicting_task_family_examples(prompt_packets)
+                candidate = {**dict(context), "prior_self_model": prompt_self_model,
+                    "developmental_history": prompt_packets,
+                    "historical_embodiment_reports": historical_embodiment_reports,
+                    "developmental_history_selection": prompt_selection}
+                if self_model_selection is not None:
+                    candidate["prior_self_model_prompt_selection"] = self_model_selection
+                if "companion_question" in context:
+                    candidate["history_citation_allowlist"] = [
+                        str(item["record_id"]) for item in selected_refs]
+                try:
+                    bound, metadata, prompt = _bind_epistemic_context(
+                        context=candidate, projection=projection,
+                        max_input_chars=max_input_chars)
+                except ResidentDevelopmentalCognitionError as exc:
+                    if str(exc) != "cognition_input_budget_exceeded":
+                        raise
+                    if len(budget_attempts) < 32:
+                        attempt = dict(getattr(exc, "diagnostic", {}) or {})
+                        attempt.update({"history_record_count": count,
+                            "history_packet_mode": (
+                                "compact_refs_only" if mode[2] else
+                                "source_and_full" if mode == (True, False, False) else
+                                "full" if mode == (False, False, False) else
+                                "compact" if mode == (False, True, False) else "unknown")})
+                        budget_attempts.append(attempt)
+                    continue
+                # Do not let newly enriched task/resource history silently consume
+                # the entire semantic epistemic allowance. Try a shorter or more
+                # compact history suffix first; if no complete meaning packet can
+                # fit, fail closed with omission evidence instead of sending an
+                # identity-only epistemic projection as if it were useful context.
+                if (metadata.get("epistemic_owner_packet_count", 0) > 0
+                        and not metadata.get("epistemic_consumed_packet_ids")):
+                    continue
+                ids = tuple(str(item["record_id"]) for item in selected_refs)
+                digests = tuple(str(item["record_digest"]) for item in selected_refs)
+                metadata = {**metadata,
+                    "developmental_history_selection": custody_selection}
+                if not ids and budget_attempts:
+                    metadata["developmental_history_context_budget_attempts"] = budget_attempts
+                if self_model_selection is not None:
+                    metadata["prior_self_model_prompt_selection"] = self_model_selection
+                return bound, metadata, prompt, ids, digests
     raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded",
         diagnostic={"max_input_chars": max_input_chars,
             "history_context_budget_attempts": budget_attempts})
@@ -3416,6 +3464,8 @@ class ResidentCognitionObservation:
     epistemic_prompt_digest: str | None = None
     epistemic_consumed_content_digest: str | None = None
     developmental_history_selection: Mapping[str, Any] | None = None
+    developmental_history_context_budget_attempts: tuple[Mapping[str, Any], ...] = ()
+    prior_self_model_prompt_selection: Mapping[str, Any] | None = None
     serving_session_id: str | None = None
     serving_session_binding: Mapping[str, Any] | None = None
     serving_session_receipt_id: str | None = None
@@ -6583,6 +6633,8 @@ class ResidentDevelopmentalCognitionOwner:
                                "self_model_source_tick": prior_self_model.source_tick if prior_self_model else None,
                                "self_model_claim_ids": list(prior_self_model.selected_claim_ids) if prior_self_model else [],
                                "self_model_claim_digests": list(prior_self_model.selected_claim_digests) if prior_self_model else [],
+                               "self_model_prompt_selection": context.get(
+                                   "prior_self_model_prompt_selection"),
                                "epistemic_projection_id": prior_epistemic_state.projection_id if prior_epistemic_state else None,
                                "epistemic_projection_digest": prior_epistemic_state.projection_digest if prior_epistemic_state else None,
                                "epistemic_proposition_ids": list(prior_epistemic_state.proposition_ids) if prior_epistemic_state else [],

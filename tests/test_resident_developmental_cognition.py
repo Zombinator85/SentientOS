@@ -5237,7 +5237,8 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
           allowed_source_kinds: tuple[str, ...] = ("capability_registry",),
           max_selected_facts: int = 1, objective_task=None,
           resource_context_owner=None, max_inference_timeout_seconds: int = 30,
-          max_retrieved_records: int = 4):
+          max_retrieved_records: int = 4,
+          max_inference_input_chars: int | None = None):
     ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
     def current():
@@ -5251,7 +5252,8 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
     result = ResidentDevelopmentalCognitionOwner(config=ResidentDevelopmentalCognitionConfig(
         root / "history", root / "state", allowed_source_kinds, max_selected_facts,
         max_retrieved_records,
-        comparison, max_inference_timeout_seconds=max_inference_timeout_seconds), writeback=ctrl,
+        comparison, max_inference_timeout_seconds=max_inference_timeout_seconds,
+        max_inference_input_chars=max_inference_input_chars), writeback=ctrl,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
         invoker=fake, current_sequence=next_sequence, objective_task=objective_task,
         resource_context_owner=resource_context_owner)
@@ -6638,7 +6640,7 @@ def test_question_selected_self_model_changes_later_companion_response(
             current_truth=False, interpretation=True, authority=dict(FALSE_AUTHORITY))
 
     unrelated = claim(claim_id="self-model-claim-body",
-        predicate="embodiment.body_generation", value="body-2",
+        predicate="embodiment.body_generation", value="x" * 4000,
         subject_id="body:2", subject_kind="installation_body")
     relevant = claim(claim_id="self-model-claim-gpu",
         predicate="host_resource_metrics",
@@ -6651,7 +6653,7 @@ def test_question_selected_self_model_changes_later_companion_response(
     monkeypatch.setattr(self_model, "_load", lambda: (source,))
     self_model_config = LongitudinalSelfModelRuntimeConfig(enabled=True,
         custody_root=tmp_path / "self-model", cognitive_consumption_enabled=True,
-        max_projection_claims=1,
+        max_projection_claims=2,
         allowed_predicates=("embodiment.body_generation", "host_resource_metrics"),
         installation_id="fixture")
 
@@ -6677,7 +6679,7 @@ def test_question_selected_self_model_changes_later_companion_response(
                     "the prior self-model record reports 25 percent."
                     if has_relevant_claim else
                     "The current screen reports 31 percent GPU utilization; "
-                    "I have no relevant prior measurement.")
+                    "the selected context contains no prior measurement for comparison.")
                 self.companion_output_override = {
                     "disposition": "answer", "response": response,
                     "evidence_ids": current_ids[:1],
@@ -6705,7 +6707,8 @@ def test_question_selected_self_model_changes_later_companion_response(
         capture_observation_publication)
 
     query_cognition, query_invoker = owner(tmp_path / "query-cognition",
-        allowed_source_kinds=("embodiment",), invoker=ProjectionConditionedInvoker())
+        allowed_source_kinds=("embodiment",), invoker=ProjectionConditionedInvoker(),
+        max_inference_input_chars=16000)
     # This isolated, single-threaded fixture does not exercise the POSIX lock.
     monkeypatch.setattr(query_cognition, "_composition_lock", lambda: nullcontext())
     query_bridge = ResidentDevelopmentalCompanionBridge(query_cognition,
@@ -6715,7 +6718,8 @@ def test_question_selected_self_model_changes_later_companion_response(
         question=question, screen_observation=screen)
 
     baseline_cognition, baseline_invoker = owner(tmp_path / "baseline-cognition",
-        allowed_source_kinds=("embodiment",), invoker=ProjectionConditionedInvoker())
+        allowed_source_kinds=("embodiment",), invoker=ProjectionConditionedInvoker(),
+        max_inference_input_chars=16000)
     monkeypatch.setattr(baseline_cognition, "_composition_lock", lambda: nullcontext())
     baseline_bridge = ResidentDevelopmentalCompanionBridge(baseline_cognition,
         self_model_owner=BaselineProjectionOwner(), self_model_config=self_model_config,
@@ -6727,18 +6731,35 @@ def test_question_selected_self_model_changes_later_companion_response(
     baseline_prompt = json.loads(baseline_invoker.requests[-1].prompt)
     assert query_result.status == baseline_result.status == "admitted_completed"
     assert "prior self-model record reports 25 percent" in query_result.response
-    assert "no relevant prior measurement" in baseline_result.response
+    assert "selected context contains no prior measurement" in baseline_result.response
     assert query_prompt["prior_self_model"]["selected_claim_ids"] == [relevant.claim_id]
-    assert baseline_prompt["prior_self_model"]["selected_claim_ids"] == [unrelated.claim_id]
+    assert baseline_prompt["prior_self_model"] is None
+    assert query_prompt["prior_self_model_prompt_selection"]["selected_claim_ids"] == [
+        relevant.claim_id]
+    assert query_prompt["prior_self_model_prompt_selection"]["omitted_claims"][0][
+        "claim_id"] == unrelated.claim_id
+    assert baseline_prompt["prior_self_model_prompt_selection"]["selected_claim_ids"] == []
+    assert baseline_prompt["prior_self_model_prompt_selection"]["omitted_claims"][0][
+        "claim_id"] == unrelated.claim_id
     assert query_prompt["prior_self_model"]["relevance_query_digest"]
-    assert baseline_prompt["prior_self_model"].get("relevance_query_digest") is None
+    assert baseline_prompt["prior_self_model_prompt_selection"]["policy"] == ("owner_ordered_prefix:v1")
     selected_claim = query_prompt["prior_self_model"]["selected_claims"][0]
     assert selected_claim["claim_category"] == "historical_interpretation"
     assert selected_claim["status"] == "historical"
     assert selected_claim["current_truth"] is False
     assert not any(selected_claim["authority"].values())
     query_observation = captured_observations[query_result.cognition_observation_id]
-    assert query_observation["self_model_claim_ids"] == (relevant.claim_id,)
+    assert query_observation["self_model_claim_ids"] == (
+        relevant.claim_id, unrelated.claim_id)
+    assert query_observation["prior_self_model_prompt_selection"][
+        "selected_claim_ids"] == [relevant.claim_id]
+    query_request = query_invoker.requests[-1]
+    assert query_request.upstream_evidence["self_model_prompt_selection"][
+        "selection_digest"] == query_prompt["prior_self_model_prompt_selection"][
+            "selection_digest"]
+    baseline_request = baseline_invoker.requests[-1]
+    assert baseline_request.upstream_evidence["self_model_prompt_selection"][
+        "selected_claim_ids"] == []
     assert query_observation["self_model_projection_digest"] == (
         query_result.self_model_projection_digest)
     assert query_observation["authority"] is False
