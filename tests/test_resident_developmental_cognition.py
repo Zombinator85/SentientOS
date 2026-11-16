@@ -2296,6 +2296,7 @@ def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
         _digest as cognition_digest, _task_family_guidance_examples,
         _task_family_corroborated_favorable_runs,
         _task_family_history_prompt_projection, _task_family_history_retrieval_utility,
+        _task_family_unsettled_outcome_groups,
     )
 
     effect = {
@@ -2409,6 +2410,40 @@ def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
             "controlled_task_effect": {**effect,
                 "effect_classification": "history_adverse"}}]},
         target_model_identity=identity) == set()
+    mixed_outcomes = {"record-a": [run_a], "record-b": [{**run_b,
+        "controlled_task_effect": {**effect,
+            "effect_classification": "history_adverse"}}]}
+    unsettled = _task_family_unsettled_outcome_groups(mixed_outcomes,
+        target_model_identity=identity)
+    assert unsettled == {(task_digest, cognition_digest(identity))}
+    # A stable favorable episode loses favorable ranking when comparable
+    # evidence for the same exact task and source model disagrees.
+    assert _task_family_history_retrieval_utility([run_a],
+        target_model_identity=identity, task_probe_inputs={2},
+        unsettled_outcome_groups=unsettled) == (1, 1, 1)
+    assert _task_family_history_retrieval_utility([run_a],
+        target_model_identity=identity, task_probe_inputs={2}) == (3, 1, 1)
+    # The same outcomes do not contaminate another task commitment or model.
+    other_task_run = {**run_a, "source_task_digest": "sha256:" + "e" * 64}
+    assert _task_family_history_retrieval_utility([other_task_run],
+        target_model_identity=identity, task_probe_inputs={2},
+        unsettled_outcome_groups=unsettled) == (3, 1, 1)
+    other_model_run = {**run_a, "source_active_model_identity": other_identity,
+        "source_active_model_identity_digest": cognition_digest(other_identity)}
+    assert _task_family_history_retrieval_utility([other_model_run],
+        target_model_identity=identity, task_probe_inputs={2},
+        unsettled_outcome_groups=unsettled) == (3, 1, 1)
+    consistent_neutral = {"record-a": [{**run_a,
+        "controlled_task_effect": {**effect,
+            "effect_classification": "no_difference_observed"}}],
+        "record-b": [{**run_b,
+            "controlled_task_effect": {**effect,
+                "effect_classification": "no_difference_observed"}}]}
+    assert _task_family_unsettled_outcome_groups(consistent_neutral,
+        target_model_identity=identity) == set()
+    assert _task_family_history_retrieval_utility(
+        consistent_neutral["record-a"], target_model_identity=identity,
+        task_probe_inputs={2}) == (2, 1, 1)
     assert _task_family_corroborated_favorable_runs({
         "record-a": [run_a], "record-b": [{**run_b,
             "source_task_digest": "sha256:" + "e" * 64}]},
@@ -9544,6 +9579,8 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
     experiences = {"repeat-a": experience("run-a"),
         "repeat-b": experience("run-b"), "newer-single": experience("run-single")}
     experiences["newer-single"]["source_task_digest"] = "sha256:" + "e" * 64
+    experiences["newer-single"]["controlled_task_effect"] = {**effect,
+        "effect_classification": "no_difference_observed"}
     records: dict[str, Any] = {}
     for record_id, projected_experience in experiences.items():
         fact = {"payload": {"objective_task_family": "integer_affine_prediction",
@@ -9562,11 +9599,15 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
     monkeypatch.setattr(cognition_module, "_task_family_history_examples",
         lambda candidate, *, task_family_id: candidate["experiences"])
     observed_utility: dict[str, tuple[int, int, int]] = {}
+    observed_unsettled_groups: dict[str, set[tuple[str, str]]] = {}
     original_utility = cognition_module._task_family_history_retrieval_utility
     def observe_utility(experiences: object, **kwargs: Any) -> tuple[int, int, int]:
         result = original_utility(experiences, **kwargs)
         if isinstance(experiences, list) and experiences:
-            observed_utility[str(experiences[0]["source_run_id"])] = result
+            run_id = str(experiences[0]["source_run_id"])
+            observed_utility[run_id] = result
+            observed_unsettled_groups[run_id] = set(
+                kwargs.get("unsettled_outcome_groups", ()))
         return result
     monkeypatch.setattr(cognition_module, "_task_family_history_retrieval_utility",
         observe_utility)
@@ -9592,7 +9633,7 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
         target_model_identity=identity)
 
     assert observed_utility == {"run-a": (4, 1, 1),
-        "run-b": (4, 1, 1), "run-single": (3, 1, 1)}
+        "run-b": (4, 1, 1), "run-single": (2, 1, 1)}
     assert selected.requested_record_ids == ("repeat-b",)
     [corroboration] = selected.task_family_outcome_corroboration
     assert corroboration["source_run_count"] == 2
@@ -9628,6 +9669,30 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
         records=(), projection=None)
     assert "developmental_history_outcome_corroboration" not in empty_context
     assert "developmental_history_outcome_corroboration" not in empty_prompt
+
+    # A later contrary result makes the exact task/model group unsettled, so
+    # its formerly favorable episodes no longer outrank a stable neutral run.
+    experiences["repeat-b"]["controlled_task_effect"] = {
+        **experiences["repeat-b"]["controlled_task_effect"],
+        "effect_classification": "history_adverse"}
+    expected_unsettled_group = {(task_digest, identity_digest)}
+    assert cognition_module._task_family_unsettled_outcome_groups({
+        "repeat-a": [experiences["repeat-a"]],
+        "repeat-b": [experiences["repeat-b"]]},
+        target_model_identity=identity) == expected_unsettled_group
+    unsettled_selection = cognition._prior_projection({"completed_ticks": [
+            {"tick_id": "repeat-a", "record_id": "repeat-a"},
+            {"tick_id": "repeat-b", "record_id": "repeat-b"},
+            {"tick_id": "newer-single", "record_id": "newer-single"}]},
+        "later-task-after-contrary-outcome", task_family_id="integer_affine_prediction",
+        task_probe_inputs=(7,), require_task_family_history=True,
+        target_model_identity=identity)
+    assert observed_utility == {"run-a": (1, 1, 1),
+        "run-b": (0, 0, 0), "run-single": (2, 1, 1)}
+    assert observed_unsettled_groups["run-a"] == expected_unsettled_group
+    assert observed_unsettled_groups["run-b"] == expected_unsettled_group
+    assert unsettled_selection.requested_record_ids == ("newer-single",)
+    assert unsettled_selection.task_family_outcome_corroboration == ()
 
 
 def test_tick_n_admitted_developmental_writeback_is_durable_and_bounded(tmp_path: Path) -> None:

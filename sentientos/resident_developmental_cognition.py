@@ -1735,7 +1735,8 @@ def _task_family_history_retrieval_utility(experiences: object, *,
         target_model_identity: Mapping[str, Any] | None,
         task_probe_inputs: set[int],
         corroborated_favorable_runs: set[tuple[str, str, str]] | frozenset[tuple[str, str, str]] = frozenset(),
-        conflicting_probe_inputs: set[int] | frozenset[int] = frozenset()
+        conflicting_probe_inputs: set[int] | frozenset[int] = frozenset(),
+        unsettled_outcome_groups: set[tuple[str, str]] | frozenset[tuple[str, str]] = frozenset()
         ) -> tuple[int, int, int]:
     """Rank validated family history by outcome posture, correct examples, and probe overlap."""
     if not isinstance(experiences, (list, tuple)):
@@ -1766,6 +1767,7 @@ def _task_family_history_retrieval_utility(experiences: object, *,
         run_key = (experience.get("source_task_digest"),
             experience.get("source_active_model_identity_digest"),
             experience.get("source_run_id"))
+        outcome_group = run_key[:2]
         corroborated = (restoration_stable
             and effect.get("posture") == "complete_comparable_condition_scores"
             and classification == "history_favorable"
@@ -1778,6 +1780,8 @@ def _task_family_history_retrieval_utility(experiences: object, *,
             2 if restoration_stable and effect.get("posture")
             == "complete_comparable_condition_scores"
             and classification == "no_difference_observed" else 1)
+        if outcome_group in unsettled_outcome_groups:
+            priority = 1
         outcome_priority = max(outcome_priority, priority)
         correct_example_count += len(guidance)
         probe_overlap.update(item["probe_input"] for item in guidance
@@ -1796,6 +1800,49 @@ def _task_family_corroborated_favorable_runs(experiences_by_record: Mapping[str,
     comparable outcome prevents a corroboration boost. This is retrieval
     ranking evidence, not a statistical independence or learning claim.
     """
+    outcomes_by_group = _task_family_outcome_evidence_by_group(
+        experiences_by_record, target_model_identity=target_model_identity)
+
+    corroborated: set[tuple[str, str, str]] = set()
+    for (task_digest, model_digest), run_outcomes in outcomes_by_group.items():
+        if (len(run_outcomes) >= 2
+                and all(len(outcomes) == 1 and next(iter(outcomes))[:2]
+                    == ("history_favorable", True)
+                    for outcomes in run_outcomes.values())):
+            run_signatures = [next(iter(outcomes)) for outcomes in run_outcomes.values()]
+            if len({signature[2] for signature in run_signatures}) != len(run_signatures):
+                continue
+            corroborated.update((task_digest, model_digest, run_id)
+                for run_id in run_outcomes)
+    return corroborated
+
+
+def _task_family_unsettled_outcome_groups(experiences_by_record: Mapping[str, object], *,
+        target_model_identity: Mapping[str, Any] | None) -> set[tuple[str, str]]:
+    """Find exact-task/model groups with mixed or restoration-unstable outcomes."""
+    unsettled: set[tuple[str, str]] = set()
+    for group, run_outcomes in _task_family_outcome_evidence_by_group(
+            experiences_by_record, target_model_identity=target_model_identity).items():
+        outcome_postures = {(classification, restoration_stable)
+            for outcomes in run_outcomes.values()
+            for classification, restoration_stable, _run_digest, _comparison_digest
+                in outcomes}
+        internally_mixed = any(len({(item[0], item[1]) for item in outcomes}) > 1
+            for outcomes in run_outcomes.values())
+        if not internally_mixed and len(run_outcomes) < 2:
+            continue
+        unstable_guidance = any(not restoration_stable
+            and classification in {"history_favorable", "no_difference_observed"}
+            for classification, restoration_stable in outcome_postures)
+        if internally_mixed or len(outcome_postures) > 1 or unstable_guidance:
+            unsettled.add(group)
+    return unsettled
+
+
+def _task_family_outcome_evidence_by_group(experiences_by_record: Mapping[str, object], *,
+        target_model_identity: Mapping[str, Any] | None
+        ) -> dict[tuple[str, str], dict[str, set[tuple[str, bool, str, str]]]]:
+    """Collect receipt-bound comparable outcomes by exact task and model identity."""
     outcomes_by_group: dict[
         tuple[str, str], dict[str, set[tuple[str, bool, str, str]]]
     ] = {}
@@ -1836,18 +1883,7 @@ def _task_family_corroborated_favorable_runs(experiences_by_record: Mapping[str,
             outcomes_by_group.setdefault(group, {}).setdefault(run_id, set()).add(
                 (classification, restoration_stable, run_digest, comparison_digest))
 
-    corroborated: set[tuple[str, str, str]] = set()
-    for (task_digest, model_digest), run_outcomes in outcomes_by_group.items():
-        if (len(run_outcomes) >= 2
-                and all(len(outcomes) == 1 and next(iter(outcomes))[:2]
-                    == ("history_favorable", True)
-                    for outcomes in run_outcomes.values())):
-            run_signatures = [next(iter(outcomes)) for outcomes in run_outcomes.values()]
-            if len({signature[2] for signature in run_signatures}) != len(run_signatures):
-                continue
-            corroborated.update((task_digest, model_digest, run_id)
-                for run_id in run_outcomes)
-    return corroborated
+    return outcomes_by_group
 
 
 def _task_family_outcome_corroboration_summaries(
@@ -6825,6 +6861,8 @@ class ResidentDevelopmentalCognitionOwner:
                 experiences_by_record, target_model_identity=target_model_identity)
             corroborated_favorable_runs = _task_family_corroborated_favorable_runs(
                 experiences_by_record, target_model_identity=target_model_identity)
+            unsettled_outcome_groups = _task_family_unsettled_outcome_groups(
+                experiences_by_record, target_model_identity=target_model_identity)
             for record_id in relevant_newest_first:
                 matching_facts = matching_facts_by_record[record_id]
                 same_model = False
@@ -6846,7 +6884,8 @@ class ResidentDevelopmentalCognitionOwner:
                     target_model_identity=target_model_identity,
                     task_probe_inputs=probe_set,
                     corroborated_favorable_runs=corroborated_favorable_runs,
-                    conflicting_probe_inputs=conflicting_probe_inputs)
+                    conflicting_probe_inputs=conflicting_probe_inputs,
+                    unsettled_outcome_groups=unsettled_outcome_groups)
                 outcome_relevance[record_id], guidance_example_counts[record_id], \
                     relevance[record_id] = utility
             # Evaluator-correct guidance and measured outcome posture rank first;
