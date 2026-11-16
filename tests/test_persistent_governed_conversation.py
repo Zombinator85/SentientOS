@@ -71,7 +71,8 @@ def test_explicit_history_intervention_uses_fresh_observation_and_returns_measur
         tmp_path: Path) -> None:
     observations = []
     class Bridge:
-        def respond(self, *, request_id, question, screen_observation=None):
+        def respond(self, *, request_id, question, screen_observation=None,
+                conversation_context=None):
             raise AssertionError("test does not invoke ordinary chat")
 
         def history_intervention_available(self):
@@ -143,7 +144,8 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
         def __init__(self):
             self.feedback_allowed = True
 
-        def respond(self, *, request_id, question, screen_observation=None):
+        def respond(self, *, request_id, question, screen_observation=None,
+                conversation_context=None):
             raise AssertionError("cycle test does not invoke ordinary chat")
 
         def developmental_cycle_available(self):
@@ -265,7 +267,8 @@ def test_resident_cognition_bridge_delivers_receipt_linked_answer_and_recovers(
             self.calls = []
             self.verifications = 0
 
-        def respond(self, *, request_id, question, screen_observation=None):
+        def respond(self, *, request_id, question, screen_observation=None,
+                conversation_context=None):
             self.calls.append((request_id, question, screen_observation))
             return SimpleNamespace(status="admitted_completed", disposition="answer",
                 response="There are two lit candles.", evidence_ids=("fact-screen-1",),
@@ -324,6 +327,81 @@ def test_resident_cognition_bridge_delivers_receipt_linked_answer_and_recovers(
     assert invoker.requests == []
 
 
+def test_cognition_followup_uses_bounded_session_transcript() -> None:
+    seen_contexts = []
+
+    class CognitionBridge:
+        def respond(self, *, request_id, question, screen_observation=None,
+                conversation_context=None):
+            seen_contexts.append(conversation_context)
+            prior_text = " ".join(row["text"] for row in
+                conversation_context["turns"]) if conversation_context else ""
+            response = ("The earlier report said three degrees after warmup."
+                if "west sensor drifted by three degrees" in prior_text
+                else "I do not have an earlier west sensor report in this session.")
+            return SimpleNamespace(status="admitted_completed", disposition="answer",
+                response=response, evidence_ids=(), cognition_observation_id="devcog-" + "a" * 24,
+                cognition_observation_digest="sha256:" + "b" * 64,
+                snapshot_id="world-state-session-context", snapshot_digest="c" * 64,
+                inference_receipt_id="lmrec-" + "d" * 24,
+                inference_receipt_digest="e" * 64, invocation_output_digest="f" * 64,
+                model_id="fixture-model", model_artifact_digest="g" * 64,
+                prior_record_ids=(), history_record_ids=(), memory_record_ids=(),
+                self_model_claim_ids=(), developmental_history_writeback_performed=False,
+                authority=False, current_truth=False,
+                canonical_explicit_user_retention_mutated=False)
+
+    class SessionSink:
+        def append_turn(self, session_id, *, role, text, linkage):
+            return {"turn_id": "turn-" + "f" * 24}
+
+    app = object.__new__(PersistentConversationService)
+    app._resident_cognition_bridge = CognitionBridge()
+    app.sessions = SessionSink()
+    app._resident_canonical_memory_context = lambda _question: None
+    app._avatar_output = None
+    app._speech_output = None
+    history = ContextSnapshot("session-followup", (
+        {"turn_id": "turn-" + "1" * 24, "role": "user",
+            "text": "The west sensor drifted by three degrees after warmup.",
+            "text_digest": chat_service.digest_payload({"text":
+                "The west sensor drifted by three degrees after warmup."}),
+            "linkage": {}},
+        {"turn_id": "turn-" + "2" * 24, "role": "assistant",
+            "text": "I recorded that report.",
+            "text_digest": chat_service.digest_payload({"text": "I recorded that report."}),
+            "linkage": {}},
+    ), 4000, False, "a" * 64)
+    followup = app._complete_resident_cognition_response(
+        session_id="session-followup",
+        user_turn={"turn_id": "turn-" + "3" * 24},
+        question="How much did it drift?", history=history,
+        screen_observation=None, on_content_chunk=None)
+    control_history = ContextSnapshot("session-control", (), 4000, False, "b" * 64)
+    control = app._complete_resident_cognition_response(
+        session_id="session-control",
+        user_turn={"turn_id": "turn-" + "4" * 24},
+        question="How much did it drift?", history=control_history,
+        screen_observation=None, on_content_chunk=None)
+
+    assert "three degrees" in followup.response
+    assert "do not have" in control.response
+    supplied = seen_contexts[0]
+    assert supplied["schema_version"] == "sentientos.conversation_cognition_context:v1"
+    assert [row["role"] for row in supplied["turns"]] == ["user", "assistant"]
+    assert supplied["turns"][0]["text"] == (
+        "The west sensor drifted by three degrees after warmup.")
+    assert supplied["historical_only"] is True
+    assert supplied["current_truth"] is False
+    assert supplied["authority"] is False
+    assert supplied["mutation_performed"] is False
+    assert followup.context["conversation_context_selection_digest"] == (
+        supplied["selection_digest"])
+    assert followup.context["conversation_context_turn_ids"] == [
+        row["turn_id"] for row in supplied["turns"]]
+    assert seen_contexts[1] is None
+
+
 def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
         tmp_path: Path) -> None:
     retained_texts = ("I prefer concise answers.", "I prefer detailed answers.")
@@ -331,7 +409,7 @@ def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
 
     class CognitionBridge:
         def respond(self, *, request_id, question, screen_observation=None,
-                canonical_memory_context=None):
+                canonical_memory_context=None, conversation_context=None):
             memory_contexts.append(canonical_memory_context)
             return SimpleNamespace(status="admitted_completed", disposition="answer",
                 response="I will keep answers concise.", evidence_ids=(),

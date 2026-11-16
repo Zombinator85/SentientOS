@@ -51,7 +51,7 @@ from .developmental_companion_bridge import (
     ResidentDevelopmentalCompanionBridge, make_operator_feedback_record,
 )
 from .conversation_session import (
-    ConversationChatLockTimeout, ConversationSessionStore, assemble_local_chat_context,
+    ContextSnapshot, ConversationChatLockTimeout, ConversationSessionStore, assemble_local_chat_context,
     compact_runtime_generation_attribution, transcript_recall_terms,
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
@@ -2136,6 +2136,7 @@ class PersistentConversationService:
 
     def _complete_resident_cognition_response(self, *, session_id: str,
             user_turn: Mapping[str, Any], question: str,
+            history: ContextSnapshot,
             screen_observation: Mapping[str, object] | None,
             on_content_chunk: Callable[[str], None] | None) -> ChatResponse:
         """Deliver a resident cognition decision as a distinct, receipt-linked response."""
@@ -2144,10 +2145,45 @@ class PersistentConversationService:
             raise RuntimeError("resident_cognition_bridge_unavailable")
         request_id = f"{session_id}:{user_turn['turn_id']}"
         canonical_memory_context = self._resident_canonical_memory_context(question)
+        conversation_context = None
+        selected_turns = history.turns[-16:]
+        if selected_turns:
+            context_turns = []
+            used_chars = 0
+            for turn in selected_turns:
+                text = turn.get("text")
+                if (not isinstance(text, str) or not text
+                        or turn.get("text_digest") != digest_payload({"text": text})
+                        or turn.get("role") not in {"user", "assistant"}
+                        or not isinstance(turn.get("turn_id"), str)):
+                    raise ChatRequestStateError("resident_conversation_context_invalid")
+                used_chars += len(text)
+                if used_chars > 4000:
+                    raise ChatRequestStateError("resident_conversation_context_budget_exceeded")
+                linkage = turn.get("linkage", {})
+                if not isinstance(linkage, Mapping):
+                    raise ChatRequestStateError("resident_conversation_context_invalid")
+                context_turns.append({
+                    "turn_id": str(turn["turn_id"]), "role": str(turn["role"]),
+                    "text": text, "text_digest": turn["text_digest"],
+                    "linkage_digest": digest_payload(dict(linkage)),
+                })
+            semantic_context: dict[str, Any] = {
+                "schema_version": "sentientos.conversation_cognition_context:v1",
+                "session_id": history.session_id,
+                "source_snapshot_digest": history.snapshot_digest,
+                "turns": context_turns, "historical_only": True,
+                "current_truth": False, "authority": False,
+                "mutation_performed": False,
+            }
+            conversation_context = {**semantic_context,
+                "selection_digest": digest_payload(semantic_context)}
         response_kwargs: dict[str, Any] = {"request_id": request_id,
             "question": question, "screen_observation": screen_observation}
         if canonical_memory_context is not None:
             response_kwargs["canonical_memory_context"] = canonical_memory_context
+        if conversation_context is not None:
+            response_kwargs["conversation_context"] = conversation_context
         result = bridge.respond(**response_kwargs)
         response_text = getattr(result, "response", None)
         if (getattr(result, "status", None) != "admitted_completed"
@@ -2230,6 +2266,12 @@ class PersistentConversationService:
                 "cognition_memory_citation_ids": list(memory_record_ids),
                 "cognition_self_model_claim_ids": list(self_model_claim_ids),
                 "cognition_memory_selection_digest": memory_selection_digest,
+                "conversation_context_snapshot_digest": history.snapshot_digest,
+                "conversation_context_selection_digest": (
+                    conversation_context.get("selection_digest")
+                    if conversation_context is not None else None),
+                "conversation_context_turn_ids": [row["turn_id"] for row in
+                    conversation_context["turns"]] if conversation_context is not None else [],
                 "cognition_model_id": model_id,
                 "cognition_model_artifact_digest": getattr(result, "model_artifact_digest", None),
                 "self_model_projection_id": getattr(result, "self_model_projection_id", None),
@@ -2273,6 +2315,12 @@ class PersistentConversationService:
                 "cognition_memory_citation_ids": list(memory_record_ids),
                 "cognition_self_model_claim_ids": list(self_model_claim_ids),
                 "cognition_memory_selection_digest": memory_selection_digest,
+                "conversation_context_snapshot_digest": history.snapshot_digest,
+                "conversation_context_selection_digest": (
+                    conversation_context.get("selection_digest")
+                    if conversation_context is not None else None),
+                "conversation_context_turn_ids": [row["turn_id"] for row in
+                    conversation_context["turns"]] if conversation_context is not None else [],
                 "cognition_model_id": model_id,
                 "self_model_projection_id": getattr(result, "self_model_projection_id", None),
                 "self_model_projection_digest": getattr(result, "self_model_projection_digest", None),
@@ -2910,7 +2958,8 @@ class PersistentConversationService:
             try:
                 return self._complete_resident_cognition_response(
                     session_id=session["session_id"], user_turn=user_turn,
-                    question=message, screen_observation=screen_observation,
+                    question=message, history=history,
+                    screen_observation=screen_observation,
                     on_content_chunk=on_content_chunk)
             except (CognitionEvidenceUnavailable, CognitionWorkloadUnavailable):
                 # Keep ordinary chat available without current evidence, or if

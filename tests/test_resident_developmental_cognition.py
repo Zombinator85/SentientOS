@@ -6968,6 +6968,66 @@ def test_companion_bridge_passes_question_to_self_model_projection() -> None:
         "relevance_query": question}]
 
 
+def test_companion_interaction_validates_and_forwards_session_context(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+    import sentientos.resident_developmental_cognition as cognition_module
+
+    text = "The west sensor drifted by three degrees after warmup."
+    turns = [{"turn_id": "turn-" + "1" * 24, "role": "user", "text": text,
+        "text_digest": digest_payload({"text": text}),
+        "linkage_digest": "a" * 64}]
+    semantic = {"schema_version": "sentientos.conversation_cognition_context:v1",
+        "session_id": "session-test", "source_snapshot_digest": "b" * 64,
+        "turns": turns, "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False}
+    conversation_context = {**semantic,
+        "selection_digest": digest_payload(semantic)}
+    captured = {}
+    owner = object.__new__(ResidentDevelopmentalCognitionOwner)
+    owner.config = SimpleNamespace(enabled=True, comparison_enabled=False)
+    owner.objective_task = None
+    owner._composition_lock = lambda: nullcontext()
+    owner._state = lambda: object()
+    owner._prior_projection = lambda _state, _tick, **_kwargs: SimpleNamespace(
+        requested_record_ids=())
+    owner._current_projection = lambda _snapshot: object()
+
+    def cognize(**kwargs):
+        captured.update(kwargs)
+        kwargs["interaction_capture"].update({"disposition": "answer",
+            "response": "The earlier report said three degrees.",
+            "evidence_ids": (), "history_record_ids": (),
+            "memory_record_ids": (), "self_model_claim_ids": ()})
+        return SimpleNamespace(observation_id="devcog-test",
+            observation_digest="sha256:" + "c" * 64,
+            inference_receipt_id="lmrec-test", inference_receipt_digest="d" * 64,
+            output_digest="e" * 64, model_id="fixture-model",
+            model_artifact_digest=None, self_model_projection_id=None,
+            self_model_projection_digest=None, epistemic_projection_id=None,
+            epistemic_projection_digest=None)
+
+    owner._cognize = cognize
+    monkeypatch.setattr(cognition_module, "validate_snapshot",
+        lambda _snapshot: SimpleNamespace(valid=True))
+    snapshot_value = SimpleNamespace(snapshot_id="snapshot-test", digest="f" * 64)
+    result = ResidentDevelopmentalCognitionOwner.run_companion_interaction(owner,
+        snapshot=snapshot_value, request_id="session-context-request",
+        question="How much did it drift?", conversation_context=conversation_context)
+
+    assert captured["conversation_context"] == conversation_context
+    assert captured["interaction_question"] == "How much did it drift?"
+    assert "three degrees" in result.response
+    tampered = {**conversation_context, "turns": [{**turns[0],
+        "text": "The west sensor drifted by four degrees."}]}
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="conversation_cognition_context_invalid"):
+        ResidentDevelopmentalCognitionOwner.run_companion_interaction(owner,
+            snapshot=snapshot_value, request_id="session-context-tampered",
+            question="How much did it drift?", conversation_context=tampered)
+
+
 def test_question_selected_self_model_changes_later_companion_response(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from contextlib import nullcontext

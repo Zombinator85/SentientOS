@@ -822,7 +822,8 @@ class ResidentDevelopmentalCompanionBridge:
 
     def respond(self, *, request_id: str, question: str,
                 screen_observation: Mapping[str, Any] | None = None,
-                canonical_memory_context: Mapping[str, Any] | None = None
+                canonical_memory_context: Mapping[str, Any] | None = None,
+                conversation_context: Mapping[str, Any] | None = None
                 ) -> ResidentCompanionInteractionResult:
         proprioception: Sequence[EmbodimentObservation] = ()
         if self._proprioception_provider is not None:
@@ -848,4 +849,5 @@ class ResidentDevelopmentalCompanionBridge:
                 snapshot=snapshot, request_id=request_id, question=question,
                 prior_self_model=prior_self_model,
                 prior_epistemic_state=prior_epistemic_state,
-                canonical_memory_context=canonical_memory_context)
+                canonical_memory_context=canonical_memory_context,
+                conversation_context=conversation_context)

@@ -491,3 +491,18 @@ Cognition can receive a separately typed, prior-tick epistemic projection bindin
 Current resident cognition observations use schema V11. The V10 selection manifest preserves the self-model claims chosen for the bounded inference prompt. It binds selected and omitted claim identities to the source projection digest, appears in the inference request's upstream evidence, and is checked against the recovered observation. V11 adds companion response citations for selected self-model claims. Older V9 and V10 observations retain their historical field shapes and remain recoverable. These records show which claims were supplied and cited; they do not establish that a model used them correctly or that they improved a decision.
 
 The companion's committed-response verifier accepts V8 through V11 observations. For V9 and later, it checks memory citations and the memory selection digest against the durable observation. V11 also records prior self-model citations: the model may cite only selected claims in the prompt allowlist, and recovery and transcript verification bind those citations back to the recorded selection. Self-model citations identify earlier system representations; they do not establish current truth or verified capability.
+
+Resident-companion chat now passes up to 16 prior turns from the current
+conversation snapshot, capped at 4,000 text characters. Each turn carries its
+text digest and a digest of its existing linkage; the selected set has its own
+digest and remains bound to the source conversation snapshot. The cognition
+prompt treats this separate `session_conversation_context` as untrusted,
+historical dialogue: assistant statements are not verified facts, and transcript
+text is neither current evidence nor canonical retained memory. The invocation
+receipt binds the exact prompt and upstream context; the assistant transcript
+linkage records the snapshot digest, selection digest, and supplied turn IDs.
+This enables same-session follow-up resolution without copying ordinary
+conversation text into developmental history or canonical memory. A controlled
+counterfactual test demonstrates that an earlier sensor statement is available
+to the resident route when included and absent when withheld. It uses a test
+double and does not establish real-model accuracy or improved decisions.
