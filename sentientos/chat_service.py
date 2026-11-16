@@ -77,6 +77,50 @@ from .screen_observation_bridge import ScreenObservationBridgeError
 
 LOGGER = logging.getLogger(__name__)
 MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES = 16
+MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS = 16
+MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS = 4000
+
+
+def _select_resident_conversation_context_turns(
+        turns: Any, *, question: str) -> list[Mapping[str, Any]]:
+    """Keep a bounded, query-relevant transcript slice for resident cognition."""
+    candidates = list(turns[-MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:])
+    costs: list[int] = []
+    for turn in candidates:
+        text = turn.get("text") if isinstance(turn, Mapping) else None
+        role = turn.get("role") if isinstance(turn, Mapping) else None
+        if (not isinstance(text, str) or not text
+                or role not in {"user", "assistant"}
+                or turn.get("text_digest") != digest_payload({"text": text})
+                or not isinstance(turn.get("turn_id"), str)
+                or not isinstance(turn.get("linkage", {}), Mapping)):
+            raise ChatRequestStateError("resident_conversation_context_invalid")
+        costs.append(len(text))
+    if sum(costs) <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS:
+        return candidates
+
+    query_terms = transcript_recall_terms(question)
+    ranked: list[tuple[int, int]] = []
+    if query_terms:
+        ranked = [(len(query_terms & transcript_recall_terms(
+            str(turn["text"]))), index)
+            for index, turn in enumerate(candidates)]
+        ranked = [item for item in ranked if item[0] > 0]
+    if ranked:
+        ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        selection_order = [index for _, index in ranked]
+    else:
+        selection_order = list(reversed(range(len(candidates))))
+
+    selected_indexes: set[int] = set()
+    used = 0
+    for index in selection_order:
+        cost = costs[index]
+        if cost <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS - used:
+            selected_indexes.add(index)
+            used += cost
+    return [turn for index, turn in enumerate(candidates)
+        if index in selected_indexes]
 
 
 def _is_earliest_session_recall_request(message: str) -> bool:
@@ -2274,10 +2318,10 @@ class PersistentConversationService:
         request_id = f"{session_id}:{user_turn['turn_id']}"
         canonical_memory_context = self._resident_canonical_memory_context(question)
         conversation_context = None
-        selected_turns = history.turns[-16:]
+        selected_turns = _select_resident_conversation_context_turns(
+            history.turns, question=question)
         if selected_turns:
             context_turns = []
-            used_chars = 0
             for turn in selected_turns:
                 text = turn.get("text")
                 if (not isinstance(text, str) or not text
@@ -2285,9 +2329,6 @@ class PersistentConversationService:
                         or turn.get("role") not in {"user", "assistant"}
                         or not isinstance(turn.get("turn_id"), str)):
                     raise ChatRequestStateError("resident_conversation_context_invalid")
-                used_chars += len(text)
-                if used_chars > 4000:
-                    raise ChatRequestStateError("resident_conversation_context_budget_exceeded")
                 linkage = turn.get("linkage", {})
                 if not isinstance(linkage, Mapping):
                     raise ChatRequestStateError("resident_conversation_context_invalid")
@@ -2304,7 +2345,7 @@ class PersistentConversationService:
             if callable(verifier):
                 by_id = {str(turn.get("turn_id")): turn for turn in history.turns
                     if isinstance(turn, Mapping)}
-                for turn in selected_turns:
+                for turn in history.turns[-MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:]:
                     if turn.get("role") != "assistant":
                         continue
                     linkage = turn.get("linkage", {})

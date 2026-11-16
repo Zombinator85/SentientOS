@@ -17,7 +17,8 @@ pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos import chat_service
 from sentientos.chat_service import (ChatInputBudgetError,
-    DevelopmentSimulationInference, PersistentConversationService)
+    DevelopmentSimulationInference, PersistentConversationService,
+    _select_resident_conversation_context_turns)
 from sentientos.canonical_memory import (CanonicalMemoryStore, ExplicitRetentionAdmissionGate,
     AdmittedRetentionWriter, CANDIDATE_TYPE, digest, retention_request_id,
     sentientos_data_dir)
@@ -25,6 +26,31 @@ from sentientos.conversation_session import (
     ContextSnapshot, ConversationSessionStore, assemble_local_chat_context,
 )
 from sentientos.gaming_workload_policy import GamingWorkloadPolicy
+
+
+def test_resident_context_budget_keeps_relevant_older_exchange() -> None:
+    def turn(turn_id: str, role: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": role, "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}),
+            "linkage": {}}
+
+    turns = (
+        turn("older-user", "user", "We checked the west sensor reading: "
+            + "west sensor calibration detail " * 50),
+        turn("older-assistant", "assistant", "The west sensor should be "
+            "recalibrated before the next run. " + "calibration note " * 45),
+        turn("newer-user", "user", "The north display changed color. "
+            + "unrelated display detail " * 50),
+        turn("newer-assistant", "assistant", "The display is now blue. "
+            + "unrelated display response " * 50),
+    )
+
+    selected = _select_resident_conversation_context_turns(
+        turns, question="What did we decide about the west sensor?")
+
+    assert [item["turn_id"] for item in selected] == [
+        "older-user", "older-assistant"]
+    assert sum(len(str(item["text"])) for item in selected) <= 4000
 
 
 class Identity:
@@ -396,7 +422,7 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     class CognitionBridge:
         def verify_committed_response(self, *, linkage, response_text, request_id):
             return (linkage.get("source_user_turn_id") == "turn-" + "1" * 24
-                and response_text == "I recorded that report."
+                and response_text == "I recorded the west sensor report."
                 and request_id == "session-followup:turn-" + "1" * 24)
 
         def respond(self, *, request_id, question, screen_observation=None,
@@ -426,21 +452,33 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
         def append_turn(self, session_id, *, role, text, linkage):
             return {"turn_id": "turn-" + "f" * 24}
 
+    unrelated_turns = tuple({
+        "turn_id": f"turn-unrelated-{index}",
+        "role": "user" if index % 2 == 0 else "assistant",
+        "text": ("We discussed the north display status. "
+            + "unrelated display detail " * 70),
+        "text_digest": chat_service.digest_payload({"text": (
+            "We discussed the north display status. "
+            + "unrelated display detail " * 70)}),
+        "linkage": {},
+    } for index in range(4))
+
     app = object.__new__(PersistentConversationService)
     app._resident_cognition_bridge = CognitionBridge()
     app.sessions = SessionSink()
     app._resident_canonical_memory_context = lambda _question: None
     app._avatar_output = None
     app._speech_output = None
-    history = ContextSnapshot("session-followup", (
+    history = ContextSnapshot("session-followup", (*unrelated_turns,
         {"turn_id": "turn-" + "1" * 24, "role": "user",
             "text": "The west sensor drifted by three degrees after warmup.",
             "text_digest": chat_service.digest_payload({"text":
                 "The west sensor drifted by three degrees after warmup."}),
             "linkage": {}},
         {"turn_id": "turn-" + "2" * 24, "role": "assistant",
-            "text": "I recorded that report.",
-            "text_digest": chat_service.digest_payload({"text": "I recorded that report."}),
+            "text": "I recorded the west sensor report.",
+            "text_digest": chat_service.digest_payload({
+                "text": "I recorded the west sensor report."}),
             "linkage": {"source_user_turn_id": "turn-" + "1" * 24,
                 "cognition_epistemic_state_citation_ids": [
                     "epistemic-state:" + "a" * 24]}},
@@ -448,17 +486,21 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     followup = app._complete_resident_cognition_response(
         session_id="session-followup",
         user_turn={"turn_id": "turn-" + "3" * 24},
-        question="How much did it drift?", history=history,
+        question="How much did the west sensor drift?", history=history,
         screen_observation=None, on_content_chunk=None)
     control_history = ContextSnapshot("session-control", (), 4000, False, "b" * 64)
     control = app._complete_resident_cognition_response(
         session_id="session-control",
         user_turn={"turn_id": "turn-" + "4" * 24},
-        question="How much did it drift?", history=control_history,
+        question="How much did the west sensor drift?", history=control_history,
         screen_observation=None, on_content_chunk=None)
 
     assert "three degrees" in followup.response
     assert "do not have" in control.response
+    assert [turn["turn_id"] for turn in seen_contexts[0]["turns"]] == [
+        "turn-" + "1" * 24, "turn-" + "2" * 24]
+    assert seen_contexts[0]["prior_epistemic_state_ids"] == [
+        "epistemic-state:" + "a" * 24]
     supplied = seen_contexts[0]
     assert supplied["schema_version"] == "sentientos.conversation_cognition_context:v1"
     assert supplied["prior_epistemic_state_ids"] == [
