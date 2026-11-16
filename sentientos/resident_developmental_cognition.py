@@ -2543,7 +2543,17 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
 
 
 def _history_retrieval_terms(text: str) -> set[str]:
-    """Normalize common plurals for lexical history relevance matching."""
+    """Normalize topic terms without treating question framing as relevance."""
+    stop_words = _EPISTEMIC_RELEVANCE_STOP_WORDS | frozenset((
+        "about", "after", "again", "all", "also", "any", "because", "been",
+        "before", "being", "between", "both", "but", "can", "could", "did",
+        "does", "doing", "down", "each", "few", "had", "has", "have", "here",
+        "how", "into", "its", "just", "learn", "like", "may", "might", "more",
+        "most", "much", "must", "not", "now", "off", "once", "only", "other",
+        "our", "out", "over", "same", "should", "some", "such", "than", "that",
+        "their", "them", "then", "there", "these", "they", "this", "those",
+        "through", "under", "until", "very", "we", "were", "what", "when",
+        "where", "whether", "why", "will", "would", "you", "your"))
     terms: set[str] = set()
     for token in re.findall(r"[A-Za-z0-9_]{3,}", text.casefold()):
         if len(token) > 4 and token.endswith("ies"):
@@ -2552,7 +2562,8 @@ def _history_retrieval_terms(text: str) -> set[str]:
             token = token[:-2]
         elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
             token = token[:-1]
-        terms.add(token)
+        if token not in stop_words:
+            terms.add(token)
     return terms
 
 

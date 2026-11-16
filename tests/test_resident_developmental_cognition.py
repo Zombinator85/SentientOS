@@ -4827,6 +4827,44 @@ def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_te
         "developmental_history_selection": metadata["developmental_history_selection"]})
 
 
+def test_boilerplate_history_query_falls_back_to_recent_records() -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_cognition import _history_retrieval_terms
+
+    candidates = {"old-boilerplate-match": {"selected_facts": [],
+            "interpretation": "What did we do with it?"},
+        **{f"recent-{index}": {"selected_facts": [],
+            "interpretation": f"A useful astronomy observation {index}."}
+            for index in range(4)}}
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            self.selected = tuple(record_ids)
+            return SimpleNamespace(records=(), requested_record_ids=self.selected,
+                limit=limit)
+
+    writeback = Writeback()
+    fake_owner = SimpleNamespace(writeback=writeback,
+        config=SimpleNamespace(max_retrieved_records=4), objective_task=None)
+    order = tuple(candidates)
+    state = {"completed_ticks": [{"tick_id": f"tick-{index}",
+        "record_id": record_id} for index, record_id in enumerate(order)]}
+
+    assert _history_retrieval_terms("What did we do with it?") == set()
+    projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-tick", relevance_query="What did we do with it?")
+
+    assert projection.requested_record_ids == tuple(order[1:])
+
+
 def test_compact_history_prompt_retains_lesson_scope_and_uncertainty() -> None:
     from sentientos import resident_developmental_cognition as cognition_module
 
