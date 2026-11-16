@@ -80,6 +80,7 @@ from sentientos.local_model_authority import (
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE, digest_payload, stream_sha256)
 from sentientos.local_runtime_provisioning import semantic_digest as runtime_digest
 from sentientos.resident_developmental_cognition import (
+    MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS,
     ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner,
     ResidentDevelopmentalCognitionError, load_objective_request,
     objective_task_for_request, stage_objective_request)
@@ -110,6 +111,8 @@ _OBJECTIVE_TRANSFER_TASK_FAMILY = (
 # The model remains configured with an 8,192-token context; this separate
 # character guard addresses the 16 KiB history-selection edge seen in replay.
 ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT = 20_480
+ROOTLESS_DEVELOPMENTAL_COGNITION_INFERENCE_TIMEOUT_SECONDS = (
+    MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS)
 
 
 def _history_intervention_trial_index_from_environment() -> int | None:
@@ -1617,7 +1620,9 @@ def run() -> dict[str, Any]:
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, True,
                 max_inference_input_chars=(
-                    ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT)),
+                    ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT),
+                max_inference_timeout_seconds=(
+                    ROOTLESS_DEVELOPMENTAL_COGNITION_INFERENCE_TIMEOUT_SECONDS)),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
@@ -1631,7 +1636,9 @@ def run() -> dict[str, Any]:
         decision_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, False,
-                max_inference_input_chars=16_384),
+                max_inference_input_chars=16_384,
+                max_inference_timeout_seconds=(
+                    ROOTLESS_DEVELOPMENTAL_COGNITION_INFERENCE_TIMEOUT_SECONDS)),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
@@ -1908,7 +1915,9 @@ def run() -> dict[str, Any]:
         intervention_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, True,
-                max_inference_input_chars=16_384),
+                max_inference_input_chars=16_384,
+                max_inference_timeout_seconds=(
+                    ROOTLESS_DEVELOPMENTAL_COGNITION_INFERENCE_TIMEOUT_SECONDS)),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
@@ -1931,7 +1940,9 @@ def run() -> dict[str, Any]:
         replay_owner = ResidentDevelopmentalCognitionOwner(
             config=ResidentDevelopmentalCognitionConfig(
                 history_root, state_root, ("embodiment",), 16, 4, False,
-                max_inference_input_chars=16_384),
+                max_inference_input_chars=16_384,
+                max_inference_timeout_seconds=(
+                    ROOTLESS_DEVELOPMENTAL_COGNITION_INFERENCE_TIMEOUT_SECONDS)),
             writeback=writeback,
             admission_authority=RuntimeAdmissionAuthority(
                 definitions=definitions, ledger=ledger),
