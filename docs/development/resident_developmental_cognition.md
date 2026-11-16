@@ -447,3 +447,5 @@ root and does not widen canonical retention semantics.
 ## Fourth substrate: prior epistemic state
 
 Cognition can receive a separately typed, prior-tick epistemic projection binding exact proposition IDs, state IDs/digests, generations, and evidence-set digests. Current World-State evidence outranks a conflicting stale position for current-condition reasoning. Same-tick projections fail closed, so a cognition cannot certify its own update. See [persistent epistemic state](../architecture/persistent_epistemic_state.md).
+
+Current resident cognition observations use schema V10 to preserve the self-model claim selection made for the bounded inference prompt. The selection manifest binds selected and omitted claim identities to the source projection digest, is included in the inference request's upstream evidence, and is checked against the recovered observation. Older V9 observations retain their historical field shape and remain recoverable without the V10 fields. This records which prior self-model claims were supplied; it does not establish that a model used them correctly or that they improved a decision.
