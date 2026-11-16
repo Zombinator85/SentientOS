@@ -420,9 +420,10 @@ COMPANION_HISTORY_INTERVENTION_INSTRUCTION = (
     "unverified operator report, not independent observation or current fact. Describe it only "
     "as something the operator reported, retain its unverified posture, and cite the containing "
     "developmental history record rather than its nested source fact ID. Nested "
-    "conversation_citations identify dialogue cited by the earlier answer; they do not identify "
-    "which turn the operator corrected and do not establish truth. Compare a cited turn with a "
-    "correction only when its exact text is present in session_conversation_context or in a "
+    "conversation_citations identify dialogue cited by the earlier answer. A correction_target, "
+    "when present, identifies the operator's intended cited turn by exact turn ID and text digest; "
+    "it does not establish truth. Compare that turn with the correction only when its exact text "
+    "is present in session_conversation_context or in a "
     "historical_cited_conversation_context row bound to that exact feedback record and citation. "
     "Such a recovered turn is historical dialogue, not current evidence or truth. Never infer "
     "turn content from an ID or digest. If the cited dialogue conflicts with an operator report, "
@@ -540,9 +541,11 @@ def _objective_task_from_specification(specification: Any,
             task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
                 specification["probe_input"])
     elif schema in {"sentientos.affine_prediction_task_suite:v2",
-            "sentientos.affine_prediction_task_family_suite:v3"}:
+            "sentientos.affine_prediction_task_family_suite:v3",
+            "sentientos.affine_prediction_task_family_suite:v4"}:
         fields = common | {"probe_inputs", "oracle_scope"}
-        if schema == "sentientos.affine_prediction_task_family_suite:v3":
+        if schema in {"sentientos.affine_prediction_task_family_suite:v3",
+                "sentientos.affine_prediction_task_family_suite:v4"}:
             fields |= {"task_family_id", "requires_task_family_history"}
         if set(specification) != fields:
             raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
@@ -553,7 +556,9 @@ def _objective_task_from_specification(specification: Any,
         task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
             probes[0], tuple(probes[1:]), specification.get("task_family_id"),
             specification.get("requires_task_family_history", False),
-            **({"commitment_nonce": commitment_nonce} if commitment_nonce is not None else {}))
+            **({"commitment_nonce": commitment_nonce} if commitment_nonce is not None else {}),
+            family_contract_version=(3 if schema ==
+                "sentientos.affine_prediction_task_family_suite:v3" else 4))
     else:
         raise ResidentDevelopmentalCognitionError("objective_request_task_schema_unsupported")
     try:
@@ -1695,8 +1700,9 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
 
 
 def _task_family_guidance_examples(examples: object, *, effect: Mapping[str, Any],
-        source_fact_id: object) -> tuple[list[Mapping[str, Any]], dict[str, Any] | None]:
-    """Select only evaluator-correct examples and digest withheld outcomes."""
+        source_fact_id: object) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]],
+            list[Mapping[str, Any]], dict[str, Any] | None]:
+    """Separate mapping evidence, prior errors, abstentions, and unclassified rows."""
     if (not isinstance(examples, (list, tuple))
             or any(not isinstance(item, Mapping) for item in examples)):
         raise ResidentDevelopmentalCognitionError(
@@ -1704,43 +1710,71 @@ def _task_family_guidance_examples(examples: object, *, effect: Mapping[str, Any
     adverse = (effect.get("posture") == "complete_comparable_condition_scores"
         and effect.get("effect_classification") == "history_adverse")
     guidance: list[Mapping[str, Any]] = []
+    prior_incorrect: list[Mapping[str, Any]] = []
+    prior_abstained: list[Mapping[str, Any]] = []
     withheld: list[Mapping[str, Any]] = []
     for example in examples:
-        if not adverse and example.get("evaluator_correct") is True:
+        if "abstained" in example and type(example.get("abstained")) is not bool:
+            withheld.append(example)
+        elif example.get("abstained") is True:
+            if (example.get("observed_answer") is None
+                    and example.get("evaluator_correct") is None):
+                prior_abstained.append(example)
+            else:
+                withheld.append(example)
+        elif example.get("evaluator_correct") is False:
+            prior_incorrect.append(example)
+        elif not adverse and example.get("evaluator_correct") is True:
             guidance.append(example)
         else:
             withheld.append(example)
     if not withheld:
-        return guidance, None
+        return guidance, prior_incorrect, prior_abstained, None
+    def abstention_binding_invalid(item: Mapping[str, Any]) -> bool:
+        if "abstained" not in item:
+            return False
+        marker = item.get("abstained")
+        if type(marker) is not bool:
+            return True
+        if marker:
+            return not (item.get("observed_answer") is None
+                and item.get("evaluator_correct") is None)
+        return not (type(item.get("observed_answer")) is int
+            and type(item.get("evaluator_correct")) is bool)
     omission = {
         "posture": ("adverse_outcome_examples_withheld_from_guidance" if adverse else
-            "non_evaluator_correct_examples_withheld_from_guidance"),
+            "evaluator_correctness_unavailable_examples_withheld_from_guidance"),
         "example_count": len(withheld),
         "examples_digest": _digest(withheld),
         "evaluator_correct_count": sum(
-            item.get("evaluator_correct") is True for item in withheld),
+            item.get("evaluator_correct") is True
+            and not abstention_binding_invalid(item) for item in withheld),
         "evaluator_incorrect_count": sum(
-            item.get("evaluator_correct") is False for item in withheld),
+            item.get("evaluator_correct") is False
+            and not abstention_binding_invalid(item) for item in withheld),
         "evaluator_correctness_unavailable_count": sum(
-            item.get("evaluator_correct") is not True
-            and item.get("evaluator_correct") is not False for item in withheld),
+            abstention_binding_invalid(item)
+            or (item.get("evaluator_correct") is not True
+                and item.get("evaluator_correct") is not False) for item in withheld),
         "controlled_task_effect_digest": effect.get("comparison_digest"),
         "source_fact_id": source_fact_id,
         "historical_only": True, "current_truth": False, "authority": False,
     }
-    return guidance, omission
+    return guidance, prior_incorrect, prior_abstained, omission
 
 
 def _task_family_history_retrieval_utility(experiences: object, *,
         target_model_identity: Mapping[str, Any] | None,
         task_probe_inputs: set[int],
-        conflicting_probe_inputs: set[int] | frozenset[int] = frozenset()
+        corroborated_favorable_runs: set[tuple[str, str, str]] | frozenset[tuple[str, str, str]] = frozenset(),
+        conflicting_probe_inputs: set[int] | frozenset[int] = frozenset(),
+        unsettled_outcome_groups: set[tuple[str, str]] | frozenset[tuple[str, str]] = frozenset()
         ) -> tuple[int, int, int]:
-    """Rank validated family history by outcome posture, correct examples, and probe overlap."""
+    """Rank validated family history by outcome posture, usable examples, and probe overlap."""
     if not isinstance(experiences, (list, tuple)):
         return (0, 0, 0)
     outcome_priority = 0
-    correct_example_count = 0
+    usable_example_count = 0
     probe_overlap: set[int] = set()
     for experience in experiences:
         if not isinstance(experience, Mapping):
@@ -1754,25 +1788,337 @@ def _task_family_history_retrieval_utility(experiences: object, *,
         examples = experience.get("examples", ())
         if not isinstance(effect, Mapping):
             continue
-        guidance, _ = _task_family_guidance_examples(examples,
+        guidance, prior_incorrect, prior_abstained, _ = _task_family_guidance_examples(examples,
             effect=effect, source_fact_id=experience.get("source_fact_id"))
         guidance = [item for item in guidance
             if item.get("probe_input") not in conflicting_probe_inputs]
-        if not guidance:
+        if not guidance and not prior_incorrect and not prior_abstained:
             continue
         classification = effect.get("effect_classification")
-        priority = (3 if effect.get("posture")
+        restoration_stable = effect.get("restored_matches_present_score") is True
+        run_key = (experience.get("source_task_digest"),
+            experience.get("source_active_model_identity_digest"),
+            experience.get("source_run_id"))
+        outcome_group = run_key[:2]
+        corroborated = (restoration_stable
+            and effect.get("posture") == "complete_comparable_condition_scores"
+            and classification == "history_favorable"
+            and all(isinstance(part, str) and part for part in run_key)
+            and run_key in corroborated_favorable_runs)
+        priority = (4 if corroborated else
+            3 if restoration_stable and effect.get("posture")
             == "complete_comparable_condition_scores"
             and classification == "history_favorable" else
-            2 if effect.get("posture")
+            2 if restoration_stable and effect.get("posture")
             == "complete_comparable_condition_scores"
             and classification == "no_difference_observed" else 1)
+        if not guidance and not prior_incorrect:
+            # A prior abstention is a decision event, not a scored outcome.
+            # Keep it retrievable for an overlapping probe at zero outcome
+            # priority so it cannot outrank evaluated examples.
+            priority = 0
+        if outcome_group in unsettled_outcome_groups and (guidance or prior_incorrect):
+            priority = 1
         outcome_priority = max(outcome_priority, priority)
-        correct_example_count += len(guidance)
+        # Score-bound errors are useful negative context, but remain below
+        # records with positive guidance because outcome priority sorts first.
+        usable_example_count += len(guidance) + len(prior_incorrect) + len(prior_abstained)
         probe_overlap.update(item["probe_input"] for item in guidance
             if type(item.get("probe_input")) is int
             and item["probe_input"] in task_probe_inputs)
-    return outcome_priority, correct_example_count, len(probe_overlap)
+        probe_overlap.update(item["probe_input"] for item in prior_incorrect
+            if type(item.get("probe_input")) is int
+            and item["probe_input"] in task_probe_inputs)
+        probe_overlap.update(item["probe_input"] for item in prior_abstained
+            if type(item.get("probe_input")) is int
+            and item["probe_input"] in task_probe_inputs)
+    return outcome_priority, usable_example_count, len(probe_overlap)
+
+
+def _task_family_corroborated_favorable_runs(experiences_by_record: Mapping[str, object], *,
+        target_model_identity: Mapping[str, Any] | None
+        ) -> set[tuple[str, str, str]]:
+    """Identify repeat-run favorable outcomes for one exact task and source model.
+
+    Distinct run IDs are counted once. Every comparable run in the group must
+    report a restoration-stable favorable outcome; an unstable or conflicting
+    comparable outcome prevents a corroboration boost. This is retrieval
+    ranking evidence, not a statistical independence or learning claim.
+    """
+    outcomes_by_group = _task_family_outcome_evidence_by_group(
+        experiences_by_record, target_model_identity=target_model_identity)
+
+    corroborated: set[tuple[str, str, str]] = set()
+    for (task_digest, model_digest), run_outcomes in outcomes_by_group.items():
+        if (len(run_outcomes) >= 2
+                and all(len(outcomes) == 1 and next(iter(outcomes))[:2]
+                    == ("history_favorable", True)
+                    for outcomes in run_outcomes.values())):
+            run_signatures = [next(iter(outcomes)) for outcomes in run_outcomes.values()]
+            if len({signature[2] for signature in run_signatures}) != len(run_signatures):
+                continue
+            corroborated.update((task_digest, model_digest, run_id)
+                for run_id in run_outcomes)
+    return corroborated
+
+
+def _task_family_unsettled_outcome_groups(experiences_by_record: Mapping[str, object], *,
+        target_model_identity: Mapping[str, Any] | None) -> set[tuple[str, str]]:
+    """Find exact-task/model groups with mixed or restoration-unstable outcomes."""
+    unsettled: set[tuple[str, str]] = set()
+    for group, run_outcomes in _task_family_outcome_evidence_by_group(
+            experiences_by_record, target_model_identity=target_model_identity).items():
+        outcome_postures = {(classification, restoration_stable)
+            for outcomes in run_outcomes.values()
+            for classification, restoration_stable, _run_digest, _comparison_digest
+                in outcomes}
+        internally_mixed = any(len({(item[0], item[1]) for item in outcomes}) > 1
+            for outcomes in run_outcomes.values())
+        if not internally_mixed and len(run_outcomes) < 2:
+            continue
+        unstable_guidance = any(not restoration_stable
+            and classification in {"history_favorable", "no_difference_observed"}
+            for classification, restoration_stable in outcome_postures)
+        if internally_mixed or len(outcome_postures) > 1 or unstable_guidance:
+            unsettled.add(group)
+    return unsettled
+
+
+def _task_family_outcome_evidence_by_group(experiences_by_record: Mapping[str, object], *,
+        target_model_identity: Mapping[str, Any] | None
+        ) -> dict[tuple[str, str], dict[str, set[tuple[str, bool, str, str]]]]:
+    """Collect receipt-bound comparable outcomes by exact task and model identity."""
+    outcomes_by_group: dict[
+        tuple[str, str], dict[str, set[tuple[str, bool, str, str]]]
+    ] = {}
+    for experiences in experiences_by_record.values():
+        if not isinstance(experiences, (list, tuple)):
+            continue
+        for experience in experiences:
+            if (not isinstance(experience, Mapping)
+                    or _task_family_model_applicability(experience,
+                        target_model_identity=target_model_identity)[
+                            "model_identity_relation"] not in {
+                                "same_active_model_identity", "different_active_model_identity"}):
+                continue
+            task_digest = experience.get("source_task_digest")
+            model_digest = experience.get("source_active_model_identity_digest")
+            run_id = experience.get("source_run_id")
+            run_digest = experience.get("source_run_digest")
+            effect = experience.get("controlled_task_effect")
+            comparison_digest = (effect.get("comparison_digest")
+                if isinstance(effect, Mapping) else None)
+            if (not isinstance(task_digest, str) or not task_digest
+                    or not isinstance(model_digest, str) or not model_digest
+                    or not isinstance(run_id, str) or not run_id
+                    or not isinstance(run_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", run_digest) is None
+                    or not isinstance(effect, Mapping)
+                    or effect.get("posture") != "complete_comparable_condition_scores"
+                    or not isinstance(comparison_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", comparison_digest) is None):
+                continue
+            classification = effect.get("effect_classification")
+            restoration_stable = effect.get("restored_matches_present_score")
+            if (classification not in {
+                    "history_favorable", "history_adverse", "no_difference_observed"}
+                    or type(restoration_stable) is not bool):
+                continue
+            group = (task_digest, model_digest)
+            outcomes_by_group.setdefault(group, {}).setdefault(run_id, set()).add(
+                (classification, restoration_stable, run_digest, comparison_digest))
+
+    return outcomes_by_group
+
+
+def _task_family_outcome_corroboration_summaries(
+        experiences_by_record: Mapping[str, object], *,
+        corroborated_runs: set[tuple[str, str, str]],
+        selected_record_ids: set[str]) -> tuple[Mapping[str, Any], ...]:
+    """Bind retrieval corroboration to exact run and comparison references."""
+    selected_groups: set[tuple[str, str]] = set()
+    for record_id in selected_record_ids:
+        experiences = experiences_by_record.get(record_id, ())
+        if not isinstance(experiences, (list, tuple)):
+            continue
+        for experience in experiences:
+            if not isinstance(experience, Mapping):
+                continue
+            key = (experience.get("source_task_digest"),
+                experience.get("source_active_model_identity_digest"),
+                experience.get("source_run_id"))
+            if (all(isinstance(part, str) and part for part in key)
+                    and key in corroborated_runs):
+                selected_groups.add((key[0], key[1]))
+
+    references_by_group: dict[tuple[str, str], dict[str, tuple[str, str, str]]] = {}
+    for experiences in experiences_by_record.values():
+        if not isinstance(experiences, (list, tuple)):
+            continue
+        for experience in experiences:
+            if not isinstance(experience, Mapping):
+                continue
+            key = (experience.get("source_task_digest"),
+                experience.get("source_active_model_identity_digest"),
+                experience.get("source_run_id"))
+            if (not all(isinstance(part, str) and part for part in key)
+                    or key not in corroborated_runs
+                    or (key[0], key[1]) not in selected_groups):
+                continue
+            run_digest = experience.get("source_run_digest")
+            effect = experience.get("controlled_task_effect")
+            comparison_digest = (effect.get("comparison_digest")
+                if isinstance(effect, Mapping) else None)
+            task_family_id = experience.get("task_family_id")
+            if (not isinstance(run_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", run_digest) is None
+                    or not isinstance(comparison_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", comparison_digest) is None
+                    or not isinstance(task_family_id, str) or not task_family_id):
+                continue
+            group = (key[0], key[1])
+            reference = (run_digest, comparison_digest, task_family_id)
+            references_by_group.setdefault(group, {}).setdefault(key[2], reference)
+
+    summaries: list[Mapping[str, Any]] = []
+    for (task_digest, model_digest), run_refs in sorted(references_by_group.items()):
+        if len(run_refs) < 2:
+            continue
+        if len(set(run_refs.values())) != len(run_refs):
+            # A run ID cannot silently point at shared or conflicting custody.
+            continue
+        task_family_ids = {reference[2] for reference in run_refs.values()}
+        if len(task_family_ids) != 1:
+            continue
+        ordered_refs = [{"run_id": run_id, "run_digest": values[0],
+            "comparison_digest": values[1]}
+            for run_id, values in sorted(run_refs.items())]
+        summary: dict[str, Any] = {
+            "schema_version": "sentientos.task_family_outcome_corroboration:v1",
+            "task_family_id": next(iter(task_family_ids)),
+            "source_task_digest": task_digest,
+            "source_active_model_identity_digest": model_digest,
+            "posture": "repeat_run_consistent_history_favorable",
+            "source_run_count": len(ordered_refs),
+            "source_run_references": ordered_refs[:16],
+            "omitted_source_run_reference_count": max(0, len(ordered_refs) - 16),
+            "scope": "same_exact_task_commitment_and_source_model_identity",
+            "historical_only": True, "current_truth": False, "authority": False,
+            "statistical_independence_established": False,
+            "causality_established": False, "learning_established": False,
+        }
+        summary["summary_digest"] = _digest(summary)
+        summaries.append(summary)
+    return tuple(summaries)
+
+
+def _task_family_outcome_corroboration_for_prompt(
+        summaries: object, *, task_family_id: str | None,
+        with_history: bool) -> list[dict[str, Any]]:
+    """Validate retrieval-derived corroboration before placing it in a prompt."""
+    if not with_history or not isinstance(task_family_id, str) or not task_family_id:
+        return []
+    if not isinstance(summaries, (list, tuple)):
+        raise ResidentDevelopmentalCognitionError(
+            "task_family_outcome_corroboration_invalid")
+    result: list[dict[str, Any]] = []
+    expected_fields = {
+        "schema_version", "task_family_id", "source_task_digest",
+        "source_active_model_identity_digest", "posture", "source_run_count",
+        "source_run_references", "omitted_source_run_reference_count", "scope",
+        "historical_only", "current_truth", "authority",
+        "statistical_independence_established", "causality_established",
+        "learning_established", "summary_digest",
+    }
+    for summary in summaries:
+        if (not isinstance(summary, Mapping)
+                or set(summary) != expected_fields
+                or summary.get("schema_version")
+                    != "sentientos.task_family_outcome_corroboration:v1"
+                or summary.get("task_family_id") != task_family_id
+                or not isinstance(summary.get("source_task_digest"), str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                    summary["source_task_digest"]) is None
+                or not isinstance(summary.get(
+                    "source_active_model_identity_digest"), str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                    summary["source_active_model_identity_digest"]) is None
+                or summary.get("posture")
+                    != "repeat_run_consistent_history_favorable"
+                or type(summary.get("source_run_count")) is not int
+                or summary["source_run_count"] < 2
+                or type(summary.get("omitted_source_run_reference_count")) is not int
+                or summary["omitted_source_run_reference_count"] < 0
+                or summary.get("scope")
+                    != "same_exact_task_commitment_and_source_model_identity"
+                or summary.get("historical_only") is not True
+                or summary.get("current_truth") is not False
+                or summary.get("authority") is not False
+                or summary.get("statistical_independence_established") is not False
+                or summary.get("causality_established") is not False
+                or summary.get("learning_established") is not False):
+            raise ResidentDevelopmentalCognitionError(
+                "task_family_outcome_corroboration_invalid")
+        refs = summary.get("source_run_references")
+        if (not isinstance(refs, (list, tuple)) or not refs or len(refs) > 16
+                or len(refs) + summary["omitted_source_run_reference_count"]
+                    != summary["source_run_count"]
+                or any(not isinstance(ref, Mapping)
+                    or set(ref) != {"run_id", "run_digest", "comparison_digest"}
+                    or not isinstance(ref.get("run_id"), str) or not ref["run_id"]
+                    or any(not isinstance(ref.get(field), str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}", ref[field]) is None
+                        for field in ("run_digest", "comparison_digest"))
+                    for ref in refs)
+                or len({ref["run_id"] for ref in refs}) != len(refs)
+                or len({ref["run_digest"] for ref in refs}) != len(refs)):
+            raise ResidentDevelopmentalCognitionError(
+                "task_family_outcome_corroboration_invalid")
+        semantic = {key: value for key, value in summary.items()
+            if key != "summary_digest"}
+        if (not isinstance(summary.get("summary_digest"), str)
+                or summary["summary_digest"] != _digest(semantic)):
+            raise ResidentDevelopmentalCognitionError(
+                "task_family_outcome_corroboration_invalid")
+        result.append(dict(summary))
+    return result
+
+
+def _task_family_corroboration_for_selected_packets(
+        summaries: object, packets: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """Keep only corroboration summaries anchored by an included source run."""
+    if not isinstance(summaries, (list, tuple)) or not packets:
+        return []
+    selected_runs: set[tuple[str, str, str]] = set()
+    for packet in packets:
+        experiences = packet.get("task_relevant_experience", ())
+        if not isinstance(experiences, (list, tuple)):
+            continue
+        for experience in experiences:
+            if not isinstance(experience, Mapping):
+                continue
+            task_digest = experience.get("source_task_digest")
+            model_digest = experience.get("source_active_model_identity_digest")
+            run_id = experience.get("source_run_id")
+            if (isinstance(task_digest, str) and task_digest
+                    and isinstance(model_digest, str) and model_digest
+                    and isinstance(run_id, str) and run_id):
+                selected_runs.add((task_digest, model_digest, run_id))
+    selected_summaries: list[Mapping[str, Any]] = []
+    for summary in summaries:
+        if not isinstance(summary, Mapping):
+            continue
+        task_digest = summary.get("source_task_digest")
+        model_digest = summary.get("source_active_model_identity_digest")
+        references = summary.get("source_run_references")
+        if (not isinstance(task_digest, str) or not isinstance(model_digest, str)
+                or not isinstance(references, (list, tuple))):
+            continue
+        if any(isinstance(reference, Mapping)
+                and (task_digest, model_digest, reference.get("run_id")) in selected_runs
+                for reference in references):
+            selected_summaries.append(summary)
+    return selected_summaries
 
 
 def _task_family_conflicting_probe_inputs(experiences_by_record: Mapping[str, object], *,
@@ -1793,7 +2139,7 @@ def _task_family_conflicting_probe_inputs(experiences_by_record: Mapping[str, ob
             examples = experience.get("examples", ())
             if not isinstance(effect, Mapping):
                 continue
-            guidance, _ = _task_family_guidance_examples(examples,
+            guidance, _, _, _ = _task_family_guidance_examples(examples,
                 effect=effect, source_fact_id=experience.get("source_fact_id"))
             for row in guidance:
                 probe = row.get("probe_input")
@@ -1855,7 +2201,19 @@ def _controlled_task_history_effect(condition_outcomes: object, *,
         return semantic
     valid_rows = all(
         by_id[condition].get("evaluator") == "deterministic_exact_integer_suite_oracle_v2"
-        and by_id[condition].get("score_status") in {"correct", "incorrect"}
+        and by_id[condition].get("score_status") in {"correct", "incorrect", "selective"}
+        and (by_id[condition].get("score_status") != "selective"
+            or by_id[condition].get("score_schema_version")
+                == "sentientos.objective_task_score:v5"
+            and type(by_id[condition].get("answered_count")) is int
+            and type(by_id[condition].get("abstained_count")) is int
+            and by_id[condition]["answered_count"]
+                + by_id[condition]["abstained_count"]
+                == by_id[condition].get("probe_count")
+            and by_id[condition]["abstained_count"] > 0
+            and by_id[condition].get("score_correct") is None
+            and by_id[condition].get("correct_count")
+                <= by_id[condition]["answered_count"])
         and type(by_id[condition].get("correct_count")) is int
         and type(by_id[condition].get("probe_count")) is int
         and 1 <= by_id[condition]["probe_count"] <= 16
@@ -1974,7 +2332,10 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
             and isinstance(active_model_identity_digest, str)
             and active_model_identity_digest == _digest(dict(active_model_identity)))
         if (not isinstance(score, Mapping)
-                or score.get("schema_version") != "sentientos.objective_task_score:v3"
+                or score.get("schema_version") not in {
+                    "sentientos.objective_task_score:v3",
+                    "sentientos.objective_task_score:v4",
+                    "sentientos.objective_task_score:v5"}
                 or score.get("task_digest") != descriptor.get("task_digest")
                 or score.get("evaluator") != "deterministic_exact_integer_suite_oracle_v2"
                 or not isinstance(score.get("score_digest"), str)
@@ -1985,18 +2346,32 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
         rows: list[dict[str, Any]] = []
         valid = True
         for example in examples:
+            abstained = (isinstance(example, Mapping)
+                and isinstance(score, Mapping)
+                and score.get("schema_version") in {
+                    "sentientos.objective_task_score:v4",
+                    "sentientos.objective_task_score:v5"}
+                and example.get("observed_answer") is None
+                and example.get("evaluator_correct") is None)
+            answered = (isinstance(example, Mapping)
+                and type(example.get("observed_answer")) is int
+                and type(example.get("evaluator_correct")) is bool)
             if (not isinstance(example, Mapping)
                     or set(example) != {"probe_input", "observed_answer", "evaluator_correct",
                         "source_score_digest", "source_condition"}
                     or type(example.get("probe_input")) is not int
-                    or type(example.get("observed_answer")) is not int
-                    or type(example.get("evaluator_correct")) is not bool
+                    or not (answered or abstained)
                     or example.get("source_score_digest") != score.get("score_digest")
                     or example.get("source_condition") != "history_present"):
                 valid = False
                 break
-            rows.append({key: example[key] for key in (
-                "probe_input", "observed_answer", "evaluator_correct")})
+            row = {key: example[key] for key in (
+                "probe_input", "observed_answer", "evaluator_correct")}
+            if score.get("schema_version") in {
+                    "sentientos.objective_task_score:v4",
+                    "sentientos.objective_task_score:v5"}:
+                row["abstained"] = abstained
+            rows.append(row)
         if not valid:
             continue
         # Join resource evidence only when it names this exact experiment run,
@@ -2110,7 +2485,9 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                 score_row = score_by_condition[condition_id]
                 if (not isinstance(raw_condition, Mapping)
                         or score_row.get("schema_version", "sentientos.objective_task_score:v3")
-                            != "sentientos.objective_task_score:v3"
+                            not in {"sentientos.objective_task_score:v3",
+                                "sentientos.objective_task_score:v4",
+                                "sentientos.objective_task_score:v5"}
                         or score_row.get("task_digest", descriptor.get("task_digest"))
                             != descriptor.get("task_digest")
                         or score_row.get("evaluator", score.get("evaluator"))
@@ -2123,6 +2500,14 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                         or type(score_row.get("correct_count")) is not int
                         or type(score_row.get("probe_count")) is not int
                         or not 0 <= score_row["correct_count"] <= score_row["probe_count"] <= 16
+                        or score_row.get("schema_version") in {
+                            "sentientos.objective_task_score:v4",
+                            "sentientos.objective_task_score:v5"}
+                            and (type(score_row.get("answered_count")) is not int
+                                or type(score_row.get("abstained_count")) is not int
+                                or score_row["answered_count"] + score_row["abstained_count"]
+                                    != score_row["probe_count"]
+                                or score_row["correct_count"] > score_row["answered_count"])
                         or not isinstance(raw_condition.get("inference_receipt_id"), str)
                         or not raw_condition.get("inference_receipt_id")
                         or not isinstance(raw_condition.get("inference_receipt_digest"), str)
@@ -2239,9 +2624,13 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                     "inference_event_time_posture": raw_condition.get("event_time_posture"),
                     "score_digest": score_row.get("score_digest"),
                     "evaluator": score_row.get("evaluator", score.get("evaluator")),
+                    "score_schema_version": score_row.get("schema_version"),
                     "score_status": score_row.get("status"),
+                    "score_correct": score_row.get("correct"),
                     "correct_count": score_row.get("correct_count"),
                     "probe_count": score_row.get("probe_count"),
+                    "answered_count": score_row.get("answered_count"),
+                    "abstained_count": score_row.get("abstained_count"),
                     "resource_context": (resource_match if resource_match is not None else {
                         "posture": resource_posture,
                         **({"unqualified_lineage": unqualified[:4]} if unqualified else {})}),
@@ -2716,7 +3105,8 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
         if (source.get("kind") != "operator_input"
                 or feedback_schema not in {"sentientos.local_operator_feedback:v1",
                     "sentientos.local_operator_feedback:v2",
-                    "sentientos.local_operator_feedback:v3"}
+                    "sentientos.local_operator_feedback:v3",
+                    "sentientos.local_operator_feedback:v4"}
                 or source.get("schema_version") != feedback_schema
                 or subject.get("subject_kind") != "operator_reported_companion_feedback"
                 or fact.get("stage") != "observation"
@@ -2736,6 +3126,9 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
             else legacy_feedback_fields | {"conversation_citations",
                 "conversation_session_id"}
             if feedback_schema == "sentientos.local_operator_feedback:v3"
+            else legacy_feedback_fields | {"conversation_citations",
+                "conversation_session_id", "correction_target"}
+            if feedback_schema == "sentientos.local_operator_feedback:v4"
             else legacy_feedback_fields)
         if set(payload) != expected_feedback_fields:
             continue
@@ -2757,6 +3150,21 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
                     or re.fullmatch(r"[a-z0-9][a-z0-9-]{7,63}",
                         conversation_session_id) is None)):
             continue
+        correction_target = payload.get("correction_target")
+        if feedback_schema == "sentientos.local_operator_feedback:v4":
+            if (not isinstance(conversation_session_id, str)
+                    or re.fullmatch(r"[a-z0-9][a-z0-9-]{7,63}",
+                        conversation_session_id) is None
+                    or not isinstance(correction_target, Mapping)
+                    or set(correction_target) != {"turn_id", "text_digest"}
+                    or not isinstance(correction_target.get("turn_id"), str)
+                    or re.fullmatch(r"turn-[0-9a-f]{24}",
+                        correction_target["turn_id"]) is None
+                    or not _valid_lower_sha256(correction_target.get("text_digest"))
+                    or not any(item["turn_id"] == correction_target["turn_id"]
+                        and item["text_digest"] == correction_target["text_digest"]
+                        for item in conversation_citations)):
+                continue
         authority = payload.get("authority")
         if (not isinstance(authority, Mapping)
                 or set(authority) != {"decision", "admission", "execution", "adoption", "truth"}
@@ -2789,6 +3197,11 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
         elif feedback_schema == "sentientos.local_operator_feedback:v3":
             semantic["conversation_citations"] = conversation_citations
             semantic["conversation_session_id"] = conversation_session_id
+        elif feedback_schema == "sentientos.local_operator_feedback:v4":
+            assert isinstance(correction_target, Mapping)
+            semantic["conversation_citations"] = conversation_citations
+            semantic["conversation_session_id"] = conversation_session_id
+            semantic["correction_target"] = dict(correction_target)
         identity = hashlib.sha256(json.dumps(semantic, sort_keys=True,
             separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
         if (source_id != f"local-operator-feedback:{identity}"
@@ -2820,6 +3233,12 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
             summary["conversation_citations"] = [dict(item)
                 for item in conversation_citations]
             summary["conversation_session_id"] = conversation_session_id
+        elif feedback_schema == "sentientos.local_operator_feedback:v4":
+            assert isinstance(correction_target, Mapping)
+            summary["conversation_citations"] = [dict(item)
+                for item in conversation_citations]
+            summary["conversation_session_id"] = conversation_session_id
+            summary["correction_target"] = dict(correction_target)
         summaries.append(summary)
     return summaries
 
@@ -2852,12 +3271,19 @@ def _validated_historical_citation_context(value: Mapping[str, Any] | None, *,
             continue
         for report in _historical_operator_feedback_context(candidate):
             if (report.get("source_schema_version")
-                    != "sentientos.local_operator_feedback:v3"):
+                    not in {"sentientos.local_operator_feedback:v3",
+                        "sentientos.local_operator_feedback:v4"}):
                 continue
             session_id = report.get("conversation_session_id")
             citations = report.get("conversation_citations")
             if not isinstance(session_id, str) or not isinstance(citations, list):
                 continue
+            target = report.get("correction_target")
+            if isinstance(target, Mapping):
+                citations = sorted(citations, key=lambda item:
+                    not (isinstance(item, Mapping)
+                        and item.get("turn_id") == target.get("turn_id")
+                        and item.get("text_digest") == target.get("text_digest")))
             for citation in citations:
                 if isinstance(citation, Mapping):
                     allowed.add((str(record.get("record_id", "")),
@@ -3034,9 +3460,26 @@ def _history_context_packet(record: Mapping[str, Any], *,
                 effect = item.get("controlled_task_effect")
                 examples = item.get("examples", ())
                 if isinstance(effect, Mapping):
-                    guidance, omission = _task_family_guidance_examples(examples,
+                    guidance, prior_incorrect, prior_abstained, omission = _task_family_guidance_examples(examples,
                         effect=effect, source_fact_id=item.get("source_fact_id"))
                     projected["examples"] = guidance
+                    if prior_incorrect:
+                        projected["prior_incorrect_examples"] = {
+                            "posture": "score_bound_past_errors_not_mapping_evidence",
+                            "examples": prior_incorrect,
+                            "historical_only": True,
+                            "current_truth": False,
+                            "authority": False,
+                        }
+                    if prior_abstained:
+                        projected["prior_abstained_examples"] = {
+                            "posture": "score_bound_prior_decisions_evaluator_correctness_unknown",
+                            "examples": prior_abstained,
+                            "reason_recorded": False,
+                            "historical_only": True,
+                            "current_truth": False,
+                            "authority": False,
+                        }
                     if omission is not None:
                         omission_key = ("adverse_examples_omission"
                             if omission["posture"]
@@ -3268,7 +3711,17 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                                     **dict(report)})
                     prompt_packets.append(prompt_packet)
                 prompt_packets = _withhold_conflicting_task_family_examples(prompt_packets)
-                candidate = {**dict(context), "prior_self_model": prompt_self_model,
+                candidate_context = dict(context)
+                corroboration = _task_family_corroboration_for_selected_packets(
+                    context.get("developmental_history_outcome_corroboration"),
+                    prompt_packets)
+                if corroboration:
+                    candidate_context[
+                        "developmental_history_outcome_corroboration"] = corroboration
+                else:
+                    candidate_context.pop(
+                        "developmental_history_outcome_corroboration", None)
+                candidate = {**candidate_context, "prior_self_model": prompt_self_model,
                     "developmental_history": prompt_packets,
                     "historical_embodiment_reports": historical_embodiment_reports,
                     "developmental_history_selection": prompt_selection}
@@ -3378,6 +3831,8 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
     withheld_adverse_examples: list[dict[str, Any]] = []
     withheld_non_correct_examples: list[dict[str, Any]] = []
     withheld_conflicting_examples: list[dict[str, Any]] = []
+    prior_incorrect_refs: list[dict[str, Any]] = []
+    prior_abstained_refs: list[dict[str, Any]] = []
     for packet in history:
         if not isinstance(packet, Mapping):
             raise ResidentDevelopmentalCognitionError(
@@ -3392,6 +3847,8 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
             raise ResidentDevelopmentalCognitionError(
                 "task_family_prompt_projection_examples_invalid")
         example_rows: list[Mapping[str, Any]] = []
+        prior_incorrect_rows: list[Mapping[str, Any]] = []
+        prior_abstained_rows: list[Mapping[str, Any]] = []
         for experience in experiences:
             rows = experience.get("examples", ())
             if (not isinstance(rows, (list, tuple))
@@ -3399,6 +3856,39 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 raise ResidentDevelopmentalCognitionError(
                     "task_family_prompt_projection_examples_invalid")
             example_rows.extend(rows)
+            negative = experience.get("prior_incorrect_examples")
+            if negative is not None:
+                if (not isinstance(negative, Mapping)
+                        or negative.get("posture") !=
+                            "score_bound_past_errors_not_mapping_evidence"
+                        or negative.get("historical_only") is not True
+                        or negative.get("current_truth") is not False
+                        or negative.get("authority") is not False
+                        or not isinstance(negative.get("examples"), (list, tuple))
+                        or any(not isinstance(row, Mapping)
+                            or row.get("evaluator_correct") is not False
+                            for row in negative["examples"])):
+                    raise ResidentDevelopmentalCognitionError(
+                        "task_family_prompt_projection_negative_examples_invalid")
+                prior_incorrect_rows.extend(negative["examples"])
+            abstained = experience.get("prior_abstained_examples")
+            if abstained is not None:
+                if (not isinstance(abstained, Mapping)
+                        or abstained.get("posture") !=
+                            "score_bound_prior_decisions_evaluator_correctness_unknown"
+                        or abstained.get("reason_recorded") is not False
+                        or abstained.get("historical_only") is not True
+                        or abstained.get("current_truth") is not False
+                        or abstained.get("authority") is not False
+                        or not isinstance(abstained.get("examples"), (list, tuple))
+                        or any(not isinstance(row, Mapping)
+                            or row.get("abstained") is not True
+                            or row.get("observed_answer") is not None
+                            or row.get("evaluator_correct") is not None
+                            for row in abstained["examples"])):
+                    raise ResidentDevelopmentalCognitionError(
+                        "task_family_prompt_projection_abstentions_invalid")
+                prior_abstained_rows.extend(abstained["examples"])
         effect_digests = [effect.get("comparison_digest")
             for experience in experiences
             if isinstance((effect := experience.get("controlled_task_effect")), Mapping)]
@@ -3425,7 +3915,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                             "evaluator_correctness_unavailable_count"),
                         "source_task_digests": omission.get("source_task_digests"),
                     })
-        entries.append({
+        entry = {
             "record_id": packet["record_id"],
             "record_digest": packet["record_digest"],
             "experience_count": len(experiences),
@@ -3434,11 +3924,29 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
             "controlled_task_effect_digests": effect_digests,
             "evaluator_correct_count": sum(
                 example.get("evaluator_correct") is True for example in example_rows),
-            "evaluator_incorrect_count": sum(
-                example.get("evaluator_correct") is False for example in example_rows),
-        })
+            "evaluator_incorrect_count": len(prior_incorrect_rows),
+            "prior_incorrect_example_count": len(prior_incorrect_rows),
+            "prior_incorrect_examples_digest": _digest(prior_incorrect_rows),
+            "prior_abstained_example_count": len(prior_abstained_rows),
+            "prior_abstained_examples_digest": _digest(prior_abstained_rows),
+        }
+        entries.append(entry)
+        if prior_incorrect_rows:
+            prior_incorrect_refs.append({
+                "record_id": entry["record_id"],
+                "record_digest": entry["record_digest"],
+                "example_count": entry["prior_incorrect_example_count"],
+                "examples_digest": entry["prior_incorrect_examples_digest"],
+            })
+        if prior_abstained_rows:
+            prior_abstained_refs.append({
+                "record_id": entry["record_id"],
+                "record_digest": entry["record_digest"],
+                "example_count": entry["prior_abstained_example_count"],
+                "examples_digest": entry["prior_abstained_examples_digest"],
+            })
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v5",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v7",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",
@@ -3446,6 +3954,12 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         "task_relevant_record_count": len(entries),
         "task_relevant_example_count": sum(item["example_count"] for item in entries),
         "records": entries,
+        "prior_incorrect_example_count": sum(
+            item["example_count"] for item in prior_incorrect_refs),
+        "prior_incorrect_examples": prior_incorrect_refs,
+        "prior_abstained_example_count": sum(
+            item["example_count"] for item in prior_abstained_refs),
+        "prior_abstained_examples": prior_abstained_refs,
         "withheld_adverse_example_count": sum(
             item["example_count"] for item in withheld_adverse_examples),
         "withheld_adverse_examples": withheld_adverse_examples,
@@ -3767,7 +4281,7 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "task_family_relevant_then_recency_fill:v1",
                 "task_family_probe_overlap_then_recency_fill:v2",
                 "task_family_model_identity_then_probe_overlap_then_recency_fill:v3",
-                "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v5",
+                "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v6",
                 "query_overlap_then_recency_fill:v1",
                 "query_overlap_with_operator_reports_then_recency_fill:v2",
                 "query_overlap_with_operator_reports_then_recency_fill:v3",
@@ -3787,7 +4301,7 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
         "task_family_probe_overlap_then_recency_fill:v2",
         "task_family_model_identity_then_probe_overlap_then_recency_fill:v3",
         "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4",
-        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v5"}
+        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v6"}
     if family_policy != isinstance(family, str):
         raise ResidentDevelopmentalCognitionError(
             "developmental_history_selection_policy_family_mismatch")
@@ -4357,8 +4871,9 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
     descriptor = dict(request["task_descriptor"])
     task_specification = dict(request["task"])
     task_family = None
-    if task_specification.get("schema_version") == (
-            "sentientos.affine_prediction_task_family_suite:v3"):
+    if task_specification.get("schema_version") in {
+            "sentientos.affine_prediction_task_family_suite:v3",
+            "sentientos.affine_prediction_task_family_suite:v4"}:
         task_family = {"task_family_id": descriptor.get("task_family_id"),
             "family_posture": descriptor.get("family_posture"),
             "probe_inputs": list(descriptor.get("probe_inputs", ())),
@@ -6513,6 +7028,7 @@ class ResidentDevelopmentalCognitionOwner:
             raise ResidentDevelopmentalCognitionError("history_relevance_context_invalid")
         family = task_family_id or (self.objective_task.public_descriptor().get("task_family_id")
             if self.objective_task is not None else None)
+        task_family_outcome_corroboration: tuple[Mapping[str, Any], ...] = ()
         if isinstance(family, str):
             # The completed-tick checkpoint bounds this search to
             # MAX_RECOVERED_TICKS. Search newest-first across that complete
@@ -6526,7 +7042,7 @@ class ResidentDevelopmentalCognitionOwner:
             relevance: dict[str, int] = {}
             model_relevance: dict[str, int] = {}
             outcome_relevance: dict[str, int] = {}
-            guidance_example_counts: dict[str, int] = {}
+            task_example_counts: dict[str, int] = {}
             experiences_by_record: dict[str, list[dict[str, Any]]] = {}
             matching_facts_by_record: dict[str, list[Mapping[str, Any]]] = {}
             for record_id in reversed(ids):
@@ -6546,6 +7062,10 @@ class ResidentDevelopmentalCognitionOwner:
                     experiences_by_record[record_id] = _task_family_history_examples(
                         candidate, task_family_id=family)
             conflicting_probe_inputs = _task_family_conflicting_probe_inputs(
+                experiences_by_record, target_model_identity=target_model_identity)
+            corroborated_favorable_runs = _task_family_corroborated_favorable_runs(
+                experiences_by_record, target_model_identity=target_model_identity)
+            unsettled_outcome_groups = _task_family_unsettled_outcome_groups(
                 experiences_by_record, target_model_identity=target_model_identity)
             for record_id in relevant_newest_first:
                 matching_facts = matching_facts_by_record[record_id]
@@ -6567,24 +7087,34 @@ class ResidentDevelopmentalCognitionOwner:
                 utility = _task_family_history_retrieval_utility(experiences,
                     target_model_identity=target_model_identity,
                     task_probe_inputs=probe_set,
-                    conflicting_probe_inputs=conflicting_probe_inputs)
-                outcome_relevance[record_id], guidance_example_counts[record_id], \
+                    corroborated_favorable_runs=corroborated_favorable_runs,
+                    conflicting_probe_inputs=conflicting_probe_inputs,
+                    unsettled_outcome_groups=unsettled_outcome_groups)
+                outcome_relevance[record_id], task_example_counts[record_id], \
                     relevance[record_id] = utility
-            # Evaluator-correct guidance and measured outcome posture rank first;
-            # exact active-model identity breaks ties before probe overlap and
+            # Measured outcome posture and evaluator-correct guidance rank first;
+            # score-bound errors can rank within the lowest outcome tier so they
+            # remain available as historical caution without becoming mapping
+            # evidence. Repeat-run corroboration requires distinct, same-task,
+            # same-model runs with restoration-stable favorable effects.
+            # Exact active-model identity breaks ties before probe overlap and
             # checkpoint order. Oracle-verified examples can remain useful
-            # across model identities, while adverse and unscored examples earn
-            # no guidance relevance.
+            # across model identities; unscored examples earn no relevance.
             # A task that explicitly requires family history must never receive
             # unrelated records as a substitute. Initial acquisition tasks that
             # do not require family history retain the general-history control
             # used by the existing three-condition experiment.
             relevant_newest_first.sort(key=lambda record_id: (
-                outcome_relevance[record_id], guidance_example_counts[record_id],
+                outcome_relevance[record_id], task_example_counts[record_id],
                 model_relevance[record_id], relevance[record_id],
                 ids.index(record_id)), reverse=True)
             selected = list(relevant_newest_first[:self.config.max_retrieved_records])
             selected_set = set(selected)
+            task_family_outcome_corroboration = (
+                _task_family_outcome_corroboration_summaries(
+                    experiences_by_record,
+                    corroborated_runs=corroborated_favorable_runs,
+                    selected_record_ids=selected_set))
             if not require_task_family_history:
                 for record_id in reversed(ids):
                     if len(selected) >= self.config.max_retrieved_records:
@@ -6600,7 +7130,7 @@ class ResidentDevelopmentalCognitionOwner:
                 ids = sorted((record_id for record_id in ids
                     if record_id in selected_set), key=lambda record_id: (
                         outcome_relevance.get(record_id, 0),
-                        guidance_example_counts.get(record_id, 0),
+                        task_example_counts.get(record_id, 0),
                         model_relevance.get(record_id, 0),
                         relevance.get(record_id, -1), ids.index(record_id)))
             else:
@@ -6684,7 +7214,12 @@ class ResidentDevelopmentalCognitionOwner:
             ids = sorted(selected, key=lambda record_id: (
                 overlap_by_id.get(record_id, 0), ids.index(record_id)))
         ids = ids[-self.config.max_retrieved_records:]
-        return self.writeback.retrieve(ids, limit=self.config.max_retrieved_records)
+        projection = self.writeback.retrieve(ids,
+            limit=self.config.max_retrieved_records)
+        if task_family_outcome_corroboration:
+            return replace(projection, task_family_outcome_corroboration=(
+                task_family_outcome_corroboration))
+        return projection
 
     def selected_historical_operator_citations(self, *, request_id: str,
             question: str,
@@ -6708,23 +7243,31 @@ class ResidentDevelopmentalCognitionOwner:
         with self._composition_lock():
             projection = self._prior_projection(self._state(), tick_id,
                 relevance_query=question, relevance_context=relevance_context)
-        references: list[dict[str, Any]] = []
+        targeted_references: list[dict[str, Any]] = []
+        other_references: list[dict[str, Any]] = []
         for record in projection.records:
             candidate = record.get("candidate")
             if not isinstance(candidate, Mapping):
                 continue
             for report in _historical_operator_feedback_context(candidate):
                 if (report.get("source_schema_version")
-                        != "sentientos.local_operator_feedback:v3"
+                        not in {"sentientos.local_operator_feedback:v3",
+                            "sentientos.local_operator_feedback:v4"}
                         or not isinstance(report.get("conversation_session_id"), str)):
                     continue
                 citations = report.get("conversation_citations")
                 if not isinstance(citations, list):
                     continue
+                target = report.get("correction_target")
+                if isinstance(target, Mapping):
+                    citations = sorted(citations, key=lambda item:
+                        not (isinstance(item, Mapping)
+                            and item.get("turn_id") == target.get("turn_id")
+                            and item.get("text_digest") == target.get("text_digest")))
                 for citation in citations:
                     if not isinstance(citation, Mapping):
                         continue
-                    references.append({
+                    reference = {
                         "feedback_record_id": str(record.get("record_id", "")),
                         "feedback_record_digest": str(record.get("record_digest", "")),
                         "feedback_fact_id": report["operator_feedback_fact_id"],
@@ -6732,10 +7275,14 @@ class ResidentDevelopmentalCognitionOwner:
                         "conversation_session_id": report["conversation_session_id"],
                         "turn_id": citation["turn_id"],
                         "text_digest": citation["text_digest"],
-                    })
-                    if len(references) >= 16:
-                        return tuple(references)
-        return tuple(references)
+                    }
+                    if (isinstance(target, Mapping)
+                            and citation.get("turn_id") == target.get("turn_id")
+                            and citation.get("text_digest") == target.get("text_digest")):
+                        targeted_references.append(reference)
+                    else:
+                        other_references.append(reference)
+        return tuple((targeted_references + other_references)[:16])
 
     def _select_fact_ids(self, snapshot: WorldStateSnapshot, processed: set[str]) -> tuple[str, ...]:
         allowed = set(self.config.allowed_source_kinds)
@@ -7484,8 +8031,22 @@ class ResidentDevelopmentalCognitionOwner:
                 else None if target_model_identity_observed
                 else _observed_current_cognition_model_identity(self.invoker))
         context["developmental_history_target_model_identity"] = observed_target_identity
+        corroboration_context = _task_family_outcome_corroboration_for_prompt(
+            projection.task_family_outcome_corroboration,
+            task_family_id=task_family_id if isinstance(task_family_id, str) else None,
+            with_history=with_history)
+        if corroboration_context:
+            context["developmental_history_outcome_corroboration"] = (
+                corroboration_context)
+            context["instruction"] += (
+                " developmental_history_outcome_corroboration is a retrieval-derived, "
+                "historical qualifier for exact task commitments and source model "
+                "identities. Its run references bind the counted observations; they "
+                "do not establish statistical independence, causality, general learning, "
+                "current truth, or authority. Do not transfer this pattern beyond its "
+                "recorded task and source-model scope.")
         context["developmental_history_retrieval_policy_id"] = (
-            "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v5"
+            "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v6"
             if (isinstance(task_family_id, str)
                 and isinstance(observed_target_identity, Mapping)
                 and bool(observed_target_identity))
@@ -8158,7 +8719,7 @@ class ResidentDevelopmentalCognitionOwner:
             expected_memory_fields = {"schema_version", "source_snapshot_digest",
                 "retrieval_posture", "selection_posture", "records", "read_only",
                 "historical_only", "current_truth", "authority", "mutation_performed",
-                "selection_digest"}
+                "correction_relations", "selection_digest"}
             semantic_memory = {key: value for key, value in canonical_memory_context.items()
                 if key != "selection_digest"}
             records = canonical_memory_context.get("records")
@@ -8198,6 +8759,37 @@ class ResidentDevelopmentalCognitionOwner:
                         valid_records = False
                         break
                     seen_memory_ids.add(memory_id)
+            relations = canonical_memory_context.get("correction_relations")
+            valid_relations = isinstance(relations, list) and len(relations) <= 8
+            if isinstance(relations, list):
+                seen_pairs: set[tuple[str, str]] = set()
+                for relation in relations:
+                    pair = (relation.get("correcting_memory_id"),
+                        relation.get("corrected_memory_id")) if isinstance(
+                            relation, Mapping) else (None, None)
+                    if (not isinstance(relation, Mapping) or set(relation) != {
+                            "correcting_memory_id", "corrected_memory_id",
+                            "corrected_memory_record_digest", "posture"}
+                            or not isinstance(pair[0], str)
+                            or not re.fullmatch(r"memory-[0-9a-f]{24}", pair[0])
+                            or pair[0] not in seen_memory_ids
+                            or not isinstance(pair[1], str)
+                            or not re.fullmatch(r"memory-[0-9a-f]{24}", pair[1])
+                            or pair[0] == pair[1]
+                            or pair in seen_pairs
+                            or not isinstance(relation.get(
+                                "corrected_memory_record_digest"), str)
+                            or not re.fullmatch(r"[0-9a-f]{64}", relation[
+                                "corrected_memory_record_digest"])
+                            or relation.get("posture")
+                                != "explicit_user_correction_unverified"):
+                        valid_relations = False
+                        break
+                    if isinstance(pair[0], str) and isinstance(pair[1], str):
+                        seen_pairs.add((pair[0], pair[1]))
+                    else:
+                        valid_relations = False
+                        break
             if (set(canonical_memory_context) != expected_memory_fields
                     or canonical_memory_context.get("schema_version")
                         != "sentientos.canonical_user_memory_cognition_context:v1"
@@ -8213,7 +8805,7 @@ class ResidentDevelopmentalCognitionOwner:
                     or canonical_memory_context.get("current_truth") is not False
                     or canonical_memory_context.get("authority") is not False
                     or canonical_memory_context.get("mutation_performed") is not False
-                    or not valid_records
+                    or not valid_records or not valid_relations
                     or canonical_memory_context.get("selection_digest")
                         != digest_payload(semantic_memory)):
                 raise ResidentDevelopmentalCognitionError(
@@ -8795,7 +9387,7 @@ class ResidentDevelopmentalCognitionOwner:
                             "requires_task_family_history") is True),
                     "developmental_history_target_model_identity": preflight_target_model_identity,
                     "developmental_history_retrieval_policy_id": (
-                        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v5"
+                        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v6"
                         if (isinstance(family_for_preflight, str)
                             and isinstance(preflight_target_model_identity, Mapping)
                             and bool(preflight_target_model_identity))

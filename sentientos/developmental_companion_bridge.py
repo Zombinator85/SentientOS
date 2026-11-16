@@ -216,7 +216,8 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         source_capture_digest: str, followup_capture_digest: str,
         observed_at: str, conversation_citation_ids: Sequence[str] = (),
         conversation_citation_digests: Sequence[str] = (),
-        conversation_session_id: str | None = None) -> dict[str, Any]:
+        conversation_session_id: str | None = None,
+        correction_target_turn_id: str | None = None) -> dict[str, Any]:
     """Represent explicit local operator feedback as an unverified report."""
     citation_pattern = re.compile(r"^turn-[0-9a-f]{24}$")
     if (not isinstance(feedback, str) or not feedback.strip()
@@ -243,11 +244,18 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
             or (conversation_session_id is not None
                 and (not isinstance(conversation_session_id, str)
                     or re.fullmatch(r"[a-z0-9][a-z0-9-]{7,63}",
-                        conversation_session_id) is None))):
+                        conversation_session_id) is None))
+            or (correction_target_turn_id is not None
+                and (not isinstance(correction_target_turn_id, str)
+                    or citation_pattern.fullmatch(correction_target_turn_id) is None
+                    or correction_target_turn_id not in conversation_citation_ids
+                    or conversation_session_id is None))):
         raise DevelopmentalCompanionBridgeError(
             "operator_feedback_contract_invalid")
     normalized = feedback.strip()
-    schema_version = ("sentientos.local_operator_feedback:v3"
+    schema_version = ("sentientos.local_operator_feedback:v4"
+        if correction_target_turn_id is not None else
+        "sentientos.local_operator_feedback:v3"
         if conversation_session_id is not None else
         "sentientos.local_operator_feedback:v2")
     semantic = {
@@ -269,6 +277,12 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
     }
     if conversation_session_id is not None:
         semantic["conversation_session_id"] = conversation_session_id
+    if correction_target_turn_id is not None:
+        target_index = conversation_citation_ids.index(correction_target_turn_id)
+        semantic["correction_target"] = {
+            "turn_id": correction_target_turn_id,
+            "text_digest": conversation_citation_digests[target_index],
+        }
     identity = hashlib.sha256(json.dumps(semantic, sort_keys=True,
         separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
     return {

@@ -18,7 +18,8 @@ except ImportError:  # Keep imports usable on Windows; custody fails closed ther
     _fcntl = None
 
 from .developmental_model_replacement_experiment import (
-    CONDITION_ORDER, NON_CLAIMS, DevelopmentalModelReplacementError,
+    CONDITION_ORDER, FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4, NON_CLAIMS,
+    DevelopmentalModelReplacementError,
     DevelopmentalModelReplacementExperiment, _digest,
 )
 from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
@@ -661,7 +662,8 @@ class DevelopmentalModelReplacementCampaign:
             objective_summary = {"objective_task_plan_digest": self.protocol.objective_task_plan_digest,
                 "trial_count": count, "condition_status_counts": {
                     condition: {status: sum(score.get("status") == status for score in scores)
-                        for status in ("correct", "incorrect", "invalid_answer", "output_unavailable", "output_truncated")}
+                        for status in ("correct", "incorrect", "selective", "invalid_answer",
+                            "output_unavailable", "output_truncated")}
                     for condition, scores in by_condition.items()},
                 "condition_correct_count": {condition: sum(score.get("correct") is True for score in scores)
                     for condition, scores in by_condition.items()},
@@ -669,13 +671,34 @@ class DevelopmentalModelReplacementCampaign:
                     for condition, scores in by_condition.items()},
                 "claim_scope": "observed_task_correctness_only",
                 "independence_or_improvement_claimed": False}
-            if plan.get("task", {}).get("schema_version") == "sentientos.affine_prediction_task_suite:v2":
+            if plan.get("task", {}).get("schema_version") in {
+                    "sentientos.affine_prediction_task_suite:v2",
+                    FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}:
+                def answered_count(score: Mapping[str, Any]) -> int:
+                    answered = score.get("answered_count")
+                    if type(answered) is int:
+                        return answered
+                    count_value = score.get("correct_count")
+                    return (plan["task_descriptor"].get("probe_count", 0)
+                        if type(count_value) is int else 0)
+
+                def abstained_count(score: Mapping[str, Any]) -> int:
+                    value = score.get("abstained_count")
+                    return value if type(value) is int else 0
+
                 objective_summary["condition_correct_probe_count"] = {
-                    condition: sum(score.get("correct_count") or 0 for score in scores)
+                    condition: sum(score.get("correct_count")
+                        if type(score.get("correct_count")) is int else 0
+                        for score in scores)
                     for condition, scores in by_condition.items()}
                 objective_summary["condition_scored_probe_count"] = {
-                    condition: sum(plan["task_descriptor"].get("probe_count", 0)
-                        for score in scores if type(score.get("correct_count")) is int)
+                    condition: sum(answered_count(score) for score in scores)
+                    for condition, scores in by_condition.items()}
+                objective_summary["condition_answered_probe_count"] = {
+                    condition: sum(answered_count(score) for score in scores)
+                    for condition, scores in by_condition.items()}
+                objective_summary["condition_abstained_probe_count"] = {
+                    condition: sum(abstained_count(score) for score in scores)
                     for condition, scores in by_condition.items()}
         semantic = {"campaign_id": self.protocol.campaign_id, "campaign_digest": self.protocol.campaign_digest,
             "planned_trial_count": count, "completed_valid_trial_count": count,

@@ -294,10 +294,14 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
             "cognition_conversation_turn_citation_ids": [source["turn_id"]],
             "cognition_conversation_turn_citation_digests": [source["text_digest"]],
         })
+    assert chat_service._saved_transcript_response_diagnostics(assistant)[
+        "conversation_citations"] == [{
+            "turn_id": source["turn_id"], "text_digest": source["text_digest"]}]
 
     result = app.run_developmental_cycle(session_id=session_id,
         assistant_turn_id=assistant["turn_id"], request_id="development-cycle-1",
-        operator_feedback="Four candle objects are present; two are lit.")
+        operator_feedback="Four candle objects are present; two are lit.",
+        correction_target_turn_id=source["turn_id"])
 
     assert result["status"] == "completed_writeback"
     assert result["written_record_id"] == "record-1"
@@ -322,9 +326,21 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
     assert feedback["payload"]["followup_capture_digest"] == "a" * 64
     assert feedback["payload"]["conversation_citations"] == [{
         "turn_id": source["turn_id"], "text_digest": source["text_digest"]}]
+    assert feedback["payload"]["schema_version"] == (
+        "sentientos.local_operator_feedback:v4")
+    assert feedback["payload"]["correction_target"] == {
+        "turn_id": source["turn_id"], "text_digest": source["text_digest"]}
     assert result["operator_feedback_included"] is True
     assert result["operator_feedback_posture"] == "operator_assertion_unverified"
     assert len(app.sessions.load(session_id)["turns"]) == 2
+    with pytest.raises(chat_service.ChatRequestStateError,
+            match="developmental_cycle_correction_target_not_cited"):
+        app.run_developmental_cycle(session_id=session_id,
+            assistant_turn_id=assistant["turn_id"],
+            request_id="reject-uncited-correction-target",
+            operator_feedback="This corrects an uncited turn.",
+            correction_target_turn_id="turn-" + "d" * 24)
+    assert len(observations) == 1
     app._resident_cognition_bridge.feedback_allowed = False
     with pytest.raises(chat_service.ChatRequestStateError,
             match="developmental_cycle_operator_feedback_not_enabled"):
@@ -1756,6 +1772,126 @@ def test_explicit_retention_boundary(tmp_path: Path) -> None:
     assert found["memories"][0]["source"] == "conversation_user_turn"
     session = app.sessions.load(retained.session_id)
     assert next(t for t in session["turns"] if t["text"] == "favorite color ultramarine")["retention_state"] == "retained"
+
+
+def test_explicit_memory_correction_changes_personalization_and_preserves_history(
+        tmp_path: Path) -> None:
+    app = service(tmp_path)
+    session_id = app.create_session()
+    original = app.chat("I prefer detailed answers.", session_id=session_id,
+        request_id="retain-old-preference", retain=True)
+    old_turn = next(turn for turn in app.sessions.load(session_id)["turns"]
+        if turn.get("linkage", {}).get("client_request_id_digest")
+            == chat_service.digest_payload({"client_request_id": "retain-old-preference"}))
+    old_memory_id = old_turn["retention_receipt"]["memory_id"]
+    assert [row["id"] for row in app.memories.retrieve(
+        "Draft a response for me.")["memories"]] == [old_memory_id]
+
+    corrected = app.chat("I prefer concise answers.", session_id=session_id,
+        request_id="retain-corrected-preference", retain=True,
+        corrects_memory_ids=(old_memory_id,))
+    new_turn = next(turn for turn in app.sessions.load(session_id)["turns"]
+        if turn.get("linkage", {}).get("client_request_id_digest")
+            == chat_service.digest_payload({"client_request_id": "retain-corrected-preference"}))
+    new_memory_id = new_turn["retention_receipt"]["memory_id"]
+
+    with pytest.raises(chat_service.ChatRequestStateError,
+            match="chat_request_identity_conflict"):
+        app.chat("I prefer concise answers.", session_id=session_id,
+            request_id="retain-corrected-preference", retain=True)
+
+    personalization = app.memories.retrieve("Draft a response for me.")
+    assert [row["id"] for row in personalization["memories"]] == [new_memory_id]
+    assert personalization["correction_relations"] == [{
+        "correcting_memory_id": new_memory_id,
+        "corrected_memory_id": old_memory_id,
+        "corrected_memory_record_digest": next(row for row in app.memories._records()[0]
+            if row["id"] == new_memory_id)["meta"]["correction_targets"][0][
+                "memory_record_digest"],
+        "posture": "explicit_user_correction_unverified",
+    }]
+
+    historical = app.memories.retrieve("What did I prefer before?")
+    assert {row["id"] for row in historical["memories"]} == {
+        old_memory_id, new_memory_id}
+    assert app.memories.retrieve("Draft a response for me.")["memories"][0]["id"] == new_memory_id
+
+    session = app.sessions.load(session_id)
+    correction_turn = next(turn for turn in session["turns"]
+        if turn.get("linkage", {}).get("canonical_memory_correction_targets"))
+    assert correction_turn["linkage"]["canonical_memory_correction_targets"][0][
+        "memory_id"] == old_memory_id
+
+
+def test_corrected_memory_changes_later_response_across_sessions(
+        tmp_path: Path) -> None:
+    class MemoryApplyingInvoker(FakeInvoker):
+        prompts: list[str]
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.prompts = []
+
+        def invoke(self, request):
+            self.prompts.append(request.prompt)
+            corrected = 'MEMORY_DATA: "Keep responses spare and direct."' in request.prompt
+            output = ("I will keep it spare and direct." if corrected
+                else "I will use an expansive, detailed style.")
+            return SimpleNamespace(status="admitted_completed", output_text=output,
+                output_digest=chat_service.digest_payload({"output": output}),
+                output_truncated=False,
+                request={"request_id": request.request_id,
+                    "active_model_identity": request.active_model_identity},
+                receipt_id="fixture-receipt-" + request.request_id,
+                receipt_digest="fixture-digest-" + request.request_id)
+
+    # Construct both stores with their required private roots already present.
+    for child in ("sessions", "memory"):
+        path = tmp_path / child
+        path.mkdir(mode=0o700)
+        os.chmod(path, 0o700)
+    invoker = MemoryApplyingInvoker()
+    app = service(tmp_path, invoker)
+    query = "How should I write expansive detailed replies?"
+
+    baseline_session = app.create_session()
+    baseline = app.chat(query, session_id=baseline_session)
+    retention_session = app.create_session()
+    app.chat("I prefer expansive, detailed replies.", session_id=retention_session,
+        request_id="retain-expansive-style", retain=True)
+    old_turn = next(turn for turn in app.sessions.load(retention_session)["turns"]
+        if turn.get("linkage", {}).get("client_request_id_digest")
+            == chat_service.digest_payload({"client_request_id": "retain-expansive-style"}))
+    old_memory_id = old_turn["retention_receipt"]["memory_id"]
+    app.chat("Keep responses spare and direct.", session_id=retention_session,
+        request_id="correct-expansive-style", retain=True,
+        corrects_memory_ids=(old_memory_id,))
+
+    later_session = app.create_session()
+    later = app.chat(query, session_id=later_session)
+
+    assert baseline.response == "I will use an expansive, detailed style."
+    assert later.response == "I will keep it spare and direct."
+    assert later.response != baseline.response
+    later_prompt = invoker.prompts[-1]
+    assert 'MEMORY_DATA: "Keep responses spare and direct."' in later_prompt
+    assert 'MEMORY_DATA: "I prefer expansive, detailed replies."' not in later_prompt
+    assert "I prefer expansive, detailed replies." not in later_prompt
+
+
+def test_memory_correction_requires_verified_target_and_explicit_retention(
+        tmp_path: Path) -> None:
+    app = service(tmp_path)
+    session_id = app.create_session()
+    with pytest.raises(chat_service.ChatRequestStateError,
+            match="memory_corrections_require_explicit_retention"):
+        app.chat("I prefer concise answers.", session_id=session_id,
+            corrects_memory_ids=("memory-" + "a" * 24,))
+    with pytest.raises(chat_service.ChatRequestStateError,
+            match="canonical_memory_correction_source_incomplete|canonical_memory_correction_target_unverified"):
+        app.chat("I prefer concise answers.", session_id=session_id, retain=True,
+            corrects_memory_ids=("memory-" + "a" * 24,))
+    assert app.sessions.load(session_id)["turns"] == []
 
 
 def test_memory_retrieval_uses_content_terms_not_generic_chat_phrasing(

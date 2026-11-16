@@ -60,7 +60,7 @@ from .conversation_session import (
     compact_runtime_generation_attribution, transcript_recall_terms,
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
-    ExplicitRetentionAdmissionGate, retention_request_id,
+    ExplicitRetentionAdmissionGate, MAX_MEMORY_CORRECTION_TARGETS, retention_request_id,
     sentientos_data_dir, sentientos_memory_dir)
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
@@ -917,12 +917,14 @@ class DevelopmentalCycleRequest(BaseModel):
     operator_confirmed: bool = False
     avatar_nod_confirmed: bool = False
     operator_feedback: str | None = None
+    correction_target_turn_id: str | None = None
 
 
 class ChatRequest(BaseModel):
     message: str
     session_id: str | None = None
     retain: bool = False
+    corrects_memory_ids: tuple[str, ...] = ()
     request_id: str | None = None
     observe_screen: bool = False
 
@@ -1059,6 +1061,22 @@ def _saved_transcript_response_diagnostics(
     saved_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
     result["saved_transcript_text_sha256"] = saved_digest
     if isinstance(linkage, Mapping):
+        citation_ids = linkage.get("cognition_conversation_turn_citation_ids", [])
+        citation_digests = linkage.get(
+            "cognition_conversation_turn_citation_digests", [])
+        if (isinstance(citation_ids, list)
+                and isinstance(citation_digests, list)
+                and len(citation_ids) == len(citation_digests) <= 16
+                and all(isinstance(turn_id, str)
+                    and re.fullmatch(r"turn-[0-9a-f]{24}", turn_id) is not None
+                    for turn_id in citation_ids)
+                and len(set(citation_ids)) == len(citation_ids)
+                and all(isinstance(digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", digest) is not None
+                    for digest in citation_digests)):
+            result["conversation_citations"] = [
+                {"turn_id": turn_id, "text_digest": digest}
+                for turn_id, digest in zip(citation_ids, citation_digests)]
         result["developmental_history_intervention_available"] = (
             linkage.get("response_origin") == "resident_developmental_cognition"
             and isinstance(linkage.get("cognition_observation_id"), str)
@@ -1310,6 +1328,7 @@ class PersistentConversationService:
     def run_developmental_cycle(self, *, session_id: str,
             assistant_turn_id: str, request_id: str,
             operator_feedback: str | None = None,
+            correction_target_turn_id: str | None = None,
             avatar_nod_confirmed: bool = False) -> dict[str, Any]:
         """Capture fresh local evidence and invoke the existing governed writeback owner."""
         if (not isinstance(session_id, str) or not session_id
@@ -1324,6 +1343,15 @@ class PersistentConversationService:
             raise ChatRequestStateError("developmental_cycle_path_unavailable")
         if type(avatar_nod_confirmed) is not bool:
             raise ChatRequestStateError("developmental_cycle_avatar_confirmation_invalid")
+        if (correction_target_turn_id is not None
+                and (not isinstance(correction_target_turn_id, str)
+                    or re.fullmatch(r"turn-[0-9a-f]{24}",
+                        correction_target_turn_id) is None)):
+            raise ChatRequestStateError(
+                "developmental_cycle_correction_target_invalid")
+        if correction_target_turn_id is not None and operator_feedback is None:
+            raise ChatRequestStateError(
+                "developmental_cycle_correction_target_requires_feedback")
         if not self.developmental_cycle_available():
             raise CognitionWorkloadUnavailable()
         cognition_available = getattr(self._inference, "cognition_available", None)
@@ -1357,6 +1385,11 @@ class PersistentConversationService:
                     request_id=cognition_request_id) is not True):
                 raise ChatRequestStateError(
                     "developmental_cycle_prior_response_unverified")
+            if (correction_target_turn_id is not None
+                    and correction_target_turn_id not in linkage.get(
+                        "cognition_conversation_turn_citation_ids", [])):
+                raise ChatRequestStateError(
+                    "developmental_cycle_correction_target_not_cited")
             feedback_record = None
             source_capture_digest: str | None = None
             feedback_observed_at = datetime.now(timezone.utc).isoformat().replace(
@@ -1469,6 +1502,10 @@ class PersistentConversationService:
                 if not citation_lineage_valid:
                     raise ChatRequestStateError(
                         "developmental_cycle_conversation_citation_lineage_invalid")
+                if (correction_target_turn_id is not None
+                        and correction_target_turn_id not in citation_ids):
+                    raise ChatRequestStateError(
+                        "developmental_cycle_correction_target_not_cited")
                 feedback_record = make_operator_feedback_record(
                     operator_feedback, request_id=request_id,
                     assistant_turn_id=assistant_turn_id,
@@ -1478,7 +1515,8 @@ class PersistentConversationService:
                     observed_at=feedback_observed_at,
                     conversation_citation_ids=citation_ids,
                     conversation_citation_digests=citation_digests,
-                    conversation_session_id=session_id)
+                    conversation_session_id=session_id,
+                    correction_target_turn_id=correction_target_turn_id)
             cycle_kwargs: dict[str, Any] = {
                 "tick_id": tick_id, "screen_observation": observation,
                 "operator_feedback": feedback_record,
@@ -2229,6 +2267,59 @@ class PersistentConversationService:
             },
             retention={"status": "not_requested"})
 
+    def _canonical_memory_correction_targets(
+            self, memory_ids: tuple[str, ...] | list[str], *, retain: bool
+            ) -> list[dict[str, str]]:
+        if (not isinstance(memory_ids, (tuple, list))
+                or len(memory_ids) > MAX_MEMORY_CORRECTION_TARGETS
+                or any(not isinstance(memory_id, str)
+                    or re.fullmatch(r"memory-[0-9a-f]{24}", memory_id) is None
+                    for memory_id in memory_ids)
+                or len(set(memory_ids)) != len(memory_ids)):
+            raise ChatRequestStateError("canonical_memory_correction_targets_invalid")
+        if not memory_ids:
+            return []
+        if not retain:
+            raise ChatRequestStateError("memory_corrections_require_explicit_retention")
+        records, posture = self.memories._records()
+        if posture != "complete":
+            raise ChatRequestStateError("canonical_memory_correction_source_incomplete")
+        by_id = {record.get("id"): record for record in records
+            if isinstance(record.get("id"), str)}
+        targets: list[dict[str, str]] = []
+        for memory_id in sorted(memory_ids):
+            record = by_id.get(memory_id)
+            meta = record.get("meta") if isinstance(record, Mapping) else None
+            if (not isinstance(record, Mapping)
+                    or record.get("source") != "conversation_user_turn"
+                    or not isinstance(meta, Mapping)):
+                raise ChatRequestStateError("canonical_memory_correction_target_unverified")
+            source_session_id, source_turn_id = meta.get("session_id"), meta.get("turn_id")
+            try:
+                session = self.sessions.load(str(source_session_id))
+                source_turn = next((turn for turn in session.get("turns", ())
+                    if isinstance(turn, Mapping) and turn.get("turn_id") == source_turn_id), None)
+                receipt = (source_turn.get("retention_receipt")
+                    if isinstance(source_turn, Mapping) else None)
+                verification = (self.retention_writer.verify_committed_artifact(
+                    receipt, source_turn, str(source_session_id))
+                    if isinstance(receipt, Mapping) and isinstance(source_turn, Mapping)
+                    else {})
+            except Exception as exc:
+                raise ChatRequestStateError(
+                    "canonical_memory_correction_target_unverified") from exc
+            if (not isinstance(source_turn, Mapping)
+                    or source_turn.get("retention_state") != "retained"
+                    or verification.get("artifact_status") != "verified"
+                    or verification.get("admission_status")
+                        != "policy_recomputed_not_execution_attested"
+                    or verification.get("memory_id") != memory_id
+                    or verification.get("record_digest") != digest_payload(dict(record))):
+                raise ChatRequestStateError("canonical_memory_correction_target_unverified")
+            targets.append({"memory_id": memory_id,
+                "memory_record_digest": digest_payload(dict(record))})
+        return targets
+
     def _resident_canonical_memory_context(self, question: str) -> dict[str, Any] | None:
         """Bind only explicitly retained, source-turn-verified memories for cognition."""
         retrieved = self.memories.retrieve(question,
@@ -2309,6 +2400,27 @@ class PersistentConversationService:
             seen_ids.add(memory_id)
         if not selected:
             return None
+        selected_ids = {row["memory_id"] for row in selected}
+        raw_correction_relations = retrieved.get("correction_relations", [])
+        correction_relations = []
+        if isinstance(raw_correction_relations, list):
+            for relation in raw_correction_relations:
+                if (not isinstance(relation, Mapping)
+                        or set(relation) != {"correcting_memory_id",
+                            "corrected_memory_id", "corrected_memory_record_digest",
+                            "posture"}
+                        or relation.get("correcting_memory_id") not in selected_ids
+                        or not isinstance(relation.get("corrected_memory_id"), str)
+                        or re.fullmatch(r"memory-[0-9a-f]{24}",
+                            relation["corrected_memory_id"]) is None
+                        or not isinstance(relation.get(
+                            "corrected_memory_record_digest"), str)
+                        or re.fullmatch(r"[0-9a-f]{64}",
+                            relation["corrected_memory_record_digest"]) is None
+                        or relation.get("posture")
+                            != "explicit_user_correction_unverified"):
+                    continue
+                correction_relations.append(dict(relation))
         source_binding_omitted = len(selected) < len(retrieved["memories"])
         selection_posture = ("matching_records_omitted" if source_binding_omitted
             else str(retrieved.get("selection_posture", "unknown")))
@@ -2319,7 +2431,8 @@ class PersistentConversationService:
             "source_snapshot_digest": retrieved["snapshot_digest"],
             "retrieval_posture": retrieval_posture,
             "selection_posture": selection_posture,
-            "records": selected, "read_only": True,
+            "records": selected, "correction_relations": correction_relations,
+            "read_only": True,
             "historical_only": True, "current_truth": False,
             "authority": False, "mutation_performed": False,
         }
@@ -3171,15 +3284,18 @@ class PersistentConversationService:
 
     def chat(self, message: str, *, session_id: str | None = None, retain: bool = False,
              request_id: str | None = None, observe_screen: bool = False,
+             corrects_memory_ids: tuple[str, ...] | list[str] = (),
              on_content_chunk: Callable[[str], None] | None = None) -> ChatResponse:
         if session_id is None:
             return self._chat_unlocked(message, session_id=None, retain=retain,
                 request_id=request_id, observe_screen=observe_screen,
+                corrects_memory_ids=corrects_memory_ids,
                 on_content_chunk=on_content_chunk)
         try:
             with self.sessions.serialize_chat_requests(session_id):
                 return self._chat_unlocked(message, session_id=session_id,
                     retain=retain, request_id=request_id, observe_screen=observe_screen,
+                    corrects_memory_ids=corrects_memory_ids,
                     on_content_chunk=on_content_chunk)
         except ConversationChatLockTimeout as exc:
             raise ChatRequestStateError("chat_session_request_lock_timeout") from exc
@@ -3187,20 +3303,29 @@ class PersistentConversationService:
     def _chat_unlocked(self, message: str, *, session_id: str | None = None,
                        retain: bool = False, request_id: str | None = None,
                        observe_screen: bool = False,
+                       corrects_memory_ids: tuple[str, ...] | list[str] = (),
                        on_content_chunk: Callable[[str], None] | None = None) -> ChatResponse:
         turn_started_ns = time.monotonic_ns()
         if type(observe_screen) is not bool:
             raise ChatRequestStateError("screen_observation_request_invalid")
+        correction_targets = self._canonical_memory_correction_targets(
+            corrects_memory_ids, retain=retain)
+        request_options: dict[str, Any] = {}
+        if observe_screen:
+            request_options["observe_screen"] = True
+        if correction_targets:
+            request_options["canonical_memory_correction_targets"] = correction_targets
         request_options_digest = (hashlib.sha256(json.dumps(
-            {"observe_screen": True}, sort_keys=True, separators=(",", ":")
-        ).encode("utf-8")).hexdigest() if observe_screen else None)
+            request_options, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")).hexdigest() if request_options else None)
         if request_id is not None:
             if session_id is None:
                 raise ChatRequestStateError("idempotent_request_requires_existing_session")
             try:
                 existing = self.sessions.find_user_request(session_id,
                     request_id=request_id, text=message, retain=retain,
-                    request_options_digest=request_options_digest)
+                    request_options_digest=request_options_digest,
+                    correction_targets=correction_targets)
             except FileNotFoundError:
                 raise
             except ValueError as exc:
@@ -3292,13 +3417,17 @@ class PersistentConversationService:
         identity_payload = self._inference.current_conversation_model_identity()
         session = self.sessions.create(model_identity=identity_payload) if session_id is None else self.sessions.load(session_id)
         if request_id is None:
+            user_linkage = ({"canonical_memory_correction_targets": correction_targets}
+                if correction_targets else None)
             user_turn = self.sessions.append_turn(session["session_id"], role="user", text=message,
+                linkage=user_linkage,
                 retention_state="requested" if retain else "not_requested")
         else:
             try:
                 user_turn, created = self.sessions.append_user_request(session["session_id"],
                     request_id=request_id, text=message, retain=retain,
-                    request_options_digest=request_options_digest)
+                    request_options_digest=request_options_digest,
+                    correction_targets=correction_targets)
             except ValueError as exc:
                 raise ChatRequestStateError(str(exc)) from exc
             if not created:
@@ -4203,6 +4332,14 @@ class PersistentConversationService:
                          "source_turn_id": user_turn["turn_id"], "source_role": "user",
                          "source_text_digest": user_turn["text_digest"], "explicitly_requested": True,
                          "request_id": request_id, "operation_id": operation_id}
+            if correction_targets:
+                turn_linkage = user_turn.get("linkage")
+                stored_targets = (turn_linkage.get("canonical_memory_correction_targets")
+                    if isinstance(turn_linkage, Mapping) else None)
+                if stored_targets != correction_targets:
+                    raise ChatRequestStateError(
+                        "memory_correction_turn_binding_mismatch")
+                candidate["correction_targets"] = correction_targets
             admission = self.admission_gate.decide(candidate)
             try:
                 if admission.decision != "retention_admitted": raise PermissionError(admission.reason or "retention_denied")
@@ -4732,6 +4869,7 @@ async def developmental_cycle_endpoint(session_id: str,
             session_id=session_id, assistant_turn_id=request.assistant_turn_id,
             request_id=request.request_id,
             operator_feedback=request.operator_feedback,
+            correction_target_turn_id=request.correction_target_turn_id,
             avatar_nod_confirmed=request.avatar_nod_confirmed)
     except CognitionWorkloadUnavailable as exc:
         raise HTTPException(status_code=409,
@@ -4819,6 +4957,7 @@ async def chat_stream_endpoint(request: ChatRequest, http_request: Request) -> S
             response = service.chat(message, session_id=request.session_id,
                 retain=request.retain, request_id=request.request_id,
                 observe_screen=request.observe_screen,
+                corrects_memory_ids=request.corrects_memory_ids,
                 on_content_chunk=on_content_chunk)
             payload = {
                 "response": response.response,
@@ -4902,7 +5041,8 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         service = _get_conversation_service()
         return await asyncio.to_thread(service.chat, message,
             session_id=request.session_id, retain=request.retain,
-            request_id=request.request_id, observe_screen=request.observe_screen)
+            request_id=request.request_id, observe_screen=request.observe_screen,
+            corrects_memory_ids=request.corrects_memory_ids)
     except ScreenObservationBridgeError as exc:
         failure_code = (exc.args[0] if exc.args and isinstance(exc.args[0], str)
                         and re.fullmatch(r"(?:screen|game_screen)_[a-z0-9_]{1,80}",
@@ -6068,7 +6208,10 @@ async def root_page() -> HTMLResponse:
                                     cycleButton.addEventListener('click', () =>
                                         runDevelopmentalCycle(turn.turn_id, cycleButton, entry,
                                             turn.response_diagnostics.operator_feedback_available
-                                                === true));
+                                                === true,
+                                            Array.isArray(turn.response_diagnostics.conversation_citations)
+                                                ? turn.response_diagnostics.conversation_citations
+                                                : [], data.turns));
                                     entry.appendChild(cycleButton);
                                 }
                             }
@@ -6154,8 +6297,9 @@ async def root_page() -> HTMLResponse:
 
 
                 async function runDevelopmentalCycle(assistantTurnId, button, entry,
-                        feedbackAvailable) {
+                        feedbackAvailable, conversationCitations, transcriptTurns) {
                     let feedback = null;
+                    let correctionTargetTurnId = null;
                     if (feedbackAvailable) {
                         feedback = window.prompt(
                             'Optional: enter your correction or independently noticed detail. It will be stored as an unverified operator report, separate from the screen capture, and may be retained if the governed owner selects it. Leave blank to run without a correction.',
@@ -6164,6 +6308,36 @@ async def root_page() -> HTMLResponse:
                         if (feedback.length > 800) {
                             window.alert('Keep the operator report under 800 characters.');
                             return;
+                        }
+                        if (feedback.trim()) {
+                            const citedTurns = conversationCitations.slice(0, 16)
+                                .map((citation) => ({
+                                    citation,
+                                    turn: transcriptTurns.find((candidate) =>
+                                        candidate.turn_id === citation.turn_id),
+                                }))
+                                .filter((item) => item.turn
+                                    && typeof item.turn.text === 'string');
+                            if (citedTurns.length) {
+                                const choices = citedTurns.map((item, index) =>
+                                    (index + 1) + '. '
+                                    + (item.turn.role === 'user' ? 'You: ' : 'SentientOS: ')
+                                    + item.turn.text.slice(0, 180)).join('\n');
+                                const selected = window.prompt(
+                                    'If this report corrects one cited turn, enter its number. Enter 0 for a general observation.\n\n'
+                                        + choices, '0');
+                                if (selected === null) return;
+                                const choice = Number.parseInt(selected.trim(), 10);
+                                if (!Number.isInteger(choice) || choice < 0
+                                        || choice > citedTurns.length) {
+                                    window.alert('Choose 0 or one of the listed turn numbers.');
+                                    return;
+                                }
+                                if (choice > 0) {
+                                    correctionTargetTurnId = citedTurns[choice - 1]
+                                        .citation.turn_id;
+                                }
+                            }
                         }
                     }
                     if (!window.confirm('Capture one fresh, consented observation from the allowlisted foreground application and run the existing resident cognition tick? The screen evidence and your optional unverified report may be retained through governed developmental writeback. This can make local model inference calls. Raw screen frames are discarded. No avatar motion is sent unless you approve it separately next.')) return;
@@ -6204,6 +6378,7 @@ async def root_page() -> HTMLResponse:
                                     avatar_nod_confirmed: avatarNodConfirmed,
                                     operator_feedback: (typeof feedback === 'string'
                                         ? feedback.trim() || null : null),
+                                    correction_target_turn_id: correctionTargetTurnId,
                                 }),
                             });
                         const data = await response.json().catch(() => ({}));

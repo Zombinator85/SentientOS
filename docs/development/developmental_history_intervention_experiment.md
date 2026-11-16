@@ -60,7 +60,67 @@ across matched
 trials, but does not randomize nuisance variables or by itself support a causal
 order-effect estimate. These are bounded associations only.
 
-For a structured objective task whose descriptor explicitly requires task-family history, the resident owner projects only exact, score-bound examples from the requested family that also match the active cognitive-model identity. The record-level natural-language interpretation is omitted from that task-specific prompt, and its separate digest is not sent to the model. The enclosing record and candidate digests continue to bind the omitted source content for audit. Unrelated selected facts and embodiment/security projections are not carried into that scoped packet. Included examples retain their evaluator correctness flags, so an incorrect example remains evidence of an incorrect outcome rather than being silently promoted to a lesson. The stored record and ordinary history remain unchanged.
+For a structured objective task whose descriptor explicitly requires task-family history, the resident owner projects exact, score-bound examples from the requested family with their source-model applicability posture. The record-level natural-language interpretation is omitted from that task-specific prompt, and its separate digest is not sent to the model. The enclosing record and candidate digests continue to bind the omitted source content for audit. Unrelated selected facts and embodiment/security projections are not carried into that scoped packet. Evaluator-correct examples are the only positive mapping evidence. Evaluator-incorrect examples are passed in a separate `prior_incorrect_examples` block explicitly labeled as historical errors, not mapping evidence, current truth, or authority; unknown-correctness rows remain withheld and represented by digest-only omission evidence. The task prompt tells the model not to repeat a failed answer for the same input. The durable record and ordinary history remain unchanged.
+
+Outcome posture affects retrieval priority only when the restored score matches the history-present score. A favorable present-vs-withheld contrast with failed restoration is ranked as tentative history, below restoration-stable favorable evidence. Exact evaluator-correct examples remain available with their source and uncertainty qualifiers; the unstable comparison does not establish a repeatable history effect.
+
+Retrieval gives an additional priority to a favorable result only when at least
+two distinct admitted run IDs share the exact task commitment and source model
+identity, and every available comparable run in that group is restoration-stable
+and favorable. Repeated references to one run do not count twice; an unstable,
+neutral, or adverse comparable run prevents this corroboration priority. This
+selection rule helps later context distinguish a one-run outcome from a
+repeat-run-consistent one. It does not establish statistical independence,
+causality, general learning, or improved performance.
+
+When comparable repeated outcomes for the same exact task and source model are
+mixed, internally inconsistent, or include an unstable comparison, none of
+their records receives the ordinary favorable or neutral outcome-ranking
+priority. Their evaluator-scored examples and provenance remain available as
+tentative history. Unrelated task commitments and source models are ranked
+independently.
+
+Score-bound incorrect examples now contribute task-family retrieval utility
+even when a record has no evaluator-correct examples. This keeps an adverse,
+error-only experience eligible for a bounded later prompt when its probes
+overlap, while its lowest outcome priority keeps it behind positive or stable
+neutral guidance. The examples remain historical negative context, not a
+replacement mapping rule. A CPU-only controlled retrieval fixture demonstrates
+that such a selected record reaches the bounded prompt projection; real-model
+application and subsequent performance effects remain unverified.
+
+New task-family trials use the v4 selective-answer contract. Each probe accepts
+an integer answer or `null` abstention; evaluator correctness and abstention
+are recorded separately, with coverage and accuracy among answered probes
+reported independently. New score records use
+`sentientos.objective_task_score:v5`: when any probe is unanswered, the
+aggregate status is `selective` and aggregate correctness is unknown. Per-probe
+correctness and exact correct-answer counts remain scoreable, so history
+comparison can measure correct answers without counting abstentions as wrong.
+Recovered v4 score records retain their historical aggregate semantics.
+Abstentions have unknown evaluator correctness, so they are never positive
+mapping guidance or negative answer feedback. A
+score-bound v4 abstention is retained separately as a historical decision with
+unknown correctness and no recorded reason. It can make a same-family record
+retrievable for an overlapping probe at zero outcome priority, and appears in a
+separate `prior_abstained_examples` prompt block. The task prompt instructs
+the model not to treat it as mapping evidence or an instruction to abstain
+again.
+Unclassified unknown rows, including legacy v3 rows, remain withheld with
+digest-only omission evidence. The history-conditioned prompt asks for
+abstention until at least two distinct evaluator-correct inputs support the
+mapping. Historical v3 task descriptors and scores remain readable with their
+original integer-only contract. CPU-only controlled fixtures validate the
+decision-history path and its score limits; they do not demonstrate that a
+real model will use an abstention appropriately, abstain for a well-founded
+reason, or apply the learned mapping.
+
+When a bounded history selection includes a run from such a group, the
+read-only retrieval projection also carries the exact-task, source-model, and
+run-reference summary into the task-family prompt. This keeps the reason for a
+record's higher retrieval priority visible when only one episode fits. The
+history-withheld control omits this summary along with the history itself. The
+summary is derived context only and remains explicitly non-authoritative.
 
 This is a prompt-projection constraint, not a new memory owner, general truth filter, or cross-model transfer rule. The v3 Hermes transfer family exercises the scoped path; its synthetic results are mixed and do not establish reliable transfer or improved performance.
 
