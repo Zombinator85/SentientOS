@@ -4780,6 +4780,7 @@ class ResidentCompanionInteractionResult:
     self_model_claim_ids: tuple[str, ...] = ()
     epistemic_state_citation_ids: tuple[str, ...] = ()
     conversation_turn_citation_ids: tuple[str, ...] = ()
+    conversation_context_selection_digest: str | None = None
     canonical_user_memory_selection_digest: str | None = None
     prior_record_ids: tuple[str, ...] = ()
     cognition_observation_digest: str = ""
@@ -9089,6 +9090,9 @@ class ResidentDevelopmentalCognitionOwner:
                 capture.get("epistemic_state_citation_ids", ())),
             conversation_turn_citation_ids=tuple(capture.get(
                 "conversation_turn_citation_ids", ())),
+            conversation_context_selection_digest=(
+                conversation_context.get("selection_digest")
+                if conversation_context is not None else None),
             canonical_user_memory_selection_digest=(
                 canonical_memory_context.get("selection_digest")
                 if canonical_memory_context is not None else None),
