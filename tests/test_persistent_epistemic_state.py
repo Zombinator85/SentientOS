@@ -11,7 +11,7 @@ from sentientos.persistent_epistemic_state import (
     PropositionRelation, evidence_posture, make_cognitive_projection,
     make_evidence_binding, make_proposition, make_epistemic_update_candidate, _write_new,
     MeaningBearingEpistemicCognitiveProjection, semantic_packets_for_projection,
-    validate_cognitive_projection,
+    validate_cognitive_projection, _question_relevant_proposition_ids,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -22,6 +22,29 @@ def proposition(statement="wording one", **scope):
         object_value={"pose":"wave"}, polarity="positive", qualifiers={"renderer":"fixture-r"},
         temporal_scope={"kind":"bounded_trial"}, context_scope={"fixture":"E", **scope},
         proposition_class="predictive", statement=statement)
+
+
+def test_question_relevance_ranks_current_propositions_before_projection_bound():
+    unrelated = make_proposition(namespace="embodiment", subject="design:launch",
+        predicate="has_status", object_value="delayed", polarity="positive",
+        qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive", statement="The design launch moved.")
+    relevant = make_proposition(namespace="embodiment", subject="sensor:west",
+        predicate="reports_measurement", object_value="exact-window-1", polarity="positive",
+        qualifiers={}, temporal_scope={"window": "exact-window-1"},
+        context_scope={"facility": "facility-1"},
+        proposition_class="descriptive",
+        statement="The sensor measurement is from facility-1.")
+    propositions = {unrelated.proposition_id: unrelated,
+        relevant.proposition_id: relevant}
+
+    assert _question_relevant_proposition_ids(propositions,
+        query="Which sensor measurement came from facility-1 during exact-window-1?",
+        limit=1) == (relevant.proposition_id,)
+    assert _question_relevant_proposition_ids(propositions,
+        query="What happened in the lunar mission?", limit=1) == ()
+    assert _question_relevant_proposition_ids(propositions,
+        query=None, limit=1) == ()
 
 
 def binding(p, source, relation="supports", dependency="independently_sourced_observation", upstream=(), freshness="current"):

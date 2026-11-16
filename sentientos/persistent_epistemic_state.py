@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import stat
 from datetime import datetime
 from contextlib import contextmanager
@@ -47,6 +48,49 @@ MAX_EPISTEMIC_RECORD_BYTES = 1_048_576
 MAX_EPISTEMIC_RECORDS_PER_COLLECTION = 65_536
 MAX_EPISTEMIC_COLLECTION_BYTES = 67_108_864
 MAX_EPISTEMIC_COGNITIVE_PROJECTION_BYTES = 4_194_304
+_EPISTEMIC_QUERY_STOP_WORDS = frozenset((
+    "a", "an", "and", "are", "as", "at", "be", "by", "did", "do", "does",
+    "for", "from", "how", "in", "is", "it", "of", "on", "or", "the", "to",
+    "was", "what", "which", "who", "with",
+))
+
+
+def _epistemic_query_terms(text: str) -> set[str]:
+    terms: set[str] = set()
+    for token in re.findall(r"[A-Za-z0-9_]{3,}", text.casefold()):
+        if token in _EPISTEMIC_QUERY_STOP_WORDS:
+            continue
+        if len(token) > 4 and token.endswith("ies"):
+            token = token[:-3] + "y"
+        elif len(token) > 4 and token.endswith(("ches", "shes", "sses", "xes", "zes")):
+            token = token[:-2]
+        elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+            token = token[:-1]
+        terms.add(token)
+    return terms
+
+
+def _question_relevant_proposition_ids(propositions: Mapping[str, Any], *,
+        query: str | None, limit: int) -> tuple[str, ...]:
+    """Rank proposition identities by lexical overlap with a bounded user question."""
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit < 0:
+        raise EpistemicStateError("epistemic_projection_query_bound_invalid")
+    query_terms = _epistemic_query_terms(query) if isinstance(query, str) else set()
+    if not query_terms:
+        return ()
+    ranked: list[tuple[int, str]] = []
+    for proposition_id, proposition in propositions.items():
+        if not isinstance(proposition, EpistemicProposition):
+            continue
+        searchable = json.dumps({key: getattr(proposition, key) for key in (
+            "subject", "predicate", "object_value", "statement", "qualifiers",
+            "temporal_scope", "context_scope")}, sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False)
+        overlap = len(query_terms & _epistemic_query_terms(searchable))
+        if overlap:
+            ranked.append((overlap, proposition_id))
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    return tuple(proposition_id for _, proposition_id in ranked[:limit])
 
 
 class EpistemicStateError(ValueError):
@@ -379,8 +423,10 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                 isinstance(omission_manifest, Mapping)
                 and omission_manifest.get("schema_version") ==
                     "sentientos.epistemic_projection_omission_manifest:v2"
-                and omission_manifest.get("selection_policy") ==
-                    "goal_tagged_prior_state_then_proposition_id_ascending"
+                and omission_manifest.get("selection_policy") in {
+                    "goal_tagged_prior_state_then_proposition_id_ascending",
+                    "question_relevance_then_proposition_id_ascending",
+                    "explicit_priority_then_question_relevance_then_proposition_id_ascending"}
                 and isinstance(raw_priority_ids, (list, tuple))
                 and len(raw_priority_ids) <= MAX_COGNITIVE_PROJECTION_PRIORITIES
                 and all(_valid_identity(item, "proposition") for item in raw_priority_ids)
@@ -1095,7 +1141,9 @@ class PersistentEpistemicStateOwner:
 
     def cognitive_projection(self, *, max_states: int,
                              current_tick: int | None = None,
-                             prioritized_proposition_ids: Sequence[str] = ()) -> EpistemicCognitiveProjection | None:
+                             prioritized_proposition_ids: Sequence[str] = (),
+                             relevance_query: str | None = None
+                             ) -> EpistemicCognitiveProjection | None:
         """Capture a verified, bounded prior projection without changing custody.
 
         The update files visible in the first inventory are the chronology boundary:
@@ -1118,6 +1166,9 @@ class PersistentEpistemicStateOwner:
                 or len(prioritized_proposition_ids) !=
                     len(set(prioritized_proposition_ids))):
             raise EpistemicStateError("epistemic_projection_priority_invalid")
+        if (relevance_query is not None
+                and (not isinstance(relevance_query, str) or len(relevance_query) > 4000)):
+            raise EpistemicStateError("epistemic_projection_query_invalid")
         requested_priorities = tuple(prioritized_proposition_ids)
         self.verify()
         if (self._published_mutation_bound_state_digests
@@ -1166,8 +1217,17 @@ class PersistentEpistemicStateOwner:
                 if all(event.tick < current_tick for event in
                     events_by_proposition.get(proposition_id, ()))}
         available_by_id = {item.proposition_id: item for item in latest.values()}
-        active_priorities = tuple(item for item in requested_priorities
+        active_explicit_priorities = tuple(item for item in requested_priorities
             if item in available_by_id)
+        query_ranked_ids = _question_relevant_proposition_ids(
+            proposition_by_id, query=relevance_query,
+            limit=min(max_states, MAX_COGNITIVE_PROJECTION_PRIORITIES))
+        query_slots = max(0, min(max_states,
+            MAX_COGNITIVE_PROJECTION_PRIORITIES) - len(active_explicit_priorities))
+        active_query_priorities = tuple(item for item in query_ranked_ids
+            if item in available_by_id and item not in active_explicit_priorities
+            )[:query_slots]
+        active_priorities = active_explicit_priorities + active_query_priorities
         ranked_ids = active_priorities + tuple(sorted(
             set(available_by_id) - set(active_priorities)))
         ranked_latest = tuple(available_by_id[item] for item in ranked_ids)
@@ -1206,8 +1266,12 @@ class PersistentEpistemicStateOwner:
                     if active_priorities else
                     "sentientos.epistemic_projection_omission_manifest:v1"),
                 "selection_policy": (
+                    "explicit_priority_then_question_relevance_then_proposition_id_ascending"
+                    if active_explicit_priorities and active_query_priorities else
+                    "question_relevance_then_proposition_id_ascending"
+                    if active_query_priorities else
                     "goal_tagged_prior_state_then_proposition_id_ascending"
-                    if active_priorities else
+                    if active_explicit_priorities else
                     "latest_prior_state_by_proposition_id_ascending"),
                 "selection_limit": max_states,
                 "available_prior_state_count": len(ranked_latest),

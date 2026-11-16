@@ -6555,6 +6555,33 @@ def test_epistemic_budget_selection_prefers_question_relevant_complete_packets(
         metadata["epistemic_omitted_packets"])
 
 
+def test_companion_bridge_passes_question_to_epistemic_projection() -> None:
+    calls = []
+
+    class ProjectionOwner:
+        def cognitive_projection(self, **kwargs):
+            calls.append(kwargs)
+            return "bounded-prior-projection"
+
+    bridge = object.__new__(ResidentDevelopmentalCompanionBridge)
+    bridge._self_model_config = None
+    bridge._epistemic_state_owner = ProjectionOwner()
+    bridge._epistemic_state_config = {
+        "cognitive_consumption_enabled": True,
+        "max_cognitive_projection_count": 8,
+    }
+    question = "How did the west sensor measurement change?"
+
+    self_model, epistemic = bridge._prior_cognitive_context(
+        tick_id="2026-11-15T00:00:00+00:00", projection_tick=100,
+        relevance_query=question)
+
+    assert self_model is None
+    assert epistemic == "bounded-prior-projection"
+    assert calls == [{"max_states": 8, "current_tick": 100,
+        "relevance_query": question}]
+
+
 def self_model_projection(root: Path):
     from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
     from tests.test_longitudinal_self_model import record, snapshot as self_model_snapshot

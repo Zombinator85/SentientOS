@@ -517,7 +517,8 @@ class ResidentDevelopmentalCompanionBridge:
         return tick_id, projection_tick
 
     def _prior_cognitive_context(self, *, tick_id: str,
-            projection_tick: int) -> tuple[Any | None, Any | None]:
+            projection_tick: int,
+            relevance_query: str | None = None) -> tuple[Any | None, Any | None]:
         prior_self_model = None
         config = self._self_model_config
         if (config is not None and config.enabled
@@ -539,7 +540,8 @@ class ResidentDevelopmentalCompanionBridge:
                 raise DevelopmentalCompanionBridgeError(
                     "epistemic_projection_bound_invalid")
             prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
-                max_states=maximum, current_tick=projection_tick)
+                max_states=maximum, current_tick=projection_tick,
+                relevance_query=relevance_query)
         return prior_self_model, prior_epistemic_state
 
     def can_handle(self) -> bool:
@@ -605,7 +607,8 @@ class ResidentDevelopmentalCompanionBridge:
                     "history_intervention_capture_not_fresh")
         tick_time, projection_tick = self._projection_boundary()
         prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
-            tick_id=tick_time, projection_tick=projection_tick)
+            tick_id=tick_time, projection_tick=projection_tick,
+            relevance_query=question)
         capture_age_seconds = (None if request_freshness is not None else
             int(max(0.0, capture_age.total_seconds())))
         snapshot = build_companion_snapshot(
@@ -811,7 +814,8 @@ class ResidentDevelopmentalCompanionBridge:
             proprioception = tuple(value)
         tick_id, projection_tick = self._projection_boundary()
         prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
-            tick_id=tick_id, projection_tick=projection_tick)
+            tick_id=tick_id, projection_tick=projection_tick,
+            relevance_query=question)
         snapshot = build_companion_snapshot(
             screen_observation=screen_observation,
             proprioception=proprioception, clock=self._clock)
