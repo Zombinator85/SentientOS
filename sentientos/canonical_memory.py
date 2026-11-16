@@ -433,7 +433,39 @@ class CanonicalMemoryStore:
         eligible = [record for record in records
             if not _is_prior_message_recall_question(record["text"])
             and (historical_recall or record.get("id") not in superseded)]
-        document_terms = [_memory_retrieval_terms(record["text"]) for record in eligible]
+        # A correction should remain findable through the wording it replaced.
+        # Carry only query terms from the superseded entry into the active
+        # correction's retrieval index; the old text itself stays out of the
+        # selected context. Follow correction chains to their unsuperseded
+        # endpoint so a query using the oldest wording reaches the current
+        # retained correction. Historical-recall queries intentionally keep
+        # their existing behavior and retrieve the retained history directly.
+        correction_alias_terms: dict[str, set[str]] = {}
+        if not historical_recall:
+            eligible_ids = {record.get("id") for record in eligible}
+            for target_id, corrections in superseded.items():
+                target = by_id.get(target_id)
+                if not isinstance(target, Mapping) or not isinstance(
+                        target.get("text"), str):
+                    continue
+                inherited_terms = _memory_retrieval_terms(target["text"])
+                pending = [correction_id for correction_id, _ in corrections]
+                visited: set[str] = set()
+                while pending:
+                    correction_id = pending.pop()
+                    if correction_id in visited:
+                        continue
+                    visited.add(correction_id)
+                    next_corrections = superseded.get(correction_id)
+                    if next_corrections:
+                        pending.extend(next_id for next_id, _ in next_corrections)
+                    elif correction_id in eligible_ids:
+                        correction_alias_terms.setdefault(correction_id, set()).update(
+                            inherited_terms)
+        document_terms = [
+            _memory_retrieval_terms(record["text"])
+            | correction_alias_terms.get(str(record.get("id")), set())
+            for record in eligible]
         document_frequency = {term: sum(term in candidate_terms
             for candidate_terms in document_terms) for term in terms}
         term_weights = {term: math.log((len(eligible) + 1) /
