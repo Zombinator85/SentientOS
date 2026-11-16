@@ -268,6 +268,17 @@ statement. Missing, changed, malformed, or unselected turns are withheld. The
 durable cognition observation records selection, turn, feedback-fact, and source
 session digests, but does not copy the transcript text into cognition records.
 
+When distinct feedback records cite the same turn, the selection retains one
+source-bound context row per report instead of collapsing them by transcript
+identity. The prompt and observation keep those report identities separate;
+repeated dialogue does not count as independent corroboration. The deterministic
+counterfactual in
+`tests/test_persistent_governed_conversation.py::test_verified_epistemic_citation_survives_restart_and_changes_followup_projection`
+now includes two conflicting reports about the same prior turn. Both reports
+reach the later prompt, which preserves the disagreement as unresolved and
+unverified while leaving the prior epistemic state unchanged. This demonstrates
+the behavior with controlled substitutes, not reliable real-model reasoning.
+
 `tests/test_persistent_governed_conversation.py::test_historical_citation_context_resolves_only_digest_bound_source_turn`
 demonstrates reconstruction from a separately persisted session and fail-closed
 behavior after a citation digest changes. The controlled counterfactual in
