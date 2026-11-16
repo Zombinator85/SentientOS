@@ -9,6 +9,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Mapping
 from types import SimpleNamespace
 
 import pytest
@@ -806,14 +807,24 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                         "epistemic_state_ids": [packet["state"]["state_id"]],
                     }
                     if prompt.get("session_conversation_context") is not None:
-                        self.companion_output_override["conversation_turn_ids"] = []
+                        conversation = prompt["session_conversation_context"]
+                        allowed_ids = set(prompt.get(
+                            "conversation_turn_citation_allowlist", ()))
+                        assistant_turn = next((turn for turn in
+                            conversation.get("turns", ())
+                            if isinstance(turn, Mapping)
+                            and turn.get("role") == "assistant"
+                            and turn.get("turn_id") in allowed_ids), None)
+                        self.companion_output_override["conversation_turn_ids"] = (
+                            [assistant_turn["turn_id"]]
+                            if assistant_turn is not None else [])
             return super().invoke(request, persist=persist,
                 include_output_in_receipt=include_output_in_receipt,
                 resource_context=resource_context)
 
     now = datetime.now(timezone.utc)
     screen = {"modality": "screen", "text": "The neutral test scene is visible.",
-        "capture_digest": "f" * 64,
+        "text_status": "available", "capture_digest": "f" * 64,
         "capture_scope": "allowlisted_foreground_game_client_area",
         "captured_at": now.isoformat(), "raw_frame_retained": False,
         "text_change_kind": "initial", "previous_text_digest": None}
@@ -867,7 +878,8 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     # Reopen both durable owners before the follow-up consumes the cited state.
     restarted_invoker = ProjectionAwareInvoker()
     restarted_cognition, _ = cognition_owner(tmp_path / "cognition",
-        invoker=restarted_invoker, allowed_source_kinds=("embodiment",))
+        invoker=restarted_invoker,
+        allowed_source_kinds=("embodiment", "operator_input"), max_selected_facts=2)
     restarted_epistemics = PersistentEpistemicStateOwner(
         tmp_path / "epistemics", allowed_namespaces=("embodiment",))
     restarted_bridge = ResidentDevelopmentalCompanionBridge(restarted_cognition,
@@ -908,6 +920,49 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert target.statement in followup_response.response
     assert other.statement in control_response.response
     assert followup_response.response != control_response.response
+
+    source_assistant = first_turns[-1]
+    followup_turns = restarted_app.sessions.load(session_id)["turns"]
+    correction_source = next(turn for turn in followup_turns
+        if turn["turn_id"] == source_assistant["turn_id"])
+    correction_assistant = followup_turns[-1]
+    assert correction_source["turn_id"] in correction_assistant["linkage"][
+        "cognition_conversation_turn_citation_ids"]
+    assert restarted_bridge.operator_feedback_available() is True
+    assert correction_assistant["linkage"]["screen_observation_provenance"][
+        "capture_digest"] == "f" * 64
+    correction_cycle = restarted_app.run_developmental_cycle(
+        session_id=session_id, assistant_turn_id=correction_assistant["turn_id"],
+        request_id="cross-session-operator-feedback",
+        operator_feedback="The earlier west sensor answer should be revisited.",
+        correction_target_turn_id=source_assistant["turn_id"])
+    assert correction_cycle["status"] == "completed_writeback"
+
+    correction_session_id = restarted_app.create_session()
+    correction_request_start = len(restarted_invoker.requests)
+    corrected_context_response = restarted_app.chat(target_question,
+        session_id=correction_session_id, request_id="cross-session-priority",
+        observe_screen=True)
+    corrected_request = next(request for request in reversed(
+        restarted_invoker.requests[correction_request_start:])
+        if request.upstream_evidence.get("epistemic_projection_id") is not None)
+    assert corrected_request.upstream_evidence["epistemic_proposition_ids"] == [
+        target.proposition_id]
+    assert corrected_request.upstream_evidence["epistemic_state_ids"] == [
+        target_state.state_id]
+    assert target.statement in corrected_context_response.response
+    corrected_prompt = json.loads(corrected_request.prompt)
+    historical_context = corrected_prompt["historical_cited_conversation_context"]
+    assert historical_context["historical_only"] is True
+    assert historical_context["current_truth"] is False
+    assert historical_context["authority"] is False
+    assert historical_context["mutation_performed"] is False
+    assert historical_context["epistemic_state_citation_ids"] == [
+        target_state.state_id]
+    assert "operator_assertion_unverified" in json.dumps(
+        corrected_prompt["developmental_history"])
+    assert restarted_epistemics.current_state(target.proposition_id).state_id == (
+        target_state.state_id)
 
 
 def test_resident_cognition_receives_only_verified_explicitly_retained_memory(

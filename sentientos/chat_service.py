@@ -2758,47 +2758,52 @@ class PersistentConversationService:
             "invocation_output_digest": invocation_output_digest,
             "response_digest": response_digest,
         }
+        assistant_linkage: dict[str, Any] = {
+            "source_user_turn_id": str(user_turn["turn_id"]),
+            "response_origin": "resident_developmental_cognition",
+            "cognition_snapshot_id": str(getattr(result, "snapshot_id", "")),
+            "cognition_snapshot_digest": str(getattr(result, "snapshot_digest", "")),
+            "cognition_observation_id": observation_id,
+            "cognition_observation_digest": observation_digest,
+            "inference_receipt_id": receipt_id,
+            "inference_receipt_digest": receipt_digest,
+            "invocation_output_digest": invocation_output_digest,
+            "response_digest": response_digest,
+            "cognition_disposition": str(getattr(result, "disposition", "")),
+            "cognition_evidence_ids": list(evidence_ids),
+            "cognition_prior_record_ids": list(prior_record_ids),
+            "cognition_history_record_ids": list(history_record_ids),
+            "cognition_memory_citation_ids": list(memory_record_ids),
+            "cognition_self_model_claim_ids": list(self_model_claim_ids),
+            "cognition_epistemic_state_citation_ids": list(
+                epistemic_state_citation_ids),
+            "cognition_memory_selection_digest": memory_selection_digest,
+            "conversation_context_snapshot_digest": (
+                conversation_context.get("source_snapshot_digest")
+                if conversation_context is not None else None),
+            "conversation_context_selection_digest": getattr(
+                result, "conversation_context_selection_digest",
+                conversation_context.get("selection_digest")
+                if conversation_context is not None else None),
+            "conversation_context_turn_ids": [row["turn_id"] for row in
+                conversation_context["turns"]] if conversation_context is not None else [],
+            "conversation_context_turn_text_digests": [row["text_digest"] for row in
+                conversation_context["turns"]] if conversation_context is not None else [],
+            "cognition_conversation_turn_citation_ids": list(conversation_citation_ids),
+            "cognition_conversation_turn_citation_digests": conversation_citation_digests,
+            "cognition_model_id": model_id,
+            "cognition_model_artifact_digest": getattr(result, "model_artifact_digest", None),
+            "self_model_projection_id": getattr(result, "self_model_projection_id", None),
+            "self_model_projection_digest": getattr(result, "self_model_projection_digest", None),
+            "epistemic_projection_id": getattr(result, "epistemic_projection_id", None),
+            "epistemic_projection_digest": getattr(result, "epistemic_projection_digest", None),
+            "assistant_output_lineage": lineage,
+        }
+        screen_provenance = _bounded_screen_observation_provenance(screen_observation)
+        if screen_provenance is not None:
+            assistant_linkage["screen_observation_provenance"] = screen_provenance
         assistant = self.sessions.append_turn(session_id, role="assistant",
-            text=response_text, linkage={
-                "source_user_turn_id": str(user_turn["turn_id"]),
-                "response_origin": "resident_developmental_cognition",
-                "cognition_snapshot_id": str(getattr(result, "snapshot_id", "")),
-                "cognition_snapshot_digest": str(getattr(result, "snapshot_digest", "")),
-                "cognition_observation_id": observation_id,
-                "cognition_observation_digest": observation_digest,
-                "inference_receipt_id": receipt_id,
-                "inference_receipt_digest": receipt_digest,
-                "invocation_output_digest": invocation_output_digest,
-                "response_digest": response_digest,
-                "cognition_disposition": str(getattr(result, "disposition", "")),
-                "cognition_evidence_ids": list(evidence_ids),
-                "cognition_prior_record_ids": list(prior_record_ids),
-                "cognition_history_record_ids": list(history_record_ids),
-                "cognition_memory_citation_ids": list(memory_record_ids),
-                "cognition_self_model_claim_ids": list(self_model_claim_ids),
-                "cognition_epistemic_state_citation_ids": list(
-                    epistemic_state_citation_ids),
-                "cognition_memory_selection_digest": memory_selection_digest,
-                "conversation_context_snapshot_digest": (
-                    conversation_context.get("source_snapshot_digest")
-                    if conversation_context is not None else None),
-                "conversation_context_selection_digest": (
-                    conversation_context.get("selection_digest")
-                    if conversation_context is not None else None),
-                "conversation_context_turn_ids": [row["turn_id"] for row in
-                    conversation_context["turns"]] if conversation_context is not None else [],
-                "conversation_context_turn_text_digests": [row["text_digest"] for row in
-                    conversation_context["turns"]] if conversation_context is not None else [],
-                "cognition_conversation_turn_citation_ids": list(conversation_citation_ids),
-                "cognition_conversation_turn_citation_digests": conversation_citation_digests,
-                "cognition_model_id": model_id,
-                "cognition_model_artifact_digest": getattr(result, "model_artifact_digest", None),
-                "self_model_projection_id": getattr(result, "self_model_projection_id", None),
-                "self_model_projection_digest": getattr(result, "self_model_projection_digest", None),
-                "epistemic_projection_id": getattr(result, "epistemic_projection_id", None),
-                "epistemic_projection_digest": getattr(result, "epistemic_projection_digest", None),
-                "assistant_output_lineage": lineage,
-            })
+            text=response_text, linkage=assistant_linkage)
         if self._avatar_output is not None:
             try:
                 self._avatar_output.publish_response(

@@ -368,3 +368,37 @@ strategy digest after substituting a false relation and verifies projection
 rejects it. These are deterministic software-path results, not evidence of
 real-model learning, broad task transfer, or improved open-ended decisions.
 No model inference was used for this milestone; validation is CPU-only.
+
+## Cross-session correction integration
+
+A verified assistant answer can now carry its bounded screen-capture provenance
+through resident-cognition transcript linkage, allowing the existing explicitly
+invoked operator-feedback path to evaluate that answer after a later turn. The
+feedback path still requires a cited earlier assistant response and records the
+operator statement as an unverified input; neither transcript history nor the
+feedback itself grants truth or execution authority.
+
+The composed path is covered by
+`tests/test_persistent_governed_conversation.py::test_verified_epistemic_citation_survives_restart_and_changes_followup_projection`.
+It reopens the cognition and epistemic owners, verifies the persisted answer,
+admits an operator correction through `PersistentConversationService`, then
+starts another session and confirms the cited epistemic state is selected in
+the production bridge prompt. A no-correction session selects the alternative
+state. The corrected prompt labels the old citation historical, non-truth,
+non-authoritative, and non-mutating; the epistemic state's identity remains
+unchanged. This is a deterministic fake-invoker result, not evidence that a
+real model will correctly interpret or act on feedback.
+
+The integration exposed a linkage defect: the bridge adds resolved epistemic
+priorities to the conversation context and recomputes its selection digest, but
+the response linkage previously kept the pre-bridge digest. The cognition
+result now returns the effective digest used for its prompt, and transcript
+verification checks that digest against the persisted observation. The test
+also supplies the screen observer's required text-status field so the bounded
+capture provenance can be carried into the assistant linkage.
+
+Focused CPU-only validation passed for the cross-session test and the adjacent
+developmental-cycle authorization, explicit-confirmation, and historical
+citation tests. No Hermes or GPU inference was used. Real-model feedback
+interpretation, repeated outcome measurement, and improvement across open-ended
+decisions remain unproven.
