@@ -73,6 +73,13 @@ selection rule helps later context distinguish a one-run outcome from a
 repeat-run-consistent one. It does not establish statistical independence,
 causality, general learning, or improved performance.
 
+When comparable repeated outcomes for the same exact task and source model are
+mixed, internally inconsistent, or include an unstable comparison, none of
+their records receives the ordinary favorable or neutral outcome-ranking
+priority. Their evaluator-scored examples and provenance remain available as
+tentative history. Unrelated task commitments and source models are ranked
+independently.
+
 When a bounded history selection includes a run from such a group, the
 read-only retrieval projection also carries the exact-task, source-model, and
 run-reference summary into the task-family prompt. This keeps the reason for a
