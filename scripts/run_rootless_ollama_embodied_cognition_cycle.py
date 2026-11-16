@@ -3,6 +3,10 @@
 The body and observer are synthetic fixtures. The developmental record, cognition
 observations, history ablation, model identity, and local inference receipts use
 the existing governed SentientOS owners. This is not production serving evidence.
+Select a different installed Ollama model with SENTIENTOS_HERMES_MODEL and its
+exact manifest file with SENTIENTOS_HERMES_MODEL_MANIFEST_PATH. The manifest
+must live under the configured rootless experiment custody and its SHA-256 must
+match its filename; the runner does not discover or substitute models.
 """
 from __future__ import annotations
 
@@ -450,8 +454,31 @@ def _history_transfer_probe_readiness(record: Mapping[str, Any]) -> dict[str, An
         "record_id": record.get("record_id"), "evidence_fact_ids": []}
 
 
-MANIFEST_PATH = EXPERIMENT_ROOT / "ollama-model-manifests" / (
+DEFAULT_MANIFEST_PATH = EXPERIMENT_ROOT / "ollama-model-manifests" / (
     "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce.json")
+
+
+def _configured_model_manifest_path() -> Path:
+    """Select one exact Ollama manifest; no model discovery or fallback."""
+    configured = os.environ.get("SENTIENTOS_HERMES_MODEL_MANIFEST_PATH")
+    return Path(configured) if configured else DEFAULT_MANIFEST_PATH
+
+
+MANIFEST_PATH = _configured_model_manifest_path()
+
+
+def _resolve_pinned_model_manifest_path(path: Path | None = None) -> Path:
+    """Require the selected manifest to be a regular file in experiment custody."""
+    try:
+        experiment_root = _no_symlink_path(EXPERIMENT_ROOT).resolve(strict=True)
+        manifest_path = _no_symlink_path(path or MANIFEST_PATH).resolve(strict=True)
+        manifest_path.relative_to(experiment_root)
+    except (OSError, ValueError) as exc:
+        raise RootlessExperimentalError(
+            "pinned_hermes_manifest_outside_experimental_custody") from exc
+    if not manifest_path.is_file():
+        raise RootlessExperimentalError("pinned_hermes_manifest_missing")
+    return manifest_path
 RUN_STAGE = "startup"
 PRE_ACTION_DECISION_EVIDENCE: dict[str, Any] | None = None
 RESOURCE_PREFLIGHT_EVIDENCE: list[dict[str, Any]] = []
@@ -1495,16 +1522,15 @@ def run() -> dict[str, Any]:
     RUN_PREREGISTRATION_DIGEST = None
     RUN_STAGE = "model_and_runtime_preflight"
     _require_experiment_runtime_dependencies()
-    if not MANIFEST_PATH.is_file() or MANIFEST_PATH.is_symlink():
-        raise RootlessExperimentalError("pinned_hermes_manifest_missing")
+    manifest_path = _resolve_pinned_model_manifest_path()
     preexisting_residency = _model_residency_observed(MODEL_NAME)
     if preexisting_residency is None:
         raise RootlessExperimentalError("ollama_model_residency_unavailable")
     if preexisting_residency:
         raise RootlessExperimentalError("pinned_hermes_already_resident")
-    manifest_digest, manifest_size = stream_sha256(MANIFEST_PATH)
-    model_weight_bytes = _model_weight_bytes(MANIFEST_PATH)
-    if manifest_digest != MANIFEST_PATH.stem:
+    manifest_digest, manifest_size = stream_sha256(manifest_path)
+    model_weight_bytes = _model_weight_bytes(manifest_path)
+    if manifest_digest != manifest_path.stem:
         raise RootlessExperimentalError("pinned_hermes_manifest_digest_mismatch")
     RUN_ROOT.mkdir(parents=True, exist_ok=False, mode=0o700)
     _no_symlink_path(RUN_ROOT)
@@ -1527,7 +1553,7 @@ def run() -> dict[str, Any]:
     initial_resource_evidence["gpu_memory_total_mib"] = initial_gpu["memory_total_mib"]
     inference_resource_evidence = RESOURCE_PREFLIGHT_EVIDENCE
     session = RootlessExperimentalOllamaDevelopmentalSession(
-        model_manifest_path=MANIFEST_PATH, model_name=MODEL_NAME,
+        model_manifest_path=manifest_path, model_name=MODEL_NAME,
         root=RUN_ROOT, session_binding=binding,
         kernel_factory=lambda _: kernel)
     session.invoker = cast(Any, _ResourceGuardedInvoker(
