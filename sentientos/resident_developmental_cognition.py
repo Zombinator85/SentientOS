@@ -7507,21 +7507,29 @@ class ResidentDevelopmentalCognitionOwner:
                         targeted_references.append(reference)
                     else:
                         other_references.append(reference)
-        selected: list[dict[str, Any]] = []
-        seen_citations: set[tuple[str, ...]] = set()
+        unique_turn_references: list[dict[str, Any]] = []
+        additional_report_references: list[dict[str, Any]] = []
+        seen_reports: set[tuple[str, ...]] = set()
+        seen_turns: set[tuple[str, str, str]] = set()
         for reference in targeted_references + other_references:
             citation_identity = (reference["feedback_record_id"],
                 reference["feedback_record_digest"], reference["feedback_fact_id"],
                 reference["feedback_assertion_digest"],
                 reference["conversation_session_id"], reference["turn_id"],
                 reference["text_digest"])
-            if citation_identity in seen_citations:
+            if citation_identity in seen_reports:
                 continue
-            seen_citations.add(citation_identity)
-            selected.append(reference)
-            if len(selected) == 16:
-                break
-        return tuple(selected)
+            seen_reports.add(citation_identity)
+            turn_identity = (reference["conversation_session_id"],
+                reference["turn_id"], reference["text_digest"])
+            if turn_identity in seen_turns:
+                additional_report_references.append(reference)
+            else:
+                seen_turns.add(turn_identity)
+                unique_turn_references.append(reference)
+        # Preserve a first report for every distinct turn before spending the
+        # bounded context budget on extra reports about already selected turns.
+        return tuple((unique_turn_references + additional_report_references)[:16])
 
     def _select_fact_ids(self, snapshot: WorldStateSnapshot, processed: set[str]) -> tuple[str, ...]:
         allowed = set(self.config.allowed_source_kinds)
