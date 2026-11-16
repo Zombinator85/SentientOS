@@ -229,6 +229,60 @@ def test_memory_retrieval_prefers_newer_record_only_when_relevance_ties(
         "preference replies", limit=1)["memories"]] == ["memory-newer"]
 
 
+def test_corrected_memory_is_retrievable_through_superseded_wording(
+        tmp_path: Path, monkeypatch) -> None:
+    store = CanonicalMemoryStore(tmp_path / "unused-memory")
+    old = {"id": "memory-" + "a" * 24,
+        "text": "I prefer expansive detailed replies.",
+        "timestamp": "2025-01-01T00:00:00Z"}
+    corrected = {"id": "memory-" + "b" * 24,
+        "text": "Keep responses spare and direct.",
+        "timestamp": "2026-01-01T00:00:00Z",
+        "meta": {"correction_schema": "sentientos.canonical_memory_correction:v1",
+            "correction_targets": [{"memory_id": old["id"],
+                "memory_record_digest": digest(old)}]}}
+    monkeypatch.setattr(store, "_records", lambda: ([old, corrected], "complete"))
+
+    result = store.retrieve("How should I write expansive detailed replies?")
+
+    assert [record["id"] for record in result["memories"]] == [corrected["id"]]
+    assert result["memories"][0]["text"] == corrected["text"]
+    assert old["text"] not in json.dumps(result["memories"])
+    assert result["correction_relations"][0]["posture"] == (
+        "explicit_user_correction_unverified")
+    assert store.retrieve("quasar navigation")["memories"] == []
+
+
+def test_superseded_wording_routes_through_a_correction_chain(
+        tmp_path: Path, monkeypatch) -> None:
+    store = CanonicalMemoryStore(tmp_path / "unused-memory")
+    oldest = {"id": "memory-" + "c" * 24,
+        "text": "I prefer expansive detailed replies.",
+        "timestamp": "2024-01-01T00:00:00Z"}
+    middle = {"id": "memory-" + "d" * 24,
+        "text": "Keep answers brief and plain.",
+        "timestamp": "2025-01-01T00:00:00Z",
+        "meta": {"correction_schema": "sentientos.canonical_memory_correction:v1",
+            "correction_targets": [{"memory_id": oldest["id"],
+                "memory_record_digest": digest(oldest)}]}}
+    current = {"id": "memory-" + "e" * 24,
+        "text": "Use concise, direct wording.",
+        "timestamp": "2026-01-01T00:00:00Z",
+        "meta": {"correction_schema": "sentientos.canonical_memory_correction:v1",
+            "correction_targets": [{"memory_id": middle["id"],
+                "memory_record_digest": digest(middle)}]}}
+    monkeypatch.setattr(store, "_records",
+        lambda: ([oldest, middle, current], "complete"))
+
+    oldest_wording = store.retrieve("expansive detailed replies")
+    middle_wording = store.retrieve("brief plain answers")
+
+    assert [record["id"] for record in oldest_wording["memories"]] == [current["id"]]
+    assert [record["id"] for record in middle_wording["memories"]] == [current["id"]]
+    assert oldest["text"] not in json.dumps(oldest_wording["memories"])
+    assert middle["text"] not in json.dumps(middle_wording["memories"])
+
+
 def test_distinctive_memory_anchor_beats_multiple_common_term_matches(
         tmp_path: Path, monkeypatch) -> None:
     store = CanonicalMemoryStore(tmp_path / "unused-memory")
