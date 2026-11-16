@@ -106,8 +106,11 @@ Compact resident history packets now carry the bounded lesson statement,
 scope, applicability, and uncertainty rationale into the prompt. The companion
 instruction treats these as provisional historical limits on transfer and
 requires the model to withhold reuse when current evidence or circumstances do
-not match. Compact packets omit nested dependency and contradiction ID lists;
-the outer record and candidate digests retain their custody binding. The focused
+not match. Compact packets omit nested dependency and contradiction ID lists
+but retain their counts and digests, including whether possible conflicts were
+recorded. The prompt treats that conflict count as a caution signal rather
+than current evidence, and the outer record and candidate digests retain their
+custody binding. The focused
 fixture
 `tests/test_resident_developmental_cognition.py::test_compact_history_prompt_retains_lesson_scope_and_uncertainty`
 verifies those fields survive the production compact binder with historical,

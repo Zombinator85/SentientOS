@@ -4861,9 +4861,18 @@ def test_compact_history_prompt_retains_lesson_scope_and_uncertainty() -> None:
     assert packet["uncertainty_rationale"] == lesson["uncertainty_rationale"]
     assert packet["lesson_candidate_posture"] == (
         "untrusted_candidate_not_truth_policy_authority_or_adopted_procedure")
+    assert packet["possible_contradiction_count"] == 1
+    assert packet["possible_contradiction_ids_digest"] == "sha256:" + digest_payload(
+        lesson["possible_contradiction_ids"])
+    assert packet["possible_contradiction_posture"] == (
+        "possible_conflicts_recorded_details_withheld_for_compact_context")
+    assert packet["evidence_dependency_count"] == 1
+    assert packet["evidence_dependencies_digest"] == "sha256:" + digest_payload(
+        lesson["evidence_dependencies"])
     assert "evidence_dependencies" not in packet
     assert "possible_contradiction_ids" not in packet
     assert "treat it as a provisional historical candidate" in bound["instruction"]
+    assert "retain the lesson's uncertainty" in bound["instruction"]
 
 
 def test_canonical_user_memory_is_prompt_bound_historical_context_not_evidence(
