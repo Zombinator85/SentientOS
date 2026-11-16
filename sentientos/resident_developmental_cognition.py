@@ -2806,8 +2806,8 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
     # prefer its richest evidence packet and degrade context only when needed
     # to keep that history available under the cognition input bound.
     counts = range(len(records), -1, -1) if history_present else (0,)
-    for prompt_self_model, self_model_selection in self_model_variants:
-        for count in counts:
+    for count in counts:
+        for prompt_self_model, self_model_selection in self_model_variants:
             for mode in packet_modes:
                 packets = packets_by_mode[mode]
                 selected = packets[len(packets) - count:] if count else ()

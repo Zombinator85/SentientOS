@@ -143,8 +143,11 @@ invoker, question-aware selection places the retained prior GPU measurement in
 the prompt and the later response includes it; the legacy predicate ordering
 does not. The prompt binder now tries the complete owner projection first, then
 removes a suffix of the owner's ranked claims until the full assembled context
-fits. A digest-bound selection manifest records consumed and omitted claim IDs
-and digests in both prompt context and inference evidence. The fixture shows
+fits. Across competing context types, it first preserves the largest complete
+ranked history suffix that can fit, then trims the self-model prefix within
+that history choice. A digest-bound selection manifest records consumed and
+omitted claim IDs and digests in both prompt context and inference evidence.
+The fixture shows
 that the ranked GPU claim survives while a large unrelated leading claim is
 omitted; with legacy ordering, the oversized claim causes the projection to be
 omitted from inference input. The prompt retains historical category, status,
@@ -154,6 +157,15 @@ states what inference consumed. Because this Windows fixture substitutes the
 POSIX composition lock and immutable observation publication, it demonstrates
 the behavioral integration path but not durable Windows custody or real-model
 generalization.
+
+`tests/test_resident_developmental_cognition.py::test_context_budget_trims_self_model_before_dropping_retrieved_experience`
+holds a large ranked history packet and self-model claim under a constrained
+prompt bound. At that same bound, the full self-model fits without retrieved
+experience, but the binder retains the history packet and the leading relevant
+self-model claim by omitting the bulky lower-ranked claim. This protects
+application of retrieved experience when context sources compete; it remains
+a deterministic input-allocation policy, not proof that the resulting answer
+is better.
 
 The focused counterfactual in
 `tests/test_resident_developmental_cognition.py::test_companion_query_selects_relevant_older_experience_over_recent_unrelated_history`

@@ -8504,6 +8504,58 @@ def test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_ide
     assert len(withheld_metadata["developmental_history_selection"]["omitted_records"]) == 4
 
 
+def test_context_budget_trims_self_model_before_dropping_retrieved_experience(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    import sentientos.resident_developmental_cognition as cognition_module
+
+    record = {"record_id": "prior-experience", "record_digest": "r" * 64}
+    monkeypatch.setattr(cognition_module, "_history_context_packet",
+        lambda item, **_kwargs: {**item, "padding": "h" * 2400,
+            "task_relevant_experience": [], "historical_embodiment_reports": []})
+    model = {"projection_id": "projection-prior", "projection_digest": "p" * 64,
+        "relevance_query_digest": "q" * 64,
+        "selected_claims": [
+            {"claim_id": "relevant-claim", "value": "gpu utilization: 25 percent"},
+            {"claim_id": "bulky-unrelated-claim", "value": "x" * 2200}],
+        "selected_claim_ids": ["relevant-claim", "bulky-unrelated-claim"],
+        "selected_claim_digests": ["a" * 64, "b" * 64]}
+    context = {"instruction": "Apply retained experience as historical evidence.",
+        "prior_self_model": model, "developmental_history": []}
+
+    def bind(capacity: int, *, history_present: bool = True):
+        return _bind_history_and_epistemic_context(context=context,
+            records=(record,), projection=None, history_present=history_present,
+            max_input_chars=capacity)
+
+    selected_capacity = None
+    for capacity in range(1024, 12_001, 64):
+        try:
+            bound, metadata, prompt, ids, _ = bind(capacity)
+        except ResidentDevelopmentalCognitionError as exc:
+            if str(exc) != "cognition_input_budget_exceeded":
+                raise
+            continue
+        selection = metadata.get("prior_self_model_prompt_selection", {})
+        if ids == (record["record_id"],) and selection.get(
+                "selected_claim_ids") == ["relevant-claim"]:
+            selected_capacity = capacity
+            break
+
+    assert selected_capacity is not None
+    prompt_value = json.loads(prompt)
+    assert prompt_value["developmental_history"][0]["record_id"] == record["record_id"]
+    assert prompt_value["prior_self_model"]["selected_claim_ids"] == ["relevant-claim"]
+    assert prompt_value["prior_self_model_prompt_selection"]["omitted_claims"][0][
+        "claim_id"] == "bulky-unrelated-claim"
+    # At the same input bound, the complete self-model fits when no retrieved
+    # experience competes for space. This proves the selected result is a
+    # cross-domain budget decision, not a projection that could never fit.
+    full_model_bound, _, full_model_prompt, _, _ = bind(
+        selected_capacity, history_present=False)
+    assert len(full_model_prompt) <= selected_capacity
+    assert len(full_model_bound["prior_self_model"]["selected_claim_ids"]) == 2
+
+
 def test_task_family_retrieval_prioritizes_bound_current_model_before_probe_overlap(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Applicable history survives the retrieval cap over higher-overlap other-model records."""
