@@ -8158,7 +8158,7 @@ class ResidentDevelopmentalCognitionOwner:
             expected_memory_fields = {"schema_version", "source_snapshot_digest",
                 "retrieval_posture", "selection_posture", "records", "read_only",
                 "historical_only", "current_truth", "authority", "mutation_performed",
-                "selection_digest"}
+                "correction_relations", "selection_digest"}
             semantic_memory = {key: value for key, value in canonical_memory_context.items()
                 if key != "selection_digest"}
             records = canonical_memory_context.get("records")
@@ -8198,6 +8198,37 @@ class ResidentDevelopmentalCognitionOwner:
                         valid_records = False
                         break
                     seen_memory_ids.add(memory_id)
+            relations = canonical_memory_context.get("correction_relations")
+            valid_relations = isinstance(relations, list) and len(relations) <= 8
+            if isinstance(relations, list):
+                seen_pairs: set[tuple[str, str]] = set()
+                for relation in relations:
+                    pair = (relation.get("correcting_memory_id"),
+                        relation.get("corrected_memory_id")) if isinstance(
+                            relation, Mapping) else (None, None)
+                    if (not isinstance(relation, Mapping) or set(relation) != {
+                            "correcting_memory_id", "corrected_memory_id",
+                            "corrected_memory_record_digest", "posture"}
+                            or not isinstance(pair[0], str)
+                            or not re.fullmatch(r"memory-[0-9a-f]{24}", pair[0])
+                            or pair[0] not in seen_memory_ids
+                            or not isinstance(pair[1], str)
+                            or not re.fullmatch(r"memory-[0-9a-f]{24}", pair[1])
+                            or pair[0] == pair[1]
+                            or pair in seen_pairs
+                            or not isinstance(relation.get(
+                                "corrected_memory_record_digest"), str)
+                            or not re.fullmatch(r"[0-9a-f]{64}", relation[
+                                "corrected_memory_record_digest"])
+                            or relation.get("posture")
+                                != "explicit_user_correction_unverified"):
+                        valid_relations = False
+                        break
+                    if isinstance(pair[0], str) and isinstance(pair[1], str):
+                        seen_pairs.add((pair[0], pair[1]))
+                    else:
+                        valid_relations = False
+                        break
             if (set(canonical_memory_context) != expected_memory_fields
                     or canonical_memory_context.get("schema_version")
                         != "sentientos.canonical_user_memory_cognition_context:v1"
@@ -8213,7 +8244,7 @@ class ResidentDevelopmentalCognitionOwner:
                     or canonical_memory_context.get("current_truth") is not False
                     or canonical_memory_context.get("authority") is not False
                     or canonical_memory_context.get("mutation_performed") is not False
-                    or not valid_records
+                    or not valid_records or not valid_relations
                     or canonical_memory_context.get("selection_digest")
                         != digest_payload(semantic_memory)):
                 raise ResidentDevelopmentalCognitionError(

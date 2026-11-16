@@ -493,6 +493,18 @@ non-authoritative, non-policy, non-current-truth, and outside canonical explicit
 user retention. Developmental history uses a physically separate configured
 root and does not widen canonical retention semantics.
 
+Explicit retained-memory corrections are now represented as immutable links from
+a newly retained user statement to up to eight previously retained memory IDs.
+The request must name those IDs; each target is checked against its source turn,
+retention receipt, and exact stored-record digest. The correction bindings are
+included in request idempotency and durable turn/record provenance. Retrieval
+omits linked older statements from ordinary personalization, while explicit
+historical-recall queries can still retrieve them. The cognition context carries
+the relation as unverified user history: it does not establish objective truth
+or currentness. Deterministic fake-model tests cover the storage and selection
+counterfactual; real-model application and long-term behavioral improvement
+remain unverified.
+
 ## Fourth substrate: prior epistemic state
 
 Cognition can receive a separately typed, prior-tick epistemic projection binding exact proposition IDs, state IDs/digests, generations, and evidence-set digests. Current World-State evidence outranks a conflicting stale position for current-condition reasoning. Same-tick projections fail closed, so a cognition cannot certify its own update. See [persistent epistemic state](../architecture/persistent_epistemic_state.md).

@@ -14,6 +14,8 @@ MAX_RETENTION_RECORD_BYTES = 256 * 1024
 MAX_MEMORY_SCAN_ENTRIES = 4096
 MAX_MEMORY_RECORDS = 1024
 MAX_MEMORY_TOTAL_BYTES = 16 * 1024 * 1024
+MAX_MEMORY_CORRECTION_TARGETS = 8
+_MEMORY_ID_PATTERN = re.compile(r"^memory-[0-9a-f]{24}$")
 _MEMORY_RETRIEVAL_STOP_WORDS = frozenset((
     "a", "about", "after", "again", "all", "am", "an", "and", "any", "are",
     "as", "at", "be", "because", "been", "before", "being", "between", "both",
@@ -73,6 +75,38 @@ def retention_request_id(operation_id: str) -> str:
         raise ValueError("retention_operation_identity_invalid")
     return "retain-request-" + hashlib.sha256(
         operation_id.encode("utf-8")).hexdigest()[:24]
+
+
+def _validated_correction_targets(value: object, *, allow_empty: bool = False
+        ) -> list[dict[str, str]]:
+    if (not isinstance(value, (tuple, list))
+            or len(value) > MAX_MEMORY_CORRECTION_TARGETS
+            or (not allow_empty and not value)):
+        raise ValueError("canonical_memory_correction_targets_invalid")
+    result: list[dict[str, str]] = []
+    for item in value:
+        if (not isinstance(item, Mapping)
+                or set(item) != {"memory_id", "memory_record_digest"}
+                or not isinstance(item.get("memory_id"), str)
+                or _MEMORY_ID_PATTERN.fullmatch(item["memory_id"]) is None
+                or not isinstance(item.get("memory_record_digest"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", item["memory_record_digest"]) is None):
+            raise ValueError("canonical_memory_correction_targets_invalid")
+        result.append({"memory_id": item["memory_id"],
+            "memory_record_digest": item["memory_record_digest"]})
+    if len({item["memory_id"] for item in result}) != len(result):
+        raise ValueError("canonical_memory_correction_targets_invalid")
+    return sorted(result, key=lambda item: item["memory_id"])
+
+
+def _correction_targets_from_turn(source_turn: Mapping[str, Any]
+        ) -> list[dict[str, str]]:
+    linkage = source_turn.get("linkage")
+    value = (linkage.get("canonical_memory_correction_targets", ())
+        if isinstance(linkage, Mapping) else ())
+    if not value:
+        return []
+    return _validated_correction_targets(value)
 # Freeze shared root configuration at first import.  The legacy manager keeps
 # module-level path constants, so re-reading environment variables for chat would
 # otherwise let the two owners silently diverge after startup.
@@ -104,8 +138,21 @@ class ExplicitRetentionAdmissionGate:
     """Independent, default-deny authority for an exact structured user request."""
     def decide(self, candidate: Mapping[str, Any]) -> RetentionAdmission:
         required=("session_id","source_turn_id","source_text_digest","request_id","operation_id")
+        targets = candidate.get("correction_targets", ())
+        targets_valid = (isinstance(targets, (tuple, list))
+            and len(targets) <= MAX_MEMORY_CORRECTION_TARGETS
+            and all(isinstance(item, Mapping) and set(item) == {
+                "memory_id", "memory_record_digest"}
+                and isinstance(item.get("memory_id"), str)
+                and _MEMORY_ID_PATTERN.fullmatch(item["memory_id"]) is not None
+                and isinstance(item.get("memory_record_digest"), str)
+                and re.fullmatch(r"[0-9a-f]{64}", item["memory_record_digest"]) is not None
+                for item in targets)
+            and len({item["memory_id"] for item in targets
+                if isinstance(item, Mapping)}) == len(targets))
         valid=(candidate.get("candidate_type")==CANDIDATE_TYPE and candidate.get("explicitly_requested") is True
-               and candidate.get("source_role")=="user" and all(candidate.get(k) for k in required))
+               and candidate.get("source_role")=="user" and all(candidate.get(k) for k in required)
+               and targets_valid)
         cd=digest(candidate); decision="retention_admitted" if valid else "retention_denied"
         body={"decision":decision,"candidate_digest":cd,"request_id":str(candidate.get("request_id") or ""),"authority":"explicit_retention_admission_gate"}
         return RetentionAdmission(decision,cd,body["request_id"],digest(body),None if valid else "invalid_explicit_user_candidate")
@@ -152,6 +199,17 @@ def _is_prior_message_recall_question(text: str) -> bool:
         r"\bwhat did (?:i|you) ask\b",
         r"\bwhat was written\b",
         r"\bwhat was my (?:first|previous|last) (?:message|question|request)\b",
+    ))
+
+
+def _is_historical_memory_recall_query(text: str) -> bool:
+    """Keep explicitly corrected statements available for questions about the past."""
+    normalized = " ".join(re.findall(r"[a-z0-9]+", text.casefold()))
+    return any(re.search(pattern, normalized) is not None for pattern in (
+        r"\bwhat (?:did|do) i (?:previously|used to|earlier|before)\b",
+        r"\bwhat was my (?:old|older|previous|former|earlier)\b",
+        r"\bwhat did i prefer before\b",
+        r"\bwhat did i say before\b",
     ))
 
 
@@ -339,8 +397,42 @@ class CanonicalMemoryStore:
         legacy_sidecar_posture = self._legacy_sidecar_posture()
         legacy_sidecar_present = legacy_sidecar_posture == "present_unverified"
         terms = _memory_retrieval_terms(query)
+        by_id = {record.get("id"): record for record in records
+            if isinstance(record.get("id"), str)}
+        superseded: dict[str, list[tuple[str, str]]] = {}
+        for correction in records:
+            correction_id = correction.get("id")
+            meta = correction.get("meta")
+            targets = meta.get("correction_targets") if isinstance(meta, Mapping) else None
+            if (not isinstance(correction_id, str)
+                    or not isinstance(meta, Mapping)
+                    or meta.get("correction_schema")
+                        != "sentientos.canonical_memory_correction:v1"
+                    or not isinstance(targets, list)
+                    or not 0 < len(targets) <= MAX_MEMORY_CORRECTION_TARGETS):
+                continue
+            seen_targets: set[str] = set()
+            for target in targets:
+                if (not isinstance(target, Mapping)
+                        or set(target) != {"memory_id", "memory_record_digest"}):
+                    continue
+                target_id, target_digest = (target.get("memory_id"),
+                    target.get("memory_record_digest"))
+                target_record = by_id.get(target_id)
+                if (not isinstance(target_id, str)
+                        or _MEMORY_ID_PATTERN.fullmatch(target_id) is None
+                        or target_id == correction_id or target_id in seen_targets
+                        or not isinstance(target_digest, str)
+                        or re.fullmatch(r"[0-9a-f]{64}", target_digest) is None
+                        or not isinstance(target_record, Mapping)
+                        or digest(target_record) != target_digest):
+                    continue
+                seen_targets.add(target_id)
+                superseded.setdefault(target_id, []).append((correction_id, target_digest))
+        historical_recall = _is_historical_memory_recall_query(query)
         eligible = [record for record in records
-            if not _is_prior_message_recall_question(record["text"])]
+            if not _is_prior_message_recall_question(record["text"])
+            and (historical_recall or record.get("id") not in superseded)]
         document_terms = [_memory_retrieval_terms(record["text"]) for record in eligible]
         document_frequency = {term: sum(term in candidate_terms
             for candidate_terms in document_terms) for term in terms}
@@ -383,15 +475,26 @@ class CanonicalMemoryStore:
             else:
                 omitted.append((identity,"character_budget"))
         identities=[(r.get("id"),r.get("text_digest") or digest({"text":r["text"]})) for r in selected]
+        selected_ids = {str(record.get("id")) for record in selected}
+        correction_relations = [{
+            "correcting_memory_id": correction_id,
+            "corrected_memory_id": target_id,
+            "corrected_memory_record_digest": target_digest,
+            "posture": "explicit_user_correction_unverified",
+        } for target_id, corrections in sorted(superseded.items())
+            for correction_id, target_digest in corrections
+            if correction_id in selected_ids]
         selection_posture = "matching_records_omitted" if omitted else "all_matching_records_selected"
         return {"memories":selected,"selected_memory_ids":[x[0] for x in identities],"read_only":True,
                 "legacy_sidecar_present":legacy_sidecar_present,
                 "legacy_sidecar_posture":legacy_sidecar_posture,
+                "correction_relations":correction_relations,
                 "retrieval_posture":retrieval_posture,
                 "selection_posture":selection_posture,
                 "omitted_memory_count":len(omitted),
                 "snapshot_digest":digest({"query_digest":digest({"query":query}),"selected":identities,
                     "omitted":omitted,"selection_posture":selection_posture,
+                    "correction_relations":correction_relations,
                     "limit":limit,"budget_chars":budget_chars,"retrieval_posture":retrieval_posture,
                     "legacy_sidecar_posture":legacy_sidecar_posture})}
     def open_memory_root(self, *, prepare_for_write: bool = False) -> int:
@@ -542,6 +645,13 @@ class AdmittedRetentionWriter:
                     "admission_status": "not_independently_recoverable", "write_replayed": False}
         operation = "retain:" + session_id + ":" + source_turn["turn_id"]
         expected_id = "memory-" + hashlib.sha256(operation.encode()).hexdigest()[:24]
+        try:
+            correction_targets = _correction_targets_from_turn(source_turn)
+        except ValueError:
+            return {"artifact_status": "conflict",
+                "reason_code": "source_correction_targets_invalid",
+                "admission_status": "not_independently_recoverable",
+                "write_replayed": False}
         legacy_fields = {"status", "memory_id", "source_session_id", "source_turn_id",
             "source_text_digest", "admission_receipt_digest", "execution_operation_id",
             "canonical_stored_record_digest", "target_root_identity", "index_update_result"}
@@ -642,8 +752,28 @@ class AdmittedRetentionWriter:
         meta = record.get("meta") if isinstance(record, dict) else None
         base_meta_fields = {"session_id", "turn_id", "request_id", "operation_id",
                             "admission_receipt_digest"}
+        correction_meta_fields = base_meta_fields | {
+            "correction_schema", "correction_targets"}
         filesystem_meta_fields = base_meta_fields | {
             "memory_root_filesystem_binding_digest", "memory_root_filesystem_binding_scope"}
+        correction_filesystem_meta_fields = correction_meta_fields | {
+            "memory_root_filesystem_binding_digest", "memory_root_filesystem_binding_scope"}
+        record_targets = (meta.get("correction_targets")
+            if isinstance(meta, Mapping) else None)
+        record_meta: Mapping[str, Any] = meta if isinstance(meta, Mapping) else {}
+        try:
+            validated_record_targets = _validated_correction_targets(record_targets)
+        except ValueError:
+            validated_record_targets = []
+        correction_record_valid = (
+            (not correction_targets and set(meta or {}) in (
+                base_meta_fields, filesystem_meta_fields))
+            or (bool(correction_targets)
+                and set(meta or {}) in (correction_meta_fields,
+                    correction_filesystem_meta_fields)
+                and record_meta.get("correction_schema")
+                    == "sentientos.canonical_memory_correction:v1"
+                and validated_record_targets == correction_targets))
         timestamp = record.get("timestamp") if isinstance(record, dict) else None
         try:
             instant = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
@@ -660,7 +790,7 @@ class AdmittedRetentionWriter:
                 or type(record.get("importance")) is not float
                 or record.get("importance") != 1.0
                 or not isinstance(meta, dict)
-                or set(meta) not in (base_meta_fields, filesystem_meta_fields)
+                or not correction_record_valid
                 or meta.get("session_id") != session_id
                 or meta.get("turn_id") != source_turn["turn_id"]
                 or not isinstance(meta.get("request_id"), str)
@@ -670,7 +800,8 @@ class AdmittedRetentionWriter:
                 or not timestamp_valid or digest(record) != stored_digest):
             return {"artifact_status": "conflict", "reason_code": "stored_artifact_binding_invalid",
                     "admission_status": "not_independently_recoverable", "write_replayed": False}
-        has_record_root_binding = set(meta) == filesystem_meta_fields
+        has_record_root_binding = set(meta) in (
+            filesystem_meta_fields, correction_filesystem_meta_fields)
         if has_record_root_binding != filesystem_binding:
             return {"artifact_status": "conflict",
                 "reason_code": "target_root_filesystem_binding_not_record_bound",
@@ -701,6 +832,8 @@ class AdmittedRetentionWriter:
             "source_turn_id": source_turn["turn_id"], "source_role": "user",
             "source_text_digest": source_turn["text_digest"], "explicitly_requested": True,
             "request_id": meta["request_id"], "operation_id": operation}
+        if correction_targets:
+            candidate["correction_targets"] = correction_targets
         admission = self.admission_gate.decide(candidate)
         if (admission.decision != "retention_admitted"
                 or admission.candidate_digest != digest(candidate)
@@ -742,6 +875,13 @@ class AdmittedRetentionWriter:
                     "write_replayed": False}
         operation = "retain:" + session_id + ":" + source_turn["turn_id"]
         memory_id = "memory-" + hashlib.sha256(operation.encode()).hexdigest()[:24]
+        try:
+            correction_targets = _correction_targets_from_turn(source_turn)
+        except ValueError:
+            return {"artifact_status": "conflict",
+                "reason_code": "source_correction_targets_invalid",
+                "admission_status": "not_independently_recoverable",
+                "write_replayed": False}
         staged_artifact_published = False
         observed_root_identity: str | None = None
         if os.name == "nt":
@@ -797,18 +937,25 @@ class AdmittedRetentionWriter:
                         "request_id": staged_request_id,
                         "operation_id": operation,
                     }
+                    if correction_targets:
+                        candidate["correction_targets"] = correction_targets
                     admission = self.admission_gate.decide(candidate)
+                    expected_meta = {"session_id": session_id,
+                        "turn_id": source_turn["turn_id"],
+                        "request_id": candidate["request_id"],
+                        "operation_id": operation,
+                        "admission_receipt_digest": admission.receipt_digest}
+                    if correction_targets:
+                        expected_meta.update({
+                            "correction_schema": "sentientos.canonical_memory_correction:v1",
+                            "correction_targets": correction_targets})
                     expected_record = {
                         "id": memory_id, "text": source_turn["text"],
                         "text_digest": source_turn["text_digest"],
                         "timestamp": staged.get("timestamp"),
                         "source": "conversation_user_turn", "category": "event",
                         "tags": ["explicit-retention"], "importance": 1.0,
-                        "meta": {"session_id": session_id,
-                            "turn_id": source_turn["turn_id"],
-                            "request_id": candidate["request_id"],
-                            "operation_id": operation,
-                            "admission_receipt_digest": admission.receipt_digest},
+                        "meta": expected_meta,
                     }
                     if (admission.decision != "retention_admitted"
                             or not self._same_operation_record(staged, expected_record)):
@@ -901,10 +1048,22 @@ class AdmittedRetentionWriter:
         meta = record["meta"]
         base_meta_fields = {"session_id", "turn_id", "request_id", "operation_id",
             "admission_receipt_digest"}
+        correction_meta_fields = base_meta_fields | {
+            "correction_schema", "correction_targets"}
         filesystem_meta_fields = base_meta_fields | {
             "memory_root_filesystem_binding_digest", "memory_root_filesystem_binding_scope"}
-        has_record_root_binding = set(meta) == filesystem_meta_fields
-        if set(meta) not in (base_meta_fields, filesystem_meta_fields):
+        correction_filesystem_meta_fields = correction_meta_fields | {
+            "memory_root_filesystem_binding_digest", "memory_root_filesystem_binding_scope"}
+        has_correction_targets = bool(correction_targets)
+        expected_meta_shapes = ((correction_meta_fields, correction_filesystem_meta_fields)
+            if has_correction_targets else (base_meta_fields, filesystem_meta_fields))
+        has_record_root_binding = set(meta) in (
+            filesystem_meta_fields, correction_filesystem_meta_fields)
+        if (set(meta) not in expected_meta_shapes
+                or (has_correction_targets and (
+                    meta.get("correction_schema")
+                        != "sentientos.canonical_memory_correction:v1"
+                    or meta.get("correction_targets") != correction_targets))):
             return {"artifact_status": "conflict",
                 "reason_code": "stored_artifact_metadata_shape_invalid",
                 "admission_status": "not_independently_recoverable", "write_replayed": False}
@@ -993,22 +1152,32 @@ class AdmittedRetentionWriter:
                   "tags", "importance", "meta"}
         base_meta_fields = {"session_id", "turn_id", "request_id", "operation_id",
             "admission_receipt_digest"}
+        correction_meta_fields = base_meta_fields | {
+            "correction_schema", "correction_targets"}
         filesystem_meta_fields = base_meta_fields | {
             "memory_root_filesystem_binding_digest", "memory_root_filesystem_binding_scope"}
+        correction_filesystem_meta_fields = correction_meta_fields | {
+            "memory_root_filesystem_binding_digest", "memory_root_filesystem_binding_scope"}
         existing_meta, proposed_meta = existing.get("meta"), proposed.get("meta")
+        allowed_meta_fields = (base_meta_fields, correction_meta_fields,
+            filesystem_meta_fields, correction_filesystem_meta_fields)
         if (set(existing) != fields or set(proposed) != fields
                 or any(existing.get(key) != proposed.get(key)
                     for key in fields - {"timestamp", "meta"})
                 or not isinstance(existing_meta, Mapping)
                 or not isinstance(proposed_meta, Mapping)
-                or set(existing_meta) not in (base_meta_fields, filesystem_meta_fields)
-                or set(proposed_meta) not in (base_meta_fields, filesystem_meta_fields)
+                or set(existing_meta) not in allowed_meta_fields
+                or set(proposed_meta) not in allowed_meta_fields
                 or any(existing_meta.get(key) != proposed_meta.get(key)
                     for key in base_meta_fields)
-                or (set(existing_meta) == filesystem_meta_fields
-                    and set(proposed_meta) == filesystem_meta_fields
+                or any(existing_meta.get(key) != proposed_meta.get(key)
+                    for key in {"correction_schema", "correction_targets"}
+                    if key in existing_meta or key in proposed_meta)
+                or ("memory_root_filesystem_binding_digest" in existing_meta
+                    and "memory_root_filesystem_binding_digest" in proposed_meta
                     and any(existing_meta.get(key) != proposed_meta.get(key)
-                        for key in filesystem_meta_fields - base_meta_fields))):
+                        for key in {"memory_root_filesystem_binding_digest",
+                            "memory_root_filesystem_binding_scope"}))):
             return False
         try:
             timestamp = datetime.fromisoformat(
@@ -1022,7 +1191,10 @@ class AdmittedRetentionWriter:
         expected_candidate_fields = {"candidate_type", "session_id", "source_turn_id",
             "source_role", "source_text_digest", "explicitly_requested", "request_id",
             "operation_id"}
-        if (not isinstance(candidate, Mapping) or set(candidate) != expected_candidate_fields
+        correction_candidate_fields = expected_candidate_fields | {"correction_targets"}
+        if (not isinstance(candidate, Mapping)
+                or set(candidate) not in (expected_candidate_fields,
+                    correction_candidate_fields)
                 or candidate.get("candidate_type") != CANDIDATE_TYPE
                 or candidate.get("source_role") != "user"
                 or candidate.get("explicitly_requested") is not True
@@ -1043,20 +1215,49 @@ class AdmittedRetentionWriter:
                 or digest({"text": source_turn.get("text")})
                     != source_turn.get("text_digest")):
             raise PermissionError("source_text_mismatch")
+        try:
+            correction_targets = _validated_correction_targets(
+                candidate.get("correction_targets", ()), allow_empty=True)
+            source_targets = _correction_targets_from_turn(source_turn)
+        except ValueError as exc:
+            raise PermissionError("invalid_memory_correction_targets") from exc
+        if correction_targets != source_targets:
+            raise PermissionError("memory_correction_source_binding_mismatch")
+        if correction_targets:
+            new_memory_id = "memory-" + hashlib.sha256(operation.encode()).hexdigest()[:24]
+            if any(target["memory_id"] == new_memory_id for target in correction_targets):
+                raise PermissionError("memory_correction_self_reference")
+            existing_records, posture = self.store._records()
+            existing_by_id = {record.get("id"): record for record in existing_records
+                if isinstance(record.get("id"), str)}
+            if posture != "complete" or any(
+                    not isinstance(existing_by_id.get(target["memory_id"]), Mapping)
+                    or digest(existing_by_id[target["memory_id"]])
+                        != target["memory_record_digest"]
+                    or existing_by_id[target["memory_id"]].get("source")
+                        != "conversation_user_turn"
+                    for target in correction_targets):
+                raise PermissionError("memory_correction_target_unverified")
         expected_admission = self.admission_gate.decide(candidate)
         if admission != expected_admission or admission.decision != "retention_admitted":
             raise PermissionError("valid_admission_evidence_required")
         memory_id = "memory-" + hashlib.sha256(operation.encode()).hexdigest()[:24]
+        record_meta: dict[str, Any] = {
+            "session_id": candidate["session_id"],
+            "turn_id": candidate["source_turn_id"],
+            "request_id": candidate["request_id"], "operation_id": operation,
+            "admission_receipt_digest": admission.receipt_digest}
+        if correction_targets:
+            record_meta.update({"correction_schema":
+                    "sentientos.canonical_memory_correction:v1",
+                "correction_targets": correction_targets})
         record = {
             "id": memory_id, "text": source_turn["text"],
             "text_digest": source_turn["text_digest"],
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "source": "conversation_user_turn", "category": "event",
             "tags": ["explicit-retention"], "importance": 1.0,
-            "meta": {"session_id": candidate["session_id"],
-                "turn_id": candidate["source_turn_id"],
-                "request_id": candidate["request_id"], "operation_id": operation,
-                "admission_receipt_digest": admission.receipt_digest},
+            "meta": record_meta,
         }
         directory_fd = self._open_raw_directory(prepare_for_write=True)
         temporary_name = ".memory-" + memory_id + ".tmp"
