@@ -654,6 +654,7 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.effect_claimed is False and fact.effect_proven is False
         )
         unverified_source_context = (historical_undated_consequence
+            or fact.source.kind == "operator_input"
             or historical_unverified_owner_record
             or historical_chat_recovery_event or historical_chat_runtime_observation
             or historical_parent_lifecycle
@@ -984,6 +985,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 else "quarantine_incident_custody_context_only" if quarantine_incident_custody_context
                 else "attestation_signature_verifier_result_context_only" if attestation_snapshot_verification_context
                 else "integrity_controller_verification_context_only" if integrity_controller_context
+                else "operator_assertion_unverified_context_only" if fact.source.kind == "operator_input"
                 else "unverified_source_context_only" if unverified_source_context
                 else rule.reliability_posture))
         return proof, binding

@@ -44,6 +44,14 @@ Positions use `unknown`, `suspended`, `provisionally_supported`, `supported`, `c
 
 Update reasons include initialization, new evidence, withdrawal, contradiction, duplicate correction, dependency correction, reliability revision, proposition refinement, update-rule correction, calibration outcome, and operator/error correction. This permits a correction without new external evidence and permits an attributable no-op. Model candidates remain proposals checked against exact predecessor and evidence custody; the deterministic owner commits.
 
+Operator assertions entering through World-State `operator_input` sources are
+adapted as `contextualizes` evidence with unknown dependency and the
+`operator_assertion_unverified_context_only` reliability posture. Even a
+configured rule that requests support or contradiction cannot turn a reported
+correction directly into a directional position update. A later update needs a
+separate source adapter that establishes the applicable evidence relation and
+provenance; the assertion alone remains useful context for cognition.
+
 The bounded mutation controller implements two independent transactions. An explicit source proof must exactly match an evidence binding before an exact evidence-stage admission can append it and produce an immutable receipt. A canonical candidate then binds the proposition, nullable predecessor (including a genuine `None` initialization predecessor), exact evidence set, stance, reason, rationale, uncertainty, model identity, schema, and all-false authority. A different exact state-stage admission permits deterministic validation and owner-level CAS. Neither stage accepts the full capability envelope or the other stage's effect set.
 
 ## Composition and boundaries
