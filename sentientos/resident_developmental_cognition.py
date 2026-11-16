@@ -2692,6 +2692,8 @@ _EPISTEMIC_RELEVANCE_STOP_WORDS = frozenset((
     "for", "from", "how", "in", "is", "it", "of", "on", "or", "the", "to",
     "was", "what", "which", "who", "with",
 ))
+_EPISTEMIC_IDENTIFIER_PATTERN = re.compile(
+    r"(?=[a-z0-9_-]*[a-z])(?=[a-z0-9_-]*\d)[a-z0-9]+(?:[-_][a-z0-9]+)+")
 
 
 def _epistemic_packet_question_relevance(packet: Mapping[str, Any], *,
@@ -2704,7 +2706,17 @@ def _epistemic_packet_question_relevance(packet: Mapping[str, Any], *,
         "subject", "predicate", "object_value", "statement", "temporal_scope",
         "context_scope", "qualifiers"))
     packet_terms = cognition_query_terms(searchable)
+    # Preserve typed identifiers that the general query tokenizer drops or
+    # splits (facility-1, exact-window-1). Their numeric suffixes often carry
+    # the distinction between otherwise identical epistemic propositions.
+    packet_terms.update(_EPISTEMIC_IDENTIFIER_PATTERN.findall(searchable.casefold()))
     return len((question_terms - _EPISTEMIC_RELEVANCE_STOP_WORDS) & packet_terms)
+
+
+def _epistemic_question_terms(question: str) -> set[str]:
+    terms = cognition_query_terms(question)
+    terms.update(_EPISTEMIC_IDENTIFIER_PATTERN.findall(question.casefold()))
+    return terms
 
 
 def _history_context_packet(record: Mapping[str, Any], *,
@@ -3309,7 +3321,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
     if not isinstance(question, str):
         probe = context.get("epistemic_revision_probe")
         question = probe.get("question") if isinstance(probe, Mapping) else None
-    question_terms = (cognition_query_terms(question)
+    question_terms = (_epistemic_question_terms(question)
         if isinstance(question, str) and question.strip() else set())
     packets = tuple(sorted(packets, key=lambda packet: (
         -_epistemic_packet_question_relevance(packet,

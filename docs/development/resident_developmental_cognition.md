@@ -488,6 +488,15 @@ root and does not widen canonical retention semantics.
 
 Cognition can receive a separately typed, prior-tick epistemic projection binding exact proposition IDs, state IDs/digests, generations, and evidence-set digests. Current World-State evidence outranks a conflicting stale position for current-condition reasoning. Same-tick projections fail closed, so a cognition cannot certify its own update. See [persistent epistemic state](../architecture/persistent_epistemic_state.md).
 
+When the inference input cannot carry every complete semantic packet, selection
+prioritizes proposition terms matching the current question before epistemic
+severity and stable identity. Matching also preserves typed identifiers such as
+`facility-1` and `exact-window-1`; discarding numeric suffixes can otherwise
+make distinct propositions look equally relevant. Omitted packet identities and
+digests remain bound in the observation. A deterministic budget counterfactual
+checks that the matching complete packet is selected while an unrelated query
+retains the established severity ordering.
+
 Current resident cognition observations use schema V12. The V10 selection manifest preserves the self-model claims chosen for the bounded inference prompt. It binds selected and omitted claim identities to the source projection digest, appears in the inference request's upstream evidence, and is checked against the recovered observation. V11 adds companion response citations for selected self-model claims. V12 adds companion citations to exact prior conversation turn IDs. The selected turn IDs and text digests remain bound to the source snapshot and context selection digest, and recovery checks each cited digest against that selected set. Older V9 through V11 observations retain their historical field shapes and remain recoverable. These records show which context was supplied and cited; they do not establish that a model used it correctly or that it improved a decision.
 
 The companion's committed-response verifier accepts V8 through V12 observations. For V9 and later, it checks memory citations and the memory selection digest against the durable observation. V11 also records prior self-model citations: the model may cite only selected claims in the prompt allowlist, and recovery and transcript verification bind those citations back to the recorded selection. V12 applies the same lineage check to cited conversation turns and their exact text digests. Self-model and conversation citations identify earlier context; they do not establish current truth or verified capability.
