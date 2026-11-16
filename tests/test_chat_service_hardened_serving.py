@@ -96,6 +96,66 @@ def service(tmp_path, inference, avatar_output=None, speech_output=None, screen_
         screen_observer=screen_observer)
 
 
+def test_resident_memory_verifies_beyond_untrusted_top_candidates(tmp_path, monkeypatch):
+    conversation_service = service(tmp_path, Inference())
+    retained_text = "Atlas meetings are usually on Tuesday."
+    retained_text_digest = chat_service.digest_payload({"text": retained_text})
+    source_turn_id = "turn-retained-atlas"
+    admission_digest = "e" * 64
+    source_turn = {
+        "role": "user", "turn_id": source_turn_id, "text": retained_text,
+        "text_digest": retained_text_digest, "retention_state": "retained",
+        "retention_receipt": {"receipt": "fixture"},
+    }
+    valid_record = {
+        "id": "memory-verified-atlas", "text": retained_text,
+        "text_digest": retained_text_digest,
+        "timestamp": "2026-01-01T00:00:00Z", "source": "conversation_user_turn",
+        "category": "event", "tags": ["explicit-retention"], "importance": 1.0,
+        "meta": {"session_id": "session-retained-atlas", "turn_id": source_turn_id,
+            "admission_receipt_digest": admission_digest},
+    }
+    valid_record_digest = chat_service.digest_payload(valid_record)
+
+    class Sessions:
+        def load(self, session_id):
+            assert session_id == "session-retained-atlas"
+            return {"turns": [source_turn]}
+
+    conversation_service.sessions = Sessions()
+
+    def verify(receipt, turn, session_id):
+        assert receipt == source_turn["retention_receipt"]
+        assert turn is source_turn and session_id == "session-retained-atlas"
+        return {"artifact_status": "verified",
+            "admission_status": "policy_recomputed_not_execution_attested",
+            "memory_id": valid_record["id"], "record_digest": valid_record_digest,
+            "admission_receipt_digest": admission_digest}
+
+    conversation_service.retention_writer.verify_committed_artifact = verify
+    candidates = [{"id": f"unverified-{index}",
+        "text": f"Atlas meeting schedule candidate {index}"} for index in range(4)]
+    candidates.append(valid_record)
+
+    def retrieve(query, *, limit, budget_chars):
+        assert query == "When is the Atlas meeting?"
+        assert limit == chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES
+        assert budget_chars == conversation_service.memory_budget_chars
+        return {"read_only": True, "snapshot_digest": "a" * 64,
+            "memories": candidates, "selection_posture": "all_matching_records_selected",
+            "retrieval_posture": "complete"}
+
+    monkeypatch.setattr(conversation_service.memories, "retrieve", retrieve)
+    context = conversation_service._resident_canonical_memory_context(
+        "When is the Atlas meeting?")
+
+    assert context is not None
+    assert [row["memory_id"] for row in context["records"]] == [valid_record["id"]]
+    assert context["retrieval_posture"] == "partial_source_verification"
+    assert context["records"][0]["authority"] is False
+    assert context["records"][0]["current_truth"] is False
+
+
 def test_production_chat_requires_process_generation_handoff_before_custody(monkeypatch, tmp_path):
     events = []
     handle = object()

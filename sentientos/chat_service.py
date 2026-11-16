@@ -76,6 +76,7 @@ from .perception.screen_text_delta import validate_ocr_text_line_delta
 from .screen_observation_bridge import ScreenObservationBridgeError
 
 LOGGER = logging.getLogger(__name__)
+MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES = 16
 
 
 def _is_earliest_session_recall_request(message: str) -> bool:
@@ -2039,7 +2040,8 @@ class PersistentConversationService:
 
     def _resident_canonical_memory_context(self, question: str) -> dict[str, Any] | None:
         """Bind only explicitly retained, source-turn-verified memories for cognition."""
-        retrieved = self.memories.retrieve(question, limit=4,
+        retrieved = self.memories.retrieve(question,
+            limit=MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES,
             budget_chars=self.memory_budget_chars)
         if (not isinstance(retrieved, Mapping)
                 or retrieved.get("read_only") is not True
@@ -2050,6 +2052,8 @@ class PersistentConversationService:
         used = 0
         seen_ids: set[str] = set()
         for record in retrieved["memories"]:
+            if len(selected) >= 4:
+                break
             if not isinstance(record, Mapping):
                 continue
             memory_id, text, text_digest = (
