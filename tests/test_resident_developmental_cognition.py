@@ -12359,7 +12359,9 @@ class HermeticCognitionBackend:
         }, sort_keys=True)
 
 
-def governed_owner(root: Path, *, backend: HermeticCognitionBackend, comparison: bool = False):
+def governed_owner(
+        root: Path, *, backend: HermeticCognitionBackend, comparison: bool = False,
+        max_inference_timeout_seconds: int = 30):
     root.mkdir(parents=True, exist_ok=True)
     model_path = root / "fixture.gguf"
     model_path.write_bytes(b"hermetic local backend fixture")
@@ -12392,7 +12394,8 @@ def governed_owner(root: Path, *, backend: HermeticCognitionBackend, comparison:
     )
     owner_value = ResidentDevelopmentalCognitionOwner(
         config=ResidentDevelopmentalCognitionConfig(
-            root / "history", root / "state", ("capability_registry",), 1, 4, comparison),
+            root / "history", root / "state", ("capability_registry",), 1, 4, comparison,
+            max_inference_timeout_seconds=max_inference_timeout_seconds),
         writeback=writeback,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
         invoker=invoker,
@@ -12447,6 +12450,22 @@ def test_real_governed_invocation_output_is_retained_without_a_lesson_only_call(
     # history-conditioned call whose exact output becomes the candidate.
     assert len(backend.calls) == 2
     assert result.cognition_observation_ids == (provenance["observation_id"],)
+
+
+def test_configured_cognition_timeout_survives_history_lesson_writeback(
+        tmp_path: Path, isolated_governed_runtime_roots: None) -> None:
+    backend = HermeticCognitionBackend("keep the observation's original scope")
+    composition, _invoker = governed_owner(
+        tmp_path, backend=backend, max_inference_timeout_seconds=90)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    result = composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+
+    record = composition.writeback.store.get(result.written_record_id)
+    source_request = record.candidate["transformation_provenance"]["source_request"]
+    assert source_request["budget"]["timeout_seconds"] == 90
+    assert record.candidate["transformation_provenance"]["kind"] == (
+        "history_conditioned_cognition_conclusion:v1")
+    assert len(backend.calls) == 2
 
 
 def test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them(

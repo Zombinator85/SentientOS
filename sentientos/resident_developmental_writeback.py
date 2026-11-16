@@ -76,6 +76,7 @@ MAX_COMPLETE_CONSEQUENCE_CYCLE_INPUT_CHARS = 24_576
 MAX_STRATEGY_QUALITY_SELECTED_EVIDENCE_BYTES = 12_288
 MAX_RETRIEVAL_RECORDS = 16
 MAX_INTERPRETATION_CHARS = 4000
+MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS = 120
 MAX_DURABLE_RECORDS = 4096
 MAX_DURABLE_RECORD_BYTES = 1_048_576
 MAX_DURABLE_RECORD_ROOT_BYTES = 134_217_728
@@ -2828,7 +2829,8 @@ class ResidentDevelopmentalWritebackController:
                         max_timeout_seconds: int = 30) -> DevelopmentalCandidate:
         input_limit = _writeback_input_limit(selection.facts)
         if (type(timeout_seconds) is not int or type(max_timeout_seconds) is not int
-                or not 1 <= timeout_seconds <= max_timeout_seconds <= 120):
+                or not 1 <= timeout_seconds <= max_timeout_seconds
+                <= MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS):
             raise DevelopmentalWritebackError(
                 "developmental_inference_budget_unbounded")
         expanded_evidence = input_limit > 8000
@@ -3325,7 +3327,7 @@ def _verify_history_conditioned_candidate(candidate: DevelopmentalCandidate) -> 
             or not isinstance(request_budget.get("max_new_tokens"), int)
             or request_budget["max_new_tokens"] > 512
             or not isinstance(request_budget.get("timeout_seconds"), (int, float))
-            or request_budget["timeout_seconds"] > 30
+            or request_budget["timeout_seconds"] > MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS
             or request_budget.get("max_calls_per_correlation") != 1):
         raise DevelopmentalWritebackError("cognition_candidate_budget_invalid")
     if (digest_payload(request_semantic) != candidate.request_digest
