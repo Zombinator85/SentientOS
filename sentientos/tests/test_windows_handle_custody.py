@@ -1254,6 +1254,50 @@ def test_windows_admitted_epistemic_correction_recovers_its_receipt() -> None:
             contradiction.binding_id}
         assert projection.authority is False
 
+        from datetime import datetime, timezone
+        from sentientos.developmental_companion_bridge import (
+            ResidentDevelopmentalCompanionBridge,
+        )
+        from tests.test_resident_developmental_cognition import (
+            owner as make_cognition_owner,
+        )
+
+        cognition_root = root / "cognition"
+        cognition_root.mkdir()
+        _make_current_user_private(cognition_root, directory=True)
+        for child in ("history", "state"):
+            directory = cognition_root / child
+            directory.mkdir()
+            _make_current_user_private(directory, directory=True)
+        cognition, fake = make_cognition_owner(cognition_root,
+            allowed_source_kinds=("embodiment",), max_selected_facts=1)
+        captured_at = datetime(2026, 1, 1, 0, 0, 3, tzinfo=timezone.utc)
+        screen = {"modality": "screen",
+            "text": "Fixture scene: a bounded observation with no truth claim.",
+            "capture_digest": "e" * 64,
+            "capture_scope": "allowlisted_foreground_game_client_area",
+            "captured_at": captured_at.isoformat(), "raw_frame_retained": False}
+        outcomes = []
+        for condition, consume in (("present", True), ("withheld", False),
+                ("restored", True)):
+            bridge = ResidentDevelopmentalCompanionBridge(
+                cognition, epistemic_state_owner=restarted_owner,
+                epistemic_state_config={"cognitive_consumption_enabled": consume,
+                    "max_cognitive_projection_count": 1},
+                clock=lambda: captured_at)
+            result = bridge.respond(request_id=f"windows-later-{condition}",
+                question="What does the west sensor currently report?",
+                screen_observation=screen)
+            outcomes.append((result, fake.requests[-1]))
+            assert result.status == "admitted_completed"
+        assert len({item[0].snapshot_digest for item in outcomes}) == 1
+        assert [item[0].epistemic_projection_id is not None
+            for item in outcomes] == [True, False, True]
+        expected_state_id = projection.states[0]["state_id"]
+        assert [item[1].upstream_evidence["epistemic_state_ids"]
+            for item in outcomes] == [[expected_state_id], [], [expected_state_id]]
+        assert [item[0].authority for item in outcomes] == [False, False, False]
+
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows no-replace rename")
 def test_windows_replay_publication_preserves_destination_race(

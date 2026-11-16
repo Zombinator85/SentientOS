@@ -7285,65 +7285,16 @@ class ResidentDevelopmentalCognitionOwner:
             "historical_context_only": True, "current_truth": False, "authority": False,
             "policy": False, "canonical_explicit_user_retention": False,
         }
-        digest = _digest(semantic)
         observation = ResidentCognitionObservation(
-            "devcog-" + digest[7:31], digest, condition_id, tick_id, correlation,
-            str(req["model_id"]), req.get("model_artifact_digest"), str(req["request_id"]),
-            str(req["request_digest"]), receipt.receipt_id, receipt.receipt_digest,
-            receipt.output_digest, str(getattr(request, "authority_map_digest", "test-authority-map")),
-            dict(getattr(request, "active_model_identity", {})), dict(receipt.generation_config),
-            snapshot.snapshot_id, snapshot.digest, current.projection_id,
-            current.projection_digest, current.fact_ids, record_ids,
-            record_digests, with_history,
-            prior_self_model is not None, prior_self_model.projection_id if prior_self_model else None,
-            prior_self_model.projection_digest if prior_self_model else None,
-            prior_self_model.source_reconciliation_id if prior_self_model else None,
-            prior_self_model.source_reconciliation_digest if prior_self_model else None,
-            prior_self_model.source_reconciliation_generation if prior_self_model else None,
-            prior_self_model.source_tick if prior_self_model else None,
-            prior_self_model.selected_claim_ids if prior_self_model else (),
-            prior_self_model.selected_claim_digests if prior_self_model else (),
-            prior_self_model is not None and prior_self_model.source_tick != tick_id,
-            prior_epistemic_state is not None,
-            prior_epistemic_state.projection_id if prior_epistemic_state else None,
-            prior_epistemic_state.projection_digest if prior_epistemic_state else None,
-            prior_epistemic_state.proposition_ids if prior_epistemic_state else (),
-            prior_epistemic_state.state_ids if prior_epistemic_state else (),
-            prior_epistemic_state.state_digests if prior_epistemic_state else (),
-            prior_epistemic_state.generations if prior_epistemic_state else (),
-            prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
-            schema_version=COGNITION_OBSERVATION_SCHEMA_V11,
-            serving_session_id=serving_session_id,
-            serving_session_binding=serving_session_binding,
-            serving_session_receipt_id=serving_session_receipt_id,
-            serving_session_receipt_digest=serving_session_receipt_digest,
-            observed_at=receipt.observed_at,
-            **_resource_linkage_fields(receipt),
-            companion_history_citation_ids=(
-                tuple(interaction_capture["history_record_ids"])
-                if (interaction_capture is not None
-                    and condition_id == "companion-interaction") else ()),
-            canonical_user_memory_selection_digest=(
-                canonical_memory_context.get("selection_digest")
-                if canonical_memory_context is not None else None),
-            canonical_user_memory_source_snapshot_digest=(
-                canonical_memory_context.get("source_snapshot_digest")
-                if canonical_memory_context is not None else None),
-            canonical_user_memory_record_ids=(tuple(row["memory_id"] for row in
-                canonical_memory_context.get("records", ()))
-                if canonical_memory_context is not None else ()),
-            canonical_user_memory_record_digests=(tuple(row["memory_record_digest"] for row in
-                canonical_memory_context.get("records", ()))
-                if canonical_memory_context is not None else ()),
-            companion_memory_citation_ids=(
-                tuple(interaction_capture["memory_record_ids"])
-                if (interaction_capture is not None
-                    and condition_id == "companion-interaction") else ()),
-            companion_self_model_citation_ids=(
-                tuple(interaction_capture["self_model_claim_ids"])
-                if interaction_capture is not None else ()),
-            **epistemic_metadata,
+            observation_id="", observation_digest="", **semantic,
         )
+        observation_payload = asdict(observation)
+        observation_payload.pop("observation_id")
+        observation_payload.pop("observation_digest")
+        digest = _digest(observation_payload)
+        observation = replace(observation,
+            observation_id="devcog-" + digest[7:31],
+            observation_digest=digest)
         if observation.schema_version == COGNITION_OBSERVATION_SCHEMA_V11:
             self._verify_observation_invocation(asdict(observation))
         if interaction_capture is not None:
