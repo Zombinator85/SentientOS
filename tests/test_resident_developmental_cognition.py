@@ -8455,6 +8455,84 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert control_later.response == "I do not have a relevant retained report."
 
 
+def test_targeted_operator_citation_precedes_earlier_general_citations_under_budget(
+        tmp_path: Path) -> None:
+    from contextlib import nullcontext
+    from sentientos.developmental_companion_bridge import (
+        make_operator_feedback_record,
+    )
+
+    cognition, _fake = owner(tmp_path / "citation-priority",
+        allowed_source_kinds=("embodiment", "operator_input"),
+        max_selected_facts=2)
+    session_id = "session-" + "c" * 24
+    general_turn_ids = tuple("turn-" + f"{index:024x}" for index in range(16))
+    general_turn_digests = tuple(f"{index + 1:064x}" for index in range(16))
+    general_feedback = make_operator_feedback_record(
+        "A general unverified report.", request_id="general-feedback",
+        assistant_turn_id="turn-" + "a" * 24,
+        assistant_response_digest="1" * 64,
+        source_capture_digest="2" * 64,
+        followup_capture_digest="3" * 64,
+        observed_at="2026-11-16T12:00:00Z",
+        conversation_citation_ids=general_turn_ids,
+        conversation_citation_digests=general_turn_digests,
+        conversation_session_id=session_id)
+    target_turn_id = "turn-" + "f" * 24
+    target_turn_digest = "4" * 64
+    targeted_feedback = make_operator_feedback_record(
+        "A targeted unverified correction.", request_id="targeted-feedback",
+        assistant_turn_id="turn-" + "b" * 24,
+        assistant_response_digest="5" * 64,
+        source_capture_digest="6" * 64,
+        followup_capture_digest="7" * 64,
+        observed_at="2026-11-16T12:01:00Z",
+        conversation_citation_ids=(target_turn_id,),
+        conversation_citation_digests=(target_turn_digest,),
+        conversation_session_id=session_id,
+        correction_target_turn_id=target_turn_id)
+
+    def projection_record(label: str, feedback: Mapping[str, Any],
+            assistant_turn_id: str) -> dict[str, Any]:
+        fact_id = f"feedback-fact-{label}"
+        source_id = feedback["source_id"]
+        payload = feedback["payload"]
+        fact = {
+            "fact_id": fact_id,
+            "source": {"kind": "operator_input", "source_id": source_id,
+                "digest": "8" * 64, "schema_version": payload["schema_version"]},
+            "subject": {"subject_kind": "operator_reported_companion_feedback",
+                "subject_id": f"assistant-turn:{assistant_turn_id}"},
+            "payload": payload, "stage": "observation", "disposition": "reported",
+            "evidence_strength": "operator_assertion_unverified",
+            "effect_claimed": False, "effect_proven": False,
+            "observed_at": "2026-11-16T12:00:00Z",
+        }
+        return {"record_id": f"history-record-{label}",
+            "record_digest": "9" * 64,
+            "candidate": {"selected_fact_ids": [fact_id], "selected_facts": [fact]}}
+
+    records = (
+        projection_record("general", general_feedback, "turn-" + "a" * 24),
+        projection_record("targeted", targeted_feedback, "turn-" + "b" * 24),
+    )
+    cognition._composition_lock = nullcontext
+    cognition._state = lambda: {}
+    cognition._prior_projection = lambda _state, _tick, **_kwargs: (
+        SimpleNamespace(records=records))
+
+    references = cognition.selected_historical_operator_citations(
+        request_id="bounded-feedback-citation-query",
+        question="What should I revisit from the earlier correction?")
+
+    assert len(references) == 16
+    assert references[0]["turn_id"] == target_turn_id
+    assert references[0]["text_digest"] == target_turn_digest
+    assert references[0]["feedback_fact_id"] == "feedback-fact-targeted"
+    assert [reference["turn_id"] for reference in references[1:]] == list(
+        general_turn_ids[:15])
+
+
 def test_companion_cycle_runs_configured_epistemic_owner_after_cognition(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace

@@ -7243,7 +7243,8 @@ class ResidentDevelopmentalCognitionOwner:
         with self._composition_lock():
             projection = self._prior_projection(self._state(), tick_id,
                 relevance_query=question, relevance_context=relevance_context)
-        references: list[dict[str, Any]] = []
+        targeted_references: list[dict[str, Any]] = []
+        other_references: list[dict[str, Any]] = []
         for record in projection.records:
             candidate = record.get("candidate")
             if not isinstance(candidate, Mapping):
@@ -7266,7 +7267,7 @@ class ResidentDevelopmentalCognitionOwner:
                 for citation in citations:
                     if not isinstance(citation, Mapping):
                         continue
-                    references.append({
+                    reference = {
                         "feedback_record_id": str(record.get("record_id", "")),
                         "feedback_record_digest": str(record.get("record_digest", "")),
                         "feedback_fact_id": report["operator_feedback_fact_id"],
@@ -7274,10 +7275,14 @@ class ResidentDevelopmentalCognitionOwner:
                         "conversation_session_id": report["conversation_session_id"],
                         "turn_id": citation["turn_id"],
                         "text_digest": citation["text_digest"],
-                    })
-                    if len(references) >= 16:
-                        return tuple(references)
-        return tuple(references)
+                    }
+                    if (isinstance(target, Mapping)
+                            and citation.get("turn_id") == target.get("turn_id")
+                            and citation.get("text_digest") == target.get("text_digest")):
+                        targeted_references.append(reference)
+                    else:
+                        other_references.append(reference)
+        return tuple((targeted_references + other_references)[:16])
 
     def _select_fact_ids(self, snapshot: WorldStateSnapshot, processed: set[str]) -> tuple[str, ...]:
         allowed = set(self.config.allowed_source_kinds)
