@@ -848,6 +848,29 @@ def test_memory_prompt_distinguishes_complete_from_incomplete_retrieval(
     assert "\"authority\":false" in incomplete
 
 
+def test_memory_prompt_preserves_retention_chronology_without_promoting_recency(
+        tmp_path: Path) -> None:
+    sessions = ConversationSessionStore(tmp_path / "sessions")
+    session = sessions.create(model_identity={})
+    history = sessions.reconstruct(session["session_id"], budget_chars=100)
+    prompt = assemble_local_chat_context(history=history, memory_snapshot={
+        "memories": [
+            {"text": "Concise answers work best for me.",
+                "timestamp": "2025-01-01T00:00:00+00:00"},
+            {"text": "Detailed answers work best for me.",
+                "timestamp": "2026-01-01T00:00:00+00:00"},
+        ], "retrieval_posture": "complete",
+        "selection_posture": "all_matching_records_selected",
+        "omitted_memory_count": 0}, current_message="What response style should I use?")
+
+    assert 'MEMORY_DATA: "Concise answers work best for me."' in prompt
+    assert 'MEMORY_DATA: "Detailed answers work best for me."' in prompt
+    assert "[MEMORY_RECORDED_TIME_UNTRUSTED]" in prompt
+    assert ('[{\"memory_index\":0,\"recorded_at\":\"2025-01-01T00:00:00+00:00\"},'
+        '{\"memory_index\":1,\"recorded_at\":\"2026-01-01T00:00:00+00:00\"}]') in prompt
+    assert "time does not prove current truth or supersede an older statement" in prompt
+
+
 def test_compact_gaming_context_prioritizes_direct_grounded_replies() -> None:
     history = ContextSnapshot("session-test", (), 0, False, "0" * 64)
     prompt = assemble_local_chat_context(
