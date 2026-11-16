@@ -8224,7 +8224,11 @@ class ResidentDevelopmentalCognitionOwner:
                                 != "explicit_user_correction_unverified"):
                         valid_relations = False
                         break
-                    seen_pairs.add(pair)
+                    if isinstance(pair[0], str) and isinstance(pair[1], str):
+                        seen_pairs.add((pair[0], pair[1]))
+                    else:
+                        valid_relations = False
+                        break
             if (set(canonical_memory_context) != expected_memory_fields
                     or canonical_memory_context.get("schema_version")
                         != "sentientos.canonical_user_memory_cognition_context:v1"

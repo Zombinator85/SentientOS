@@ -760,6 +760,7 @@ class AdmittedRetentionWriter:
             "memory_root_filesystem_binding_digest", "memory_root_filesystem_binding_scope"}
         record_targets = (meta.get("correction_targets")
             if isinstance(meta, Mapping) else None)
+        record_meta: Mapping[str, Any] = meta if isinstance(meta, Mapping) else {}
         try:
             validated_record_targets = _validated_correction_targets(record_targets)
         except ValueError:
@@ -770,7 +771,7 @@ class AdmittedRetentionWriter:
             or (bool(correction_targets)
                 and set(meta or {}) in (correction_meta_fields,
                     correction_filesystem_meta_fields)
-                and meta.get("correction_schema")
+                and record_meta.get("correction_schema")
                     == "sentientos.canonical_memory_correction:v1"
                 and validated_record_targets == correction_targets))
         timestamp = record.get("timestamp") if isinstance(record, dict) else None
