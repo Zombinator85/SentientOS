@@ -229,6 +229,30 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
             operator_feedback="Do not retain this report.")
     assert len(observations) == 1
 
+    app._resident_cognition_bridge.feedback_allowed = True
+    rejected_session_id = app.create_session()
+    rejected_source, _ = app.sessions.append_user_request(rejected_session_id,
+        request_id="bad-citation-source", text="The source turn was cited.",
+        retain=False)
+    rejected_assistant = app.sessions.append_turn(rejected_session_id,
+        role="assistant", text="A saved answer.", linkage={
+            "source_user_turn_id": rejected_source["turn_id"],
+            "response_origin": "resident_developmental_cognition",
+            "response_digest": "c" * 64,
+            "screen_observation_provenance": {"capture_digest": "b" * 64},
+            "conversation_context_turn_ids": [rejected_source["turn_id"]],
+            "conversation_context_turn_text_digests": [rejected_source["text_digest"]],
+            "cognition_conversation_turn_citation_ids": [rejected_source["turn_id"]],
+            "cognition_conversation_turn_citation_digests": ["0" * 64],
+        })
+    with pytest.raises(chat_service.ChatRequestStateError,
+            match="developmental_cycle_conversation_citation_lineage_invalid"):
+        app.run_developmental_cycle(session_id=rejected_session_id,
+            assistant_turn_id=rejected_assistant["turn_id"],
+            request_id="reject-mismatched-citation",
+            operator_feedback="That earlier report was incorrect.")
+    assert len(observations) == 1
+
 
 def test_developmental_cycle_endpoint_requires_local_explicit_confirmation() -> None:
     request = chat_service.DevelopmentalCycleRequest(
