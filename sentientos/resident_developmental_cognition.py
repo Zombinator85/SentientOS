@@ -252,6 +252,21 @@ def _delivered_epistemic_state_ids(context: Mapping[str, Any],
     return delivered
 
 
+def _companion_schema_with_epistemic_citations(
+        schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Require state citations only when a semantic epistemic projection is delivered."""
+    result = dict(schema)
+    result["properties"] = dict(schema.get("properties", {}))
+    result["properties"]["epistemic_state_ids"] = {
+        "type": "array", "maxItems": 16, "uniqueItems": True,
+        "items": {"type": "string", "minLength": 1, "maxLength": 256}}
+    required = list(schema.get("required", ()))
+    if "epistemic_state_ids" not in required:
+        required.append("epistemic_state_ids")
+    result["required"] = required
+    return result
+
+
 def _aware_event_time(value: Any) -> bool:
     if not isinstance(value, str) or not value:
         return False
@@ -5933,7 +5948,8 @@ class ResidentDevelopmentalCognitionOwner:
                         "cognition_companion_memory_citations_invalid")
             if versioned_v10_observation:
                 _validate_self_model_prompt_selection(value)
-            if versioned_v11_observation or versioned_v12_observation or versioned_v13_observation:
+            if (versioned_v11_observation or versioned_v12_observation
+                    or versioned_v13_observation or versioned_v14_observation):
                 _validate_self_model_prompt_selection(value)
                 self_model_citations = value.get("companion_self_model_citation_ids")
                 selection = value.get("prior_self_model_prompt_selection")
@@ -5946,7 +5962,8 @@ class ResidentDevelopmentalCognitionOwner:
                         or not set(self_model_citations).issubset(selected_claim_ids)):
                     raise ResidentDevelopmentalCognitionError(
                         "cognition_companion_self_model_citations_invalid")
-            if versioned_v12_observation or versioned_v13_observation:
+            if (versioned_v12_observation or versioned_v13_observation
+                    or versioned_v14_observation):
                 selected_ids = value.get("companion_conversation_context_turn_ids")
                 selected_digests = value.get("companion_conversation_context_turn_digests")
                 cited_ids = value.get("companion_conversation_citation_ids")
@@ -5981,7 +5998,7 @@ class ResidentDevelopmentalCognitionOwner:
                             and (selected_ids or cited_ids))):
                     raise ResidentDevelopmentalCognitionError(
                         "cognition_companion_conversation_citations_invalid")
-            if versioned_v13_observation:
+            if versioned_v13_observation or versioned_v14_observation:
                 historical_digest = value.get(
                     "companion_historical_citation_context_digest")
                 historical_turn_ids = value.get(
@@ -7578,6 +7595,8 @@ class ResidentDevelopmentalCognitionOwner:
             assert self._epistemic_probe_session_binding is not None
             request_linkage["rootless_experimental_session"] = dict(
                 self._epistemic_probe_session_binding)
+        delivered_epistemic_state_ids = _delivered_epistemic_state_ids(
+            context, prior_epistemic_state)
         request = self.invoker.build_request(
             purpose=request_purpose, prompt=prompt, caller=PRINCIPAL,
             correlation_id=correlation,
@@ -7587,10 +7606,20 @@ class ResidentDevelopmentalCognitionOwner:
             structured_output_schema=(
                 RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA
                 if objective_plan is not None else
-                RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA
-                if companion_intervention else RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA
+                (_companion_schema_with_epistemic_citations(
+                    RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA)
+                 if delivered_epistemic_state_ids else
+                    RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA)
+                if companion_intervention else
+                (_companion_schema_with_epistemic_citations(
+                    RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA)
+                 if delivered_epistemic_state_ids else
+                    RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA)
                 if interaction_question is not None and conversation_context is None else
-                RESIDENT_COMPANION_SESSION_INTERACTION_OUTPUT_SCHEMA
+                (_companion_schema_with_epistemic_citations(
+                    RESIDENT_COMPANION_SESSION_INTERACTION_OUTPUT_SCHEMA)
+                 if delivered_epistemic_state_ids else
+                    RESIDENT_COMPANION_SESSION_INTERACTION_OUTPUT_SCHEMA)
                 if interaction_question is not None else RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA
                 if epistemic_revision_probe else RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA
                 if qualifies_for_lesson else None),
@@ -7683,8 +7712,8 @@ class ResidentDevelopmentalCognitionOwner:
                     if canonical_memory_context is not None else set())
                 allowed_self_model_ids = set(context.get(
                     "self_model_citation_allowlist", ()))
-                allowed_epistemic_state_ids = _delivered_epistemic_state_ids(
-                    context, prior_epistemic_state)
+                allowed_epistemic_state_ids = (
+                    delivered_epistemic_state_ids or None)
                 allowed_conversation_turn_ids = ({str(row["turn_id"]) for row in
                     conversation_context.get("turns", ())}
                     if conversation_context is not None else None)
@@ -8233,7 +8262,7 @@ class ResidentDevelopmentalCognitionOwner:
                 conversation_context=conversation_context,
                 historical_citation_context=historical_citation_context)
         if not {"disposition", "response", "evidence_ids", "history_record_ids",
-                "self_model_claim_ids", "epistemic_state_citation_ids"}.issubset(capture):
+                "self_model_claim_ids"}.issubset(capture):
             raise ResidentDevelopmentalCognitionError("companion_interaction_capture_missing")
         return ResidentCompanionInteractionResult(status="admitted_completed", tick_id=tick_id,
             snapshot_id=snapshot.snapshot_id, snapshot_digest=snapshot.digest,
@@ -8245,7 +8274,7 @@ class ResidentDevelopmentalCognitionOwner:
             memory_record_ids=tuple(capture["memory_record_ids"]),
             self_model_claim_ids=tuple(capture["self_model_claim_ids"]),
             epistemic_state_citation_ids=tuple(
-                capture["epistemic_state_citation_ids"]),
+                capture.get("epistemic_state_citation_ids", ())),
             conversation_turn_citation_ids=tuple(capture.get(
                 "conversation_turn_citation_ids", ())),
             canonical_user_memory_selection_digest=(

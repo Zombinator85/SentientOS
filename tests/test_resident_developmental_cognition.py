@@ -279,11 +279,15 @@ class FakeInvoker:
                         "record_ids", [])
             decision.setdefault("memory_record_ids", [])
             decision.setdefault("self_model_claim_ids", [])
-            prompt_context = json.loads(request.prompt)
-            prompt_epistemic = prompt_context.get("prior_epistemic_state") or {}
-            decision.setdefault("epistemic_state_ids", [
-                packet["state"]["state_id"] for packet in
-                prompt_epistemic.get("semantic_packets", ())])
+            if "epistemic_state_ids" in request.structured_output_schema.get(
+                    "required", ()):
+                prompt_context = json.loads(request.prompt)
+                prompt_epistemic = prompt_context.get("prior_epistemic_state") or {}
+                decision.setdefault("epistemic_state_ids", [
+                    packet["state"]["state_id"] for packet in
+                    prompt_epistemic.get("semantic_packets", ())])
+            else:
+                decision.pop("epistemic_state_ids", None)
             if "conversation_turn_ids" in request.structured_output_schema.get(
                     "required", ()):
                 decision.setdefault("conversation_turn_ids", [])
@@ -1377,7 +1381,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert later.written_record_id in family_record_ids
     conditions = recovered["conditions"]
     present, withheld, restored = conditions
-    assert all(item["schema_version"] == "sentientos.resident_cognition_observation:v12"
+    assert all(item["schema_version"] == "sentientos.resident_cognition_observation:v14"
         for item in conditions)
     # This fixture uses genuinely unlinked historical-compatible invocation
     # receipts; the new observation version must retain that empty linkage.
@@ -5033,8 +5037,9 @@ def test_context_assembly_states_current_evidence_precedence_over_all_prior_cont
         records=(), projection=None, history_present=False)
 
     expected_precedence = (
-        "takes precedence for present-condition claims over conflicting prior self-model claims, "
-        "prior epistemic positions, and developmental-history interpretations")
+        "Current World-State evidence with a source posture that supports the claim takes "
+        "precedence over conflicting prior self-model claims, prior epistemic positions, "
+        "and developmental-history interpretations")
     assert expected_precedence in bound["instruction"]
     assert expected_precedence in json.loads(prompt)["instruction"]
     assert "do not treat earlier claims as evidence about the current state" in (
@@ -5080,7 +5085,7 @@ def test_canonical_user_memory_is_prompt_bound_historical_context_not_evidence(
     assert result.canonical_user_memory_selection_digest == context["selection_digest"]
     observation = cognition.verified_cognition_observation(
         result.cognition_observation_id, result.cognition_observation_digest)
-    assert observation["schema_version"] == "sentientos.resident_cognition_observation:v12"
+    assert observation["schema_version"] == "sentientos.resident_cognition_observation:v14"
     assert observation["canonical_user_memory_selection_digest"] == context["selection_digest"]
     assert observation["canonical_user_memory_record_ids"] == [
         context["records"][0]["memory_id"]]
@@ -5613,7 +5618,7 @@ def test_development_chat_configuration_hosts_resident_cognition_owner(
         observation = cognition.verified_cognition_observation(
             response.context["cognition_observation_id"],
             response.context["cognition_observation_digest"])
-        assert observation["schema_version"] == "sentientos.resident_cognition_observation:v12"
+        assert observation["schema_version"] == "sentientos.resident_cognition_observation:v14"
         assert observation["companion_history_citation_ids"] == [seed.written_record_id]
         turns = app.sessions.load(session_id)["turns"]
         assert turns[-1]["linkage"]["response_origin"] == "resident_developmental_cognition"
@@ -7306,9 +7311,9 @@ def test_question_selected_self_model_changes_later_companion_response(
     assert baseline_prompt["prior_self_model_prompt_selection"]["omitted_claims"][0][
         "claim_id"] == unrelated.claim_id
     assert query_prompt["prior_self_model"]["relevance_query_digest"]
-    assert ("takes precedence for present-condition claims over conflicting prior self-model claims, "
-        "prior epistemic positions, and developmental-history interpretations") in (
-            query_prompt["instruction"])
+    assert ("Current World-State evidence with a source posture that supports the claim takes "
+        "precedence over conflicting prior self-model claims, prior epistemic positions, "
+        "and developmental-history interpretations") in query_prompt["instruction"]
     assert query_result.response.startswith(
         "The current screen reports 31 percent GPU utilization;")
     assert query_result.self_model_claim_ids == ("self-model-claim-gpu",)
@@ -7492,7 +7497,7 @@ def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp
     durable = [json.loads(path.read_text(encoding="utf-8"))
         for path in restarted.observations_root.glob("*.json")]
     by_request = {row["request_id"]: row for row in durable}
-    assert all(by_request[request.request_id]["schema_version"].endswith(":v13")
+    assert all(by_request[request.request_id]["schema_version"].endswith(":v14")
         and by_request[request.request_id]["developmental_history_selection"]
             == request.upstream_evidence["developmental_history_selection"]
         for request in cognition)
@@ -8031,7 +8036,7 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert later_with_historical_source.cognition_observation_id
     durable_observation = json.loads((cognition.observations_root /
         (later_with_historical_source.cognition_observation_id + ".json")).read_text())
-    assert durable_observation["schema_version"].endswith(":v13")
+    assert durable_observation["schema_version"].endswith(":v14")
     assert durable_observation["companion_historical_citation_turn_ids"] == [cited_turn_id]
     assert durable_observation["companion_historical_citation_feedback_fact_ids"] == [
         citation_ref["feedback_fact_id"]]
@@ -10319,10 +10324,11 @@ def test_pre_v6_observation_recovery_preserves_historical_digest_shape(tmp_path:
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v13"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v14"
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
     value.pop("companion_self_model_citation_ids")
+    value.pop("companion_epistemic_state_citation_ids")
     for field in ("companion_conversation_context_snapshot_digest",
             "companion_conversation_context_selection_digest",
             "companion_conversation_context_turn_ids",
@@ -10374,10 +10380,11 @@ def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_pat
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v13"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v14"
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
     value.pop("companion_self_model_citation_ids")
+    value.pop("companion_epistemic_state_citation_ids")
     for field in ("companion_conversation_context_snapshot_digest",
             "companion_conversation_context_selection_digest",
             "companion_conversation_context_turn_ids",
@@ -10434,10 +10441,11 @@ def test_rehashed_v7_history_selection_substitution_fails_receipt_reconciliation
     path = next(path for path in composition.observations_root.glob("*.json")
         if json.loads(path.read_text(encoding="utf-8")).get("condition_id") == "history_present")
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v13"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v14"
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
     value.pop("companion_self_model_citation_ids")
+    value.pop("companion_epistemic_state_citation_ids")
     for field in ("companion_conversation_context_snapshot_digest",
             "companion_conversation_context_selection_digest",
             "companion_conversation_context_turn_ids",
