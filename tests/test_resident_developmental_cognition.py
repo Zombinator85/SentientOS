@@ -5086,6 +5086,43 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert unrelated_ids[0] not in followup.prior_record_ids
     followup_prompt = json.loads(fake.requests[-1].prompt)
     assert followup_prompt["companion_question"] == "What about that?"
+
+
+def test_companion_history_matches_inflected_experience_under_context_cap(
+        tmp_path: Path) -> None:
+    cognition, fake = owner(tmp_path)
+    fake.history_interpretation = "A weak cell showed overheating during inspection."
+    fake.lesson_scope = "battery calibration"
+    relevant = cognition.run_tick(snapshot=snapshot(), tick_id="inflected-history-relevant")
+    assert relevant.written_record_id
+
+    newer_ids = []
+    for index in range(4):
+        fake.history_interpretation = f"Battery calibration astronomy note {index}."
+        fake.lesson_scope = f"battery calibration astronomy {index}"
+        outcome = cognition.run_tick(snapshot=snapshot(), tick_id=f"inflected-history-distractor-{index}")
+        assert outcome.written_record_id
+        newer_ids.append(outcome.written_record_id)
+
+    fake.companion_output_override = {
+        "disposition": "answer", "response": "Consider the retained overheating lesson.",
+        "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"]}
+    result = cognition.run_companion_interaction(snapshot=snapshot(),
+        request_id="inflected-history-companion",
+        question="How should battery calibration respond if the cell overheat? ")
+
+    assert result.prior_record_ids[-1] == relevant.written_record_id
+    assert relevant.written_record_id in result.history_record_ids
+    prompt = json.loads(fake.requests[-1].prompt)
+    selected = next(row for row in prompt["developmental_history"]
+        if "overheating" in row.get("interpretation", ""))
+    assert selected["current_truth"] is False and selected["authority"] is False
+    assert len(result.prior_record_ids) == 4
+
+    unrelated = cognition.run_companion_interaction(snapshot=snapshot(),
+        request_id="inflected-history-unrelated",
+        question="How should battery calibration respond to astronomy? ")
+    assert relevant.written_record_id not in unrelated.prior_record_ids
     assert followup_prompt["developmental_history_retrieval_policy_id"] == \
         "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
 
@@ -5248,6 +5285,8 @@ def test_boilerplate_history_query_falls_back_to_recent_records() -> None:
     assert cognition_query_terms("What did we do with it?") == set()
     assert cognition_query_terms("batteries watches boxes classes") == {
         "battery", "watch", "box", "class"}
+    assert cognition_query_terms("overheating charged batteries") == {
+        "overheat", "charge", "battery"}
     projection = ResidentDevelopmentalCognitionOwner._prior_projection(
         fake_owner, state, "later-tick", relevance_query="What did we do with it?")
 
