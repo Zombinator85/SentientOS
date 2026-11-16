@@ -654,6 +654,78 @@ def test_calibration_is_proposition_specific_and_temporally_bound(tmp_path):
     assert event.proposition_id==a.proposition_id and owner.verify()["calibrations"]==1
 
 
+def test_calibration_orders_offset_timestamps_by_instant_and_recovers(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    p = proposition()
+    owner.register_proposition(p)
+    forecast, _ = owner.commit_update(
+        proposition_id=p.proposition_id, expected_predecessor_digest=None,
+        stance="unknown", reason="initialization", active_binding_ids=(),
+        correlation_id="offset-forecast", tick=1,
+        recorded_at="2026-01-01T00:00:00+02:00")
+    evidence = binding(p, "offset-outcome")
+    owner.bind_evidence(evidence)
+
+    # This text sorts before the forecast timestamp, but denotes a later UTC instant.
+    event = owner.record_calibration(
+        proposition_id=p.proposition_id, forecast_artifact_id="forecast",
+        forecast_state_digest=forecast.state_digest, observed_outcome_id="outcome",
+        comparison_result="contradicted", source_binding_ids=(evidence.binding_id,),
+        resolved_at="2025-12-31T23:00:00Z")
+
+    assert event.resolved_at == "2025-12-31T23:00:00Z"
+    assert owner.verify()["calibrations"] == 1
+
+
+@pytest.mark.parametrize("resolved_at", [
+    "2026-01-01T00:30:00+02:00",  # Earlier instant, despite sorting after forecast text.
+    "2025-12-31T19:00:00-05:00",  # Same instant; calibration must be strictly later.
+])
+def test_calibration_rejects_outcome_not_after_forecast_across_offsets(
+        tmp_path, resolved_at):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    p = proposition()
+    owner.register_proposition(p)
+    forecast, _ = owner.commit_update(
+        proposition_id=p.proposition_id, expected_predecessor_digest=None,
+        stance="unknown", reason="initialization", active_binding_ids=(),
+        correlation_id="offset-forecast", tick=1,
+        recorded_at="2026-01-01T00:00:00Z")
+    evidence = binding(p, "offset-outcome")
+    owner.bind_evidence(evidence)
+
+    with pytest.raises(EpistemicStateError, match="calibration_outcome_not_after_forecast"):
+        owner.record_calibration(
+            proposition_id=p.proposition_id, forecast_artifact_id="forecast",
+            forecast_state_digest=forecast.state_digest, observed_outcome_id="outcome",
+            comparison_result="contradicted", source_binding_ids=(evidence.binding_id,),
+            resolved_at=resolved_at)
+
+
+@pytest.mark.parametrize("resolved_at", [
+    "2026-01-01T01:00:00",  # Naive timestamps do not identify an instant.
+    "2026-01-01T01:00:00-00:00",  # Unknown offsets cannot establish chronology.
+])
+def test_calibration_rejects_unresolved_timestamp_offsets(tmp_path, resolved_at):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    p = proposition()
+    owner.register_proposition(p)
+    forecast, _ = owner.commit_update(
+        proposition_id=p.proposition_id, expected_predecessor_digest=None,
+        stance="unknown", reason="initialization", active_binding_ids=(),
+        correlation_id="offset-forecast", tick=1,
+        recorded_at="2026-01-01T00:00:00Z")
+    evidence = binding(p, "offset-outcome")
+    owner.bind_evidence(evidence)
+
+    with pytest.raises(EpistemicStateError, match="calibration_timestamp_invalid"):
+        owner.record_calibration(
+            proposition_id=p.proposition_id, forecast_artifact_id="forecast",
+            forecast_state_digest=forecast.state_digest, observed_outcome_id="outcome",
+            comparison_result="contradicted", source_binding_ids=(evidence.binding_id,),
+            resolved_at=resolved_at)
+
+
 @pytest.mark.parametrize("tick", [-1, True])
 def test_invalid_update_tick_cannot_publish_poisoned_transaction(tmp_path, tick):
     owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])

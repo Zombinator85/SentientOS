@@ -7282,7 +7282,18 @@ class ResidentDevelopmentalCognitionOwner:
                         targeted_references.append(reference)
                     else:
                         other_references.append(reference)
-        return tuple((targeted_references + other_references)[:16])
+        selected: list[dict[str, Any]] = []
+        seen_citations: set[tuple[str, str, str]] = set()
+        for reference in targeted_references + other_references:
+            citation_identity = (reference["conversation_session_id"],
+                reference["turn_id"], reference["text_digest"])
+            if citation_identity in seen_citations:
+                continue
+            seen_citations.add(citation_identity)
+            selected.append(reference)
+            if len(selected) == 16:
+                break
+        return tuple(selected)
 
     def _select_fact_ids(self, snapshot: WorldStateSnapshot, processed: set[str]) -> tuple[str, ...]:
         allowed = set(self.config.allowed_source_kinds)

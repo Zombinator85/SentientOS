@@ -1544,7 +1544,7 @@ def test_objective_staging_arguments_can_require_exact_task_family_history() -> 
 
 
 def test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer(
-        tmp_path: Path) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A family match is relevant evidence, not an implicit success claim."""
     fake = SessionBoundFakeInvoker()
     fake.active_model_identity = {"provider": "fixture", "model": "adverse-correction-family"}
@@ -1598,8 +1598,22 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         admission_authority=RuntimeAdmissionAuthority(
             definitions=epistemic_definitions, ledger=epistemic_ledger),
         admission_ledger=epistemic_ledger)
+    completed_run_refs: list[tuple[str, str]] = []
+
+    def discover_completed_runs(*, limit: int = 32) -> tuple[tuple[str, str], ...]:
+        return tuple(completed_run_refs[-limit:])
+
+    # This deterministic test double supplies owner-discovered references for
+    # its synthetic fixture. Production discovery continues to require verified
+    # nonsynthetic inference; the production run and score owners still recheck
+    # every reference after projection.
+    monkeypatch.setattr(cognition, "inspect_completed_objective_experiment_run_refs",
+        discover_completed_runs)
 
     def admit_outcome(run: Mapping[str, Any], tick: int):
+        run_ref = (str(run["run_id"]), str(run["run_digest"]))
+        if run_ref not in completed_run_refs:
+            completed_run_refs.append(run_ref)
         binding = cognition.experiments.objective_task_family_evidence_binding(
             run_id=str(run["run_id"]), expected_run_digest=str(run["run_digest"]),
             proposition_id=proposition.proposition_id)
@@ -1610,8 +1624,6 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         surfaces = RuntimeMaintenanceSurfaces(
             tmp_path, runtime_state_root=tmp_path / "runtime-epistemic-outcomes",
             resident_developmental_owner=cognition,
-            developmental_history_intervention_run_refs=((
-                str(run["run_id"]), str(run["run_digest"])),),
             epistemic_state_owner=epistemic_owner,
             epistemic_state_config={"status": "configured",
                 "cognitive_consumption_enabled": True,
@@ -1619,23 +1631,56 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
             epistemic_development_runtime=epistemic_runtime)
         if tick == 1:
             early_time = event_time - timedelta(seconds=1)
+            prior_state = epistemic_owner.current_state(proposition.proposition_id)
+            prior_bindings = epistemic_owner.bindings(proposition.proposition_id)
             surfaces.build_world_state_board(tick_id=early_time.isoformat())
             early_feedback = surfaces.run_epistemic_development(
                 tick_id=early_time.isoformat())
-            assert early_feedback["verified_task_family_outcome_count"] == 0
-            assert early_feedback["verified_task_family_outcomes_status"] == "unresolved"
-            assert early_feedback["verified_task_family_outcomes"][0]["reason"] == (
+            future_outcome = next(row for row in early_feedback[
+                "verified_task_family_outcomes"] if row["run_id"] == run["run_id"])
+            assert future_outcome["status"] == "unresolved"
+            assert future_outcome["reason"] == (
                 "selected_run_event_time_is_future")
-            assert epistemic_owner.current_state(proposition.proposition_id) is None
-            assert epistemic_owner.bindings(proposition.proposition_id) == ()
+            assert epistemic_owner.current_state(proposition.proposition_id) == prior_state
+            assert epistemic_owner.bindings(proposition.proposition_id) == prior_bindings
         surfaces.build_world_state_board(tick_id=tick_time.isoformat())
         daemon_feedback = surfaces.run_epistemic_development(
             tick_id=tick_time.isoformat())
-        assert daemon_feedback["verified_task_family_outcomes_status"] == "verified"
-        assert daemon_feedback["verified_task_family_outcome_count"] == 1
-        feedback = SimpleNamespace(**daemon_feedback[
-            "verified_task_family_outcomes"][0])
+        for _ in range(32):
+            outcome = next(row for row in daemon_feedback[
+                "verified_task_family_outcomes"] if row["run_id"] == run["run_id"])
+            if not (outcome["status"] == "unresolved"
+                    and outcome.get("reason")
+                        == "proposition_update_already_performed_this_tick"):
+                break
+            tick_time += timedelta(seconds=1)
+            surfaces.build_world_state_board(tick_id=tick_time.isoformat())
+            daemon_feedback = surfaces.run_epistemic_development(
+                tick_id=tick_time.isoformat())
+        else:
+            pytest.fail("completed task-family run was not processed within the per-tick bound")
+        assert daemon_feedback["verified_task_family_outcomes_status"] in {
+            "verified", "partially_resolved"}
+        outcome = next(row for row in daemon_feedback[
+            "verified_task_family_outcomes"] if row["run_id"] == run["run_id"])
+        assert outcome["status"] in {"state_advanced", "evidence_appended"}
+        feedback = SimpleNamespace(**outcome)
         assert binding in epistemic_owner.bindings(proposition.proposition_id)
+
+        # The daemon discovers the already completed run again on the next
+        # maintenance tick. Reconciliation is idempotent and does not append a
+        # second evidence record or advance the same epistemic position.
+        prior_state = epistemic_owner.current_state(proposition.proposition_id)
+        prior_bindings = epistemic_owner.bindings(proposition.proposition_id)
+        replay_tick = tick_time + timedelta(seconds=1)
+        surfaces.build_world_state_board(tick_id=replay_tick.isoformat())
+        replay_feedback = surfaces.run_epistemic_development(
+            tick_id=replay_tick.isoformat())
+        replay_outcome = next(row for row in replay_feedback[
+            "verified_task_family_outcomes"] if row["run_id"] == run["run_id"])
+        assert replay_outcome["status"] == "already_applied"
+        assert epistemic_owner.current_state(proposition.proposition_id) == prior_state
+        assert epistemic_owner.bindings(proposition.proposition_id) == prior_bindings
         return binding, feedback
 
     # The fixture endpoint is preregistered to answer incorrectly when history
@@ -8455,7 +8500,7 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert control_later.response == "I do not have a relevant retained report."
 
 
-def test_targeted_operator_citation_precedes_earlier_general_citations_under_budget(
+def test_targeted_operator_citations_deduplicate_before_budget(
         tmp_path: Path) -> None:
     from contextlib import nullcontext
     from sentientos.developmental_companion_bridge import (
@@ -8480,17 +8525,19 @@ def test_targeted_operator_citation_precedes_earlier_general_citations_under_bud
         conversation_session_id=session_id)
     target_turn_id = "turn-" + "f" * 24
     target_turn_digest = "4" * 64
-    targeted_feedback = make_operator_feedback_record(
-        "A targeted unverified correction.", request_id="targeted-feedback",
-        assistant_turn_id="turn-" + "b" * 24,
-        assistant_response_digest="5" * 64,
-        source_capture_digest="6" * 64,
-        followup_capture_digest="7" * 64,
-        observed_at="2026-11-16T12:01:00Z",
-        conversation_citation_ids=(target_turn_id,),
-        conversation_citation_digests=(target_turn_digest,),
-        conversation_session_id=session_id,
-        correction_target_turn_id=target_turn_id)
+    def targeted_feedback(label: str, assistant_index: int,
+            turn_id: str, turn_digest: str) -> Mapping[str, Any]:
+        return make_operator_feedback_record(
+            "A targeted unverified correction.", request_id=f"targeted-{label}",
+            assistant_turn_id="turn-" + f"{assistant_index:024x}",
+            assistant_response_digest="5" * 64,
+            source_capture_digest="6" * 64,
+            followup_capture_digest="7" * 64,
+            observed_at="2026-11-16T12:01:00Z",
+            conversation_citation_ids=(turn_id,),
+            conversation_citation_digests=(turn_digest,),
+            conversation_session_id=session_id,
+            correction_target_turn_id=turn_id)
 
     def projection_record(label: str, feedback: Mapping[str, Any],
             assistant_turn_id: str) -> dict[str, Any]:
@@ -8509,13 +8556,20 @@ def test_targeted_operator_citation_precedes_earlier_general_citations_under_bud
             "observed_at": "2026-11-16T12:00:00Z",
         }
         return {"record_id": f"history-record-{label}",
-            "record_digest": "9" * 64,
+            "record_digest": hashlib.sha256(label.encode("utf-8")).hexdigest(),
             "candidate": {"selected_fact_ids": [fact_id], "selected_facts": [fact]}}
 
-    records = (
-        projection_record("general", general_feedback, "turn-" + "a" * 24),
-        projection_record("targeted", targeted_feedback, "turn-" + "b" * 24),
-    )
+    duplicate_target_records = tuple(projection_record(
+        f"target-{index}", targeted_feedback(f"duplicate-{index}", index + 10,
+            target_turn_id, target_turn_digest), "turn-" + f"{index + 10:024x}")
+        for index in range(16))
+    distinct_target_turn_id = "turn-" + "e" * 24
+    distinct_target_digest = "a" * 64
+    distinct_target = projection_record("target-distinct",
+        targeted_feedback("distinct", 99, distinct_target_turn_id,
+            distinct_target_digest), "turn-" + f"{99:024x}")
+    records = (projection_record("general", general_feedback,
+        "turn-" + "a" * 24), *duplicate_target_records, distinct_target)
     cognition._composition_lock = nullcontext
     cognition._state = lambda: {}
     cognition._prior_projection = lambda _state, _tick, **_kwargs: (
@@ -8528,9 +8582,12 @@ def test_targeted_operator_citation_precedes_earlier_general_citations_under_bud
     assert len(references) == 16
     assert references[0]["turn_id"] == target_turn_id
     assert references[0]["text_digest"] == target_turn_digest
-    assert references[0]["feedback_fact_id"] == "feedback-fact-targeted"
-    assert [reference["turn_id"] for reference in references[1:]] == list(
-        general_turn_ids[:15])
+    assert references[0]["feedback_fact_id"] == "feedback-fact-target-0"
+    assert references[1]["turn_id"] == distinct_target_turn_id
+    assert references[1]["text_digest"] == distinct_target_digest
+    assert references[1]["feedback_fact_id"] == "feedback-fact-target-distinct"
+    assert [reference["turn_id"] for reference in references[2:]] == list(
+        general_turn_ids[:14])
 
 
 def test_companion_cycle_runs_configured_epistemic_owner_after_cognition(
