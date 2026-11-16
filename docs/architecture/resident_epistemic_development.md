@@ -344,3 +344,27 @@ correctly or independently recognize every material conflict. The scripted
 fixture establishes this conflict path's wiring and citation behavior, not
 general conflict resolution or decision improvement. Real-model response
 quality and longitudinal decision improvement remain open evaluation work.
+
+## Evidence-bound task-family strategy candidates
+
+Resident context assembly can now derive a provisional integer-affine strategy
+from retained task-family examples when at least three distinct inputs have
+score-bound, evaluator-correct answers and agree on one relation. The summary
+keeps the supporting examples and their source fact, run, task, and score
+digests; prompt projection re-derives the relation from those rows and rejects
+a strategy whose claim does not match them. Conflicting examples removed by
+the existing cross-history conflict filter also remove the derived summary.
+The prompt labels the relation as historical and provisional, restricts it to
+the matching task family, and explicitly withholds claims of learning or
+transfer performance.
+
+The focused deterministic test
+tests/test_resident_developmental_cognition.py::test_admitted_family_example_supports_second_heldout_episode_after_restart
+exercises the production history and prompt binders with a controlled fake
+invoker that consumes the candidate relation. In that fixture, the relation
+supports all three held-out predictions after restart; withholding history
+yields zero of three. A separate tampering counterfactual recomputes the
+strategy digest after substituting a false relation and verifies projection
+rejects it. These are deterministic software-path results, not evidence of
+real-model learning, broad task transfer, or improved open-ended decisions.
+No model inference was used for this milestone; validation is CPU-only.
