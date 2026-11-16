@@ -7807,6 +7807,9 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert cycle_request.purpose == "resident_developmental_interpretation"
     assert feedback_text in cycle_request.prompt
     assert "operator_assertion_unverified" in cycle_request.prompt
+    assert "operator_input and evidence strength is operator_assertion_unverified" in cycle_request.prompt
+    assert "not an independent observation or current truth" in cycle_request.prompt
+    assert "preserve the disagreement" in cycle_request.prompt
     assert "effect_proven" in cycle_request.prompt
     filler_ids = []
     for index in range(4):

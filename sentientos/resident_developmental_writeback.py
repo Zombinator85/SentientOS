@@ -2774,6 +2774,7 @@ class ResidentDevelopmentalWritebackController:
                   "properties":{"interpretation":{"type":"string","maxLength":interpretation_limit},
                                 "uncertainty":{"type":"string","enum":["low","medium","high","unknown"]}}}
         instruction = ("Interpret selected World-State evidence only as bounded context, without asserting truth, authority, policy, goals, or storage. "
+            "A fact whose source kind is operator_input and evidence strength is operator_assertion_unverified is a reported assertion, not an independent observation or current truth. Preserve its attribution and uncertainty; do not upgrade it or merge it with sensor or owner evidence. If it conflicts with scoped sensor or owner evidence, preserve the disagreement. "
             "Preserve whether each source time is current, historical, or unknown; the World-State observation clock is not an event time unless the owner says so. "
             "Do not infer hostile activity, attack, intent, or cause from a protective-state custody failure; unreadable custody leaves the stored protective state unknown. "
             "A configured attestation snapshot signature-verification failure establishes only that verifier's bounded result, not attack, hostile activity, intent, compromise, or cause. "

@@ -214,7 +214,9 @@ eligible lesson. When the verified reply has capture lineage, the operator may
 also enter a bounded correction when `operator_input` is explicitly included
 in the resident cognition owner's `allowed_source_kinds`. That text is stored as
 a separate `operator_assertion_unverified` World-State report, bound by digest
-to the saved reply and both captures. If that reply cited prior conversation
+to the saved reply and both captures. The immediate interpretation treats it
+as a reported assertion rather than direct observation and preserves conflict
+with scoped sensor or owner evidence. If that reply cited prior conversation
 turns, the report also carries those exact turn IDs and text digests through
 writeback into later history context. This preserves which dialogue the reply
 said influenced it; it does not identify which cited turn the operator meant

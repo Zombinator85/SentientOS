@@ -384,8 +384,13 @@ COMPANION_HISTORY_INTERVENTION_INSTRUCTION = (
     "Cite only the containing developmental record."
 )
 EXPERIMENT_CONTEXT_INSTRUCTION = (
-    "Reason over four separately typed, non-authoritative substrates. Current World-State evidence is current external "
-    "observation and takes precedence for present-condition claims over conflicting prior self-model claims, prior "
+    "Reason over four separately typed, non-authoritative substrates. Current World-State is a current snapshot, but "
+    "each fact's source kind and evidence strength govern what it supports. Direct sensor or owner observations may "
+    "support present-condition claims within their recorded scope. An operator_input fact with "
+    "operator_assertion_unverified is a reported assertion, not an independent observation or current truth; retain "
+    "its attribution and do not give it the weight of direct observation. When it conflicts with scoped sensor or "
+    "owner evidence, preserve the disagreement and uncertainty. Current World-State evidence with a source posture "
+    "that supports the claim takes precedence over conflicting prior self-model claims, prior "
     "epistemic positions, and developmental-history interpretations. Surface material conflicts with historical context "
     "as uncertainty; do not treat earlier claims as evidence about the current state. Prior self-model is earlier "
     "evidence-bound system representation. Prior epistemic state is the system's earlier position, not truth or evidence. "
