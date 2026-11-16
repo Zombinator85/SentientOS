@@ -279,6 +279,9 @@ class FakeInvoker:
                         "record_ids", [])
             decision.setdefault("memory_record_ids", [])
             decision.setdefault("self_model_claim_ids", [])
+            if "conversation_turn_ids" in request.structured_output_schema.get(
+                    "required", ()):
+                decision.setdefault("conversation_turn_ids", [])
             text = json.dumps(decision, sort_keys=True, separators=(",", ":"))
             original_output = text
         elif request.expected_output_format == "json" and request.structured_output_schema:
@@ -7715,16 +7718,34 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
                 matching_reports = [report for report in operator_reports
                     if report.get("assertion_text") == feedback_text]
                 if matching_reports:
+                    prompt_conversation = prompt.get(
+                        "session_conversation_context", {})
+                    prompt_turns = (prompt_conversation.get("turns", ())
+                        if isinstance(prompt_conversation, Mapping) else ())
+                    matching_cited_turn = next((turn for turn in prompt_turns
+                        if isinstance(turn, Mapping) and any(
+                            citation.get("turn_id") == turn.get("turn_id")
+                            and citation.get("text_digest") == turn.get("text_digest")
+                            for citation in matching_reports[0].get(
+                                "conversation_citations", ()))), None)
                     self.companion_output_override = {
                         "disposition": "answer",
-                        "response": (
+                        "response": ((
+                            "The cited prior turn said: " + matching_cited_turn["text"]
+                            + ". An operator later reported: "
+                            + matching_reports[0]["assertion_text"]
+                            + " That report remains unverified.")
+                            if isinstance(matching_cited_turn, Mapping) else (
                             "An earlier operator report stated: "
                             + matching_reports[0]["assertion_text"]
-                            + " That report was not independently verified."),
+                            + " That report was not independently verified.")),
                         "evidence_ids": [],
                         "history_record_ids": prompt.get("history_citation_allowlist", []),
                         "memory_record_ids": [],
                     }
+                    if isinstance(matching_cited_turn, Mapping):
+                        self.companion_output_override["conversation_turn_ids"] = [
+                            matching_cited_turn["turn_id"]]
                 else:
                     self.companion_output_override = {
                         "disposition": "abstain",
@@ -7757,17 +7778,20 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
         allowed_source_kinds=("embodiment",))
     assert ResidentDevelopmentalCompanionBridge(
         restricted, clock=lambda: now).operator_feedback_available() is False
+    cited_turn_id = "turn-" + "a" * 24
+    cited_turn_text = "The earlier dialogue said the altar had four candle objects."
+    cited_turn_digest = digest_payload({"text": cited_turn_text})
     feedback = make_operator_feedback_record(
         feedback_text,
-        request_id="cycle-feedback-1", assistant_turn_id="turn-" + "a" * 24,
+        request_id="cycle-feedback-1", assistant_turn_id="turn-" + "b" * 24,
         assistant_response_digest="f" * 64,
         source_capture_digest="b" * 64,
         followup_capture_digest=screen["capture_digest"],
         observed_at=now.isoformat(),
-        conversation_citation_ids=("turn-" + "a" * 24,),
-        conversation_citation_digests=("c" * 64,))
+        conversation_citation_ids=(cited_turn_id,),
+        conversation_citation_digests=(cited_turn_digest,))
     assert feedback["payload"]["conversation_citations"] == [{
-        "turn_id": "turn-" + "a" * 24, "text_digest": "c" * 64}]
+        "turn_id": cited_turn_id, "text_digest": cited_turn_digest}]
 
     cycle = bridge.run_developmental_cycle(
         tick_id="operator-confirmed-cycle-1", screen_observation=screen,
@@ -7805,11 +7829,32 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert feedback_text in json.dumps(later_prompt["developmental_history"])
     assert "operator_assertion_unverified" in json.dumps(
         later_prompt["developmental_history"])
+    assert "which turn the operator corrected" in later_prompt["instruction"]
     assert "conversation_citations" in json.dumps(
         later_prompt["developmental_history"])
     historical_feedback = json.dumps(later_prompt["developmental_history"])
-    assert "turn-" + "a" * 24 in historical_feedback
-    assert "c" * 64 in historical_feedback
+    assert cited_turn_id in historical_feedback
+    assert cited_turn_digest in historical_feedback
+
+    cited_context_semantics = {
+        "schema_version": "sentientos.conversation_cognition_context:v1",
+        "session_id": "feedback-citation-session",
+        "source_snapshot_digest": "1" * 64,
+        "turns": [{"turn_id": cited_turn_id, "role": "user",
+            "text": cited_turn_text, "text_digest": cited_turn_digest,
+            "linkage_digest": "2" * 64}],
+        "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False,
+    }
+    cited_context = {**cited_context_semantics,
+        "selection_digest": digest_payload(cited_context_semantics)}
+    later_with_source = bridge.respond(
+        request_id="later-cognition-with-cited-source",
+        question="What did the earlier operator report say about the candles?",
+        screen_observation=screen, conversation_context=cited_context)
+    assert cited_turn_text in later_with_source.response
+    assert later_with_source.conversation_turn_citation_ids == (cited_turn_id,)
+    assert "unverified" in later_with_source.response
 
     # Same observation and later question without the feedback cycle do not
     # produce the historical answer: the report's admitted writeback changes
