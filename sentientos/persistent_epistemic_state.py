@@ -93,6 +93,23 @@ def _question_relevant_proposition_ids(propositions: Mapping[str, Any], *,
     return tuple(proposition_id for _, proposition_id in ranked[:limit])
 
 
+def _projection_priority_ids(propositions: Mapping[str, Any], *,
+        available_proposition_ids: set[str],
+        prioritized_proposition_ids: Sequence[str], query: str | None,
+        limit: int) -> tuple[str, ...]:
+    """Choose explicit and question priorities only from available prior states."""
+    active_explicit = tuple(item for item in prioritized_proposition_ids
+        if item in available_proposition_ids)
+    eligible_propositions = {proposition_id: proposition
+        for proposition_id, proposition in propositions.items()
+        if proposition_id in available_proposition_ids}
+    remaining_slots = max(0, limit - len(active_explicit))
+    active_query = _question_relevant_proposition_ids(eligible_propositions,
+        query=query, limit=remaining_slots)
+    return active_explicit + tuple(item for item in active_query
+        if item not in active_explicit)
+
+
 class EpistemicStateError(ValueError):
     """Fail-closed identity, history, or admission error."""
 
@@ -1217,17 +1234,15 @@ class PersistentEpistemicStateOwner:
                 if all(event.tick < current_tick for event in
                     events_by_proposition.get(proposition_id, ()))}
         available_by_id = {item.proposition_id: item for item in latest.values()}
+        active_priorities = _projection_priority_ids(proposition_by_id,
+            available_proposition_ids=set(available_by_id),
+            prioritized_proposition_ids=requested_priorities,
+            query=relevance_query,
+            limit=min(max_states, MAX_COGNITIVE_PROJECTION_PRIORITIES))
         active_explicit_priorities = tuple(item for item in requested_priorities
             if item in available_by_id)
-        query_ranked_ids = _question_relevant_proposition_ids(
-            proposition_by_id, query=relevance_query,
-            limit=min(max_states, MAX_COGNITIVE_PROJECTION_PRIORITIES))
-        query_slots = max(0, min(max_states,
-            MAX_COGNITIVE_PROJECTION_PRIORITIES) - len(active_explicit_priorities))
-        active_query_priorities = tuple(item for item in query_ranked_ids
-            if item in available_by_id and item not in active_explicit_priorities
-            )[:query_slots]
-        active_priorities = active_explicit_priorities + active_query_priorities
+        active_query_priorities = tuple(item for item in active_priorities
+            if item not in active_explicit_priorities)
         ranked_ids = active_priorities + tuple(sorted(
             set(available_by_id) - set(active_priorities)))
         ranked_latest = tuple(available_by_id[item] for item in ranked_ids)

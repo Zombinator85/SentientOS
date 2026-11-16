@@ -12,6 +12,7 @@ from sentientos.persistent_epistemic_state import (
     make_evidence_binding, make_proposition, make_epistemic_update_candidate, _write_new,
     MeaningBearingEpistemicCognitiveProjection, semantic_packets_for_projection,
     validate_cognitive_projection, _question_relevant_proposition_ids,
+    _projection_priority_ids,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -45,6 +46,29 @@ def test_question_relevance_ranks_current_propositions_before_projection_bound()
         query="What happened in the lunar mission?", limit=1) == ()
     assert _question_relevant_proposition_ids(propositions,
         query=None, limit=1) == ()
+
+
+def test_projection_question_priority_ignores_propositions_without_prior_state():
+    never_updated = make_proposition(namespace="embodiment",
+        subject="sensor:west", predicate="reports_measurement",
+        object_value="exact-window-1", polarity="positive", qualifiers={},
+        temporal_scope={"window": "exact-window-1"},
+        context_scope={"facility": "facility-1"},
+        proposition_class="descriptive",
+        statement="The west sensor measurement came from facility-1 in exact-window-1.")
+    has_prior_state = make_proposition(namespace="embodiment",
+        subject="sensor:east", predicate="reports_measurement",
+        object_value="stable", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The sensor measurement remained stable.")
+    propositions = {never_updated.proposition_id: never_updated,
+        has_prior_state.proposition_id: has_prior_state}
+
+    assert _projection_priority_ids(propositions,
+        available_proposition_ids={has_prior_state.proposition_id},
+        prioritized_proposition_ids=(),
+        query="Which west sensor measurement came from facility-1 in exact-window-1?",
+        limit=1) == (has_prior_state.proposition_id,)
 
 
 def binding(p, source, relation="supports", dependency="independently_sourced_observation", upstream=(), freshness="current"):
