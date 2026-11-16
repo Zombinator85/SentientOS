@@ -106,11 +106,17 @@ def _select_resident_conversation_context_turns(
     costs = [context_cost(turn) for turn in candidates]
 
     query_terms = transcript_recall_terms(question)
-    ranked: list[tuple[int, int]] = []
+    ranked: list[tuple[float, int]] = []
     if query_terms:
-        ranked = [(len(query_terms & transcript_recall_terms(
-            str(turn["text"]))), index)
-            for index, turn in enumerate(candidates)]
+        turn_terms = [transcript_recall_terms(str(turn["text"]))
+            for turn in candidates]
+        document_frequency = {term: sum(term in candidate_terms
+            for candidate_terms in turn_terms) for term in query_terms}
+        term_weights = {term: math.log((len(candidates) + 1)
+            / (frequency + 0.5)) + 1
+            for term, frequency in document_frequency.items()}
+        ranked = [(sum(term_weights[term] for term in query_terms & terms), index)
+            for index, terms in enumerate(turn_terms)]
         ranked = [item for item in ranked if item[0] > 0]
     if ranked:
         ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)

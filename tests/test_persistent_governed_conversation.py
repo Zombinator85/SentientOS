@@ -53,6 +53,26 @@ def test_resident_context_budget_keeps_relevant_older_exchange() -> None:
     assert sum(len(str(item["text"])) for item in selected) <= 4000
 
 
+def test_resident_context_ranks_rare_query_anchor_above_common_recent_term() -> None:
+    def turn(turn_id: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": "user", "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}),
+            "linkage": {}}
+
+    turns = [turn("older-amber", "The amber reading was low.")]
+    turns.extend(turn(f"recent-marker-{index}",
+        "Marker documentation was reviewed. " + "common filler text " * 45)
+        for index in range(20))
+
+    selected = _select_resident_conversation_context_turns(
+        tuple(turns), question="What was special about the amber marker?")
+
+    selected_ids = [item["turn_id"] for item in selected]
+    assert selected_ids[0] == "older-amber"
+    assert len(selected_ids) <= 16
+    assert sum(len(str(item["text"])) for item in selected) <= 4000
+
+
 class Identity:
     def to_dict(self):
         return {"model_id": "commissioned-local", "route_id": "route-a", "posture": "production"}
