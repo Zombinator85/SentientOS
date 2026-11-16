@@ -5086,6 +5086,16 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert unrelated_ids[0] not in followup.prior_record_ids
     followup_prompt = json.loads(fake.requests[-1].prompt)
     assert followup_prompt["companion_question"] == "What about that?"
+    assert followup_prompt["developmental_history_retrieval_policy_id"] == \
+        "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
+
+    # A specific new topic takes precedence over the prior user turn, which
+    # should not drag its unrelated battery lesson into the bounded selection.
+    astronomy_followup = cognition.run_companion_interaction(snapshot=snapshot(),
+        request_id="query-history-specific-topic",
+        question="How should an astronomy observation about stars be interpreted?",
+        conversation_context=conversation_context)
+    assert relevant.written_record_id not in astronomy_followup.prior_record_ids
 
 
 def test_companion_history_matches_inflected_experience_under_context_cap(
@@ -5123,16 +5133,6 @@ def test_companion_history_matches_inflected_experience_under_context_cap(
         request_id="inflected-history-unrelated",
         question="How should battery calibration respond to astronomy? ")
     assert relevant.written_record_id not in unrelated.prior_record_ids
-    assert followup_prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
-
-    # A specific new topic takes precedence over the prior user turn, which
-    # should not drag its unrelated battery lesson into the bounded selection.
-    astronomy_followup = cognition.run_companion_interaction(snapshot=snapshot(),
-        request_id="query-history-specific-topic",
-        question="How should an astronomy observation about stars be interpreted?",
-        conversation_context=conversation_context)
-    assert relevant.written_record_id not in astronomy_followup.prior_record_ids
 
 
 def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_text() -> None:
