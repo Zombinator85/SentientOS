@@ -984,6 +984,210 @@ def test_windows_epistemic_correction_recovers_interrupted_transaction() -> None
         assert packet["authority"] is False
 
 
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows admitted epistemic mutation custody")
+def test_windows_admitted_epistemic_correction_recovers_its_receipt() -> None:
+    from tempfile import TemporaryDirectory
+    from sentientos.codex_task_authority_admission import (
+        AUTHORITY_DEFINITIONS, RESIDENT_EPISTEMIC_STATE_MUTATION,
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    )
+    from sentientos.persistent_epistemic_state import (
+        PersistentEpistemicStateOwner, make_epistemic_update_candidate,
+        make_evidence_binding, make_proposition,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        EVIDENCE_BINDING_EFFECTS, PRINCIPAL, STATE_UPDATE_EFFECTS,
+        ResidentEpistemicStateMutationController,
+        make_epistemic_evidence_source_proof,
+    )
+    from sentientos.runtime_admission import (
+        AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
+    )
+
+    with TemporaryDirectory(prefix=".resident-epistemic-admitted-",
+            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        owner_root = root / "epistemic"
+        owner_root.mkdir()
+        _make_current_user_private(owner_root, directory=True)
+        receipt_root = root / "mutation"
+        receipt_root.mkdir()
+        _make_current_user_private(receipt_root, directory=True)
+        for directory in (receipt_root / "receipts",
+                receipt_root / "receipts" / "evidence",
+                receipt_root / "receipts" / "state",
+                receipt_root / "operations"):
+            directory.mkdir()
+            _make_current_user_private(directory, directory=True)
+
+        ledger = AdmissionLedger(root / "admissions.json")
+        authority = RuntimeAdmissionAuthority(
+            definitions=AUTHORITY_DEFINITIONS, ledger=ledger)
+        owner = PersistentEpistemicStateOwner(owner_root, allowed_namespaces=("test",))
+        proposition = make_proposition(namespace="test", subject="sensor:west",
+            predicate="reports_measurement", object_value="stable",
+            polarity="positive", qualifiers={}, temporal_scope={},
+            context_scope={}, proposition_class="descriptive")
+        owner.register_proposition(proposition)
+        binding = make_evidence_binding(proposition_id=proposition.proposition_id,
+            source_artifact_id="windows-observation-1", source_digest="sha256:source",
+            source_schema="sentientos.test_observation:v1",
+            source_class="operator_observation", observation_time="2026-01-01T00:00:00Z",
+            evidence_relation="supports",
+            dependency_kind="independently_sourced_observation",
+            dependency_group="operator-observation-1", upstream_binding_ids=(),
+            freshness="current", reliability_posture="supports")
+        proof = make_epistemic_evidence_source_proof(
+            source_artifact_id=binding.source_artifact_id,
+            source_digest=binding.source_digest, source_schema=binding.source_schema,
+            source_class=binding.source_class, recorded_at=binding.observation_time,
+            adapter_id="windows-fixture-adapter:v1",
+            provenance_id="windows-fixture-source-proof")
+        verifier = RuntimeAdmissionVerifier(definitions=AUTHORITY_DEFINITIONS, ledger=ledger)
+        controller = ResidentEpistemicStateMutationController(owner=owner,
+            admission_verifier=verifier, current_sequence=lambda: 10,
+            receipt_root=receipt_root)
+        evidence_operation = "windows-bind-evidence"
+        evidence_admission = authority.issue(admission_id="windows-evidence-admission",
+            capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
+            subsystem_kind="epistemics", principal_id=PRINCIPAL, principal_kind=PRINCIPAL,
+            effects=EVIDENCE_BINDING_EFFECTS, subject_id=binding.binding_id,
+            request_configuration_digest=controller.evidence_configuration_digest(
+                binding=binding, proposition_digest=proposition.proposition_digest,
+                operation_id=evidence_operation), provenance=proof.provenance_id,
+            issued_sequence=1, valid_through_sequence=20,
+            affirmative_preconditions=(
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION.approval_requirements))
+        controller.append_evidence_binding(binding=binding, source_proof=proof,
+            admission=evidence_admission, operation_id=evidence_operation,
+            correlation_id="windows-epistemic-workflow")
+
+        candidate = make_epistemic_update_candidate(
+            proposition_id=proposition.proposition_id,
+            predecessor_state_digest=None, proposed_stance="supported",
+            evidence_binding_ids=(binding.binding_id,), reason="initialization",
+            rationale="An admitted exact source binding supports this position.",
+            uncertainty="medium", model_id="controlled-fixture")
+        state_operation = "windows-commit-state"
+        state_admission = authority.issue(admission_id="windows-state-admission",
+            capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
+            subsystem_kind="epistemics", principal_id=PRINCIPAL, principal_kind=PRINCIPAL,
+            effects=STATE_UPDATE_EFFECTS, subject_id=candidate.candidate_id,
+            request_configuration_digest=controller.state_configuration_digest(
+                candidate=candidate, operation_id=state_operation),
+            provenance="windows operator state correction",
+            issued_sequence=2, valid_through_sequence=20,
+            affirmative_preconditions=(
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION.approval_requirements))
+        original_write_receipt = controller._write_receipt
+
+        def interrupt_state_receipt(stage, receipt):
+            if stage == "state":
+                raise OSError("fixture interrupted after admitted state commit")
+            return original_write_receipt(stage, receipt)
+
+        controller._write_receipt = interrupt_state_receipt
+        with pytest.raises(OSError, match="after admitted state commit"):
+            controller.commit_update_candidate(candidate=candidate,
+                admission=state_admission, operation_id=state_operation,
+                correlation_id="windows-epistemic-workflow", tick=1,
+                recorded_at="2026-01-01T00:00:01Z")
+
+        recovered_owner = PersistentEpistemicStateOwner(owner_root,
+            allowed_namespaces=("test",))
+        recovered_controller = ResidentEpistemicStateMutationController(
+            owner=recovered_owner,
+            admission_verifier=RuntimeAdmissionVerifier(
+                definitions=AUTHORITY_DEFINITIONS,
+                ledger=AdmissionLedger(root / "admissions.json")),
+            current_sequence=lambda: 10, receipt_root=receipt_root)
+        recovery = recovered_controller.verify_receipts()
+        assert recovery["status"] == "verified"
+        assert recovery["recovered_receipt_count"] == 2
+
+        contradiction = make_evidence_binding(
+            proposition_id=proposition.proposition_id,
+            source_artifact_id="windows-observation-2", source_digest="sha256:source-2",
+            source_schema="sentientos.test_observation:v1",
+            source_class="operator_observation", observation_time="2026-01-01T00:00:02Z",
+            evidence_relation="contradicts",
+            dependency_kind="independently_sourced_observation",
+            dependency_group="operator-observation-2", upstream_binding_ids=(),
+            freshness="current", reliability_posture="contradicts")
+        contradiction_proof = make_epistemic_evidence_source_proof(
+            source_artifact_id=contradiction.source_artifact_id,
+            source_digest=contradiction.source_digest,
+            source_schema=contradiction.source_schema,
+            source_class=contradiction.source_class,
+            recorded_at=contradiction.observation_time,
+            adapter_id="windows-fixture-adapter:v1",
+            provenance_id="windows-fixture-correction-proof")
+        correction_operation = "windows-bind-correction"
+        correction_admission = authority.issue(
+            admission_id="windows-correction-evidence-admission",
+            capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
+            subsystem_kind="epistemics", principal_id=PRINCIPAL, principal_kind=PRINCIPAL,
+            effects=EVIDENCE_BINDING_EFFECTS, subject_id=contradiction.binding_id,
+            request_configuration_digest=recovered_controller.evidence_configuration_digest(
+                binding=contradiction, proposition_digest=proposition.proposition_digest,
+                operation_id=correction_operation),
+            provenance=contradiction_proof.provenance_id,
+            issued_sequence=3, valid_through_sequence=20,
+            affirmative_preconditions=(
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION.approval_requirements))
+        recovered_controller.append_evidence_binding(binding=contradiction,
+            source_proof=contradiction_proof, admission=correction_admission,
+            operation_id=correction_operation,
+            correlation_id="windows-epistemic-workflow")
+        current = recovered_owner.current_state(proposition.proposition_id)
+        assert current is not None and current.stance == "supported"
+        correction_candidate = make_epistemic_update_candidate(
+            proposition_id=proposition.proposition_id,
+            predecessor_state_digest=current.state_digest,
+            proposed_stance="contested",
+            evidence_binding_ids=(binding.binding_id, contradiction.binding_id),
+            reason="contradiction_arrival",
+            rationale="A separately admitted source contradicts the prior position.",
+            uncertainty="high", model_id="controlled-fixture")
+        correction_state_operation = "windows-commit-correction"
+        correction_state_admission = authority.issue(
+            admission_id="windows-correction-state-admission",
+            capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
+            subsystem_kind="epistemics", principal_id=PRINCIPAL, principal_kind=PRINCIPAL,
+            effects=STATE_UPDATE_EFFECTS, subject_id=correction_candidate.candidate_id,
+            request_configuration_digest=recovered_controller.state_configuration_digest(
+                candidate=correction_candidate, operation_id=correction_state_operation),
+            provenance="windows operator correction decision",
+            issued_sequence=4, valid_through_sequence=20,
+            affirmative_preconditions=(
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION.approval_requirements))
+        recovered_controller.commit_update_candidate(candidate=correction_candidate,
+            admission=correction_state_admission,
+            operation_id=correction_state_operation,
+            correlation_id="windows-epistemic-workflow", tick=2,
+            recorded_at="2026-01-01T00:00:02Z")
+
+        restarted_owner = PersistentEpistemicStateOwner(owner_root,
+            allowed_namespaces=("test",))
+        restarted_controller = ResidentEpistemicStateMutationController(
+            owner=restarted_owner,
+            admission_verifier=RuntimeAdmissionVerifier(
+                definitions=AUTHORITY_DEFINITIONS,
+                ledger=AdmissionLedger(root / "admissions.json")),
+            current_sequence=lambda: 10, receipt_root=receipt_root)
+        final_recovery = restarted_controller.verify_receipts()
+        assert final_recovery["status"] == "verified"
+        assert final_recovery["recovered_receipt_count"] == 4
+        projection = restarted_owner.cognitive_projection(max_states=1, current_tick=3)
+        assert projection is not None
+        assert projection.states[0]["stance"] == "contested"
+        assert set(projection.states[0]["support_binding_ids"]) == {binding.binding_id}
+        assert set(projection.states[0]["contradiction_binding_ids"]) == {
+            contradiction.binding_id}
+        assert projection.authority is False
+
+
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows no-replace rename")
 def test_windows_replay_publication_preserves_destination_race(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,

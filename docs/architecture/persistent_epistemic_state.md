@@ -23,6 +23,12 @@ the resulting contested evidence packet. This establishes custody and context
 composition with controlled records; it does not establish truth or beneficial
 real-model adaptation.
 
+The separately admitted mutation controller also writes Windows operation
+intents and mutation receipts through the native publisher when its receipt root
+and child collections already exist with private ACLs. Recovery can derive a
+missing receipt only from the exact verified intent, admission, and committed
+state; it never replays an interrupted evidence append or state transition.
+
 A proposition identity hashes a bounded semantic key: schema, namespace, subject, predicate, bounded object, polarity, qualifiers, temporal scope, context scope, and class. Display text is excluded. Meaning changes create a new proposition connected by `refines`, `narrows`, `broadens`, `supersedes`, `contradicts`, or `related_to`; old evidence stays on its original proposition.
 
 Evidence bindings retain exact source identity and digest, schema/class, observation time, relation, freshness, reliability posture, withdrawal, and one of `same_source_derivation`, `shared_upstream_evidence`, `repeated_observation`, `independently_sourced_observation`, `duplicate_alias`, or `unknown_dependency`. Mechanical posture reports absence, support, contradiction, mixed evidence, staleness, withdrawal, and dependency limitations. It is not a vote or truth oracle.
