@@ -1734,6 +1734,7 @@ def _task_family_guidance_examples(examples: object, *, effect: Mapping[str, Any
 def _task_family_history_retrieval_utility(experiences: object, *,
         target_model_identity: Mapping[str, Any] | None,
         task_probe_inputs: set[int],
+        corroborated_favorable_runs: set[tuple[str, str, str]] | frozenset[tuple[str, str, str]] = frozenset(),
         conflicting_probe_inputs: set[int] | frozenset[int] = frozenset()
         ) -> tuple[int, int, int]:
     """Rank validated family history by outcome posture, correct examples, and probe overlap."""
@@ -1762,7 +1763,16 @@ def _task_family_history_retrieval_utility(experiences: object, *,
             continue
         classification = effect.get("effect_classification")
         restoration_stable = effect.get("restored_matches_present_score") is True
-        priority = (3 if restoration_stable and effect.get("posture")
+        run_key = (experience.get("source_task_digest"),
+            experience.get("source_active_model_identity_digest"),
+            experience.get("source_run_id"))
+        corroborated = (restoration_stable
+            and effect.get("posture") == "complete_comparable_condition_scores"
+            and classification == "history_favorable"
+            and all(isinstance(part, str) and part for part in run_key)
+            and run_key in corroborated_favorable_runs)
+        priority = (4 if corroborated else
+            3 if restoration_stable and effect.get("posture")
             == "complete_comparable_condition_scores"
             and classification == "history_favorable" else
             2 if restoration_stable and effect.get("posture")
@@ -1774,6 +1784,59 @@ def _task_family_history_retrieval_utility(experiences: object, *,
             if type(item.get("probe_input")) is int
             and item["probe_input"] in task_probe_inputs)
     return outcome_priority, correct_example_count, len(probe_overlap)
+
+
+def _task_family_corroborated_favorable_runs(experiences_by_record: Mapping[str, object], *,
+        target_model_identity: Mapping[str, Any] | None
+        ) -> set[tuple[str, str, str]]:
+    """Identify repeat-run favorable outcomes for one exact task and source model.
+
+    Distinct run IDs are counted once. Every comparable run in the group must
+    report a restoration-stable favorable outcome; an unstable or conflicting
+    comparable outcome prevents a corroboration boost. This is retrieval
+    ranking evidence, not a statistical independence or learning claim.
+    """
+    outcomes_by_group: dict[
+        tuple[str, str], dict[str, set[tuple[str, bool]]]
+    ] = {}
+    for experiences in experiences_by_record.values():
+        if not isinstance(experiences, (list, tuple)):
+            continue
+        for experience in experiences:
+            if (not isinstance(experience, Mapping)
+                    or _task_family_model_applicability(experience,
+                        target_model_identity=target_model_identity)[
+                            "model_identity_relation"] not in {
+                                "same_active_model_identity", "different_active_model_identity"}):
+                continue
+            task_digest = experience.get("source_task_digest")
+            model_digest = experience.get("source_active_model_identity_digest")
+            run_id = experience.get("source_run_id")
+            effect = experience.get("controlled_task_effect")
+            if (not isinstance(task_digest, str) or not task_digest
+                    or not isinstance(model_digest, str) or not model_digest
+                    or not isinstance(run_id, str) or not run_id
+                    or not isinstance(effect, Mapping)
+                    or effect.get("posture") != "complete_comparable_condition_scores"):
+                continue
+            classification = effect.get("effect_classification")
+            restoration_stable = effect.get("restored_matches_present_score")
+            if (classification not in {
+                    "history_favorable", "history_adverse", "no_difference_observed"}
+                    or type(restoration_stable) is not bool):
+                continue
+            group = (task_digest, model_digest)
+            outcomes_by_group.setdefault(group, {}).setdefault(run_id, set()).add(
+                (classification, restoration_stable))
+
+    corroborated: set[tuple[str, str, str]] = set()
+    for (task_digest, model_digest), run_outcomes in outcomes_by_group.items():
+        if (len(run_outcomes) >= 2
+                and all(outcomes == {("history_favorable", True)}
+                    for outcomes in run_outcomes.values())):
+            corroborated.update((task_digest, model_digest, run_id)
+                for run_id in run_outcomes)
+    return corroborated
 
 
 def _task_family_conflicting_probe_inputs(experiences_by_record: Mapping[str, object], *,
@@ -6548,6 +6611,8 @@ class ResidentDevelopmentalCognitionOwner:
                         candidate, task_family_id=family)
             conflicting_probe_inputs = _task_family_conflicting_probe_inputs(
                 experiences_by_record, target_model_identity=target_model_identity)
+            corroborated_favorable_runs = _task_family_corroborated_favorable_runs(
+                experiences_by_record, target_model_identity=target_model_identity)
             for record_id in relevant_newest_first:
                 matching_facts = matching_facts_by_record[record_id]
                 same_model = False
@@ -6568,11 +6633,14 @@ class ResidentDevelopmentalCognitionOwner:
                 utility = _task_family_history_retrieval_utility(experiences,
                     target_model_identity=target_model_identity,
                     task_probe_inputs=probe_set,
+                    corroborated_favorable_runs=corroborated_favorable_runs,
                     conflicting_probe_inputs=conflicting_probe_inputs)
                 outcome_relevance[record_id], guidance_example_counts[record_id], \
                     relevance[record_id] = utility
             # Evaluator-correct guidance and measured outcome posture rank first;
-            # exact active-model identity breaks ties before probe overlap and
+            # repeat-run corroboration requires distinct, same-task, same-model
+            # runs with restoration-stable favorable effects.
+            # Exact active-model identity breaks ties before probe overlap and
             # checkpoint order. Oracle-verified examples can remain useful
             # across model identities, while adverse and unscored examples earn
             # no guidance relevance.

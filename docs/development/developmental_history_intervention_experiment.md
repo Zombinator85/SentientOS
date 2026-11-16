@@ -64,6 +64,15 @@ For a structured objective task whose descriptor explicitly requires task-family
 
 Outcome posture affects retrieval priority only when the restored score matches the history-present score. A favorable present-vs-withheld contrast with failed restoration is ranked as tentative history, below restoration-stable favorable evidence. Exact evaluator-correct examples remain available with their source and uncertainty qualifiers; the unstable comparison does not establish a repeatable history effect.
 
+Retrieval gives an additional priority to a favorable result only when at least
+two distinct admitted run IDs share the exact task commitment and source model
+identity, and every available comparable run in that group is restoration-stable
+and favorable. Repeated references to one run do not count twice; an unstable,
+neutral, or adverse comparable run prevents this corroboration priority. This
+selection rule helps later context distinguish a one-run outcome from a
+repeat-run-consistent one. It does not establish statistical independence,
+causality, general learning, or improved performance.
+
 This is a prompt-projection constraint, not a new memory owner, general truth filter, or cross-model transfer rule. The v3 Hermes transfer family exercises the scoped path; its synthetic results are mixed and do not establish reliable transfer or improved performance.
 
 The broader capability remains `partial`. The separate controlled

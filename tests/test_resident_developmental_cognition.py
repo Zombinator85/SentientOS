@@ -2294,6 +2294,7 @@ print(json.dumps({"stance": state.stance if state else None,
 def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
     from sentientos.resident_developmental_cognition import (
         _digest as cognition_digest, _task_family_guidance_examples,
+        _task_family_corroborated_favorable_runs,
         _task_family_history_prompt_projection, _task_family_history_retrieval_utility,
     )
 
@@ -2372,6 +2373,49 @@ def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
     other_identity = {"provider": "fixture", "model": "another-retrieval-ranking"}
     assert _task_family_history_retrieval_utility([favorable],
         target_model_identity=other_identity, task_probe_inputs={2}) == (3, 1, 1)
+
+    task_digest = "sha256:" + "d" * 64
+    run_a = {**favorable, "source_task_digest": task_digest,
+        "source_active_model_identity": identity,
+        "source_active_model_identity_digest": cognition_digest(identity),
+        "source_run_id": "run-a"}
+    run_b = {**run_a, "source_run_id": "run-b"}
+    corroborated = _task_family_corroborated_favorable_runs({
+        "record-a": [run_a], "record-b": [run_b]},
+        target_model_identity=identity)
+    assert corroborated == {
+        (task_digest, cognition_digest(identity), "run-a"),
+        (task_digest, cognition_digest(identity), "run-b")}
+    assert _task_family_history_retrieval_utility([run_a],
+        target_model_identity=identity, task_probe_inputs={2},
+        corroborated_favorable_runs=corroborated) == (4, 1, 1)
+    # Repeated references to one source run do not count as corroboration.
+    assert _task_family_corroborated_favorable_runs({
+        "record-a": [run_a], "duplicate-reference": [run_a]},
+        target_model_identity=identity) == set()
+    # A same-task/model unstable or contrary comparison blocks the boost.
+    assert _task_family_corroborated_favorable_runs({
+        "record-a": [run_a], "record-b": [run_b],
+        "record-c": [{**run_b, "source_run_id": "run-c",
+            "controlled_task_effect": {**effect,
+                "effect_classification": "history_favorable",
+                "restored_matches_present_score": False}}]},
+        target_model_identity=identity) == set()
+    assert _task_family_corroborated_favorable_runs({
+        "record-a": [run_a], "record-b": [run_b],
+        "record-c": [{**run_b, "source_run_id": "run-c",
+            "controlled_task_effect": {**effect,
+                "effect_classification": "history_adverse"}}]},
+        target_model_identity=identity) == set()
+    assert _task_family_corroborated_favorable_runs({
+        "record-a": [run_a], "record-b": [{**run_b,
+            "source_task_digest": "sha256:" + "e" * 64}]},
+        target_model_identity=identity) == set()
+    assert _task_family_corroborated_favorable_runs({
+        "record-a": [run_a], "record-b": [{**run_b,
+            "source_active_model_identity": other_identity,
+            "source_active_model_identity_digest": cognition_digest(other_identity)}]},
+        target_model_identity=identity) == set()
     from sentientos.resident_developmental_cognition import (
         _task_family_conflicting_probe_inputs,
     )
@@ -9467,6 +9511,70 @@ def test_task_family_retrieval_prioritizes_bound_current_model_before_probe_over
     current_fact = records["old-current-model"].candidate["selected_facts"][0]
     assert current_fact["payload"]["acquisition_examples"][0][
         "evaluator_correct"] is False
+
+
+def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_single_run(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+    from sentientos import resident_developmental_cognition as cognition_module
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    identity = {"provider": "fixture", "model": "repeat-run-retrieval"}
+    identity_digest = cognition_module._digest(identity)
+    task_digest = "sha256:" + "f" * 64
+    effect = {"posture": "complete_comparable_condition_scores",
+        "effect_classification": "history_favorable",
+        "restored_matches_present_score": True}
+
+    def experience(run_id: str) -> dict[str, Any]:
+        return {"source_task_digest": task_digest,
+            "source_active_model_identity": identity,
+            "source_active_model_identity_digest": identity_digest,
+            "source_run_id": run_id,
+            "examples": [{"probe_input": 7, "observed_answer": 23,
+                "evaluator_correct": True}],
+            "controlled_task_effect": effect}
+
+    experiences = {"repeat-a": experience("run-a"),
+        "repeat-b": experience("run-b"), "newer-single": experience("run-single")}
+    experiences["newer-single"]["source_task_digest"] = "sha256:" + "e" * 64
+    records: dict[str, Any] = {}
+    for record_id, projected_experience in experiences.items():
+        fact = {"payload": {"objective_task_family": "integer_affine_prediction",
+            "active_model_identity": identity,
+            "active_model_identity_digest": identity_digest}}
+        records[record_id] = SimpleNamespace(candidate={
+            "selected_facts": [fact], "experiences": [projected_experience]})
+
+    cognition, _ = owner(tmp_path, max_retrieved_records=1)
+    monkeypatch.setattr(cognition_module, "_task_family_history_examples",
+        lambda candidate, *, task_family_id: candidate["experiences"])
+    observed_utility: dict[str, tuple[int, int, int]] = {}
+    original_utility = cognition_module._task_family_history_retrieval_utility
+    def observe_utility(experiences: object, **kwargs: Any) -> tuple[int, int, int]:
+        result = original_utility(experiences, **kwargs)
+        if isinstance(experiences, list) and experiences:
+            observed_utility[str(experiences[0]["source_run_id"])] = result
+        return result
+    monkeypatch.setattr(cognition_module, "_task_family_history_retrieval_utility",
+        observe_utility)
+    monkeypatch.setattr(cognition.writeback.store, "get",
+        lambda record_id: records[record_id])
+    monkeypatch.setattr(cognition.writeback, "retrieve", lambda record_ids, *, limit:
+        DevelopmentalHistoryProjection(tuple(records[record_id]
+            for record_id in record_ids), tuple(record_ids)))
+
+    selected = cognition._prior_projection({"completed_ticks": [
+            {"tick_id": "repeat-a", "record_id": "repeat-a"},
+            {"tick_id": "repeat-b", "record_id": "repeat-b"},
+            {"tick_id": "newer-single", "record_id": "newer-single"}]},
+        "later-task", task_family_id="integer_affine_prediction",
+        task_probe_inputs=(7,), require_task_family_history=True,
+        target_model_identity=identity)
+
+    assert observed_utility == {"run-a": (4, 1, 1),
+        "run-b": (4, 1, 1), "run-single": (3, 1, 1)}
+    assert selected.requested_record_ids == ("repeat-b",)
 
 
 def test_tick_n_admitted_developmental_writeback_is_durable_and_bounded(tmp_path: Path) -> None:
