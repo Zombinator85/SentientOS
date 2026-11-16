@@ -3431,6 +3431,8 @@ def _validate_self_model_prompt_selection(value: Mapping[str, Any]) -> None:
     selected_ids = selection.get("selected_claim_ids")
     selected_digests = selection.get("selected_claim_digests")
     omitted = selection.get("omitted_claims")
+    available_ids = value.get("self_model_claim_ids")
+    available_digests = value.get("self_model_claim_digests")
     def valid_digest(item: Any) -> bool:
         return (isinstance(item, str) and len(item) == 71
             and item.startswith("sha256:")
@@ -3450,9 +3452,16 @@ def _validate_self_model_prompt_selection(value: Mapping[str, Any]) -> None:
             or not isinstance(selected_digests, (list, tuple))
             or len(selected_ids) != len(selected_digests)
             or len(selected_ids) > 32
+            or not isinstance(available_ids, (list, tuple))
+            or not isinstance(available_digests, (list, tuple))
+            or len(available_ids) != len(available_digests)
+            or len(available_ids) != selection.get("available_claim_count")
             or any(not isinstance(item, str) or not item or len(item) > 256
                 for item in selected_ids)
+            or any(not isinstance(item, str) or not item or len(item) > 256
+                for item in available_ids)
             or any(not valid_digest(item) for item in selected_digests)
+            or any(not valid_digest(item) for item in available_digests)
             or len(set(selected_ids)) != len(selected_ids)
             or not isinstance(omitted, (list, tuple)) or len(omitted) > 32
             or any(not isinstance(item, Mapping)
@@ -3463,6 +3472,9 @@ def _validate_self_model_prompt_selection(value: Mapping[str, Any]) -> None:
             or len({item["claim_id"] for item in omitted}) != len(omitted)
             or set(selected_ids) & {item["claim_id"] for item in omitted}
             or selection["available_claim_count"] != len(selected_ids) + len(omitted)
+            or selected_ids + [item["claim_id"] for item in omitted] != list(available_ids)
+            or selected_digests + [item["claim_digest"] for item in omitted]
+                != list(available_digests)
             or selection.get("omitted_claims_digest") != _digest(list(omitted))
             or selection.get("omission_reason") != (
                 "inference_input_budget" if omitted else None)
