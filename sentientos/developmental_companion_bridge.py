@@ -434,7 +434,8 @@ class ResidentDevelopmentalCompanionBridge:
                     observation.get("schema_version")
                         in {"sentientos.resident_cognition_observation:v9",
                             "sentientos.resident_cognition_observation:v10",
-                            "sentientos.resident_cognition_observation:v11"}
+                            "sentientos.resident_cognition_observation:v11",
+                            "sentientos.resident_cognition_observation:v12"}
                     and linkage.get("cognition_memory_selection_digest")
                         == observation.get("canonical_user_memory_selection_digest")
                     and isinstance(memory_citation_ids, (list, tuple))
@@ -442,7 +443,9 @@ class ResidentDevelopmentalCompanionBridge:
                         == list(observation.get("companion_memory_citation_ids", ()))
                     and set(memory_citation_ids) <=
                         set(observation.get("canonical_user_memory_record_ids", ())))
-            if observation.get("schema_version") == "sentientos.resident_cognition_observation:v11":
+            if observation.get("schema_version") in {
+                    "sentientos.resident_cognition_observation:v11",
+                    "sentientos.resident_cognition_observation:v12"}:
                 self_model_citation_ids = linkage.get(
                     "cognition_self_model_claim_ids", ())
                 selection = observation.get("prior_self_model_prompt_selection")
@@ -492,10 +495,26 @@ class ResidentDevelopmentalCompanionBridge:
                     "sentientos.resident_cognition_observation:v8",
                     "sentientos.resident_cognition_observation:v9",
                     "sentientos.resident_cognition_observation:v10",
-                    "sentientos.resident_cognition_observation:v11"}
+                    "sentientos.resident_cognition_observation:v11",
+                    "sentientos.resident_cognition_observation:v12"}
                 and observation.get("companion_history_citation_ids") == list(history_record_ids)
                 and memory_lineage_valid
                 and self_model_lineage_valid
+                and (observation.get("schema_version") !=
+                    "sentientos.resident_cognition_observation:v12" or (
+                    linkage.get("conversation_context_snapshot_digest") ==
+                        observation.get("companion_conversation_context_snapshot_digest")
+                    and linkage.get("conversation_context_selection_digest") ==
+                        observation.get("companion_conversation_context_selection_digest")
+                    and linkage.get("conversation_context_turn_ids", []) == list(
+                        observation.get("companion_conversation_context_turn_ids", ()))
+                    and linkage.get("conversation_context_turn_text_digests", []) == list(
+                        observation.get("companion_conversation_context_turn_digests", ()))
+                    and linkage.get("cognition_conversation_turn_citation_ids", []) == list(
+                        observation.get("companion_conversation_citation_ids", ()))
+                    and linkage.get("cognition_conversation_turn_citation_digests", []) == list(
+                        observation.get("companion_conversation_citation_digests", ()))
+                    ))
                 and history_lineage_valid
                 and linkage.get("cognition_model_id") == observation.get("model_id")
                 and linkage.get("cognition_model_artifact_digest") ==

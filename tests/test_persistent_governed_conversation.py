@@ -348,6 +348,9 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
                 model_id="fixture-model", model_artifact_digest="g" * 64,
                 prior_record_ids=(), history_record_ids=(), memory_record_ids=(),
                 self_model_claim_ids=(), developmental_history_writeback_performed=False,
+                conversation_turn_citation_ids=(
+                    (conversation_context["turns"][0]["turn_id"],)
+                    if conversation_context and "west sensor" in prior_text else ()),
                 authority=False, current_truth=False,
                 canonical_explicit_user_retention_mutated=False)
 
@@ -399,6 +402,10 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
         supplied["selection_digest"])
     assert followup.context["conversation_context_turn_ids"] == [
         row["turn_id"] for row in supplied["turns"]]
+    assert followup.context["cognition_conversation_turn_citation_ids"] == [
+        supplied["turns"][0]["turn_id"]]
+    assert followup.context["cognition_conversation_turn_citation_digests"] == [
+        supplied["turns"][0]["text_digest"]]
     assert seen_contexts[1] is None
 
 
@@ -499,6 +506,7 @@ def test_failed_memory_source_verification_forces_resident_clarification(
                     "response": "You prefer the retained answer style.",
                     "evidence_ids": [], "history_record_ids": [],
                     "memory_record_ids": [row["memory_id"] for row in records],
+                    "conversation_turn_ids": [],
                 }
             return super().invoke(request, **kwargs)
 
@@ -635,6 +643,7 @@ def test_conflicting_retained_preferences_reach_resident_and_prompt_clarificatio
                             "Which should I use now?"),
                         "evidence_ids": [], "history_record_ids": [],
                         "memory_record_ids": [row["memory_id"] for row in relevant],
+                        "conversation_turn_ids": [],
                     }
             return super().invoke(request, **kwargs)
 

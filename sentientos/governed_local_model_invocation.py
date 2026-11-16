@@ -178,6 +178,17 @@ RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA = {
             "items": {"type": "string", "minLength": 1, "maxLength": 256}},
     },
 }
+RESIDENT_COMPANION_SESSION_INTERACTION_OUTPUT_SCHEMA = {
+    **RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
+    "required": [*RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["required"],
+        "conversation_turn_ids"],
+    "properties": {
+        **RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["properties"],
+        "conversation_turn_ids": {"type": "array", "maxItems": 16,
+            "uniqueItems": True,
+            "items": {"type": "string", "pattern": "^turn-[0-9a-f]{24}$"}},
+    },
+}
 # Keep decoding controls identical in all history-intervention conditions.
 RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA = (
     RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA)

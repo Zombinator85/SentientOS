@@ -2206,6 +2206,7 @@ class PersistentConversationService:
         history_record_ids = getattr(result, "history_record_ids", ())
         memory_record_ids = getattr(result, "memory_record_ids", ())
         self_model_claim_ids = getattr(result, "self_model_claim_ids", ())
+        conversation_citation_ids = getattr(result, "conversation_turn_citation_ids", ())
         memory_selection_digest = getattr(
             result, "canonical_user_memory_selection_digest", None)
         if (not isinstance(observation_id, str) or not observation_id.startswith("devcog-")
@@ -2238,6 +2239,15 @@ class PersistentConversationService:
                 or any(not isinstance(item, str) for item in self_model_claim_ids)
                 or len(set(self_model_claim_ids)) != len(self_model_claim_ids)):
             raise RuntimeError("resident_cognition_self_model_lineage_invalid")
+        conversation_turn_map = ({row["turn_id"]: row["text_digest"] for row in
+            conversation_context["turns"]} if conversation_context is not None else {})
+        if (not isinstance(conversation_citation_ids, (tuple, list))
+                or any(not isinstance(item, str) for item in conversation_citation_ids)
+                or len(set(conversation_citation_ids)) != len(conversation_citation_ids)
+                or not set(conversation_citation_ids).issubset(conversation_turn_map)):
+            raise RuntimeError("resident_cognition_conversation_lineage_invalid")
+        conversation_citation_digests = [conversation_turn_map[item]
+            for item in conversation_citation_ids]
         lineage = {
             "status": "resident_cognition_interaction",
             "cognition_observation_id": observation_id,
@@ -2272,6 +2282,10 @@ class PersistentConversationService:
                     if conversation_context is not None else None),
                 "conversation_context_turn_ids": [row["turn_id"] for row in
                     conversation_context["turns"]] if conversation_context is not None else [],
+                "conversation_context_turn_text_digests": [row["text_digest"] for row in
+                    conversation_context["turns"]] if conversation_context is not None else [],
+                "cognition_conversation_turn_citation_ids": list(conversation_citation_ids),
+                "cognition_conversation_turn_citation_digests": conversation_citation_digests,
                 "cognition_model_id": model_id,
                 "cognition_model_artifact_digest": getattr(result, "model_artifact_digest", None),
                 "self_model_projection_id": getattr(result, "self_model_projection_id", None),
@@ -2321,6 +2335,10 @@ class PersistentConversationService:
                     if conversation_context is not None else None),
                 "conversation_context_turn_ids": [row["turn_id"] for row in
                     conversation_context["turns"]] if conversation_context is not None else [],
+                "conversation_context_turn_text_digests": [row["text_digest"] for row in
+                    conversation_context["turns"]] if conversation_context is not None else [],
+                "cognition_conversation_turn_citation_ids": list(conversation_citation_ids),
+                "cognition_conversation_turn_citation_digests": conversation_citation_digests,
                 "cognition_model_id": model_id,
                 "self_model_projection_id": getattr(result, "self_model_projection_id", None),
                 "self_model_projection_digest": getattr(result, "self_model_projection_digest", None),
