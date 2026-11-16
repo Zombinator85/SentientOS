@@ -101,6 +101,7 @@ class FakeInvoker:
         self.resource_contexts = []
         self.lesson_statement = "When prior evidence conflicts, preserve its scope and uncertainty."
         self.lesson_scope = "historical evidence interpretation"
+        self.lesson_applicability = "Only when the cited evidence and scope still match."
         self.lesson_uncertainty = "medium"
         self.lesson_uncertainty_rationale = "Historical evidence may not generalize."
         self.lesson_dependency_override = None
@@ -286,7 +287,7 @@ class FakeInvoker:
             dependency = (self.lesson_dependency_override or consumed[0]) if consumed else "missing"
             lesson = None if self.no_cognition_lesson else {
                 "statement": self.lesson_statement, "scope": self.lesson_scope,
-                "applicability": "Only when the cited evidence and scope still match.",
+                "applicability": self.lesson_applicability,
                 "uncertainty": self.lesson_uncertainty,
                 "uncertainty_rationale": self.lesson_uncertainty_rationale,
                 "evidence_dependencies": [dependency],
@@ -4733,12 +4734,14 @@ def test_companion_interaction_uses_existing_history_without_learning_from_curre
 def test_companion_query_selects_relevant_older_experience_over_recent_unrelated_history(
         tmp_path: Path) -> None:
     cognition, fake = owner(tmp_path)
-    fake.history_interpretation = "Battery calibration showed a weak cell needs slower charging."
+    fake.history_interpretation = "A weak cell was observed during a technical inspection."
+    fake.lesson_scope = "battery calibration"
     relevant = cognition.run_tick(snapshot=snapshot(), tick_id="query-history-relevant")
     assert relevant.written_record_id
     unrelated_ids = []
     for index in range(4):
         fake.history_interpretation = f"Unrelated astronomy observation number {index}."
+        fake.lesson_scope = f"astronomy observation {index}"
         outcome = cognition.run_tick(snapshot=snapshot(), tick_id=f"query-history-unrelated-{index}")
         assert outcome.written_record_id
         unrelated_ids.append(outcome.written_record_id)
@@ -4747,7 +4750,8 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
         "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"]}
 
     result = cognition.run_companion_interaction(snapshot=snapshot(),
-        request_id="query-history-companion", question="How should battery calibration charge a weak cell?")
+        request_id="query-history-companion",
+        question="Which battery calibration scope applied to the weak cell?")
 
     assert result.prior_record_ids == (unrelated_ids[1], unrelated_ids[2],
         unrelated_ids[3], relevant.written_record_id)
@@ -4755,9 +4759,70 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_operator_reports_then_recency_fill:v4"
+        "query_overlap_with_lesson_scope_then_recency_fill:v5"
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
+
+
+def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_text() -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+
+    candidates = {"older-scoped-lesson": {
+            "selected_facts": [],
+            "interpretation": "A weak cell was observed during a technical inspection.",
+            "transformation_provenance": {"lesson_candidate": {
+                "statement": "Preserve evidence and uncertainty.",
+                "scope": "battery calibration",
+                "applicability": "Only for a battery calibration with matching evidence.",
+                "uncertainty_rationale": "Historical evidence may not generalize.",
+                "evidence_dependencies": ["fact-old"]}}},
+        **{f"recent-unrelated-{index}": {
+            "selected_facts": [],
+            "interpretation": f"An astronomy observation about stars {index}.",
+            "transformation_provenance": {"lesson_candidate": {
+                "statement": "Preserve evidence and uncertainty.",
+                "scope": "astronomy observation",
+                "applicability": "Only for an astronomy observation with matching evidence.",
+                "uncertainty_rationale": "Historical evidence may not generalize.",
+                "evidence_dependencies": [f"fact-{index}"]}}}
+            for index in range(4)}}
+    order = tuple(candidates)
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            self.selected = tuple(record_ids)
+            return SimpleNamespace(records=(), requested_record_ids=self.selected,
+                limit=limit)
+
+    writeback = Writeback()
+    fake_owner = SimpleNamespace(writeback=writeback,
+        config=SimpleNamespace(max_retrieved_records=4), objective_task=None)
+    state = {"completed_ticks": [{"tick_id": f"tick-{index}",
+        "record_id": record_id} for index, record_id in enumerate(order)]}
+
+    projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-tick",
+        relevance_query="Which battery calibration scope applies?")
+
+    assert projection.requested_record_ids[-1] == "older-scoped-lesson"
+    assert len(projection.requested_record_ids) == 4
+    assert "recent-unrelated-0" not in projection.requested_record_ids
+
+    from sentientos import resident_developmental_cognition as cognition_module
+    _, metadata, _, _, _ = cognition_module._bind_history_and_epistemic_context(
+        context={"developmental_history_retrieval_policy_id":
+            "query_overlap_with_lesson_scope_then_recency_fill:v5"},
+        records=(), projection=None, history_present=False)
+    cognition_module._validate_developmental_history_selection({
+        "developmental_history_selection": metadata["developmental_history_selection"]})
 
 
 def test_canonical_user_memory_is_prompt_bound_historical_context_not_evidence(

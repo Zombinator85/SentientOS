@@ -3339,7 +3339,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "query_overlap_then_recency_fill:v1",
                 "query_overlap_with_operator_reports_then_recency_fill:v2",
                 "query_overlap_with_operator_reports_then_recency_fill:v3",
-                "query_overlap_with_operator_reports_then_recency_fill:v4"}
+                "query_overlap_with_operator_reports_then_recency_fill:v4",
+                "query_overlap_with_lesson_scope_then_recency_fill:v5"}
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
@@ -5833,7 +5834,7 @@ class ResidentDevelopmentalCognitionOwner:
             # filling unused slots from the recent suffix. This ranks history;
             # it does not establish truth or correctness.
             query_terms = _history_retrieval_terms(relevance_query)
-            document_terms: dict[str, set[str]] = {}
+            document_term_weights: dict[str, dict[str, int]] = {}
             for order, record_id in enumerate(ids):
                 try:
                     record = self.writeback.store.get(record_id)
@@ -5841,23 +5842,44 @@ class ResidentDevelopmentalCognitionOwner:
                     raise ResidentDevelopmentalCognitionError(
                         "relevant_history_recovery_failed") from exc
                 candidate = record.candidate
+                term_weights: dict[str, int] = {}
                 searchable_parts = ([str(candidate.get(key, "")) for key in
                     ("interpretation", "uncertainty", "epistemic_status")]
                     if isinstance(candidate, Mapping) else [])
                 if isinstance(candidate, Mapping):
                     searchable_parts.extend(item["assertion_text"]
                         for item in _historical_operator_feedback_context(candidate))
-                searchable = " ".join(searchable_parts)
-                document_terms[record_id] = _history_retrieval_terms(searchable)
-            document_frequency = {term: sum(term in terms
-                for terms in document_terms.values()) for term in query_terms}
+                    provenance = candidate.get("transformation_provenance")
+                    lesson = (provenance.get("lesson_candidate")
+                        if isinstance(provenance, Mapping) else None)
+                    if isinstance(lesson, Mapping):
+                        for field in ("statement", "uncertainty_rationale",
+                                "evidence_dependencies"):
+                            value = lesson.get(field)
+                            if isinstance(value, str):
+                                searchable_parts.append(value)
+                            elif isinstance(value, (list, tuple)):
+                                searchable_parts.extend(str(item) for item in value)
+                        # Scope and applicability describe where an admitted
+                        # lesson may transfer. Prefer these explicit bounds
+                        # over incidental matches in generic interpretation.
+                        for field in ("scope", "applicability"):
+                            value = lesson.get(field)
+                            if isinstance(value, str):
+                                for term in _history_retrieval_terms(value):
+                                    term_weights[term] = max(term_weights.get(term, 0), 3)
+                for term in _history_retrieval_terms(" ".join(searchable_parts)):
+                    term_weights[term] = max(term_weights.get(term, 0), 1)
+                document_term_weights[record_id] = term_weights
+            document_frequency = {term: sum(term in weights
+                for weights in document_term_weights.values()) for term in query_terms}
             ranked: list[tuple[float, int, str]] = []
-            document_count = max(1, len(document_terms))
+            document_count = max(1, len(document_term_weights))
             for order, record_id in enumerate(ids):
-                shared = query_terms & document_terms[record_id]
-                relevance_score = sum((math.log((document_count + 1) /
-                    (document_frequency[term] + 0.5)) + 1) ** 2
-                    for term in shared)
+                weights = document_term_weights[record_id]
+                shared = query_terms & weights.keys()
+                relevance_score = sum(weights[term] * (math.log((document_count + 1) /
+                    (document_frequency[term] + 0.5)) + 1) ** 2 for term in shared)
                 if relevance_score:
                     ranked.append((relevance_score, order, record_id))
             ranked.sort(reverse=True)
@@ -6590,7 +6612,7 @@ class ResidentDevelopmentalCognitionOwner:
                 and bool(observed_target_identity))
             else "task_family_probe_overlap_then_recency_fill:v2"
             if isinstance(task_family_id, str) else
-            "query_overlap_with_operator_reports_then_recency_fill:v4"
+            "query_overlap_with_lesson_scope_then_recency_fill:v5"
             if interaction_question is not None
                 and condition_id == "companion-interaction"
             else "completed_tick_recency_suffix:v1")

@@ -89,17 +89,18 @@ objective truth, or improved intelligence.
 
 ## Query-relevant experience in resident interactions
 
-The resident companion interaction now ranks already admitted developmental
-interpretations and source-verified operator-report text against the current
-question by frequency-weighted lexical token overlap before the existing bounded history
-projection. Unmatched slots are filled from the recent checkpoint sequence.
-The selected record identities and the retrieval policy
-(`query_overlap_with_operator_reports_then_recency_fill:v4`) remain in the normal history
-selection lineage; the history packet remains explicitly historical,
-non-authoritative, and not current truth. This is a deterministic relevance
-heuristic that normalizes common plural endings and gives more weight to terms
-that occur in fewer candidate records. It is not semantic retrieval or
-evidence that the selected experience improves an answer.
+The resident companion interaction ranks already admitted developmental
+interpretations, source-verified operator-report text, and admitted lesson
+content against the current question before the bounded history projection.
+Lesson scope and applicability matches receive more weight than generic
+interpretation wording; unmatched slots are filled from the recent checkpoint
+sequence. The selected record identities and retrieval policy
+(`query_overlap_with_lesson_scope_then_recency_fill:v5`) remain in normal
+history selection lineage. History packets remain explicitly historical,
+non-authoritative, and not current truth. This remains deterministic lexical
+matching that normalizes common plural endings and weights terms that occur in
+fewer candidate records. It is not semantic retrieval or evidence that selected
+experience improves an answer.
 
 The persistent epistemic owner also accepts the current companion question when
 building its bounded prior-state projection. It ranks only propositions that
@@ -169,11 +170,13 @@ is better.
 
 The focused counterfactual in
 `tests/test_resident_developmental_cognition.py::test_companion_query_selects_relevant_older_experience_over_recent_unrelated_history`
-places a matching older battery-calibration record behind four newer unrelated
-records and verifies that it survives the four-record retrieval bound while the
-oldest unrelated record is omitted. The remaining open work is to measure
-whether relevant experience changes resident responses appropriately across
-controlled tasks, and to evaluate semantic retrieval beyond lexical overlap.
+places an older lesson whose scope matches battery calibration behind four
+newer astronomy lessons whose interpretations contain no query match. The
+scoped lesson survives the four-record retrieval bound, showing that context
+selection can use the learned applicability metadata when the interpretation
+wording differs. The remaining open work is to measure whether relevant
+experience changes resident responses appropriately across controlled tasks,
+and to evaluate semantic retrieval beyond lexical overlap.
 
 ## Experience application under controlled conditions
 
