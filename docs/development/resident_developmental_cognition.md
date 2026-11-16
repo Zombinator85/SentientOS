@@ -120,6 +120,14 @@ reports reconciliation status and identity separately from developmental
 writeback, including a degraded status if reconciliation fails after writeback.
 This does not roll back or misreport an already committed writeback.
 
+On Windows, longitudinal self-model reconciliations now use the existing
+handle-bound immutable publisher when the configured custody root already
+exists and passes the private ACL check. A directory-identity-bound local
+mutex serializes reconciliation generations across processes, and restart
+recovery verifies the resulting immutable chain. This does not enable mutable
+resident developmental composition-state publication on Windows; `run_tick`
+and that owner's checkpoint remain fail-closed there.
+
 A renderer's proprioceptive report remains a report from the renderer, not an
 independent measurement of the avatar's actual effect. The self-model owner
 preserves that provenance and uncertainty; these claims are read-only,

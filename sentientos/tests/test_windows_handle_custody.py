@@ -18,12 +18,14 @@ from sentientos.windows_handle_custody import (
 )
 from sentientos import windows_handle_custody as windows_custody_module
 from sentientos import windows_peer_replay_custody as publication_module
+from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
 from sentientos.federation.peer_authentication import FederationPeerEventVerificationError
 from sentientos.work_plan import (
     WORK_PLAN_EVIDENCE_DIR,
     WorkPlanError,
     _open_work_plan_evidence_directory,
 )
+from sentientos.world_state_board import WorldStateBoardBuilder
 from sentientos.federation import peer_replay_owner as replay_module
 from sentientos.federation.peer_authentication_ed25519 import (
     CryptographyEd25519FederationPeerSignatureVerifier,
@@ -486,6 +488,98 @@ def test_windows_replay_publication_create_retry_and_conflict(tmp_path: Path) ->
         _publish_test_record(tmp_path, b"conflicting record")
     assert target.read_bytes() == b"record-one"
     assert [p.name for p in tmp_path.iterdir()] == [target.name]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows immutable cognition publication")
+def test_windows_self_model_reconciliations_persist_across_restart() -> None:
+    from datetime import datetime, timezone
+    from tempfile import TemporaryDirectory
+
+    observed_at = datetime(2026, 11, 15, 12, 0, tzinfo=timezone.utc)
+
+    def world(model: str):
+        return WorldStateBoardBuilder(clock=lambda: observed_at).build([{
+            "source_kind": "local_model_authority", "source_id": "runtime:" + model,
+            "schema_version": "test.v1", "subject_id": "sentientos",
+            "subject_kind": "persistent_causal_system", "stage": "observation",
+            "disposition": "serving", "evidence_strength": "authenticated",
+            "observed_at": observed_at.isoformat(),
+            "payload": {"software_generation": "software-" + model,
+                "cognitive_model_id": model,
+                "developmental_history_boundary": "history-1"},
+        }])
+
+    with TemporaryDirectory(prefix=".cognition-custody-",
+            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        peer_root = root / "peer-records"
+        peer_root.mkdir()
+        _make_current_user_private(peer_root, directory=True)
+        peer_identity = observe_private_directory_identity(peer_root)
+        peer_record = peer_root / "event-00000000000000000001.json"
+        assert publication_module.publish_immutable_replay_bytes(peer_record,
+            b"peer-record", max_bytes=1024, max_entries=4,
+            expected_root_identity=peer_identity) is True
+        assert read_explicit_file(peer_record, max_bytes=1024,
+            require_private_acl=True) == b"peer-record"
+
+        first_owner = LongitudinalSelfModelOwner(root)
+        first = first_owner.reconcile(world("model-a"), tick_id="tick-model-a")
+        first_path = (root / "reconciliations" /
+            f"{first.generation:020d}-{first.reconciliation_id}.json")
+        first_bytes = read_explicit_file(first_path, max_bytes=4_194_304,
+            require_private_acl=True)
+        with pytest.raises(publication_module.WindowsReplayCustodyError,
+                match="replay_owner_record_conflict"):
+            publication_module.publish_immutable_replay_bytes(first_path,
+                b"replacement must not be installed", max_bytes=4_194_304,
+                max_entries=4096,
+                expected_root_identity=observe_private_directory_identity(
+                    root / "reconciliations"),
+                filename_policy="longitudinal_self_model")
+        assert read_explicit_file(first_path, max_bytes=4_194_304,
+            require_private_acl=True) == first_bytes
+        restarted = LongitudinalSelfModelOwner(root)
+        assert restarted.history() == (first,)
+
+        second = restarted.reconcile(world("model-b"), tick_id="tick-model-b")
+        recovered = LongitudinalSelfModelOwner(root).history()
+        assert recovered == (first, second)
+        assert second.generation == 2
+        assert second.previous_reconciliation_id == first.reconciliation_id
+
+        child_script = """import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
+from sentientos.world_state_board import WorldStateBoardBuilder
+root, model = Path(sys.argv[1]), sys.argv[2]
+observed_at = datetime(2026, 11, 15, 12, 0, tzinfo=timezone.utc)
+world = WorldStateBoardBuilder(clock=lambda: observed_at).build([{
+    'source_kind': 'local_model_authority', 'source_id': 'runtime:' + model,
+    'schema_version': 'test.v1', 'subject_id': 'sentientos',
+    'subject_kind': 'persistent_causal_system', 'stage': 'observation',
+    'disposition': 'serving', 'evidence_strength': 'authenticated',
+    'observed_at': observed_at.isoformat(), 'payload': {
+        'software_generation': 'software-' + model,
+        'cognitive_model_id': model, 'developmental_history_boundary': 'history-1'}}])
+result = LongitudinalSelfModelOwner(root).reconcile(world, tick_id='tick-' + model)
+print(result.generation)
+"""
+        repo_root = Path(__file__).resolve().parents[2]
+        children = [subprocess.Popen([sys.executable, "-c", child_script,
+            str(root), "model-" + suffix], cwd=repo_root,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            for suffix in ("c", "d")]
+        child_outputs = [child.communicate(timeout=30) for child in children]
+        assert all(child.returncode == 0 for child in children), child_outputs
+        assert {int(stdout.strip()) for stdout, _stderr in child_outputs} == {3, 4}
+        recovered = LongitudinalSelfModelOwner(root).history()
+        assert [item.generation for item in recovered] == [1, 2, 3, 4]
+        assert all(item.previous_reconciliation_id == recovered[index - 1].reconciliation_id
+            for index, item in enumerate(recovered) if index)
+        assert not list((root / "reconciliations").glob(".pending-*"))
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows no-replace rename")

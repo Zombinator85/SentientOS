@@ -20,7 +20,13 @@ from .private_file_custody import (
 )
 from .platform_fcntl import fcntl, require_flock
 from .world_state_board import WorldStateFact, WorldStateSnapshot, validate_snapshot
-from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
+from .windows_handle_custody import (
+    WindowsHandleCustodyError, observe_private_directory_identity,
+    read_explicit_file, read_regular_files, verify_explicit_directory,
+)
+from .windows_peer_replay_custody import (
+    WindowsReplayCustodyError, publish_immutable_replay_bytes,
+)
 
 SCHEMA = "sentientos.longitudinal_self_model:v1"
 RECONCILIATION_SCHEMA = "sentientos.longitudinal_self_model_reconciliation:v1"
@@ -1088,11 +1094,33 @@ class LongitudinalSelfModelOwner:
             os.close(directory_fd)
 
     def _publish_entry(self, path: Path, result: SelfModelReconciliation) -> None:
-        if os.name != "posix":
-            raise LongitudinalSelfModelError("reconciliation_publication_unsupported_platform")
         data = json.dumps(asdict(result), sort_keys=True, indent=2).encode("utf-8") + b"\n"
         if len(data) > MAX_RECONCILIATION_BYTES:
             raise LongitudinalSelfModelError("reconciliation_file_unbounded")
+        if os.name == "nt":
+            try:
+                # The configured root is operator-provisioned. Verify its held
+                # Windows custody before creating only the journal child; the
+                # immutable writer then pins that child's identity throughout
+                # publication and readback.
+                verify_explicit_directory(self.root, require_private_acl=True)
+                try:
+                    self.entries.mkdir()
+                except FileExistsError:
+                    pass
+                root_identity = observe_private_directory_identity(self.entries)
+                publish_immutable_replay_bytes(path, data,
+                    max_bytes=MAX_RECONCILIATION_BYTES,
+                    max_entries=MAX_RECONCILIATION_ENTRIES,
+                    expected_root_identity=root_identity,
+                    filename_policy="longitudinal_self_model")
+                return
+            except (WindowsHandleCustodyError, WindowsReplayCustodyError,
+                    OSError) as exc:
+                raise LongitudinalSelfModelError(
+                    "reconciliation_publication_failed") from exc
+        if os.name != "posix":
+            raise LongitudinalSelfModelError("reconciliation_publication_unsupported_platform")
         try:
             publish_immutable_bytes(path, data, max_bytes=MAX_RECONCILIATION_BYTES,
                 collision_code="reconciliation_path_collision")
@@ -1188,6 +1216,57 @@ class LongitudinalSelfModelOwner:
     @contextmanager
     def _reconciliation_lock(self) -> Iterator[None]:
         """Serialize generation/predecessor selection across local processes."""
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+
+            try:
+                root_identity = observe_private_directory_identity(self.root)
+            except WindowsHandleCustodyError as exc:
+                raise LongitudinalSelfModelError(
+                    "reconciliation_lock_root_unavailable") from exc
+            root_key = _digest({"volume": root_identity[0],
+                "file_id": root_identity[1].hex()})[7:]
+            kernel = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+            create_mutex = kernel.CreateMutexW
+            create_mutex.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+            create_mutex.restype = wintypes.HANDLE
+            wait = kernel.WaitForSingleObject
+            wait.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            wait.restype = wintypes.DWORD
+            release = kernel.ReleaseMutex
+            release.argtypes = [wintypes.HANDLE]
+            release.restype = wintypes.BOOL
+            close = kernel.CloseHandle
+            close.argtypes = [wintypes.HANDLE]
+            close.restype = wintypes.BOOL
+            mutex = create_mutex(None, False,
+                "Local\\SentientOS-SelfModel-" + root_key)
+            if not mutex:
+                raise LongitudinalSelfModelError("reconciliation_lock_unavailable")
+            acquired = False
+            try:
+                result = int(wait(mutex, 30_000))
+                if result not in {0, 0x80}:  # acquired, including abandoned-owner recovery
+                    raise LongitudinalSelfModelError("reconciliation_lock_unavailable")
+                acquired = True
+                try:
+                    if observe_private_directory_identity(self.root) != root_identity:
+                        raise LongitudinalSelfModelError(
+                            "reconciliation_lock_root_identity_changed")
+                except WindowsHandleCustodyError as exc:
+                    raise LongitudinalSelfModelError(
+                        "reconciliation_lock_root_unavailable") from exc
+                yield
+            finally:
+                if acquired and not release(mutex):
+                    close(mutex)
+                    raise LongitudinalSelfModelError(
+                        "reconciliation_lock_release_failed")
+                if not close(mutex):
+                    raise LongitudinalSelfModelError(
+                        "reconciliation_lock_close_failed")
+            return
         if os.name != "posix":
             raise LongitudinalSelfModelError("reconciliation_lock_unsupported_platform")
         directory_fd: int | None = None
@@ -1310,8 +1389,6 @@ class LongitudinalSelfModelOwner:
         return replace(raw, projection_id="cognitive-self-model-" + digest[7:31], projection_digest=digest)
 
     def reconcile(self, snapshot: WorldStateSnapshot, *, tick_id: str) -> SelfModelReconciliation:
-        if os.name != "posix":
-            return self._reconcile_locked(snapshot, tick_id=tick_id)
         with self._reconciliation_lock():
             return self._reconcile_locked(snapshot, tick_id=tick_id)
 

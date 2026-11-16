@@ -36,6 +36,7 @@ def _publication_boundary(_phase: str) -> None:
 def publish_immutable_replay_bytes(
     path: Path, data: bytes, *, max_bytes: int, max_entries: int,
     expected_root_identity: tuple[int, bytes] | None = None,
+    filename_policy: str = "peer_event",
 ) -> bool:
     """Return True for one new record or False for an exact durable retry.
 
@@ -52,11 +53,17 @@ def publish_immutable_replay_bytes(
     if not isinstance(path, Path):
         raise WindowsReplayCustodyError("windows_replay_publication_arguments_invalid")
     path = Path(os.fspath(path))
+    sequence_match = (re.fullmatch(r"event-([0-9]{20})\.json", path.name)
+        if filename_policy == "peer_event" else
+        re.fullmatch(r"([0-9]{20})-self-reconciliation-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "longitudinal_self_model" else None)
+    maximum_file_bytes = (4_194_304 if filename_policy == "longitudinal_self_model"
+        else 1_048_576)
     if (not path.is_absolute()
-            or re.fullmatch(r"event-[0-9]{20}\.json", path.name) is None
-            or not 1 <= int(path.name[6:26]) <= 2**63 - 1
+            or sequence_match is None
+            or not 1 <= int(sequence_match.group(1)) <= 2**63 - 1
             or type(data) is not bytes or not data
-            or type(max_bytes) is not int or not 1 <= max_bytes <= 1_048_576
+            or type(max_bytes) is not int or not 1 <= max_bytes <= maximum_file_bytes
             or len(data) > max_bytes
             or type(max_entries) is not int or not 1 <= max_entries <= 8192
             or (expected_root_identity is not None
