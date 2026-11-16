@@ -57,11 +57,17 @@ def publish_immutable_replay_bytes(
         if filename_policy == "peer_event" else
         re.fullmatch(r"([0-9]{20})-self-reconciliation-[0-9a-f]{24}\.json", path.name)
         if filename_policy == "longitudinal_self_model" else None)
+    content_addressed_match = (re.fullmatch(r"devrec-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "developmental_record" else
+        re.fullmatch(r"devreceipt-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "developmental_receipt" else None)
+    sequence_number = (int(sequence_match.group(1)) if sequence_match is not None
+        else 1 if content_addressed_match is not None else 0)
     maximum_file_bytes = (4_194_304 if filename_policy == "longitudinal_self_model"
         else 1_048_576)
     if (not path.is_absolute()
-            or sequence_match is None
-            or not 1 <= int(sequence_match.group(1)) <= 2**63 - 1
+            or (sequence_match is None and content_addressed_match is None)
+            or not 1 <= sequence_number <= 2**63 - 1
             or type(data) is not bytes or not data
             or type(max_bytes) is not int or not 1 <= max_bytes <= maximum_file_bytes
             or len(data) > max_bytes

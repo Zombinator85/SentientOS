@@ -128,6 +128,17 @@ recovery verifies the resulting immutable chain. This does not enable mutable
 resident developmental composition-state publication on Windows; `run_tick`
 and that owner's checkpoint remain fail-closed there.
 
+The developmental-history store now also publishes immutable learning records
+and writeback receipts on Windows when its configured root exists with a
+verified private ACL. Records and receipts use the existing handle-bound,
+no-replace publisher, and the writeback operation lock is scoped to the verified
+root identity. A deterministic native test writes both artifacts, acquires the
+lock, reconstructs the store, and verifies their record/receipt linkage after
+restart. This enables durable history storage on Windows; the resident owner
+still cannot complete `run_tick` there because its mutable composition
+checkpoint and composition lock have not yet been made portable. No model
+inference or GPU-backed validation is part of this result.
+
 A renderer's proprioceptive report remains a report from the renderer, not an
 independent measurement of the avatar's actual effect. The self-model owner
 preserves that provenance and uncertainty; these claims are read-only,

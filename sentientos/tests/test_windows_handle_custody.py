@@ -19,6 +19,11 @@ from sentientos.windows_handle_custody import (
 from sentientos import windows_handle_custody as windows_custody_module
 from sentientos import windows_peer_replay_custody as publication_module
 from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
+from sentientos.resident_developmental_writeback import (
+    DevelopmentalHistoryStore, DevelopmentalRecord,
+    ResidentDevelopmentalWritebackController, WritebackReceipt,
+    _identity as writeback_identity,
+)
 from sentientos.federation.peer_authentication import FederationPeerEventVerificationError
 from sentientos.work_plan import (
     WORK_PLAN_EVIDENCE_DIR,
@@ -580,6 +585,56 @@ print(result.generation)
         assert all(item.previous_reconciliation_id == recovered[index - 1].reconciliation_id
             for index, item in enumerate(recovered) if index)
         assert not list((root / "reconciliations").glob(".pending-*"))
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows developmental custody")
+def test_windows_developmental_history_record_and_receipt_recover_after_restart() -> None:
+    from tempfile import TemporaryDirectory
+
+    with TemporaryDirectory(prefix=".developmental-writeback-",
+            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        history_root = root / "history"
+        history_root.mkdir()
+        _make_current_user_private(history_root, directory=True)
+
+        raw_record = DevelopmentalRecord("", "", {
+            "candidate_id": "candidate-fixture",
+            "candidate_digest": "candidate-digest-fixture"},
+            "admission-fixture", "binding-fixture", "principal-fixture",
+            "operation-fixture", "tick-fixture", "2026-11-15T12:00:00Z")
+        record_id, record_digest = writeback_identity(
+            "devrec", raw_record.semantic_payload())
+        record = DevelopmentalRecord(record_id, record_digest,
+            raw_record.candidate, raw_record.admission_id,
+            raw_record.admission_binding_digest, raw_record.principal,
+            raw_record.operation_id, raw_record.correlation_id, raw_record.created_at)
+
+        raw_receipt = WritebackReceipt("", "", record.record_id,
+            record.record_digest, "candidate-fixture", "candidate-digest-fixture",
+            record.admission_id, record.admission_binding_digest, record.principal,
+            record.operation_id, True)
+        receipt_id, receipt_digest = writeback_identity(
+            "devreceipt", raw_receipt.semantic_payload())
+        receipt = WritebackReceipt(receipt_id, receipt_digest,
+            raw_receipt.record_id, raw_receipt.record_digest,
+            raw_receipt.candidate_id, raw_receipt.candidate_digest,
+            raw_receipt.admission_id, raw_receipt.admission_binding_digest,
+            raw_receipt.principal, raw_receipt.operation_id,
+            raw_receipt.storage_verified)
+
+        store = DevelopmentalHistoryStore(history_root)
+        controller = object.__new__(ResidentDevelopmentalWritebackController)
+        controller.store = store
+        with controller._operation_lock():
+            pass
+        assert store.append(record) == record
+        assert store.write_receipt(receipt) == receipt
+        recovered = DevelopmentalHistoryStore(history_root)
+        assert recovered.records() == (record,)
+        assert recovered.receipts() == (receipt,)
+        assert recovered.get_receipt(receipt.receipt_id).record_digest == record.record_digest
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows no-replace rename")

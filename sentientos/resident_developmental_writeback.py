@@ -33,7 +33,13 @@ from .private_file_custody import (
 from .platform_fcntl import fcntl, require_flock
 from .runtime_admission import AdmissionError, AdmissionEvidence, RuntimeAdmissionVerifier
 from .world_state_board import WorldStateSnapshot, digest, to_dict, validate_snapshot
-from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
+from .windows_handle_custody import (
+    WindowsHandleCustodyError, observe_private_directory_identity,
+    read_regular_files, verify_explicit_directory,
+)
+from .windows_peer_replay_custody import (
+    WindowsReplayCustodyError, publish_immutable_replay_bytes,
+)
 
 SCHEMA_VERSION = "sentientos.resident_developmental_writeback:v1"
 PRINCIPAL = "deterministic_resident_developmental_writeback_controller"
@@ -2245,9 +2251,26 @@ def _read_store_file(directory_fd: int, name: str, *,
 
 
 def _publish_store_json(path: Path, payload: Mapping[str, Any], *, collision_error: str,
-                        max_bytes: int = MAX_DURABLE_RECORD_BYTES) -> None:
+                        max_bytes: int = MAX_DURABLE_RECORD_BYTES,
+                        windows_root_identity: tuple[int, bytes] | None = None,
+                        windows_filename_policy: str | None = None) -> None:
     """Publish canonical immutable JSON through shared descriptor custody."""
     data = json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n"
+    if os.name == "nt":
+        if windows_root_identity is None or windows_filename_policy is None:
+            raise DevelopmentalWritebackError(
+                "durable_windows_publication_custody_missing")
+        try:
+            publish_immutable_replay_bytes(path, data, max_bytes=max_bytes,
+                max_entries=MAX_DURABLE_RECORDS,
+                expected_root_identity=windows_root_identity,
+                filename_policy=windows_filename_policy)
+        except WindowsReplayCustodyError as exc:
+            if exc.code == "replay_owner_record_conflict":
+                raise DevelopmentalWritebackError(collision_error) from exc
+            raise DevelopmentalWritebackError(
+                "durable_windows_publication_failed") from exc
+        return
     try:
         publish_immutable_bytes(path, data, max_bytes=max_bytes, collision_code=collision_error)
     except PrivateFileCustodyError as exc:
@@ -2270,7 +2293,8 @@ def _read_store_collection(path: Path, *, kind: str) -> tuple[tuple[str, bytes],
         try:
             return tuple(read_regular_files(path, max_entries=MAX_DURABLE_RECORDS,
                 max_file_bytes=MAX_DURABLE_RECORD_BYTES,
-                max_total_bytes=MAX_DURABLE_RECORD_ROOT_BYTES))
+                max_total_bytes=MAX_DURABLE_RECORD_ROOT_BYTES,
+                require_private_acl=True))
         except WindowsHandleCustodyError as exc:
             raise DevelopmentalWritebackError(f"durable_{kind}_windows_recovery_failed") from exc
 
@@ -2336,6 +2360,20 @@ class DevelopmentalHistoryStore:
                for path in storage_roots):
             raise DevelopmentalWritebackError("durable_store_root_overlaps_canonical_memory")
 
+    def _ensure_windows_collection(self, collection: Path) -> tuple[int, bytes]:
+        if os.name != "nt" or collection.parent != self.root:
+            raise DevelopmentalWritebackError("durable_windows_collection_invalid")
+        try:
+            verify_explicit_directory(self.root, require_private_acl=True)
+            try:
+                collection.mkdir()
+            except FileExistsError:
+                pass
+            return observe_private_directory_identity(collection)
+        except (WindowsHandleCustodyError, OSError) as exc:
+            raise DevelopmentalWritebackError(
+                "durable_windows_collection_custody_invalid") from exc
+
     def append(self, record: DevelopmentalRecord) -> DevelopmentalRecord:
         self._verify_record(record)
         path = self.records_root / f"{record.record_id}.json"
@@ -2350,9 +2388,16 @@ class DevelopmentalHistoryStore:
             if digest_payload(existing) != digest_payload(payload):
                 raise DevelopmentalWritebackError("record_identity_collision")
             return record
-        if os.name != "posix":
-            raise DevelopmentalWritebackError("durable_record_publication_unsupported_platform")
-        _publish_store_json(path, payload, collision_error="record_identity_collision")
+        if os.name == "nt":
+            root_identity = self._ensure_windows_collection(self.records_root)
+            _publish_store_json(path, payload, collision_error="record_identity_collision",
+                windows_root_identity=root_identity,
+                windows_filename_policy="developmental_record")
+        else:
+            if os.name != "posix":
+                raise DevelopmentalWritebackError(
+                    "durable_record_publication_unsupported_platform")
+            _publish_store_json(path, payload, collision_error="record_identity_collision")
         if self.get(record.record_id).record_digest != record.record_digest:
             raise DevelopmentalWritebackError("durable_record_verification_failed")
         return record
@@ -2382,9 +2427,18 @@ class DevelopmentalHistoryStore:
         if existing is not None and digest_payload(existing) != digest_payload(payload):
             raise DevelopmentalWritebackError("receipt_identity_collision")
         if existing is None:
-            if os.name != "posix":
-                raise DevelopmentalWritebackError("durable_receipt_publication_unsupported_platform")
-            _publish_store_json(path, payload, collision_error="receipt_identity_collision")
+            if os.name == "nt":
+                root_identity = self._ensure_windows_collection(self.receipts_root)
+                _publish_store_json(path, payload,
+                    collision_error="receipt_identity_collision",
+                    windows_root_identity=root_identity,
+                    windows_filename_policy="developmental_receipt")
+            else:
+                if os.name != "posix":
+                    raise DevelopmentalWritebackError(
+                        "durable_receipt_publication_unsupported_platform")
+                _publish_store_json(path, payload,
+                    collision_error="receipt_identity_collision")
         if self.get_receipt(receipt.receipt_id).receipt_digest != receipt.receipt_digest:
             raise DevelopmentalWritebackError("durable_receipt_verification_failed")
         return receipt
@@ -2403,7 +2457,7 @@ class DevelopmentalHistoryStore:
             try:
                 entries = read_regular_files(path.parent, max_entries=1,
                     max_file_bytes=MAX_DURABLE_RECORD_BYTES, max_total_bytes=MAX_DURABLE_RECORD_BYTES,
-                    selected_names=(path.name,))
+                    selected_names=(path.name,), require_private_acl=True)
             except WindowsHandleCustodyError as exc:
                 if str(exc) == "explicit_file_missing":
                     raise DevelopmentalWritebackError("stored_payload_missing") from exc
@@ -2779,6 +2833,59 @@ class ResidentDevelopmentalWritebackController:
     @contextmanager
     def _operation_lock(self) -> Iterator[None]:
         """Serialize operation identity lookup and durable publication."""
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+
+            try:
+                root_identity = observe_private_directory_identity(self.store.root)
+            except WindowsHandleCustodyError as exc:
+                raise DevelopmentalWritebackError(
+                    "developmental_writeback_lock_root_unavailable") from exc
+            root_key = _digest({"volume": root_identity[0],
+                "file_id": root_identity[1].hex()})[7:]
+            kernel = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+            create_mutex = kernel.CreateMutexW
+            create_mutex.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+            create_mutex.restype = wintypes.HANDLE
+            wait = kernel.WaitForSingleObject
+            wait.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            wait.restype = wintypes.DWORD
+            release = kernel.ReleaseMutex
+            release.argtypes = [wintypes.HANDLE]
+            release.restype = wintypes.BOOL
+            close = kernel.CloseHandle
+            close.argtypes = [wintypes.HANDLE]
+            close.restype = wintypes.BOOL
+            mutex = create_mutex(None, False,
+                "Local\\SentientOS-DevWriteback-" + root_key)
+            if not mutex:
+                raise DevelopmentalWritebackError(
+                    "developmental_writeback_lock_unavailable")
+            acquired = False
+            try:
+                result = int(wait(mutex, 30_000))
+                if result not in {0, 0x80}:
+                    raise DevelopmentalWritebackError(
+                        "developmental_writeback_lock_unavailable")
+                acquired = True
+                try:
+                    if observe_private_directory_identity(self.store.root) != root_identity:
+                        raise DevelopmentalWritebackError(
+                            "developmental_writeback_lock_root_identity_changed")
+                except WindowsHandleCustodyError as exc:
+                    raise DevelopmentalWritebackError(
+                        "developmental_writeback_lock_root_unavailable") from exc
+                yield
+            finally:
+                if acquired and not release(mutex):
+                    close(mutex)
+                    raise DevelopmentalWritebackError(
+                        "developmental_writeback_lock_release_failed")
+                if not close(mutex):
+                    raise DevelopmentalWritebackError(
+                        "developmental_writeback_lock_close_failed")
+            return
         if os.name != "posix":
             raise DevelopmentalWritebackError("developmental_writeback_lock_unsupported")
         directory_fd: int | None = None
