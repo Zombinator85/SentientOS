@@ -841,7 +841,9 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                         history_packet, report, turn = bound_correction
                         output.update({
                             "response": (
-                                "The exact earlier cited reply said: "
+                                "The earlier evidence-bound epistemic position was: "
+                                + packet["proposition"]["statement"]
+                                + ". The exact earlier cited reply said: "
                                 + turn["text"] + ". The operator later reported: "
                                 + str(report.get("assertion_text", ""))
                                 + ". These reports disagree; I cannot resolve which "
@@ -849,7 +851,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                                 "report remains unverified."),
                             "evidence_ids": [],
                             "history_record_ids": [history_packet["record_id"]],
-                            "epistemic_state_ids": [],
+                            "epistemic_state_ids": [packet["state"]["state_id"]],
                         })
                         if "historical_conversation_citations" in schema.get(
                                 "required", ()):
@@ -1009,6 +1011,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         target_state.state_id]
     assert corrected_context_response.response != pre_correction_response
     assert source_assistant["text"] in corrected_context_response.response
+    assert target.statement in corrected_context_response.response
     assert correction_assertion in corrected_context_response.response
     assert "reports disagree" in corrected_context_response.response
     assert "cannot resolve which is accurate" in corrected_context_response.response
@@ -1016,7 +1019,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     corrected_assistant_turn = restarted_app.sessions.load(
         correction_session_id)["turns"][-1]
     assert corrected_assistant_turn["linkage"][
-        "cognition_epistemic_state_citation_ids"] == []
+        "cognition_epistemic_state_citation_ids"] == [target_state.state_id]
     assert corrected_assistant_turn["linkage"]["cognition_evidence_ids"] == []
     assert corrected_assistant_turn["linkage"]["cognition_history_record_ids"]
     assert corrected_assistant_turn["linkage"][
@@ -1030,6 +1033,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         request_id=(f"{correction_session_id}:"
             f"{corrected_assistant_turn['linkage']['source_user_turn_id']}"))
     corrected_prompt = json.loads(corrected_request.prompt)
+    assert "cite its exact state ID" in corrected_prompt["instruction"]
     historical_context = corrected_prompt["historical_cited_conversation_context"]
     assert historical_context["historical_only"] is True
     assert historical_context["current_truth"] is False
