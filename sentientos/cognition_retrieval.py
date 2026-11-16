@@ -33,4 +33,3 @@ def cognition_query_terms(text: str) -> set[str]:
             token = token[:-1]
         terms.add(token)
     return terms
-
