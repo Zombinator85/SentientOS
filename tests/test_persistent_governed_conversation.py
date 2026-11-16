@@ -810,7 +810,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                         "historical_cited_conversation_context", {})
                     historical_turns = (historical.get("turns", ())
                         if isinstance(historical, Mapping) else ())
-                    reports = [report for history_packet in
+                    reports = [(history_packet, report) for history_packet in
                         prompt.get("developmental_history", ())
                         if isinstance(history_packet, Mapping)
                         for report in history_packet.get(
@@ -819,8 +819,9 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                         and report.get("evidence_posture")
                             == "operator_assertion_unverified"]
                     bound_correction = next((
-                        (report, turn)
-                        for report in reports
+                        (history_packet, report, turn)
+                        for history_packet, report in reports
+                        if isinstance(history_packet.get("record_id"), str)
                         for target in (report.get("correction_target"),)
                         if isinstance(target, Mapping)
                         and any(isinstance(citation, Mapping)
@@ -837,7 +838,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                         and turn.get("feedback_fact_id")
                             == report.get("operator_feedback_fact_id")), None)
                     if bound_correction is not None:
-                        report, turn = bound_correction
+                        history_packet, report, turn = bound_correction
                         output.update({
                             "response": (
                                 "The exact earlier cited reply said: "
@@ -847,6 +848,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                                 "is accurate from this history, and the operator "
                                 "report remains unverified."),
                             "evidence_ids": [],
+                            "history_record_ids": [history_packet["record_id"]],
                             "epistemic_state_ids": [],
                         })
                     self.companion_output_override = output
@@ -908,7 +910,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         "max_cognitive_projection_count": 1}
 
     first_invoker = ProjectionAwareInvoker()
-    first_app = service(tmp_path, first_invoker, screen_observer=lambda: screen,
+    first_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=ResidentDevelopmentalCompanionBridge(cognition,
             epistemic_state_owner=epistemics,
             epistemic_state_config=ep_config, clock=lambda: now))
@@ -940,7 +942,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert restarted_bridge.verify_committed_response(
         linkage=source_linkage, response_text=first_turns[-1]["text"],
         request_id=f"{session_id}:{source_linkage['source_user_turn_id']}")
-    restarted_app = service(tmp_path, restarted_invoker, screen_observer=lambda: screen,
+    restarted_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=restarted_bridge)
     followup_question = "And what should I consider now?"
     followup_response = restarted_app.chat(followup_question, session_id=session_id,
@@ -1011,6 +1013,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert corrected_assistant_turn["linkage"][
         "cognition_epistemic_state_citation_ids"] == []
     assert corrected_assistant_turn["linkage"]["cognition_evidence_ids"] == []
+    assert corrected_assistant_turn["linkage"]["cognition_history_record_ids"]
     corrected_prompt = json.loads(corrected_request.prompt)
     historical_context = corrected_prompt["historical_cited_conversation_context"]
     assert historical_context["historical_only"] is True
