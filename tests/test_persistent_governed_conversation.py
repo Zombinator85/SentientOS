@@ -1006,6 +1006,11 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert "reports disagree" in corrected_context_response.response
     assert "cannot resolve which is accurate" in corrected_context_response.response
     assert "remains unverified" in corrected_context_response.response
+    corrected_assistant_turn = restarted_app.sessions.load(
+        correction_session_id)["turns"][-1]
+    assert corrected_assistant_turn["linkage"][
+        "cognition_epistemic_state_citation_ids"] == []
+    assert corrected_assistant_turn["linkage"]["cognition_evidence_ids"] == []
     corrected_prompt = json.loads(corrected_request.prompt)
     historical_context = corrected_prompt["historical_cited_conversation_context"]
     assert historical_context["historical_only"] is True
