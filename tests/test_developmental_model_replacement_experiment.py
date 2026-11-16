@@ -478,10 +478,10 @@ def test_family_task_descriptor_states_rule_without_leaking_transfer_parameters(
     transfer_question = transfer_descriptor["question"]
     assert "fixed integer affine mapping" in transfer_question
     assert "Parameters are hidden" in transfer_question
-    assert "retrieved same-family evaluator-scored history" in transfer_question
+    assert "same-family evaluator-scored history" in transfer_question
     assert "evaluator_correct=true" in transfer_question
-    assert "at least two distinct inputs" in transfer_question
-    assert "check it against every such row" in transfer_question
+    assert "at least two distinct correct inputs" in transfer_question
+    assert "check every correct row" in transfer_question
     assert "Then calculate outputs" in transfer_question
     assert "synthetic_training_observations" not in transfer_descriptor
     assert "Verified examples from this mapping" not in transfer_question

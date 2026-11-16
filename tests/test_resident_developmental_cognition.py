@@ -2368,8 +2368,8 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
     task_question = ObjectivePredictionTask(3, 2, 7, (8, 9),
         task_family_id="integer_affine_prediction",
         requires_task_family_history=True).public_descriptor()["question"]
-    assert "prior_incorrect_examples are confirmed historical errors" in task_question
-    assert "never use them as mapping evidence or current truth" in task_question
+    assert "prior_incorrect_examples are past errors" in task_question
+    assert "not mapping evidence or current truth" in task_question
 
     identity = {"provider": "fixture", "model": "retrieval-ranking"}
     favorable = {"source_active_model_identity": identity,
