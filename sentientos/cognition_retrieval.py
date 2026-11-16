@@ -25,7 +25,23 @@ def cognition_query_terms(text: str) -> set[str]:
     for token in re.findall(r"[A-Za-z0-9]{3,}", text.casefold()):
         if token in _QUERY_STOP_WORDS:
             continue
-        if len(token) > 4 and token.endswith("ies"):
+        if len(token) > 5 and token.endswith("ying"):
+            token = token[:-4] + "y"
+        elif len(token) > 5 and token.endswith("ing"):
+            token = token[:-3]
+            if len(token) > 3 and token[-1] == token[-2]:
+                token = token[:-1]
+            elif token.endswith("g"):
+                token += "e"
+        elif len(token) > 4 and token.endswith("ied"):
+            token = token[:-3] + "y"
+        elif len(token) > 4 and token.endswith("ed"):
+            token = token[:-2]
+            if len(token) > 2 and token[-1] == token[-2]:
+                token = token[:-1]
+            elif token.endswith("g"):
+                token += "e"
+        elif len(token) > 4 and token.endswith("ies"):
             token = token[:-3] + "y"
         elif len(token) > 4 and token.endswith(("ches", "shes", "sses", "xes", "zes")):
             token = token[:-2]
