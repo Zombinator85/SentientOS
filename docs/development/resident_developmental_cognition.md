@@ -217,14 +217,15 @@ a separate `operator_assertion_unverified` World-State report, bound by digest
 to the saved reply and both captures. The immediate interpretation treats it
 as a reported assertion rather than direct observation and preserves conflict
 with scoped sensor or owner evidence. If that reply cited prior conversation
-turns, the report also carries those exact turn IDs and text digests through
-writeback into later history context. This preserves which dialogue the reply
-said influenced it; it does not identify which cited turn the operator meant
-to correct, or establish the dialogue or correction as true. Cognition compares
-the cited turn with a correction only when that exact dialogue text is also
-present in the current session context. When they conflict, the prompt directs
-cognition to surface the disagreement and preserve uncertainty instead of
-automatically accepting either source. The report is not independent sensor
+turns, the UI lets the operator optionally bind a correction to one cited turn.
+The report carries that turn ID and exact text digest, and later history context
+prioritizes the targeted excerpt when it is available. General observations may
+remain untargeted. The target identifies the operator's intended referent; it
+does not establish the dialogue or correction as true. Cognition compares the
+cited turn with a correction only when that exact dialogue text is available.
+When they conflict, the prompt directs cognition to surface the disagreement
+and preserve uncertainty instead of automatically accepting either source. The
+report is not independent sensor
 evidence or proof that an action occurred. The UI asks for explicit confirmation
 before capture and writeback. Repeating the same request identity cannot reuse
 a completed tick. No gameplay action is authorized by this control. Cognition inference is

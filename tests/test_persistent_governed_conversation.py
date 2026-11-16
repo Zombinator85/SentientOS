@@ -294,10 +294,14 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
             "cognition_conversation_turn_citation_ids": [source["turn_id"]],
             "cognition_conversation_turn_citation_digests": [source["text_digest"]],
         })
+    assert chat_service._saved_transcript_response_diagnostics(assistant)[
+        "conversation_citations"] == [{
+            "turn_id": source["turn_id"], "text_digest": source["text_digest"]}]
 
     result = app.run_developmental_cycle(session_id=session_id,
         assistant_turn_id=assistant["turn_id"], request_id="development-cycle-1",
-        operator_feedback="Four candle objects are present; two are lit.")
+        operator_feedback="Four candle objects are present; two are lit.",
+        correction_target_turn_id=source["turn_id"])
 
     assert result["status"] == "completed_writeback"
     assert result["written_record_id"] == "record-1"
@@ -322,9 +326,21 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
     assert feedback["payload"]["followup_capture_digest"] == "a" * 64
     assert feedback["payload"]["conversation_citations"] == [{
         "turn_id": source["turn_id"], "text_digest": source["text_digest"]}]
+    assert feedback["payload"]["schema_version"] == (
+        "sentientos.local_operator_feedback:v4")
+    assert feedback["payload"]["correction_target"] == {
+        "turn_id": source["turn_id"], "text_digest": source["text_digest"]}
     assert result["operator_feedback_included"] is True
     assert result["operator_feedback_posture"] == "operator_assertion_unverified"
     assert len(app.sessions.load(session_id)["turns"]) == 2
+    with pytest.raises(chat_service.ChatRequestStateError,
+            match="developmental_cycle_correction_target_not_cited"):
+        app.run_developmental_cycle(session_id=session_id,
+            assistant_turn_id=assistant["turn_id"],
+            request_id="reject-uncited-correction-target",
+            operator_feedback="This corrects an uncited turn.",
+            correction_target_turn_id="turn-" + "d" * 24)
+    assert len(observations) == 1
     app._resident_cognition_bridge.feedback_allowed = False
     with pytest.raises(chat_service.ChatRequestStateError,
             match="developmental_cycle_operator_feedback_not_enabled"):

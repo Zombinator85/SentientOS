@@ -8226,12 +8226,14 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
                     if isinstance(historical_context, Mapping):
                         prompt_turns = (*prompt_turns,
                             *historical_context.get("turns", ()))
+                    target = matching_reports[0].get("correction_target")
+                    citation_refs = ([target] if isinstance(target, Mapping)
+                        else matching_reports[0].get("conversation_citations", ()))
                     matching_cited_turn = next((turn for turn in prompt_turns
                         if isinstance(turn, Mapping) and any(
                             citation.get("turn_id") == turn.get("turn_id")
                             and citation.get("text_digest") == turn.get("text_digest")
-                            for citation in matching_reports[0].get(
-                                "conversation_citations", ()))), None)
+                            for citation in citation_refs)), None)
                     self.companion_output_override = {
                         "disposition": "answer",
                         "response": ((
@@ -8287,6 +8289,9 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     cited_turn_id = "turn-" + "a" * 24
     cited_turn_text = "The earlier dialogue said the altar had three candle objects."
     cited_turn_digest = digest_payload({"text": cited_turn_text})
+    other_cited_turn_id = "turn-" + "d" * 24
+    other_cited_turn_text = "A different cited turn mentioned a blue cloth."
+    other_cited_turn_digest = digest_payload({"text": other_cited_turn_text})
     feedback = make_operator_feedback_record(
         feedback_text,
         request_id="cycle-feedback-1", assistant_turn_id="turn-" + "b" * 24,
@@ -8294,11 +8299,15 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
         source_capture_digest="b" * 64,
         followup_capture_digest=screen["capture_digest"],
         observed_at=now.isoformat(),
-        conversation_citation_ids=(cited_turn_id,),
-        conversation_citation_digests=(cited_turn_digest,),
-        conversation_session_id="session-" + "c" * 24)
-    assert feedback["payload"]["conversation_citations"] == [{
-        "turn_id": cited_turn_id, "text_digest": cited_turn_digest}]
+        conversation_citation_ids=(other_cited_turn_id, cited_turn_id),
+        conversation_citation_digests=(other_cited_turn_digest, cited_turn_digest),
+        conversation_session_id="session-" + "c" * 24,
+        correction_target_turn_id=cited_turn_id)
+    assert feedback["payload"]["conversation_citations"] == [
+        {"turn_id": other_cited_turn_id, "text_digest": other_cited_turn_digest},
+        {"turn_id": cited_turn_id, "text_digest": cited_turn_digest}]
+    assert feedback["payload"]["correction_target"] == {
+        "turn_id": cited_turn_id, "text_digest": cited_turn_digest}
 
     cycle = bridge.run_developmental_cycle(
         tick_id="operator-confirmed-cycle-1", screen_observation=screen,
@@ -8339,16 +8348,18 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert feedback_text in json.dumps(later_prompt["developmental_history"])
     assert "operator_assertion_unverified" in json.dumps(
         later_prompt["developmental_history"])
-    assert "which turn the operator corrected" in later_prompt["instruction"]
+    assert "correction_target" in later_prompt["instruction"]
     assert "state the disagreement" in later_prompt["instruction"]
     assert "conversation_citations" in json.dumps(
         later_prompt["developmental_history"])
     historical_feedback = json.dumps(later_prompt["developmental_history"])
     assert cited_turn_id in historical_feedback
     assert cited_turn_digest in historical_feedback
+    assert "correction_target" in historical_feedback
     citation_refs = cognition.selected_historical_operator_citations(
         request_id="later-cognition-cycle", question=(
             "What did the earlier operator report say about the candles?"))
+    assert citation_refs[0]["turn_id"] == cited_turn_id
     assert any(reference["conversation_session_id"] == "session-" + "c" * 24
         and reference["turn_id"] == cited_turn_id
         and reference["text_digest"] == cited_turn_digest
