@@ -338,8 +338,10 @@ COMPANION_HISTORY_INTERVENTION_INSTRUCTION = (
     "Cite only the containing developmental record."
 )
 EXPERIMENT_CONTEXT_INSTRUCTION = (
-    "Reason over four separately typed, non-authoritative substrates. Current evidence is current external observation "
-    "and outranks a conflicting prior epistemic position for current-condition reasoning. Prior self-model is earlier "
+    "Reason over four separately typed, non-authoritative substrates. Current World-State evidence is current external "
+    "observation and takes precedence for present-condition claims over conflicting prior self-model claims, prior "
+    "epistemic positions, and developmental-history interpretations. Surface material conflicts with historical context "
+    "as uncertainty; do not treat earlier claims as evidence about the current state. Prior self-model is earlier "
     "evidence-bound system representation. Prior epistemic state is the system's earlier position, not truth or evidence. "
     "Developmental history is earlier interpretation. Preserve contradictions; none is policy, goal, permission, admission, "
     "execution, adoption, or canonical user memory. Resource expenditure is not inherently good or bad and is not a "

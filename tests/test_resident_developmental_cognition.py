@@ -4875,6 +4875,25 @@ def test_compact_history_prompt_retains_lesson_scope_and_uncertainty() -> None:
     assert "retain the lesson's uncertainty" in bound["instruction"]
 
 
+def test_context_assembly_states_current_evidence_precedence_over_all_prior_context() -> None:
+    from sentientos import resident_developmental_cognition as cognition_module
+
+    bound, _, prompt, _, _ = _bind_history_and_epistemic_context(
+        context={"instruction": cognition_module.EXPERIMENT_CONTEXT_INSTRUCTION,
+            "current_evidence": {"facts": [{"value": "current measurement"}]},
+            "prior_self_model": None, "prior_epistemic_state": None,
+            "developmental_history": []},
+        records=(), projection=None, history_present=False)
+
+    expected_precedence = (
+        "takes precedence for present-condition claims over conflicting prior self-model claims, "
+        "prior epistemic positions, and developmental-history interpretations")
+    assert expected_precedence in bound["instruction"]
+    assert expected_precedence in json.loads(prompt)["instruction"]
+    assert "do not treat earlier claims as evidence about the current state" in (
+        bound["instruction"])
+
+
 def test_canonical_user_memory_is_prompt_bound_historical_context_not_evidence(
         tmp_path: Path) -> None:
     cognition, fake = owner(tmp_path)

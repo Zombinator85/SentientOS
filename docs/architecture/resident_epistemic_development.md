@@ -117,6 +117,15 @@ verifies those fields survive the production compact binder with historical,
 non-authority posture. This makes applicability information available for
 reasoning, but does not prove a real model will honor it.
 
+The shared cognition instruction now makes evidence precedence explicit for
+all prior substrates: current World-State evidence takes precedence over
+conflicting self-model claims, epistemic positions, and developmental-history
+interpretations for present-condition claims. Conflicts should be surfaced as
+uncertainty; earlier claims are not evidence of current state. The focused
+`tests/test_resident_developmental_cognition.py::test_context_assembly_states_current_evidence_precedence_over_all_prior_context`
+checks that this rule survives production context assembly. This strengthens
+the prompt contract; real-model adherence remains unverified.
+
 The persistent epistemic owner also accepts the current companion question when
 building its bounded prior-state projection. It ranks only propositions that
 have an eligible prior state, splits underscore-delimited identifiers such as
