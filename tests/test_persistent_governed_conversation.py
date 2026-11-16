@@ -1415,6 +1415,28 @@ def test_memory_retrieval_uses_content_terms_not_generic_chat_phrasing(
     assert result["omitted_memory_count"] == 0
 
 
+def test_memory_retrieval_applies_only_explicit_style_preferences_to_new_writing(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    preference = {"id": "memory-style", "text": "I prefer brief prose.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    unrelated_preference = {"id": "memory-food", "text": "I prefer vegetarian meals.",
+        "timestamp": "2026-01-02T00:00:00+00:00"}
+    topical_memory = {"id": "memory-launch",
+        "text": "The design launch moved to Thursday.",
+        "timestamp": "2026-01-03T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: (
+        [preference, unrelated_preference, topical_memory], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    writing = store.retrieve("Draft an email to Sam about the update.")
+    topical = store.retrieve("What happened with the design launch?")
+
+    assert [record["id"] for record in writing["memories"]] == ["memory-style"]
+    assert writing["retrieval_posture"] == "complete"
+    assert [record["id"] for record in topical["memories"]] == ["memory-launch"]
+
+
 def test_process_restart_resume_composed_success(tmp_path: Path) -> None:
     first_invoker = FakeInvoker()
     first = service(tmp_path, first_invoker)

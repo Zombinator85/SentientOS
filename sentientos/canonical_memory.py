@@ -29,6 +29,14 @@ _MEMORY_RETRIEVAL_STOP_WORDS = frozenset((
     "based", "brief", "briefly", "current", "currently", "different", "keep",
     "next", "one", "screen", "see", "sentence", "suggest", "tell", "thing", "things",
 ))
+_RESPONSE_COMPOSITION_TERMS = frozenset((
+    "answer", "compose", "create", "describe", "draft", "email", "explain",
+    "message", "prepare", "reply", "respond", "response", "write",
+))
+_RESPONSE_STYLE_TERMS = frozenset((
+    "brief", "bullet", "casual", "concise", "detailed", "formal", "friendly",
+    "plain", "short", "simple", "succinct", "technical", "thorough", "verbose",
+))
 _PROCESS_MEMORY_ROOT_IDENTITIES: dict[str, tuple[int, int]] = {}
 _PROCESS_MEMORY_ROOT_IDENTITIES_LOCK = RLock()
 _PROCESS_MEMORY_ROOT_IDENTITY_LIMIT = 32
@@ -118,6 +126,22 @@ def _memory_retrieval_terms(text: str) -> set[str]:
             token = token[:-1]
         terms.add(token)
     return terms
+
+
+def _is_explicit_response_style_preference(text: str) -> bool:
+    """Recognize only plainly stated first-person response-style preferences."""
+    normalized = " ".join(re.findall(r"[a-z0-9]+", text.casefold()))
+    explicitly_preferred = re.search(
+        r"\b(?:i|we)\s+(?:usually\s+|really\s+)?(?:prefer|like|want)\b",
+        normalized) is not None
+    preference_terms = set(re.findall(r"[a-z0-9]+", normalized))
+    return explicitly_preferred and bool(
+        preference_terms & _RESPONSE_STYLE_TERMS)
+
+
+def _is_response_composition_query(query: str) -> bool:
+    """Identify requests to produce or phrase an answer, not general recall."""
+    return bool(_memory_retrieval_terms(query) & _RESPONSE_COMPOSITION_TERMS)
 
 
 def _is_prior_message_recall_question(text: str) -> bool:
@@ -323,10 +347,18 @@ class CanonicalMemoryStore:
         term_weights = {term: math.log((len(eligible) + 1) /
             (frequency + 0.5)) + 1 for term, frequency in document_frequency.items()}
         ranked = []
+        composition_query = _is_response_composition_query(query)
         for record, candidate_terms in zip(eligible, document_terms):
             # Corpus rarity lets a distinctive anchor outweigh several common
             # words, while relevance remains lexical and does not imply truth.
             score = sum(term_weights[term] for term in terms & candidate_terms)
+            # A plainly stated response-style preference can affect new writing
+            # even when the request uses different wording. Keep this bridge
+            # narrow: it does not retrieve other preference kinds or answer
+            # preferences as current facts.
+            if (score == 0 and composition_query
+                    and _is_explicit_response_style_preference(record["text"])):
+                score = 1.0
             if score:
                 try:
                     timestamp = datetime.fromisoformat(
