@@ -170,6 +170,19 @@ def _authority(value: Mapping[str, bool]) -> None:
         raise EpistemicStateError("epistemic_authority_must_be_all_false")
 
 
+def _aware_instant(value: Any) -> datetime:
+    """Parse a bounded ISO timestamp whose offset identifies an actual instant."""
+    if not isinstance(value, str) or not value or len(value) > 128 or value.endswith("-00:00"):
+        raise ValueError("timestamp_not_aware")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("timestamp_not_aware") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("timestamp_not_aware")
+    return parsed
+
+
 @dataclass(frozen=True)
 class EpistemicProposition:
     proposition_id: str; proposition_digest: str; namespace: str; subject: str; predicate: str
@@ -1499,18 +1512,10 @@ class PersistentEpistemicStateOwner:
         """Validate persisted chronology inputs before any mutation intent is written."""
         if not isinstance(tick, int) or isinstance(tick, bool) or tick < 0:
             raise EpistemicStateError("epistemic_update_tick_invalid")
-        if not isinstance(recorded_at, str) or not recorded_at or len(recorded_at) > 128:
-            raise EpistemicStateError("epistemic_recorded_at_invalid")
-        # -00:00 means the producer does not know the offset. Treating it as
-        # UTC would invent ordering for an append-only state transition.
-        if recorded_at.endswith("-00:00"):
-            raise EpistemicStateError("epistemic_recorded_at_invalid")
         try:
-            recorded_instant = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+            _aware_instant(recorded_at)
         except ValueError as exc:
             raise EpistemicStateError("epistemic_recorded_at_invalid") from exc
-        if recorded_instant.tzinfo is None or recorded_instant.utcoffset() is None:
-            raise EpistemicStateError("epistemic_recorded_at_invalid")
 
     def commit_update(self, *, proposition_id: str, expected_predecessor_digest: str | None, stance: str,
                       reason: str, active_binding_ids: Sequence[str], added_binding_ids: Sequence[str] = (),
@@ -1601,7 +1606,12 @@ class PersistentEpistemicStateOwner:
         forecast=next((s for s in states if s.state_digest == raw.forecast_state_digest),None)
         if forecast is None: raise EpistemicStateError("calibration_forecast_state_missing")
         if forecast.proposition_id != raw.proposition_id: raise EpistemicStateError("calibration_forecast_proposition_mismatch")
-        if raw.resolved_at <= forecast.updated_at: raise EpistemicStateError("calibration_outcome_not_after_forecast")
+        try:
+            resolved_instant = _aware_instant(raw.resolved_at)
+            forecast_instant = _aware_instant(forecast.updated_at)
+        except ValueError as exc:
+            raise EpistemicStateError("calibration_timestamp_invalid") from exc
+        if resolved_instant <= forecast_instant: raise EpistemicStateError("calibration_outcome_not_after_forecast")
         bindings={b.binding_id:b for b in self.bindings(raw.proposition_id)}
         if not raw.source_binding_ids: raise EpistemicStateError("calibration_source_bindings_required")
         if set(raw.source_binding_ids)-set(bindings): raise EpistemicStateError("calibration_source_binding_missing_or_foreign")
@@ -1723,10 +1733,17 @@ class PersistentEpistemicStateOwner:
                 raise EpistemicStateError("epistemic_calibration_invalid")
             forecast=state_by_digest.get(calibration.forecast_state_digest)
             cid,cdg=_identity("epistemic-calibration",calibration.payload())
+            chronology_valid = False
+            if forecast is not None:
+                try:
+                    chronology_valid = (_aware_instant(calibration.resolved_at)
+                        > _aware_instant(forecast.updated_at))
+                except ValueError:
+                    pass
             if ((cid,cdg)!=(calibration.calibration_id,calibration.calibration_digest) or
                     calibration.proposition_id not in propositions or forecast is None or
                     forecast.proposition_id != calibration.proposition_id or
-                    calibration.resolved_at <= forecast.updated_at or not calibration.source_binding_ids or
+                    not chronology_valid or not calibration.source_binding_ids or
                     calibration.schema_version != CALIBRATION_SCHEMA
                     or calibration.authority != FALSE_AUTHORITY
                     or any(binding_id not in bindings or bindings[binding_id].proposition_id != calibration.proposition_id
