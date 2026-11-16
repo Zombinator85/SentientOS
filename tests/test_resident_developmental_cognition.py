@@ -7763,7 +7763,11 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
         assistant_response_digest="f" * 64,
         source_capture_digest="b" * 64,
         followup_capture_digest=screen["capture_digest"],
-        observed_at=now.isoformat())
+        observed_at=now.isoformat(),
+        conversation_citation_ids=("turn-" + "a" * 24,),
+        conversation_citation_digests=("c" * 64,))
+    assert feedback["payload"]["conversation_citations"] == [{
+        "turn_id": "turn-" + "a" * 24, "text_digest": "c" * 64}]
 
     cycle = bridge.run_developmental_cycle(
         tick_id="operator-confirmed-cycle-1", screen_observation=screen,
@@ -7801,6 +7805,11 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert feedback_text in json.dumps(later_prompt["developmental_history"])
     assert "operator_assertion_unverified" in json.dumps(
         later_prompt["developmental_history"])
+    assert "conversation_citations" in json.dumps(
+        later_prompt["developmental_history"])
+    historical_feedback = json.dumps(later_prompt["developmental_history"])
+    assert "turn-" + "a" * 24 in historical_feedback
+    assert "c" * 64 in historical_feedback
 
     # Same observation and later question without the feedback cycle do not
     # produce the historical answer: the report's admitted writeback changes

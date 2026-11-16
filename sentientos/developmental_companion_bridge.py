@@ -214,8 +214,10 @@ def _screen_record(observation: Mapping[str, Any], *, staleness: str = "unknown"
 def make_operator_feedback_record(feedback: str, *, request_id: str,
         assistant_turn_id: str, assistant_response_digest: str,
         source_capture_digest: str, followup_capture_digest: str,
-        observed_at: str) -> dict[str, Any]:
+        observed_at: str, conversation_citation_ids: Sequence[str] = (),
+        conversation_citation_digests: Sequence[str] = ()) -> dict[str, Any]:
     """Represent explicit local operator feedback as an unverified report."""
+    citation_pattern = re.compile(r"^turn-[0-9a-f]{24}$")
     if (not isinstance(feedback, str) or not feedback.strip()
             or len(feedback) > 800 or len(feedback.encode("utf-8")) > 2048
             or not isinstance(request_id, str) or not request_id
@@ -226,17 +228,31 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
             or re.fullmatch(r"[0-9a-f]{64}", source_capture_digest) is None
             or not isinstance(followup_capture_digest, str)
             or re.fullmatch(r"[0-9a-f]{64}", followup_capture_digest) is None
-            or not isinstance(observed_at, str) or not observed_at):
+            or not isinstance(observed_at, str) or not observed_at
+            or not isinstance(conversation_citation_ids, (tuple, list))
+            or not isinstance(conversation_citation_digests, (tuple, list))
+            or len(conversation_citation_ids) != len(conversation_citation_digests)
+            or len(conversation_citation_ids) > 16
+            or any(not isinstance(turn_id, str) or citation_pattern.fullmatch(turn_id) is None
+                for turn_id in conversation_citation_ids)
+            or len(set(conversation_citation_ids)) != len(conversation_citation_ids)
+            or any(not isinstance(digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+                for digest in conversation_citation_digests)):
         raise DevelopmentalCompanionBridgeError(
             "operator_feedback_contract_invalid")
     normalized = feedback.strip()
     semantic = {
-        "schema_version": "sentientos.local_operator_feedback:v1",
+        "schema_version": "sentientos.local_operator_feedback:v2",
         "request_id": request_id,
         "assistant_turn_id": assistant_turn_id,
         "assistant_response_digest": assistant_response_digest,
         "source_capture_digest": source_capture_digest,
         "followup_capture_digest": followup_capture_digest,
+        "conversation_citations": [
+            {"turn_id": turn_id, "text_digest": digest}
+            for turn_id, digest in zip(conversation_citation_ids,
+                conversation_citation_digests)],
         "assertion_text": normalized,
         "assertion_digest": hashlib.sha256(normalized.encode("utf-8")).hexdigest(),
         "evidence_posture": "operator_assertion_unverified",

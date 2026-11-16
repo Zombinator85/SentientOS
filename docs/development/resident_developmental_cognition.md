@@ -214,8 +214,11 @@ eligible lesson. When the verified reply has capture lineage, the operator may
 also enter a bounded correction when `operator_input` is explicitly included
 in the resident cognition owner's `allowed_source_kinds`. That text is stored as
 a separate `operator_assertion_unverified` World-State report, bound by digest
-to the saved reply and both captures. It is not independent sensor evidence or
-proof that an
+to the saved reply and both captures. If that reply cited prior conversation
+turns, the report also carries those exact turn IDs and text digests through
+writeback into later history context. This preserves which dialogue the reply
+said influenced it; it does not establish the dialogue or the correction as
+true. The report is not independent sensor evidence or proof that an
 action occurred; the UI asks for explicit confirmation before the capture and
 writeback. Repeating the same request identity cannot reuse a completed tick. No
 gameplay action is authorized by this control. Cognition inference is

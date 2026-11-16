@@ -2617,21 +2617,40 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
             continue
         assert isinstance(source, Mapping) and isinstance(subject, Mapping)
         assert isinstance(payload, Mapping)
+        feedback_schema = payload.get("schema_version")
         if (source.get("kind") != "operator_input"
-                or source.get("schema_version") != "sentientos.local_operator_feedback:v1"
+                or feedback_schema not in {"sentientos.local_operator_feedback:v1",
+                    "sentientos.local_operator_feedback:v2"}
+                or source.get("schema_version") != feedback_schema
                 or subject.get("subject_kind") != "operator_reported_companion_feedback"
                 or fact.get("stage") != "observation"
                 or fact.get("disposition") != "reported"
                 or fact.get("evidence_strength") != "operator_assertion_unverified"
                 or fact.get("effect_claimed") is not False
                 or fact.get("effect_proven") is not False
-                or payload.get("schema_version") != "sentientos.local_operator_feedback:v1"
+                or payload.get("schema_version") != feedback_schema
                 or payload.get("evidence_posture") != "operator_assertion_unverified"):
             continue
-        if set(payload) != {"schema_version", "request_id", "assistant_turn_id",
+        legacy_feedback_fields = {"schema_version", "request_id", "assistant_turn_id",
                 "assistant_response_digest", "source_capture_digest",
                 "followup_capture_digest", "assertion_text", "assertion_digest",
-                "evidence_posture", "authority"}:
+                "evidence_posture", "authority"}
+        expected_feedback_fields = (legacy_feedback_fields | {"conversation_citations"}
+            if feedback_schema == "sentientos.local_operator_feedback:v2"
+            else legacy_feedback_fields)
+        if set(payload) != expected_feedback_fields:
+            continue
+        conversation_citations = payload.get("conversation_citations", [])
+        if (not isinstance(conversation_citations, list)
+                or len(conversation_citations) > 16
+                or any(not isinstance(item, Mapping)
+                    or set(item) != {"turn_id", "text_digest"}
+                    or not isinstance(item.get("turn_id"), str)
+                    or re.fullmatch(r"turn-[0-9a-f]{24}", item["turn_id"]) is None
+                    or not _valid_lower_sha256(item.get("text_digest"))
+                    for item in conversation_citations)
+                or len({item["turn_id"] for item in conversation_citations})
+                    != len(conversation_citations)):
             continue
         authority = payload.get("authority")
         if (not isinstance(authority, Mapping)
@@ -2660,12 +2679,14 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
             "assistant_response_digest", "source_capture_digest",
             "followup_capture_digest", "assertion_text", "assertion_digest",
             "evidence_posture", "authority")}
+        if feedback_schema == "sentientos.local_operator_feedback:v2":
+            semantic["conversation_citations"] = conversation_citations
         identity = hashlib.sha256(json.dumps(semantic, sort_keys=True,
             separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
         if (source_id != f"local-operator-feedback:{identity}"
                 or subject.get("subject_id") != f"assistant-turn:{assistant_turn_id}"):
             continue
-        summaries.append({
+        summary = {
             "operator_feedback_fact_id": fact["fact_id"],
             "source_id": source_id,
             "source_record_digest": source_digest,
@@ -2683,7 +2704,11 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
             "historical_only": True,
             "current_truth": False,
             "authority": False,
-        })
+        }
+        if feedback_schema == "sentientos.local_operator_feedback:v2":
+            summary["conversation_citations"] = [dict(item)
+                for item in conversation_citations]
+        summaries.append(summary)
     return summaries
 
 

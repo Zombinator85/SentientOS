@@ -185,6 +185,10 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
             "response_origin": "resident_developmental_cognition",
             "response_digest": "c" * 64,
             "screen_observation_provenance": {"capture_digest": "b" * 64},
+            "conversation_context_turn_ids": [source["turn_id"]],
+            "conversation_context_turn_text_digests": [source["text_digest"]],
+            "cognition_conversation_turn_citation_ids": [source["turn_id"]],
+            "cognition_conversation_turn_citation_digests": [source["text_digest"]],
         })
 
     result = app.run_developmental_cycle(session_id=session_id,
@@ -212,6 +216,8 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
         "response_digest"]
     assert feedback["payload"]["source_capture_digest"] == "b" * 64
     assert feedback["payload"]["followup_capture_digest"] == "a" * 64
+    assert feedback["payload"]["conversation_citations"] == [{
+        "turn_id": source["turn_id"], "text_digest": source["text_digest"]}]
     assert result["operator_feedback_included"] is True
     assert result["operator_feedback_posture"] == "operator_assertion_unverified"
     assert len(app.sessions.load(session_id)["turns"]) == 2

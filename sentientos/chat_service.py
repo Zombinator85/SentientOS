@@ -1309,13 +1309,45 @@ class PersistentConversationService:
                 if source_capture_digest is None:
                     raise ChatRequestStateError(
                         "developmental_cycle_operator_feedback_requires_screen_evidence")
+                citation_ids = linkage.get(
+                    "cognition_conversation_turn_citation_ids", [])
+                citation_digests = linkage.get(
+                    "cognition_conversation_turn_citation_digests", [])
+                selected_ids = linkage.get("conversation_context_turn_ids", [])
+                selected_digests = linkage.get(
+                    "conversation_context_turn_text_digests", [])
+                selected_map = (dict(zip(selected_ids, selected_digests))
+                    if isinstance(selected_ids, list)
+                    and isinstance(selected_digests, list)
+                    and len(selected_ids) == len(selected_digests)
+                    and all(isinstance(turn_id, str) for turn_id in selected_ids)
+                    and all(isinstance(digest, str) for digest in selected_digests)
+                    else {})
+                transcript_turns = {str(turn.get("turn_id")): turn
+                    for turn in session["turns"] if isinstance(turn, Mapping)}
+                citation_lineage_valid = (
+                    isinstance(citation_ids, list)
+                    and isinstance(citation_digests, list)
+                    and len(citation_ids) == len(citation_digests) <= 16
+                    and all(isinstance(turn_id, str) for turn_id in citation_ids)
+                    and all(isinstance(digest, str) for digest in citation_digests)
+                    and len(set(citation_ids)) == len(citation_ids)
+                    and all(selected_map.get(turn_id) == digest
+                        and isinstance(transcript_turns.get(turn_id), Mapping)
+                        and transcript_turns[turn_id].get("text_digest") == digest
+                        for turn_id, digest in zip(citation_ids, citation_digests)))
+                if not citation_lineage_valid:
+                    raise ChatRequestStateError(
+                        "developmental_cycle_conversation_citation_lineage_invalid")
                 feedback_record = make_operator_feedback_record(
                     operator_feedback, request_id=request_id,
                     assistant_turn_id=assistant_turn_id,
                     assistant_response_digest=response_digest,
                     source_capture_digest=source_capture_digest,
                     followup_capture_digest=followup_capture_digest,
-                    observed_at=feedback_observed_at)
+                    observed_at=feedback_observed_at,
+                    conversation_citation_ids=citation_ids,
+                    conversation_citation_digests=citation_digests)
             cycle_kwargs: dict[str, Any] = {
                 "tick_id": tick_id, "screen_observation": observation,
                 "operator_feedback": feedback_record,
