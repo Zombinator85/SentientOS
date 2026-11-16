@@ -1743,11 +1743,11 @@ class ObjectivePredictionTask:
                             family_rule
                             + "Parameters are hidden. Use same-family evaluator-scored "
                             "history. Only evaluator_correct=true rows are mapping "
-                            "evidence. Prior errors are not mapping evidence or current "
-                            "truth. Abstain with null for each answer whose mapping is "
-                            "not supported by at least two distinct correct inputs. "
-                            "Check every correct row. Then calculate outputs for "
-                            f"inputs {inputs}.")
+                            "evidence. prior_incorrect_examples are past errors, not "
+                            "mapping evidence or current truth; never repeat their "
+                            "answers. Infer from at least two distinct correct inputs; "
+                            "otherwise abstain with null. check every correct row. Then "
+                            f"calculate outputs for {inputs}.")
                 else:
                     examples = [
                         {"input": 0, "output": self.offset},

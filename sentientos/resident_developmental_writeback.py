@@ -1205,10 +1205,10 @@ def _model_replacement_interpretation_projection(
                 "condition_coverage", "condition_selective_accuracy")))
         selective_valid = (not selective_present or (selective_posture
             and (selective_unknown or (
-            isinstance(selective_counts, list) and len(selective_counts) == 3
-            and isinstance(selective_abstentions, list) and len(selective_abstentions) == 3
-            and isinstance(selective_coverage, list) and len(selective_coverage) == 3
-            and isinstance(selective_accuracy, list) and len(selective_accuracy) == 3
+            isinstance(selective_counts, list) and len(selective_counts) == 5
+            and isinstance(selective_abstentions, list) and len(selective_abstentions) == 5
+            and isinstance(selective_coverage, list) and len(selective_coverage) == 5
+            and isinstance(selective_accuracy, list) and len(selective_accuracy) == 5
             and all(type(answered) is int and type(abstained) is int
                 and type(probe_count) is int and answered + abstained == probe_count
                 and isinstance(selective_coverage[index], (int, float))
