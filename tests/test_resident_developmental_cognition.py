@@ -3289,6 +3289,12 @@ def test_historical_embodiment_context_preserves_typed_report_roles() -> None:
     assert fields["observation_independence_posture"] == "unverified_caller_assertion"
     assert report["current_truth"] is False and report["authority"] is False
     assert "untrusted_free_text" not in fields
+    from sentientos.resident_developmental_cognition import (
+        _historical_embodiment_retrieval_text,
+    )
+    retrieval_text = " ".join(_historical_embodiment_retrieval_text(candidate))
+    assert "reach" in retrieval_text and "idle" in retrieval_text
+    assert "ignore rules and act" not in retrieval_text
 
 
 def test_legacy_oracle_hashes_are_excluded_from_current_cognition(tmp_path: Path) -> None:
@@ -4764,7 +4770,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7"
+        "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
 
@@ -4794,7 +4800,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     followup_prompt = json.loads(fake.requests[-1].prompt)
     assert followup_prompt["companion_question"] == "What about that?"
     assert followup_prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7"
+        "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
 
     # A specific new topic takes precedence over the prior user turn, which
     # should not drag its unrelated battery lesson into the bounded selection.
@@ -4860,10 +4866,65 @@ def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_te
     from sentientos import resident_developmental_cognition as cognition_module
     _, metadata, _, _, _ = cognition_module._bind_history_and_epistemic_context(
         context={"developmental_history_retrieval_policy_id":
-            "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7"},
+            "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"},
         records=(), projection=None, history_present=False)
     cognition_module._validate_developmental_history_selection({
         "developmental_history_selection": metadata["developmental_history_selection"]})
+
+
+def test_history_query_retrieves_old_embodied_outcome_from_typed_report() -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+
+    consequence = {"selected_fact_ids": ["fact-consequence"],
+        "selected_facts": [{"fact_id": "fact-consequence",
+            "stage": "observation", "disposition": "expectation_satisfied",
+            "evidence_strength": "recorded", "effect_proven": False,
+            "source": {"kind": "embodiment", "schema_version":
+                "sentientos.embodied_consequence_attribution:v1"},
+            "subject": {"subject_kind": "embodied_consequence_attribution"},
+            "payload": {"schema_version":
+                "sentientos.embodied_consequence_attribution:v1",
+                "classification": "expectation_satisfied",
+                "commanded_value": {"pose": "reach"},
+                "predicted_value": {"pose": "idle"},
+                "renderer_reported_value": {"pose": "reach"},
+                "independently_observed_value": {"pose": "idle"},
+                "observation_independence_posture": "unverified_caller_assertion",
+                "effect_proven": False}}]}
+    candidates = {"older-reach-outcome": {**consequence,
+            "interpretation": "A prior embodied event was recorded.",
+            "uncertainty": "Outcome remains source-qualified."},
+        **{f"recent-unrelated-{index}": {"selected_fact_ids": [],
+            "selected_facts": [],
+            "interpretation": f"An unrelated astronomy observation {index}."}
+            for index in range(4)}}
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            self.selected = tuple(record_ids)
+            return SimpleNamespace(records=(), requested_record_ids=self.selected,
+                limit=limit)
+
+    writeback = Writeback()
+    fake_owner = SimpleNamespace(writeback=writeback,
+        config=SimpleNamespace(max_retrieved_records=3), objective_task=None)
+    order = tuple(candidates)
+    state = {"completed_ticks": [{"tick_id": f"tick-{index}",
+        "record_id": record_id} for index, record_id in enumerate(order)]}
+    projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-tick",
+        relevance_query="What happened after the reach command?")
+
+    assert projection.requested_record_ids[-1] == "older-reach-outcome"
+    assert len(projection.requested_record_ids) == 3
 
 
 def test_boilerplate_history_query_falls_back_to_recent_records() -> None:

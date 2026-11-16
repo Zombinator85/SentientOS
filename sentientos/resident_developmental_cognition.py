@@ -2608,6 +2608,40 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
     return summaries
 
 
+_EMBODIMENT_RETRIEVAL_FIELDS = frozenset((
+    "classification", "commanded_value", "predicted_value",
+    "renderer_reported_value", "independently_observed_value",
+    "proven_consequence_value", "requested_pose", "encoder_pose",
+    "joint_state", "requested", "predicted_observables", "observable_fields",
+    "observed", "observable_results", "universal_numeric_loss", "task_goal",
+    "task_goal_met"))
+
+
+def _historical_embodiment_retrieval_text(candidate: Mapping[str, Any]) -> list[str]:
+    """Expose typed past action/outcome values to lexical ranking, never as truth."""
+    reports = _historical_embodiment_evidence_context(candidate)
+    searchable: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            searchable.append(value)
+        elif isinstance(value, Mapping):
+            for child in value.values():
+                collect(child)
+        elif isinstance(value, (list, tuple)):
+            for child in value:
+                collect(child)
+
+    for report in reports:
+        fields = report.get("typed_report_fields")
+        if not isinstance(fields, Mapping):
+            continue
+        for name in _EMBODIMENT_RETRIEVAL_FIELDS:
+            if name in fields:
+                collect(fields[name])
+    return searchable
+
+
 def _historical_operator_feedback_context(candidate: Mapping[str, Any]
         ) -> list[dict[str, Any]]:
     """Project source-linked operator reports without upgrading their posture."""
@@ -3559,7 +3593,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "query_overlap_with_operator_reports_then_recency_fill:v4",
                 "query_overlap_with_lesson_scope_then_recency_fill:v5",
                 "query_overlap_with_lesson_scope_and_session_context_then_recency_fill:v6",
-                "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7"}
+                "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7",
+                "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"}
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
@@ -6325,6 +6360,8 @@ class ResidentDevelopmentalCognitionOwner:
                 if isinstance(candidate, Mapping):
                     searchable_parts.extend(item["assertion_text"]
                         for item in _historical_operator_feedback_context(candidate))
+                    searchable_parts.extend(_historical_embodiment_retrieval_text(
+                        candidate))
                     provenance = candidate.get("transformation_provenance")
                     lesson = (provenance.get("lesson_candidate")
                         if isinstance(provenance, Mapping) else None)
@@ -7110,7 +7147,7 @@ class ResidentDevelopmentalCognitionOwner:
                 and bool(observed_target_identity))
             else "task_family_probe_overlap_then_recency_fill:v2"
             if isinstance(task_family_id, str) else
-            "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7"
+            "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
             if interaction_question is not None
                 and condition_id == "companion-interaction"
             else "completed_tick_recency_suffix:v1")
