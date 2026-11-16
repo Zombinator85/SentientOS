@@ -15,7 +15,8 @@ from .resident_developmental_writeback import (
     DevelopmentalWritebackError, _open_store_directory, _read_store_file, _publish_store_json,
 )
 from .windows_handle_custody import (
-    WindowsHandleCustodyError, observe_private_directory_identity,
+    WindowsHandleCustodyError, ensure_private_child_directory,
+    observe_private_directory_identity,
     read_explicit_file, verify_explicit_directory,
 )
 
@@ -260,15 +261,8 @@ class DevelopmentalExperimentStore:
                 "experiment_artifact_windows_collection_invalid")
         try:
             verify_explicit_directory(self.root.parent, require_private_acl=True)
-            try:
-                self.root.mkdir()
-            except FileExistsError:
-                pass
-            verify_explicit_directory(self.root, require_private_acl=True)
-            try:
-                collection.mkdir()
-            except FileExistsError:
-                pass
+            ensure_private_child_directory(self.root.parent, self.root.name)
+            ensure_private_child_directory(self.root, collection.name)
             return observe_private_directory_identity(collection)
         except (WindowsHandleCustodyError, OSError) as exc:
             raise DevelopmentalHistoryInterventionError(
