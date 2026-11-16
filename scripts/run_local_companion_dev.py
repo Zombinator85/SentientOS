@@ -1711,9 +1711,14 @@ def main() -> int:
             try:
                 development_config = load_epistemic_development_config(
                     epistemic_development_path)
+                epistemic_mutation_root = (
+                    cognition_config.state_root / "epistemic_development")
+                if os.name == "nt":
+                    epistemic_mutation_root = (
+                        ResidentEpistemicStateMutationController
+                        .prepare_windows_private_custody(epistemic_mutation_root))
                 epistemic_ledger = AdmissionLedger(
-                    cognition_config.state_root / "epistemic_development"
-                    / "runtime_admissions.json")
+                    epistemic_mutation_root / "runtime_admissions.json")
                 epistemic_definitions = {
                     RESIDENT_EPISTEMIC_STATE_MUTATION:
                         RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
@@ -1722,7 +1727,7 @@ def main() -> int:
                     admission_verifier=RuntimeAdmissionVerifier(
                         definitions=epistemic_definitions, ledger=epistemic_ledger),
                     current_sequence=epistemic_ledger.current_sequence,
-                    receipt_root=cognition_config.state_root / "epistemic_development")
+                    receipt_root=epistemic_mutation_root)
                 epistemic_development_runtime = ResidentEpistemicDevelopmentRuntime(
                     config=development_config, owner=epistemic_state_owner,
                     mutation_controller=epistemic_controller,

@@ -639,3 +639,31 @@ def observe_private_directory_identity(root: Path) -> tuple[int, bytes]:
         raise WindowsHandleCustodyError("windows_custody_root_identity_unavailable")
     return result[1]
 
+
+def ensure_private_child_directory(parent: Path, child_name: str) -> Path:
+    """Create or verify one child directory under a stable private parent.
+
+    The child inherits its ACL from the already private parent. This helper
+    never creates ancestors, changes permissions, or follows a reparse point.
+    """
+    if os.name != "nt":
+        raise WindowsHandleCustodyError("windows_custody_platform_unsupported")
+    if not _safe_child_name(child_name):
+        raise WindowsHandleCustodyError("windows_custody_child_name_invalid")
+    parent = Path(parent)
+    try:
+        parent_identity = observe_private_directory_identity(parent)
+        child = parent / child_name
+        try:
+            child.mkdir()
+        except FileExistsError:
+            pass
+        if observe_private_directory_identity(parent) != parent_identity:
+            raise WindowsHandleCustodyError("windows_custody_parent_changed")
+        verify_explicit_directory(child, require_private_acl=True)
+        return child
+    except WindowsHandleCustodyError:
+        raise
+    except OSError as exc:
+        raise WindowsHandleCustodyError("windows_custody_child_directory_unavailable") from exc
+

@@ -916,6 +916,45 @@ def test_windows_objective_transfer_recovers_plan_scores_and_run() -> None:
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows epistemic custody")
+def test_windows_epistemic_owner_bootstraps_only_under_private_parent(
+        tmp_path: Path) -> None:
+    from sentientos.persistent_epistemic_state import (
+        EpistemicStateError, PersistentEpistemicStateOwner, RECORD_COLLECTIONS,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        EpistemicMutationError, ResidentEpistemicStateMutationController,
+    )
+    from sentientos.windows_handle_custody import verify_explicit_directory
+
+    _make_current_user_private(tmp_path, directory=True)
+    root = tmp_path / "epistemic-state"
+    owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("operator",))
+    assert root.is_dir()
+    assert owner.verify() == {
+        "propositions": 0, "bindings": 0, "states": 0, "updates": 0,
+        "calibrations": 0, "incomplete_admission_bound_transactions": 0}
+    verify_explicit_directory(root, require_private_acl=True)
+    for collection in RECORD_COLLECTIONS:
+        verify_explicit_directory(root / collection, require_private_acl=True)
+
+    broad_parent = tmp_path / "broad-parent"
+    broad_parent.mkdir()
+    subprocess.run(["icacls", str(broad_parent), "/grant:r", "*S-1-1-0:(RX)"],
+        check=True, capture_output=True, text=True)
+    rejected_root = broad_parent / "rejected-state"
+    with pytest.raises(EpistemicStateError, match="epistemic_custody_root_invalid"):
+        PersistentEpistemicStateOwner(rejected_root,
+            allowed_namespaces=("operator",))
+    assert not rejected_root.exists()
+    rejected_mutation_root = broad_parent / "rejected-mutation"
+    with pytest.raises(EpistemicMutationError,
+            match="mutation_custody_initialization_failed"):
+        ResidentEpistemicStateMutationController.prepare_windows_private_custody(
+            rejected_mutation_root)
+    assert not rejected_mutation_root.exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows epistemic custody")
 def test_windows_epistemic_correction_recovers_interrupted_transaction() -> None:
     from tempfile import TemporaryDirectory
     from sentientos.persistent_epistemic_state import (
@@ -928,7 +967,9 @@ def test_windows_epistemic_correction_recovers_interrupted_transaction() -> None
             dir=Path(__file__).resolve().parents[2]) as temporary_root:
         root = Path(temporary_root)
         _make_current_user_private(root, directory=True)
-        owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("embodiment",))
+        store_root = root / "epistemic"
+        owner = PersistentEpistemicStateOwner(store_root,
+            allowed_namespaces=("embodiment",))
         claim = proposition("A controlled sensor claim")
         owner.register_proposition(claim)
         support = binding(claim, "1")
@@ -952,7 +993,7 @@ def test_windows_epistemic_correction_recovers_interrupted_transaction() -> None
         finally:
             epistemic_module._write_new = original_write_new
 
-        recovered = PersistentEpistemicStateOwner(root,
+        recovered = PersistentEpistemicStateOwner(store_root,
             allowed_namespaces=("embodiment",))
         first = recovered.current_state(claim.proposition_id)
         assert first is not None and first.stance == "supported"
@@ -966,7 +1007,7 @@ def test_windows_epistemic_correction_recovers_interrupted_transaction() -> None
             added_binding_ids=(contradiction.binding_id,),
             correlation_id="windows-epistemic-2", tick=2,
             recorded_at="2026-01-01T00:00:02Z")
-        restarted = PersistentEpistemicStateOwner(root,
+        restarted = PersistentEpistemicStateOwner(store_root,
             allowed_namespaces=("embodiment",))
         current = restarted.current_state(claim.proposition_id)
         assert current == corrected
@@ -1009,17 +1050,10 @@ def test_windows_admitted_epistemic_correction_recovers_its_receipt() -> None:
         root = Path(temporary_root)
         _make_current_user_private(root, directory=True)
         owner_root = root / "epistemic"
-        owner_root.mkdir()
-        _make_current_user_private(owner_root, directory=True)
         receipt_root = root / "mutation"
-        receipt_root.mkdir()
-        _make_current_user_private(receipt_root, directory=True)
-        for directory in (receipt_root / "receipts",
-                receipt_root / "receipts" / "evidence",
-                receipt_root / "receipts" / "state",
-                receipt_root / "operations"):
-            directory.mkdir()
-            _make_current_user_private(directory, directory=True)
+        receipt_root = (
+            ResidentEpistemicStateMutationController
+            .prepare_windows_private_custody(receipt_root))
 
         ledger = AdmissionLedger(root / "admissions.json")
         authority = RuntimeAdmissionAuthority(

@@ -19,8 +19,9 @@ from .persistent_epistemic_state import (
 )
 from .runtime_admission import AdmissionError, AdmissionEvidence, RuntimeAdmissionVerifier
 from .windows_handle_custody import (
-    WindowsHandleCustodyError, observe_private_directory_identity,
-    read_regular_files, verify_explicit_directory,
+    WindowsHandleCustodyError, ensure_private_child_directory,
+    observe_private_directory_identity, read_regular_files,
+    verify_explicit_directory,
 )
 from .windows_peer_replay_custody import (
     WindowsReplayCustodyError, publish_immutable_replay_bytes,
@@ -105,6 +106,28 @@ class EpistemicStateMutationReceipt:
 
 
 class ResidentEpistemicStateMutationController:
+    @staticmethod
+    def prepare_windows_private_custody(receipt_root: str | Path) -> Path:
+        """Initialize receipt and intent folders beneath a private state root.
+
+        Runtime startup calls this explicitly after epistemic development is
+        enabled. Controller construction itself stays non-mutating on Windows.
+        """
+        if os.name != "nt":
+            raise EpistemicMutationError(
+                "windows_mutation_custody_platform_unsupported")
+        root = Path(receipt_root)
+        try:
+            root = ensure_private_child_directory(root.parent, root.name)
+            receipts = ensure_private_child_directory(root, "receipts")
+            ensure_private_child_directory(receipts, "evidence")
+            ensure_private_child_directory(receipts, "state")
+            ensure_private_child_directory(root, "operations")
+            return root
+        except WindowsHandleCustodyError as exc:
+            raise EpistemicMutationError(
+                "mutation_custody_initialization_failed") from exc
+
     def __init__(self, *, owner: PersistentEpistemicStateOwner,
                  admission_verifier: RuntimeAdmissionVerifier,
                  current_sequence: Callable[[], int], receipt_root: str | Path) -> None:

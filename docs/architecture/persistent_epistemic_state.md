@@ -11,8 +11,11 @@ SentientOS now distinguishes five longitudinal substrates: World-State is curren
 
 **No epistemic-state delta without an attributable epistemic update event.** `PersistentEpistemicStateOwner` uses an explicit custody root, immutable content-addressed proposition and evidence records, immutable state generations, and a paired append-only event chain. Reconstruction checks every digest, predecessor, and paired event. Advancement is compare-and-swap; stale proposals fail rather than rebasing. There is no ambient discovery or legacy import.
 
-On Windows, the owner requires an existing private-ACL root and private child
-collections. Immutable records use the native handle-bound no-replace publisher;
+On Windows, a missing store root may be created as one child beneath an
+existing private-ACL parent; missing ancestors and broadly accessible parents
+are rejected. The owner verifies the inherited ACL and parent identity before
+creating its private child collections. Immutable records use the native
+handle-bound no-replace publisher;
 identity separators are encoded in portable file names. A root-identity-bound
 mutex serializes compare-and-swap, and recovery completes storage-only
 transaction pairs while leaving admission-bound incomplete pairs untouched for
@@ -28,6 +31,10 @@ intents and mutation receipts through the native publisher when its receipt root
 and child collections already exist with private ACLs. Recovery can derive a
 missing receipt only from the exact verified intent, admission, and committed
 state; it never replays an interrupted evidence append or state transition.
+When epistemic development is explicitly enabled, companion startup creates
+those folders beneath the existing private cognition state root and verifies
+each inherited ACL. Controller construction remains non-mutating; a missing or
+broad parent prevents initialization.
 
 A proposition identity hashes a bounded semantic key: schema, namespace, subject, predicate, bounded object, polarity, qualifiers, temporal scope, context scope, and class. Display text is excluded. Meaning changes create a new proposition connected by `refines`, `narrows`, `broadens`, `supersedes`, `contradicts`, or `related_to`; old evidence stays on its original proposition.
 

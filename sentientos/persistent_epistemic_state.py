@@ -21,8 +21,9 @@ from .private_file_custody import (
     publish_immutable_bytes, read_private_file_at,
 )
 from .windows_handle_custody import (
-    WindowsHandleCustodyError, observe_private_directory_identity,
-    read_regular_files, verify_explicit_directory,
+    WindowsHandleCustodyError, ensure_private_child_directory,
+    observe_private_directory_identity,
+    read_regular_files,
 )
 from .windows_peer_replay_custody import (
     WindowsReplayCustodyError, publish_immutable_replay_bytes,
@@ -820,14 +821,14 @@ class PersistentEpistemicStateOwner:
         if self.root.is_symlink(): raise EpistemicStateError("epistemic_custody_root_invalid")
         if os.name == "nt":
             try:
-                verify_explicit_directory(self.root, require_private_acl=True)
+                try:
+                    self.root.lstat()
+                except FileNotFoundError:
+                    pass
+                self.root = ensure_private_child_directory(
+                    self.root.parent, self.root.name)
                 for part in RECORD_COLLECTIONS:
-                    directory = self.root / part
-                    try:
-                        directory.mkdir()
-                    except FileExistsError:
-                        pass
-                    verify_explicit_directory(directory, require_private_acl=True)
+                    ensure_private_child_directory(self.root, part)
             except (WindowsHandleCustodyError, OSError) as exc:
                 raise EpistemicStateError("epistemic_custody_root_invalid") from exc
             self.verify()
