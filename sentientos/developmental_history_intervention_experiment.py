@@ -352,14 +352,18 @@ class DevelopmentalExperimentStore:
             raise DevelopmentalHistoryInterventionError("objective_task_protocol_binding_invalid")
         suite = specification.get("schema_version") in {
             "sentientos.affine_prediction_task_suite:v2",
-            "sentientos.affine_prediction_task_family_suite:v3"}
+            "sentientos.affine_prediction_task_family_suite:v3",
+            "sentientos.affine_prediction_task_family_suite:v4"}
+        selective_family_suite = (specification.get("schema_version")
+            == "sentientos.affine_prediction_task_family_suite:v4")
         semantic = {"schema_version": ("sentientos.objective_task_plan:v1"
                 if protocol.schema_version == LEGACY_OBJECTIVE_SCHEMA
                 else "sentientos.objective_task_plan:v2"),
             "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
             "task": dict(specification), "task_descriptor": dict(descriptor),
             "condition_order": list(CONDITION_ORDER),
-            "rubric": "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1",
+            "rubric": ("selective_integer_answer_suite_v1" if selective_family_suite else
+                "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1"),
             "authority": False}
         if protocol.schema_version in {OBJECTIVE_SCHEMA, OBJECTIVE_HISTORY_SELECTION_SCHEMA}:
             semantic["task_commitment_nonce"] = task.commitment_nonce
@@ -400,7 +404,11 @@ class DevelopmentalExperimentStore:
         suite = isinstance(task, Mapping) and task.get("schema_version") == (
             "sentientos.affine_prediction_task_suite:v2") or (
             isinstance(task, Mapping) and task.get("schema_version") ==
-                "sentientos.affine_prediction_task_family_suite:v3")
+                "sentientos.affine_prediction_task_family_suite:v3") or (
+            isinstance(task, Mapping) and task.get("schema_version") ==
+                "sentientos.affine_prediction_task_family_suite:v4")
+        selective_family_suite = isinstance(task, Mapping) and task.get("schema_version") == (
+            "sentientos.affine_prediction_task_family_suite:v4")
         expected_plan_schema = ("sentientos.objective_task_plan:v1"
             if protocol.schema_version == LEGACY_OBJECTIVE_SCHEMA
             else "sentientos.objective_task_plan:v2")
@@ -408,15 +416,18 @@ class DevelopmentalExperimentStore:
                 or value.get("protocol_id") != protocol.protocol_id
                 or value.get("protocol_digest") != protocol.protocol_digest
                 or value.get("condition_order") != list(CONDITION_ORDER)
-                or value.get("rubric") != ("exact_integer_answer_suite_v2" if suite
+                or value.get("rubric") != (
+                    "selective_integer_answer_suite_v1" if selective_family_suite else
+                    "exact_integer_answer_suite_v2" if suite
                     else "exact_integer_answer_v1")
                 or value.get("authority") is not False
                 or claimed != _digest(public_semantic)):
             raise DevelopmentalHistoryInterventionError("objective_task_plan_binding_invalid")
         expected_task_fields = ({"schema_version", "multiplier", "offset", "probe_inputs", "oracle_scope"}
             if suite else {"schema_version", "multiplier", "offset", "probe_input", "oracle_scope"})
-        if isinstance(task, Mapping) and task.get("schema_version") == (
-                "sentientos.affine_prediction_task_family_suite:v3"):
+        if isinstance(task, Mapping) and task.get("schema_version") in {
+                "sentientos.affine_prediction_task_family_suite:v3",
+                "sentientos.affine_prediction_task_family_suite:v4"}:
             expected_task_fields.update({"task_family_id", "requires_task_family_history"})
         if not isinstance(task, Mapping) or set(task) != expected_task_fields:
             raise DevelopmentalHistoryInterventionError("objective_task_plan_invalid")
@@ -430,7 +441,9 @@ class DevelopmentalExperimentStore:
                     probes[0], tuple(probes[1:]), task.get("task_family_id"),
                     task.get("requires_task_family_history", False),
                     **({"commitment_nonce": value["task_commitment_nonce"]}
-                        if protocol.schema_version in {OBJECTIVE_SCHEMA, OBJECTIVE_HISTORY_SELECTION_SCHEMA} else {}))
+                        if protocol.schema_version in {OBJECTIVE_SCHEMA, OBJECTIVE_HISTORY_SELECTION_SCHEMA} else {}),
+                    family_contract_version=(3 if task.get("schema_version")
+                        == "sentientos.affine_prediction_task_family_suite:v3" else 4))
             else:
                 reconstructed = ObjectivePredictionTask(task["multiplier"], task["offset"], task["probe_input"],
                     **({"commitment_nonce": value["task_commitment_nonce"]}
@@ -1012,6 +1025,9 @@ class DevelopmentalExperimentStore:
                     "correct": item["score"]["correct"],
                     **({"correct_count": item["score"]["correct_count"],
                         "probe_count": item["score"]["probe_count"],
+                        **({"answered_count": item["score"]["answered_count"],
+                            "abstained_count": item["score"]["abstained_count"]}
+                            if "answered_count" in item["score"] else {}),
                         **({"probe_results": item["score"]["probe_results"]}
                             if "probe_results" in item["score"] else {})}
                         if "correct_count" in item["score"] else {})}
@@ -1593,7 +1609,8 @@ def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[s
         "model_behavior_posture": "resident_endpoint_receipts_not_independent_model_attestation"}
     if plan.get("task", {}).get("schema_version") in {
             "sentientos.affine_prediction_task_suite:v2",
-            "sentientos.affine_prediction_task_family_suite:v3"}:
+            "sentientos.affine_prediction_task_family_suite:v3",
+            "sentientos.affine_prediction_task_family_suite:v4"}:
         counts = [row["score"].get("correct_count")
             if isinstance(row.get("score"), Mapping) else None for row in scores]
         count_complete = len(counts) == 3 and all(type(value) is int for value in counts)
@@ -1607,4 +1624,28 @@ def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[s
             "restoration_correct_probe_delta": restoration_delta,
             "assessment": ("preregistered_probe_suite_scored" if complete else
                 "unscoreable_truncated_output" if truncated else "unscoreable_missing_output")})
+        if plan.get("task", {}).get("schema_version") == (
+                "sentientos.affine_prediction_task_family_suite:v4"):
+            answered = [row["score"].get("answered_count")
+                if isinstance(row.get("score"), Mapping) else None for row in scores]
+            abstained = [row["score"].get("abstained_count")
+                if isinstance(row.get("score"), Mapping) else None for row in scores]
+            coherent = (len(answered) == 3 and len(abstained) == 3
+                and all(type(answered[index]) is int and type(abstained[index]) is int
+                    and answered[index] + abstained[index] == evaluation["probe_count"]
+                    for index in range(3)))
+            correct_counts = counts
+            evaluation.update({
+                "condition_answered_counts": answered if coherent else None,
+                "condition_abstained_counts": abstained if coherent else None,
+                "condition_coverage": ([value / evaluation["probe_count"]
+                    for value in answered] if coherent else None),
+                "condition_selective_accuracy": ([
+                    (correct_counts[index] / value if value > 0 else None)
+                    for index, value in enumerate(answered)]
+                    if coherent and all(type(value) is int for value in correct_counts)
+                    else None),
+                "selective_metrics_posture":
+                    "per_probe_abstention_scored_separately_from_correctness",
+            })
     return evaluation

@@ -89,6 +89,18 @@ replacement mapping rule. A CPU-only controlled retrieval fixture demonstrates
 that such a selected record reaches the bounded prompt projection; real-model
 application and subsequent performance effects remain unverified.
 
+New task-family trials use the v4 selective-answer contract. Each probe accepts
+an integer answer or `null` abstention; evaluator correctness and abstention
+are recorded separately, with coverage and accuracy among answered probes
+reported independently. Abstentions have unknown evaluator correctness, so
+they are withheld from both positive mapping guidance and negative answer
+feedback. The history-conditioned prompt asks for abstention until at least two
+distinct evaluator-correct inputs support the mapping. Historical v3 task
+descriptors and scores remain readable with their original integer-only
+contract. These deterministic fixtures validate the scoring and evidence
+handling path; they do not demonstrate that a real model will abstain
+appropriately or apply the learned mapping.
+
 When a bounded history selection includes a run from such a group, the
 read-only retrieval projection also carries the exact-task, source-model, and
 run-reference summary into the task-family prompt. This keeps the reason for a

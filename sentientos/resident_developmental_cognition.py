@@ -540,9 +540,11 @@ def _objective_task_from_specification(specification: Any,
             task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
                 specification["probe_input"])
     elif schema in {"sentientos.affine_prediction_task_suite:v2",
-            "sentientos.affine_prediction_task_family_suite:v3"}:
+            "sentientos.affine_prediction_task_family_suite:v3",
+            "sentientos.affine_prediction_task_family_suite:v4"}:
         fields = common | {"probe_inputs", "oracle_scope"}
-        if schema == "sentientos.affine_prediction_task_family_suite:v3":
+        if schema in {"sentientos.affine_prediction_task_family_suite:v3",
+                "sentientos.affine_prediction_task_family_suite:v4"}:
             fields |= {"task_family_id", "requires_task_family_history"}
         if set(specification) != fields:
             raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
@@ -553,7 +555,9 @@ def _objective_task_from_specification(specification: Any,
         task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
             probes[0], tuple(probes[1:]), specification.get("task_family_id"),
             specification.get("requires_task_family_history", False),
-            **({"commitment_nonce": commitment_nonce} if commitment_nonce is not None else {}))
+            **({"commitment_nonce": commitment_nonce} if commitment_nonce is not None else {}),
+            family_contract_version=(3 if schema ==
+                "sentientos.affine_prediction_task_family_suite:v3" else 4))
     else:
         raise ResidentDevelopmentalCognitionError("objective_request_task_schema_unsupported")
     try:
@@ -2284,7 +2288,9 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
             and isinstance(active_model_identity_digest, str)
             and active_model_identity_digest == _digest(dict(active_model_identity)))
         if (not isinstance(score, Mapping)
-                or score.get("schema_version") != "sentientos.objective_task_score:v3"
+                or score.get("schema_version") not in {
+                    "sentientos.objective_task_score:v3",
+                    "sentientos.objective_task_score:v4"}
                 or score.get("task_digest") != descriptor.get("task_digest")
                 or score.get("evaluator") != "deterministic_exact_integer_suite_oracle_v2"
                 or not isinstance(score.get("score_digest"), str)
@@ -2295,12 +2301,19 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
         rows: list[dict[str, Any]] = []
         valid = True
         for example in examples:
+            abstained = (isinstance(example, Mapping)
+                and isinstance(score, Mapping)
+                and score.get("schema_version") == "sentientos.objective_task_score:v4"
+                and example.get("observed_answer") is None
+                and example.get("evaluator_correct") is None)
+            answered = (isinstance(example, Mapping)
+                and type(example.get("observed_answer")) is int
+                and type(example.get("evaluator_correct")) is bool)
             if (not isinstance(example, Mapping)
                     or set(example) != {"probe_input", "observed_answer", "evaluator_correct",
                         "source_score_digest", "source_condition"}
                     or type(example.get("probe_input")) is not int
-                    or type(example.get("observed_answer")) is not int
-                    or type(example.get("evaluator_correct")) is not bool
+                    or not (answered or abstained)
                     or example.get("source_score_digest") != score.get("score_digest")
                     or example.get("source_condition") != "history_present"):
                 valid = False
@@ -2420,7 +2433,8 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                 score_row = score_by_condition[condition_id]
                 if (not isinstance(raw_condition, Mapping)
                         or score_row.get("schema_version", "sentientos.objective_task_score:v3")
-                            != "sentientos.objective_task_score:v3"
+                            not in {"sentientos.objective_task_score:v3",
+                                "sentientos.objective_task_score:v4"}
                         or score_row.get("task_digest", descriptor.get("task_digest"))
                             != descriptor.get("task_digest")
                         or score_row.get("evaluator", score.get("evaluator"))
@@ -2433,6 +2447,12 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                         or type(score_row.get("correct_count")) is not int
                         or type(score_row.get("probe_count")) is not int
                         or not 0 <= score_row["correct_count"] <= score_row["probe_count"] <= 16
+                        or score_row.get("schema_version") == "sentientos.objective_task_score:v4"
+                            and (type(score_row.get("answered_count")) is not int
+                                or type(score_row.get("abstained_count")) is not int
+                                or score_row["answered_count"] + score_row["abstained_count"]
+                                    != score_row["probe_count"]
+                                or score_row["correct_count"] > score_row["answered_count"])
                         or not isinstance(raw_condition.get("inference_receipt_id"), str)
                         or not raw_condition.get("inference_receipt_id")
                         or not isinstance(raw_condition.get("inference_receipt_digest"), str)
@@ -4714,8 +4734,9 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
     descriptor = dict(request["task_descriptor"])
     task_specification = dict(request["task"])
     task_family = None
-    if task_specification.get("schema_version") == (
-            "sentientos.affine_prediction_task_family_suite:v3"):
+    if task_specification.get("schema_version") in {
+            "sentientos.affine_prediction_task_family_suite:v3",
+            "sentientos.affine_prediction_task_family_suite:v4"}:
         task_family = {"task_family_id": descriptor.get("task_family_id"),
             "family_posture": descriptor.get("family_posture"),
             "probe_inputs": list(descriptor.get("probe_inputs", ())),

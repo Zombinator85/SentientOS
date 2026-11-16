@@ -12,7 +12,8 @@ import pytest
 from sentientos.developmental_model_replacement_experiment import (
     DevelopmentalModelReplacementError, DevelopmentalModelReplacementExperiment,
     FrozenCausalContext, ModelReplacementArtifactStore, ObjectivePredictionTask,
-    _objective_score, _objective_score_legacy, _verify_objective_score,
+    _objective_evaluation, _objective_score, _objective_score_legacy,
+    _verify_objective_score,
 )
 from tests.test_developmental_model_replacement_experiment import FakeEndpoint, context, digest, identity
 
@@ -62,6 +63,8 @@ class TaskEndpoint(FakeEndpoint):
             multiplier = (b['output'] - a['output']) // (b['input'] - a['input'])
             offset = a['output'] - multiplier * a['input']
             answers = [multiplier * probe + offset for probe in probes]
+        if self.mode == 'selective' and not history:
+            answers = [None for _ in probes]
         if self.mode == 'ignore': answers = [0 for _ in probes]
         if self.mode == 'partial': answers = ([*answers[:2], *([0] * max(0, len(answers) - 2))]
             if history else [0 for _ in probes])
@@ -573,6 +576,63 @@ def test_whitespace_suite_score_verification_preserves_raw_output_digest(tmp_pat
     assert score["correct_count"] == 0
     assert len(score["probe_results"]) == 3
     assert _verify_objective_score(owner.objective_plan, score, output_digest) == score
+
+
+def test_selective_family_prediction_abstains_without_history_and_uses_supported_history():
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="selective-family", requires_task_family_history=True)
+    task_spec = task.specification()
+    plan = {"task": task_spec, "plan_digest": digest({"plan": "selective"}),
+        "task_descriptor": {"task_digest": digest({"task": task_spec})}}
+    supported_output = json.dumps({"answers": [23, 26, 29]}, separators=(",", ":"))
+    abstaining_output = json.dumps({"answers": [None, None, None]}, separators=(",", ":"))
+    outputs = [supported_output, abstaining_output, supported_output,
+        abstaining_output, supported_output]
+    scores = []
+    for output in outputs:
+        output_digest = digest({"output": output})
+        score = _objective_score(plan, output, output_digest)
+        assert _verify_objective_score(plan, score, output_digest) == score
+        scores.append(score)
+    evaluation = _objective_evaluation(plan,
+        [{"objective_task_score": score} for score in scores])
+    assert evaluation["selective_metrics_posture"] == (
+        "per_probe_abstention_scored_separately_from_correctness")
+    assert evaluation["condition_answered_counts"] == [3, 0, 3, 0, 3]
+    assert evaluation["condition_abstained_counts"] == [0, 3, 0, 3, 0]
+    assert evaluation["condition_coverage"] == [1.0, 0.0, 1.0, 0.0, 1.0]
+    assert evaluation["condition_selective_accuracy"] == [1.0, None, 1.0, None, 1.0]
+    no_history = scores[1]
+    history = scores[0]
+    assert no_history["schema_version"] == "sentientos.objective_task_score:v4"
+    assert no_history["probe_results"] == [
+        {"probe_input": probe, "observed_answer": None, "correct": None,
+            "abstained": True} for probe in (7, 8, 9)]
+    assert no_history["correct_count"] == 0
+    assert history["answered_count"] == 3 and history["abstained_count"] == 0
+    from sentientos.resident_developmental_cognition import _task_family_guidance_examples
+    guidance, prior_errors, omission = _task_family_guidance_examples(
+        [{"probe_input": row["probe_input"],
+            "observed_answer": row["observed_answer"],
+            "evaluator_correct": row["correct"]} for row in no_history["probe_results"]],
+        effect={"posture": "comparison_unavailable"}, source_fact_id="selective-run")
+    assert guidance == [] and prior_errors == []
+    assert omission["evaluator_correctness_unavailable_count"] == 3
+
+
+def test_v3_family_task_contract_remains_readable():
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="legacy-family", requires_task_family_history=True,
+        family_contract_version=3)
+    specification = task.specification()
+    assert specification["schema_version"] == "sentientos.affine_prediction_task_family_suite:v3"
+    assert "<integer>, ..." in task.public_descriptor()["answer_format"]
+    plan = {"task": specification, "plan_digest": digest({"plan": "v3"}),
+        "task_descriptor": {"task_digest": digest({"task": specification})}}
+    output = '{"answers":[23,26,29]}'
+    score = _objective_score(plan, output, digest({"output": output}))
+    assert score["schema_version"] == "sentientos.objective_task_score:v3"
+    assert score["correct_count"] == 3
 
 
 def test_truncated_output_is_unscorable_and_remains_receipt_bound(tmp_path):
