@@ -546,7 +546,8 @@ def load_objective_request(state_root: str | Path) -> Mapping[str, Any] | None:
     """Read one explicit, bounded request from the configured cognition state root."""
     path = Path(state_root) / OBJECTIVE_REQUEST_FILENAME
     try:
-        raw = read_explicit_file(path, max_bytes=MAX_OBJECTIVE_REQUEST_BYTES)
+        raw = read_explicit_file(path, max_bytes=MAX_OBJECTIVE_REQUEST_BYTES,
+            require_private_acl=os.name == "nt")
     except WindowsHandleCustodyError as exc:
         if str(exc) == "explicit_file_missing":
             return None
@@ -567,7 +568,8 @@ def load_objective_request_by_identity(state_root: str | Path, *, request_id: st
     archive_name = hashlib.sha256(request_id.encode("utf-8")).hexdigest() + ".json"
     archive_path = Path(state_root) / "objective_intervention_request_archive" / archive_name
     try:
-        raw = read_explicit_file(archive_path, max_bytes=MAX_OBJECTIVE_REQUEST_BYTES)
+        raw = read_explicit_file(archive_path, max_bytes=MAX_OBJECTIVE_REQUEST_BYTES,
+            require_private_acl=os.name == "nt")
     except (WindowsHandleCustodyError, OSError) as exc:
         raise ResidentDevelopmentalCognitionError("objective_request_archive_unavailable") from exc
     recovered = _parse_objective_request_bytes(raw)
@@ -594,7 +596,8 @@ def stored_objective_request_record(state_root: str | Path, *,
     """Read the minimal exact request/tick/run lineage from custody, without repair."""
     path = Path(state_root) / "composition_state.json"
     try:
-        raw = read_explicit_file(path, max_bytes=MAX_COMPOSITION_STATE_BYTES)
+        raw = read_explicit_file(path, max_bytes=MAX_COMPOSITION_STATE_BYTES,
+            require_private_acl=os.name == "nt")
     except WindowsHandleCustodyError as exc:
         if str(exc) == "explicit_file_missing":
             return {"disposition": "new", "request_id": request_id,
@@ -649,7 +652,8 @@ def inspect_checkpointed_history_record_refs(state_path: str | Path, *,
     if type(limit) is not int or not 1 <= limit <= MAX_HISTORY:
         raise ResidentDevelopmentalCognitionError("checkpointed_history_limit_invalid")
     try:
-        raw = read_explicit_file(Path(state_path), max_bytes=MAX_COMPOSITION_STATE_BYTES)
+        raw = read_explicit_file(Path(state_path), max_bytes=MAX_COMPOSITION_STATE_BYTES,
+            require_private_acl=os.name == "nt")
     except WindowsHandleCustodyError as exc:
         if str(exc) == "explicit_file_missing":
             return ()
@@ -774,11 +778,21 @@ def objective_task_for_request(request: Mapping[str, Any]) -> Any:
 def stage_objective_request(state_root: str | Path, *, request_id: str,
         task: Any) -> Path:
     """Atomically stage one bounded request without invoking or authorizing a model."""
+    if os.name == "nt":
+        with _windows_resident_cognition_lock(Path(state_root)):
+            return _stage_objective_request_locked(state_root, request_id=request_id,
+                task=task)
+    return _stage_objective_request_locked(state_root, request_id=request_id, task=task)
+
+
+def _stage_objective_request_locked(state_root: str | Path, *, request_id: str,
+        task: Any) -> Path:
     payload = objective_request_payload(request_id=request_id, task=task)
     path = Path(state_root) / OBJECTIVE_REQUEST_FILENAME
     data = json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n"
     try:
-        existing = read_explicit_file(path, max_bytes=MAX_OBJECTIVE_REQUEST_BYTES)
+        existing = read_explicit_file(path, max_bytes=MAX_OBJECTIVE_REQUEST_BYTES,
+            require_private_acl=os.name == "nt")
     except WindowsHandleCustodyError as exc:
         if str(exc) != "explicit_file_missing":
             raise ResidentDevelopmentalCognitionError("objective_request_custody_invalid") from exc
@@ -797,30 +811,72 @@ def stage_objective_request(state_root: str | Path, *, request_id: str,
         archive_root = Path(state_root) / "objective_intervention_request_archive"
         archive_name = hashlib.sha256(str(current["request_id"]).encode("utf-8")).hexdigest() + ".json"
         archive_path = archive_root / archive_name
-        directory_fd: int | None = None
-        try:
-            directory_fd = open_private_directory(archive_root, create=True)
-            names = list_bounded_json_names_at(directory_fd,
-                max_entries=MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES,
-                max_directory_entries=MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES * 2)
-            if archive_name not in names and len(names) >= MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES:
-                raise ResidentDevelopmentalCognitionError("objective_request_archive_retention_limit")
-            publish_immutable_bytes(archive_path, existing,
-                max_bytes=MAX_OBJECTIVE_REQUEST_BYTES,
-                collision_code="objective_request_archive_identity_conflict")
-        except (PrivateFileCustodyError, OSError) as exc:
-            raise ResidentDevelopmentalCognitionError("objective_request_archive_publication_failed") from exc
-        finally:
-            if directory_fd is not None:
-                os.close(directory_fd)
+        if os.name == "nt":
+            _archive_objective_request_windows(archive_root, archive_path,
+                archive_name=archive_name, existing=existing)
+        else:
+            directory_fd: int | None = None
+            try:
+                directory_fd = open_private_directory(archive_root, create=True)
+                names = list_bounded_json_names_at(directory_fd,
+                    max_entries=MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES,
+                    max_directory_entries=MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES * 2)
+                if archive_name not in names and len(names) >= MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES:
+                    raise ResidentDevelopmentalCognitionError("objective_request_archive_retention_limit")
+                publish_immutable_bytes(archive_path, existing,
+                    max_bytes=MAX_OBJECTIVE_REQUEST_BYTES,
+                    collision_code="objective_request_archive_identity_conflict")
+            except (PrivateFileCustodyError, OSError) as exc:
+                raise ResidentDevelopmentalCognitionError("objective_request_archive_publication_failed") from exc
+            finally:
+                if directory_fd is not None:
+                    os.close(directory_fd)
     if stored_objective_request_disposition(state_root,
             request_id=request_id, request_digest=str(payload["request_digest"])) != "new":
         raise ResidentDevelopmentalCognitionError("objective_request_identity_reused")
-    try:
-        replace_private_bytes(path, data, max_bytes=MAX_OBJECTIVE_REQUEST_BYTES)
-    except PrivateFileCustodyError as exc:
-        raise ResidentDevelopmentalCognitionError("objective_request_publication_failed") from exc
+    if os.name == "nt":
+        try:
+            root_identity = observe_private_directory_identity(path.parent)
+            publish_immutable_replay_bytes(path, data,
+                max_bytes=MAX_OBJECTIVE_REQUEST_BYTES, max_entries=8192,
+                expected_root_identity=root_identity,
+                filename_policy="objective_request", replace_existing=True)
+        except (WindowsHandleCustodyError, WindowsReplayCustodyError, OSError) as exc:
+            raise ResidentDevelopmentalCognitionError("objective_request_publication_failed") from exc
+    else:
+        try:
+            replace_private_bytes(path, data, max_bytes=MAX_OBJECTIVE_REQUEST_BYTES)
+        except PrivateFileCustodyError as exc:
+            raise ResidentDevelopmentalCognitionError("objective_request_publication_failed") from exc
     return path
+
+
+def _archive_objective_request_windows(archive_root: Path, archive_path: Path, *,
+        archive_name: str, existing: bytes) -> None:
+    try:
+        verify_explicit_directory(archive_root.parent, require_private_acl=True)
+        try:
+            archive_root.mkdir()
+        except FileExistsError:
+            pass
+        root_identity = observe_private_directory_identity(archive_root)
+        files = read_regular_files(archive_root,
+            max_entries=MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES,
+            max_file_bytes=MAX_OBJECTIVE_REQUEST_BYTES,
+            max_total_bytes=MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES * MAX_OBJECTIVE_REQUEST_BYTES,
+            require_private_acl=True, expected_root_identity=root_identity)
+        names = {name for name, _ in files}
+        if archive_name not in names and len(names) >= MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES:
+            raise ResidentDevelopmentalCognitionError("objective_request_archive_retention_limit")
+        publish_immutable_replay_bytes(archive_path, existing,
+            max_bytes=MAX_OBJECTIVE_REQUEST_BYTES, max_entries=8192,
+            expected_root_identity=root_identity,
+            filename_policy="objective_request_archive")
+    except ResidentDevelopmentalCognitionError:
+        raise
+    except (WindowsHandleCustodyError, WindowsReplayCustodyError, OSError) as exc:
+        raise ResidentDevelopmentalCognitionError(
+            "objective_request_archive_publication_failed") from exc
 
 
 def _resolved_owner_root(value: str | Path) -> Path:
@@ -828,6 +884,58 @@ def _resolved_owner_root(value: str | Path) -> Path:
         return Path(value).expanduser().resolve(strict=False)
     except (OSError, RuntimeError, TypeError, ValueError) as exc:
         raise ResidentDevelopmentalCognitionError("configuration_root_identity_invalid") from exc
+
+
+@contextmanager
+def _windows_resident_cognition_lock(state_root: Path) -> Iterator[None]:
+    """Serialize staging and resident ticks against the same private state root."""
+    import ctypes
+    from ctypes import wintypes
+
+    try:
+        root_identity = observe_private_directory_identity(state_root)
+    except WindowsHandleCustodyError as exc:
+        raise ResidentDevelopmentalCognitionError(
+            "composition_lock_root_unavailable") from exc
+    root_key = _digest({"volume": root_identity[0],
+        "file_id": root_identity[1].hex()})[7:]
+    kernel = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+    create_mutex = kernel.CreateMutexW
+    create_mutex.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+    create_mutex.restype = wintypes.HANDLE
+    wait = kernel.WaitForSingleObject
+    wait.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    wait.restype = wintypes.DWORD
+    release = kernel.ReleaseMutex
+    release.argtypes = [wintypes.HANDLE]
+    release.restype = wintypes.BOOL
+    close = kernel.CloseHandle
+    close.argtypes = [wintypes.HANDLE]
+    close.restype = wintypes.BOOL
+    mutex = create_mutex(None, False,
+        "Local\\SentientOS-ResidentCognition-" + root_key)
+    if not mutex:
+        raise ResidentDevelopmentalCognitionError("composition_lock_unavailable")
+    acquired = False
+    try:
+        result = int(wait(mutex, 30_000))
+        if result not in {0, 0x80}:
+            raise ResidentDevelopmentalCognitionError("composition_lock_unavailable")
+        acquired = True
+        try:
+            if observe_private_directory_identity(state_root) != root_identity:
+                raise ResidentDevelopmentalCognitionError(
+                    "composition_lock_root_identity_changed")
+        except WindowsHandleCustodyError as exc:
+            raise ResidentDevelopmentalCognitionError(
+                "composition_lock_root_unavailable") from exc
+        yield
+    finally:
+        if acquired and not release(mutex):
+            close(mutex)
+            raise ResidentDevelopmentalCognitionError("composition_lock_release_failed")
+        if not close(mutex):
+            raise ResidentDevelopmentalCognitionError("composition_lock_close_failed")
 
 
 def _validate_root_separation(history_root: Path, state_root: Path,
@@ -7373,58 +7481,8 @@ class ResidentDevelopmentalCognitionOwner:
     def _composition_lock(self) -> Iterator[None]:
         """Serialize the complete durable tick across owner instances/processes."""
         if os.name == "nt":
-            import ctypes
-            from ctypes import wintypes
-
-            try:
-                root_identity = observe_private_directory_identity(self.state_path.parent)
-            except WindowsHandleCustodyError as exc:
-                raise ResidentDevelopmentalCognitionError(
-                    "composition_lock_root_unavailable") from exc
-            root_key = _digest({"volume": root_identity[0],
-                "file_id": root_identity[1].hex()})[7:]
-            kernel = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
-            create_mutex = kernel.CreateMutexW
-            create_mutex.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
-            create_mutex.restype = wintypes.HANDLE
-            wait = kernel.WaitForSingleObject
-            wait.argtypes = [wintypes.HANDLE, wintypes.DWORD]
-            wait.restype = wintypes.DWORD
-            release = kernel.ReleaseMutex
-            release.argtypes = [wintypes.HANDLE]
-            release.restype = wintypes.BOOL
-            close = kernel.CloseHandle
-            close.argtypes = [wintypes.HANDLE]
-            close.restype = wintypes.BOOL
-            mutex = create_mutex(None, False,
-                "Local\\SentientOS-ResidentCognition-" + root_key)
-            if not mutex:
-                raise ResidentDevelopmentalCognitionError(
-                    "composition_lock_unavailable")
-            acquired = False
-            try:
-                result = int(wait(mutex, 30_000))
-                if result not in {0, 0x80}:
-                    raise ResidentDevelopmentalCognitionError(
-                        "composition_lock_unavailable")
-                acquired = True
-                try:
-                    if observe_private_directory_identity(
-                            self.state_path.parent) != root_identity:
-                        raise ResidentDevelopmentalCognitionError(
-                            "composition_lock_root_identity_changed")
-                except WindowsHandleCustodyError as exc:
-                    raise ResidentDevelopmentalCognitionError(
-                        "composition_lock_root_unavailable") from exc
+            with _windows_resident_cognition_lock(self.state_path.parent):
                 yield
-            finally:
-                if acquired and not release(mutex):
-                    close(mutex)
-                    raise ResidentDevelopmentalCognitionError(
-                        "composition_lock_release_failed")
-                if not close(mutex):
-                    raise ResidentDevelopmentalCognitionError(
-                        "composition_lock_close_failed")
             return
         if os.name != "posix":
             raise ResidentDevelopmentalCognitionError("composition_lock_unsupported_platform")

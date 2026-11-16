@@ -68,7 +68,9 @@ def publish_immutable_replay_bytes(
     mutable_state_match = ((filename_policy == "resident_cognition_state"
             and path.name == "composition_state.json")
         or (filename_policy == "runtime_admission_ledger"
-            and path.name in {"admissions.json", "runtime_admissions.json"}))
+            and path.name in {"admissions.json", "runtime_admissions.json"})
+        or (filename_policy == "objective_request"
+            and path.name == "pending_objective_intervention.json"))
     cognition_artifact_match = (re.fullmatch(r"devcog-[0-9a-f]{24}\.json", path.name)
         if filename_policy in {"cognition_observation", "epistemic_probe_capture"}
         else None)
@@ -82,11 +84,14 @@ def publish_immutable_replay_bytes(
         if filename_policy == "objective_task_plan" else
         re.fullmatch(r"objective-score-devexp-protocol-[0-9a-f]{24}-(history_present|history_withheld|history_restored)\.json", path.name)
         if filename_policy == "objective_condition_score" else None)
+    objective_archive_match = (re.fullmatch(r"[0-9a-f]{64}\.json", path.name)
+        if filename_policy == "objective_request_archive" else None)
     sequence_number = (int(sequence_match.group(1)) if sequence_match is not None
         else 1 if (content_addressed_match is not None
             or mutable_state_match or cognition_artifact_match is not None
             or experiment_artifact_match is not None
-            or objective_artifact_match is not None) else 0)
+            or objective_artifact_match is not None
+            or objective_archive_match is not None) else 0)
     maximum_file_bytes = (16_777_216 if filename_policy in {
         "resident_cognition_state", "epistemic_probe_capture"}
         else 4_194_304 if filename_policy == "longitudinal_self_model"
@@ -95,12 +100,15 @@ def publish_immutable_replay_bytes(
             "developmental_experiment_protocol", "developmental_experiment_run"}
         else 4_194_304 if filename_policy in {
             "objective_task_plan", "objective_condition_score"}
+        else 1_048_576 if filename_policy in {
+            "objective_request", "objective_request_archive"}
         else 1_048_576)
     if (not path.is_absolute()
             or (sequence_match is None and content_addressed_match is None
                 and cognition_artifact_match is None
                 and experiment_artifact_match is None
                 and objective_artifact_match is None
+                and objective_archive_match is None
                 and not mutable_state_match)
             or type(replace_existing) is not bool
             or (replace_existing and not mutable_state_match)

@@ -838,6 +838,11 @@ def test_windows_objective_transfer_recovers_plan_scores_and_run() -> None:
     from tests.test_resident_developmental_cognition import FakeInvoker
     from tests.test_resident_developmental_cognition import owner as make_cognition_owner
     from tests.test_resident_developmental_cognition import snapshot
+    from scripts.stage_resident_objective_intervention import stage_request
+    from sentientos.resident_developmental_cognition import (
+        load_objective_request, load_objective_request_by_identity,
+        objective_task_for_request, stage_objective_request,
+    )
 
     with TemporaryDirectory(prefix=".resident-cognition-objective-",
             dir=Path(__file__).resolve().parents[2]) as temporary_root:
@@ -859,21 +864,48 @@ def test_windows_objective_transfer_recovers_plan_scores_and_run() -> None:
 
         task = ObjectivePredictionTask(3, 2, 7, (8, 9))
         invoker = FakeInvoker()
-        invoker.history_interpretation = (
-            "Historical examples: input 1 produced 5; input 2 produced 8.")
         invoker.objective_plan_root = root / "state" / "developmental_experiments" / "protocols"
         cognition, _ = make_cognition_owner(root, comparison=True,
             allowed_source_kinds=("capability_registry",), max_selected_facts=1,
-            objective_task=task, invoker=invoker)
-        measured = cognition.run_tick(snapshot=snapshot(2),
-            tick_id="windows-objective-transfer")
+            invoker=invoker)
+        config_path = root / "cognition.json"
+        config_path.write_text(json.dumps({
+            "schema": "sentientos.resident_developmental_cognition_config:v1",
+            "enabled": True, "history_root": str(root / "history"),
+            "state_root": str(root / "state"),
+            "allowed_source_kinds": ["capability_registry"],
+            "max_selected_facts": 1, "max_retrieved_records": 4,
+            "comparison_enabled": True,
+        }), encoding="utf-8")
+        _make_current_user_private(config_path, directory=False)
+        _, request, verified_history_count = stage_request(config_path=config_path,
+            request_id="windows-objective-transfer", task=task)
+        assert verified_history_count == 1
+        assert invoker.requests == []
+        loaded_request = load_objective_request(root / "state")
+        assert loaded_request == request
+        measured = cognition.run_objective_intervention_once(snapshot=snapshot(2),
+            tick_id="windows-objective-transfer-tick",
+            objective_task=objective_task_for_request(loaded_request),
+            request_id=request["request_id"],
+            request_digest=request["request_digest"])
         assert measured.changed_cognition_measurement_id
+
+        followup = ObjectivePredictionTask(3, 2, 10, (11, 12))
+        stage_objective_request(root / "state",
+            request_id="windows-objective-followup", task=followup)
+        assert load_objective_request_by_identity(root / "state",
+            request_id=request["request_id"],
+            request_digest=request["request_digest"]) == request
+        pending_request = load_objective_request(root / "state")
+        assert pending_request is not None
+        assert pending_request["request_id"] == "windows-objective-followup"
 
         recovered_invoker = FakeInvoker()
         recovered_invoker.objective_plan_root = invoker.objective_plan_root
         recovered, _ = make_cognition_owner(root, comparison=True,
             allowed_source_kinds=("capability_registry",), max_selected_facts=1,
-            objective_task=task, invoker=recovered_invoker)
+            invoker=recovered_invoker)
         run = recovered.experiments.load_run(measured.changed_cognition_measurement_id)
         assert run["validity"] == "valid_controlled_observation"
         assert [item["condition_id"] for item in run["objective_scores"]] == [

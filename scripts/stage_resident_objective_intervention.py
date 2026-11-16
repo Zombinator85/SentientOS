@@ -89,8 +89,8 @@ def main() -> int:
     args = parser.parse_args()
     if not args.config:
         parser.error(f"--config or {CONFIG_ENV} is required")
-    if os.name != "posix":
-        parser.exit(2, "blocked: this bounded private-file publisher is currently POSIX-only\n")
+    if os.name not in {"posix", "nt"}:
+        parser.exit(2, "blocked: this bounded private-file publisher requires POSIX or Windows custody\n")
     if not 1 <= len(args.probe) <= 16:
         parser.error("one to sixteen distinct --probe values are required")
     try:

@@ -250,11 +250,12 @@ names at least one record whose writeback admission and receipt still verify;
 uncheckpointed or interrupted record publication is not treated as eligible,
 and staging is refused when no such history exists. The check never repairs
 composition or history custody. Its output says `staged_not_authorized`: it
-does not load a model, admit a call, or grant serving authority. On the next daemon tick with an exact World-State
-snapshot, the configured resident owner reads the request through bounded
-no-follow file custody on POSIX. The staged objective-request artifact store
-remains unsupported on Windows; the staging command reports that platform
-blocker and does not fall back to an ordinary write. If eligible prior developmental history exists, the
+does not load a model, admit a call, or grant serving authority. On the next
+operator-triggered run with an exact World-State snapshot, the configured
+resident owner reads the request through bounded custody. Windows staging and
+recovery require an existing private state root; a state-root-bound named mutex
+serializes staging with resident ticks, and request replacement and archival use
+the Windows handle publisher. If eligible prior developmental history exists, the
 owner binds the request and its public descriptor into a durable objective
 plan before the three existing governed inference calls. If no prior history
 exists, it records a terminal blocked request without inference. The request
@@ -469,11 +470,12 @@ that exact family observation. Omitting both flags preserves the historical
 general-history behavior. Supplying a family without the requirement influences
 retrieval when a matching record exists but does not block if it is absent.
 
-Native Windows staging is unsupported; this command does not use a weaker
-fallback publisher. WSL is only a candidate supported host when both the daemon
-and all three commands run inside that same POSIX installation and share its
-exact custody roots. No cross-environment request copying or Windows/WSL
-handoff has been verified here. Model-serving activation and each inference
+Windows staging now uses private ACL checks and the native handle publisher;
+it fails closed if those custody checks are unavailable. WSL is only a
+candidate supported host when both the daemon and all three commands run inside
+that same POSIX installation and share its exact custody roots. No
+cross-environment request copying or Windows/WSL handoff has been verified here.
+Model-serving activation and each inference
 remain subject to their existing independent authorization and custody paths;
 these commands create no grants.
 
