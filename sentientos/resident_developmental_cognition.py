@@ -33,6 +33,7 @@ from .governed_local_model_invocation import (
     validate_receipt,
 )
 from .canonical_memory import sentientos_memory_dir
+from .cognition_retrieval import cognition_query_terms
 from .developmental_history_intervention_experiment import (
     CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER,
     COUNTERBALANCED_HISTORY_SELECTION_SCHEMA, SCHEDULED_HISTORY_SELECTION_SCHEMA,
@@ -2542,31 +2543,6 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
     return summaries
 
 
-def _history_retrieval_terms(text: str) -> set[str]:
-    """Normalize topic terms without treating question framing as relevance."""
-    stop_words = _EPISTEMIC_RELEVANCE_STOP_WORDS | frozenset((
-        "about", "after", "again", "all", "also", "any", "because", "been",
-        "before", "being", "between", "both", "but", "can", "could", "did",
-        "does", "doing", "down", "each", "few", "had", "has", "have", "here",
-        "how", "into", "its", "just", "learn", "like", "may", "might", "more",
-        "most", "much", "must", "not", "now", "off", "once", "only", "other",
-        "our", "out", "over", "same", "should", "some", "such", "than", "that",
-        "their", "them", "then", "there", "these", "they", "this", "those",
-        "through", "under", "until", "very", "we", "were", "what", "when",
-        "where", "whether", "why", "will", "would", "you", "your"))
-    terms: set[str] = set()
-    for token in re.findall(r"[A-Za-z0-9_]{3,}", text.casefold()):
-        if len(token) > 4 and token.endswith("ies"):
-            token = token[:-3] + "y"
-        elif len(token) > 4 and token.endswith(("ches", "shes", "sses", "xes", "zes")):
-            token = token[:-2]
-        elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
-            token = token[:-1]
-        if token not in stop_words:
-            terms.add(token)
-    return terms
-
-
 _EPISTEMIC_RELEVANCE_STOP_WORDS = frozenset((
     "a", "an", "and", "are", "as", "at", "be", "by", "did", "do", "does",
     "for", "from", "how", "in", "is", "it", "of", "on", "or", "the", "to",
@@ -2583,7 +2559,7 @@ def _epistemic_packet_question_relevance(packet: Mapping[str, Any], *,
     searchable = " ".join(str(proposition.get(key, "")) for key in (
         "subject", "predicate", "object_value", "statement", "temporal_scope",
         "context_scope", "qualifiers"))
-    packet_terms = _history_retrieval_terms(searchable)
+    packet_terms = cognition_query_terms(searchable)
     return len((question_terms - _EPISTEMIC_RELEVANCE_STOP_WORDS) & packet_terms)
 
 
@@ -3189,7 +3165,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
     if not isinstance(question, str):
         probe = context.get("epistemic_revision_probe")
         question = probe.get("question") if isinstance(probe, Mapping) else None
-    question_terms = (_history_retrieval_terms(question)
+    question_terms = (cognition_query_terms(question)
         if isinstance(question, str) and question.strip() else set())
     packets = tuple(sorted(packets, key=lambda packet: (
         -_epistemic_packet_question_relevance(packet,
@@ -6030,7 +6006,7 @@ class ResidentDevelopmentalCognitionOwner:
             # lexical overlap, while preserving checkpoint order for ties and
             # filling unused slots from the recent suffix. This ranks history;
             # it does not establish truth or correctness.
-            query_terms = _history_retrieval_terms(relevance_query)
+            query_terms = cognition_query_terms(relevance_query)
             document_term_weights: dict[str, dict[str, int]] = {}
             for order, record_id in enumerate(ids):
                 try:
@@ -6063,9 +6039,9 @@ class ResidentDevelopmentalCognitionOwner:
                         for field in ("scope", "applicability"):
                             value = lesson.get(field)
                             if isinstance(value, str):
-                                for term in _history_retrieval_terms(value):
+                                for term in cognition_query_terms(value):
                                     term_weights[term] = max(term_weights.get(term, 0), 3)
-                for term in _history_retrieval_terms(" ".join(searchable_parts)):
+                for term in cognition_query_terms(" ".join(searchable_parts)):
                     term_weights[term] = max(term_weights.get(term, 0), 1)
                 document_term_weights[record_id] = term_weights
             document_frequency = {term: sum(term in weights

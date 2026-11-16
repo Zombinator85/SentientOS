@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import math
 import os
-import re
 import stat
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
@@ -14,6 +13,7 @@ from typing import Any, Iterator, Mapping, Sequence
 
 from .local_model_authority import digest_payload
 from .canonical_memory import sentientos_memory_dir
+from .cognition_retrieval import cognition_query_terms
 from .private_file_custody import (
     PrivateFileCustodyError, open_private_directory, read_private_file_at, publish_immutable_bytes,
 )
@@ -285,30 +285,12 @@ class SelfModelClaim:
             object.__setattr__(self, "authority", dict(FALSE_AUTHORITY))
 
 
-_SELF_MODEL_QUERY_STOP_WORDS = frozenset(("a", "an", "and", "are", "as", "at",
-    "be", "by", "for", "from", "how", "in", "is", "it", "of", "on", "or",
-    "the", "to", "was", "what", "which", "who", "with"))
-
-
-def _self_model_query_terms(text: str) -> set[str]:
-    terms: set[str] = set()
-    for token in re.findall(r"[A-Za-z0-9]{3,}", text.casefold()):
-        if token in _SELF_MODEL_QUERY_STOP_WORDS:
-            continue
-        if len(token) > 4 and token.endswith("ies"):
-            token = token[:-3] + "y"
-        elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
-            token = token[:-1]
-        terms.add(token)
-    return terms
-
-
 def _rank_self_model_projection_claims(claims: Sequence[SelfModelClaim], *,
         relevance_query: str | None, max_claims: int
         ) -> tuple[tuple[SelfModelClaim, ...], str | None]:
     """Rank matching claims before the projection cap and bind an effective query."""
     baseline = tuple(sorted(claims, key=lambda claim: (claim.predicate, claim.claim_id)))
-    query_terms = (_self_model_query_terms(relevance_query)
+    query_terms = (cognition_query_terms(relevance_query)
         if isinstance(relevance_query, str) else set())
     if not query_terms:
         return baseline, None
@@ -319,7 +301,7 @@ def _rank_self_model_projection_claims(claims: Sequence[SelfModelClaim], *,
     for claim in claims:
         term_weights: dict[str, int] = {}
         for field, weight in field_weights:
-            field_terms = query_terms & _self_model_query_terms(json.dumps(
+            field_terms = query_terms & cognition_query_terms(json.dumps(
                 getattr(claim, field), sort_keys=True, separators=(",", ":"),
                 ensure_ascii=False, default=str))
             for term in field_terms:

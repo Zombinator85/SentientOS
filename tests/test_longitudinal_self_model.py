@@ -68,6 +68,16 @@ def test_self_model_projection_query_prioritizes_matching_claim_before_bound(
     assert "relevance_query_digest" not in baseline.semantic_payload()
     assert _projection_key(baseline)["projection"]["projection_policy"] == PROJECTION_POLICY
 
+    from sentientos.longitudinal_self_model import _rank_self_model_projection_claims
+    boilerplate_match = replace(unrelated, claim_id="claim-z",
+        predicate="z_claim", value="What did we do with it?")
+    alphabetical_first = replace(relevant, claim_id="claim-a", predicate="a_claim")
+    ranked, effective_query_digest = _rank_self_model_projection_claims(
+        (boilerplate_match, alphabetical_first),
+        relevance_query="What did we do with it?", max_claims=1)
+    assert ranked[0] == alphabetical_first
+    assert effective_query_digest is None
+
 
 def record(*, source: str = "runtime:a", subject: str = "sentientos", disposition: str = "serving",
            observed: str = "2026-09-25T11:59:00Z", model: str = "model-a", generation: str = "software-a",

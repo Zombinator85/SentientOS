@@ -4831,7 +4831,7 @@ def test_boilerplate_history_query_falls_back_to_recent_records() -> None:
     from sentientos.resident_developmental_cognition import (
         ResidentDevelopmentalCognitionOwner,
     )
-    from sentientos.resident_developmental_cognition import _history_retrieval_terms
+    from sentientos.cognition_retrieval import cognition_query_terms
 
     candidates = {"old-boilerplate-match": {"selected_facts": [],
             "interpretation": "What did we do with it?"},
@@ -4858,7 +4858,7 @@ def test_boilerplate_history_query_falls_back_to_recent_records() -> None:
     state = {"completed_ticks": [{"tick_id": f"tick-{index}",
         "record_id": record_id} for index, record_id in enumerate(order)]}
 
-    assert _history_retrieval_terms("What did we do with it?") == set()
+    assert cognition_query_terms("What did we do with it?") == set()
     projection = ResidentDevelopmentalCognitionOwner._prior_projection(
         fake_owner, state, "later-tick", relevance_query="What did we do with it?")
 
