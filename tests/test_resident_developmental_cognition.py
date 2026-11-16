@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import csv
 import hashlib
 import json
@@ -202,6 +203,24 @@ class FakeInvoker:
                     multiplier = (y2 - y1) // (x2 - x1)
                     offset = y1 - multiplier * x1
                     answers = [multiplier * probe + offset for probe in probes]
+            elif self.objective_mode == "derive_from_candidate_strategy":
+                import re
+                strategies = [experience.get("candidate_integer_affine_strategy")
+                    for packet in history
+                    for experience in packet.get("task_relevant_experience", ())
+                    if isinstance(experience, Mapping)
+                    and experience.get("task_family_id") == descriptor.get("task_family_id")]
+                relations = {item.get("relation") for item in strategies
+                    if isinstance(item, Mapping)}
+                if strategies and len(relations) == 1:
+                    relation = next(iter(relations))
+                    match = (re.fullmatch(r"output = (-?\d+) \* input ([+-]) (\d+)",
+                        relation) if isinstance(relation, str) else None)
+                    if match is not None:
+                        multiplier = int(match.group(1))
+                        signed_offset = int(match.group(3))
+                        offset = signed_offset if match.group(2) == "+" else -signed_offset
+                        answers = [multiplier * probe + offset for probe in probes]
             elif self.objective_mode in {"derive_from_admitted_family",
                     "derive_from_latest_admitted_family", "derive_from_controlled_effect"}:
                 examples = []
@@ -1909,7 +1928,7 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     prompt_projection = final_history_request.upstream_evidence[
         "task_family_history_prompt_projection"]
     assert prompt_projection["schema_version"] == \
-        "sentientos.task_family_history_prompt_projection:v7"
+        "sentientos.task_family_history_prompt_projection:v8"
     [projected_prior_errors] = prompt_projection["prior_incorrect_examples"]
     assert prompt_projection["prior_incorrect_example_count"] == 3
     assert projected_prior_errors["record_id"] == retained.record_id
@@ -2340,6 +2359,50 @@ print(json.dumps({"stance": state.stance if state else None,
         "epistemic_projection_digest"] == updated_projection.projection_digest
 
 
+def test_candidate_integer_affine_strategy_requires_score_bound_consistent_examples() -> None:
+    from sentientos.resident_developmental_cognition import (
+        _candidate_integer_affine_strategy, _digest as cognition_digest)
+
+    experience = {
+        "task_family_id": "integer_affine_prediction",
+        "source_fact_id": "fact-affine-1",
+        "source_run_id": "run-affine-1",
+        "source_run_digest": "sha256:" + "1" * 64,
+        "source_task_digest": "sha256:" + "2" * 64,
+        "source_score_digest": "sha256:" + "3" * 64,
+        "evaluator": "deterministic_exact_integer_suite_oracle_v2",
+        "controlled_task_effect": {"effect_classification": "no_difference_observed"},
+        "model_identity_relation": "same_active_model_identity",
+        "historical_only": True, "current_truth": False, "authority": False,
+    }
+    examples = [
+        {"probe_input": 2, "observed_answer": 7, "evaluator_correct": True},
+        {"probe_input": 4, "observed_answer": 13, "evaluator_correct": True},
+        {"probe_input": 5, "observed_answer": 16, "evaluator_correct": True},
+    ]
+    strategy = _candidate_integer_affine_strategy(experience, examples)
+    assert strategy is not None
+    assert strategy["relation"] == "output = 3 * input + 1"
+    assert strategy["supporting_example_count"] == 3
+    assert strategy["scope"] == "exact_declared_integer_affine_task_family_only"
+    assert strategy["performance_transfer_established"] is False
+    assert strategy["learning_established"] is False
+    assert strategy["historical_only"] is True
+    assert strategy["current_truth"] is False and strategy["authority"] is False
+    assert strategy["strategy_digest"] == cognition_digest({key: value
+        for key, value in strategy.items() if key != "strategy_digest"})
+    assert _candidate_integer_affine_strategy(experience, examples[:2]) is None
+    assert _candidate_integer_affine_strategy(experience,
+        [*examples[:2], {**examples[2], "observed_answer": 17}]) is None
+    assert _candidate_integer_affine_strategy(experience,
+        [*examples[:2], {**examples[2], "evaluator_correct": False}]) is None
+    assert _candidate_integer_affine_strategy({**experience,
+        "task_family_id": "unrelated_prediction_family"}, examples) is None
+    assert _candidate_integer_affine_strategy({**experience,
+        "controlled_task_effect": {"effect_classification": "history_adverse"}},
+        examples) is None
+
+
 def test_task_family_projection_separates_correct_and_incorrect_examples() -> None:
     from sentientos.resident_developmental_cognition import (
         _digest as cognition_digest, _task_family_guidance_examples,
@@ -2411,7 +2474,7 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
         condition_id="history_present", task_family_id="integer_affine_prediction")
     assert projection["task_relevant_example_count"] == 1
     assert projection["schema_version"] == \
-        "sentientos.task_family_history_prompt_projection:v7"
+        "sentientos.task_family_history_prompt_projection:v8"
     assert projection["records"][0]["evaluator_correct_count"] == 1
     assert projection["records"][0]["evaluator_incorrect_count"] == 2
     assert projection["records"][0]["prior_incorrect_example_count"] == 2
@@ -2602,14 +2665,18 @@ def test_selected_task_family_history_withholds_cross_suite_conflicts() -> None:
     packets = [{
         "record_id": "record-a", "record_digest": "digest-a",
         "task_relevant_experience": [{"source_fact_id": "fact-a",
-            "source_task_digest": "task-a", "examples": [
+            "source_task_digest": "task-a",
+            "candidate_integer_affine_strategy": {"relation": "output = 3 * input + 2"},
+            "examples": [
                 {"probe_input": 7, "observed_answer": 23, "evaluator_correct": True},
                 {"probe_input": 8, "observed_answer": 26, "evaluator_correct": True},
             ]}],
     }, {
         "record_id": "record-b", "record_digest": "digest-b",
         "task_relevant_experience": [{"source_fact_id": "fact-b",
-            "source_task_digest": "task-b", "examples": [
+            "source_task_digest": "task-b",
+            "candidate_integer_affine_strategy": {"relation": "output = 3 * input + 8"},
+            "examples": [
                 {"probe_input": 7, "observed_answer": 29, "evaluator_correct": True},
             ]}],
     }]
@@ -2620,6 +2687,8 @@ def test_selected_task_family_history_withholds_cross_suite_conflicts() -> None:
     assert [row["probe_input"] for row in
         selected[0]["task_relevant_experience"][0]["examples"]] == [8]
     assert selected[1]["task_relevant_experience"][0]["examples"] == []
+    assert all("candidate_integer_affine_strategy" not in
+        packet["task_relevant_experience"][0] for packet in selected)
     serialized = json.dumps(selected, sort_keys=True)
     assert "23" not in serialized and "29" not in serialized
 
@@ -2842,8 +2911,8 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     # prompt assembler. Its correctness remains unknown at every stage.
     import copy
     from sentientos.resident_developmental_cognition import (
-        _digest as cognition_digest, _history_context_packet,
-        _task_family_history_examples,
+        _bind_epistemic_context, _digest as cognition_digest,
+        _history_context_packet, _task_family_history_examples,
         _task_family_history_prompt_projection,
     )
     abstention_candidate = copy.deepcopy(admitted.candidate)
@@ -3011,6 +3080,11 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         target_model_identity=identity, compact_for_input_budget=True)
     task_experience = packet["task_relevant_experience"][0]
     assert task_experience["controlled_task_effect"] == effect
+    strategy = task_experience.get("candidate_integer_affine_strategy")
+    assert strategy is not None
+    assert strategy["source_fact_id"] == family_fact["fact_id"]
+    assert strategy["source_score_digest"] == bound_projection["source_score_digest"]
+    assert strategy["supporting_example_count"] == len(task_experience["examples"])
     assert "interpretation" not in packet
     assert packet["task_family_scope"] == "integer_affine_prediction"
     assert packet["task_family_scope_posture"] == (
@@ -3022,6 +3096,40 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert task_experience["model_identity_relation"] == "same_active_model_identity"
     assert task_experience["applicability_posture"] == \
         "same_family_same_model_task_scope_unverified"
+    bound_context, _, bound_prompt = _bind_epistemic_context(
+        context={"developmental_history": [packet]}, projection=None)
+    assert bound_context["developmental_history"][0]["task_relevant_experience"][0][
+        "candidate_integer_affine_strategy"]["relation"] in bound_prompt
+    task_projection = _task_family_history_prompt_projection(bound_context,
+        condition_id="history_present", task_family_id="integer_affine_prediction")
+    assert task_projection["candidate_integer_affine_strategy_count"] == 1
+    [strategy_ref] = task_projection["candidate_integer_affine_strategies"]
+    assert strategy_ref["strategy_digest"] == strategy["strategy_digest"]
+    assert strategy_ref["supporting_examples_digest"] == strategy[
+        "supporting_examples_digest"]
+    forged_context = copy.deepcopy(bound_context)
+    forged_strategy = forged_context["developmental_history"][0][
+        "task_relevant_experience"][0]["candidate_integer_affine_strategy"]
+    forged_strategy["relation"] = "output = 3 * input + 999"
+    forged_strategy_body = {key: value for key, value in forged_strategy.items()
+        if key != "strategy_digest"}
+    from sentientos.resident_developmental_cognition import _digest as cognition_digest
+    forged_strategy["strategy_digest"] = cognition_digest(forged_strategy_body)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="task_family_prompt_projection_strategy_invalid"):
+        _task_family_history_prompt_projection(forged_context,
+            condition_id="history_present", task_family_id="integer_affine_prediction")
+    forged_provenance_context = copy.deepcopy(bound_context)
+    forged_provenance = forged_provenance_context["developmental_history"][0][
+        "task_relevant_experience"][0]["candidate_integer_affine_strategy"]
+    forged_provenance["source_score_digest"] = "sha256:" + "0" * 64
+    forged_provenance_body = {key: value for key, value in forged_provenance.items()
+        if key != "strategy_digest"}
+    forged_provenance["strategy_digest"] = cognition_digest(forged_provenance_body)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="task_family_prompt_projection_strategy_invalid"):
+        _task_family_history_prompt_projection(forged_provenance_context,
+            condition_id="history_present", task_family_id="integer_affine_prediction")
     cross_model_packet = _history_context_packet({"record_id": admitted.record_id,
         "record_digest": admitted.record_digest, "candidate": bound_model_identity,
         "created_at": "fixture-time", "epistemic_posture": "historical_only"},
@@ -3332,8 +3440,18 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
                 "one_or_more_conditions_simulated_or_no_backend_entry")
             assert historical_examples[0]["independent_backend_observation"] is False
             assert len(historical_examples[0]["execution_evidence_conditions"]) == 3
+            strategies = [item["candidate_integer_affine_strategy"]
+                for item in historical_examples
+                if "candidate_integer_affine_strategy" in item]
+            assert len(strategies) == 1
+            assert strategies[0]["relation"] == "output = 3 * input + 2"
+            assert strategies[0]["historical_only"] is True
+            assert strategies[0]["current_truth"] is False
+            assert strategies[0]["authority"] is False
         else:
-            assert "task_relevant_experience" not in json.dumps(body["developmental_history"])
+            withheld_history = json.dumps(body["developmental_history"])
+            assert "task_relevant_experience" not in withheld_history
+            assert "candidate_integer_affine_strategy" not in withheld_history
     assert "multiplier" not in json.dumps(heldout_prompts)
     assert "offset" not in json.dumps(heldout_prompts)
     assert "learning_established" not in heldout_run["objective_evaluation"]
@@ -6279,7 +6397,9 @@ spec.loader.exec_module(module)
 invoker = module.InstallationCustodyFakeInvoker()
 invoker.active_model_identity = active_model_identity
 module._bind_fixture_installation_custody(root, invoker, publish_session=publish_session)
-invoker.objective_mode = "derive_from_admitted_family"
+# The mock model consumes only the production candidate strategy. It does not
+# inspect the private task plan or infer from raw examples in this counterfactual.
+invoker.objective_mode = "derive_from_candidate_strategy"
 invoker.objective_plan_root = root / "state" / "developmental_experiments" / "protocols"
 owner, _ = module.owner(root, comparison=True, invoker=invoker,
     allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)

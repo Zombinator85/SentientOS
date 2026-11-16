@@ -461,6 +461,11 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "and retain uncertainty. Examples from a different bound model identity remain oracle-verified task examples, "
     "not evidence of cross-model performance transfer; use only for their exact task family and do not claim "
     "generalization or learning. These summaries do not establish generalization or learning. "
+    "A candidate_integer_affine_strategy, when present, is a provisional mathematical summary derived "
+    "from at least three distinct, evaluator-correct examples in the exact declared integer-affine family. "
+    "Check it against every accompanying correct example and use it only for that same task family. It is "
+    "historical evidence, not current truth, and does not establish transfer or learning. If it conflicts "
+    "with examples or current task evidence, surface the conflict and do not apply it. "
     "Treat measured, estimated, predicted, and unknown quantities according to their source posture; "
     "never infer per-invocation CPU, GPU, energy, or token measurements from shared host use, call counts, output size, "
     "or latency."
@@ -1627,7 +1632,7 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
         "source_active_model_identity_digest", "model_identity_binding_posture",
         "target_active_model_identity_digest", "model_identity_relation",
         "applicability_posture", "evaluator", "event_scope", "examples",
-        "controlled_task_effect",
+        "candidate_integer_affine_strategy", "controlled_task_effect",
         "independent_backend_observation", "execution_evidence_scope",
         "execution_evidence_posture", "historical_only", "current_truth", "authority")}
     resource_context = example.get("resource_context")
@@ -1761,6 +1766,84 @@ def _task_family_guidance_examples(examples: object, *, effect: Mapping[str, Any
         "historical_only": True, "current_truth": False, "authority": False,
     }
     return guidance, prior_incorrect, prior_abstained, omission
+
+
+def _candidate_integer_affine_strategy(experience: Mapping[str, Any],
+        examples: object) -> dict[str, Any] | None:
+    """Derive a provisional affine relation only from exact-score-bound examples."""
+    task_family_id = experience.get("task_family_id")
+    if (task_family_id != "integer_affine_prediction"
+            and not (isinstance(task_family_id, str)
+                and task_family_id.startswith("rootless_integer_affine_transfer_"))):
+        return None
+    effect = experience.get("controlled_task_effect")
+    if (not isinstance(effect, Mapping)
+            or effect.get("effect_classification") == "history_adverse"
+            or not isinstance(examples, (list, tuple))
+            or len(examples) < 3 or len(examples) > 16):
+        return None
+    provenance = {
+        "source_fact_id": experience.get("source_fact_id"),
+        "source_run_id": experience.get("source_run_id"),
+        "source_run_digest": experience.get("source_run_digest"),
+        "source_task_digest": experience.get("source_task_digest"),
+        "source_score_digest": experience.get("source_score_digest"),
+    }
+    if (any(not isinstance(provenance[key], str) or not provenance[key]
+            for key in ("source_fact_id", "source_run_id"))
+            or any(not isinstance(provenance[key], str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                    str(provenance[key])) is None
+                for key in ("source_run_digest", "source_task_digest", "source_score_digest"))
+            or experience.get("evaluator")
+                != "deterministic_exact_integer_suite_oracle_v2"
+            or experience.get("historical_only") is not True
+            or experience.get("current_truth") is not False
+            or experience.get("authority") is not False):
+        return None
+    pairs: list[tuple[int, int]] = []
+    for example in examples:
+        if (not isinstance(example, Mapping)
+                or type(example.get("probe_input")) is not int
+                or type(example.get("observed_answer")) is not int
+                or example.get("evaluator_correct") is not True
+                or example.get("abstained") not in (None, False)):
+            return None
+        pairs.append((example["probe_input"], example["observed_answer"]))
+    if len({input_value for input_value, _ in pairs}) < 3:
+        return None
+    ordered = sorted(pairs)
+    first_input, first_output = ordered[0]
+    second_input, second_output = ordered[1]
+    delta_input = second_input - first_input
+    delta_output = second_output - first_output
+    if delta_input == 0 or delta_output % delta_input:
+        return None
+    multiplier = delta_output // delta_input
+    offset = first_output - multiplier * first_input
+    if any(output != multiplier * input_value + offset
+            for input_value, output in ordered):
+        return None
+    evidence = [{"probe_input": input_value, "observed_answer": output}
+        for input_value, output in ordered]
+    offset_term = (f"+ {offset}" if offset >= 0 else f"- {abs(offset)}")
+    body = {
+        "schema_version": "sentientos.candidate_integer_affine_strategy:v1",
+        "task_family_id": task_family_id,
+        "relation": f"output = {multiplier} * input {offset_term}",
+        "supporting_example_count": len(evidence),
+        "supporting_examples_digest": _digest(evidence),
+        **provenance,
+        "model_identity_relation": experience.get("model_identity_relation"),
+        "posture": "provisional_relation_fit_to_score_bound_examples",
+        "scope": "exact_declared_integer_affine_task_family_only",
+        "performance_transfer_established": False,
+        "learning_established": False,
+        "historical_only": True,
+        "current_truth": False,
+        "authority": False,
+    }
+    return {**body, "strategy_digest": _digest(body)}
 
 
 def _task_family_history_retrieval_utility(experiences: object, *,
@@ -3463,6 +3546,11 @@ def _history_context_packet(record: Mapping[str, Any], *,
                     guidance, prior_incorrect, prior_abstained, omission = _task_family_guidance_examples(examples,
                         effect=effect, source_fact_id=item.get("source_fact_id"))
                     projected["examples"] = guidance
+                    candidate_strategy = _candidate_integer_affine_strategy(
+                        projected, guidance)
+                    if candidate_strategy is not None:
+                        projected["candidate_integer_affine_strategy"] = (
+                            candidate_strategy)
                     if prior_incorrect:
                         projected["prior_incorrect_examples"] = {
                             "posture": "score_bound_past_errors_not_mapping_evidence",
@@ -3798,6 +3886,9 @@ def _withhold_conflicting_task_family_examples(
             if not removed:
                 continue
             experience["examples"] = [row for row in examples if row not in removed]
+            # The strategy was fit to the pre-conflict example set. Withhold the
+            # whole summary when any supporting example is removed.
+            experience.pop("candidate_integer_affine_strategy", None)
             evidence = [{
                 "record_id": packet.get("record_id"),
                 "record_digest": packet.get("record_digest"),
@@ -3833,6 +3924,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
     withheld_conflicting_examples: list[dict[str, Any]] = []
     prior_incorrect_refs: list[dict[str, Any]] = []
     prior_abstained_refs: list[dict[str, Any]] = []
+    candidate_strategy_refs: list[dict[str, Any]] = []
     for packet in history:
         if not isinstance(packet, Mapping):
             raise ResidentDevelopmentalCognitionError(
@@ -3855,6 +3947,44 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                     or any(not isinstance(row, Mapping) for row in rows)):
                 raise ResidentDevelopmentalCognitionError(
                     "task_family_prompt_projection_examples_invalid")
+            strategy = experience.get("candidate_integer_affine_strategy")
+            if strategy is not None:
+                if not isinstance(strategy, Mapping):
+                    raise ResidentDevelopmentalCognitionError(
+                        "task_family_prompt_projection_strategy_invalid")
+                strategy_body = {key: value for key, value in strategy.items()
+                    if key != "strategy_digest"}
+                derived_strategy = _candidate_integer_affine_strategy(
+                    experience, rows)
+                if (derived_strategy != dict(strategy)
+                        or strategy.get("schema_version")
+                        != "sentientos.candidate_integer_affine_strategy:v1"
+                        or strategy.get("task_family_id") != task_family_id
+                        or strategy.get("source_fact_id") != experience.get("source_fact_id")
+                        or strategy.get("source_run_digest") != experience.get("source_run_digest")
+                        or strategy.get("source_task_digest") != experience.get("source_task_digest")
+                        or strategy.get("source_score_digest") != experience.get("source_score_digest")
+                        or strategy.get("posture")
+                            != "provisional_relation_fit_to_score_bound_examples"
+                        or strategy.get("performance_transfer_established") is not False
+                        or strategy.get("learning_established") is not False
+                        or strategy.get("historical_only") is not True
+                        or strategy.get("current_truth") is not False
+                        or strategy.get("authority") is not False
+                        or not isinstance(strategy.get("strategy_digest"), str)
+                        or strategy.get("strategy_digest") != _digest(strategy_body)):
+                    raise ResidentDevelopmentalCognitionError(
+                        "task_family_prompt_projection_strategy_invalid")
+                candidate_strategy_refs.append({
+                    "record_id": packet["record_id"],
+                    "record_digest": packet["record_digest"],
+                    "source_fact_id": strategy.get("source_fact_id"),
+                    "strategy_digest": strategy.get("strategy_digest"),
+                    "supporting_examples_digest": strategy.get(
+                        "supporting_examples_digest"),
+                    "supporting_example_count": strategy.get(
+                        "supporting_example_count"),
+                })
             example_rows.extend(rows)
             negative = experience.get("prior_incorrect_examples")
             if negative is not None:
@@ -3946,7 +4076,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 "examples_digest": entry["prior_abstained_examples_digest"],
             })
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v7",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v8",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",
@@ -3954,6 +4084,8 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         "task_relevant_record_count": len(entries),
         "task_relevant_example_count": sum(item["example_count"] for item in entries),
         "records": entries,
+        "candidate_integer_affine_strategy_count": len(candidate_strategy_refs),
+        "candidate_integer_affine_strategies": candidate_strategy_refs,
         "prior_incorrect_example_count": sum(
             item["example_count"] for item in prior_incorrect_refs),
         "prior_incorrect_examples": prior_incorrect_refs,
