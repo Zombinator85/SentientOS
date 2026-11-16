@@ -127,6 +127,15 @@ def _projection_priority_ids(propositions: Mapping[str, Any], *,
         if item not in active_explicit)
 
 
+def _proposition_priorities_from_state_citations(
+        states: Sequence[EpistemicState], prioritized_state_ids: Sequence[str]
+        ) -> tuple[str, ...]:
+    """Resolve cited generations to unique proposition lineages in citation order."""
+    proposition_by_state_id = {state.state_id: state.proposition_id for state in states}
+    return tuple(dict.fromkeys(proposition_by_state_id[state_id]
+        for state_id in prioritized_state_ids if state_id in proposition_by_state_id))
+
+
 class EpistemicStateError(ValueError):
     """Fail-closed identity, history, or admission error."""
 
@@ -1331,11 +1340,8 @@ class PersistentEpistemicStateOwner:
         # A verified citation names a historical state generation. Resolve its
         # proposition lineage, then project only that proposition's latest
         # eligible prior state so a correction supersedes the cited generation.
-        proposition_by_state_id = {state.state_id: state.proposition_id
-            for state in states}
-        state_priorities = tuple(dict.fromkeys(
-            proposition_by_state_id[state_id] for state_id in requested_state_priorities
-            if state_id in proposition_by_state_id))
+        state_priorities = _proposition_priorities_from_state_citations(
+            states, requested_state_priorities)
         merged_priorities = tuple(dict.fromkeys(
             (*requested_priorities, *state_priorities)))
         active_priorities = _projection_priority_ids(proposition_by_id,

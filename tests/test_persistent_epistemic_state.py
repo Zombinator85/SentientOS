@@ -13,9 +13,27 @@ from sentientos.persistent_epistemic_state import (
     MeaningBearingEpistemicCognitiveProjection, semantic_packets_for_projection,
     validate_cognitive_projection, _question_relevant_proposition_ids,
     _projection_priority_ids,
+    _proposition_priorities_from_state_citations,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_state_citations_resolve_to_current_proposition_lineage_in_order():
+    from types import SimpleNamespace
+
+    states = (
+        SimpleNamespace(state_id="epistemic-state:" + "a" * 24,
+            proposition_id="proposition:older"),
+        SimpleNamespace(state_id="epistemic-state:" + "b" * 24,
+            proposition_id="proposition:other"),
+        SimpleNamespace(state_id="epistemic-state:" + "c" * 24,
+            proposition_id="proposition:older"),
+    )
+    assert _proposition_priorities_from_state_citations(states, (
+        states[0].state_id, states[1].state_id, states[2].state_id,
+        "epistemic-state:" + "d" * 24)) == (
+            "proposition:older", "proposition:other")
 
 
 def proposition(statement="wording one", **scope):
