@@ -1400,7 +1400,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert later.written_record_id not in withheld["retrieved_record_ids"]
     assert later.written_record_id in restored["retrieved_record_ids"]
     assert present["developmental_history_selection"]["retrieval_policy_id"] == \
-        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v5"
+        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v6"
     assert present["developmental_history_selection"]["task_family_id"] == \
         "integer_affine_prediction"
     assert withheld["developmental_history_selection"]["treatment"] == "withheld"
@@ -2400,7 +2400,14 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
     assert tentative_guidance == examples[:1]
     assert tentative_errors == []
     assert _task_family_history_retrieval_utility([adverse],
-        target_model_identity=identity, task_probe_inputs={2, 3, 4, 5}) == (0, 0, 0)
+        target_model_identity=identity, task_probe_inputs={2, 3, 4, 5}) == (1, 2, 2)
+    adverse_only = {**adverse, "examples": [
+        {"probe_input": 3, "observed_answer": 14, "evaluator_correct": False},
+        {"probe_input": 4, "observed_answer": 18, "evaluator_correct": False}]}
+    assert _task_family_history_retrieval_utility([adverse_only],
+        target_model_identity=identity, task_probe_inputs={3, 4}) == (1, 2, 2)
+    assert _task_family_history_retrieval_utility([favorable, adverse_only],
+        target_model_identity=identity, task_probe_inputs={3, 4}) == (3, 3, 2)
     other_identity = {"provider": "fixture", "model": "another-retrieval-ranking"}
     assert _task_family_history_retrieval_utility([favorable],
         target_model_identity=other_identity, task_probe_inputs={2}) == (3, 1, 1)
@@ -9610,6 +9617,14 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
 
     experiences = {"repeat-a": experience("run-a"),
         "repeat-b": experience("run-b"), "newer-single": experience("run-single")}
+    negative_only = {**experience("run-negative-only"),
+        "source_task_digest": "sha256:" + "c" * 64,
+        "examples": [{"probe_input": 7, "observed_answer": 23,
+            "evaluator_correct": False}],
+        "controlled_task_effect": {"posture": "complete_comparable_condition_scores",
+            "effect_classification": "history_adverse",
+            "restored_matches_present_score": True}}
+    experiences["negative-only"] = negative_only
     experiences["newer-single"]["source_task_digest"] = "sha256:" + "e" * 64
     experiences["newer-single"]["controlled_task_effect"] = {**effect,
         "effect_classification": "no_difference_observed"}
@@ -9659,14 +9674,37 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
     selected = cognition._prior_projection({"completed_ticks": [
             {"tick_id": "repeat-a", "record_id": "repeat-a"},
             {"tick_id": "repeat-b", "record_id": "repeat-b"},
-            {"tick_id": "newer-single", "record_id": "newer-single"}]},
+            {"tick_id": "newer-single", "record_id": "newer-single"},
+            {"tick_id": "negative-only", "record_id": "negative-only"}]},
         "later-task", task_family_id="integer_affine_prediction",
         task_probe_inputs=(7,), require_task_family_history=True,
         target_model_identity=identity)
 
     assert observed_utility == {"run-a": (4, 1, 1),
-        "run-b": (4, 1, 1), "run-single": (2, 1, 1)}
+        "run-b": (4, 1, 1), "run-single": (2, 1, 1),
+        "run-negative-only": (1, 1, 1)}
     assert selected.requested_record_ids == ("repeat-b",)
+    negative_projection = cognition._prior_projection({"completed_ticks": [
+            {"tick_id": "negative-only", "record_id": "negative-only"}]},
+        "later-task-after-error", task_family_id="integer_affine_prediction",
+        task_probe_inputs=(7,), require_task_family_history=True,
+        target_model_identity=identity)
+    assert negative_projection.requested_record_ids == ("negative-only",)
+    from sentientos.resident_developmental_cognition import (
+        _bind_history_and_epistemic_context,
+    )
+    negative_context, _, negative_prompt, _, _ = _bind_history_and_epistemic_context(
+        context={"instruction": "Use score-bound past errors as caution only.",
+            "developmental_history_task_family_id": "integer_affine_prediction",
+            "developmental_history_target_model_identity": identity,
+            "developmental_history": [], "current_evidence": {}},
+        records=(projection_records["negative-only"],), projection=None,
+        compact_history_for_input=True)
+    [negative_record] = negative_context["developmental_history"]
+    [negative_experience] = negative_record["task_relevant_experience"]
+    assert negative_experience["prior_incorrect_examples"]["examples"] == [
+        {"probe_input": 7, "observed_answer": 23, "evaluator_correct": False}]
+    assert '"score_bound_past_errors_not_mapping_evidence"' in negative_prompt
     [corroboration] = selected.task_family_outcome_corroboration
     assert corroboration["source_run_count"] == 2
     assert {row["run_id"] for row in corroboration["source_run_references"]} == {
@@ -9712,6 +9750,7 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
         "repeat-a": [experiences["repeat-a"]],
         "repeat-b": [experiences["repeat-b"]]},
         target_model_identity=identity) == expected_unsettled_group
+    observed_utility.clear()
     unsettled_selection = cognition._prior_projection({"completed_ticks": [
             {"tick_id": "repeat-a", "record_id": "repeat-a"},
             {"tick_id": "repeat-b", "record_id": "repeat-b"},
