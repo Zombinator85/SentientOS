@@ -491,13 +491,38 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         PersistentEpistemicStateOwner, make_proposition,
     )
 
+    class ProjectionAwareInvoker(CognitionFakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                prior = prompt.get("prior_epistemic_state") or {}
+                packets = prior.get("semantic_packets", ())
+                if packets:
+                    packet = packets[0]
+                    self.companion_output_override = {
+                        "disposition": "answer",
+                        "response": ("The admitted prior proposition describes: "
+                            + packet["proposition"]["statement"]),
+                        "evidence_ids": request.upstream_evidence.get(
+                            "current_fact_ids", [])[:1],
+                        "history_record_ids": [], "memory_record_ids": [],
+                        "epistemic_state_ids": [packet["state"]["state_id"]],
+                    }
+                    if prompt.get("session_conversation_context") is not None:
+                        self.companion_output_override["conversation_turn_ids"] = []
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
     now = datetime.now(timezone.utc)
     screen = {"modality": "screen", "text": "The neutral test scene is visible.",
         "capture_digest": "f" * 64,
         "capture_scope": "allowlisted_foreground_game_client_area",
         "captured_at": now.isoformat(), "raw_frame_retained": False,
         "text_change_kind": "initial", "previous_text_digest": None}
-    cognition_invoker = CognitionFakeInvoker()
+    cognition_invoker = ProjectionAwareInvoker()
     cognition, _ = cognition_owner(tmp_path / "cognition", invoker=cognition_invoker,
         allowed_source_kinds=("embodiment",))
     epistemics = PersistentEpistemicStateOwner(
@@ -537,14 +562,15 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
             epistemic_state_owner=epistemics,
             epistemic_state_config=ep_config, clock=lambda: now))
     session_id = first_app.create_session()
-    first_app.chat(target_question, session_id=session_id,
+    first_response = first_app.chat(target_question, session_id=session_id,
         request_id="citation-source-turn", observe_screen=True)
+    assert target.statement in first_response.response
     first_turns = first_app.sessions.load(session_id)["turns"]
     assert first_turns[-1]["linkage"][
         "cognition_epistemic_state_citation_ids"] == [target_state.state_id]
 
     # Reopen both durable owners before the follow-up consumes the cited state.
-    restarted_invoker = CognitionFakeInvoker()
+    restarted_invoker = ProjectionAwareInvoker()
     restarted_cognition, _ = cognition_owner(tmp_path / "cognition",
         invoker=restarted_invoker, allowed_source_kinds=("embodiment",))
     restarted_epistemics = PersistentEpistemicStateOwner(
@@ -564,14 +590,14 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     restarted_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=restarted_bridge)
     followup_question = "And what should I consider now?"
-    restarted_app.chat(followup_question, session_id=session_id,
+    followup_response = restarted_app.chat(followup_question, session_id=session_id,
         request_id="citation-followup-turn", observe_screen=True)
     followup_request = next(request for request in reversed(restarted_invoker.requests)
         if request.upstream_evidence.get("epistemic_projection_id") is not None)
 
     control_session_id = restarted_app.create_session()
     control_request_start = len(restarted_invoker.requests)
-    restarted_app.chat(followup_question, session_id=control_session_id,
+    control_response = restarted_app.chat(followup_question, session_id=control_session_id,
         request_id="citation-followup-control", observe_screen=True)
     control_request = next(request for request in reversed(
         restarted_invoker.requests[control_request_start:])
@@ -584,6 +610,9 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         target_state.state_id]
     assert control_request.upstream_evidence["epistemic_proposition_ids"] == [
         other.proposition_id]
+    assert target.statement in followup_response.response
+    assert other.statement in control_response.response
+    assert followup_response.response != control_response.response
 
 
 def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
