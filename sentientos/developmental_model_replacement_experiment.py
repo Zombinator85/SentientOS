@@ -1717,9 +1717,13 @@ class ObjectivePredictionTask:
                     question = (
                         family_rule
                         + "Parameters are hidden. Use only retrieved same-family "
-                        "evaluator-scored history examples. Use rows marked "
-                        "evaluator_correct=true; with at least two distinct inputs, "
-                        "infer output=m*input+b and check it against every such row. "
+                        "evaluator-scored history examples. Only rows marked "
+                        "evaluator_correct=true are mapping evidence. Rows in "
+                        "prior_incorrect_examples are confirmed historical errors; "
+                        "never use them as mapping evidence or current truth, and do "
+                        "not repeat their failed answer for the same input. With at "
+                        "least two distinct correct inputs, infer output=m*input+b "
+                        "and check it against every correct row. "
                         f"Then calculate outputs for inputs {inputs}.")
                 else:
                     examples = [
