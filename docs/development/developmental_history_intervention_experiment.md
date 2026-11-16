@@ -80,6 +80,15 @@ priority. Their evaluator-scored examples and provenance remain available as
 tentative history. Unrelated task commitments and source models are ranked
 independently.
 
+Score-bound incorrect examples now contribute task-family retrieval utility
+even when a record has no evaluator-correct examples. This keeps an adverse,
+error-only experience eligible for a bounded later prompt when its probes
+overlap, while its lowest outcome priority keeps it behind positive or stable
+neutral guidance. The examples remain historical negative context, not a
+replacement mapping rule. A CPU-only controlled retrieval fixture demonstrates
+that such a selected record reaches the bounded prompt projection; real-model
+application and subsequent performance effects remain unverified.
+
 When a bounded history selection includes a run from such a group, the
 read-only retrieval projection also carries the exact-task, source-model, and
 run-reference summary into the task-family prompt. This keeps the reason for a
