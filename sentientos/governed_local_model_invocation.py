@@ -606,7 +606,9 @@ RESIDENT_COMPANION_SESSION_HISTORICAL_INTERACTION_OUTPUT_SCHEMA = {
         "conversation_turn_ids"],
     "properties": {
         **cast(dict[str, dict[str, object]], RESIDENT_COMPANION_HISTORICAL_INTERACTION_OUTPUT_SCHEMA["properties"]),
-        "conversation_turn_ids": cast(dict[str, object], RESIDENT_COMPANION_SESSION_INTERACTION_OUTPUT_SCHEMA["properties"]["conversation_turn_ids"]),
+        "conversation_turn_ids": cast(dict[str, dict[str, object]],
+            RESIDENT_COMPANION_SESSION_INTERACTION_OUTPUT_SCHEMA["properties"])[
+                "conversation_turn_ids"],
     },
 }
 # Keep decoding controls identical in all history-intervention conditions.
