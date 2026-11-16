@@ -324,6 +324,44 @@ def test_owner_projection_prioritizes_goal_relevant_history_and_binds_omissions(
                 lexicographically_last))
 
 
+def test_citation_priority_yields_to_direct_question_relevance(tmp_path):
+    owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    cited = make_proposition(namespace="embodiment", subject="design:launch",
+        predicate="has_status", object_value="delayed", polarity="positive",
+        qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive", statement="The launch is delayed.")
+    relevant = make_proposition(namespace="embodiment", subject="sensor:west",
+        predicate="reports_measurement", object_value="exact-window-1",
+        polarity="positive", qualifiers={},
+        temporal_scope={"window": "exact-window-1"},
+        context_scope={"facility": "facility-1"},
+        proposition_class="descriptive",
+        statement="The west sensor measurement came from facility-1.")
+    cited_state = None
+    for index, item in enumerate((cited, relevant), start=1):
+        owner.register_proposition(item)
+        state, _ = owner.commit_update(proposition_id=item.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(),
+            correlation_id=f"citation-relevance:{index}", tick=index,
+            recorded_at=f"2026-01-01T00:00:0{index}Z")
+        if item.proposition_id == cited.proposition_id:
+            cited_state = state
+    assert cited_state is not None
+
+    direct_match = owner.cognitive_projection(max_states=1, current_tick=3,
+        prioritized_state_ids=(cited_state.state_id,),
+        relevance_query="Which west sensor measurement came from facility-1 during exact-window-1?")
+    ambiguous_followup = owner.cognitive_projection(max_states=1, current_tick=3,
+        prioritized_state_ids=(cited_state.state_id,),
+        relevance_query="What happened on the lunar mission?")
+
+    assert direct_match is not None
+    assert direct_match.proposition_ids == (relevant.proposition_id,)
+    assert ambiguous_followup is not None
+    assert ambiguous_followup.proposition_ids == (cited.proposition_id,)
+
 def test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes(tmp_path):
     from sentientos.epistemic_planning import (
         epistemic_review_reason_for_goal, review_required_applicability,

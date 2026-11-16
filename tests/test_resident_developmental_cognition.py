@@ -6998,6 +6998,14 @@ def test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget(
                 "prior_epistemic_proposition_ids": list(
                     resolved_citation_priorities)}},
         projection=projection)
+    cited_ambiguous_context, _, cited_ambiguous_prompt = _bind_epistemic_context(
+        context={"instruction": "prior positions are not truth",
+            "companion_question": "What happened in the lunar mission?",
+            "session_conversation_context": {
+                "prior_epistemic_state_ids": [cited_state.state_id],
+                "prior_epistemic_proposition_ids": list(
+                    resolved_citation_priorities)}},
+        projection=projection)
     assert len(prompt) <= 16_000
     prior = context["prior_epistemic_state"]
     assert len(prior["semantic_packets"]) == 1
@@ -7007,8 +7015,13 @@ def test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget(
     assert delivered["proposition"]["context_scope"]["facility"] == "facility-1"
     [cited_packet] = cited_context["prior_epistemic_state"]["semantic_packets"]
     assert cited_packet["proposition"]["proposition_id"] == (
+        propositions[1].proposition_id)
+    [cited_ambiguous_packet] = cited_ambiguous_context[
+        "prior_epistemic_state"]["semantic_packets"]
+    assert cited_ambiguous_packet["proposition"]["proposition_id"] == (
         propositions[0].proposition_id)
     assert "prior_epistemic_proposition_ids" not in cited_prompt
+    assert "prior_epistemic_proposition_ids" not in cited_ambiguous_prompt
     baseline_ids = [packet["packet_id"] for packet in
         baseline_context["prior_epistemic_state"]["semantic_packets"]]
     irrelevant_ids = [packet["packet_id"] for packet in

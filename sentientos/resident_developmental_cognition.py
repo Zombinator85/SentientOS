@@ -3565,16 +3565,19 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
     projection_priority_ids = (
         projection_manifest.get("prioritized_proposition_ids", ())
         if isinstance(projection_manifest, Mapping) else ())
-    priority_order = tuple(dict.fromkeys(item for item in (
-        *conversation_priority_ids, *projection_priority_ids)
-        if isinstance(item, str)))
-    priority_rank = {proposition_id: index for index, proposition_id in
-        enumerate(priority_order)}
+    citation_priority_rank = {proposition_id: index for index, proposition_id in
+        enumerate(dict.fromkeys(item for item in conversation_priority_ids
+            if isinstance(item, str)))}
+    projection_priority_rank = {proposition_id: index for index, proposition_id in
+        enumerate(dict.fromkeys(item for item in projection_priority_ids
+            if isinstance(item, str)))}
     packets = tuple(sorted(packets, key=lambda packet: (
-        priority_rank.get(str(packet.get("proposition", {}).get(
-            "proposition_id", "")), len(priority_rank)),
         -_epistemic_packet_question_relevance(packet,
             question_terms=question_terms),
+        citation_priority_rank.get(str(packet.get("proposition", {}).get(
+            "proposition_id", "")), len(citation_priority_rank)),
+        projection_priority_rank.get(str(packet.get("proposition", {}).get(
+            "proposition_id", "")), len(projection_priority_rank)),
         0 if packet.get("removed_evidence_history") else 1,
         0 if packet.get("contradicting_evidence") else 1,
         0 if (isinstance(packet.get("evidence_posture"), Mapping)

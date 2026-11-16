@@ -113,8 +113,9 @@ def _question_relevant_proposition_ids(propositions: Mapping[str, Any], *,
 def _projection_priority_ids(propositions: Mapping[str, Any], *,
         available_proposition_ids: set[str],
         prioritized_proposition_ids: Sequence[str], query: str | None,
+        cited_proposition_ids: Sequence[str] = (),
         limit: int) -> tuple[str, ...]:
-    """Choose explicit and question priorities only from available prior states."""
+    """Order goals, direct query matches, cited context, then stable fill."""
     active_explicit = tuple(item for item in prioritized_proposition_ids
         if item in available_proposition_ids)
     eligible_propositions = {proposition_id: proposition
@@ -123,8 +124,12 @@ def _projection_priority_ids(propositions: Mapping[str, Any], *,
     remaining_slots = max(0, limit - len(active_explicit))
     active_query = _question_relevant_proposition_ids(eligible_propositions,
         query=query, limit=remaining_slots)
-    return active_explicit + tuple(item for item in active_query
+    preceding = active_explicit + tuple(item for item in active_query
         if item not in active_explicit)
+    remaining_slots = max(0, limit - len(preceding))
+    active_cited = tuple(item for item in cited_proposition_ids
+        if item in available_proposition_ids and item not in preceding)[:remaining_slots]
+    return preceding + active_cited
 
 
 def _proposition_priorities_from_state_citations(
@@ -469,7 +474,11 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                 and omission_manifest.get("selection_policy") in {
                     "goal_tagged_prior_state_then_proposition_id_ascending",
                     "question_relevance_then_proposition_id_ascending",
-                    "explicit_priority_then_question_relevance_then_proposition_id_ascending"}
+                    "explicit_priority_then_question_relevance_then_proposition_id_ascending",
+                    "cited_proposition_then_proposition_id_ascending",
+                    "question_relevance_then_cited_proposition_then_proposition_id_ascending",
+                    "explicit_priority_then_cited_proposition_then_proposition_id_ascending",
+                    "explicit_priority_then_question_relevance_then_cited_proposition_then_proposition_id_ascending"}
                 and isinstance(raw_priority_ids, (list, tuple))
                 and len(raw_priority_ids) <= MAX_COGNITIVE_PROJECTION_PRIORITIES
                 and all(_valid_identity(item, "proposition") for item in raw_priority_ids)
@@ -1360,17 +1369,25 @@ class PersistentEpistemicStateOwner:
         # eligible prior state so a correction supersedes the cited generation.
         state_priorities = _proposition_priorities_from_state_citations(
             states, requested_state_priorities)
-        merged_priorities = tuple(dict.fromkeys(
-            (*requested_priorities, *state_priorities)))
         active_priorities = _projection_priority_ids(proposition_by_id,
             available_proposition_ids=set(available_by_id),
-            prioritized_proposition_ids=merged_priorities,
+            prioritized_proposition_ids=requested_priorities,
             query=relevance_query,
+            cited_proposition_ids=state_priorities,
             limit=min(max_states, MAX_COGNITIVE_PROJECTION_PRIORITIES))
-        active_explicit_priorities = tuple(item for item in merged_priorities
+        active_explicit_priorities = tuple(item for item in requested_priorities
             if item in available_by_id)
-        active_query_priorities = tuple(item for item in active_priorities
-            if item not in active_explicit_priorities)
+        active_query_candidates = _question_relevant_proposition_ids(
+            {proposition_id: proposition_by_id[proposition_id]
+                for proposition_id in available_by_id},
+            query=relevance_query,
+            limit=max(0, min(max_states, MAX_COGNITIVE_PROJECTION_PRIORITIES)
+                - len(active_explicit_priorities)))
+        active_query_priorities = tuple(item for item in active_query_candidates
+            if item in active_priorities and item not in active_explicit_priorities)
+        active_citation_priorities = tuple(item for item in state_priorities
+            if item in active_priorities and item not in active_explicit_priorities
+            and item not in active_query_priorities)
         ranked_ids = active_priorities + tuple(sorted(
             set(available_by_id) - set(active_priorities)))
         ranked_latest = tuple(available_by_id[item] for item in ranked_ids)
@@ -1409,6 +1426,15 @@ class PersistentEpistemicStateOwner:
                     if active_priorities else
                     "sentientos.epistemic_projection_omission_manifest:v1"),
                 "selection_policy": (
+                    "explicit_priority_then_question_relevance_then_cited_proposition_then_proposition_id_ascending"
+                    if active_explicit_priorities and active_query_priorities
+                        and active_citation_priorities else
+                    "question_relevance_then_cited_proposition_then_proposition_id_ascending"
+                    if active_query_priorities and active_citation_priorities else
+                    "explicit_priority_then_cited_proposition_then_proposition_id_ascending"
+                    if active_explicit_priorities and active_citation_priorities else
+                    "cited_proposition_then_proposition_id_ascending"
+                    if active_citation_priorities else
                     "explicit_priority_then_question_relevance_then_proposition_id_ascending"
                     if active_explicit_priorities and active_query_priorities else
                     "question_relevance_then_proposition_id_ascending"
