@@ -4764,7 +4764,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_lesson_scope_and_session_context_then_recency_fill:v6"
+        "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7"
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
 
@@ -4794,7 +4794,15 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     followup_prompt = json.loads(fake.requests[-1].prompt)
     assert followup_prompt["companion_question"] == "What about that?"
     assert followup_prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_lesson_scope_and_session_context_then_recency_fill:v6"
+        "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7"
+
+    # A specific new topic takes precedence over the prior user turn, which
+    # should not drag its unrelated battery lesson into the bounded selection.
+    astronomy_followup = cognition.run_companion_interaction(snapshot=snapshot(),
+        request_id="query-history-specific-topic",
+        question="How should an astronomy observation about stars be interpreted?",
+        conversation_context=conversation_context)
+    assert relevant.written_record_id not in astronomy_followup.prior_record_ids
 
 
 def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_text() -> None:
@@ -4852,7 +4860,7 @@ def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_te
     from sentientos import resident_developmental_cognition as cognition_module
     _, metadata, _, _, _ = cognition_module._bind_history_and_epistemic_context(
         context={"developmental_history_retrieval_policy_id":
-            "query_overlap_with_lesson_scope_and_session_context_then_recency_fill:v6"},
+            "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7"},
         records=(), projection=None, history_present=False)
     cognition_module._validate_developmental_history_selection({
         "developmental_history_selection": metadata["developmental_history_selection"]})

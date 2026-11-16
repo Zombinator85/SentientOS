@@ -93,12 +93,14 @@ The resident companion interaction ranks already admitted developmental
 interpretations, source-verified operator-report text, and admitted lesson
 content against the current question before the bounded history projection.
 Lesson scope and applicability matches receive more weight than generic
-interpretation wording; prior user turns from a validated bounded session
-context also contribute topic terms for elliptical follow-up questions.
-Conversation terms affect ranking only and are not evidence or durable memory.
+interpretation wording. The latest prior user turn from a validated bounded
+session context contributes topic terms only when the current question has
+fewer than two distinctive terms, supporting elliptical follow-ups without
+letting stale topics dilute a specific question. Conversation terms affect
+ranking only and are not evidence or durable memory.
 Unmatched slots are filled from the recent checkpoint sequence. The selected
 record identities and retrieval policy
-(`query_overlap_with_lesson_scope_and_session_context_then_recency_fill:v6`)
+(`query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7`)
 remain in normal history selection lineage. History packets remain explicitly historical,
 non-authoritative, and not current truth. This remains deterministic lexical
 matching that normalizes common plural endings and weights terms that occur in

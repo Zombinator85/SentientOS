@@ -3558,7 +3558,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "query_overlap_with_operator_reports_then_recency_fill:v3",
                 "query_overlap_with_operator_reports_then_recency_fill:v4",
                 "query_overlap_with_lesson_scope_then_recency_fill:v5",
-                "query_overlap_with_lesson_scope_and_session_context_then_recency_fill:v6"}
+                "query_overlap_with_lesson_scope_and_session_context_then_recency_fill:v6",
+                "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7"}
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
@@ -6301,11 +6302,14 @@ class ResidentDevelopmentalCognitionOwner:
             # lexical overlap, while preserving checkpoint order for ties and
             # filling unused slots from the recent suffix. This ranks history;
             # it does not establish truth or correctness.
-            # Current-session user turns supply topic anchors for elliptical
-            # follow-ups. They affect ranking only; they are not admitted as
-            # evidence, persisted, or allowed to change truth/authority.
-            query_terms = cognition_query_terms(" ".join((relevance_query,
-                relevance_context or "")))
+            # Session context is only a retrieval fallback for an elliptical
+            # question. A sufficiently specific current question must not be
+            # diluted by stale topics from the preceding conversation. The
+            # context affects ranking only; it is not admitted as evidence,
+            # persisted, or allowed to change truth/authority.
+            query_terms = cognition_query_terms(relevance_query)
+            if len(query_terms) < 2:
+                query_terms.update(cognition_query_terms(relevance_context or ""))
             document_term_weights: dict[str, dict[str, int]] = {}
             for order, record_id in enumerate(ids):
                 try:
@@ -7106,7 +7110,7 @@ class ResidentDevelopmentalCognitionOwner:
                 and bool(observed_target_identity))
             else "task_family_probe_overlap_then_recency_fill:v2"
             if isinstance(task_family_id, str) else
-            "query_overlap_with_lesson_scope_and_session_context_then_recency_fill:v6"
+            "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7"
             if interaction_question is not None
                 and condition_id == "companion-interaction"
             else "completed_tick_recency_suffix:v1")
@@ -7829,9 +7833,9 @@ class ResidentDevelopmentalCognitionOwner:
             state = self._state()
             projection = self._prior_projection(state, tick_id,
                 relevance_query=question,
-                relevance_context=(" ".join(row["text"] for row in
-                    conversation_context.get("turns", ())
-                    if row.get("role") == "user")
+                relevance_context=(next((row["text"] for row in reversed(
+                    conversation_context.get("turns", ()))
+                    if row.get("role") == "user"), None)
                     if conversation_context is not None else None))
             current = self._current_projection(snapshot)
             observation = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
