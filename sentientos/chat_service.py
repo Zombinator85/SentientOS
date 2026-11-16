@@ -56,7 +56,7 @@ from .developmental_companion_bridge import (
     ResidentDevelopmentalCompanionBridge, make_operator_feedback_record,
 )
 from .conversation_session import (
-    ConversationChatLockTimeout, ConversationSessionStore, assemble_local_chat_context,
+    ContextSnapshot, ConversationChatLockTimeout, ConversationSessionStore, assemble_local_chat_context,
     compact_runtime_generation_attribution, transcript_recall_terms,
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
@@ -81,6 +81,73 @@ from .perception.screen_text_delta import validate_ocr_text_line_delta
 from .screen_observation_bridge import ScreenObservationBridgeError
 
 LOGGER = logging.getLogger(__name__)
+MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES = 16
+MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS = 16
+MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS = 4000
+RESIDENT_CONTEXT_ANAPHORA_TERMS = frozenset((
+    "it", "its", "this", "that", "they", "them", "these", "those",
+    "there", "same", "former", "latter"))
+
+
+def _select_resident_conversation_context_turns(
+        turns: Any, *, question: str) -> list[Mapping[str, Any]]:
+    """Keep a bounded, query-relevant transcript slice for resident cognition."""
+    all_turns = list(turns)
+    recent_turns = all_turns[-MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:]
+
+    def context_cost(turn: Any) -> int:
+        text = turn.get("text") if isinstance(turn, Mapping) else None
+        role = turn.get("role") if isinstance(turn, Mapping) else None
+        if (not isinstance(text, str) or not text
+                or role not in {"user", "assistant"}
+                or turn.get("text_digest") != digest_payload({"text": text})
+                or not isinstance(turn.get("turn_id"), str)
+                or not isinstance(turn.get("linkage", {}), Mapping)):
+            raise ChatRequestStateError("resident_conversation_context_invalid")
+        return len(text)
+
+    costs = [context_cost(turn) for turn in recent_turns]
+    if sum(costs) <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS:
+        return recent_turns
+
+    candidates = all_turns
+    costs = [context_cost(turn) for turn in candidates]
+
+    query_terms = transcript_recall_terms(question)
+    question_tokens = set(re.findall(r"[a-z0-9]+", question.casefold()))
+    anaphoric = bool(question_tokens & RESIDENT_CONTEXT_ANAPHORA_TERMS)
+    ranked: list[tuple[float, int]] = []
+    if query_terms:
+        turn_terms = [transcript_recall_terms(str(turn["text"]))
+            for turn in candidates]
+        document_frequency = {term: sum(term in candidate_terms
+            for candidate_terms in turn_terms) for term in query_terms}
+        term_weights = {term: math.log((len(candidates) + 1)
+            / (frequency + 0.5)) + 1
+            for term, frequency in document_frequency.items()}
+        ranked = [(sum(term_weights[term] for term in query_terms & terms), index)
+            for index, terms in enumerate(turn_terms)]
+        ranked = [item for item in ranked if item[0] > 0]
+    if ranked:
+        ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        selection_order = [index for _, index in ranked]
+    else:
+        selection_order = list(reversed(range(len(candidates))))
+
+    selected_indexes = (set(range(max(0, len(candidates) - 2), len(candidates)))
+        if anaphoric else set())
+    used = sum(costs[index] for index in selected_indexes)
+    selection_order = [index for index in selection_order
+        if index not in selected_indexes]
+    for index in selection_order:
+        if len(selected_indexes) >= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:
+            break
+        cost = costs[index]
+        if cost <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS - used:
+            selected_indexes.add(index)
+            used += cost
+    return [turn for index, turn in enumerate(candidates)
+        if index in selected_indexes]
 
 
 def _is_earliest_session_recall_request(message: str) -> bool:
@@ -1372,13 +1439,46 @@ class PersistentConversationService:
                 if source_capture_digest is None:
                     raise ChatRequestStateError(
                         "developmental_cycle_operator_feedback_requires_screen_evidence")
+                citation_ids = linkage.get(
+                    "cognition_conversation_turn_citation_ids", [])
+                citation_digests = linkage.get(
+                    "cognition_conversation_turn_citation_digests", [])
+                selected_ids = linkage.get("conversation_context_turn_ids", [])
+                selected_digests = linkage.get(
+                    "conversation_context_turn_text_digests", [])
+                selected_map = (dict(zip(selected_ids, selected_digests))
+                    if isinstance(selected_ids, list)
+                    and isinstance(selected_digests, list)
+                    and len(selected_ids) == len(selected_digests)
+                    and all(isinstance(turn_id, str) for turn_id in selected_ids)
+                    and all(isinstance(digest, str) for digest in selected_digests)
+                    else {})
+                transcript_turns = {str(turn.get("turn_id")): turn
+                    for turn in session["turns"] if isinstance(turn, Mapping)}
+                citation_lineage_valid = (
+                    isinstance(citation_ids, list)
+                    and isinstance(citation_digests, list)
+                    and len(citation_ids) == len(citation_digests) <= 16
+                    and all(isinstance(turn_id, str) for turn_id in citation_ids)
+                    and all(isinstance(digest, str) for digest in citation_digests)
+                    and len(set(citation_ids)) == len(citation_ids)
+                    and all(selected_map.get(turn_id) == digest
+                        and isinstance(transcript_turns.get(turn_id), Mapping)
+                        and transcript_turns[turn_id].get("text_digest") == digest
+                        for turn_id, digest in zip(citation_ids, citation_digests)))
+                if not citation_lineage_valid:
+                    raise ChatRequestStateError(
+                        "developmental_cycle_conversation_citation_lineage_invalid")
                 feedback_record = make_operator_feedback_record(
                     operator_feedback, request_id=request_id,
                     assistant_turn_id=assistant_turn_id,
                     assistant_response_digest=response_digest,
                     source_capture_digest=source_capture_digest,
                     followup_capture_digest=followup_capture_digest,
-                    observed_at=feedback_observed_at)
+                    observed_at=feedback_observed_at,
+                    conversation_citation_ids=citation_ids,
+                    conversation_citation_digests=citation_digests,
+                    conversation_session_id=session_id)
             cycle_kwargs: dict[str, Any] = {
                 "tick_id": tick_id, "screen_observation": observation,
                 "operator_feedback": feedback_record,
@@ -2129,8 +2229,200 @@ class PersistentConversationService:
             },
             retention={"status": "not_requested"})
 
+    def _resident_canonical_memory_context(self, question: str) -> dict[str, Any] | None:
+        """Bind only explicitly retained, source-turn-verified memories for cognition."""
+        retrieved = self.memories.retrieve(question,
+            limit=MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES,
+            budget_chars=self.memory_budget_chars)
+        if (not isinstance(retrieved, Mapping)
+                or retrieved.get("read_only") is not True
+                or not isinstance(retrieved.get("snapshot_digest"), str)
+                or not isinstance(retrieved.get("memories"), list)):
+            return None
+        selected: list[dict[str, Any]] = []
+        used = 0
+        seen_ids: set[str] = set()
+        for record in retrieved["memories"]:
+            if len(selected) >= 4:
+                break
+            if not isinstance(record, Mapping):
+                continue
+            memory_id, text, text_digest = (
+                record.get("id"), record.get("text"), record.get("text_digest"))
+            meta = record.get("meta")
+            if (not isinstance(memory_id, str) or not memory_id
+                    or memory_id in seen_ids or not isinstance(text, str)
+                    or not text or len(text) > self.memory_budget_chars
+                    or not isinstance(text_digest, str)
+                    or digest_payload({"text": text}) != text_digest
+                    or record.get("source") != "conversation_user_turn"
+                    or record.get("category") != "event"
+                    or record.get("tags") != ["explicit-retention"]
+                    or type(record.get("importance")) is not float
+                    or record.get("importance") != 1.0
+                    or not isinstance(meta, Mapping)):
+                continue
+            source_session_id, source_turn_id = (
+                meta.get("session_id"), meta.get("turn_id"))
+            admission_digest = meta.get("admission_receipt_digest")
+            if (not isinstance(source_session_id, str) or not source_session_id
+                    or not isinstance(source_turn_id, str) or not source_turn_id
+                    or not isinstance(admission_digest, str)
+                    or len(admission_digest) != 64):
+                continue
+            try:
+                source_session = self.sessions.load(source_session_id)
+                source_turn = next((turn for turn in source_session.get("turns", ())
+                    if isinstance(turn, Mapping) and turn.get("turn_id") == source_turn_id), None)
+                receipt = source_turn.get("retention_receipt") if isinstance(source_turn, Mapping) else None
+                verification = (self.retention_writer.verify_committed_artifact(
+                    receipt, source_turn, source_session_id)
+                    if isinstance(receipt, Mapping) and isinstance(source_turn, Mapping) else {})
+            except Exception:
+                continue
+            if (not isinstance(source_turn, Mapping)
+                    or source_turn.get("role") != "user"
+                    or source_turn.get("retention_state") != "retained"
+                    or source_turn.get("text") != text
+                    or source_turn.get("text_digest") != text_digest
+                    or verification.get("artifact_status") != "verified"
+                    or verification.get("admission_status")
+                        != "policy_recomputed_not_execution_attested"
+                    or verification.get("memory_id") != memory_id
+                    or verification.get("record_digest") != digest_payload(dict(record))
+                    or verification.get("admission_receipt_digest") != admission_digest):
+                continue
+            if used + len(text) > self.memory_budget_chars:
+                continue
+            selected.append({
+                "memory_id": memory_id, "text": text,
+                "text_digest": text_digest,
+                "memory_record_digest": digest_payload(dict(record)),
+                "source_turn_id": source_turn_id,
+                "source_turn_text_digest": str(source_turn["text_digest"]),
+                "admission_receipt_digest": admission_digest,
+                "timestamp": str(record.get("timestamp", "")),
+                "historical_only": True, "current_truth": False,
+                "authority": False,
+            })
+            used += len(text)
+            seen_ids.add(memory_id)
+        if not selected:
+            return None
+        source_binding_omitted = len(selected) < len(retrieved["memories"])
+        selection_posture = ("matching_records_omitted" if source_binding_omitted
+            else str(retrieved.get("selection_posture", "unknown")))
+        retrieval_posture = ("partial_source_verification" if source_binding_omitted
+            else str(retrieved.get("retrieval_posture", "unknown")))
+        semantic = {
+            "schema_version": "sentientos.canonical_user_memory_cognition_context:v1",
+            "source_snapshot_digest": retrieved["snapshot_digest"],
+            "retrieval_posture": retrieval_posture,
+            "selection_posture": selection_posture,
+            "records": selected, "read_only": True,
+            "historical_only": True, "current_truth": False,
+            "authority": False, "mutation_performed": False,
+        }
+        return {**semantic, "selection_digest": digest_payload(semantic)}
+
+    def _resident_historical_citation_context(self, *, bridge: Any,
+            request_id: str, question: str,
+            conversation_context: Mapping[str, Any] | None
+            ) -> dict[str, Any] | None:
+        """Resolve only cited turns from feedback records in selected history."""
+        provider = getattr(bridge, "selected_historical_operator_citations", None)
+        if not callable(provider):
+            return None
+        try:
+            references = provider(request_id=request_id, question=question,
+                conversation_context=conversation_context)
+        except Exception:
+            return None
+        if not isinstance(references, (tuple, list)) or not references:
+            return None
+        current_turn_ids = ({row.get("turn_id") for row in
+            conversation_context.get("turns", ()) if isinstance(row, Mapping)}
+            if isinstance(conversation_context, Mapping) else set())
+        selected: list[dict[str, Any]] = []
+        used_chars = 0
+        seen: dict[tuple[str, str], str] = {}
+        session_cache: dict[str, tuple[dict[str, Any], str]] = {}
+        expected_fields = {"feedback_record_id", "feedback_record_digest",
+            "feedback_fact_id", "feedback_assertion_digest",
+            "conversation_session_id", "turn_id", "text_digest"}
+        for reference in references[:16]:
+            if not isinstance(reference, Mapping) or set(reference) != expected_fields:
+                continue
+            source_session_id = reference.get("conversation_session_id")
+            turn_id, expected_digest = reference.get("turn_id"), reference.get("text_digest")
+            if (not isinstance(source_session_id, str)
+                    or re.fullmatch(r"[a-z0-9][a-z0-9-]{7,63}", source_session_id) is None
+                    or not isinstance(turn_id, str)
+                    or not re.fullmatch(r"turn-[0-9a-f]{24}", turn_id)
+                    or not isinstance(expected_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", expected_digest) is None
+                    or (source_session_id == (conversation_context or {}).get("session_id")
+                        and turn_id in current_turn_ids)):
+                continue
+            key = (source_session_id, turn_id)
+            if key in seen:
+                if seen[key] != expected_digest:
+                    selected = []
+                    break
+                continue
+            try:
+                if source_session_id not in session_cache:
+                    source_session = self.sessions.load(source_session_id)
+                    source_digest = digest_payload({
+                        "session_id": source_session_id,
+                        "revision": source_session.get("revision"),
+                        "turns": [(row.get("turn_id"), row.get("role"),
+                            row.get("text_digest"), digest_payload(dict(
+                                row.get("linkage", {}))))
+                            for row in source_session.get("turns", ())
+                            if isinstance(row, Mapping)]})
+                    session_cache[source_session_id] = (source_session, source_digest)
+                source_session, source_snapshot_digest = session_cache[source_session_id]
+            except Exception:
+                continue
+            turn = next((row for row in source_session.get("turns", ())
+                if isinstance(row, Mapping) and row.get("turn_id") == turn_id), None)
+            if (not isinstance(turn, Mapping)
+                    or turn.get("role") not in {"user", "assistant"}
+                    or not isinstance(turn.get("text"), str)
+                    or not turn["text"] or len(turn["text"]) > 2000
+                    or turn.get("text_digest") != expected_digest
+                    or digest_payload({"text": turn["text"]}) != expected_digest
+                    or not isinstance(turn.get("linkage"), Mapping)):
+                continue
+            used_chars += len(turn["text"])
+            if used_chars > 4000:
+                break
+            selected.append({
+                "feedback_record_id": reference["feedback_record_id"],
+                "feedback_record_digest": reference["feedback_record_digest"],
+                "feedback_fact_id": reference["feedback_fact_id"],
+                "feedback_assertion_digest": reference["feedback_assertion_digest"],
+                "session_id": source_session_id,
+                "session_snapshot_digest": source_snapshot_digest,
+                "turn_id": turn_id, "role": turn["role"], "text": turn["text"],
+                "text_digest": expected_digest,
+                "linkage_digest": digest_payload(dict(turn["linkage"])),
+            })
+            seen[key] = expected_digest
+        if not selected:
+            return None
+        semantic = {
+            "schema_version": "sentientos.historical_cited_conversation_context:v1",
+            "turns": selected, "historical_only": True,
+            "current_truth": False, "authority": False,
+            "mutation_performed": False,
+        }
+        return {**semantic, "selection_digest": digest_payload(semantic)}
+
     def _complete_resident_cognition_response(self, *, session_id: str,
             user_turn: Mapping[str, Any], question: str,
+            history: ContextSnapshot,
             screen_observation: Mapping[str, object] | None,
             on_content_chunk: Callable[[str], None] | None) -> ChatResponse:
         """Deliver a resident cognition decision as a distinct, receipt-linked response."""
@@ -2138,8 +2430,92 @@ class PersistentConversationService:
         if bridge is None:
             raise RuntimeError("resident_cognition_bridge_unavailable")
         request_id = f"{session_id}:{user_turn['turn_id']}"
-        result = bridge.respond(request_id=request_id, question=question,
-            screen_observation=screen_observation)
+        canonical_memory_context = self._resident_canonical_memory_context(question)
+        conversation_context = None
+        selected_turns = _select_resident_conversation_context_turns(
+            history.turns, question=question)
+        if selected_turns:
+            context_turns = []
+            for turn in selected_turns:
+                text = turn.get("text")
+                if (not isinstance(text, str) or not text
+                        or turn.get("text_digest") != digest_payload({"text": text})
+                        or turn.get("role") not in {"user", "assistant"}
+                        or not isinstance(turn.get("turn_id"), str)):
+                    raise ChatRequestStateError("resident_conversation_context_invalid")
+                linkage = turn.get("linkage", {})
+                if not isinstance(linkage, Mapping):
+                    raise ChatRequestStateError("resident_conversation_context_invalid")
+                context_turns.append({
+                    "turn_id": str(turn["turn_id"]), "role": str(turn["role"]),
+                    "text": text, "text_digest": turn["text_digest"],
+                    "linkage_digest": digest_payload(dict(linkage)),
+                })
+            # Carry forward only citations from assistant outputs whose durable
+            # cognition observation, inference receipt, and transcript linkage
+            # still verify. They are retrieval hints, never truth or authority.
+            prior_state_ids: list[str] = []
+            verifier = getattr(bridge, "verify_committed_response", None)
+            if callable(verifier):
+                by_id = {str(turn.get("turn_id")): turn for turn in history.turns
+                    if isinstance(turn, Mapping)}
+                citation_turns: list[Mapping[str, Any]] = []
+                seen_citation_turn_ids: set[str] = set()
+                for turn in (*history.turns[-MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:],
+                        *selected_turns):
+                    turn_id = str(turn.get("turn_id"))
+                    if turn_id not in seen_citation_turn_ids:
+                        citation_turns.append(turn)
+                        seen_citation_turn_ids.add(turn_id)
+                for turn in citation_turns:
+                    if turn.get("role") != "assistant":
+                        continue
+                    linkage = turn.get("linkage", {})
+                    source_user_turn_id = (linkage.get("source_user_turn_id")
+                        if isinstance(linkage, Mapping) else None)
+                    citations = (linkage.get("cognition_epistemic_state_citation_ids", ())
+                        if isinstance(linkage, Mapping) else ())
+                    if (not isinstance(source_user_turn_id, str)
+                            or source_user_turn_id not in by_id
+                            or by_id[source_user_turn_id].get("role") != "user"
+                            or not isinstance(citations, (list, tuple))
+                            or len(citations) > 16
+                            or any(not isinstance(item, str) for item in citations)):
+                        continue
+                    if verifier(linkage=linkage, response_text=str(turn.get("text", "")),
+                            request_id=f"{session_id}:{source_user_turn_id}") is True:
+                        for citation in citations:
+                            if citation not in prior_state_ids:
+                                prior_state_ids.append(citation)
+                            if len(prior_state_ids) >= 64:
+                                break
+                    if len(prior_state_ids) >= 64:
+                        break
+            semantic_context: dict[str, Any] = {
+                "schema_version": "sentientos.conversation_cognition_context:v1",
+                "session_id": history.session_id,
+                "source_snapshot_digest": history.snapshot_digest,
+                "turns": context_turns,
+                "prior_epistemic_state_ids": prior_state_ids,
+                "historical_only": True,
+                "current_truth": False, "authority": False,
+                "mutation_performed": False,
+            }
+            conversation_context = {**semantic_context,
+                "selection_digest": digest_payload(semantic_context)}
+        historical_citation_context = self._resident_historical_citation_context(
+            bridge=bridge, request_id=request_id, question=question,
+            conversation_context=conversation_context)
+        response_kwargs: dict[str, Any] = {"request_id": request_id,
+            "question": question, "screen_observation": screen_observation}
+        if canonical_memory_context is not None:
+            response_kwargs["canonical_memory_context"] = canonical_memory_context
+        if conversation_context is not None:
+            response_kwargs["conversation_context"] = conversation_context
+        if historical_citation_context is not None:
+            response_kwargs["historical_citation_context"] = (
+                historical_citation_context)
+        result = bridge.respond(**response_kwargs)
         response_text = getattr(result, "response", None)
         if (getattr(result, "status", None) != "admitted_completed"
                 or not isinstance(response_text, str) or not response_text.strip()
@@ -2159,6 +2535,13 @@ class PersistentConversationService:
         evidence_ids = getattr(result, "evidence_ids", ())
         prior_record_ids = getattr(result, "prior_record_ids", ())
         history_record_ids = getattr(result, "history_record_ids", ())
+        memory_record_ids = getattr(result, "memory_record_ids", ())
+        self_model_claim_ids = getattr(result, "self_model_claim_ids", ())
+        epistemic_state_citation_ids = getattr(
+            result, "epistemic_state_citation_ids", ())
+        conversation_citation_ids = getattr(result, "conversation_turn_citation_ids", ())
+        memory_selection_digest = getattr(
+            result, "canonical_user_memory_selection_digest", None)
         if (not isinstance(observation_id, str) or not observation_id.startswith("devcog-")
                 or not isinstance(observation_digest, str) or not observation_digest.startswith("sha256:")
                 or not isinstance(receipt_id, str) or not receipt_id.startswith("lmrec-")
@@ -2175,6 +2558,36 @@ class PersistentConversationService:
                 or len(set(history_record_ids)) != len(history_record_ids)
                 or not set(history_record_ids).issubset(prior_record_ids)):
             raise RuntimeError("resident_cognition_history_lineage_invalid")
+        expected_memory_ids = ({row["memory_id"] for row in
+            canonical_memory_context.get("records", ())}
+            if canonical_memory_context is not None else set())
+        if (not isinstance(memory_record_ids, (tuple, list))
+                or any(not isinstance(item, str) for item in memory_record_ids)
+                or len(set(memory_record_ids)) != len(memory_record_ids)
+                or not set(memory_record_ids).issubset(expected_memory_ids)
+                or memory_selection_digest != (canonical_memory_context.get("selection_digest")
+                    if canonical_memory_context is not None else None)):
+            raise RuntimeError("resident_cognition_memory_lineage_invalid")
+        if (not isinstance(self_model_claim_ids, (tuple, list))
+                or any(not isinstance(item, str) for item in self_model_claim_ids)
+                or len(set(self_model_claim_ids)) != len(self_model_claim_ids)):
+            raise RuntimeError("resident_cognition_self_model_lineage_invalid")
+        if (not isinstance(epistemic_state_citation_ids, (tuple, list))
+                or len(epistemic_state_citation_ids) > 16
+                or any(not isinstance(item, str) or not item
+                    for item in epistemic_state_citation_ids)
+                or len(set(epistemic_state_citation_ids))
+                    != len(epistemic_state_citation_ids)):
+            raise RuntimeError("resident_cognition_epistemic_lineage_invalid")
+        conversation_turn_map = ({row["turn_id"]: row["text_digest"] for row in
+            conversation_context["turns"]} if conversation_context is not None else {})
+        if (not isinstance(conversation_citation_ids, (tuple, list))
+                or any(not isinstance(item, str) for item in conversation_citation_ids)
+                or len(set(conversation_citation_ids)) != len(conversation_citation_ids)
+                or not set(conversation_citation_ids).issubset(conversation_turn_map)):
+            raise RuntimeError("resident_cognition_conversation_lineage_invalid")
+        conversation_citation_digests = [conversation_turn_map[item]
+            for item in conversation_citation_ids]
         lineage = {
             "status": "resident_cognition_interaction",
             "cognition_observation_id": observation_id,
@@ -2200,6 +2613,23 @@ class PersistentConversationService:
                 "cognition_evidence_ids": list(evidence_ids),
                 "cognition_prior_record_ids": list(prior_record_ids),
                 "cognition_history_record_ids": list(history_record_ids),
+                "cognition_memory_citation_ids": list(memory_record_ids),
+                "cognition_self_model_claim_ids": list(self_model_claim_ids),
+                "cognition_epistemic_state_citation_ids": list(
+                    epistemic_state_citation_ids),
+                "cognition_memory_selection_digest": memory_selection_digest,
+                "conversation_context_snapshot_digest": (
+                    conversation_context.get("source_snapshot_digest")
+                    if conversation_context is not None else None),
+                "conversation_context_selection_digest": (
+                    conversation_context.get("selection_digest")
+                    if conversation_context is not None else None),
+                "conversation_context_turn_ids": [row["turn_id"] for row in
+                    conversation_context["turns"]] if conversation_context is not None else [],
+                "conversation_context_turn_text_digests": [row["text_digest"] for row in
+                    conversation_context["turns"]] if conversation_context is not None else [],
+                "cognition_conversation_turn_citation_ids": list(conversation_citation_ids),
+                "cognition_conversation_turn_citation_digests": conversation_citation_digests,
                 "cognition_model_id": model_id,
                 "cognition_model_artifact_digest": getattr(result, "model_artifact_digest", None),
                 "self_model_projection_id": getattr(result, "self_model_projection_id", None),
@@ -2240,6 +2670,21 @@ class PersistentConversationService:
                 "cognition_evidence_ids": list(evidence_ids),
                 "cognition_prior_record_ids": list(prior_record_ids),
                 "cognition_history_record_ids": list(history_record_ids),
+                "cognition_memory_citation_ids": list(memory_record_ids),
+                "cognition_self_model_claim_ids": list(self_model_claim_ids),
+                "cognition_epistemic_state_citation_ids": list(
+                    epistemic_state_citation_ids),
+                "cognition_memory_selection_digest": memory_selection_digest,
+                "conversation_context_snapshot_digest": history.snapshot_digest,
+                "conversation_context_selection_digest": (
+                    conversation_context.get("selection_digest")
+                    if conversation_context is not None else None),
+                "conversation_context_turn_ids": [row["turn_id"] for row in
+                    conversation_context["turns"]] if conversation_context is not None else [],
+                "conversation_context_turn_text_digests": [row["text_digest"] for row in
+                    conversation_context["turns"]] if conversation_context is not None else [],
+                "cognition_conversation_turn_citation_ids": list(conversation_citation_ids),
+                "cognition_conversation_turn_citation_digests": conversation_citation_digests,
                 "cognition_model_id": model_id,
                 "self_model_projection_id": getattr(result, "self_model_projection_id", None),
                 "self_model_projection_digest": getattr(result, "self_model_projection_digest", None),
@@ -2584,6 +3029,9 @@ class PersistentConversationService:
                     "cognition_evidence_ids": linkage.get("cognition_evidence_ids", []),
                     "cognition_prior_record_ids": linkage.get("cognition_prior_record_ids", []),
                     "cognition_history_record_ids": linkage.get("cognition_history_record_ids", []),
+                    "cognition_memory_citation_ids": linkage.get("cognition_memory_citation_ids", []),
+                    "cognition_self_model_claim_ids": linkage.get(
+                        "cognition_self_model_claim_ids", []),
                     "cognition_model_id": linkage.get("cognition_model_id"),
                     "self_model_projection_id": linkage.get("self_model_projection_id"),
                     "self_model_projection_digest": linkage.get("self_model_projection_digest"),
@@ -2862,25 +3310,6 @@ class PersistentConversationService:
                     interrupt_speech(session["session_id"])
                 except Exception as exc:
                     LOGGER.warning("Local speech interruption failed: %s", type(exc).__name__)
-        bridge = self._resident_cognition_bridge
-        should_route_to_cognition = (bridge is not None and not retain)
-        can_handle = getattr(bridge, "can_handle", None)
-        if should_route_to_cognition and callable(can_handle):
-            try:
-                should_route_to_cognition = can_handle() is True
-            except Exception:
-                should_route_to_cognition = False
-        if should_route_to_cognition:
-            try:
-                return self._complete_resident_cognition_response(
-                    session_id=session["session_id"], user_turn=user_turn,
-                    question=message, screen_observation=screen_observation,
-                    on_content_chunk=on_content_chunk)
-            except (CognitionEvidenceUnavailable, CognitionWorkloadUnavailable):
-                # Keep ordinary chat available without current evidence, or if
-                # a game becomes active after the readiness check.
-                pass
-
         prior_assistant = next((turn for turn in reversed(session.get("turns", ()))
             if turn.get("role") == "assistant"
             and isinstance(turn.get("linkage"), Mapping)
@@ -3046,6 +3475,25 @@ class PersistentConversationService:
             max_turns=history_turn_limit, oldest_first=earliest_session_recall,
             relevance_query=history_relevance_query,
             prefer_recent_relevant=prefer_recent_relevant)
+        bridge = self._resident_cognition_bridge
+        should_route_to_cognition = (bridge is not None and not retain)
+        can_handle = getattr(bridge, "can_handle", None)
+        if should_route_to_cognition and callable(can_handle):
+            try:
+                should_route_to_cognition = can_handle() is True
+            except Exception:
+                should_route_to_cognition = False
+        if should_route_to_cognition:
+            try:
+                return self._complete_resident_cognition_response(
+                    session_id=session["session_id"], user_turn=user_turn,
+                    question=message, history=history,
+                    screen_observation=screen_observation,
+                    on_content_chunk=on_content_chunk)
+            except (CognitionEvidenceUnavailable, CognitionWorkloadUnavailable):
+                # Keep ordinary chat available without current evidence, or if
+                # a game becomes active after the readiness check.
+                pass
         # Exact recall, casual check-ins, and live runtime questions rely on the
         # relevant transcript or verified runtime facts. Lexical retrieval can
         # over-weight old prompts (for example, prior screen-visibility questions).

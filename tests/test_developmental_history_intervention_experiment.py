@@ -136,6 +136,13 @@ def test_stable_difference_and_no_difference_are_bounded_descriptions() -> None:
         semantic.pop("observation_id"); semantic.pop("observation_digest")
         semantic.pop("developmental_history_selection")
         semantic.pop("companion_history_citation_ids")
+        semantic.pop("companion_epistemic_state_citation_ids")
+        for field in ("canonical_user_memory_source_snapshot_digest",
+                "canonical_user_memory_selection_digest",
+                "canonical_user_memory_record_ids",
+                "canonical_user_memory_record_digests",
+                "companion_memory_citation_ids"):
+            semantic.pop(field)
         for field in ("resource_allocation_digest", "resource_attempt_id",
                 "resource_consumption_receipt_digests", "resource_linkage_digest"):
             semantic.pop(field)
@@ -484,7 +491,7 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
         "current_projection_digest": "sha256:projection",
         "prior_self_model_digest": "sha256:self-model",
         "prior_epistemic_state_digest": "sha256:epistemic",
-        "response_contract": "sentientos.companion_history_intervention_decision:v1",
+        "response_contract": "sentientos.companion_history_intervention_decision:v2",
         "condition_group": "tick-1:retrieval-comparison",
         "invocation_purpose": "resident_developmental_history_intervention_experiment",
         "expected_output_format": "json",

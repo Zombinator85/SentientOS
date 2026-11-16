@@ -18,7 +18,14 @@ from .persistent_epistemic_state import (
     make_epistemic_update_candidate, make_evidence_binding,
 )
 from .runtime_admission import AdmissionError, AdmissionEvidence, RuntimeAdmissionVerifier
-from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
+from .windows_handle_custody import (
+    WindowsHandleCustodyError, ensure_private_child_directory,
+    observe_private_directory_identity, read_regular_files,
+    verify_explicit_directory,
+)
+from .windows_peer_replay_custody import (
+    WindowsReplayCustodyError, publish_immutable_replay_bytes,
+)
 from .private_file_custody import PrivateFileCustodyError, publish_immutable_bytes
 
 PRINCIPAL = "deterministic_resident_epistemic_state_controller"
@@ -99,6 +106,28 @@ class EpistemicStateMutationReceipt:
 
 
 class ResidentEpistemicStateMutationController:
+    @staticmethod
+    def prepare_windows_private_custody(receipt_root: str | Path) -> Path:
+        """Initialize receipt and intent folders beneath a private state root.
+
+        Runtime startup calls this explicitly after epistemic development is
+        enabled. Controller construction itself stays non-mutating on Windows.
+        """
+        if os.name != "nt":
+            raise EpistemicMutationError(
+                "windows_mutation_custody_platform_unsupported")
+        root = Path(receipt_root)
+        try:
+            root = ensure_private_child_directory(root.parent, root.name)
+            receipts = ensure_private_child_directory(root, "receipts")
+            ensure_private_child_directory(receipts, "evidence")
+            ensure_private_child_directory(receipts, "state")
+            ensure_private_child_directory(root, "operations")
+            return root
+        except WindowsHandleCustodyError as exc:
+            raise EpistemicMutationError(
+                "mutation_custody_initialization_failed") from exc
+
     def __init__(self, *, owner: PersistentEpistemicStateOwner,
                  admission_verifier: RuntimeAdmissionVerifier,
                  current_sequence: Callable[[], int], receipt_root: str | Path) -> None:
@@ -114,6 +143,11 @@ class ResidentEpistemicStateMutationController:
         if receipt_root_stat is not None and (
                 stat.S_ISLNK(receipt_root_stat.st_mode) or not stat.S_ISDIR(receipt_root_stat.st_mode)):
             raise EpistemicMutationError("receipt_root_invalid")
+        if os.name == "nt" and receipt_root_stat is not None:
+            try:
+                verify_explicit_directory(self.receipt_root, require_private_acl=True)
+            except WindowsHandleCustodyError as exc:
+                raise EpistemicMutationError("receipt_root_invalid") from exc
         for stage in ("evidence", "state"):
             path = self.receipt_root / "receipts" / stage
             if os.name == "nt":
@@ -125,6 +159,10 @@ class ResidentEpistemicStateMutationController:
                     raise EpistemicMutationError("receipt_path_unavailable") from exc
                 if stat.S_ISLNK(stage_stat.st_mode) or not stat.S_ISDIR(stage_stat.st_mode):
                     raise EpistemicMutationError("receipt_path_invalid")
+                try:
+                    verify_explicit_directory(path, require_private_acl=True)
+                except WindowsHandleCustodyError as exc:
+                    raise EpistemicMutationError("receipt_path_invalid") from exc
             else:
                 path.mkdir(parents=True, exist_ok=True)
                 if path.is_symlink() or not path.is_dir():
@@ -138,6 +176,11 @@ class ResidentEpistemicStateMutationController:
             self.intent_root.mkdir(parents=True, exist_ok=True)
         if self.intent_root.exists() and (self.intent_root.is_symlink() or not self.intent_root.is_dir()):
             raise EpistemicMutationError("mutation_intent_root_invalid")
+        if os.name == "nt" and self.intent_root.exists():
+            try:
+                verify_explicit_directory(self.intent_root, require_private_acl=True)
+            except WindowsHandleCustodyError as exc:
+                raise EpistemicMutationError("mutation_intent_root_invalid") from exc
         self.verify_receipts()
 
     @staticmethod
@@ -190,7 +233,8 @@ class ResidentEpistemicStateMutationController:
             raise EpistemicMutationError(f"runtime_admission_rejected:{exc}") from exc
 
     def _write_receipt(self, stage: str, receipt: ReceiptT) -> ReceiptT:
-        path = self.receipt_root / "receipts" / stage / f"{receipt.receipt_id}.json"
+        receipt_filename = receipt.receipt_id.replace(":", "-") if os.name == "nt" else receipt.receipt_id
+        path = self.receipt_root / "receipts" / stage / f"{receipt_filename}.json"
         raw = canonical_bytes(asdict(receipt)) + b"\n"
         self._publish_immutable(path, raw, collision="immutable_receipt_collision")
         return receipt
@@ -228,10 +272,30 @@ class ResidentEpistemicStateMutationController:
 
     @staticmethod
     def _publish_immutable(path: Path, raw: bytes, *, collision: str) -> bool:
-        if os.name != "posix":
-            raise EpistemicMutationError("mutation_custody_publication_unsupported_platform")
         if len(raw) > MAX_MUTATION_CUSTODY_FILE_BYTES:
             raise EpistemicMutationError("mutation_custody_file_unbounded")
+        if os.name == "nt":
+            try:
+                root_identity = observe_private_directory_identity(path.parent)
+                policy = ("epistemic_mutation_intent"
+                    if path.parent.name == "operations" else
+                    "epistemic_mutation_receipt"
+                    if path.parent.parent.name == "receipts"
+                        and path.parent.name in {"evidence", "state"} else None)
+                if policy is None:
+                    raise EpistemicMutationError("mutation_custody_publication_root_invalid")
+                return publish_immutable_replay_bytes(path, raw,
+                    max_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES, max_entries=8192,
+                    expected_root_identity=root_identity, filename_policy=policy)
+            except WindowsHandleCustodyError as exc:
+                raise EpistemicMutationError("mutation_custody_parent_invalid") from exc
+            except WindowsReplayCustodyError as exc:
+                if str(exc) == "replay_owner_record_conflict":
+                    raise EpistemicMutationError(collision) from exc
+                raise EpistemicMutationError(
+                    "mutation_custody_publication_failed") from exc
+        if os.name != "posix":
+            raise EpistemicMutationError("mutation_custody_publication_unsupported_platform")
         try:
             return publish_immutable_bytes(path, raw,
                 max_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
@@ -287,9 +351,10 @@ class ResidentEpistemicStateMutationController:
         pending_evidence_intents = 0
         pending_state_intents = 0
         validated_mutation_state_digests: set[str] = set()
-        # lstat is read-only on both platforms and distinguishes a truly
-        # absent root from a dangling symlink. Windows still uses only its
-        # bounded handle reader below; it never repairs custody here.
+        # lstat distinguishes a truly absent root from a dangling symlink.
+        # Windows reads intents and receipts through bounded private handles;
+        # it may reconstruct a receipt only after verifying its exact intent,
+        # admission, and committed state. It never replays a mutation.
         try:
             root_stat = self.intent_root.lstat()
         except FileNotFoundError:
@@ -314,7 +379,8 @@ class ResidentEpistemicStateMutationController:
                 entries = read_regular_files(self.intent_root,
                     max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
                     max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
-                    max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES)
+                    max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES,
+                    require_private_acl=True)
             else:
                 if self.intent_root.is_symlink() or not self.intent_root.is_dir():
                     raise EpistemicMutationError("mutation_intent_root_invalid")
@@ -496,7 +562,9 @@ class ResidentEpistemicStateMutationController:
                 receipt_stage = "state"
             else:
                 raise EpistemicMutationError("mutation_receipt_recovery_type_invalid")
-            name = f"{receipt.receipt_id}.json"
+            receipt_filename = (receipt.receipt_id.replace(":", "-")
+                if os.name == "nt" else receipt.receipt_id)
+            name = f"{receipt_filename}.json"
             receipt_bytes = canonical_bytes(asdict(receipt)) + b"\n"
             previous = expected_receipts[receipt_stage].get(name)
             if previous is not None and previous != receipt_bytes:
@@ -524,7 +592,8 @@ class ResidentEpistemicStateMutationController:
                         receipt_entries = read_regular_files(directory,
                             max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
                             max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
-                            max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES)
+                            max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES,
+                            require_private_acl=True)
                     except WindowsHandleCustodyError as exc:
                         raise EpistemicMutationError("mutation_receipt_windows_recovery_failed") from exc
             else:
@@ -547,24 +616,7 @@ class ResidentEpistemicStateMutationController:
                 receipt_stage = "state"
             else:
                 raise EpistemicMutationError("mutation_receipt_recovery_type_invalid")
-            if os.name == "nt":
-                # Windows recovery is deliberately read-only. Accept only an
-                # already published byte-identical receipt; never repair custody
-                # by writing from this inspection path.
-                directory = self.receipt_root / "receipts" / receipt_stage
-                try:
-                    published = dict(read_regular_files(directory,
-                        max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
-                        max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
-                        max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES))
-                except WindowsHandleCustodyError as exc:
-                    raise EpistemicMutationError("mutation_receipt_windows_recovery_failed") from exc
-                name = f"{receipt.receipt_id}.json"
-                expected = canonical_bytes(asdict(receipt)) + b"\n"
-                if published.get(name) != expected:
-                    raise EpistemicMutationError("mutation_receipt_recovery_publication_unsupported")
-            else:
-                self._write_receipt(receipt_stage, receipt)
+            self._write_receipt(receipt_stage, receipt)
         published_mutation_state_digests = self.owner._published_mutation_bound_state_digests
         if published_mutation_state_digests != validated_mutation_state_digests:
             raise EpistemicMutationError("mutation_lineage_intent_missing_or_unverified")
@@ -601,7 +653,8 @@ class ResidentEpistemicStateMutationController:
                     try:
                         entries = read_regular_files(directory, max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
                             max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
-                            max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES)
+                            max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES,
+                            require_private_acl=True)
                     except WindowsHandleCustodyError as exc:
                         raise EpistemicMutationError("mutation_receipt_windows_recovery_failed") from exc
             else:
@@ -628,7 +681,7 @@ class ResidentEpistemicStateMutationController:
                         or receipt.principal != PRINCIPAL
                         or receipt.stage != ("evidence_binding_append" if stage == "evidence"
                                              else "epistemic_state_update")
-                        or receipt_name != rid + ".json"):
+                        or receipt_name != (rid.replace(":", "-") if os.name == "nt" else rid) + ".json"):
                     raise EpistemicMutationError("mutation_receipt_identity_mismatch")
         return self.recovery_status
 
@@ -712,12 +765,27 @@ class ResidentEpistemicStateMutationController:
         if any(item not in known or known[item].withdrawn for item in candidate.evidence_binding_ids):
             raise EpistemicMutationError("candidate_evidence_missing_foreign_or_withdrawn")
         # A binding receipt is evidence of append only; its admission may never authorize this stage.
-        evidence_receipt_paths = sorted((self.receipt_root / "receipts" / "evidence").glob("*.json"))
-        if len(evidence_receipt_paths) > MAX_MUTATION_CUSTODY_ENTRIES:
-            raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
+        evidence_receipt_directory = self.receipt_root / "receipts" / "evidence"
+        evidence_receipt_entries: list[tuple[str, bytes | None]]
+        if os.name == "nt":
+            try:
+                evidence_receipt_entries = list(read_regular_files(
+                    evidence_receipt_directory,
+                    max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
+                    max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
+                    max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES,
+                    require_private_acl=True))
+            except WindowsHandleCustodyError as exc:
+                raise EpistemicMutationError(
+                    "mutation_receipt_windows_recovery_failed") from exc
+        else:
+            evidence_receipt_paths = sorted(evidence_receipt_directory.glob("*.json"))
+            if len(evidence_receipt_paths) > MAX_MUTATION_CUSTODY_ENTRIES:
+                raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
+            evidence_receipt_entries = [(path.name, self._read_bounded(path))
+                for path in evidence_receipt_paths]
         used_evidence_admissions: set[str] = set()
-        for path in evidence_receipt_paths:
-            raw_bytes = self._read_bounded(path)
+        for receipt_name, raw_bytes in evidence_receipt_entries:
             try:
                 raw_receipt = json.loads((raw_bytes or b"").decode("utf-8"))
                 if canonical_bytes(raw_receipt) + b"\n" != raw_bytes:
@@ -726,8 +794,11 @@ class ResidentEpistemicStateMutationController:
             except (UnicodeError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 raise EpistemicMutationError("mutation_receipt_corrupt") from exc
             stored_id, stored_digest = _identity("epistemic-mutation-receipt", stored_receipt.payload())
+            expected_receipt_name = ((stored_id.replace(":", "-")
+                if os.name == "nt" else stored_id) + ".json")
             if ((stored_receipt.receipt_id, stored_receipt.receipt_digest) != (stored_id, stored_digest)
-                    or path.name != stored_id + ".json" or stored_receipt.stage != "evidence_binding_append"
+                    or receipt_name != expected_receipt_name
+                    or stored_receipt.stage != "evidence_binding_append"
                     or stored_receipt.principal != PRINCIPAL or stored_receipt.authority is not False
                     or not stored_receipt.storage_verified):
                 raise EpistemicMutationError("mutation_receipt_identity_mismatch")

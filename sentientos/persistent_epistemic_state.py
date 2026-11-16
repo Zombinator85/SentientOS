@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import stat
 from datetime import datetime
 from contextlib import contextmanager
@@ -19,7 +20,14 @@ from .private_file_custody import (
     PrivateFileCustodyError, list_bounded_json_names_at, open_private_directory,
     publish_immutable_bytes, read_private_file_at,
 )
-from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
+from .windows_handle_custody import (
+    WindowsHandleCustodyError, ensure_private_child_directory,
+    observe_private_directory_identity,
+    read_regular_files,
+)
+from .windows_peer_replay_custody import (
+    WindowsReplayCustodyError, publish_immutable_replay_bytes,
+)
 
 PROPOSITION_SCHEMA = "sentientos.epistemic_proposition:v1"
 BINDING_SCHEMA = "sentientos.epistemic_evidence_binding:v1"
@@ -47,6 +55,90 @@ MAX_EPISTEMIC_RECORD_BYTES = 1_048_576
 MAX_EPISTEMIC_RECORDS_PER_COLLECTION = 65_536
 MAX_EPISTEMIC_COLLECTION_BYTES = 67_108_864
 MAX_EPISTEMIC_COGNITIVE_PROJECTION_BYTES = 4_194_304
+_EPISTEMIC_QUERY_STOP_WORDS = frozenset((
+    "a", "an", "and", "are", "as", "at", "be", "by", "did", "do", "does",
+    "for", "from", "how", "in", "is", "it", "of", "on", "or", "the", "to",
+    "was", "what", "which", "who", "with",
+))
+
+
+def _epistemic_query_terms(text: str) -> set[str]:
+    terms: set[str] = set()
+    # Underscores delimit machine-authored predicate names such as
+    # ``reports_temperature``; treat their components as natural-language terms.
+    for token in re.findall(r"[A-Za-z0-9]{3,}", text.casefold()):
+        if token in _EPISTEMIC_QUERY_STOP_WORDS:
+            continue
+        if len(token) > 4 and token.endswith("ies"):
+            token = token[:-3] + "y"
+        elif len(token) > 4 and token.endswith(("ches", "shes", "sses", "xes", "zes")):
+            token = token[:-2]
+        elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+            token = token[:-1]
+        terms.add(token)
+    return terms
+
+
+def _question_relevant_proposition_ids(propositions: Mapping[str, Any], *,
+        query: str | None, limit: int) -> tuple[str, ...]:
+    """Rank proposition identities by lexical overlap with a bounded user question."""
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit < 0:
+        raise EpistemicStateError("epistemic_projection_query_bound_invalid")
+    query_terms = _epistemic_query_terms(query) if isinstance(query, str) else set()
+    if not query_terms:
+        return ()
+    ranked: list[tuple[int, str]] = []
+    weighted_fields = (
+        ("subject", 3), ("predicate", 3), ("object_value", 2),
+        ("qualifiers", 2), ("temporal_scope", 2),
+        ("context_scope", 2), ("statement", 1),
+    )
+    for proposition_id, proposition in propositions.items():
+        if not isinstance(proposition, EpistemicProposition):
+            continue
+        term_weights: dict[str, int] = {}
+        for field, weight in weighted_fields:
+            field_terms = query_terms & _epistemic_query_terms(json.dumps(
+                getattr(proposition, field), sort_keys=True,
+                separators=(",", ":"), ensure_ascii=False))
+            for term in field_terms:
+                term_weights[term] = max(term_weights.get(term, 0), weight)
+        relevance = sum(term_weights.values())
+        if relevance:
+            ranked.append((relevance, proposition_id))
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    return tuple(proposition_id for _, proposition_id in ranked[:limit])
+
+
+def _projection_priority_ids(propositions: Mapping[str, Any], *,
+        available_proposition_ids: set[str],
+        prioritized_proposition_ids: Sequence[str], query: str | None,
+        cited_proposition_ids: Sequence[str] = (),
+        limit: int) -> tuple[str, ...]:
+    """Order goals, direct query matches, cited context, then stable fill."""
+    active_explicit = tuple(item for item in prioritized_proposition_ids
+        if item in available_proposition_ids)
+    eligible_propositions = {proposition_id: proposition
+        for proposition_id, proposition in propositions.items()
+        if proposition_id in available_proposition_ids}
+    remaining_slots = max(0, limit - len(active_explicit))
+    active_query = _question_relevant_proposition_ids(eligible_propositions,
+        query=query, limit=remaining_slots)
+    preceding = active_explicit + tuple(item for item in active_query
+        if item not in active_explicit)
+    remaining_slots = max(0, limit - len(preceding))
+    active_cited = tuple(item for item in cited_proposition_ids
+        if item in available_proposition_ids and item not in preceding)[:remaining_slots]
+    return preceding + active_cited
+
+
+def _proposition_priorities_from_state_citations(
+        states: Sequence[EpistemicState], prioritized_state_ids: Sequence[str]
+        ) -> tuple[str, ...]:
+    """Resolve cited generations to unique proposition lineages in citation order."""
+    proposition_by_state_id = {state.state_id: state.proposition_id for state in states}
+    return tuple(dict.fromkeys(proposition_by_state_id[state_id]
+        for state_id in prioritized_state_ids if state_id in proposition_by_state_id))
 
 
 class EpistemicStateError(ValueError):
@@ -379,8 +471,14 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                 isinstance(omission_manifest, Mapping)
                 and omission_manifest.get("schema_version") ==
                     "sentientos.epistemic_projection_omission_manifest:v2"
-                and omission_manifest.get("selection_policy") ==
-                    "goal_tagged_prior_state_then_proposition_id_ascending"
+                and omission_manifest.get("selection_policy") in {
+                    "goal_tagged_prior_state_then_proposition_id_ascending",
+                    "question_relevance_then_proposition_id_ascending",
+                    "explicit_priority_then_question_relevance_then_proposition_id_ascending",
+                    "cited_proposition_then_proposition_id_ascending",
+                    "question_relevance_then_cited_proposition_then_proposition_id_ascending",
+                    "explicit_priority_then_cited_proposition_then_proposition_id_ascending",
+                    "explicit_priority_then_question_relevance_then_cited_proposition_then_proposition_id_ascending"}
                 and isinstance(raw_priority_ids, (list, tuple))
                 and len(raw_priority_ids) <= MAX_COGNITIVE_PROJECTION_PRIORITIES
                 and all(_valid_identity(item, "proposition") for item in raw_priority_ids)
@@ -670,11 +768,23 @@ class EpistemicCalibrationEvent:
 
 
 def _write_new(path: Path, value: Mapping[str, Any]) -> None:
-    if os.name == "nt":
-        raise EpistemicStateError("epistemic_publication_unsupported_platform")
     data = canonical_bytes(value) + b"\n"
     if len(data) > MAX_EPISTEMIC_RECORD_BYTES:
         raise EpistemicStateError("epistemic_record_size_limit_exceeded")
+    if os.name == "nt":
+        try:
+            root_identity = observe_private_directory_identity(path.parent)
+            publish_immutable_replay_bytes(path, data,
+                max_bytes=MAX_EPISTEMIC_RECORD_BYTES, max_entries=8192,
+                expected_root_identity=root_identity,
+                filename_policy="epistemic_" + path.parent.name)
+            return
+        except WindowsHandleCustodyError as exc:
+            raise EpistemicStateError("epistemic_custody_root_invalid") from exc
+        except WindowsReplayCustodyError as exc:
+            if str(exc) == "replay_owner_record_conflict":
+                raise EpistemicStateError("immutable_record_collision") from exc
+            raise EpistemicStateError("epistemic_publication_failed") from exc
     try:
         publish_immutable_bytes(
             path, data, max_bytes=MAX_EPISTEMIC_RECORD_BYTES,
@@ -694,7 +804,8 @@ def _read_record_bytes(path: Path) -> bytes:
         try:
             entries = read_regular_files(path.parent,
                 max_entries=1, max_file_bytes=MAX_EPISTEMIC_RECORD_BYTES,
-                max_total_bytes=MAX_EPISTEMIC_RECORD_BYTES, selected_names=(path.name,))
+                max_total_bytes=MAX_EPISTEMIC_RECORD_BYTES, selected_names=(path.name,),
+                require_private_acl=True)
         except WindowsHandleCustodyError as exc:
             raise EpistemicStateError("epistemic_record_windows_recovery_failed") from exc
         if len(entries) != 1 or entries[0][0] != path.name:
@@ -727,9 +838,17 @@ class PersistentEpistemicStateOwner:
         if not self.allowed_namespaces: raise EpistemicStateError("allowed_namespaces_required")
         if self.root.is_symlink(): raise EpistemicStateError("epistemic_custody_root_invalid")
         if os.name == "nt":
-            # Existing records remain reconstructable through held Windows
-            # handles. Do not manufacture empty custody directories or permit
-            # publication until a matching atomic Windows writer exists.
+            try:
+                try:
+                    self.root.lstat()
+                except FileNotFoundError:
+                    pass
+                self.root = ensure_private_child_directory(
+                    self.root.parent, self.root.name)
+                for part in RECORD_COLLECTIONS:
+                    ensure_private_child_directory(self.root, part)
+            except (WindowsHandleCustodyError, OSError) as exc:
+                raise EpistemicStateError("epistemic_custody_root_invalid") from exc
             self.verify()
             return
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -794,7 +913,16 @@ class PersistentEpistemicStateOwner:
             expected = f"{identity.split(':', 1)[1]}.json"
         else:
             return False
-        return filename == expected
+        # Windows forbids ':' in file names. Its writer substitutes '-' for
+        # identity separators; both spellings remain verifiable across hosts.
+        return filename in {expected, expected.replace(":", "-")}
+
+    def _record_path(self, kind: str, filename: str) -> Path:
+        if kind not in RECORD_COLLECTIONS:
+            raise EpistemicStateError("epistemic_collection_invalid")
+        if os.name == "nt":
+            filename = filename.replace(":", "-")
+        return self.root / kind / filename
 
     def _collection_bytes(self, kind: str) -> tuple[tuple[str, bytes], ...]:
         if kind not in RECORD_COLLECTIONS or self.root.is_symlink():
@@ -813,7 +941,8 @@ class PersistentEpistemicStateOwner:
                 return tuple(read_regular_files(directory,
                     max_entries=MAX_EPISTEMIC_RECORDS_PER_COLLECTION,
                     max_file_bytes=MAX_EPISTEMIC_RECORD_BYTES,
-                    max_total_bytes=MAX_EPISTEMIC_COLLECTION_BYTES))
+                    max_total_bytes=MAX_EPISTEMIC_COLLECTION_BYTES,
+                    require_private_acl=True))
             except WindowsHandleCustodyError as exc:
                 raise EpistemicStateError("epistemic_collection_windows_recovery_failed") from exc
 
@@ -929,41 +1058,28 @@ class PersistentEpistemicStateOwner:
             prepared.append((state, event))
         for state, event in sorted(prepared, key=lambda pair: (
                 pair[0].proposition_id, pair[0].generation, pair[0].state_id)):
-            state_path = self.root / "states" / f"{state.generation:012d}-{state.state_id}.json"
-            event_path = self.root / "updates" / f"{event.generation:012d}-{event.event_id}.json"
-            if os.name == "posix":
-                if state.state_digest in admission_bound_state_digests:
-                    # Admission-bound transactions are not storage-only repair
-                    # intents. Leave a missing pair incomplete for the mutation
-                    # controller to classify; never publish state before it
-                    # authenticates the separately held admission intent.
-                    try:
-                        existing_state = _read_record_bytes(state_path)
-                        existing_event = _read_record_bytes(event_path)
-                    except FileNotFoundError:
-                        incomplete_admission_bound += 1
-                        continue
-                    if (existing_state != canonical_bytes(asdict(state)) + b"\n"
-                            or existing_event != canonical_bytes(asdict(event)) + b"\n"):
-                        raise EpistemicStateError("epistemic_transaction_record_conflict")
-                    published_mutation_bound_state_digests.add(state.state_digest)
-                    continue
-                _write_new(state_path, asdict(state))
-                _write_new(event_path, asdict(event))
-                continue
-            # Windows remains read-only for epistemic mutation. It can inspect
-            # a completely published pair, but cannot synthesize a missing
-            # member without the equivalent atomic publisher.
-            try:
-                existing_state = _read_record_bytes(state_path)
-                existing_event = _read_record_bytes(event_path)
-            except FileNotFoundError as exc:
-                raise EpistemicStateError("epistemic_transaction_recovery_unsupported_platform") from exc
-            if (existing_state != canonical_bytes(asdict(state)) + b"\n"
-                    or existing_event != canonical_bytes(asdict(event)) + b"\n"):
-                raise EpistemicStateError("epistemic_transaction_record_conflict")
+            state_path = self._record_path(
+                "states", f"{state.generation:012d}-{state.state_id}.json")
+            event_path = self._record_path(
+                "updates", f"{event.generation:012d}-{event.event_id}.json")
             if state.state_digest in admission_bound_state_digests:
+                # Admission-bound transactions are not storage-only repair
+                # intents. Leave a missing pair incomplete for the mutation
+                # controller to classify; never publish state before it
+                # authenticates the separately held admission intent.
+                try:
+                    existing_state = _read_record_bytes(state_path)
+                    existing_event = _read_record_bytes(event_path)
+                except FileNotFoundError:
+                    incomplete_admission_bound += 1
+                    continue
+                if (existing_state != canonical_bytes(asdict(state)) + b"\n"
+                        or existing_event != canonical_bytes(asdict(event)) + b"\n"):
+                    raise EpistemicStateError("epistemic_transaction_record_conflict")
                 published_mutation_bound_state_digests.add(state.state_digest)
+                continue
+            _write_new(state_path, asdict(state))
+            _write_new(event_path, asdict(event))
         self._published_mutation_bound_state_digests = published_mutation_bound_state_digests
         self._verified_mutation_bound_state_digests.intersection_update(
             published_mutation_bound_state_digests)
@@ -974,17 +1090,19 @@ class PersistentEpistemicStateOwner:
         expected = make_proposition(**{k:v for k,v in asdict(proposition).items() if k not in {"proposition_id","proposition_digest","schema_version"}})
         if expected != proposition: raise EpistemicStateError("proposition_identity_mismatch")
         if proposition.namespace not in self.allowed_namespaces: raise EpistemicStateError("proposition_namespace_not_allowed")
-        _write_new(self.root / "propositions" / f"{proposition.proposition_id}.json", asdict(proposition))
+        _write_new(self._record_path("propositions",
+            f"{proposition.proposition_id}.json"), asdict(proposition))
 
     def add_relation(self, relation: PropositionRelation) -> None:
         if relation.relation not in RELATIONS or relation.source_proposition_id == relation.target_proposition_id: raise EpistemicStateError("proposition_relation_invalid")
         self.proposition(relation.source_proposition_id); self.proposition(relation.target_proposition_id)
-        _write_new(self.root / "relations" / f"{digest(asdict(relation))[7:]}.json", asdict(relation))
+        _write_new(self._record_path("relations",
+            f"{digest(asdict(relation))[7:]}.json"), asdict(relation))
 
     def proposition(self, proposition_id: str) -> EpistemicProposition:
         if not _valid_identity(proposition_id, "proposition"):
             raise EpistemicStateError("proposition_identity_invalid")
-        path=self.root/"propositions"/f"{proposition_id}.json"
+        path=self._record_path("propositions", f"{proposition_id}.json")
         try:
             raw = json.loads(_read_record_bytes(path).decode("utf-8"))
         except FileNotFoundError as exc:
@@ -1010,7 +1128,8 @@ class PersistentEpistemicStateOwner:
             if predecessor is None: raise EpistemicStateError("evidence_upstream_not_found")
             if predecessor.get("proposition_id") != binding.proposition_id:
                 raise EpistemicStateError("evidence_upstream_proposition_mismatch")
-        _write_new(self.root/"bindings"/f"{binding.binding_id}.json", asdict(binding))
+        _write_new(self._record_path("bindings",
+            f"{binding.binding_id}.json"), asdict(binding))
 
     def bindings(self, proposition_id: str) -> tuple[EvidenceBinding, ...]:
         return tuple(EvidenceBinding(**{**v, "upstream_binding_ids": tuple(v["upstream_binding_ids"])})
@@ -1022,9 +1141,74 @@ class PersistentEpistemicStateOwner:
                 for v in self._read("states") if v["proposition_id"] == proposition_id]
         return max(states, key=lambda x:x.generation) if states else None
 
+    def proposition_priorities_for_state_ids(
+            self, state_ids: Sequence[str]) -> tuple[str, ...]:
+        """Resolve cited state generations to allowed proposition lineages."""
+        if (not isinstance(state_ids, Sequence) or isinstance(state_ids, (str, bytes))
+                or len(state_ids) > 64
+                or any(not _valid_identity(item, "epistemic-state") for item in state_ids)
+                or len(state_ids) != len(set(state_ids))):
+            raise EpistemicStateError("epistemic_projection_state_priority_invalid")
+        self.verify()
+        proposition_by_state_id = {str(row["state_id"]): str(row["proposition_id"])
+            for row in self._read("states")}
+        allowed_propositions = {str(row["proposition_id"])
+            for row in self._read("propositions")
+            if row.get("namespace") in self.allowed_namespaces}
+        return tuple(dict.fromkeys(proposition_by_state_id[state_id]
+            for state_id in state_ids
+            if proposition_by_state_id.get(state_id) in allowed_propositions))
+
     @contextmanager
     def _mutation_lock(self) -> Iterator[None]:
         """Serialize state-generation compare-and-swap through private custody."""
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+
+            try:
+                root_identity = observe_private_directory_identity(self.root)
+            except WindowsHandleCustodyError as exc:
+                raise EpistemicStateError("epistemic_mutation_lock_unavailable") from exc
+            root_key = digest({"volume": root_identity[0],
+                "file_id": root_identity[1].hex()})[7:]
+            kernel = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+            create_mutex = kernel.CreateMutexW
+            create_mutex.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+            create_mutex.restype = wintypes.HANDLE
+            wait = kernel.WaitForSingleObject
+            wait.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            wait.restype = wintypes.DWORD
+            release = kernel.ReleaseMutex
+            release.argtypes = [wintypes.HANDLE]
+            release.restype = wintypes.BOOL
+            close = kernel.CloseHandle
+            close.argtypes = [wintypes.HANDLE]
+            close.restype = wintypes.BOOL
+            mutex = create_mutex(None, False,
+                "Local\\SentientOS-Epistemic-" + root_key)
+            if not mutex:
+                raise EpistemicStateError("epistemic_mutation_lock_unavailable")
+            acquired = False
+            try:
+                result = int(wait(mutex, 30_000))
+                if result not in {0, 0x80}:
+                    raise EpistemicStateError("epistemic_mutation_lock_unavailable")
+                acquired = True
+                try:
+                    if observe_private_directory_identity(self.root) != root_identity:
+                        raise EpistemicStateError("epistemic_mutation_lock_root_changed")
+                except WindowsHandleCustodyError as exc:
+                    raise EpistemicStateError(
+                        "epistemic_mutation_lock_unavailable") from exc
+                yield
+            finally:
+                if acquired and not release(mutex):
+                    close(mutex)
+                    raise EpistemicStateError("epistemic_mutation_lock_release_failed")
+                if not close(mutex):
+                    raise EpistemicStateError("epistemic_mutation_lock_close_failed")
+            return
         if os.name != "posix":
             raise EpistemicStateError("epistemic_mutation_unsupported_platform")
         directory_fd: int | None = None
@@ -1095,7 +1279,10 @@ class PersistentEpistemicStateOwner:
 
     def cognitive_projection(self, *, max_states: int,
                              current_tick: int | None = None,
-                             prioritized_proposition_ids: Sequence[str] = ()) -> EpistemicCognitiveProjection | None:
+                             prioritized_proposition_ids: Sequence[str] = (),
+                             prioritized_state_ids: Sequence[str] = (),
+                             relevance_query: str | None = None
+                             ) -> EpistemicCognitiveProjection | None:
         """Capture a verified, bounded prior projection without changing custody.
 
         The update files visible in the first inventory are the chronology boundary:
@@ -1118,7 +1305,18 @@ class PersistentEpistemicStateOwner:
                 or len(prioritized_proposition_ids) !=
                     len(set(prioritized_proposition_ids))):
             raise EpistemicStateError("epistemic_projection_priority_invalid")
+        if (not isinstance(prioritized_state_ids, Sequence)
+                or isinstance(prioritized_state_ids, (str, bytes))
+                or len(prioritized_state_ids) > MAX_COGNITIVE_PROJECTION_PRIORITIES
+                or any(not _valid_identity(item, "epistemic-state")
+                    for item in prioritized_state_ids)
+                or len(prioritized_state_ids) != len(set(prioritized_state_ids))):
+            raise EpistemicStateError("epistemic_projection_state_priority_invalid")
+        if (relevance_query is not None
+                and (not isinstance(relevance_query, str) or len(relevance_query) > 4000)):
+            raise EpistemicStateError("epistemic_projection_query_invalid")
         requested_priorities = tuple(prioritized_proposition_ids)
+        requested_state_priorities = tuple(prioritized_state_ids)
         self.verify()
         if (self._published_mutation_bound_state_digests
                 - self._verified_mutation_bound_state_digests):
@@ -1166,8 +1364,30 @@ class PersistentEpistemicStateOwner:
                 if all(event.tick < current_tick for event in
                     events_by_proposition.get(proposition_id, ()))}
         available_by_id = {item.proposition_id: item for item in latest.values()}
-        active_priorities = tuple(item for item in requested_priorities
+        # A verified citation names a historical state generation. Resolve its
+        # proposition lineage, then project only that proposition's latest
+        # eligible prior state so a correction supersedes the cited generation.
+        state_priorities = _proposition_priorities_from_state_citations(
+            states, requested_state_priorities)
+        active_priorities = _projection_priority_ids(proposition_by_id,
+            available_proposition_ids=set(available_by_id),
+            prioritized_proposition_ids=requested_priorities,
+            query=relevance_query,
+            cited_proposition_ids=state_priorities,
+            limit=min(max_states, MAX_COGNITIVE_PROJECTION_PRIORITIES))
+        active_explicit_priorities = tuple(item for item in requested_priorities
             if item in available_by_id)
+        active_query_candidates = _question_relevant_proposition_ids(
+            {proposition_id: proposition_by_id[proposition_id]
+                for proposition_id in available_by_id},
+            query=relevance_query,
+            limit=max(0, min(max_states, MAX_COGNITIVE_PROJECTION_PRIORITIES)
+                - len(active_explicit_priorities)))
+        active_query_priorities = tuple(item for item in active_query_candidates
+            if item in active_priorities and item not in active_explicit_priorities)
+        active_citation_priorities = tuple(item for item in state_priorities
+            if item in active_priorities and item not in active_explicit_priorities
+            and item not in active_query_priorities)
         ranked_ids = active_priorities + tuple(sorted(
             set(available_by_id) - set(active_priorities)))
         ranked_latest = tuple(available_by_id[item] for item in ranked_ids)
@@ -1206,8 +1426,21 @@ class PersistentEpistemicStateOwner:
                     if active_priorities else
                     "sentientos.epistemic_projection_omission_manifest:v1"),
                 "selection_policy": (
+                    "explicit_priority_then_question_relevance_then_cited_proposition_then_proposition_id_ascending"
+                    if active_explicit_priorities and active_query_priorities
+                        and active_citation_priorities else
+                    "question_relevance_then_cited_proposition_then_proposition_id_ascending"
+                    if active_query_priorities and active_citation_priorities else
+                    "explicit_priority_then_cited_proposition_then_proposition_id_ascending"
+                    if active_explicit_priorities and active_citation_priorities else
+                    "cited_proposition_then_proposition_id_ascending"
+                    if active_citation_priorities else
+                    "explicit_priority_then_question_relevance_then_proposition_id_ascending"
+                    if active_explicit_priorities and active_query_priorities else
+                    "question_relevance_then_proposition_id_ascending"
+                    if active_query_priorities else
                     "goal_tagged_prior_state_then_proposition_id_ascending"
-                    if active_priorities else
+                    if active_explicit_priorities else
                     "latest_prior_state_by_proposition_id_ascending"),
                 "selection_limit": max_states,
                 "available_prior_state_count": len(ranked_latest),
@@ -1355,9 +1588,11 @@ class PersistentEpistemicStateOwner:
         transaction = {**transaction_semantic, "transaction_id": transaction_id,
                        "transaction_digest": transaction_digest}
         transaction_filename = transaction_id.split(":", 1)[1] + ".json"
-        _write_new(self.root / "transactions" / transaction_filename, transaction)
-        _write_new(self.root/"states"/f"{generation:012d}-{sid}.json",asdict(state))
-        _write_new(self.root/"updates"/f"{generation:012d}-{eid}.json",asdict(event))
+        _write_new(self._record_path("transactions", transaction_filename), transaction)
+        _write_new(self._record_path(
+            "states", f"{generation:012d}-{sid}.json"), asdict(state))
+        _write_new(self._record_path(
+            "updates", f"{generation:012d}-{eid}.json"), asdict(event))
         return state,event
 
     def record_calibration(self, **kwargs: Any) -> EpistemicCalibrationEvent:
@@ -1371,7 +1606,7 @@ class PersistentEpistemicStateOwner:
         if not raw.source_binding_ids: raise EpistemicStateError("calibration_source_bindings_required")
         if set(raw.source_binding_ids)-set(bindings): raise EpistemicStateError("calibration_source_binding_missing_or_foreign")
         cid,dg=_identity("epistemic-calibration",raw.payload()); value=replace(raw,calibration_id=cid,calibration_digest=dg)
-        _write_new(self.root/"calibrations"/f"{cid}.json",asdict(value)); return value
+        _write_new(self._record_path("calibrations", f"{cid}.json"), asdict(value)); return value
 
     def verify(self) -> Mapping[str,int]:
         incomplete_admission_bound = self._recover_transactions()

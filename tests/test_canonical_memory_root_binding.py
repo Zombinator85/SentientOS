@@ -206,3 +206,73 @@ def test_filesystem_root_identity_survives_process_restart_and_rejects_replaceme
         receipt, source_turn, session_id)
     assert rejected["artifact_status"] == "conflict"
     assert rejected["reason_code"] == "target_root_filesystem_identity_changed"
+
+
+def test_memory_retrieval_prefers_newer_record_only_when_relevance_ties(
+        tmp_path: Path, monkeypatch) -> None:
+    store = CanonicalMemoryStore(tmp_path / "unused-memory")
+    records = [
+        {"id": "memory-older", "text": "My preference is concise replies.",
+            "timestamp": "2025-01-01T00:00:00Z"},
+        {"id": "memory-newer", "text": "My preference is detailed replies.",
+            "timestamp": "2026-01-01T00:00:00Z"},
+        {"id": "memory-middle", "text": "My preference is detailed replies.",
+            "timestamp": "2025-06-01T00:00:00Z"},
+    ]
+    monkeypatch.setattr(store, "_records", lambda: (records, "complete"))
+
+    selected = store.retrieve("preference replies", limit=3)["memories"]
+
+    assert [record["id"] for record in selected] == [
+        "memory-newer", "memory-middle", "memory-older"]
+    assert [record["id"] for record in store.retrieve(
+        "preference replies", limit=1)["memories"]] == ["memory-newer"]
+
+
+def test_distinctive_memory_anchor_beats_multiple_common_term_matches(
+        tmp_path: Path, monkeypatch) -> None:
+    store = CanonicalMemoryStore(tmp_path / "unused-memory")
+    records = [{"id": "memory-atlas", "text": "Atlas roadmap owner is Mira.",
+        "timestamp": "2020-01-01T00:00:00Z"}]
+    records.extend({"id": f"memory-generic-{index}",
+        "text": f"Project status update {index}: routine work continues.",
+        "timestamp": "2030-01-01T00:00:00Z"} for index in range(6))
+    monkeypatch.setattr(store, "_records", lambda: (records, "complete"))
+
+    selected = store.retrieve("Atlas project status", limit=1)["memories"]
+
+    assert [record["id"] for record in selected] == ["memory-atlas"]
+
+
+def test_invalid_memory_timestamp_never_wins_recency_tie(
+        tmp_path: Path, monkeypatch) -> None:
+    store = CanonicalMemoryStore(tmp_path / "unused-memory")
+    records = [
+        {"id": "memory-unknown-time", "text": "My preference is concise replies.",
+            "timestamp": "not-a-timestamp"},
+        {"id": "memory-known-time", "text": "My preference is detailed replies.",
+            "timestamp": "2026-01-01T00:00:00Z"},
+    ]
+    monkeypatch.setattr(store, "_records", lambda: (records, "complete"))
+
+    selected = store.retrieve("preference replies", limit=2)["memories"]
+
+    assert [record["id"] for record in selected] == [
+        "memory-known-time", "memory-unknown-time"]
+
+
+def test_indirect_answer_style_query_retrieves_both_conflicting_preferences(
+        tmp_path: Path, monkeypatch) -> None:
+    store = CanonicalMemoryStore(tmp_path / "unused-memory")
+    records = [
+        {"id": "memory-concise", "text": "Concise answers work best for me.",
+            "timestamp": "2025-01-01T00:00:00Z"},
+        {"id": "memory-detailed", "text": "Detailed answers work best for me.",
+            "timestamp": "2026-01-01T00:00:00Z"},
+    ]
+    monkeypatch.setattr(store, "_records", lambda: (records, "complete"))
+
+    selected = store.retrieve("What answer style suits me?", limit=4)["memories"]
+
+    assert [record["id"] for record in selected] == [
+        "memory-detailed", "memory-concise"]

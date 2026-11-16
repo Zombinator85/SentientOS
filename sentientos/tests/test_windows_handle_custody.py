@@ -18,12 +18,26 @@ from sentientos.windows_handle_custody import (
 )
 from sentientos import windows_handle_custody as windows_custody_module
 from sentientos import windows_peer_replay_custody as publication_module
+from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
+from sentientos.resident_developmental_cognition import (
+    ResidentDevelopmentalCognitionOwner, STATE_SCHEMA,
+)
+from sentientos.codex_task_authority_admission import TaskAuthorityDefinition
+from sentientos.runtime_admission import (
+    AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
+)
+from sentientos.resident_developmental_writeback import (
+    DevelopmentalHistoryStore, DevelopmentalRecord,
+    ResidentDevelopmentalWritebackController, WritebackReceipt,
+    _identity as writeback_identity,
+)
 from sentientos.federation.peer_authentication import FederationPeerEventVerificationError
 from sentientos.work_plan import (
     WORK_PLAN_EVIDENCE_DIR,
     WorkPlanError,
     _open_work_plan_evidence_directory,
 )
+from sentientos.world_state_board import WorldStateBoardBuilder
 from sentientos.federation import peer_replay_owner as replay_module
 from sentientos.federation.peer_authentication_ed25519 import (
     CryptographyEd25519FederationPeerSignatureVerifier,
@@ -482,10 +496,802 @@ def test_windows_replay_publication_create_retry_and_conflict(tmp_path: Path) ->
     target = tmp_path / replay_module._record_name(1)
     assert read_explicit_file(target, max_bytes=64, require_private_acl=True) == b"record-one"
     assert _publish_test_record(tmp_path) is False
-    with pytest.raises(publication_module.WindowsReplayCustodyError, match="replay_owner_record_conflict"):
+    with pytest.raises(publication_module.WindowsReplayCustodyError,
+            match="replay_owner_record_conflict"):
         _publish_test_record(tmp_path, b"conflicting record")
     assert target.read_bytes() == b"record-one"
     assert [p.name for p in tmp_path.iterdir()] == [target.name]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows immutable cognition publication")
+def test_windows_self_model_reconciliations_persist_across_restart(tmp_path: Path) -> None:
+    from datetime import datetime, timezone
+    from tempfile import TemporaryDirectory
+
+    observed_at = datetime(2026, 11, 15, 12, 0, tzinfo=timezone.utc)
+
+    def world(model: str):
+        return WorldStateBoardBuilder(clock=lambda: observed_at).build([{
+            "source_kind": "local_model_authority", "source_id": "runtime:" + model,
+            "schema_version": "test.v1", "subject_id": "sentientos",
+            "subject_kind": "persistent_causal_system", "stage": "observation",
+            "disposition": "serving", "evidence_strength": "authenticated",
+            "observed_at": observed_at.isoformat(),
+            "payload": {"software_generation": "software-" + model,
+                "cognitive_model_id": model,
+                "developmental_history_boundary": "history-1"},
+        }])
+
+    with TemporaryDirectory(prefix=".cognition-custody-", dir=tmp_path) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        peer_root = root / "peer-records"
+        peer_root.mkdir()
+        _make_current_user_private(peer_root, directory=True)
+        peer_identity = observe_private_directory_identity(peer_root)
+        peer_record = peer_root / "event-00000000000000000001.json"
+        assert publication_module.publish_immutable_replay_bytes(peer_record,
+            b"peer-record", max_bytes=1024, max_entries=4,
+            expected_root_identity=peer_identity) is True
+        assert read_explicit_file(peer_record, max_bytes=1024,
+            require_private_acl=True) == b"peer-record"
+
+        first_owner = LongitudinalSelfModelOwner(root)
+        first = first_owner.reconcile(world("model-a"), tick_id="tick-model-a")
+        first_path = (root / "reconciliations" /
+            f"{first.generation:020d}-{first.reconciliation_id}.json")
+        first_bytes = read_explicit_file(first_path, max_bytes=4_194_304,
+            require_private_acl=True)
+        with pytest.raises(publication_module.WindowsReplayCustodyError,
+                match="replay_owner_record_conflict"):
+            publication_module.publish_immutable_replay_bytes(first_path,
+                b"replacement must not be installed", max_bytes=4_194_304,
+                max_entries=4096,
+                expected_root_identity=observe_private_directory_identity(
+                    root / "reconciliations"),
+                filename_policy="longitudinal_self_model")
+        assert read_explicit_file(first_path, max_bytes=4_194_304,
+            require_private_acl=True) == first_bytes
+        restarted = LongitudinalSelfModelOwner(root)
+        assert restarted.history() == (first,)
+
+        second = restarted.reconcile(world("model-b"), tick_id="tick-model-b")
+        recovered = LongitudinalSelfModelOwner(root).history()
+        assert recovered == (first, second)
+        assert second.generation == 2
+        assert second.previous_reconciliation_id == first.reconciliation_id
+
+        child_script = """import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
+from sentientos.world_state_board import WorldStateBoardBuilder
+root, model = Path(sys.argv[1]), sys.argv[2]
+observed_at = datetime(2026, 11, 15, 12, 0, tzinfo=timezone.utc)
+world = WorldStateBoardBuilder(clock=lambda: observed_at).build([{
+    'source_kind': 'local_model_authority', 'source_id': 'runtime:' + model,
+    'schema_version': 'test.v1', 'subject_id': 'sentientos',
+    'subject_kind': 'persistent_causal_system', 'stage': 'observation',
+    'disposition': 'serving', 'evidence_strength': 'authenticated',
+    'observed_at': observed_at.isoformat(), 'payload': {
+        'software_generation': 'software-' + model,
+        'cognitive_model_id': model, 'developmental_history_boundary': 'history-1'}}])
+result = LongitudinalSelfModelOwner(root).reconcile(world, tick_id='tick-' + model)
+print(result.generation)
+"""
+        repo_root = Path(__file__).resolve().parents[2]
+        children = [subprocess.Popen([sys.executable, "-c", child_script,
+            str(root), "model-" + suffix], cwd=repo_root,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            for suffix in ("c", "d")]
+        child_outputs = [child.communicate(timeout=30) for child in children]
+        assert all(child.returncode == 0 for child in children), child_outputs
+        assert {int(stdout.strip()) for stdout, _stderr in child_outputs} == {3, 4}
+        recovered = LongitudinalSelfModelOwner(root).history()
+        assert [item.generation for item in recovered] == [1, 2, 3, 4]
+        assert all(item.previous_reconciliation_id == recovered[index - 1].reconciliation_id
+            for index, item in enumerate(recovered) if index)
+        assert not list((root / "reconciliations").glob(".pending-*"))
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows developmental custody")
+def test_windows_developmental_history_record_and_receipt_recover_after_restart(
+        tmp_path: Path) -> None:
+    from tempfile import TemporaryDirectory
+
+    with TemporaryDirectory(prefix=".developmental-writeback-", dir=tmp_path) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        history_root = root / "history"
+        history_root.mkdir()
+        _make_current_user_private(history_root, directory=True)
+
+        raw_record = DevelopmentalRecord("", "", {
+            "candidate_id": "candidate-fixture",
+            "candidate_digest": "candidate-digest-fixture"},
+            "admission-fixture", "binding-fixture", "principal-fixture",
+            "operation-fixture", "tick-fixture", "2026-11-15T12:00:00Z")
+        record_id, record_digest = writeback_identity(
+            "devrec", raw_record.semantic_payload())
+        record = DevelopmentalRecord(record_id, record_digest,
+            raw_record.candidate, raw_record.admission_id,
+            raw_record.admission_binding_digest, raw_record.principal,
+            raw_record.operation_id, raw_record.correlation_id, raw_record.created_at)
+
+        raw_receipt = WritebackReceipt("", "", record.record_id,
+            record.record_digest, "candidate-fixture", "candidate-digest-fixture",
+            record.admission_id, record.admission_binding_digest, record.principal,
+            record.operation_id, True)
+        receipt_id, receipt_digest = writeback_identity(
+            "devreceipt", raw_receipt.semantic_payload())
+        receipt = WritebackReceipt(receipt_id, receipt_digest,
+            raw_receipt.record_id, raw_receipt.record_digest,
+            raw_receipt.candidate_id, raw_receipt.candidate_digest,
+            raw_receipt.admission_id, raw_receipt.admission_binding_digest,
+            raw_receipt.principal, raw_receipt.operation_id,
+            raw_receipt.storage_verified)
+
+        store = DevelopmentalHistoryStore(history_root)
+        controller = object.__new__(ResidentDevelopmentalWritebackController)
+        controller.store = store
+        with controller._operation_lock():
+            pass
+        assert store.append(record) == record
+        assert store.write_receipt(receipt) == receipt
+        recovered = DevelopmentalHistoryStore(history_root)
+        assert recovered.records() == (record,)
+        assert recovered.receipts() == (receipt,)
+        assert recovered.get_receipt(receipt.receipt_id).record_digest == record.record_digest
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows mutable checkpoint custody")
+def test_windows_resident_cognition_checkpoint_replaces_atomically_and_locks(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from tempfile import TemporaryDirectory
+
+    with TemporaryDirectory(prefix=".resident-cognition-state-", dir=tmp_path) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        owner = object.__new__(ResidentDevelopmentalCognitionOwner)
+        owner.state_path = root / "composition_state.json"
+
+        first = {"schema": STATE_SCHEMA, "processed_selection_ids": [],
+            "completed_ticks": [], "incomplete_ticks": []}
+        owner._save_state(first)
+        first_bytes = read_explicit_file(owner.state_path,
+            max_bytes=16_777_216, require_private_acl=True)
+        first_state = json.loads(first_bytes.decode("utf-8"))
+        assert first_state["processed_selection_ids"] == []
+
+        second = {**first, "processed_selection_ids": ["selection-after-restart"]}
+        owner._save_state(second)
+        second_bytes = read_explicit_file(owner.state_path,
+            max_bytes=16_777_216, require_private_acl=True)
+        second_state = json.loads(second_bytes.decode("utf-8"))
+        assert second_state["processed_selection_ids"] == ["selection-after-restart"]
+        assert second_bytes != first_bytes
+        with owner._composition_lock():
+            pass
+
+        def fail_after_replace(phase: str) -> None:
+            if phase == "committed":
+                raise RuntimeError("fixture interrupted after atomic replacement")
+
+        monkeypatch.setattr(publication_module, "_publication_boundary", fail_after_replace)
+        third = {**first, "processed_selection_ids": ["committed-before-interruption"]}
+        with pytest.raises(RuntimeError, match="after atomic replacement"):
+            owner._save_state(third)
+        recovered = json.loads(read_explicit_file(owner.state_path,
+            max_bytes=16_777_216, require_private_acl=True).decode("utf-8"))
+        assert recovered["processed_selection_ids"] == ["committed-before-interruption"]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows admission ledger custody")
+def test_windows_runtime_admission_updates_are_locked_and_recover_after_restart(
+        tmp_path: Path) -> None:
+    from tempfile import TemporaryDirectory
+
+    capability = "fixture.inert.windows_admission"
+    definition = TaskAuthorityDefinition(
+        capability,
+        frozenset({"fixture"}),
+        frozenset({"fixture_controller"}),
+        frozenset({"bounded_external_model_network_egress"}),
+        ("wildcard",),
+        approval_requirements=("operator_fixture_approval",),
+        purpose="Inert Windows admission persistence test",
+    )
+    with TemporaryDirectory(prefix=".runtime-admission-", dir=tmp_path) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        ledger = AdmissionLedger(root / "admissions.json")
+        authority = RuntimeAdmissionAuthority(
+            definitions={capability: definition}, ledger=ledger)
+        evidence = authority.issue_next(
+            admission_id_for_sequence=lambda sequence: f"windows-admission-{sequence}",
+            capability_id=capability, definition_version=1,
+            subsystem_kind="fixture", principal_id="controller",
+            principal_kind="fixture_controller",
+            effects=("bounded_external_model_network_egress",),
+            subject_id="fixture-service", request_configuration_digest="sha256:fixture",
+            provenance="native-windows-fixture",
+            affirmative_preconditions=("operator_fixture_approval",),
+        )
+        authority.revoke(evidence.admission_id, sequence=2,
+            reason_category="fixture_revocation", provenance="native-windows-fixture")
+
+        restarted = RuntimeAdmissionVerifier(
+            definitions={capability: definition},
+            ledger=AdmissionLedger(root / "admissions.json"))
+        assert restarted.recorded_admission(evidence.admission_id) == evidence
+        assert len(restarted._ledger.load()[1]) == 1
+        with restarted._ledger._exclusive_update_lock():
+            pass
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows persistent cognition custody")
+def test_windows_resident_tick_recovers_and_applies_history_after_restart(
+        tmp_path: Path) -> None:
+    from tempfile import TemporaryDirectory
+    from tests.test_resident_developmental_cognition import FakeInvoker
+    from tests.test_resident_developmental_cognition import owner as make_cognition_owner
+    from tests.test_resident_developmental_cognition import snapshot
+
+    with TemporaryDirectory(prefix=".resident-cognition-loop-", dir=tmp_path) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        history_root, state_root = root / "history", root / "state"
+        history_root.mkdir()
+        state_root.mkdir()
+        _make_current_user_private(history_root, directory=True)
+        _make_current_user_private(state_root, directory=True)
+
+        class HistorySensitiveInvoker(FakeInvoker):
+            def invoke(self, request, **kwargs):
+                if request.purpose in {
+                        "resident_developmental_interpretation",
+                        "resident_developmental_retrieval_cognition"}:
+                    prompt = json.loads(request.prompt)
+                    if request.purpose == "resident_developmental_interpretation":
+                        self.history_interpretation = (
+                            "Applied persisted prior experience."
+                            if prompt.get("developmental_history")
+                            else "No prior experience was available.")
+                    else:
+                        self.lesson_statement = (
+                            "Applied persisted prior experience."
+                            if prompt.get("developmental_history")
+                            else "No prior experience was available.")
+                return super().invoke(request, **kwargs)
+
+        first_invoker = HistorySensitiveInvoker()
+        first_owner, _ = make_cognition_owner(root,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=first_invoker)
+        first = first_owner.run_tick(snapshot=snapshot(1), tick_id="windows-cognition-first")
+        assert first.written_record_id
+        assert first_invoker.requests
+        first_record = first_owner.writeback.store.get(first.written_record_id)
+        assert first_record.candidate["interpretation"] == "No prior experience was available."
+
+        restarted_invoker = HistorySensitiveInvoker()
+        restarted_owner, _ = make_cognition_owner(root,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=restarted_invoker)
+        later = restarted_owner.run_tick(snapshot=snapshot(2),
+            tick_id="windows-cognition-after-restart")
+        assert later.written_record_id
+        prompt = json.loads(restarted_invoker.requests[-1].prompt)
+        assert prompt["developmental_history"]
+        assert prompt["developmental_history"][0]["record_id"] == first.written_record_id
+        later_record = restarted_owner.writeback.store.get(later.written_record_id)
+        assert "Applied persisted prior experience." in later_record.candidate["interpretation"]
+        assert later_record.candidate["interpretation"] != first_record.candidate["interpretation"]
+        assert read_explicit_file(restarted_owner.state_path,
+            max_bytes=16_777_216, require_private_acl=True)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows experiment artifact custody")
+def test_windows_history_comparison_recovers_protocol_and_outcome_run(tmp_path: Path) -> None:
+    from tempfile import TemporaryDirectory
+    from tests.test_resident_developmental_cognition import FakeInvoker
+    from tests.test_resident_developmental_cognition import owner as make_cognition_owner
+    from tests.test_resident_developmental_cognition import snapshot
+
+    with TemporaryDirectory(prefix=".resident-cognition-comparison-", dir=tmp_path) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        (root / "history").mkdir()
+        (root / "state").mkdir()
+        _make_current_user_private(root / "history", directory=True)
+        _make_current_user_private(root / "state", directory=True)
+
+        cognition, _ = make_cognition_owner(root, comparison=True,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=FakeInvoker())
+        seed = cognition.run_tick(snapshot=snapshot(1), tick_id="windows-comparison-seed")
+        assert seed.written_record_id
+        measured = cognition.run_tick(snapshot=snapshot(2),
+            tick_id="windows-comparison-history")
+        assert measured.changed_cognition_measurement_id
+
+        recovered, _ = make_cognition_owner(root, comparison=True,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=FakeInvoker())
+        run = recovered.experiments.load_run(measured.changed_cognition_measurement_id)
+        assert run["validity"] == "valid_controlled_observation"
+        assert [row["condition_id"] for row in run["conditions"]] == [
+            "history_present", "history_withheld", "history_restored"]
+        summary = run["summary"]
+        assert summary["present_vs_withheld_difference_observed"] is True
+        assert summary["restored_vs_withheld_difference_observed"] is True
+        assert summary["restored_matches_present"] is True
+        assert summary["claims_posture"] == "bounded_observed_association_only"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows objective artifact custody")
+def test_windows_objective_transfer_recovers_plan_scores_and_run(tmp_path: Path) -> None:
+    from tempfile import TemporaryDirectory
+    from sentientos.developmental_model_replacement_experiment import ObjectivePredictionTask
+    from tests.test_resident_developmental_cognition import FakeInvoker
+    from tests.test_resident_developmental_cognition import owner as make_cognition_owner
+    from tests.test_resident_developmental_cognition import snapshot
+    from scripts.stage_resident_objective_intervention import stage_request
+    from sentientos.resident_developmental_cognition import (
+        load_objective_request, load_objective_request_by_identity,
+        objective_task_for_request, stage_objective_request,
+    )
+
+    with TemporaryDirectory(prefix=".resident-cognition-objective-", dir=tmp_path) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        (root / "history").mkdir()
+        (root / "state").mkdir()
+        _make_current_user_private(root / "history", directory=True)
+        _make_current_user_private(root / "state", directory=True)
+
+        seed_invoker = FakeInvoker()
+        seed_invoker.history_interpretation = (
+            "Historical examples: input 1 produced 5; input 2 produced 8.")
+        seed_owner, _ = make_cognition_owner(root,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=seed_invoker)
+        seed = seed_owner.run_tick(snapshot=snapshot(1), tick_id="windows-objective-seed")
+        assert seed.written_record_id
+
+        task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+        invoker = FakeInvoker()
+        invoker.objective_plan_root = root / "state" / "developmental_experiments" / "protocols"
+        cognition, _ = make_cognition_owner(root, comparison=True,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=invoker)
+        config_path = root / "cognition.json"
+        config_path.write_text(json.dumps({
+            "schema": "sentientos.resident_developmental_cognition_config:v1",
+            "enabled": True, "history_root": str(root / "history"),
+            "state_root": str(root / "state"),
+            "allowed_source_kinds": ["capability_registry"],
+            "max_selected_facts": 1, "max_retrieved_records": 4,
+            "comparison_enabled": True,
+        }), encoding="utf-8")
+        _make_current_user_private(config_path, directory=False)
+        _, request, verified_history_count = stage_request(config_path=config_path,
+            request_id="windows-objective-transfer", task=task)
+        assert verified_history_count == 1
+        assert invoker.requests == []
+        loaded_request = load_objective_request(root / "state")
+        assert loaded_request == request
+        measured = cognition.run_objective_intervention_once(snapshot=snapshot(2),
+            tick_id="windows-objective-transfer-tick",
+            objective_task=objective_task_for_request(loaded_request),
+            request_id=request["request_id"],
+            request_digest=request["request_digest"])
+        assert measured.changed_cognition_measurement_id
+
+        followup = ObjectivePredictionTask(3, 2, 10, (11, 12))
+        stage_objective_request(root / "state",
+            request_id="windows-objective-followup", task=followup)
+        assert load_objective_request_by_identity(root / "state",
+            request_id=request["request_id"],
+            request_digest=request["request_digest"]) == request
+        pending_request = load_objective_request(root / "state")
+        assert pending_request is not None
+        assert pending_request["request_id"] == "windows-objective-followup"
+
+        recovered_invoker = FakeInvoker()
+        recovered_invoker.objective_plan_root = invoker.objective_plan_root
+        recovered, _ = make_cognition_owner(root, comparison=True,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=recovered_invoker)
+        run = recovered.experiments.load_run(measured.changed_cognition_measurement_id)
+        assert run["validity"] == "valid_controlled_observation"
+        assert [item["condition_id"] for item in run["objective_scores"]] == [
+            "history_present", "history_withheld", "history_restored"]
+        evaluation = run["objective_evaluation"]
+        assert evaluation["history_accuracy_delta"] == 1
+        assert evaluation["restoration_correctness_stable"] is True
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows epistemic custody")
+def test_windows_epistemic_owner_bootstraps_only_under_private_parent(
+        tmp_path: Path) -> None:
+    from sentientos.persistent_epistemic_state import (
+        EpistemicStateError, PersistentEpistemicStateOwner, RECORD_COLLECTIONS,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        EpistemicMutationError, ResidentEpistemicStateMutationController,
+    )
+    from sentientos.windows_handle_custody import verify_explicit_directory
+
+    _make_current_user_private(tmp_path, directory=True)
+    root = tmp_path / "epistemic-state"
+    owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("operator",))
+    assert root.is_dir()
+    assert owner.verify() == {
+        "propositions": 0, "bindings": 0, "states": 0, "updates": 0,
+        "calibrations": 0, "incomplete_admission_bound_transactions": 0}
+    verify_explicit_directory(root, require_private_acl=True)
+    for collection in RECORD_COLLECTIONS:
+        verify_explicit_directory(root / collection, require_private_acl=True)
+
+    broad_parent = tmp_path / "broad-parent"
+    broad_parent.mkdir()
+    subprocess.run(["icacls", str(broad_parent), "/grant:r", "*S-1-1-0:(RX)"],
+        check=True, capture_output=True, text=True)
+    rejected_root = broad_parent / "rejected-state"
+    with pytest.raises(EpistemicStateError, match="epistemic_custody_root_invalid"):
+        PersistentEpistemicStateOwner(rejected_root,
+            allowed_namespaces=("operator",))
+    assert not rejected_root.exists()
+    rejected_mutation_root = broad_parent / "rejected-mutation"
+    with pytest.raises(EpistemicMutationError,
+            match="mutation_custody_initialization_failed"):
+        ResidentEpistemicStateMutationController.prepare_windows_private_custody(
+            rejected_mutation_root)
+    assert not rejected_mutation_root.exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows named mutexes")
+def test_windows_companion_state_lock_is_exclusive_and_reusable(
+        tmp_path: Path) -> None:
+    from threading import Thread
+    from scripts.run_local_companion_dev import _acquire_active_chat_lock
+
+    _make_current_user_private(tmp_path, directory=True)
+    state_root = tmp_path / "companion-state"
+    state_root.mkdir()
+    _make_current_user_private(state_root, directory=True)
+    release_first = _acquire_active_chat_lock(state_root)
+    contender_results: list[str] = []
+
+    def contend() -> None:
+        try:
+            release = _acquire_active_chat_lock(state_root)
+        except BlockingIOError:
+            contender_results.append("busy")
+        else:
+            contender_results.append("acquired")
+            release()
+
+    thread = Thread(target=contend)
+    thread.start()
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+    assert contender_results == ["busy"]
+    release_first()
+
+    release_second = _acquire_active_chat_lock(state_root)
+    release_second()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows epistemic custody")
+def test_windows_epistemic_correction_recovers_interrupted_transaction(tmp_path: Path) -> None:
+    from tempfile import TemporaryDirectory
+    from sentientos.persistent_epistemic_state import (
+        PersistentEpistemicStateOwner, semantic_packets_for_projection,
+    )
+    from tests.test_persistent_epistemic_state import binding, proposition
+    from sentientos import persistent_epistemic_state as epistemic_module
+
+    with TemporaryDirectory(prefix=".resident-epistemic-state-", dir=tmp_path) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        store_root = root / "epistemic"
+        owner = PersistentEpistemicStateOwner(store_root,
+            allowed_namespaces=("embodiment",))
+        claim = proposition("A controlled sensor claim")
+        owner.register_proposition(claim)
+        support = binding(claim, "1")
+        owner.bind_evidence(support)
+
+        original_write_new = epistemic_module._write_new
+
+        def interrupt_state_publication(path, value):
+            if path.parent.name == "states":
+                raise OSError("fixture interrupted after transaction commit")
+            return original_write_new(path, value)
+
+        epistemic_module._write_new = interrupt_state_publication
+        try:
+            with pytest.raises(OSError, match="interrupted"):
+                owner.commit_update(proposition_id=claim.proposition_id,
+                    expected_predecessor_digest=None, stance="supported",
+                    reason="new_evidence", active_binding_ids=(support.binding_id,),
+                    added_binding_ids=(support.binding_id,), correlation_id="windows-epistemic-1",
+                    tick=1, recorded_at="2026-01-01T00:00:01Z")
+        finally:
+            epistemic_module._write_new = original_write_new
+
+        recovered = PersistentEpistemicStateOwner(store_root,
+            allowed_namespaces=("embodiment",))
+        first = recovered.current_state(claim.proposition_id)
+        assert first is not None and first.stance == "supported"
+        contradiction = binding(claim, "2", relation="contradicts")
+        recovered.bind_evidence(contradiction)
+        corrected, event = recovered.commit_update(
+            proposition_id=claim.proposition_id,
+            expected_predecessor_digest=first.state_digest, stance="contested",
+            reason="contradiction_arrival",
+            active_binding_ids=(support.binding_id, contradiction.binding_id),
+            added_binding_ids=(contradiction.binding_id,),
+            correlation_id="windows-epistemic-2", tick=2,
+            recorded_at="2026-01-01T00:00:02Z")
+        restarted = PersistentEpistemicStateOwner(store_root,
+            allowed_namespaces=("embodiment",))
+        current = restarted.current_state(claim.proposition_id)
+        assert current == corrected
+        assert [item.reason for item in restarted.update_events(claim.proposition_id)] == [
+            "new_evidence", "contradiction_arrival"]
+        assert event.reason == "contradiction_arrival"
+        assert restarted.verify()["states"] == 2
+        projection = restarted.cognitive_projection(max_states=1, current_tick=3,
+            relevance_query="controlled sensor claim")
+        assert projection is not None
+        packet = semantic_packets_for_projection(projection)[0]
+        assert packet["state"]["stance"] == "contested"
+        assert packet["supporting_evidence"] == [support.binding_id]
+        assert packet["contradicting_evidence"] == [contradiction.binding_id]
+        assert packet["authority"] is False
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows admitted epistemic mutation custody")
+def test_windows_admitted_epistemic_correction_recovers_its_receipt(tmp_path: Path) -> None:
+    from tempfile import TemporaryDirectory
+    from sentientos.codex_task_authority_admission import (
+        AUTHORITY_DEFINITIONS, RESIDENT_EPISTEMIC_STATE_MUTATION,
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    )
+    from sentientos.persistent_epistemic_state import (
+        PersistentEpistemicStateOwner, make_epistemic_update_candidate,
+        make_evidence_binding, make_proposition,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        EVIDENCE_BINDING_EFFECTS, PRINCIPAL, STATE_UPDATE_EFFECTS,
+        ResidentEpistemicStateMutationController,
+        make_epistemic_evidence_source_proof,
+    )
+    from sentientos.runtime_admission import (
+        AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
+    )
+
+    with TemporaryDirectory(prefix=".resident-epistemic-admitted-", dir=tmp_path) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        owner_root = root / "epistemic"
+        receipt_root = root / "mutation"
+        receipt_root = (
+            ResidentEpistemicStateMutationController
+            .prepare_windows_private_custody(receipt_root))
+
+        ledger = AdmissionLedger(root / "admissions.json")
+        authority = RuntimeAdmissionAuthority(
+            definitions=AUTHORITY_DEFINITIONS, ledger=ledger)
+        owner = PersistentEpistemicStateOwner(owner_root, allowed_namespaces=("test",))
+        proposition = make_proposition(namespace="test", subject="sensor:west",
+            predicate="reports_measurement", object_value="stable",
+            polarity="positive", qualifiers={}, temporal_scope={},
+            context_scope={}, proposition_class="descriptive")
+        owner.register_proposition(proposition)
+        binding = make_evidence_binding(proposition_id=proposition.proposition_id,
+            source_artifact_id="windows-observation-1", source_digest="sha256:source",
+            source_schema="sentientos.test_observation:v1",
+            source_class="operator_observation", observation_time="2026-01-01T00:00:00Z",
+            evidence_relation="supports",
+            dependency_kind="independently_sourced_observation",
+            dependency_group="operator-observation-1", upstream_binding_ids=(),
+            freshness="current", reliability_posture="supports")
+        proof = make_epistemic_evidence_source_proof(
+            source_artifact_id=binding.source_artifact_id,
+            source_digest=binding.source_digest, source_schema=binding.source_schema,
+            source_class=binding.source_class, recorded_at=binding.observation_time,
+            adapter_id="windows-fixture-adapter:v1",
+            provenance_id="windows-fixture-source-proof")
+        verifier = RuntimeAdmissionVerifier(definitions=AUTHORITY_DEFINITIONS, ledger=ledger)
+        controller = ResidentEpistemicStateMutationController(owner=owner,
+            admission_verifier=verifier, current_sequence=lambda: 10,
+            receipt_root=receipt_root)
+        evidence_operation = "windows-bind-evidence"
+        evidence_admission = authority.issue(admission_id="windows-evidence-admission",
+            capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
+            subsystem_kind="epistemics", principal_id=PRINCIPAL, principal_kind=PRINCIPAL,
+            effects=EVIDENCE_BINDING_EFFECTS, subject_id=binding.binding_id,
+            request_configuration_digest=controller.evidence_configuration_digest(
+                binding=binding, proposition_digest=proposition.proposition_digest,
+                operation_id=evidence_operation), provenance=proof.provenance_id,
+            issued_sequence=1, valid_through_sequence=20,
+            affirmative_preconditions=(
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION.approval_requirements))
+        controller.append_evidence_binding(binding=binding, source_proof=proof,
+            admission=evidence_admission, operation_id=evidence_operation,
+            correlation_id="windows-epistemic-workflow")
+
+        candidate = make_epistemic_update_candidate(
+            proposition_id=proposition.proposition_id,
+            predecessor_state_digest=None, proposed_stance="supported",
+            evidence_binding_ids=(binding.binding_id,), reason="initialization",
+            rationale="An admitted exact source binding supports this position.",
+            uncertainty="medium", model_id="controlled-fixture")
+        state_operation = "windows-commit-state"
+        state_admission = authority.issue(admission_id="windows-state-admission",
+            capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
+            subsystem_kind="epistemics", principal_id=PRINCIPAL, principal_kind=PRINCIPAL,
+            effects=STATE_UPDATE_EFFECTS, subject_id=candidate.candidate_id,
+            request_configuration_digest=controller.state_configuration_digest(
+                candidate=candidate, operation_id=state_operation),
+            provenance="windows operator state correction",
+            issued_sequence=2, valid_through_sequence=20,
+            affirmative_preconditions=(
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION.approval_requirements))
+        original_write_receipt = controller._write_receipt
+
+        def interrupt_state_receipt(stage, receipt):
+            if stage == "state":
+                raise OSError("fixture interrupted after admitted state commit")
+            return original_write_receipt(stage, receipt)
+
+        controller._write_receipt = interrupt_state_receipt
+        with pytest.raises(OSError, match="after admitted state commit"):
+            controller.commit_update_candidate(candidate=candidate,
+                admission=state_admission, operation_id=state_operation,
+                correlation_id="windows-epistemic-workflow", tick=1,
+                recorded_at="2026-01-01T00:00:01Z")
+
+        recovered_owner = PersistentEpistemicStateOwner(owner_root,
+            allowed_namespaces=("test",))
+        recovered_controller = ResidentEpistemicStateMutationController(
+            owner=recovered_owner,
+            admission_verifier=RuntimeAdmissionVerifier(
+                definitions=AUTHORITY_DEFINITIONS,
+                ledger=AdmissionLedger(root / "admissions.json")),
+            current_sequence=lambda: 10, receipt_root=receipt_root)
+        recovery = recovered_controller.verify_receipts()
+        assert recovery["status"] == "verified"
+        assert recovery["recovered_receipt_count"] == 2
+
+        contradiction = make_evidence_binding(
+            proposition_id=proposition.proposition_id,
+            source_artifact_id="windows-observation-2", source_digest="sha256:source-2",
+            source_schema="sentientos.test_observation:v1",
+            source_class="operator_observation", observation_time="2026-01-01T00:00:02Z",
+            evidence_relation="contradicts",
+            dependency_kind="independently_sourced_observation",
+            dependency_group="operator-observation-2", upstream_binding_ids=(),
+            freshness="current", reliability_posture="contradicts")
+        contradiction_proof = make_epistemic_evidence_source_proof(
+            source_artifact_id=contradiction.source_artifact_id,
+            source_digest=contradiction.source_digest,
+            source_schema=contradiction.source_schema,
+            source_class=contradiction.source_class,
+            recorded_at=contradiction.observation_time,
+            adapter_id="windows-fixture-adapter:v1",
+            provenance_id="windows-fixture-correction-proof")
+        correction_operation = "windows-bind-correction"
+        correction_admission = authority.issue(
+            admission_id="windows-correction-evidence-admission",
+            capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
+            subsystem_kind="epistemics", principal_id=PRINCIPAL, principal_kind=PRINCIPAL,
+            effects=EVIDENCE_BINDING_EFFECTS, subject_id=contradiction.binding_id,
+            request_configuration_digest=recovered_controller.evidence_configuration_digest(
+                binding=contradiction, proposition_digest=proposition.proposition_digest,
+                operation_id=correction_operation),
+            provenance=contradiction_proof.provenance_id,
+            issued_sequence=3, valid_through_sequence=20,
+            affirmative_preconditions=(
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION.approval_requirements))
+        recovered_controller.append_evidence_binding(binding=contradiction,
+            source_proof=contradiction_proof, admission=correction_admission,
+            operation_id=correction_operation,
+            correlation_id="windows-epistemic-workflow")
+        current = recovered_owner.current_state(proposition.proposition_id)
+        assert current is not None and current.stance == "supported"
+        correction_candidate = make_epistemic_update_candidate(
+            proposition_id=proposition.proposition_id,
+            predecessor_state_digest=current.state_digest,
+            proposed_stance="contested",
+            evidence_binding_ids=(binding.binding_id, contradiction.binding_id),
+            reason="contradiction_arrival",
+            rationale="A separately admitted source contradicts the prior position.",
+            uncertainty="high", model_id="controlled-fixture")
+        correction_state_operation = "windows-commit-correction"
+        correction_state_admission = authority.issue(
+            admission_id="windows-correction-state-admission",
+            capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
+            subsystem_kind="epistemics", principal_id=PRINCIPAL, principal_kind=PRINCIPAL,
+            effects=STATE_UPDATE_EFFECTS, subject_id=correction_candidate.candidate_id,
+            request_configuration_digest=recovered_controller.state_configuration_digest(
+                candidate=correction_candidate, operation_id=correction_state_operation),
+            provenance="windows operator correction decision",
+            issued_sequence=4, valid_through_sequence=20,
+            affirmative_preconditions=(
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION.approval_requirements))
+        recovered_controller.commit_update_candidate(candidate=correction_candidate,
+            admission=correction_state_admission,
+            operation_id=correction_state_operation,
+            correlation_id="windows-epistemic-workflow", tick=2,
+            recorded_at="2026-01-01T00:00:02Z")
+
+        restarted_owner = PersistentEpistemicStateOwner(owner_root,
+            allowed_namespaces=("test",))
+        restarted_controller = ResidentEpistemicStateMutationController(
+            owner=restarted_owner,
+            admission_verifier=RuntimeAdmissionVerifier(
+                definitions=AUTHORITY_DEFINITIONS,
+                ledger=AdmissionLedger(root / "admissions.json")),
+            current_sequence=lambda: 10, receipt_root=receipt_root)
+        final_recovery = restarted_controller.verify_receipts()
+        assert final_recovery["status"] == "verified"
+        assert final_recovery["recovered_receipt_count"] == 4
+        projection = restarted_owner.cognitive_projection(max_states=1, current_tick=3)
+        assert projection is not None
+        assert projection.states[0]["stance"] == "contested"
+        assert set(projection.states[0]["support_binding_ids"]) == {binding.binding_id}
+        assert set(projection.states[0]["contradiction_binding_ids"]) == {
+            contradiction.binding_id}
+        assert projection.authority is False
+
+        from datetime import datetime, timezone
+        from sentientos.developmental_companion_bridge import (
+            ResidentDevelopmentalCompanionBridge,
+        )
+        from tests.test_resident_developmental_cognition import (
+            owner as make_cognition_owner,
+        )
+
+        cognition_root = root / "cognition"
+        cognition_root.mkdir()
+        _make_current_user_private(cognition_root, directory=True)
+        for child in ("history", "state"):
+            directory = cognition_root / child
+            directory.mkdir()
+            _make_current_user_private(directory, directory=True)
+        cognition, fake = make_cognition_owner(cognition_root,
+            allowed_source_kinds=("embodiment",), max_selected_facts=1)
+        captured_at = datetime(2026, 1, 1, 0, 0, 3, tzinfo=timezone.utc)
+        screen = {"modality": "screen",
+            "text": "Fixture scene: a bounded observation with no truth claim.",
+            "capture_digest": "e" * 64,
+            "capture_scope": "allowlisted_foreground_game_client_area",
+            "captured_at": captured_at.isoformat(), "raw_frame_retained": False}
+        outcomes = []
+        for condition, consume in (("present", True), ("withheld", False),
+                ("restored", True)):
+            bridge = ResidentDevelopmentalCompanionBridge(
+                cognition, epistemic_state_owner=restarted_owner,
+                epistemic_state_config={"cognitive_consumption_enabled": consume,
+                    "max_cognitive_projection_count": 1},
+                clock=lambda: captured_at)
+            result = bridge.respond(request_id=f"windows-later-{condition}",
+                question="What does the west sensor currently report?",
+                screen_observation=screen)
+            outcomes.append((result, fake.requests[-1]))
+            assert result.status == "admitted_completed"
+        assert len({item[0].snapshot_digest for item in outcomes}) == 1
+        assert [item[0].epistemic_projection_id is not None
+            for item in outcomes] == [True, False, True]
+        expected_state_id = projection.states[0]["state_id"]
+        assert [item[1].upstream_evidence["epistemic_state_ids"]
+            for item in outcomes] == [[expected_state_id], [], [expected_state_id]]
+        assert [item[0].authority for item in outcomes] == [False, False, False]
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows no-replace rename")
@@ -501,7 +1307,8 @@ def test_windows_replay_publication_preserves_destination_race(
             _make_current_user_private(target, directory=False)
 
     monkeypatch.setattr(publication_module, "_publication_boundary", create_conflict)
-    with pytest.raises(publication_module.WindowsReplayCustodyError, match="replay_owner_record_conflict"):
+    with pytest.raises(publication_module.WindowsReplayCustodyError,
+            match="windows_replay_mutable_destination_raced"):
         _publish_test_record(tmp_path)
     assert target.read_bytes() == b"foreign conflict"
     assert [p.name for p in tmp_path.iterdir()] == [target.name]

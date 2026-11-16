@@ -13,7 +13,7 @@ from typing import Any, Mapping, cast
 from .local_model_authority import digest_payload
 from .longitudinal_self_model import (
     CognitiveSelfModelProjection, FALSE_AUTHORITY, MAX_PROJECTION_CLAIMS,
-    PROJECTION_POLICY, PROJECTION_SCHEMA,
+    PROJECTION_POLICY, PROJECTION_SCHEMA, QUESTION_RELEVANT_PROJECTION_POLICY,
 )
 from .self_model_intervention_experiment import SCORER_V3, build_answer_key, score_assessment
 
@@ -50,8 +50,18 @@ def _projection_key(projection: CognitiveSelfModelProjection) -> dict[str, Any]:
     semantic = dict(raw)
     semantic.pop("projection_id")
     semantic.pop("projection_digest")
+    if semantic.get("relevance_query_digest") is None:
+        semantic.pop("relevance_query_digest")
     digest = _digest(semantic)
-    if (raw["schema"] != PROJECTION_SCHEMA or raw["projection_policy"] != PROJECTION_POLICY
+    relevance_query_digest = raw.get("relevance_query_digest")
+    policy_valid = (
+        raw["projection_policy"] == PROJECTION_POLICY
+        and relevance_query_digest is None
+    ) or (
+        raw["projection_policy"] == QUESTION_RELEVANT_PROJECTION_POLICY
+        and _sha(relevance_query_digest)
+    )
+    if (raw["schema"] != PROJECTION_SCHEMA or not policy_valid
             or raw["projection_digest"] != digest
             or raw["projection_id"] != "cognitive-self-model-" + digest[7:31]
             or raw["authority"] != FALSE_AUTHORITY or raw["read_only"] is not True
@@ -98,6 +108,12 @@ def make_protocol(*, projections: Mapping[str, CognitiveSelfModelProjection],
     original, revised, restored = (evidence[condition] for condition in CONDITIONS)
     if original != restored:
         raise ValueError("evidence_restoration_mismatch")
+    original_projection = original["projection"]
+    revised_projection = revised["projection"]
+    if (original_projection["projection_policy"] != revised_projection["projection_policy"]
+            or original_projection.get("relevance_query_digest") !=
+                revised_projection.get("relevance_query_digest")):
+        raise ValueError("projection_relevance_context_mismatch")
     if set(original["answer_key"]) != set(revised["answer_key"]):
         raise ValueError("evidence_claim_set_mismatch")
     if original == revised:

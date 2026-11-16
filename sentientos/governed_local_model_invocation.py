@@ -558,7 +558,8 @@ RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
 }
 RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA = {
     "type": "object",
-    "required": ["disposition", "response", "evidence_ids", "history_record_ids"],
+    "required": ["disposition", "response", "evidence_ids", "history_record_ids",
+        "memory_record_ids", "self_model_claim_ids"],
     "additionalProperties": False,
     "properties": {
         "disposition": {"type": "string", "enum": ["answer", "ask", "abstain"]},
@@ -567,6 +568,23 @@ RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA = {
             "items": {"type": "string", "minLength": 1, "maxLength": 256}},
         "history_record_ids": {"type": "array", "maxItems": 16, "uniqueItems": True,
             "items": {"type": "string", "pattern": "^devrec-[0-9a-f]{24}$"}},
+        "memory_record_ids": {"type": "array", "maxItems": 4, "uniqueItems": True,
+            "items": {"type": "string", "pattern": "^memory-[0-9a-f]{24}$"}},
+        "self_model_claim_ids": {"type": "array", "maxItems": 32, "uniqueItems": True,
+            "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+    },
+}
+RESIDENT_COMPANION_SESSION_INTERACTION_OUTPUT_SCHEMA = {
+    **RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
+    "required": [*cast(list[str],
+        RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["required"]),
+        "conversation_turn_ids"],
+    "properties": {
+        **cast(dict[str, dict[str, object]],
+            RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["properties"]),
+        "conversation_turn_ids": {"type": "array", "maxItems": 16,
+            "uniqueItems": True,
+            "items": {"type": "string", "pattern": "^turn-[0-9a-f]{24}$"}},
     },
 }
 # Keep decoding controls identical in all history-intervention conditions.

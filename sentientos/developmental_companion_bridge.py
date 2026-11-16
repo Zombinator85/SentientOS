@@ -214,8 +214,11 @@ def _screen_record(observation: Mapping[str, Any], *, staleness: str = "unknown"
 def make_operator_feedback_record(feedback: str, *, request_id: str,
         assistant_turn_id: str, assistant_response_digest: str,
         source_capture_digest: str, followup_capture_digest: str,
-        observed_at: str) -> dict[str, Any]:
+        observed_at: str, conversation_citation_ids: Sequence[str] = (),
+        conversation_citation_digests: Sequence[str] = (),
+        conversation_session_id: str | None = None) -> dict[str, Any]:
     """Represent explicit local operator feedback as an unverified report."""
+    citation_pattern = re.compile(r"^turn-[0-9a-f]{24}$")
     if (not isinstance(feedback, str) or not feedback.strip()
             or len(feedback) > 800 or len(feedback.encode("utf-8")) > 2048
             or not isinstance(request_id, str) or not request_id
@@ -226,23 +229,46 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
             or re.fullmatch(r"[0-9a-f]{64}", source_capture_digest) is None
             or not isinstance(followup_capture_digest, str)
             or re.fullmatch(r"[0-9a-f]{64}", followup_capture_digest) is None
-            or not isinstance(observed_at, str) or not observed_at):
+            or not isinstance(observed_at, str) or not observed_at
+            or not isinstance(conversation_citation_ids, (tuple, list))
+            or not isinstance(conversation_citation_digests, (tuple, list))
+            or len(conversation_citation_ids) != len(conversation_citation_digests)
+            or len(conversation_citation_ids) > 16
+            or any(not isinstance(turn_id, str) or citation_pattern.fullmatch(turn_id) is None
+                for turn_id in conversation_citation_ids)
+            or len(set(conversation_citation_ids)) != len(conversation_citation_ids)
+            or any(not isinstance(digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+                for digest in conversation_citation_digests)
+            or (conversation_session_id is not None
+                and (not isinstance(conversation_session_id, str)
+                    or re.fullmatch(r"[a-z0-9][a-z0-9-]{7,63}",
+                        conversation_session_id) is None))):
         raise DevelopmentalCompanionBridgeError(
             "operator_feedback_contract_invalid")
     normalized = feedback.strip()
+    schema_version = ("sentientos.local_operator_feedback:v3"
+        if conversation_session_id is not None else
+        "sentientos.local_operator_feedback:v2")
     semantic = {
-        "schema_version": "sentientos.local_operator_feedback:v1",
+        "schema_version": schema_version,
         "request_id": request_id,
         "assistant_turn_id": assistant_turn_id,
         "assistant_response_digest": assistant_response_digest,
         "source_capture_digest": source_capture_digest,
         "followup_capture_digest": followup_capture_digest,
+        "conversation_citations": [
+            {"turn_id": turn_id, "text_digest": digest}
+            for turn_id, digest in zip(conversation_citation_ids,
+                conversation_citation_digests)],
         "assertion_text": normalized,
         "assertion_digest": hashlib.sha256(normalized.encode("utf-8")).hexdigest(),
         "evidence_posture": "operator_assertion_unverified",
         "authority": {"decision": False, "admission": False,
             "execution": False, "adoption": False, "truth": False},
     }
+    if conversation_session_id is not None:
+        semantic["conversation_session_id"] = conversation_session_id
     identity = hashlib.sha256(json.dumps(semantic, sort_keys=True,
         separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
     return {
@@ -424,6 +450,45 @@ class ResidentDevelopmentalCompanionBridge:
                 and isinstance(retrieved_record_ids, (list, tuple))
                 and all(isinstance(item, str) for item in retrieved_record_ids)
                 and set(history_record_ids).issubset(retrieved_record_ids))
+            if observation.get("schema_version") == "sentientos.resident_cognition_observation:v8":
+                memory_lineage_valid = (
+                    "cognition_memory_selection_digest" not in linkage
+                    and "cognition_memory_citation_ids" not in linkage)
+            else:
+                memory_citation_ids = linkage.get("cognition_memory_citation_ids", ())
+                memory_lineage_valid = (
+                    observation.get("schema_version")
+                        in {"sentientos.resident_cognition_observation:v9",
+                            "sentientos.resident_cognition_observation:v10",
+                            "sentientos.resident_cognition_observation:v11",
+                            "sentientos.resident_cognition_observation:v12",
+                            "sentientos.resident_cognition_observation:v13",
+                            "sentientos.resident_cognition_observation:v14"}
+                    and linkage.get("cognition_memory_selection_digest")
+                        == observation.get("canonical_user_memory_selection_digest")
+                    and isinstance(memory_citation_ids, (list, tuple))
+                    and list(memory_citation_ids)
+                        == list(observation.get("companion_memory_citation_ids", ()))
+                    and set(memory_citation_ids) <=
+                        set(observation.get("canonical_user_memory_record_ids", ())))
+            if observation.get("schema_version") in {
+                    "sentientos.resident_cognition_observation:v11",
+                    "sentientos.resident_cognition_observation:v12",
+                    "sentientos.resident_cognition_observation:v13",
+                    "sentientos.resident_cognition_observation:v14"}:
+                self_model_citation_ids = linkage.get(
+                    "cognition_self_model_claim_ids", ())
+                selection = observation.get("prior_self_model_prompt_selection")
+                selected_ids = (selection.get("selected_claim_ids", ())
+                    if isinstance(selection, Mapping) else ())
+                self_model_lineage_valid = (
+                    isinstance(self_model_citation_ids, (list, tuple))
+                    and list(self_model_citation_ids) == list(observation.get(
+                        "companion_self_model_citation_ids", ()))
+                    and len(set(self_model_citation_ids)) == len(self_model_citation_ids)
+                    and set(self_model_citation_ids) <= set(selected_ids))
+            else:
+                self_model_lineage_valid = "cognition_self_model_claim_ids" not in linkage
             return (
                 linkage.get("response_origin") == "resident_developmental_cognition"
                 and observation.get("condition_id") == "companion-interaction"
@@ -456,9 +521,34 @@ class ResidentDevelopmentalCompanionBridge:
                     set(observation.get("current_fact_ids", ()))
                 and linkage.get("cognition_prior_record_ids") ==
                     list(observation.get("retrieved_record_ids", ()))
-                and observation.get("schema_version") ==
-                    "sentientos.resident_cognition_observation:v8"
+                and observation.get("schema_version") in {
+                    "sentientos.resident_cognition_observation:v8",
+                    "sentientos.resident_cognition_observation:v9",
+                    "sentientos.resident_cognition_observation:v10",
+                    "sentientos.resident_cognition_observation:v11",
+                    "sentientos.resident_cognition_observation:v12",
+                    "sentientos.resident_cognition_observation:v13",
+                    "sentientos.resident_cognition_observation:v14"}
                 and observation.get("companion_history_citation_ids") == list(history_record_ids)
+                and memory_lineage_valid
+                and self_model_lineage_valid
+                and (observation.get("schema_version") not in {
+                    "sentientos.resident_cognition_observation:v12",
+                    "sentientos.resident_cognition_observation:v13",
+                    "sentientos.resident_cognition_observation:v14"} or (
+                    linkage.get("conversation_context_snapshot_digest") ==
+                        observation.get("companion_conversation_context_snapshot_digest")
+                    and linkage.get("conversation_context_selection_digest") ==
+                        observation.get("companion_conversation_context_selection_digest")
+                    and linkage.get("conversation_context_turn_ids", []) == list(
+                        observation.get("companion_conversation_context_turn_ids", ()))
+                    and linkage.get("conversation_context_turn_text_digests", []) == list(
+                        observation.get("companion_conversation_context_turn_digests", ()))
+                    and linkage.get("cognition_conversation_turn_citation_ids", []) == list(
+                        observation.get("companion_conversation_citation_ids", ()))
+                    and linkage.get("cognition_conversation_turn_citation_digests", []) == list(
+                        observation.get("companion_conversation_citation_digests", ()))
+                    ))
                 and history_lineage_valid
                 and linkage.get("cognition_model_id") == observation.get("model_id")
                 and linkage.get("cognition_model_artifact_digest") ==
@@ -471,6 +561,8 @@ class ResidentDevelopmentalCompanionBridge:
                     observation.get("epistemic_projection_id")
                 and linkage.get("epistemic_projection_digest") ==
                     observation.get("epistemic_projection_digest")
+                and linkage.get("cognition_epistemic_state_citation_ids", []) == list(
+                    observation.get("companion_epistemic_state_citation_ids", ()))
             )
         except Exception:
             return False
@@ -499,7 +591,10 @@ class ResidentDevelopmentalCompanionBridge:
         return tick_id, projection_tick
 
     def _prior_cognitive_context(self, *, tick_id: str,
-            projection_tick: int) -> tuple[Any | None, Any | None]:
+            projection_tick: int,
+            relevance_query: str | None = None,
+            prioritized_epistemic_state_ids: Sequence[str] = ()
+            ) -> tuple[Any | None, Any | None]:
         prior_self_model = None
         config = self._self_model_config
         if (config is not None and config.enabled
@@ -509,7 +604,8 @@ class ResidentDevelopmentalCompanionBridge:
                     "enabled_self_model_projection_owner_required")
             prior_self_model = self._self_model_owner.cognitive_projection(
                 before_tick=tick_id, max_claims=config.max_projection_claims,
-                allowed_predicates=config.allowed_predicates)
+                allowed_predicates=config.allowed_predicates,
+                relevance_query=relevance_query)
         prior_epistemic_state = None
         if (self._epistemic_state_owner is not None
                 and self._epistemic_state_config.get(
@@ -521,7 +617,9 @@ class ResidentDevelopmentalCompanionBridge:
                 raise DevelopmentalCompanionBridgeError(
                     "epistemic_projection_bound_invalid")
             prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
-                max_states=maximum, current_tick=projection_tick)
+                max_states=maximum, current_tick=projection_tick,
+                prioritized_state_ids=prioritized_epistemic_state_ids,
+                relevance_query=relevance_query)
         return prior_self_model, prior_epistemic_state
 
     def can_handle(self) -> bool:
@@ -587,7 +685,8 @@ class ResidentDevelopmentalCompanionBridge:
                     "history_intervention_capture_not_fresh")
         tick_time, projection_tick = self._projection_boundary()
         prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
-            tick_id=tick_time, projection_tick=projection_tick)
+            tick_id=tick_time, projection_tick=projection_tick,
+            relevance_query=question)
         capture_age_seconds = (None if request_freshness is not None else
             int(max(0.0, capture_age.total_seconds())))
         snapshot = build_companion_snapshot(
@@ -779,8 +878,22 @@ class ResidentDevelopmentalCompanionBridge:
                 epistemic_result, "next_tick_only", True)),
             epistemic_development_error_type=epistemic_error_type)
 
+    def selected_historical_operator_citations(self, *, request_id: str,
+            question: str,
+            conversation_context: Mapping[str, Any] | None = None
+            ) -> tuple[dict[str, Any], ...]:
+        """Expose cited-turn references for the exact bounded history window."""
+        if not self.can_handle():
+            return ()
+        return self._owner.selected_historical_operator_citations(
+            request_id=request_id, question=question,
+            conversation_context=conversation_context)
+
     def respond(self, *, request_id: str, question: str,
-                screen_observation: Mapping[str, Any] | None = None
+                screen_observation: Mapping[str, Any] | None = None,
+                canonical_memory_context: Mapping[str, Any] | None = None,
+                conversation_context: Mapping[str, Any] | None = None,
+                historical_citation_context: Mapping[str, Any] | None = None
                 ) -> ResidentCompanionInteractionResult:
         proprioception: Sequence[EmbodimentObservation] = ()
         if self._proprioception_provider is not None:
@@ -791,8 +904,40 @@ class ResidentDevelopmentalCompanionBridge:
                     "proprioception_provider_output_invalid")
             proprioception = tuple(value)
         tick_id, projection_tick = self._projection_boundary()
+        prioritized_epistemic_state_ids: tuple[str, ...] = ()
+        if conversation_context is not None:
+            if not isinstance(conversation_context, Mapping):
+                raise DevelopmentalCompanionBridgeError(
+                    "conversation_epistemic_priority_invalid")
+            candidate_ids = conversation_context.get(
+                "prior_epistemic_state_ids", ())
+            if (not isinstance(candidate_ids, (list, tuple))
+                    or len(candidate_ids) > 64
+                    or any(not isinstance(item, str) for item in candidate_ids)
+                    or len(set(candidate_ids)) != len(candidate_ids)):
+                raise DevelopmentalCompanionBridgeError(
+                    "conversation_epistemic_priority_invalid")
+            prioritized_epistemic_state_ids = tuple(candidate_ids)
+            if (self._epistemic_state_owner is not None
+                    and self._epistemic_state_config.get(
+                        "cognitive_consumption_enabled") is True):
+                try:
+                    proposition_priorities = (
+                        self._epistemic_state_owner.proposition_priorities_for_state_ids(
+                            prioritized_epistemic_state_ids))
+                except Exception as exc:
+                    raise DevelopmentalCompanionBridgeError(
+                        "conversation_epistemic_priority_resolution_failed") from exc
+                semantic_context = {key: value for key, value in
+                    conversation_context.items() if key != "selection_digest"}
+                semantic_context["prior_epistemic_proposition_ids"] = list(
+                    proposition_priorities)
+                conversation_context = {**semantic_context,
+                    "selection_digest": digest_payload(semantic_context)}
         prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
-            tick_id=tick_id, projection_tick=projection_tick)
+            tick_id=tick_id, projection_tick=projection_tick,
+            relevance_query=question,
+            prioritized_epistemic_state_ids=prioritized_epistemic_state_ids)
         snapshot = build_companion_snapshot(
             screen_observation=screen_observation,
             proprioception=proprioception, clock=self._clock)
@@ -804,4 +949,7 @@ class ResidentDevelopmentalCompanionBridge:
             return self._owner.run_companion_interaction(
                 snapshot=snapshot, request_id=request_id, question=question,
                 prior_self_model=prior_self_model,
-                prior_epistemic_state=prior_epistemic_state)
+                prior_epistemic_state=prior_epistemic_state,
+                canonical_memory_context=canonical_memory_context,
+                conversation_context=conversation_context,
+                historical_citation_context=historical_citation_context)

@@ -7,13 +7,95 @@ from pathlib import Path
 
 import pytest
 
-from sentientos.longitudinal_self_model import LongitudinalSelfModelError, LongitudinalSelfModelOwner
+from sentientos.longitudinal_self_model import (
+    FALSE_AUTHORITY, LongitudinalSelfModelError, LongitudinalSelfModelOwner,
+    PROJECTION_POLICY, QUESTION_RELEVANT_PROJECTION_POLICY,
+    SelfModelClaim, SelfModelReconciliation, _digest as self_model_digest,
+)
 from sentientos.world_state_board import WorldStateBoardBuilder
 
 pytestmark = pytest.mark.no_legacy_skip
 
 
 NOW = datetime(2026, 9, 25, 12, 0, tzinfo=timezone.utc)
+
+
+def test_self_model_projection_query_prioritizes_matching_claim_before_bound(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def claim(*, claim_id: str, predicate: str, value: object,
+            subject_id: str, subject_kind: str) -> SelfModelClaim:
+        return SelfModelClaim(claim_id=claim_id, claim_key="key-" + claim_id,
+            subject_id=subject_id, subject_kind=subject_kind, predicate=predicate,
+            value=value, temporal_scope="current", claim_category="current_observation",
+            lifecycle_stage="observation", status="current", freshness="fresh",
+            contradiction_state="unresolved", evidence_strength="verified",
+            source_evidence_ids=("evidence-" + claim_id,),
+            source_evidence_digests=("a" * 64,), source_fact_ids=("fact-" + claim_id,),
+            world_state_snapshot_id="snapshot-1", world_state_snapshot_digest="b" * 64,
+            source_observed_at=(NOW.isoformat(),), first_supported_generation=1,
+            last_supported_generation=1, first_supported_tick="tick-1",
+            last_supported_tick="tick-1", current_truth=False, interpretation=False,
+            authority=dict(FALSE_AUTHORITY))
+
+    unrelated = claim(claim_id="claim-a", predicate="embodiment.body_generation",
+        value="body-2", subject_id="body:2", subject_kind="installation_body")
+    relevant = claim(claim_id="claim-z", predicate="host_resource_metrics",
+        value={"gpu": "gpu-utilization", "ram": "normal"},
+        subject_id="host:1", subject_kind="host_runtime")
+    source = SelfModelReconciliation("self-reconciliation:v1", "source-1",
+        "c" * 64, 1, "tick-1", "snapshot-1", "b" * 64, None,
+        (unrelated, relevant), dict(FALSE_AUTHORITY))
+    owner = LongitudinalSelfModelOwner(tmp_path)
+    monkeypatch.setattr(owner, "_load", lambda: (source,))
+
+    question = "What is the GPU utilization?"
+    selected = owner.cognitive_projection(before_tick="tick-2", max_claims=1,
+        allowed_predicates=(unrelated.predicate, relevant.predicate),
+        relevance_query=question)
+    baseline = owner.cognitive_projection(before_tick="tick-2", max_claims=1,
+        allowed_predicates=(unrelated.predicate, relevant.predicate))
+
+    assert selected is not None and selected.selected_claim_ids == (relevant.claim_id,)
+    assert selected.projection_policy == QUESTION_RELEVANT_PROJECTION_POLICY
+    assert selected.relevance_query_digest == self_model_digest(question)
+    assert self_model_digest(selected.semantic_payload()) == selected.projection_digest
+    from sentientos.evidence_revision_experiment import _projection_key
+    assert _projection_key(selected)["projection"]["relevance_query_digest"] == (
+        selected.relevance_query_digest)
+    assert baseline is not None and baseline.selected_claim_ids == (unrelated.claim_id,)
+    assert baseline.projection_policy == PROJECTION_POLICY
+    assert baseline.relevance_query_digest is None
+    assert "relevance_query_digest" not in baseline.semantic_payload()
+    assert _projection_key(baseline)["projection"]["projection_policy"] == PROJECTION_POLICY
+
+    from sentientos.longitudinal_self_model import _rank_self_model_projection_claims
+    boilerplate_match = replace(unrelated, claim_id="claim-z",
+        predicate="z_claim", value="What did we do with it?")
+    alphabetical_first = replace(relevant, claim_id="claim-a", predicate="a_claim")
+    ranked, effective_query_digest = _rank_self_model_projection_claims(
+        (boilerplate_match, alphabetical_first),
+        relevance_query="What did we do with it?", max_claims=1)
+    assert ranked[0] == alphabetical_first
+    assert effective_query_digest is None
+
+    old_generation = replace(unrelated, claim_id="claim-a",
+        predicate="cognitive_model_identity", value="model-a", status="historical",
+        freshness="superseded", superseded_by=("claim-z",), supersedes=())
+    current_generation = replace(old_generation, claim_id="claim-z", value="model-b",
+        status="current", freshness="fresh", superseded_by=(),
+        supersedes=("claim-a",))
+    temporal_source = replace(source, claims=(old_generation, current_generation))
+    monkeypatch.setattr(owner, "_load", lambda: (temporal_source,))
+    current_projection = owner.cognitive_projection(before_tick="tick-later",
+        max_claims=1, allowed_predicates=("cognitive_model_identity",),
+        relevance_query="What is the current cognitive model identity?")
+    historical_projection = owner.cognitive_projection(before_tick="tick-later",
+        max_claims=1, allowed_predicates=("cognitive_model_identity",),
+        relevance_query="What was the previous cognitive model identity?")
+    assert current_projection is not None and current_projection.selected_claim_ids == (
+        current_generation.claim_id,)
+    assert historical_projection is not None and historical_projection.selected_claim_ids == (
+        old_generation.claim_id,)
 
 
 def record(*, source: str = "runtime:a", subject: str = "sentientos", disposition: str = "serving",
@@ -287,6 +369,7 @@ def test_generation_and_model_transition_preserves_historical_claims(tmp_path: P
     new = [claim for claim in second.claims if claim.value in {"model-b", "software-b"}]
     assert old and all(claim.status == "historical" and claim.superseded_by for claim in old)
     assert new and all(claim.status == "current" and claim.supersedes for claim in new)
+
 
 
 def test_multigeneration_lineage_preserves_terminal_claim_links(tmp_path: Path) -> None:

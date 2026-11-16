@@ -1,6 +1,6 @@
 """Side-effect-free canonical live-memory storage and explicit retention authority."""
 from __future__ import annotations
-import hashlib, json, os, re, stat
+import hashlib, json, math, os, re, stat
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +28,14 @@ _MEMORY_RETRIEVAL_STOP_WORDS = frozenset((
     "where", "which", "while", "who", "why", "will", "with", "would", "you", "your",
     "based", "brief", "briefly", "current", "currently", "different", "keep",
     "next", "one", "screen", "see", "sentence", "suggest", "tell", "thing", "things",
+))
+_RESPONSE_COMPOSITION_TERMS = frozenset((
+    "answer", "compose", "create", "describe", "draft", "email", "explain",
+    "message", "prepare", "reply", "respond", "response", "write",
+))
+_RESPONSE_STYLE_TERMS = frozenset((
+    "brief", "bullet", "casual", "concise", "detailed", "formal", "friendly",
+    "plain", "short", "simple", "succinct", "technical", "thorough", "verbose",
 ))
 _PROCESS_MEMORY_ROOT_IDENTITIES: dict[str, tuple[int, int]] = {}
 _PROCESS_MEMORY_ROOT_IDENTITIES_LOCK = RLock()
@@ -103,10 +111,37 @@ class ExplicitRetentionAdmissionGate:
         return RetentionAdmission(decision,cd,body["request_id"],digest(body),None if valid else "invalid_explicit_user_candidate")
 def _memory_retrieval_terms(text: str) -> set[str]:
     """Use content anchors so common chat phrasing cannot dominate memory matches."""
-    return {
-        token for token in re.findall(r"[a-z0-9]+", text.casefold())
-        if len(token) > 2 and token not in _MEMORY_RETRIEVAL_STOP_WORDS
-    }
+    terms: set[str] = set()
+    for token in re.findall(r"[a-z0-9]+", text.casefold()):
+        if len(token) <= 2 or token in _MEMORY_RETRIEVAL_STOP_WORDS:
+            continue
+        # Normalize common English plurals so a query about an "answer" can
+        # retrieve a retained statement about "answers". Keep this deliberately
+        # narrow: retrieval remains lexical and does not claim semantic entailment.
+        if len(token) > 4 and token.endswith("ies"):
+            token = token[:-3] + "y"
+        elif (len(token) > 4 and token.endswith(("ches", "shes", "sses", "xes", "zes"))):
+            token = token[:-2]
+        elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+            token = token[:-1]
+        terms.add(token)
+    return terms
+
+
+def _is_explicit_response_style_preference(text: str) -> bool:
+    """Recognize only plainly stated first-person response-style preferences."""
+    normalized = " ".join(re.findall(r"[a-z0-9]+", text.casefold()))
+    explicitly_preferred = re.search(
+        r"\b(?:i|we)\s+(?:usually\s+|really\s+)?(?:prefer|like|want)\b",
+        normalized) is not None
+    preference_terms = set(re.findall(r"[a-z0-9]+", normalized))
+    return explicitly_preferred and bool(
+        preference_terms & _RESPONSE_STYLE_TERMS)
+
+
+def _is_response_composition_query(query: str) -> bool:
+    """Identify requests to produce or phrase an answer, not general recall."""
+    return bool(_memory_retrieval_terms(query) & _RESPONSE_COMPOSITION_TERMS)
 
 
 def _is_prior_message_recall_question(text: str) -> bool:
@@ -304,15 +339,41 @@ class CanonicalMemoryStore:
         legacy_sidecar_posture = self._legacy_sidecar_posture()
         legacy_sidecar_present = legacy_sidecar_posture == "present_unverified"
         terms = _memory_retrieval_terms(query)
+        eligible = [record for record in records
+            if not _is_prior_message_recall_question(record["text"])]
+        document_terms = [_memory_retrieval_terms(record["text"]) for record in eligible]
+        document_frequency = {term: sum(term in candidate_terms
+            for candidate_terms in document_terms) for term in terms}
+        term_weights = {term: math.log((len(eligible) + 1) /
+            (frequency + 0.5)) + 1 for term, frequency in document_frequency.items()}
         ranked = []
-        for record in records:
-            if _is_prior_message_recall_question(record["text"]):
-                continue
-            score = len(terms & _memory_retrieval_terms(record["text"]))
+        composition_query = _is_response_composition_query(query)
+        for record, candidate_terms in zip(eligible, document_terms):
+            # Corpus rarity lets a distinctive anchor outweigh several common
+            # words, while relevance remains lexical and does not imply truth.
+            score = sum(term_weights[term] for term in terms & candidate_terms)
+            # A plainly stated response-style preference can affect new writing
+            # even when the request uses different wording. Keep this bridge
+            # narrow: it does not retrieve other preference kinds or answer
+            # preferences as current facts.
+            if (score == 0 and composition_query
+                    and _is_explicit_response_style_preference(record["text"])):
+                score = 1.0
             if score:
-                ranked.append((score, str(record.get("id", "")), record))
+                try:
+                    timestamp = datetime.fromisoformat(
+                        str(record.get("timestamp", "")).replace("Z", "+00:00"))
+                    if timestamp.tzinfo is None:
+                        timestamp = timestamp.replace(tzinfo=timezone.utc)
+                    recency = timestamp.timestamp()
+                except (OverflowError, OSError, TypeError, ValueError):
+                    # Bad or absent time never outranks a valid retained record.
+                    recency = float("-inf")
+                ranked.append((score, recency, str(record.get("id", "")), record))
         selected: list[dict[str, Any]]=[]; used=0; omitted=[]
-        for _,_,record in sorted(ranked,key=lambda x:(-x[0],x[1])):
+        # Relevance remains primary. Recency only orders equally relevant
+        # retained reports; it is not evidence that a newer statement is true.
+        for _,_,_,record in sorted(ranked,key=lambda x:(-x[0],-x[1],x[2])):
             identity=(record.get("id"),record.get("text_digest") or digest({"text":record["text"]}))
             if len(selected)>=max(0,limit):
                 omitted.append((identity,"selection_limit"))

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import stat
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
@@ -13,18 +14,27 @@ from typing import Any, Iterator, Mapping, Sequence
 
 from .local_model_authority import digest_payload
 from .canonical_memory import sentientos_memory_dir
+from .cognition_retrieval import cognition_query_terms
 from .private_file_custody import (
     PrivateFileCustodyError, open_private_directory, read_private_file_at, publish_immutable_bytes,
 )
 from .platform_fcntl import fcntl, require_flock
 from .world_state_board import WorldStateFact, WorldStateSnapshot, validate_snapshot
-from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
+from .windows_handle_custody import (
+    WindowsHandleCustodyError, ensure_private_child_directory,
+    observe_private_directory_identity,
+    read_explicit_file, read_regular_files, verify_explicit_directory,
+)
+from .windows_peer_replay_custody import (
+    WindowsReplayCustodyError, publish_immutable_replay_bytes,
+)
 
 SCHEMA = "sentientos.longitudinal_self_model:v1"
 RECONCILIATION_SCHEMA = "sentientos.longitudinal_self_model_reconciliation:v1"
 CONFIG_SCHEMA = "sentientos.longitudinal_self_model_runtime_config:v1"
 PROJECTION_SCHEMA = "sentientos.cognitive_self_model_projection:v1"
 PROJECTION_POLICY = "predicate_then_claim_id:v1"
+QUESTION_RELEVANT_PROJECTION_POLICY = "question_relevance_then_predicate_then_claim_id:v1"
 MAX_PROJECTION_CLAIMS = 32
 FALSE_AUTHORITY = {
     "decision_authority": False, "admission_authority": False,
@@ -182,11 +192,14 @@ class CognitiveSelfModelProjection:
     derived_evidence: bool = True
     current_truth: bool = False
     interpretation: bool = False
+    relevance_query_digest: str | None = None
 
     def semantic_payload(self) -> dict[str, Any]:
         value = asdict(self)
         value.pop("projection_id")
         value.pop("projection_digest")
+        if value.get("relevance_query_digest") is None:
+            value.pop("relevance_query_digest")
         return value
 
 
@@ -278,6 +291,48 @@ class SelfModelClaim:
     def __post_init__(self) -> None:
         if self.authority is None:
             object.__setattr__(self, "authority", dict(FALSE_AUTHORITY))
+
+
+def _rank_self_model_projection_claims(claims: Sequence[SelfModelClaim], *,
+        relevance_query: str | None, max_claims: int
+        ) -> tuple[tuple[SelfModelClaim, ...], str | None]:
+    """Rank matching claims before the projection cap and bind an effective query."""
+    baseline = tuple(sorted(claims, key=lambda claim: (claim.predicate, claim.claim_id)))
+    query_terms = (cognition_query_terms(relevance_query)
+        if isinstance(relevance_query, str) else set())
+    if not query_terms:
+        return baseline, None
+    query_text = relevance_query.casefold() if isinstance(relevance_query, str) else ""
+    temporal_intent = ("current" if re.search(
+        r"\b(?:current|currently|now|latest|today)\b", query_text) else
+        "historical" if re.search(
+            r"\b(?:prior|previous|earlier|historical|history|past|former|formerly)\b",
+            query_text) else None)
+    field_weights = (("predicate", 3), ("value", 2), ("temporal_scope", 2),
+        ("subject_id", 2), ("subject_kind", 1), ("claim_category", 1),
+        ("lifecycle_stage", 1), ("interpretation", 1))
+    scored: list[tuple[int, int, SelfModelClaim]] = []
+    for claim in claims:
+        term_weights: dict[str, int] = {}
+        for field, weight in field_weights:
+            field_terms = query_terms & cognition_query_terms(json.dumps(
+                getattr(claim, field), sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False, default=str))
+            for term in field_terms:
+                term_weights[term] = max(term_weights.get(term, 0), weight)
+        temporal_relevance = 0
+        if temporal_intent == "current":
+            temporal_relevance = (2 if claim.status == "current" else
+                1 if claim.status == "contradicted" else 0)
+        elif temporal_intent == "historical":
+            temporal_relevance = (2 if claim.status in {"historical", "withdrawn"}
+                or claim.freshness in {"superseded", "stale", "expired"} else 0)
+        scored.append((sum(term_weights.values()), temporal_relevance, claim))
+    ranked = tuple(claim for _, _, claim in sorted(scored,
+        key=lambda row: (-row[0], -row[1], row[2].predicate, row[2].claim_id)))
+    if ranked[:max_claims] == baseline[:max_claims]:
+        return baseline, None
+    return ranked, _digest(relevance_query)
 
 
 @dataclass(frozen=True)
@@ -1040,11 +1095,31 @@ class LongitudinalSelfModelOwner:
             os.close(directory_fd)
 
     def _publish_entry(self, path: Path, result: SelfModelReconciliation) -> None:
-        if os.name != "posix":
-            raise LongitudinalSelfModelError("reconciliation_publication_unsupported_platform")
         data = json.dumps(asdict(result), sort_keys=True, indent=2).encode("utf-8") + b"\n"
         if len(data) > MAX_RECONCILIATION_BYTES:
             raise LongitudinalSelfModelError("reconciliation_file_unbounded")
+        if os.name == "nt":
+            try:
+                # The configured root is operator-provisioned. Verify its held
+                # Windows custody before creating only the journal child; the
+                # immutable writer then pins that child's identity throughout
+                # publication and readback.
+                verify_explicit_directory(self.root, require_private_acl=True)
+                self.entries = ensure_private_child_directory(
+                    self.root, self.entries.name)
+                root_identity = observe_private_directory_identity(self.entries)
+                publish_immutable_replay_bytes(path, data,
+                    max_bytes=MAX_RECONCILIATION_BYTES,
+                    max_entries=MAX_RECONCILIATION_ENTRIES,
+                    expected_root_identity=root_identity,
+                    filename_policy="longitudinal_self_model")
+                return
+            except (WindowsHandleCustodyError, WindowsReplayCustodyError,
+                    OSError) as exc:
+                raise LongitudinalSelfModelError(
+                    "reconciliation_publication_failed") from exc
+        if os.name != "posix":
+            raise LongitudinalSelfModelError("reconciliation_publication_unsupported_platform")
         try:
             publish_immutable_bytes(path, data, max_bytes=MAX_RECONCILIATION_BYTES,
                 collision_code="reconciliation_path_collision")
@@ -1140,6 +1215,57 @@ class LongitudinalSelfModelOwner:
     @contextmanager
     def _reconciliation_lock(self) -> Iterator[None]:
         """Serialize generation/predecessor selection across local processes."""
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+
+            try:
+                root_identity = observe_private_directory_identity(self.root)
+            except WindowsHandleCustodyError as exc:
+                raise LongitudinalSelfModelError(
+                    "reconciliation_lock_root_unavailable") from exc
+            root_key = _digest({"volume": root_identity[0],
+                "file_id": root_identity[1].hex()})[7:]
+            kernel = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+            create_mutex = kernel.CreateMutexW
+            create_mutex.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+            create_mutex.restype = wintypes.HANDLE
+            wait = kernel.WaitForSingleObject
+            wait.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            wait.restype = wintypes.DWORD
+            release = kernel.ReleaseMutex
+            release.argtypes = [wintypes.HANDLE]
+            release.restype = wintypes.BOOL
+            close = kernel.CloseHandle
+            close.argtypes = [wintypes.HANDLE]
+            close.restype = wintypes.BOOL
+            mutex = create_mutex(None, False,
+                "Local\\SentientOS-SelfModel-" + root_key)
+            if not mutex:
+                raise LongitudinalSelfModelError("reconciliation_lock_unavailable")
+            acquired = False
+            try:
+                result = int(wait(mutex, 30_000))
+                if result not in {0, 0x80}:  # acquired, including abandoned-owner recovery
+                    raise LongitudinalSelfModelError("reconciliation_lock_unavailable")
+                acquired = True
+                try:
+                    if observe_private_directory_identity(self.root) != root_identity:
+                        raise LongitudinalSelfModelError(
+                            "reconciliation_lock_root_identity_changed")
+                except WindowsHandleCustodyError as exc:
+                    raise LongitudinalSelfModelError(
+                        "reconciliation_lock_root_unavailable") from exc
+                yield
+            finally:
+                if acquired and not release(mutex):
+                    close(mutex)
+                    raise LongitudinalSelfModelError(
+                        "reconciliation_lock_release_failed")
+                if not close(mutex):
+                    raise LongitudinalSelfModelError(
+                        "reconciliation_lock_close_failed")
+            return
         if os.name != "posix":
             raise LongitudinalSelfModelError("reconciliation_lock_unsupported_platform")
         directory_fd: int | None = None
@@ -1191,7 +1317,9 @@ class LongitudinalSelfModelOwner:
         return history[generation - 1]
 
     def cognitive_projection(self, *, before_tick: str, max_claims: int,
-                             allowed_predicates: Sequence[str]) -> CognitiveSelfModelProjection | None:
+                             allowed_predicates: Sequence[str],
+                             relevance_query: str | None = None
+                             ) -> CognitiveSelfModelProjection | None:
         """Project a prior durable reconciliation before this tick's boundary.
 
         The owner generation chain, not wall-clock formatting, establishes
@@ -1203,6 +1331,9 @@ class LongitudinalSelfModelOwner:
                 or not isinstance(max_claims, int) or isinstance(max_claims, bool)
                 or not 1 <= max_claims <= MAX_PROJECTION_CLAIMS):
             raise LongitudinalSelfModelError("invalid_cognitive_projection_boundary")
+        if (relevance_query is not None
+                and (not isinstance(relevance_query, str) or len(relevance_query) > 4000)):
+            raise LongitudinalSelfModelError("invalid_cognitive_projection_query")
         history = self._load()
         cutoff = next((index for index, item in enumerate(history)
                        if item.tick_id == before_tick), len(history))
@@ -1211,8 +1342,12 @@ class LongitudinalSelfModelOwner:
             return None
         source = eligible[-1]
         allowed = set(allowed_predicates)
-        claims = sorted((claim for claim in source.claims if claim.predicate in allowed),
-                        key=lambda claim: (claim.predicate, claim.claim_id))[:max_claims]
+        eligible_claims = tuple(claim for claim in source.claims
+            if claim.predicate in allowed)
+        ranked_claims, relevance_query_digest = _rank_self_model_projection_claims(
+            eligible_claims, relevance_query=relevance_query,
+            max_claims=max_claims)
+        claims = ranked_claims[:max_claims]
         selected: list[Mapping[str, Any]] = []
         digests: list[str] = []
         for claim in claims:
@@ -1246,13 +1381,13 @@ class LongitudinalSelfModelOwner:
             tuple(digests), tuple(sorted({c.software_generation for c in claims if c.software_generation})),
             tuple(sorted({c.cognitive_model_identity for c in claims if c.cognitive_model_identity})),
             tuple(sorted({c.developmental_history_boundary for c in claims if c.developmental_history_boundary})),
-            PROJECTION_POLICY, dict(FALSE_AUTHORITY))
+            (QUESTION_RELEVANT_PROJECTION_POLICY if relevance_query_digest is not None
+                else PROJECTION_POLICY), dict(FALSE_AUTHORITY),
+            relevance_query_digest=relevance_query_digest)
         digest = _digest(raw.semantic_payload())
         return replace(raw, projection_id="cognitive-self-model-" + digest[7:31], projection_digest=digest)
 
     def reconcile(self, snapshot: WorldStateSnapshot, *, tick_id: str) -> SelfModelReconciliation:
-        if os.name != "posix":
-            return self._reconcile_locked(snapshot, tick_id=tick_id)
         with self._reconciliation_lock():
             return self._reconcile_locked(snapshot, tick_id=tick_id)
 
@@ -1392,4 +1527,5 @@ class LongitudinalSelfModelOwner:
 
 __all__ = ["CONFIG_SCHEMA", "FALSE_AUTHORITY", "CognitiveSelfModelProjection",
            "LongitudinalSelfModelError", "LongitudinalSelfModelOwner", "LongitudinalSelfModelRuntimeConfig",
-           "SelfModelClaim", "SelfModelReconciliation", "load_runtime_config"]
+           "QUESTION_RELEVANT_PROJECTION_POLICY", "SelfModelClaim",
+           "SelfModelReconciliation", "load_runtime_config"]

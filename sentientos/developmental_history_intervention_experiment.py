@@ -14,7 +14,11 @@ from .resident_developmental_writeback import (
     CognitionObservation, DevelopmentalHistoryProjection, measure_changed_cognition,
     DevelopmentalWritebackError, _open_store_directory, _read_store_file, _publish_store_json,
 )
-from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
+from .windows_handle_custody import (
+    WindowsHandleCustodyError, ensure_private_child_directory,
+    observe_private_directory_identity,
+    read_explicit_file, verify_explicit_directory,
+)
 
 LEGACY_SCHEMA = "sentientos.developmental_history_intervention_protocol:v1"
 SCHEMA = "sentientos.developmental_history_intervention_protocol:v2"
@@ -221,7 +225,8 @@ class DevelopmentalExperimentStore:
     def _read_json(path: Path) -> dict[str, Any]:
         if os.name == "nt":
             try:
-                raw = read_explicit_file(path, max_bytes=MAX_EXPERIMENT_ARTIFACT_BYTES)
+                raw = read_explicit_file(path, max_bytes=MAX_EXPERIMENT_ARTIFACT_BYTES,
+                    require_private_acl=True)
             except WindowsHandleCustodyError as exc:
                 if str(exc) == "explicit_file_missing":
                     raise FileNotFoundError(path) from exc
@@ -250,16 +255,57 @@ class DevelopmentalExperimentStore:
             raise DevelopmentalHistoryInterventionError("experiment_artifact_noncanonical")
         return value
 
-    @classmethod
-    def _write_immutable(cls, path: Path, payload: Mapping[str, Any]) -> None:
+    def _ensure_windows_collection(self, collection: Path) -> tuple[int, bytes]:
+        if os.name != "nt" or collection not in {self.protocols, self.runs}:
+            raise DevelopmentalHistoryInterventionError(
+                "experiment_artifact_windows_collection_invalid")
+        try:
+            verify_explicit_directory(self.root.parent, require_private_acl=True)
+            ensure_private_child_directory(self.root.parent, self.root.name)
+            ensure_private_child_directory(self.root, collection.name)
+            return observe_private_directory_identity(collection)
+        except (WindowsHandleCustodyError, OSError) as exc:
+            raise DevelopmentalHistoryInterventionError(
+                "experiment_artifact_windows_collection_custody_invalid") from exc
+
+    def _write_immutable(self, path: Path, payload: Mapping[str, Any]) -> None:
         normalized = json.loads(json.dumps(dict(payload), sort_keys=True))
         try:
-            existing = cls._read_json(path)
+            existing = self._read_json(path)
         except FileNotFoundError:
             existing = None
         if existing is not None:
             if existing != normalized:
                 raise DevelopmentalHistoryInterventionError("artifact_identity_collision")
+            return
+        if os.name == "nt":
+            root_identity = self._ensure_windows_collection(path.parent)
+            policy = ("objective_task_plan"
+                if (path.parent == self.protocols
+                    and path.name.startswith("objective-task-plan-")) else
+                "objective_condition_score"
+                if (path.parent == self.protocols
+                    and path.name.startswith("objective-score-")) else None)
+            if policy is None:
+                policy = ("developmental_experiment_protocol"
+                    if path.parent == self.protocols else
+                    "developmental_experiment_run"
+                    if path.parent == self.runs else None)
+            if policy is None:
+                raise DevelopmentalHistoryInterventionError(
+                    "experiment_artifact_windows_filename_policy_invalid")
+            try:
+                _publish_store_json(path, payload,
+                    collision_error="artifact_identity_collision",
+                    max_bytes=MAX_EXPERIMENT_ARTIFACT_BYTES,
+                    windows_root_identity=root_identity,
+                    windows_filename_policy=policy)
+            except DevelopmentalWritebackError as exc:
+                if str(exc) == "artifact_identity_collision":
+                    raise DevelopmentalHistoryInterventionError(
+                        "artifact_identity_collision") from exc
+                raise DevelopmentalHistoryInterventionError(
+                    "experiment_artifact_publication_failed") from exc
             return
         if os.name != "posix":
             raise DevelopmentalHistoryInterventionError("experiment_artifact_publication_unsupported_platform")
@@ -1095,19 +1141,51 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
             observation_digest = semantic_observation.pop("observation_digest", None)
             schema_version = semantic_observation.get("schema_version")
             if schema_version not in {"sentientos.resident_cognition_observation:v7",
-                    "sentientos.resident_cognition_observation:v8"}:
+                        "sentientos.resident_cognition_observation:v8",
+                        "sentientos.resident_cognition_observation:v9",
+                        "sentientos.resident_cognition_observation:v10",
+                        "sentientos.resident_cognition_observation:v11", "sentientos.resident_cognition_observation:v12",
+                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14"}:
                 for field in ("resource_allocation_digest", "resource_attempt_id",
                         "resource_consumption_receipt_digests", "resource_linkage_digest"):
                     semantic_observation.pop(field, None)
             if schema_version not in {"sentientos.resident_cognition_observation:v6",
                     "sentientos.resident_cognition_observation:v7",
-                    "sentientos.resident_cognition_observation:v8"}:
+                    "sentientos.resident_cognition_observation:v8",
+                    "sentientos.resident_cognition_observation:v9",
+                    "sentientos.resident_cognition_observation:v10",
+                    "sentientos.resident_cognition_observation:v11", "sentientos.resident_cognition_observation:v12",
+                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14"}:
                 # The v6 history-selection binding is absent from older
                 # canonical observation identities, even though dataclass
                 # recovery now supplies its default value.
                 semantic_observation.pop("developmental_history_selection", None)
-            if schema_version != "sentientos.resident_cognition_observation:v8":
+            if schema_version == "sentientos.resident_cognition_observation:v11":
+                # v11 added companion self-model citations, but its producer's
+                # canonical digest predates the two optional v10 audit fields.
+                # They remain on the dataclass for recovery compatibility.
+                semantic_observation.pop("developmental_history_context_budget_attempts", None)
+                semantic_observation.pop("prior_self_model_prompt_selection", None)
+            if schema_version not in {"sentientos.resident_cognition_observation:v8",
+                    "sentientos.resident_cognition_observation:v9",
+                    "sentientos.resident_cognition_observation:v10",
+                    "sentientos.resident_cognition_observation:v11", "sentientos.resident_cognition_observation:v12",
+                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14"}:
                 semantic_observation.pop("companion_history_citation_ids", None)
+            if schema_version not in {"sentientos.resident_cognition_observation:v9",
+                    "sentientos.resident_cognition_observation:v10",
+                    "sentientos.resident_cognition_observation:v11", "sentientos.resident_cognition_observation:v12",
+                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14"}:
+                for field in ("canonical_user_memory_source_snapshot_digest",
+                        "canonical_user_memory_selection_digest",
+                        "canonical_user_memory_record_ids",
+                        "canonical_user_memory_record_digests",
+                        "companion_memory_citation_ids"):
+                    semantic_observation.pop(field, None)
+            if schema_version != "sentientos.resident_cognition_observation:v14":
+                # v14 added epistemic-state citations; older canonical
+                # identities must not acquire the dataclass's empty default.
+                semantic_observation.pop("companion_epistemic_state_citation_ids", None)
             calculated = _digest(semantic_observation)
             if schema_version == "sentientos.resident_cognition_observation:v2":
                 semantic_observation.pop("serving_session_id", None)
@@ -1119,13 +1197,21 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
                         "sentientos.resident_cognition_observation:v5",
                         "sentientos.resident_cognition_observation:v6",
                         "sentientos.resident_cognition_observation:v7",
-                        "sentientos.resident_cognition_observation:v8"}
+                        "sentientos.resident_cognition_observation:v8",
+                        "sentientos.resident_cognition_observation:v9",
+                        "sentientos.resident_cognition_observation:v10",
+                        "sentientos.resident_cognition_observation:v11", "sentientos.resident_cognition_observation:v12",
+                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14"}
                     or observation_digest != calculated
                     or observation_id != "devcog-" + calculated[7:31]):
                 raise DevelopmentalHistoryInterventionError("observation_identity_mismatch")
             if schema_version in {"sentientos.resident_cognition_observation:v6",
                     "sentientos.resident_cognition_observation:v7",
-                    "sentientos.resident_cognition_observation:v8"}:
+                        "sentientos.resident_cognition_observation:v8",
+                        "sentientos.resident_cognition_observation:v9",
+                        "sentientos.resident_cognition_observation:v10",
+                        "sentientos.resident_cognition_observation:v11", "sentientos.resident_cognition_observation:v12",
+                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14"}:
                 selection = semantic_observation.get("developmental_history_selection")
                 expected_records = [{"record_id": record_id,
                     "record_digest": record_digest} for record_id, record_digest in zip(

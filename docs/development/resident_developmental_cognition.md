@@ -120,6 +120,44 @@ reports reconciliation status and identity separately from developmental
 writeback, including a degraded status if reconciliation fails after writeback.
 This does not roll back or misreport an already committed writeback.
 
+On Windows, longitudinal self-model reconciliations now use the existing
+handle-bound immutable publisher when the configured custody root already
+exists and passes the private ACL check. A directory-identity-bound local
+mutex serializes reconciliation generations across processes, and restart
+recovery verifies the resulting immutable chain.
+
+The developmental-history store now also publishes immutable learning records
+and writeback receipts on Windows when its configured root exists with a
+verified private ACL. Records and receipts use the existing handle-bound,
+no-replace publisher, and the writeback operation lock is scoped to the verified
+root identity. A deterministic native test writes both artifacts, acquires the
+lock, reconstructs the store, and verifies their record/receipt linkage after
+restart. This enables durable history storage on Windows; the resident owner
+also persists its mutable composition checkpoint with atomic replacement and
+serializes ticks through a state-root-identity-bound local mutex. Runtime
+admission ledger updates use the same private-root discipline, and cognition
+observations are durably published and recovered from their own private child
+directory. Exact-name reads now tolerate bounded sibling entries in shared
+state roots while still enforcing the selected-file count and byte limits.
+
+A native Windows integration test exercises two ordinary `run_tick` calls from
+separate owner instances. The first tick admits and retains a lesson; the second
+reconstructs checkpoint, observation, admission, record, and receipt custody
+after restart, selects the earlier record, and changes a deterministic fake
+invoker's interpretation only when that history appears in its prompt. This
+demonstrates the integrated software path with a controlled substitute; it does
+not demonstrate real-model learning or improved real-world decisions. A second
+native Windows integration test now persists and reloads the controlled A/B/A
+history comparison protocol and outcome run. It verifies that the deterministic
+fake's present and restored outcomes differ from withheld history and match one
+another; the result remains a bounded observed association, not a learning or
+causal claim. Objective-task plans and score checkpoints now use the same
+private Windows state-root custody policy and recover with the run after owner
+restart. A deterministic objective-transfer fixture demonstrates that scored
+history-present and restored answers are correct while the withheld answer is
+not; this is a controlled software result, not evidence of real-model learning
+or generalization. No GPU or real-model validation was performed.
+
 A renderer's proprioceptive report remains a report from the renderer, not an
 independent measurement of the avatar's actual effect. The self-model owner
 preserves that provenance and uncertainty; these claims are read-only,
@@ -176,11 +214,20 @@ eligible lesson. When the verified reply has capture lineage, the operator may
 also enter a bounded correction when `operator_input` is explicitly included
 in the resident cognition owner's `allowed_source_kinds`. That text is stored as
 a separate `operator_assertion_unverified` World-State report, bound by digest
-to the saved reply and both captures. It is not independent sensor evidence or
-proof that an
-action occurred; the UI asks for explicit confirmation before the capture and
-writeback. Repeating the same request identity cannot reuse a completed tick. No
-gameplay action is authorized by this control. Cognition inference is
+to the saved reply and both captures. The immediate interpretation treats it
+as a reported assertion rather than direct observation and preserves conflict
+with scoped sensor or owner evidence. If that reply cited prior conversation
+turns, the report also carries those exact turn IDs and text digests through
+writeback into later history context. This preserves which dialogue the reply
+said influenced it; it does not identify which cited turn the operator meant
+to correct, or establish the dialogue or correction as true. Cognition compares
+the cited turn with a correction only when that exact dialogue text is also
+present in the current session context. When they conflict, the prompt directs
+cognition to surface the disagreement and preserve uncertainty instead of
+automatically accepting either source. The report is not independent sensor
+evidence or proof that an action occurred. The UI asks for explicit confirmation
+before capture and writeback. Repeating the same request identity cannot reuse
+a completed tick. No gameplay action is authorized by this control. Cognition inference is
 serialized against model-profile changes and unavailable during gaming workload
 mode. The option remains off by default and does not reconfigure a running
 companion.
@@ -212,11 +259,12 @@ names at least one record whose writeback admission and receipt still verify;
 uncheckpointed or interrupted record publication is not treated as eligible,
 and staging is refused when no such history exists. The check never repairs
 composition or history custody. Its output says `staged_not_authorized`: it
-does not load a model, admit a call, or grant serving authority. On the next daemon tick with an exact World-State
-snapshot, the configured resident owner reads the request through bounded
-no-follow file custody on POSIX. The current private publication and cognition
-state owners remain unsupported on Windows; the staging command reports that
-platform blocker and does not fall back to an ordinary write. If eligible prior developmental history exists, the
+does not load a model, admit a call, or grant serving authority. On the next
+operator-triggered run with an exact World-State snapshot, the configured
+resident owner reads the request through bounded custody. Windows staging and
+recovery require an existing private state root; a state-root-bound named mutex
+serializes staging with resident ticks, and request replacement and archival use
+the Windows handle publisher. If eligible prior developmental history exists, the
 owner binds the request and its public descriptor into a durable objective
 plan before the three existing governed inference calls. If no prior history
 exists, it records a terminal blocked request without inference. The request
@@ -431,11 +479,12 @@ that exact family observation. Omitting both flags preserves the historical
 general-history behavior. Supplying a family without the requirement influences
 retrieval when a matching record exists but does not block if it is absent.
 
-Native Windows staging is unsupported; this command does not use a weaker
-fallback publisher. WSL is only a candidate supported host when both the daemon
-and all three commands run inside that same POSIX installation and share its
-exact custody roots. No cross-environment request copying or Windows/WSL
-handoff has been verified here. Model-serving activation and each inference
+Windows staging now uses private ACL checks and the native handle publisher;
+it fails closed if those custody checks are unavailable. WSL is only a
+candidate supported host when both the daemon and all three commands run inside
+that same POSIX installation and share its exact custody roots. No
+cross-environment request copying or Windows/WSL handoff has been verified here.
+Model-serving activation and each inference
 remain subject to their existing independent authorization and custody paths;
 these commands create no grants.
 
@@ -447,3 +496,31 @@ root and does not widen canonical retention semantics.
 ## Fourth substrate: prior epistemic state
 
 Cognition can receive a separately typed, prior-tick epistemic projection binding exact proposition IDs, state IDs/digests, generations, and evidence-set digests. Current World-State evidence outranks a conflicting stale position for current-condition reasoning. Same-tick projections fail closed, so a cognition cannot certify its own update. See [persistent epistemic state](../architecture/persistent_epistemic_state.md).
+
+When the inference input cannot carry every complete semantic packet, selection
+prioritizes proposition terms matching the current question before epistemic
+severity and stable identity. Matching also preserves typed identifiers such as
+`facility-1` and `exact-window-1`; discarding numeric suffixes can otherwise
+make distinct propositions look equally relevant. Omitted packet identities and
+digests remain bound in the observation. A deterministic budget counterfactual
+checks that the matching complete packet is selected while an unrelated query
+retains the established severity ordering.
+
+Current resident cognition observations use schema V12. The V10 selection manifest preserves the self-model claims chosen for the bounded inference prompt. It binds selected and omitted claim identities to the source projection digest, appears in the inference request's upstream evidence, and is checked against the recovered observation. V11 adds companion response citations for selected self-model claims. V12 adds companion citations to exact prior conversation turn IDs. The selected turn IDs and text digests remain bound to the source snapshot and context selection digest, and recovery checks each cited digest against that selected set. Older V9 through V11 observations retain their historical field shapes and remain recoverable. These records show which context was supplied and cited; they do not establish that a model used it correctly or that it improved a decision.
+
+The companion's committed-response verifier accepts V8 through V12 observations. For V9 and later, it checks memory citations and the memory selection digest against the durable observation. V11 also records prior self-model citations: the model may cite only selected claims in the prompt allowlist, and recovery and transcript verification bind those citations back to the recorded selection. V12 applies the same lineage check to cited conversation turns and their exact text digests. Self-model and conversation citations identify earlier context; they do not establish current truth or verified capability.
+
+Resident-companion chat now passes up to 16 prior turns from the current
+conversation snapshot, capped at 4,000 text characters. Each turn carries its
+text digest and a digest of its existing linkage; the selected set has its own
+digest and remains bound to the source conversation snapshot. The cognition
+prompt treats this separate `session_conversation_context` as untrusted,
+historical dialogue: assistant statements are not verified facts, and transcript
+text is neither current evidence nor canonical retained memory. The invocation
+receipt binds the exact prompt and upstream context; the assistant transcript
+linkage records the snapshot digest, selection digest, and supplied turn IDs.
+This enables same-session follow-up resolution without copying ordinary
+conversation text into developmental history or canonical memory. A controlled
+counterfactual test demonstrates that an earlier sensor statement is available
+to the resident route when included and absent when withheld. It uses a test
+double and does not establish real-model accuracy or improved decisions.

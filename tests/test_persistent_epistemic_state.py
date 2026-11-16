@@ -11,10 +11,29 @@ from sentientos.persistent_epistemic_state import (
     PropositionRelation, evidence_posture, make_cognitive_projection,
     make_evidence_binding, make_proposition, make_epistemic_update_candidate, _write_new,
     MeaningBearingEpistemicCognitiveProjection, semantic_packets_for_projection,
-    validate_cognitive_projection,
+    validate_cognitive_projection, _question_relevant_proposition_ids,
+    _projection_priority_ids,
+    _proposition_priorities_from_state_citations,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_state_citations_resolve_to_current_proposition_lineage_in_order():
+    from types import SimpleNamespace
+
+    states = (
+        SimpleNamespace(state_id="epistemic-state:" + "a" * 24,
+            proposition_id="proposition:older"),
+        SimpleNamespace(state_id="epistemic-state:" + "b" * 24,
+            proposition_id="proposition:other"),
+        SimpleNamespace(state_id="epistemic-state:" + "c" * 24,
+            proposition_id="proposition:older"),
+    )
+    assert _proposition_priorities_from_state_citations(states, (
+        states[0].state_id, states[1].state_id, states[2].state_id,
+        "epistemic-state:" + "d" * 24)) == (
+            "proposition:older", "proposition:other")
 
 
 def proposition(statement="wording one", **scope):
@@ -22,6 +41,89 @@ def proposition(statement="wording one", **scope):
         object_value={"pose":"wave"}, polarity="positive", qualifiers={"renderer":"fixture-r"},
         temporal_scope={"kind":"bounded_trial"}, context_scope={"fixture":"E", **scope},
         proposition_class="predictive", statement=statement)
+
+
+def test_question_relevance_ranks_current_propositions_before_projection_bound():
+    unrelated = make_proposition(namespace="embodiment", subject="design:launch",
+        predicate="has_status", object_value="delayed", polarity="positive",
+        qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive", statement="The design launch moved.")
+    relevant = make_proposition(namespace="embodiment", subject="sensor:west",
+        predicate="reports_measurement", object_value="exact-window-1", polarity="positive",
+        qualifiers={}, temporal_scope={"window": "exact-window-1"},
+        context_scope={"facility": "facility-1"},
+        proposition_class="descriptive",
+        statement="The sensor measurement is from facility-1.")
+    propositions = {unrelated.proposition_id: unrelated,
+        relevant.proposition_id: relevant}
+
+    assert _question_relevant_proposition_ids(propositions,
+        query="Which sensor measurement came from facility-1 during exact-window-1?",
+        limit=1) == (relevant.proposition_id,)
+    assert _question_relevant_proposition_ids(propositions,
+        query="What happened in the lunar mission?", limit=1) == ()
+    assert _question_relevant_proposition_ids(propositions,
+        query=None, limit=1) == ()
+
+
+def test_projection_question_priority_ignores_propositions_without_prior_state():
+    never_updated = make_proposition(namespace="embodiment",
+        subject="sensor:west", predicate="reports_measurement",
+        object_value="exact-window-1", polarity="positive", qualifiers={},
+        temporal_scope={"window": "exact-window-1"},
+        context_scope={"facility": "facility-1"},
+        proposition_class="descriptive",
+        statement="The west sensor measurement came from facility-1 in exact-window-1.")
+    has_prior_state = make_proposition(namespace="embodiment",
+        subject="sensor:east", predicate="reports_measurement",
+        object_value="stable", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The sensor measurement remained stable.")
+    propositions = {never_updated.proposition_id: never_updated,
+        has_prior_state.proposition_id: has_prior_state}
+
+    assert _projection_priority_ids(propositions,
+        available_proposition_ids={has_prior_state.proposition_id},
+        prioritized_proposition_ids=(),
+        query="Which west sensor measurement came from facility-1 in exact-window-1?",
+        limit=1) == (has_prior_state.proposition_id,)
+
+
+def test_question_relevance_prefers_structured_terms_over_incidental_statement_match():
+    structured_match = make_proposition(namespace="embodiment",
+        subject="sensor:west", predicate="reports_temperature",
+        object_value="stable", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={"room": "lab_a"},
+        proposition_class="descriptive", statement="A retained sensor report.")
+    wording_match = make_proposition(namespace="embodiment",
+        subject="plant:greenhouse", predicate="has_status",
+        object_value="healthy", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The temperature reading was mentioned incidentally.")
+    propositions = {structured_match.proposition_id: structured_match,
+        wording_match.proposition_id: wording_match}
+
+    assert _question_relevant_proposition_ids(propositions,
+        query="temperature",
+        limit=1) == (structured_match.proposition_id,)
+
+
+def test_question_relevance_counts_each_query_term_once_per_proposition():
+    scoped_match = make_proposition(namespace="embodiment",
+        subject="sensor:west", predicate="has_status", object_value="active",
+        polarity="positive", qualifiers={}, temporal_scope={},
+        context_scope={"room": "lab_a"}, proposition_class="descriptive",
+        statement="A sensor report.")
+    repeated_generic_match = make_proposition(namespace="embodiment",
+        subject="sensor:east", predicate="sensor_status", object_value="active",
+        polarity="positive", qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive",
+        statement="The sensor reading mentions another sensor.")
+    propositions = {scoped_match.proposition_id: scoped_match,
+        repeated_generic_match.proposition_id: repeated_generic_match}
+
+    assert _question_relevant_proposition_ids(propositions,
+        query="sensor lab", limit=1) == (scoped_match.proposition_id,)
 
 
 def binding(p, source, relation="supports", dependency="independently_sourced_observation", upstream=(), freshness="current"):
@@ -183,6 +285,31 @@ def test_owner_projection_prioritizes_goal_relevant_history_and_binds_omissions(
         "omitted_state_identities"]} == {"provisionally_supported"}
     validate_cognitive_projection(projection, require_meaning=True)
 
+    cited_projection = owner.cognitive_projection(
+        max_states=1, current_tick=4,
+        prioritized_state_ids=(states[lexicographically_last].state_id,))
+    assert cited_projection is not None
+    assert cited_projection.proposition_ids == (lexicographically_last,)
+    assert owner.proposition_priorities_for_state_ids(
+        (states[lexicographically_last].state_id,)) == (lexicographically_last,)
+
+    superseding, _ = owner.commit_update(
+        proposition_id=lexicographically_last,
+        expected_predecessor_digest=states[lexicographically_last].state_digest,
+        stance="suspended", reason="operator_error_correction",
+        active_binding_ids=(), correlation_id="supersede-cited-state", tick=5,
+        recorded_at="2026-01-01T00:00:05Z")
+    stale_citation_projection = owner.cognitive_projection(
+        max_states=1, current_tick=6,
+        prioritized_state_ids=(states[lexicographically_last].state_id,))
+    assert stale_citation_projection is not None
+    assert stale_citation_projection.proposition_ids == (lexicographically_last,)
+    assert stale_citation_projection.state_ids == (superseding.state_id,)
+    with pytest.raises(EpistemicStateError,
+            match="epistemic_projection_state_priority_invalid"):
+        owner.cognitive_projection(max_states=1,
+            prioritized_state_ids=("fabricated-state",))
+
     tampered_manifest = dict(manifest)
     tampered_manifest["prioritized_proposition_ids"] = (
         min(item.proposition_id for item in propositions),)
@@ -196,6 +323,44 @@ def test_owner_projection_prioritizes_goal_relevant_history_and_binds_omissions(
             prioritized_proposition_ids=(lexicographically_last,
                 lexicographically_last))
 
+
+def test_citation_priority_yields_to_direct_question_relevance(tmp_path):
+    owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    cited = make_proposition(namespace="embodiment", subject="design:launch",
+        predicate="has_status", object_value="delayed", polarity="positive",
+        qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive", statement="The launch is delayed.")
+    relevant = make_proposition(namespace="embodiment", subject="sensor:west",
+        predicate="reports_measurement", object_value="exact-window-1",
+        polarity="positive", qualifiers={},
+        temporal_scope={"window": "exact-window-1"},
+        context_scope={"facility": "facility-1"},
+        proposition_class="descriptive",
+        statement="The west sensor measurement came from facility-1.")
+    cited_state = None
+    for index, item in enumerate((cited, relevant), start=1):
+        owner.register_proposition(item)
+        state, _ = owner.commit_update(proposition_id=item.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(),
+            correlation_id=f"citation-relevance:{index}", tick=index,
+            recorded_at=f"2026-01-01T00:00:0{index}Z")
+        if item.proposition_id == cited.proposition_id:
+            cited_state = state
+    assert cited_state is not None
+
+    direct_match = owner.cognitive_projection(max_states=1, current_tick=3,
+        prioritized_state_ids=(cited_state.state_id,),
+        relevance_query="Which west sensor measurement came from facility-1 during exact-window-1?")
+    ambiguous_followup = owner.cognitive_projection(max_states=1, current_tick=3,
+        prioritized_state_ids=(cited_state.state_id,),
+        relevance_query="What happened on the lunar mission?")
+
+    assert direct_match is not None
+    assert direct_match.proposition_ids == (relevant.proposition_id,)
+    assert ambiguous_followup is not None
+    assert ambiguous_followup.proposition_ids == (cited.proposition_id,)
 
 def test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes(tmp_path):
     from sentientos.epistemic_planning import (

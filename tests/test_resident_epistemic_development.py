@@ -83,6 +83,34 @@ def test_one_tick_evidence_and_state_mutation_uses_distinct_admissions(tmp_path)
     assert state.evidence_set_digest
 
 
+def test_unverified_operator_feedback_cannot_drive_directional_epistemic_update(
+        tmp_path):
+    owner, proposition, _ledger, runtime = fixture(tmp_path, relation="contradicts")
+    runtime.config = replace(runtime.config, rules=(replace(
+        runtime.config.rules[0], selector={
+            "source_kind": "operator_input",
+            "subject_kind": "operator_reported_companion_feedback",
+            "stage": "observation", "disposition": "reported"}),))
+    from sentientos.developmental_companion_bridge import make_operator_feedback_record
+    feedback = make_operator_feedback_record(
+        "The prior answer was incorrect.", request_id="feedback-request",
+        assistant_turn_id="turn-" + "a" * 24,
+        assistant_response_digest="b" * 64, source_capture_digest="c" * 64,
+        followup_capture_digest="d" * 64, observed_at=NOW)
+    feedback_snapshot = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW)).build([feedback])
+
+    result = runtime.process_snapshot(feedback_snapshot, tick=20, recorded_at=NOW)
+
+    [binding] = owner.bindings(proposition.proposition_id)
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+    assert binding.reliability_posture == "operator_assertion_unverified_context_only"
+    assert result.new_binding_count == 1
+    assert result.updated_proposition_count == 0
+    assert owner.current_state(proposition.proposition_id) is None
+
+
 def test_freshness_revision_replaces_active_binding_and_withdrawal_stays_withdrawn(tmp_path):
     owner, proposition, _ledger, runtime = fixture(tmp_path)
     fresh_snapshot = snapshot()
