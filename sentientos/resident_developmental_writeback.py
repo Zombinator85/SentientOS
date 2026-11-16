@@ -519,7 +519,9 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
     history_score = next((row for row in scores if isinstance(row, Mapping)
         and row.get("condition_id") == "history_present"), None)
     if not (isinstance(history_score, Mapping)
-            and history_score.get("schema_version") == "sentientos.objective_task_score:v3"
+            and history_score.get("schema_version") in {
+                "sentientos.objective_task_score:v3",
+                "sentientos.objective_task_score:v4"}
             and history_score.get("evaluator") == "deterministic_exact_integer_suite_oracle_v2"
             and history_score.get("task_digest") == descriptor.get("task_digest")
             and isinstance(history_score.get("plan_digest"), str)
@@ -630,10 +632,19 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
 
     # Historical examples must be tied to the exact evaluator-scored present
     # condition, rather than being arbitrary content under the expanded cap.
+    if history_score.get("schema_version") == "sentientos.objective_task_score:v4":
+        if (type(history_score.get("answered_count")) is not int
+                or type(history_score.get("abstained_count")) is not int
+                or history_score["answered_count"] + history_score["abstained_count"]
+                    != history_score.get("probe_count")):
+            return False
     if any(not isinstance(example, Mapping)
             or type(example.get("probe_input")) is not int
-            or type(example.get("observed_answer")) is not int
-            or type(example.get("evaluator_correct")) is not bool
+            or not (type(example.get("observed_answer")) is int
+                and type(example.get("evaluator_correct")) is bool
+                or history_score.get("schema_version") == "sentientos.objective_task_score:v4"
+                    and example.get("observed_answer") is None
+                    and example.get("evaluator_correct") is None)
             or example.get("source_score_digest") != history_score.get("score_digest")
             or example.get("source_condition") != "history_present"
             for example in examples):
@@ -1172,6 +1183,43 @@ def _model_replacement_interpretation_projection(
 
         suite_fields = {"probe_count", "model_a_history_correct_probe_delta",
             "model_b_history_correct_probe_delta", "restoration_correct_probe_delta"}
+        selective_fields = {"condition_answered_counts", "condition_abstained_counts",
+            "condition_coverage", "condition_selective_accuracy",
+            "selective_metrics_posture"}
+        selective_present = (isinstance(objective, Mapping)
+            and bool(selective_fields.intersection(objective)))
+        selective_posture = (isinstance(objective, Mapping)
+            and objective.get("selective_metrics_posture")
+                == "per_probe_abstention_scored_separately_from_correctness")
+        selective_counts = (objective.get("condition_answered_counts")
+            if isinstance(objective, Mapping) else None)
+        selective_abstentions = (objective.get("condition_abstained_counts")
+            if isinstance(objective, Mapping) else None)
+        selective_coverage = (objective.get("condition_coverage")
+            if isinstance(objective, Mapping) else None)
+        selective_accuracy = (objective.get("condition_selective_accuracy")
+            if isinstance(objective, Mapping) else None)
+        selective_unknown = (isinstance(objective, Mapping)
+            and all(objective.get(key) is None for key in (
+                "condition_answered_counts", "condition_abstained_counts",
+                "condition_coverage", "condition_selective_accuracy")))
+        selective_valid = (not selective_present or (selective_posture
+            and (selective_unknown or (
+            isinstance(selective_counts, list) and len(selective_counts) == 5
+            and isinstance(selective_abstentions, list) and len(selective_abstentions) == 5
+            and isinstance(selective_coverage, list) and len(selective_coverage) == 5
+            and isinstance(selective_accuracy, list) and len(selective_accuracy) == 5
+            and all(type(answered) is int and type(abstained) is int
+                and type(probe_count) is int and answered + abstained == probe_count
+                and isinstance(selective_coverage[index], (int, float))
+                and not isinstance(selective_coverage[index], bool)
+                and 0 <= selective_coverage[index] <= 1
+                and (selective_accuracy[index] is None
+                    or isinstance(selective_accuracy[index], (int, float))
+                        and not isinstance(selective_accuracy[index], bool)
+                        and 0 <= selective_accuracy[index] <= 1)
+                for index, (answered, abstained) in enumerate(zip(
+                    selective_counts, selective_abstentions)))))))
         suite_projection_valid = (
             (suite_assessment and type(probe_count) is int and 2 <= probe_count <= 16
                 and suite_fields.issubset(objective)
@@ -1179,7 +1227,8 @@ def _model_replacement_interpretation_projection(
                     "model_a_history_correct_probe_delta", "model_b_history_correct_probe_delta",
                     "restoration_correct_probe_delta")))
             or (not suite_assessment and isinstance(objective, Mapping)
-                and not suite_fields.intersection(objective)))
+                and not suite_fields.intersection(objective))
+            ) and selective_valid
 
         if (objective_commitment_safe and isinstance(objective, Mapping)
                 and isinstance(objective.get("plan_digest"), str)
@@ -1236,8 +1285,9 @@ def _model_replacement_interpretation_projection(
                     "sentientos.model_replacement_objective_score_contract:v1"
                 and valid_contract_digest(semantic.get("task_plan_digest"))
                 and valid_contract_digest(semantic.get("task_digest"))
-                and semantic.get("score_schema_version") ==
-                    "sentientos.objective_task_score:v3"
+                and semantic.get("score_schema_version") in {
+                    "sentientos.objective_task_score:v3",
+                    "sentientos.objective_task_score:v4"}
                 and semantic.get("evaluator") in {
                     "deterministic_exact_integer_oracle_v1",
                     "deterministic_exact_integer_suite_oracle_v2"}
@@ -1837,7 +1887,11 @@ def _developmental_history_interpretation_projection(
                 "status": item.get("status"),
                 "correct": item.get("correct"),
                 **({"correct_count": item.get("correct_count"),
-                    "probe_count": item.get("probe_count")}
+                    "probe_count": item.get("probe_count"),
+                    **({"answered_count": item.get("answered_count"),
+                        "abstained_count": item.get("abstained_count")}
+                        if item.get("schema_version") ==
+                            "sentientos.objective_task_score:v4" else {})}
                     if "correct_count" in item else {}),
             })
     history_summary = original.get("history_intervention_summary")
@@ -2033,7 +2087,9 @@ def _developmental_history_interpretation_projection(
             if (any(not isinstance(history_score.get(key), str)
                     or not history_score.get(key) or len(history_score[key]) > 128
                     for key in lineage_fields)
-                    or history_score.get("schema_version") != "sentientos.objective_task_score:v3"
+                    or history_score.get("schema_version") not in {
+                        "sentientos.objective_task_score:v3",
+                        "sentientos.objective_task_score:v4"}
                     or history_score.get("evaluator") !=
                         "deterministic_exact_integer_suite_oracle_v2"
                     or history_score.get("task_digest") != descriptor.get("task_digest")
@@ -2060,10 +2116,17 @@ def _developmental_history_interpretation_projection(
             raise DevelopmentalWritebackError(
                 "developmental_history_task_score_lineage_incomplete")
         for probe, result in zip(probes, probe_results):
+            abstained = (isinstance(result, Mapping)
+                and result.get("abstained") is True
+                and result.get("observed_answer") is None
+                and result.get("correct") is None
+                and history_score.get("schema_version") == "sentientos.objective_task_score:v4")
+            answered = (isinstance(result, Mapping)
+                and type(result.get("observed_answer")) is int
+                and type(result.get("correct")) is bool)
             if (type(probe) is not int or not isinstance(result, Mapping)
                     or result.get("probe_input") != probe
-                    or type(result.get("observed_answer")) is not int
-                    or type(result.get("correct")) is not bool):
+                    or not (answered or abstained)):
                 raise DevelopmentalWritebackError("developmental_history_task_example_invalid")
             expected_examples.append({"probe_input": probe,
                 "observed_answer": result["observed_answer"],

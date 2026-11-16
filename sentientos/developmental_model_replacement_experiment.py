@@ -38,6 +38,8 @@ CONDITION_ORDER = (
     "model_b_history_present", "model_b_history_withheld",
     "model_a_history_restored",
 )
+FAMILY_TASK_SCHEMA_V3 = "sentientos.affine_prediction_task_family_suite:v3"
+FAMILY_TASK_SCHEMA_V4 = "sentientos.affine_prediction_task_family_suite:v4"
 
 
 def _prior_cognition_bindings(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -1170,14 +1172,16 @@ class ModelReplacementArtifactStore:
             else:
                 raise ValueError("objective_plan_schema_invalid")
             if specification.get("schema_version") in {"sentientos.affine_prediction_task_suite:v2",
-                    "sentientos.affine_prediction_task_family_suite:v3"}:
+                    FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}:
                 probes = specification["probe_inputs"]
                 if not isinstance(probes, list) or not probes:
                     raise ValueError("objective_probe_suite_invalid")
                 task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
                     probes[0], tuple(probes[1:]), specification.get("task_family_id"),
                     specification.get("requires_task_family_history", False),
-                    **({"commitment_nonce": nonce} if nonce is not None else {}))
+                    **({"commitment_nonce": nonce} if nonce is not None else {}),
+                    family_contract_version=(3 if specification.get("schema_version")
+                        == FAMILY_TASK_SCHEMA_V3 else 4))
             else:
                 task = (ObjectivePredictionTask(specification["multiplier"], specification["offset"],
                     specification["probe_input"], commitment_nonce=nonce) if isinstance(nonce, str)
@@ -1205,11 +1209,14 @@ class ModelReplacementArtifactStore:
             if plan.get("schema_version") != "sentientos.objective_task_plan:v2" or not isinstance(nonce, str):
                 raise ValueError("objective_task_commitment_nonce_missing")
             if specification.get("schema_version") in {"sentientos.affine_prediction_task_suite:v2",
-                    "sentientos.affine_prediction_task_family_suite:v3"}:
+                    FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}:
                 probes = specification["probe_inputs"]
                 task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
                     probes[0], tuple(probes[1:]), specification.get("task_family_id"),
-                    specification.get("requires_task_family_history", False), nonce)
+                    specification.get("requires_task_family_history", False),
+                    commitment_nonce=nonce,
+                    family_contract_version=(3 if specification.get("schema_version")
+                        == FAMILY_TASK_SCHEMA_V3 else 4))
             else:
                 task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
                     specification["probe_input"], commitment_nonce=nonce)
@@ -1536,7 +1543,9 @@ class ModelReplacementArtifactStore:
                         and all(signature == first_signature for signature in score_signatures)
                         and objective_evaluation.get("plan_digest") == first_signature.get("plan_digest")
                         and evaluation_digests == score_digests
-                        and first_signature.get("schema_version") == "sentientos.objective_task_score:v3"
+                        and first_signature.get("schema_version") in {
+                            "sentientos.objective_task_score:v3",
+                            "sentientos.objective_task_score:v4"}
                         and valid_score_digest(first_signature.get("plan_digest"))
                         and valid_score_digest(first_signature.get("task_digest"))
                         and first_signature.get("evaluator") ==
@@ -1656,6 +1665,7 @@ class ObjectivePredictionTask:
     task_family_id: str | None = None
     requires_task_family_history: bool = False
     commitment_nonce: str = field(default_factory=lambda: secrets.token_hex(32), repr=False)
+    family_contract_version: int = field(default=4, repr=False)
 
     def specification(self) -> dict[str, Any]:
         if any(type(value) is not int or abs(value) > 1_000_000
@@ -1679,6 +1689,9 @@ class ObjectivePredictionTask:
         if type(self.requires_task_family_history) is not bool or (
                 self.requires_task_family_history and self.task_family_id is None):
             raise DevelopmentalModelReplacementError("objective_task_family_requirement_invalid")
+        if (type(self.family_contract_version) is not int
+                or self.family_contract_version not in {3, 4}):
+            raise DevelopmentalModelReplacementError("objective_task_family_contract_invalid")
         if (not isinstance(self.commitment_nonce, str) or len(self.commitment_nonce) != 64
                 or any(character not in "0123456789abcdef" for character in self.commitment_nonce)):
             raise DevelopmentalModelReplacementError("objective_task_commitment_nonce_invalid")
@@ -1688,7 +1701,8 @@ class ObjectivePredictionTask:
             "probe_input": self.probe_input,
             "oracle_scope": "deterministic_fixture_not_physical_measurement"}
         if self.task_family_id is not None:
-            return {"schema_version": "sentientos.affine_prediction_task_family_suite:v3",
+            return {"schema_version": (FAMILY_TASK_SCHEMA_V3
+                    if self.family_contract_version == 3 else FAMILY_TASK_SCHEMA_V4),
                 "multiplier": self.multiplier, "offset": self.offset,
                 "probe_inputs": [self.probe_input, *self.additional_probe_inputs],
                 "task_family_id": self.task_family_id,
@@ -1714,15 +1728,26 @@ class ObjectivePredictionTask:
                     "This family shares one fixed integer affine mapping: "
                     "output = m * input + b. ")
                 if self.requires_task_family_history:
-                    question = (
-                        family_rule
-                        + "Parameters are hidden. Use same-family evaluator-scored "
-                        "history. Only evaluator_correct=true rows are mapping "
-                        "evidence. prior_incorrect_examples are past errors, not "
-                        "mapping evidence or current truth; never repeat their "
-                        "answer for that input. Infer from at least two distinct "
-                        "correct inputs, check every correct row. Then calculate "
-                        f"outputs for inputs {inputs}.")
+                    if self.family_contract_version == 3:
+                        question = (
+                            family_rule
+                            + "Parameters are hidden. Use same-family evaluator-scored "
+                            "history. Only evaluator_correct=true rows are mapping "
+                            "evidence. prior_incorrect_examples are past errors, not "
+                            "mapping evidence or current truth; never repeat their "
+                            "answer for that input. Infer from at least two distinct "
+                            "correct inputs, check every correct row. Then calculate "
+                            f"outputs for inputs {inputs}.")
+                    else:
+                        question = (
+                            family_rule
+                            + "Parameters are hidden. Use same-family evaluator-scored "
+                            "history. Only evaluator_correct=true rows are mapping "
+                            "evidence. prior_incorrect_examples are past errors, not "
+                            "mapping evidence or current truth; never repeat their "
+                            "answers. Infer from at least two distinct correct inputs; "
+                            "otherwise abstain with null. check every correct row. Then "
+                            f"calculate outputs for {inputs}.")
                 else:
                     examples = [
                         {"input": 0, "output": self.offset},
@@ -1737,10 +1762,13 @@ class ObjectivePredictionTask:
                         "training_evidence_provenance":
                             "deterministic_fixture_oracle_not_physical_measurement",
                     }
+            answer_format = ('Exactly one JSON object: {"answers": [<integer-or-null>, ...]}'
+                if self.task_family_id is not None and self.family_contract_version == 4
+                else 'Exactly one JSON object: {"answers": [<integer>, ...]}')
             return {"task_digest": task_digest,
                 "task_digest_posture": "salted_private_oracle_commitment:v1",
                 "question": question,
-                "answer_format": 'Exactly one JSON object: {"answers": [<integer>, ...]}',
+                "answer_format": answer_format,
                 "probe_inputs": inputs, "probe_count": len(inputs),
                 **({"task_family_id": self.task_family_id,
                     "family_posture": "operator_declared_protocol_bound",
@@ -1773,14 +1801,16 @@ class ObjectivePredictionTask:
 def _objective_plan(task: ObjectivePredictionTask, protocol: ModelReplacementProtocol) -> dict[str, Any]:
     suite = task.specification().get("schema_version") in {
         "sentientos.affine_prediction_task_suite:v2",
-        "sentientos.affine_prediction_task_family_suite:v3"}
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
+    selective_family_suite = task.specification().get("schema_version") == FAMILY_TASK_SCHEMA_V4
     semantic = {"schema_version": "sentientos.objective_task_plan:v2",
         "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
         "causal_context_digest": protocol.causal_context_digest,
         "task": task.specification(), "task_commitment_nonce": task.commitment_nonce,
         "task_descriptor": task.public_descriptor(),
         "condition_order": list(CONDITION_ORDER),
-        "rubric": "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1",
+        "rubric": ("selective_integer_answer_suite_v1" if selective_family_suite else
+            "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1"),
         "authority": False}
     public_semantic = {key: value for key, value in semantic.items()
         if key not in {"task", "task_commitment_nonce"}}
@@ -1792,13 +1822,15 @@ def _legacy_objective_plan(task: ObjectivePredictionTask,
     """Rebuild the original oracle-bearing v1 plan only for historical custody."""
     suite = task.specification().get("schema_version") in {
         "sentientos.affine_prediction_task_suite:v2",
-        "sentientos.affine_prediction_task_family_suite:v3"}
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
+    selective_family_suite = task.specification().get("schema_version") == FAMILY_TASK_SCHEMA_V4
     semantic = {"schema_version": "sentientos.objective_task_plan:v1",
         "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
         "causal_context_digest": protocol.causal_context_digest,
         "task": task.specification(), "task_descriptor": task.legacy_public_descriptor(),
         "condition_order": list(CONDITION_ORDER),
-        "rubric": "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1",
+        "rubric": ("selective_integer_answer_suite_v1" if selective_family_suite else
+            "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1"),
         "authority": False}
     return {**semantic, "plan_digest": _digest(semantic)}
 
@@ -1807,7 +1839,8 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
                      *, output_truncated: bool = False) -> dict[str, Any]:
     task = plan["task"]
     is_suite = task.get("schema_version") in {"sentientos.affine_prediction_task_suite:v2",
-        "sentientos.affine_prediction_task_family_suite:v3"}
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
+    selective_family_suite = task.get("schema_version") == FAMILY_TASK_SCHEMA_V4
     if is_suite:
         probes = task.get("probe_inputs")
         if (not isinstance(probes, list) or not 2 <= len(probes) <= 16
@@ -1846,7 +1879,8 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
             answer = parsed[expected_key]
             if is_suite:
                 if (not isinstance(answer, list) or len(answer) != len(expected)
-                        or any(type(item) is not int for item in answer)):
+                        or any(type(item) is not int and not (
+                            selective_family_suite and item is None) for item in answer)):
                     raise ValueError("answer_shape_invalid")
             elif type(answer) is not int:
                 raise ValueError("answer_shape_invalid")
@@ -1855,7 +1889,7 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
             if is_suite:
                 answer_values = cast(list[Any], answer)
                 expected_values = cast(list[int], expected)
-                correct_count = sum(actual == target
+                correct_count = sum(type(actual) is int and actual == target
                     for actual, target in zip(answer_values, expected_values))
         except (ValueError, TypeError):
             status, correct = "invalid_answer", False
@@ -1863,7 +1897,8 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
         # A malformed response can contain arbitrary sensitive text. Retain only
         # the negative classification and its receipt-bound digest, never bytes.
         answer = None
-    family_suite = task.get("schema_version") == "sentientos.affine_prediction_task_family_suite:v3"
+    family_suite = task.get("schema_version") in {FAMILY_TASK_SCHEMA_V3,
+        FAMILY_TASK_SCHEMA_V4}
     semantic = {"schema_version": ("sentientos.objective_task_score:v3" if family_suite
             else "sentientos.objective_task_score:v2"),
         "plan_digest": plan["plan_digest"],
@@ -1882,11 +1917,19 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
         semantic["correct_count"] = correct_count if correct_count is not None else 0
         if status in {"output_unavailable", "output_truncated"}:
             semantic["correct_count"] = None
+    if selective_family_suite:
+        semantic["schema_version"] = "sentientos.objective_task_score:v4"
+        semantic["answered_count"] = (sum(type(item) is int for item in answer)
+            if isinstance(answer, list) and status in {"correct", "incorrect"} else None)
+        semantic["abstained_count"] = (len(answer) - semantic["answered_count"]
+            if isinstance(answer, list) and semantic["answered_count"] is not None else None)
     if family_suite:
         answer_values = answer if isinstance(answer, list) else []
         probes = task.get("probe_inputs", [])
         semantic["probe_results"] = ([{"probe_input": probe,
-            "observed_answer": actual, "correct": actual == target}
+            "observed_answer": actual,
+            "correct": (actual == target if type(actual) is int else None),
+            **({"abstained": True} if selective_family_suite and actual is None else {})}
             for probe, actual, target in zip(probes, answer_values, expected)]
             if status in {"correct", "incorrect"} else [])
     return {**semantic, "score_digest": _digest(semantic)}
@@ -1901,7 +1944,7 @@ def _objective_score_legacy(plan: Mapping[str, Any], output: object,
     if current.get("status") == "invalid_answer" and isinstance(output, str):
         is_suite = plan.get("task", {}).get("schema_version") in {
             "sentientos.affine_prediction_task_suite:v2",
-            "sentientos.affine_prediction_task_family_suite:v3"}
+            FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
         expected_key = "answers" if is_suite else "answer"
         def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
             parsed: dict[str, Any] = {}
@@ -1945,16 +1988,22 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
         "score_digest"}
     is_suite = plan.get("task", {}).get("schema_version") in {
         "sentientos.affine_prediction_task_suite:v2",
-        "sentientos.affine_prediction_task_family_suite:v3"}
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
     if is_suite:
         expected_fields |= {"probe_count", "correct_count"}
-    family_suite = plan.get("task", {}).get("schema_version") == (
-        "sentientos.affine_prediction_task_family_suite:v3")
+    family_schema = plan.get("task", {}).get("schema_version")
+    family_suite = family_schema in {FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
+    selective_family_suite = family_schema == FAMILY_TASK_SCHEMA_V4
     if family_suite:
         expected_fields.add("probe_results")
+    if selective_family_suite:
+        expected_fields |= {"answered_count", "abstained_count"}
+    expected_score_schema = ("sentientos.objective_task_score:v4"
+        if selective_family_suite else
+        "sentientos.objective_task_score:v3" if family_suite else
+        "sentientos.objective_task_score:v2")
     if (set(value) != expected_fields
-            or value.get("schema_version") != ("sentientos.objective_task_score:v3"
-                if family_suite else "sentientos.objective_task_score:v2")
+            or value.get("schema_version") != expected_score_schema
             or value.get("plan_digest") != plan.get("plan_digest")
             or value.get("task_digest") != plan.get("task_descriptor", {}).get("task_digest")
             or value.get("evaluator") != ("deterministic_exact_integer_suite_oracle_v2"
@@ -2024,13 +2073,13 @@ def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mappin
             "preregistered_probe_suite_scored"
             if complete and plan["task"].get("schema_version") in {
                 "sentientos.affine_prediction_task_suite:v2",
-                "sentientos.affine_prediction_task_family_suite:v3"}
+                FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
             else "single_preregistered_task_scored" if complete
             else "unscoreable_missing_output"),
         "scope": "task_correctness_not_general_learning_or_weight_change",
         "model_behavior_posture": "endpoint_execution_receipts_not_independent_model_attestation"}
     if plan["task"].get("schema_version") in {"sentientos.affine_prediction_task_suite:v2",
-            "sentientos.affine_prediction_task_family_suite:v3"}:
+            FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}:
         counts = [score.get("correct_count") for score in scores]
         count_complete = len(counts) == 5 and all(type(value) is int for value in counts)
         evaluation.update({
@@ -2038,6 +2087,31 @@ def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mappin
             "model_a_history_correct_probe_delta": counts[0] - counts[1] if count_complete else None,
             "model_b_history_correct_probe_delta": counts[2] - counts[3] if count_complete else None,
             "restoration_correct_probe_delta": counts[0] - counts[4] if count_complete else None,
+        })
+    if plan["task"].get("schema_version") == FAMILY_TASK_SCHEMA_V4:
+        probe_count = len(plan["task"]["probe_inputs"])
+        answered = [score.get("answered_count") for score in scores]
+        abstained = [score.get("abstained_count") for score in scores]
+        answered_complete = len(answered) == 5 and all(
+            type(value) is int and 0 <= value <= probe_count for value in answered)
+        abstained_complete = len(abstained) == 5 and all(
+            type(value) is int and 0 <= value <= probe_count for value in abstained)
+        counts_coherent = (answered_complete and abstained_complete
+            and all(answered[index] + abstained[index] == probe_count
+                for index in range(5)))
+        correct_counts = [score.get("correct_count") for score in scores]
+        evaluation.update({
+            "condition_answered_counts": answered if counts_coherent else None,
+            "condition_abstained_counts": abstained if counts_coherent else None,
+            "condition_coverage": ([value / probe_count for value in answered]
+                if counts_coherent else None),
+            "condition_selective_accuracy": ([
+                (correct_counts[index] / value if value > 0 else None)
+                for index, value in enumerate(answered)]
+                if counts_coherent and all(type(value) is int
+                    for value in correct_counts) else None),
+            "selective_metrics_posture": (
+                "per_probe_abstention_scored_separately_from_correctness"),
         })
     return evaluation
 
@@ -2083,15 +2157,20 @@ class DevelopmentalModelReplacementExperiment:
             commitment_nonce = (nonce if recovered_plan.get("schema_version")
                 == "sentientos.objective_task_plan:v2" else None)
             if isinstance(probes, list):
+                family_contract_version = (3 if specification.get("schema_version")
+                    == FAMILY_TASK_SCHEMA_V3 else 4)
                 objective_task = (ObjectivePredictionTask(specification["multiplier"],
                     specification["offset"], probes[0], tuple(probes[1:]),
                     specification.get("task_family_id"),
                     specification.get("requires_task_family_history", False),
-                    commitment_nonce=commitment_nonce) if isinstance(commitment_nonce, str) else
+                    commitment_nonce=commitment_nonce,
+                    family_contract_version=family_contract_version)
+                    if isinstance(commitment_nonce, str) else
                     ObjectivePredictionTask(specification["multiplier"],
                         specification["offset"], probes[0], tuple(probes[1:]),
                         specification.get("task_family_id"),
-                        specification.get("requires_task_family_history", False)))
+                        specification.get("requires_task_family_history", False),
+                        family_contract_version=family_contract_version))
             else:
                 objective_task = (ObjectivePredictionTask(specification["multiplier"],
                     specification["offset"], specification["probe_input"],
