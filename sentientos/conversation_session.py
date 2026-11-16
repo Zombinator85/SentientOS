@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Any, Iterator, Mapping, Sequence
 
+from .cognition_retrieval import normalize_cognition_term
 from .platform_fcntl import fcntl, require_flock
 from .perception.screen_text_delta import validate_ocr_text_line_delta
 from .windows_handle_custody import read_explicit_file, verify_explicit_directory
@@ -53,12 +54,9 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
     for token in re.findall(r"[a-z0-9]+", text.casefold()):
         if len(token) <= 2 or token in _TRANSCRIPT_RECALL_STOP_WORDS:
             continue
-        normalized = (
-            token[:-1]
-            if token.endswith("s") and not token.endswith("ss") and len(token) > 4
-            else token
-        )
-        if normalized not in _TRANSCRIPT_RECALL_STOP_WORDS:
+        normalized = normalize_cognition_term(token)
+        if (len(normalized) > 2
+                and normalized not in _TRANSCRIPT_RECALL_STOP_WORDS):
             terms.add(normalized)
     return frozenset(terms)
 

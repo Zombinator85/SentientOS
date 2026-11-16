@@ -24,6 +24,7 @@ from sentientos.canonical_memory import (CanonicalMemoryStore, ExplicitRetention
     sentientos_data_dir)
 from sentientos.conversation_session import (
     ContextSnapshot, ConversationSessionStore, assemble_local_chat_context,
+    transcript_recall_terms,
 )
 from sentientos.gaming_workload_policy import GamingWorkloadPolicy
 
@@ -1196,6 +1197,28 @@ def test_bounded_context_can_select_a_relevant_older_turn(tmp_path: Path) -> Non
         session["session_id"], budget_chars=1000, include_roles=("user",),
         max_turns=3,
         relevance_query="What did I say was written on the note I found?").snapshot_digest
+
+
+def test_transcript_recall_normalizes_shared_inflections() -> None:
+    assert transcript_recall_terms("overheating") == frozenset({"overheat"})
+
+
+def test_transcript_recall_inflection_changes_bounded_selection(
+        tmp_path: Path) -> None:
+    store = ConversationSessionStore(tmp_path / "sessions")
+    session = store.create(model_identity={})
+    target = store.append_turn(session["session_id"], role="user",
+        text="The west mechanism is overheating.")
+    latest = store.append_turn(session["session_id"], role="user",
+        text="The east mechanism remains stable.")
+
+    relevant = store.reconstruct(session["session_id"], budget_chars=1000,
+        include_roles=("user",), max_turns=1, relevance_query="overheat")
+    unrelated = store.reconstruct(session["session_id"], budget_chars=1000,
+        include_roles=("user",), max_turns=1, relevance_query="lunar mission")
+
+    assert [turn["turn_id"] for turn in relevant.turns] == [target["turn_id"]]
+    assert [turn["turn_id"] for turn in unrelated.turns] == [latest["turn_id"]]
 
 
 def test_bounded_context_can_select_the_earliest_turn(tmp_path: Path) -> None:
