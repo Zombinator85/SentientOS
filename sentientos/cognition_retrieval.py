@@ -27,6 +27,8 @@ def cognition_query_terms(text: str) -> set[str]:
             continue
         if len(token) > 4 and token.endswith("ies"):
             token = token[:-3] + "y"
+        elif len(token) > 4 and token.endswith(("ches", "shes", "sses", "xes", "zes")):
+            token = token[:-2]
         elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
             token = token[:-1]
         terms.add(token)

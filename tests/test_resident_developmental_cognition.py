@@ -4859,6 +4859,8 @@ def test_boilerplate_history_query_falls_back_to_recent_records() -> None:
         "record_id": record_id} for index, record_id in enumerate(order)]}
 
     assert cognition_query_terms("What did we do with it?") == set()
+    assert cognition_query_terms("batteries watches boxes classes") == {
+        "battery", "watch", "box", "class"}
     projection = ResidentDevelopmentalCognitionOwner._prior_projection(
         fake_owner, state, "later-tick", relevance_query="What did we do with it?")
 
