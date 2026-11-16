@@ -7106,7 +7106,7 @@ def test_companion_interaction_validates_and_forwards_session_context(
     owner._composition_lock = lambda: nullcontext()
     owner._state = lambda: object()
     owner._prior_projection = lambda _state, _tick, **_kwargs: SimpleNamespace(
-        requested_record_ids=())
+        requested_record_ids=(), records=())
     owner._current_projection = lambda _snapshot: object()
 
     def cognize(**kwargs):
@@ -7462,7 +7462,7 @@ def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp
     durable = [json.loads(path.read_text(encoding="utf-8"))
         for path in restarted.observations_root.glob("*.json")]
     by_request = {row["request_id"]: row for row in durable}
-    assert all(by_request[request.request_id]["schema_version"].endswith(":v12")
+    assert all(by_request[request.request_id]["schema_version"].endswith(":v13")
         and by_request[request.request_id]["developmental_history_selection"]
             == request.upstream_evidence["developmental_history_selection"]
         for request in cognition)
@@ -7819,6 +7819,13 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
                         "session_conversation_context", {})
                     prompt_turns = (prompt_conversation.get("turns", ())
                         if isinstance(prompt_conversation, Mapping) else ())
+                    current_turn_ids = {turn.get("turn_id") for turn in prompt_turns
+                        if isinstance(turn, Mapping)}
+                    historical_context = prompt.get(
+                        "historical_cited_conversation_context", {})
+                    if isinstance(historical_context, Mapping):
+                        prompt_turns = (*prompt_turns,
+                            *historical_context.get("turns", ()))
                     matching_cited_turn = next((turn for turn in prompt_turns
                         if isinstance(turn, Mapping) and any(
                             citation.get("turn_id") == turn.get("turn_id")
@@ -7841,7 +7848,8 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
                         "history_record_ids": prompt.get("history_citation_allowlist", []),
                         "memory_record_ids": [],
                     }
-                    if isinstance(matching_cited_turn, Mapping):
+                    if (isinstance(matching_cited_turn, Mapping)
+                            and matching_cited_turn.get("turn_id") in current_turn_ids):
                         self.companion_output_override["conversation_turn_ids"] = [
                             matching_cited_turn["turn_id"]]
                 else:
@@ -7887,7 +7895,8 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
         followup_capture_digest=screen["capture_digest"],
         observed_at=now.isoformat(),
         conversation_citation_ids=(cited_turn_id,),
-        conversation_citation_digests=(cited_turn_digest,))
+        conversation_citation_digests=(cited_turn_digest,),
+        conversation_session_id="session-" + "c" * 24)
     assert feedback["payload"]["conversation_citations"] == [{
         "turn_id": cited_turn_id, "text_digest": cited_turn_digest}]
 
@@ -7937,6 +7946,13 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     historical_feedback = json.dumps(later_prompt["developmental_history"])
     assert cited_turn_id in historical_feedback
     assert cited_turn_digest in historical_feedback
+    citation_refs = cognition.selected_historical_operator_citations(
+        request_id="later-cognition-cycle", question=(
+            "What did the earlier operator report say about the candles?"))
+    assert any(reference["conversation_session_id"] == "session-" + "c" * 24
+        and reference["turn_id"] == cited_turn_id
+        and reference["text_digest"] == cited_turn_digest
+        for reference in citation_refs)
 
     cited_context_semantics = {
         "schema_version": "sentientos.conversation_cognition_context:v1",
@@ -7959,6 +7975,37 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert "reports conflict" in later_with_source.response
     assert "cannot resolve which is accurate" in later_with_source.response
     assert "remains unverified" in later_with_source.response
+
+    citation_ref = next(reference for reference in citation_refs
+        if reference["turn_id"] == cited_turn_id)
+    historical_turn = {"feedback_record_id": citation_ref["feedback_record_id"],
+        "feedback_record_digest": citation_ref["feedback_record_digest"],
+        "feedback_fact_id": citation_ref["feedback_fact_id"],
+        "feedback_assertion_digest": citation_ref["feedback_assertion_digest"],
+        "session_id": citation_ref["conversation_session_id"],
+        "session_snapshot_digest": "3" * 64, "turn_id": cited_turn_id,
+        "role": "user", "text": cited_turn_text,
+        "text_digest": cited_turn_digest, "linkage_digest": "4" * 64}
+    historical_semantics = {
+        "schema_version": "sentientos.historical_cited_conversation_context:v1",
+        "turns": [historical_turn], "historical_only": True,
+        "current_truth": False, "authority": False, "mutation_performed": False}
+    historical_context = {**historical_semantics,
+        "selection_digest": digest_payload(historical_semantics)}
+    later_with_historical_source = bridge.respond(
+        request_id="later-cognition-with-historical-cited-source",
+        question="What did the earlier operator report say about the candles?",
+        screen_observation=screen, historical_citation_context=historical_context)
+    assert cited_turn_text in later_with_historical_source.response
+    assert "reports conflict" in later_with_historical_source.response
+    assert later_with_historical_source.cognition_observation_id
+    durable_observation = json.loads((cognition.observations_root /
+        (later_with_historical_source.cognition_observation_id + ".json")).read_text())
+    assert durable_observation["schema_version"].endswith(":v13")
+    assert durable_observation["companion_historical_citation_turn_ids"] == [cited_turn_id]
+    assert durable_observation["companion_historical_citation_feedback_fact_ids"] == [
+        citation_ref["feedback_fact_id"]]
+    assert cited_turn_text not in json.dumps(durable_observation)
 
     # Same observation and later question without the feedback cycle do not
     # produce the historical answer: the report's admitted writeback changes
@@ -10242,7 +10289,7 @@ def test_pre_v6_observation_recovery_preserves_historical_digest_shape(tmp_path:
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v12"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v13"
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
     value.pop("companion_self_model_citation_ids")
@@ -10252,6 +10299,12 @@ def test_pre_v6_observation_recovery_preserves_historical_digest_shape(tmp_path:
             "companion_conversation_context_turn_digests",
             "companion_conversation_citation_ids",
             "companion_conversation_citation_digests"):
+        value.pop(field)
+    for field in ("companion_historical_citation_context_digest",
+            "companion_historical_citation_turn_ids",
+            "companion_historical_citation_turn_digests",
+            "companion_historical_citation_feedback_fact_ids",
+            "companion_historical_citation_session_digests"):
         value.pop(field)
     value.pop("companion_history_citation_ids")
     for field in ("canonical_user_memory_selection_digest",
@@ -10291,7 +10344,7 @@ def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_pat
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v12"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v13"
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
     value.pop("companion_self_model_citation_ids")
@@ -10301,6 +10354,12 @@ def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_pat
             "companion_conversation_context_turn_digests",
             "companion_conversation_citation_ids",
             "companion_conversation_citation_digests"):
+        value.pop(field)
+    for field in ("companion_historical_citation_context_digest",
+            "companion_historical_citation_turn_ids",
+            "companion_historical_citation_turn_digests",
+            "companion_historical_citation_feedback_fact_ids",
+            "companion_historical_citation_session_digests"):
         value.pop(field)
     value.pop("companion_history_citation_ids")
     for field in ("canonical_user_memory_selection_digest",
@@ -10345,7 +10404,7 @@ def test_rehashed_v7_history_selection_substitution_fails_receipt_reconciliation
     path = next(path for path in composition.observations_root.glob("*.json")
         if json.loads(path.read_text(encoding="utf-8")).get("condition_id") == "history_present")
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v12"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v13"
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
     value.pop("companion_self_model_citation_ids")
@@ -10355,6 +10414,12 @@ def test_rehashed_v7_history_selection_substitution_fails_receipt_reconciliation
             "companion_conversation_context_turn_digests",
             "companion_conversation_citation_ids",
             "companion_conversation_citation_digests"):
+        value.pop(field)
+    for field in ("companion_historical_citation_context_digest",
+            "companion_historical_citation_turn_ids",
+            "companion_historical_citation_turn_digests",
+            "companion_historical_citation_feedback_fact_ids",
+            "companion_historical_citation_session_digests"):
         value.pop(field)
     value.pop("companion_history_citation_ids")
     for field in ("canonical_user_memory_selection_digest",

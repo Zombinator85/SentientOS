@@ -250,6 +250,29 @@ This establishes source-posture preservation and a controlled behavioral
 difference across writeback and retrieval. It does not show that a real model
 will reliably preserve the qualification or that the operator report is true.
 
+### Recovering cited dialogue across sessions
+
+Operator feedback now binds each cited turn to its originating conversation
+session. During a later resident response, only citations belonging to selected
+feedback records are resolved against the custody-verified session transcript;
+the turn text digest must still match. The bounded excerpt is supplied as
+historical dialogue for comparing the operator's correction with the referenced
+statement. Missing, changed, malformed, or unselected turns are withheld. The
+durable cognition observation records selection, turn, feedback-fact, and source
+session digests, but does not copy the transcript text into cognition records.
+
+`tests/test_persistent_governed_conversation.py::test_historical_citation_context_resolves_only_digest_bound_source_turn`
+demonstrates reconstruction from a separately persisted session and fail-closed
+behavior after a citation digest changes. The controlled counterfactual in
+`tests/test_resident_developmental_cognition.py::test_operator_feedback_provenance_survives_writeback_and_changes_later_response`
+then passes a source-bound prior-session excerpt through the cognition owner: the
+fixture compares it with the linked correction and keeps both claims qualified;
+the persisted observation records lineage but excludes the excerpt text. These
+are deterministic storage and model-substitute results. They do not establish
+that a real model will reason correctly about disagreement, or that later
+outcomes revise the underlying knowledge state appropriately. The next cognition
+milestone should evaluate that feedback and revision loop.
+
 ## Explicitly retained user context in resident serving
 
 Resident-routed chat now queries the existing canonical memory store with the

@@ -65,6 +65,39 @@ def service(root: Path, invoker: FakeInvoker | None = None, screen_observer=None
         resident_cognition_bridge=cognition_bridge)
 
 
+def test_historical_citation_context_resolves_only_digest_bound_source_turn(
+        tmp_path: Path) -> None:
+    app = service(tmp_path)
+    source = app.sessions.create(model_identity={"model_id": "fixture"})
+    turn = app.sessions.append_turn(source["session_id"], role="user",
+        text="The prior report named the west sensor.")
+    reference = {"feedback_record_id": "record-1",
+        "feedback_record_digest": "a" * 64, "feedback_fact_id": "fact-1",
+        "feedback_assertion_digest": "b" * 64,
+        "conversation_session_id": source["session_id"],
+        "turn_id": turn["turn_id"], "text_digest": turn["text_digest"]}
+
+    class CitationBridge:
+        def selected_historical_operator_citations(self, **_kwargs):
+            return (reference,)
+
+    context = app._resident_historical_citation_context(bridge=CitationBridge(),
+        request_id="new-session:turn-" + "c" * 24, question="What did it say?",
+        conversation_context=None)
+    assert context is not None
+    assert context["turns"][0]["text"] == turn["text"]
+    assert context["turns"][0]["turn_id"] == turn["turn_id"]
+    assert context["historical_only"] is True
+    assert context["current_truth"] is False
+
+    reference["text_digest"] = "d" * 64
+    assert app._resident_historical_citation_context(bridge=CitationBridge(),
+        request_id="new-session:turn-" + "c" * 24, question="What did it say?",
+        conversation_context=None) is None
+
+
+
+
 
 
 def test_explicit_history_intervention_uses_fresh_observation_and_returns_measurement(

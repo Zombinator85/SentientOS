@@ -1347,7 +1347,8 @@ class PersistentConversationService:
                     followup_capture_digest=followup_capture_digest,
                     observed_at=feedback_observed_at,
                     conversation_citation_ids=citation_ids,
-                    conversation_citation_digests=citation_digests)
+                    conversation_citation_digests=citation_digests,
+                    conversation_session_id=session_id)
             cycle_kwargs: dict[str, Any] = {
                 "tick_id": tick_id, "screen_observation": observation,
                 "operator_feedback": feedback_record,
@@ -2166,6 +2167,101 @@ class PersistentConversationService:
         }
         return {**semantic, "selection_digest": digest_payload(semantic)}
 
+    def _resident_historical_citation_context(self, *, bridge: Any,
+            request_id: str, question: str,
+            conversation_context: Mapping[str, Any] | None
+            ) -> dict[str, Any] | None:
+        """Resolve only cited turns from feedback records in selected history."""
+        provider = getattr(bridge, "selected_historical_operator_citations", None)
+        if not callable(provider):
+            return None
+        try:
+            references = provider(request_id=request_id, question=question,
+                conversation_context=conversation_context)
+        except Exception:
+            return None
+        if not isinstance(references, (tuple, list)) or not references:
+            return None
+        current_turn_ids = ({row.get("turn_id") for row in
+            conversation_context.get("turns", ()) if isinstance(row, Mapping)}
+            if isinstance(conversation_context, Mapping) else set())
+        selected: list[dict[str, Any]] = []
+        used_chars = 0
+        seen: dict[tuple[str, str], str] = {}
+        session_cache: dict[str, tuple[dict[str, Any], str]] = {}
+        expected_fields = {"feedback_record_id", "feedback_record_digest",
+            "feedback_fact_id", "feedback_assertion_digest",
+            "conversation_session_id", "turn_id", "text_digest"}
+        for reference in references[:16]:
+            if not isinstance(reference, Mapping) or set(reference) != expected_fields:
+                continue
+            source_session_id = reference.get("conversation_session_id")
+            turn_id, expected_digest = reference.get("turn_id"), reference.get("text_digest")
+            if (not isinstance(source_session_id, str)
+                    or re.fullmatch(r"[a-z0-9][a-z0-9-]{7,63}", source_session_id) is None
+                    or not isinstance(turn_id, str)
+                    or not re.fullmatch(r"turn-[0-9a-f]{24}", turn_id)
+                    or not isinstance(expected_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", expected_digest) is None
+                    or (source_session_id == (conversation_context or {}).get("session_id")
+                        and turn_id in current_turn_ids)):
+                continue
+            key = (source_session_id, turn_id)
+            if key in seen:
+                if seen[key] != expected_digest:
+                    selected = []
+                    break
+                continue
+            try:
+                if source_session_id not in session_cache:
+                    source_session = self.sessions.load(source_session_id)
+                    source_digest = digest_payload({
+                        "session_id": source_session_id,
+                        "revision": source_session.get("revision"),
+                        "turns": [(row.get("turn_id"), row.get("role"),
+                            row.get("text_digest"), digest_payload(dict(
+                                row.get("linkage", {}))))
+                            for row in source_session.get("turns", ())
+                            if isinstance(row, Mapping)]})
+                    session_cache[source_session_id] = (source_session, source_digest)
+                source_session, source_snapshot_digest = session_cache[source_session_id]
+            except Exception:
+                continue
+            turn = next((row for row in source_session.get("turns", ())
+                if isinstance(row, Mapping) and row.get("turn_id") == turn_id), None)
+            if (not isinstance(turn, Mapping)
+                    or turn.get("role") not in {"user", "assistant"}
+                    or not isinstance(turn.get("text"), str)
+                    or not turn["text"] or len(turn["text"]) > 2000
+                    or turn.get("text_digest") != expected_digest
+                    or digest_payload({"text": turn["text"]}) != expected_digest
+                    or not isinstance(turn.get("linkage"), Mapping)):
+                continue
+            used_chars += len(turn["text"])
+            if used_chars > 4000:
+                break
+            selected.append({
+                "feedback_record_id": reference["feedback_record_id"],
+                "feedback_record_digest": reference["feedback_record_digest"],
+                "feedback_fact_id": reference["feedback_fact_id"],
+                "feedback_assertion_digest": reference["feedback_assertion_digest"],
+                "session_id": source_session_id,
+                "session_snapshot_digest": source_snapshot_digest,
+                "turn_id": turn_id, "role": turn["role"], "text": turn["text"],
+                "text_digest": expected_digest,
+                "linkage_digest": digest_payload(dict(turn["linkage"])),
+            })
+            seen[key] = expected_digest
+        if not selected:
+            return None
+        semantic = {
+            "schema_version": "sentientos.historical_cited_conversation_context:v1",
+            "turns": selected, "historical_only": True,
+            "current_truth": False, "authority": False,
+            "mutation_performed": False,
+        }
+        return {**semantic, "selection_digest": digest_payload(semantic)}
+
     def _complete_resident_cognition_response(self, *, session_id: str,
             user_turn: Mapping[str, Any], question: str,
             history: ContextSnapshot,
@@ -2210,12 +2306,18 @@ class PersistentConversationService:
             }
             conversation_context = {**semantic_context,
                 "selection_digest": digest_payload(semantic_context)}
+        historical_citation_context = self._resident_historical_citation_context(
+            bridge=bridge, request_id=request_id, question=question,
+            conversation_context=conversation_context)
         response_kwargs: dict[str, Any] = {"request_id": request_id,
             "question": question, "screen_observation": screen_observation}
         if canonical_memory_context is not None:
             response_kwargs["canonical_memory_context"] = canonical_memory_context
         if conversation_context is not None:
             response_kwargs["conversation_context"] = conversation_context
+        if historical_citation_context is not None:
+            response_kwargs["historical_citation_context"] = (
+                historical_citation_context)
         result = bridge.respond(**response_kwargs)
         response_text = getattr(result, "response", None)
         if (getattr(result, "status", None) != "admitted_completed"

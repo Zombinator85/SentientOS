@@ -215,7 +215,8 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         assistant_turn_id: str, assistant_response_digest: str,
         source_capture_digest: str, followup_capture_digest: str,
         observed_at: str, conversation_citation_ids: Sequence[str] = (),
-        conversation_citation_digests: Sequence[str] = ()) -> dict[str, Any]:
+        conversation_citation_digests: Sequence[str] = (),
+        conversation_session_id: str | None = None) -> dict[str, Any]:
     """Represent explicit local operator feedback as an unverified report."""
     citation_pattern = re.compile(r"^turn-[0-9a-f]{24}$")
     if (not isinstance(feedback, str) or not feedback.strip()
@@ -238,12 +239,19 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
             or len(set(conversation_citation_ids)) != len(conversation_citation_ids)
             or any(not isinstance(digest, str)
                 or re.fullmatch(r"[0-9a-f]{64}", digest) is None
-                for digest in conversation_citation_digests)):
+                for digest in conversation_citation_digests)
+            or (conversation_session_id is not None
+                and (not isinstance(conversation_session_id, str)
+                    or re.fullmatch(r"[a-z0-9][a-z0-9-]{7,63}",
+                        conversation_session_id) is None))):
         raise DevelopmentalCompanionBridgeError(
             "operator_feedback_contract_invalid")
     normalized = feedback.strip()
+    schema_version = ("sentientos.local_operator_feedback:v3"
+        if conversation_session_id is not None else
+        "sentientos.local_operator_feedback:v2")
     semantic = {
-        "schema_version": "sentientos.local_operator_feedback:v2",
+        "schema_version": schema_version,
         "request_id": request_id,
         "assistant_turn_id": assistant_turn_id,
         "assistant_response_digest": assistant_response_digest,
@@ -259,6 +267,8 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         "authority": {"decision": False, "admission": False,
             "execution": False, "adoption": False, "truth": False},
     }
+    if conversation_session_id is not None:
+        semantic["conversation_session_id"] = conversation_session_id
     identity = hashlib.sha256(json.dumps(semantic, sort_keys=True,
         separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
     return {
@@ -855,10 +865,22 @@ class ResidentDevelopmentalCompanionBridge:
                 epistemic_result, "next_tick_only", True)),
             epistemic_development_error_type=epistemic_error_type)
 
+    def selected_historical_operator_citations(self, *, request_id: str,
+            question: str,
+            conversation_context: Mapping[str, Any] | None = None
+            ) -> tuple[dict[str, Any], ...]:
+        """Expose cited-turn references for the exact bounded history window."""
+        if not self.can_handle():
+            return ()
+        return self._owner.selected_historical_operator_citations(
+            request_id=request_id, question=question,
+            conversation_context=conversation_context)
+
     def respond(self, *, request_id: str, question: str,
                 screen_observation: Mapping[str, Any] | None = None,
                 canonical_memory_context: Mapping[str, Any] | None = None,
-                conversation_context: Mapping[str, Any] | None = None
+                conversation_context: Mapping[str, Any] | None = None,
+                historical_citation_context: Mapping[str, Any] | None = None
                 ) -> ResidentCompanionInteractionResult:
         proprioception: Sequence[EmbodimentObservation] = ()
         if self._proprioception_provider is not None:
@@ -885,4 +907,5 @@ class ResidentDevelopmentalCompanionBridge:
                 prior_self_model=prior_self_model,
                 prior_epistemic_state=prior_epistemic_state,
                 canonical_memory_context=canonical_memory_context,
-                conversation_context=conversation_context)
+                conversation_context=conversation_context,
+                historical_citation_context=historical_citation_context)
