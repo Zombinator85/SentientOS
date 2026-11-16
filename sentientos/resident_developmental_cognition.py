@@ -73,6 +73,7 @@ from .resident_developmental_writeback import (
     CognitionObservation,
     DevelopmentalHistoryProjection,
     DevelopmentalWritebackError,
+    MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS,
     COGNITION_LESSON_PROVENANCE_KIND,
     ResidentDevelopmentalWritebackController,
     measure_changed_cognition,
@@ -346,7 +347,6 @@ COGNITION_OBSERVATION_SCHEMA_V14 = "sentientos.resident_cognition_observation:v1
 STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v2"
 LEGACY_STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
-MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS = 120
 
 
 def _valid_rootless_epistemic_session_binding(value: Any) -> bool:
