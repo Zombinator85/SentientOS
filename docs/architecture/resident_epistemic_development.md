@@ -128,10 +128,13 @@ claim predicates, values, and temporal/subject context can rank before that cap;
 the active query digest is included in the projection's semantic identity and
 the policy identifies question-aware selection. Calls without a query retain
 the prior predicate ordering and identity. The controlled selector fixture
-checks that a matching host-resource claim survives a lower alphabetical claim
-and that the no-query order remains stable. This remains lexical prioritization
-of non-authoritative claims, not verification that those claims are true or
-useful.
+exercises the owner projection method against an in-memory reconciliation: a
+matching host-resource claim survives a lower alphabetical claim, the no-query
+order remains stable, and the evidence-revision projection reader accepts both
+policy forms. Evidence-revision comparisons require the same projection policy
+and query digest across original, revised, and restored conditions. This
+remains lexical prioritization of non-authoritative claims, not verification
+that those claims are true or useful.
 
 The focused counterfactual in
 `tests/test_resident_developmental_cognition.py::test_companion_query_selects_relevant_older_experience_over_recent_unrelated_history`

@@ -4,13 +4,13 @@ import json
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 from sentientos.longitudinal_self_model import (
-    LongitudinalSelfModelError, LongitudinalSelfModelOwner,
-    PROJECTION_POLICY, _rank_self_model_projection_claims,
+    FALSE_AUTHORITY, LongitudinalSelfModelError, LongitudinalSelfModelOwner,
+    PROJECTION_POLICY, QUESTION_RELEVANT_PROJECTION_POLICY,
+    SelfModelClaim, SelfModelReconciliation, _digest as self_model_digest,
 )
 from sentientos.world_state_board import WorldStateBoardBuilder
 
@@ -20,28 +20,53 @@ pytestmark = pytest.mark.no_legacy_skip
 NOW = datetime(2026, 9, 25, 12, 0, tzinfo=timezone.utc)
 
 
-def test_self_model_projection_query_prioritizes_matching_claim_before_bound() -> None:
-    unrelated = SimpleNamespace(claim_id="claim-a", predicate="embodiment.body_generation",
-        value="body-2", temporal_scope="current", subject_id="body:2",
-        subject_kind="installation_body", claim_category="current_observation",
-        lifecycle_stage="observation", interpretation=False)
-    relevant = SimpleNamespace(claim_id="claim-z", predicate="host_resource_metrics",
+def test_self_model_projection_query_prioritizes_matching_claim_before_bound(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def claim(*, claim_id: str, predicate: str, value: object,
+            subject_id: str, subject_kind: str) -> SelfModelClaim:
+        return SelfModelClaim(claim_id=claim_id, claim_key="key-" + claim_id,
+            subject_id=subject_id, subject_kind=subject_kind, predicate=predicate,
+            value=value, temporal_scope="current", claim_category="current_observation",
+            lifecycle_stage="observation", status="current", freshness="fresh",
+            contradiction_state="unresolved", evidence_strength="verified",
+            source_evidence_ids=("evidence-" + claim_id,),
+            source_evidence_digests=("a" * 64,), source_fact_ids=("fact-" + claim_id,),
+            world_state_snapshot_id="snapshot-1", world_state_snapshot_digest="b" * 64,
+            source_observed_at=(NOW.isoformat(),), first_supported_generation=1,
+            last_supported_generation=1, first_supported_tick="tick-1",
+            last_supported_tick="tick-1", current_truth=False, interpretation=False,
+            authority=dict(FALSE_AUTHORITY))
+
+    unrelated = claim(claim_id="claim-a", predicate="embodiment.body_generation",
+        value="body-2", subject_id="body:2", subject_kind="installation_body")
+    relevant = claim(claim_id="claim-z", predicate="host_resource_metrics",
         value={"gpu": "gpu-utilization", "ram": "normal"},
-        temporal_scope="current", subject_id="host:1", subject_kind="host_runtime",
-        claim_category="current_observation", lifecycle_stage="observation",
-        interpretation=False)
+        subject_id="host:1", subject_kind="host_runtime")
+    source = SelfModelReconciliation("self-reconciliation:v1", "source-1",
+        "c" * 64, 1, "tick-1", "snapshot-1", "b" * 64, None,
+        (unrelated, relevant), dict(FALSE_AUTHORITY))
+    owner = LongitudinalSelfModelOwner(tmp_path)
+    monkeypatch.setattr(owner, "_load", lambda: (source,))
 
-    ranked, query_digest = _rank_self_model_projection_claims(
-        (unrelated, relevant), relevance_query="What is the GPU utilization?",
-        max_claims=1)
-    baseline, no_query_digest = _rank_self_model_projection_claims(
-        (unrelated, relevant), relevance_query=None, max_claims=1)
+    question = "What is the GPU utilization?"
+    selected = owner.cognitive_projection(before_tick="tick-2", max_claims=1,
+        allowed_predicates=(unrelated.predicate, relevant.predicate),
+        relevance_query=question)
+    baseline = owner.cognitive_projection(before_tick="tick-2", max_claims=1,
+        allowed_predicates=(unrelated.predicate, relevant.predicate))
 
-    assert ranked[0] is relevant
-    assert query_digest is not None
-    assert baseline[0] is unrelated
-    assert no_query_digest is None
-    assert PROJECTION_POLICY == "predicate_then_claim_id:v1"
+    assert selected is not None and selected.selected_claim_ids == (relevant.claim_id,)
+    assert selected.projection_policy == QUESTION_RELEVANT_PROJECTION_POLICY
+    assert selected.relevance_query_digest == self_model_digest(question)
+    assert self_model_digest(selected.semantic_payload()) == selected.projection_digest
+    from sentientos.evidence_revision_experiment import _projection_key
+    assert _projection_key(selected)["projection"]["relevance_query_digest"] == (
+        selected.relevance_query_digest)
+    assert baseline is not None and baseline.selected_claim_ids == (unrelated.claim_id,)
+    assert baseline.projection_policy == PROJECTION_POLICY
+    assert baseline.relevance_query_digest is None
+    assert "relevance_query_digest" not in baseline.semantic_payload()
+    assert _projection_key(baseline)["projection"]["projection_policy"] == PROJECTION_POLICY
 
 
 def record(*, source: str = "runtime:a", subject: str = "sentientos", disposition: str = "serving",
