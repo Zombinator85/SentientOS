@@ -921,7 +921,29 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
 
     from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
 
-    retained_text = "I prefer concise answers."
+    class MemoryApplyingInvoker(CognitionFakeInvoker):
+        def invoke(self, request, **kwargs):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                memory = prompt.get("canonical_user_memory_context", {})
+                records = memory.get("records", [])
+                applies = ("overheat" in prompt.get("companion_question", "").casefold()
+                    and any("overheating" in str(row.get("text", "")).casefold()
+                        for row in records if isinstance(row, dict)))
+                cited_ids = ([row["memory_id"] for row in records
+                    if isinstance(row, dict)
+                    and "overheating" in str(row.get("text", "")).casefold()]
+                    if applies else [])
+                self.companion_output_override = {
+                    "disposition": "answer",
+                    "response": ("The retained note described overheating."
+                        if applies else "I have no retained overheating note."),
+                    "evidence_ids": [], "history_record_ids": [],
+                    "memory_record_ids": cited_ids}
+            return super().invoke(request, **kwargs)
+
+    retained_text = "I noticed overheating in the cooling unit during the test."
     cognition_invoker = CognitionFakeInvoker()
     cognition, _ = cognition_owner(tmp_path / "cognition", invoker=cognition_invoker)
     now = datetime.now(timezone.utc)
@@ -930,6 +952,26 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
         "capture_scope": "allowlisted_foreground_game_client_area",
         "captured_at": now.isoformat(), "raw_frame_retained": False,
         "text_change_kind": "initial", "previous_text_digest": None}
+    baseline_root = tmp_path / "baseline"
+    baseline_root.mkdir(mode=0o700)
+    for child in ("sessions", "memory"):
+        path = baseline_root / child
+        path.mkdir(mode=0o700)
+        os.chmod(path, 0o700)
+    for child in ("sessions", "memory"):
+        path = tmp_path / child
+        path.mkdir(mode=0o700)
+        os.chmod(path, 0o700)
+    baseline_invoker = MemoryApplyingInvoker()
+    baseline_cognition, _ = cognition_owner(tmp_path / "baseline-cognition",
+        invoker=baseline_invoker)
+    baseline_app = service(baseline_root, FakeInvoker(),
+        screen_observer=lambda: screen,
+        cognition_bridge=ResidentDevelopmentalCompanionBridge(baseline_cognition,
+            clock=lambda: now))
+    baseline = baseline_app.chat("Could it overheat?", observe_screen=True)
+    assert baseline.response == "I have no retained overheating note."
+
     app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=ResidentDevelopmentalCompanionBridge(cognition,
             clock=lambda: now))
@@ -938,7 +980,7 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
         request_id="retained-memory-source", retain=True)
     # Rebuild both resident cognition and the conversation service over the same
     # durable roots before applying the retained statement to a later question.
-    restarted_invoker = CognitionFakeInvoker()
+    restarted_invoker = MemoryApplyingInvoker()
     restarted_cognition, _ = cognition_owner(tmp_path / "cognition",
         invoker=restarted_invoker)
     restarted_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
@@ -946,19 +988,14 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
             clock=lambda: now))
     query_session_id = restarted_app.create_session()
     assert query_session_id != session_id
-    selected = restarted_app.memories.retrieve("What do I prefer?")
+    selected = restarted_app.memories.retrieve("overheat")
     memory_id = selected["selected_memory_ids"][0]
-    restarted_invoker.companion_output_override = {
-        "disposition": "answer",
-        "response": "You explicitly retained a preference for concise answers.",
-        "evidence_ids": [], "history_record_ids": [],
-        "memory_record_ids": [memory_id],
-    }
 
-    response = restarted_app.chat("What do I prefer?", session_id=query_session_id,
+    response = restarted_app.chat("Could it overheat?", session_id=query_session_id,
         request_id="cited-resident-memory-answer", observe_screen=True)
 
-    assert response.response == restarted_invoker.companion_output_override["response"]
+    assert response.response == "The retained note described overheating."
+    assert response.response != baseline.response
     assert cognition_invoker.requests == []
     turns = restarted_app.sessions.load(query_session_id)["turns"]
     linkage = turns[-1]["linkage"]
@@ -970,6 +1007,13 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
         linkage["cognition_observation_id"], linkage["cognition_observation_digest"])
     assert observation["companion_memory_citation_ids"] == [memory_id]
     assert observation["canonical_user_memory_record_ids"] == [memory_id]
+
+    unrelated = restarted_app.chat("What about asteroids?",
+        session_id=query_session_id, request_id="unrelated-memory-query",
+        observe_screen=True)
+    assert unrelated.response == baseline.response
+    unrelated_prompt = json.loads(restarted_invoker.requests[-1].prompt)
+    assert unrelated_prompt["canonical_user_memory_context"]["records"] == []
 
 
 def test_conflicting_retained_preferences_reach_resident_and_prompt_clarification(
@@ -1978,6 +2022,26 @@ def test_memory_retrieval_uses_content_terms_not_generic_chat_phrasing(
 
     assert [record["text"] for record in result["memories"]] == [source_text]
     assert result["omitted_memory_count"] == 0
+
+
+def test_canonical_memory_retrieval_shares_inflection_normalization(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    retained = {"id": "memory-overheat",
+        "text": "The cooling unit showed overheating during the test.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    unrelated = {"id": "memory-astronomy",
+        "text": "The astronomy group reviewed a star chart.",
+        "timestamp": "2026-01-02T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: ([retained, unrelated], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    result = store.retrieve("overheat", limit=1)
+    unrelated_query = store.retrieve("asteroid", limit=1)
+
+    assert [row["id"] for row in result["memories"]] == ["memory-overheat"]
+    assert result["retrieval_posture"] == "complete"
+    assert unrelated_query["memories"] == []
 
 
 def test_memory_retrieval_applies_only_explicit_style_preferences_to_new_writing(
