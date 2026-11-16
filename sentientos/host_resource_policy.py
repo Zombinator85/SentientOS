@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field, fields as dataclass_fields, replace
 from typing import Any, Mapping, Sequence
 
 from sentientos.host_resource_governor import HostResourcePressureReport, host_resource_report_digest
@@ -256,10 +256,28 @@ def evaluate_host_resource_policy(
     elif "unknown" in labels:
         status = "host_resource_policy_blocked"
         reasons.add("unknown_pressure_label_blocks_proposal_readiness")
-    elif "telemetry_incomplete" in labels or "sensor_unavailable" in labels:
+    elif "telemetry_incomplete" in labels:
         status = "host_resource_policy_incomplete"
         reasons.add("incomplete_telemetry_requires_review")
         proposal_kinds.add("request_operator_review_candidate")
+    elif "sensor_unavailable" in labels:
+        # Missing optional sensors must remain visible and prevent any claim of
+        # automatic readiness. They need not hide a pressure proposal already
+        # supported by an available CPU, memory, GPU, or disk measurement.
+        # Receipts remain proposal-only and keep the operator-review candidate.
+        proposal_kinds.add("request_operator_review_candidate")
+        known_pressure_labels = {
+            "cpu_pressure", "memory_pressure", "gpu_pressure", "disk_pressure",
+            "thermal_pressure", "battery_pressure", "network_pressure",
+            "service_degraded",
+        }
+        if set(labels).intersection(known_pressure_labels) and candidate_kinds:
+            status = "host_resource_policy_proposal_ready"
+            reasons.add("observed_pressure_proposals_remain_reviewable_with_sensor_gaps")
+            warnings.add("sensor_gaps_do_not_authorize_fulfillment")
+        else:
+            status = "host_resource_policy_incomplete"
+            reasons.add("incomplete_telemetry_requires_review")
     elif labels == ("nominal",):
         status = "host_resource_policy_nominal"
         reasons.add("nominal_monitor_only")
@@ -388,6 +406,29 @@ def build_host_resource_proposal_receipts(
 
 def host_resource_policy_decision_digest(decision: HostResourcePolicyDecision) -> str:
     return hashlib.sha256(_canonical_json(decision.to_dict()).encode("utf-8")).hexdigest()
+
+
+def host_resource_policy_decision_from_dict(
+        value: Mapping[str, Any]) -> HostResourcePolicyDecision | None:
+    """Rebuild a typed policy decision from its durable JSON representation."""
+    if not isinstance(value, Mapping):
+        return None
+    decision_fields = dataclass_fields(HostResourcePolicyDecision)
+    if set(value) != {item.name for item in decision_fields}:
+        return None
+    normalized: dict[str, Any] = {}
+    for item in decision_fields:
+        field_value = value[item.name]
+        if isinstance(item.default, tuple):
+            if not isinstance(field_value, (list, tuple)):
+                return None
+            field_value = tuple(field_value)
+        normalized[item.name] = field_value
+    try:
+        decision = HostResourcePolicyDecision(**normalized)
+    except (TypeError, ValueError):
+        return None
+    return decision if validate_host_resource_policy_decision(decision).ok else None
 
 
 def host_resource_proposal_receipt_digest(receipt: HostResourceProposalReceipt) -> str:

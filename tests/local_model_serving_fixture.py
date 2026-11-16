@@ -1,6 +1,7 @@
 """Reusable serving fixture without a dependency on the pytest runtime."""
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
@@ -37,23 +38,60 @@ class FixturePatch:
 class Kernel:
     def __init__(self, inference: AdmissionOutcome = AdmissionOutcome.ALLOW) -> None:
         self.inference, self.requests = inference, []
+        self._recorded_decisions: dict[str, dict[str, object]] = {}
+
+    def recorded_decision_payload(self, decision: object) -> dict[str, object] | None:
+        reference = getattr(decision, "admission_decision_ref", None)
+        payload = self._recorded_decisions.get(reference)
+        return json.loads(json.dumps(payload)) if payload is not None else None
 
     def admit(self, request: object) -> object:
         self.requests.append(request)
         authority_class = request.authority_class
         outcome = self.inference if authority_class is AuthorityClass.LOCAL_MODEL_INFERENCE else AdmissionOutcome.ALLOW
-        return SimpleNamespace(
+        correlation_id = request.metadata["correlation_id"]
+        delegated = {}
+        allocation_binding = request.metadata.get("resource_allocation_binding")
+        if isinstance(allocation_binding, dict):
+            delegated["runtime_governor"] = {
+                "evidence_refs": {"resource_allocation_binding": allocation_binding}}
+        decision = {
+            "event_type": "control_plane_decision",
+            "timestamp": "1970-01-01T00:00:00+00:00",
+            "final_disposition": outcome.value,
+            "outcome": outcome.value,
+            "reason_codes": ["test_denial"] if outcome is not AdmissionOutcome.ALLOW else [],
+            "delegate_checks_consulted": sorted(delegated),
+            "lifecycle_phase": "runtime",
+            "current_phase": "runtime",
+            "requested_phase": "runtime",
+            "authority_class": authority_class.value,
+            "action_kind": request.action_kind,
+            "actor_source": request.actor,
+            "actor": request.actor,
+            "execution_owner": request.actor,
+            "target_subsystem": request.target_subsystem,
+            "delegated_outcomes": delegated,
+            "federation_context": None,
+            "proof_budget_context": None,
+            "protected_mutation_intent": None,
+            "correlation_id": correlation_id,
+            "admission_decision_ref": f"kernel_decision:{correlation_id}",
+        }
+        result = SimpleNamespace(
             outcome=outcome,
             allowed=outcome is AdmissionOutcome.ALLOW,
             authority_class=authority_class,
             actor=request.actor,
             action_kind=request.action_kind,
             target_subsystem=request.target_subsystem,
-            correlation_id=request.metadata["correlation_id"],
+            correlation_id=correlation_id,
             reason_codes=("test_denial",) if outcome is not AdmissionOutcome.ALLOW else (),
-            admission_decision_ref=f"{authority_class.value}:{request.metadata['correlation_id']}",
-            to_dict=lambda: {"outcome": outcome.value},
+            admission_decision_ref=decision["admission_decision_ref"],
+            to_dict=lambda: decision,
         )
+        self._recorded_decisions[decision["admission_decision_ref"]] = decision
+        return result
 
 
 class Model:

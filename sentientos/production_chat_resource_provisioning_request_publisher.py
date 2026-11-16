@@ -146,8 +146,7 @@ def publish_production_chat_resource_provisioning_request(
         before, after = _time(requested_not_before), _time(requested_not_after)
         if before >= after:
             raise ProductionChatResourceProvisioningRequestPublisherError("invalid_requested_validity")
-        if any(getattr(requested_bounds, field) > getattr(policy.max_resource_specific_bounds, field)
-               for field in GovernedLocalModelResourceBounds.__dataclass_fields__):
+        if not requested_bounds.is_within(policy.max_resource_specific_bounds):
             raise ProductionChatResourceProvisioningRequestPublisherError("requested_bounds_exceed_policy")
     except ProductionChatResourceProvisioningRequestPublisherError:
         raise

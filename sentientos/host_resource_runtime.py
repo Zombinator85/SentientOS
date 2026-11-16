@@ -9,7 +9,8 @@ authority.
 from __future__ import annotations
 
 import concurrent.futures as cf
-import hashlib, json, math, os, re, tempfile, time
+import hashlib, json, math, os, platform, re, tempfile, time
+import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,7 +19,7 @@ from typing import Any, Callable, Mapping, Sequence
 from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, ControlActionDecision, ControlPlaneKernel, get_control_plane_kernel
 from sentientos.host_collectors import HostCollectorResult, collect_cpu_observation, collect_disk_observation, collect_fan_pwm_observation, collect_memory_observation, collect_network_interface_observation, collect_nvidia_gpu_observation, collect_platform_observation, collect_process_observation, collect_service_manager_observation, collect_thermal_sensor_observation, validate_host_collector_result
 from sentientos.host_resource_governor import HostResourcePressureReport, HostResourceTelemetrySnapshot, build_host_resource_telemetry_from_collector_results, evaluate_host_resource_pressure, host_resource_report_digest, summarize_host_resource_pressure, validate_host_resource_pressure_report
-from sentientos.host_resource_policy import HostResourcePolicyDecision, HostResourceProposalReceipt, build_host_resource_proposal_receipts, evaluate_host_resource_policy, summarize_host_resource_policy_decision, summarize_host_resource_proposal_receipt, validate_host_resource_policy_decision, validate_host_resource_proposal_receipt
+from sentientos.host_resource_policy import HostResourcePolicyDecision, HostResourceProposalReceipt, build_host_resource_proposal_receipts, evaluate_host_resource_policy, host_resource_policy_decision_digest, host_resource_policy_decision_from_dict, summarize_host_resource_policy_decision, summarize_host_resource_proposal_receipt, validate_host_resource_policy_decision, validate_host_resource_proposal_receipt
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
 from sentientos.world_state_board import WorldStateSourceKind, digest, record_digest
 from sentientos.local_runtime_provisioning import semantic_digest
@@ -28,6 +29,152 @@ RESOURCE_CONSUMPTION_WORLD_STATE_SCHEMA = "sentientos.resource_consumption_world
 CollectorCallable = Callable[..., HostCollectorResult]
 STATUSES = {"available", "partial", "unavailable", "error", "timeout", "invalid", "unsupported", "skipped"}
 FORBIDDEN_TEXT = re.compile(r"([A-Za-z]:\\\\|/home/|/tmp/|/workspace/|SENTIENTOS_|TOKEN|PASSWORD|SECRET|Traceback|cmdline|environ|[0-9a-f]{2}(:[0-9a-f]{2}){5})", re.I)
+MAX_RETAINED_OBSERVATION_EPOCHS = 128
+HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS = 15.0
+_RESOURCE_ENTITLEMENT_OBSERVATION_V1_FIELDS = {
+    "schema_version", "allocation_id", "allocation_digest", "allocator_id",
+    "resource_kind", "policy_digest", "policy_epoch", "principal_binding_digest",
+    "remaining_call_entitlement", "checked_at", "observation_id",
+    "observation_digest",
+}
+_RESOURCE_ENTITLEMENT_OBSERVATION_V2_FIELDS = (
+    _RESOURCE_ENTITLEMENT_OBSERVATION_V1_FIELDS
+    | {"entitlement_status", "invalidation_reason_code"})
+_SERVING_RESOURCE_ENTITLEMENT_BINDING_V1_FIELDS = {
+    "schema_version", "binding_scope", "allocation_id", "allocation_digest",
+    "allocator_id", "resource_kind", "policy_digest", "policy_epoch",
+    "principal_binding_digest", "remaining_call_entitlement", "checked_at",
+}
+_SERVING_RESOURCE_ENTITLEMENT_BINDING_V2_FIELDS = (
+    _SERVING_RESOURCE_ENTITLEMENT_BINDING_V1_FIELDS | {"max_gpu_layers"})
+
+
+def _resource_entitlement_observation_shape_valid(
+        value: Mapping[str, Any], trigger_kind: object) -> bool:
+    schema = value.get("schema_version")
+    remaining = value.get("remaining_call_entitlement")
+    if set(value) == _RESOURCE_ENTITLEMENT_OBSERVATION_V1_FIELDS:
+        return (schema ==
+                "sentientos.governed_local_model_resource_entitlement_observation:v1"
+            and trigger_kind == "call_entitlement_exhausted"
+            and type(remaining) is int and remaining == 0)
+    if (set(value) != _RESOURCE_ENTITLEMENT_OBSERVATION_V2_FIELDS
+            or schema !=
+                "sentientos.governed_local_model_resource_entitlement_observation:v2"
+            or type(remaining) is not int or remaining < 0):
+        return False
+    if trigger_kind == "call_entitlement_exhausted":
+        return (value.get("entitlement_status") == "exhausted"
+            and remaining == 0
+            and value.get("invalidation_reason_code") is None)
+    if trigger_kind == "resource_entitlement_invalidated":
+        return (value.get("entitlement_status") == "invalidated"
+            and value.get("invalidation_reason_code") in {
+                "allocation_expired", "policy_expired", "currentness_stale",
+                "principal_expired", "allocation_not_current"})
+    return False
+
+
+def _serving_resource_entitlement_binding_shape_valid(
+        value: Mapping[str, Any]) -> bool:
+    schema = value.get("schema_version")
+    if (schema == "sentientos.governed_local_model_serving_entitlement_binding:v1"
+            and set(value) == _SERVING_RESOURCE_ENTITLEMENT_BINDING_V1_FIELDS):
+        return True
+    if (schema != "sentientos.governed_local_model_serving_entitlement_binding:v2"
+            or set(value) != _SERVING_RESOURCE_ENTITLEMENT_BINDING_V2_FIELDS):
+        return False
+    max_gpu_layers = value.get("max_gpu_layers")
+    return (max_gpu_layers is None
+        or (type(max_gpu_layers) is int and 0 <= max_gpu_layers <= 256))
+
+
+def summarize_gpu_telemetry_source(result: HostCollectorResult) -> dict[str, Any]:
+    """Retain the collector's attribution scope without implying process control."""
+    values = result.values if isinstance(result.values, Mapping) else {}
+    sample_scope = values.get("sample_scope")
+    if not isinstance(sample_scope, str) or not sample_scope or len(sample_scope) > 128:
+        sample_scope = "unspecified"
+    attribution = values.get("per_process_attribution_available")
+    if type(attribution) is not bool:
+        attribution = None
+    return {"collector_id": result.collector_id, "status": result.status,
+        "source": result.source[:128], "sample_scope": sample_scope,
+        "per_process_attribution_available": attribution}
+
+
+def _resource_release_reason_codes_valid(value: object) -> bool:
+    if not isinstance(value, (list, tuple)) or len(value) > 64:
+        return False
+    return all(isinstance(reason, str) and reason and len(reason) <= 128
+        for reason in value)
+
+
+def _resource_release_checks_valid(value: object) -> bool:
+    return (isinstance(value, (list, tuple))
+        and len(value) <= 128
+        and all(isinstance(check, str) and check and len(check) <= 128
+            for check in value))
+
+
+def _game_recovery_hold_release_linkage(
+        hold: Mapping[str, Any],
+        release_receipts: Sequence[Mapping[str, Any]] | None
+        ) -> tuple[str, str | None]:
+    if release_receipts is None:
+        return "not_requested", None
+    reference = hold.get("release_admission_decision_ref")
+    matches = [receipt for receipt in release_receipts
+        if receipt.get("release_admission_decision_ref") == reference]
+    if not matches:
+        return "missing", None
+    if len(matches) != 1:
+        return "ambiguous", None
+    receipt = matches[0]
+    observation = receipt.get("resource_observation")
+    admission = receipt.get("release_admission_record")
+    hold_admission = hold.get("release_admission_record")
+    model_digest = receipt.get("model_identity_digest")
+    if isinstance(model_digest, str):
+        model_digest = model_digest.removeprefix("sha256:")
+    linked = (
+        receipt.get("trigger_kind") == "idle_game_performance_gpu_residency"
+        and receipt.get("status") in {"worker_closed", "release_effect_unconfirmed"}
+        and receipt.get("serving_session_id") == hold.get("serving_session_id")
+        and model_digest == hold.get("model_identity_digest")
+        and isinstance(admission, Mapping)
+        and isinstance(hold_admission, Mapping)
+        and dict(admission) == dict(hold_admission)
+        and isinstance(observation, Mapping)
+        and observation.get("game_performance_source_id") == hold.get("game_source_id")
+        and observation.get("game_performance_generation_id") == hold.get(
+            "game_generation_id")
+        and observation.get("game_performance_observed_at") == hold.get(
+            "game_pressure_observed_at"))
+    return ("verified", str(receipt.get("receipt_id"))) if linked else (
+        "mismatched", None)
+
+
+_DIGEST_BOUND_INVOCATION_RECEIPT_SCHEMAS = frozenset({
+    "sentientos.local_model_invocation_receipt:v2",
+    "sentientos.local_model_invocation_receipt:v3",
+    "sentientos.local_model_invocation_receipt:v4",
+    "sentientos.local_model_invocation_receipt:v5",
+    "sentientos.local_model_invocation_receipt:v6",
+    "sentientos.local_model_invocation_receipt:v7",
+    "sentientos.local_model_invocation_receipt:v8",
+    "sentientos.local_model_invocation_receipt:v9",
+    "sentientos.local_model_invocation_receipt:v10",
+})
+
+
+def _invocation_receipt_event_time_posture(invocation: Mapping[str, Any]) -> str:
+    observed_at = invocation.get("observed_at")
+    if not isinstance(observed_at, str):
+        return "historical_invocation_time_unknown"
+    if invocation.get("schema_version") in _DIGEST_BOUND_INVOCATION_RECEIPT_SCHEMAS:
+        return "invocation_receipt_created_at_semantic_digest_bound"
+    return "invocation_receipt_observed_at_unbound_metadata"
 
 @dataclass(frozen=True)
 class HostObservationBudget:
@@ -127,7 +274,7 @@ def default_collector_specs() -> tuple[HostObservationCollectorSpec, ...]:
         HostObservationCollectorSpec("disk", True, allp, 20, collect_disk_observation),
         HostObservationCollectorSpec("memory", True, allp, 30, collect_memory_observation),
         HostObservationCollectorSpec("cpu", True, allp, 40, collect_cpu_observation),
-        HostObservationCollectorSpec("process", False, ("linux",), 50, collect_process_observation),
+        HostObservationCollectorSpec("process", False, allp, 50, collect_process_observation),
         HostObservationCollectorSpec("network_interfaces", False, ("linux",), 60, collect_network_interface_observation),
         HostObservationCollectorSpec("service_manager", False, allp, 70, collect_service_manager_observation),
         HostObservationCollectorSpec("nvidia_gpu", False, allp, 75, collect_nvidia_gpu_observation),
@@ -140,8 +287,12 @@ def build_observation_plan(*, budget: HostObservationBudget | None = None, specs
     sem = {"budget": b.to_dict(), "collectors": [c.to_dict() for c in cs]}
     return HostObservationPlan(_id("hop_", sem), b, cs, _id("hops_", sem))
 
-def _unsupported_result(spec: HostObservationCollectorSpec, observed_at: str) -> HostCollectorResult:
-    return HostCollectorResult(spec.collector_id, "unavailable", observed_at, "unsupported_platform", values={"unsupported_platform": True}, warnings=("unsupported_platform",))
+def _unsupported_result(spec: HostObservationCollectorSpec,
+        observed_at: str) -> HostCollectorResult:
+    status = "unavailable" if spec.required else "unsupported"
+    return HostCollectorResult(
+        spec.collector_id, status, observed_at, "unsupported_platform",
+        values={"unsupported_platform": True}, warnings=("unsupported_platform",))
 
 def _exception_result(spec: HostObservationCollectorSpec, observed_at: str, exc: BaseException) -> HostCollectorResult:
     return HostCollectorResult(spec.collector_id, "error", observed_at, "contained_exception", findings=(), warnings=("collector_exception_contained",), values={"exception_label": type(exc).__name__})
@@ -191,26 +342,129 @@ def validate_epoch(epoch: HostObservationEpoch) -> HostResourceRuntimeValidation
 
 def validate_evaluation(e: HostResourceRuntimeEvaluation) -> HostResourceRuntimeValidationResult:
     f=list(e.validation_findings)
+    plan_semantic = {"budget": e.plan.budget.to_dict(),
+        "collectors": [collector.to_dict() for collector in e.plan.collectors]}
+    if (e.plan.plan_id != _id("hop_", plan_semantic)
+            or e.plan.semantic_digest != _id("hops_", plan_semantic)
+            or e.plan.effect_authority
+            or e.plan.authority_class != AuthorityClass.OBSERVATION.value):
+        f.append("observation_plan_identity_or_authority_invalid")
+    collector_ids = [collector.collector_id for collector in e.epoch.results]
+    planned_collector_ids = [collector.collector_id for collector in e.plan.collectors]
+    if (e.epoch.plan_id != e.plan.plan_id
+            or len(collector_ids) != len(set(collector_ids))
+            or set(collector_ids) != set(planned_collector_ids)
+            or len(collector_ids) != len(planned_collector_ids)):
+        f.append("observation_epoch_collector_set_mismatch")
+    counts = {status: 0 for status in STATUSES}
+    for result in e.epoch.results:
+        counts[result.status if result.status in counts else "invalid"] += 1
+    if dict(e.epoch.status_counts) != counts:
+        f.append("observation_epoch_status_counts_mismatch")
+    epoch_semantic = {"correlation_id": e.epoch.correlation_id,
+        "plan": e.plan.semantic_digest,
+        "admission": e.epoch.admission_decision_ref,
+        "observed_at": e.epoch.observed_at,
+        "results": [{key: value for key, value in redact_value(result.to_dict()).items()
+            if key != "observed_at"} for result in e.epoch.results]}
+    if (e.epoch.epoch_id != _id("hoe_", epoch_semantic)
+            or e.epoch.semantic_digest != _id("hoes_", epoch_semantic)):
+        f.append("observation_epoch_semantic_identity_mismatch")
     f.extend(validate_epoch(e.epoch).findings)
     f.extend(validate_host_resource_pressure_report(e.pressure_report, e.snapshot).findings)
     f.extend(validate_host_resource_policy_decision(e.policy_decision).findings)
     for r in e.proposal_receipts: f.extend(validate_host_resource_proposal_receipt(r).findings)
+    try:
+        expected_snapshot_id = _id("hrs_", {"plan": e.plan.semantic_digest,
+            "results": [redact_value(result.to_dict()) for result in e.epoch.results]})
+        expected_snapshot = build_host_resource_telemetry_from_collector_results(
+            e.epoch.results, snapshot_id=expected_snapshot_id)
+        if e.snapshot != expected_snapshot:
+            f.append("host_resource_snapshot_not_derived_from_collector_results")
+        expected_pressure = evaluate_host_resource_pressure(expected_snapshot)
+        if e.pressure_report != expected_pressure:
+            f.append("host_resource_pressure_report_not_derived_from_snapshot")
+        expected_policy = evaluate_host_resource_policy(expected_pressure)
+        if e.policy_decision != expected_policy:
+            f.append("host_resource_policy_not_derived_from_pressure_report")
+        expected_receipts = build_host_resource_proposal_receipts(
+            expected_policy, created_at=e.epoch.observed_at)
+        if e.proposal_receipts != expected_receipts:
+            f.append("host_resource_proposal_receipts_not_derived_from_policy")
+        evaluation_semantic = {"epoch": e.epoch.semantic_digest,
+            "snapshot": expected_snapshot.snapshot_id,
+            "pressure": expected_pressure.report_id,
+            "policy": expected_policy.decision_id,
+            "receipts": [receipt.receipt_id for receipt in expected_receipts]}
+        if (e.evaluation_id != _id("hre_", evaluation_semantic)
+                or e.semantic_digest != _id("hres_", evaluation_semantic)):
+            f.append("host_resource_evaluation_semantic_identity_mismatch")
+    except (AttributeError, TypeError, ValueError, OverflowError):
+        f.append("host_resource_evaluation_derivation_invalid")
     if not e.no_effect_authority: f.append("effect_authority_true")
     return HostResourceRuntimeValidationResult(not f, tuple(sorted(set(f))))
 
 class HostResourceRuntimeCoordinator:
     def __init__(self, *, kernel: ControlPlaneKernel | None = None, runtime_state_root: Path | str | None = None, plan: HostObservationPlan | None = None, clock: Callable[[], str] | None = None) -> None:
-        self.kernel=kernel or get_control_plane_kernel(); self.runtime_state_root=Path(runtime_state_root or os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", tempfile.gettempdir()+"/sentientos_runtime")); self.plan=plan or build_observation_plan(); self.clock=clock or _now; self._epochs_by_correlation: dict[str, HostResourceRuntimeEvaluation] = {}; self.collector_call_count=0
+        self.kernel=kernel or get_control_plane_kernel(); self.runtime_state_root=Path(runtime_state_root or os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", tempfile.gettempdir()+"/sentientos_runtime")); self.plan=plan or build_observation_plan(); self.clock=clock or _now; self._epochs_by_correlation: dict[str, HostResourceRuntimeEvaluation] = {}; self._cycle_lock = threading.Lock(); self.collector_call_count=0
     def request_admission(self, correlation_id: str) -> ControlActionDecision:
         # Resource observation is also used by live runtime scheduling. Bind the
         # request to the kernel current phase instead of hard-coding maintenance;
         # this remains observation-only and never grants actuation authority.
         return self.kernel.admit(ControlActionRequest("host_resource_observation_epoch", AuthorityClass.OBSERVATION, "sentientosd", "host_resource_observation_runtime", self.kernel.phase, {"correlation_id": correlation_id, "no_effect_authority": True}))
     def run_cycle(self, *, correlation_id: str, decision: ControlActionDecision | None = None) -> HostResourceRuntimeEvaluation | None:
+        """Run one bounded read-only epoch, serialized within this owner."""
+        with self._cycle_lock:
+            return self._run_cycle(correlation_id=correlation_id, decision=decision)
+
+    def latest_evaluation(
+        self,
+        *,
+        max_age_seconds: float = HOST_RESOURCE_EVIDENCE_MAX_AGE_SECONDS,
+    ) -> HostResourceRuntimeEvaluation | None:
+        """Return the latest completed read-only sample if fresh, without collecting telemetry.
+
+        The nonblocking cache read is suitable for fast paths that must not wait
+        for a host observation. It carries no admission or actuation authority.
+        """
+        if (isinstance(max_age_seconds, bool)
+                or not isinstance(max_age_seconds, (int, float))
+                or not math.isfinite(float(max_age_seconds))
+                or not 0 <= float(max_age_seconds) <= 300):
+            return None
+        if not self._cycle_lock.acquire(blocking=False):
+            return None
+        try:
+            evaluation = (next(reversed(self._epochs_by_correlation.values()), None)
+                if self._epochs_by_correlation else None)
+        finally:
+            self._cycle_lock.release()
+        if evaluation is None or not validate_evaluation(evaluation).ok:
+            return None
+        try:
+            observed_at = datetime.fromisoformat(evaluation.epoch.observed_at)
+            current_at = datetime.fromisoformat(self.clock())
+            if observed_at.tzinfo is None or current_at.tzinfo is None:
+                return None
+            age_seconds = (current_at.astimezone(timezone.utc)
+                - observed_at.astimezone(timezone.utc)).total_seconds()
+        except (TypeError, ValueError, OverflowError):
+            return None
+        return evaluation if 0 <= age_seconds <= float(max_age_seconds) else None
+
+    def _run_cycle(self, *, correlation_id: str, decision: ControlActionDecision | None = None) -> HostResourceRuntimeEvaluation | None:
         if correlation_id in self._epochs_by_correlation: return self._epochs_by_correlation[correlation_id]
         decision = decision or self.request_admission(correlation_id)
-        if not decision.allowed: return None
-        observed_at=self.clock(); results=[]; timeouts=[]; findings=[]; cycle_collectors_called=0; start=time.monotonic(); platform_label=os.name if os.name != "posix" else ("linux" if Path('/proc').exists() else "unknown")
+        if (not self.kernel.owns_recorded_admitted_decision(decision)
+                or decision.authority_class != AuthorityClass.OBSERVATION
+                or decision.action_kind != "host_resource_observation_epoch"
+                or decision.actor != "sentientosd"
+                or decision.target_subsystem != "host_resource_observation_runtime"
+                or decision.correlation_id != correlation_id):
+            return None
+        observed_at=self.clock(); results=[]; timeouts=[]; findings=[]; cycle_collectors_called=0; start=time.monotonic()
+        platform_label = {"windows": "windows", "linux": "linux",
+            "darwin": "darwin"}.get(platform.system().lower(), "unknown")
         # Do not use the executor as a context manager here: its implicit
         # ``shutdown(wait=True)`` would make a timed-out collector hold the
         # maintenance tick open until the worker returns.  The observation
@@ -243,7 +497,7 @@ class HostResourceRuntimeCoordinator:
             elif bad: optional_failed.append(r.collector_id)
         snapshot=build_host_resource_telemetry_from_collector_results(ordered_results, snapshot_id=_id("hrs_", {"plan": self.plan.semantic_digest, "results": [redact_value(r.to_dict()) for r in ordered_results]}))
         pressure=evaluate_host_resource_pressure(snapshot); decision2=evaluate_host_resource_policy(pressure); receipts=build_host_resource_proposal_receipts(decision2, created_at=observed_at)
-        epoch_sem={"correlation_id": correlation_id, "plan": self.plan.semantic_digest, "admission": decision.admission_decision_ref, "results": [{k:v for k,v in redact_value(r.to_dict()).items() if k not in {"observed_at"}} for r in ordered_results]}
+        epoch_sem={"correlation_id": correlation_id, "plan": self.plan.semantic_digest, "admission": decision.admission_decision_ref, "observed_at": observed_at, "results": [{k:v for k,v in redact_value(r.to_dict()).items() if k not in {"observed_at"}} for r in ordered_results]}
         epoch = HostObservationEpoch(
             epoch_id=_id("hoe_", epoch_sem),
             correlation_id=correlation_id,
@@ -264,6 +518,8 @@ class HostResourceRuntimeCoordinator:
         ev_sem={"epoch": epoch.semantic_digest, "snapshot": snapshot.snapshot_id, "pressure": pressure.report_id, "policy": decision2.decision_id, "receipts": [r.receipt_id for r in receipts]}
         evaluation=HostResourceRuntimeEvaluation(_id("hre_", ev_sem), self.plan, epoch, snapshot, pressure, decision2, receipts, validate_epoch(epoch).findings, _id("hres_", ev_sem), True)
         self._epochs_by_correlation[correlation_id]=evaluation
+        while len(self._epochs_by_correlation) > MAX_RETAINED_OBSERVATION_EPOCHS:
+            self._epochs_by_correlation.pop(next(iter(self._epochs_by_correlation)))
         if validate_evaluation(evaluation).ok:
             self.kernel.observe_host_resource_evaluation(evaluation)
         return evaluation
@@ -297,7 +553,12 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                               verified_chat_process_recovery_transitions: Sequence[Mapping[str, Any]] = (),
                                               verified_chat_process_runtime_observation: Mapping[str, Any] | None = None,
                                               verified_serving_operation_attempts: Sequence[Mapping[str, Any]] = (),
-                                              verified_serving_operation_history: Sequence[Mapping[str, Any]] = ()) -> list[dict[str, Any]]:
+                                              verified_serving_operation_history: Sequence[Mapping[str, Any]] = (),
+                                              verified_inference_admission_decisions: Sequence[Mapping[str, Any]] | None = None,
+                                              verified_resource_release_receipts: Sequence[Mapping[str, Any]] | None = None,
+                                              verified_preemption_invocation_receipts: Sequence[Mapping[str, Any]] = (),
+                                              verified_game_resource_recovery_holds: Sequence[Mapping[str, Any]] | None = None,
+                                              game_resource_recovery_posture: str | None = None) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
 
     The projection carries exact ledger identities and invocation linkage. It
@@ -331,10 +592,757 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         raise ValueError("chat_process_recovery_transition_bound_exceeded")
     if len(verified_serving_operation_attempts) > 256:
         raise ValueError("serving_operation_attempt_bound_exceeded")
+    if (verified_inference_admission_decisions is not None
+            and len(verified_inference_admission_decisions) > 256):
+        raise ValueError("inference_admission_decision_bound_exceeded")
+    if (verified_resource_release_receipts is not None
+            and len(verified_resource_release_receipts) > 256):
+        raise ValueError("resource_release_receipt_bound_exceeded")
+    if len(verified_preemption_invocation_receipts) > 256:
+        raise ValueError("preemption_invocation_receipt_bound_exceeded")
+    recovery_postures = {"verified_no_recovery_holds",
+        "verified_pending_recovery", "verified_recovery_cleared",
+        "unknown_hold_custody_directory_missing"}
+    if (verified_game_resource_recovery_holds is not None
+            and len(verified_game_resource_recovery_holds) > 4096):
+        raise ValueError("game_resource_recovery_hold_bound_exceeded")
+    if ((verified_game_resource_recovery_holds is None
+            and game_resource_recovery_posture is not None)
+            or (verified_game_resource_recovery_holds is not None
+                and game_resource_recovery_posture not in recovery_postures)):
+        raise ValueError("game_resource_recovery_posture_invalid")
+    if (verified_game_resource_recovery_holds is not None
+            and ((game_resource_recovery_posture == "verified_no_recovery_holds"
+                    and verified_game_resource_recovery_holds)
+                or (game_resource_recovery_posture == "verified_pending_recovery"
+                    and not any(item.get("clearance") is None
+                        for item in verified_game_resource_recovery_holds))
+                or (game_resource_recovery_posture == "verified_recovery_cleared"
+                    and (not verified_game_resource_recovery_holds
+                        or any(item.get("clearance") is None
+                            for item in verified_game_resource_recovery_holds)))
+                or (game_resource_recovery_posture ==
+                    "unknown_hold_custody_directory_missing"
+                    and verified_game_resource_recovery_holds))):
+        raise ValueError("game_resource_recovery_posture_mismatch")
+    game_recovery_hold_summaries = []
+    for item in (verified_game_resource_recovery_holds or ())[-16:]:
+        if not isinstance(item, Mapping):
+            raise ValueError("game_resource_recovery_hold_shape_invalid")
+        admission = item.get("release_admission_record")
+        clearance = item.get("clearance")
+        summary = {key: item.get(key) for key in (
+            "hold_id", "hold_semantic_digest", "release_admission_decision_ref",
+            "serving_session_id", "model_identity_digest", "game_source_id",
+            "game_generation_id", "game_pressure_observed_at", "posture")}
+        summary["release_admission_record_digest"] = (
+            digest(dict(admission)) if isinstance(admission, Mapping) else None)
+        summary["clearance"] = ({
+            key: clearance.get(key) for key in (
+                "game_source_id", "game_generation_id", "game_message_id",
+                "game_observed_at", "game_foreground", "game_process_running",
+                "clearance_semantic_digest")}
+            if isinstance(clearance, Mapping) else None)
+        game_recovery_hold_summaries.append(summary)
+    release_receipt_summaries: list[dict[str, Any]] = []
+    release_lineage_findings: list[str] = []
+    seen_release_receipt_ids: set[str] = set()
+    if verified_resource_release_receipts is not None:
+        def bounded_release_observation(value: Any, *, post_release: bool = False
+                ) -> dict[str, Any] | None:
+            if not isinstance(value, Mapping):
+                return None
+            allowed = ({"observation_correlation_id", "report_id", "report_digest",
+                "observed_at", "gpu_utilization_percent", "vram_utilization_percent",
+                "ram_utilization_percent", "cpu_utilization_percent",
+                "gpu_telemetry_available", "gpu_telemetry_complete",
+                "gpu_telemetry_sources"}
+                if post_release else {
+                "observation_correlation_id", "host_report_id", "host_report_digest",
+                "pressure_labels", "game_workload_message_id", "workload_mode",
+                "workload_mode_source", "workload_observation_status", "configured_mode",
+                "game_foreground", "game_process_running", "gpu_utilization_percent",
+                "vram_utilization_percent", "ram_utilization_percent",
+                "cpu_utilization_percent", "model_gpu_layers",
+                "gpu_telemetry_available", "gpu_telemetry_complete",
+                "gpu_telemetry_sources", "host_telemetry_used_for_admission",
+                "active_inference_preemption_requested", "host_policy_binding",
+                "resource_entitlement_observation", "serving_entitlement_binding",
+                "game_performance_message_id", "game_performance_payload_digest",
+                "game_performance_process_id_digest",
+                "game_performance_process_name_digest",
+                "game_performance_source_id", "game_performance_generation_id",
+                "game_performance_sequence", "game_performance_observed_at",
+                "frame_time_p95_ms", "hitch_count_over_50ms",
+                "process_cpu_percent", "process_rss_bytes"})
+            summary = {key: value[key] for key in allowed if key in value}
+            performance_fields = {
+                "workload_mode", "game_performance_message_id",
+                "game_performance_payload_digest", "game_performance_process_id_digest",
+                "game_performance_process_name_digest", "game_performance_source_id",
+                "game_performance_generation_id", "game_performance_sequence",
+                "game_performance_observed_at", "frame_time_p95_ms",
+                "hitch_count_over_50ms", "process_cpu_percent", "process_rss_bytes",
+                "model_gpu_layers",
+            }
+            if any(key.startswith("game_performance_") for key in value):
+                observed_at = value.get("game_performance_observed_at")
+                try:
+                    performance_timestamp = datetime.fromisoformat(
+                        observed_at.replace("Z", "+00:00")
+                        if isinstance(observed_at, str) else "")
+                except ValueError:
+                    performance_timestamp = None
+                valid_optional_number = lambda key, minimum, maximum: (
+                    value.get(key) is None or (type(value.get(key)) in (int, float)
+                        and math.isfinite(float(value[key]))
+                        and minimum <= float(value[key]) <= maximum))
+                performance_digests = (
+                    "game_performance_message_id", "game_performance_payload_digest",
+                    "game_performance_process_id_digest",
+                    "game_performance_process_name_digest")
+                if (not performance_fields <= set(value)
+                        or release_receipt.get("trigger_kind") !=
+                            "idle_game_performance_gpu_residency"
+                        or value.get("workload_mode") != "normal"
+                        or any(not isinstance(value.get(key), str)
+                            or re.fullmatch(r"[0-9a-f]{64}", value[key]) is None
+                            for key in performance_digests)
+                        or any(not isinstance(value.get(key), str)
+                            or not value[key] or len(value[key]) > 256
+                            for key in ("game_performance_source_id",
+                                "game_performance_generation_id"))
+                        or type(value.get("game_performance_sequence")) is not int
+                        or value["game_performance_sequence"] < 1
+                        or performance_timestamp is None
+                        or performance_timestamp.tzinfo is None
+                        or performance_timestamp.utcoffset() is None
+                        or not valid_optional_number("frame_time_p95_ms", 0, 10_000)
+                        or not valid_optional_number("process_cpu_percent", 0, 10_000)
+                        or (value.get("frame_time_p95_ms") is not None
+                            and value["frame_time_p95_ms"] <= 0)
+                        or (value.get("hitch_count_over_50ms") is not None
+                            and (type(value["hitch_count_over_50ms"]) is not int
+                                or not 0 <= value["hitch_count_over_50ms"] <= 100_000))
+                        or (value.get("process_rss_bytes") is not None
+                            and (type(value["process_rss_bytes"]) is not int
+                                or not 0 <= value["process_rss_bytes"] <= 2**63 - 1))
+                        or value.get("active_inference_preemption_requested") is not
+                            (release_receipt.get(
+                                "active_inference_preemption_requested") is True)
+                        or value.get("host_telemetry_used_for_admission") is not False):
+                    raise ValueError("resource_release_game_performance_evidence_invalid")
+                if (type(value.get("model_gpu_layers")) is not int
+                        or not 1 <= value["model_gpu_layers"] <= 256):
+                    raise ValueError("resource_release_game_performance_evidence_invalid")
+                admission_record = release_receipt.get("release_admission_record")
+                delegated = (admission_record.get("delegated_outcomes")
+                    if isinstance(admission_record, Mapping) else None)
+                governor = (delegated.get("runtime_governor")
+                    if isinstance(delegated, Mapping) else None)
+                evidence_refs = (governor.get("evidence_refs")
+                    if isinstance(governor, Mapping) else None)
+                admission_evidence = (evidence_refs.get(
+                    "resource_observation_evidence")
+                    if isinstance(evidence_refs, Mapping) else None)
+                evidence_fields = {
+                    "status", "workload_mode", "game_performance_message_id",
+                    "game_performance_payload_digest",
+                    "game_performance_process_id_digest",
+                    "game_performance_process_name_digest",
+                    "game_performance_source_id", "game_performance_generation_id",
+                    "game_performance_sequence", "game_performance_observed_at",
+                    "frame_time_p95_ms", "hitch_count_over_50ms",
+                    "process_cpu_percent", "process_rss_bytes", "model_gpu_layers",
+                    "serving_session_id", "active_inference_preemption_requested",
+                }
+                observation_evidence_fields = evidence_fields - {"status"}
+                mismatched_evidence_fields = (
+                    observation_evidence_fields.intersection(value)
+                    if isinstance(admission_evidence, Mapping) else set())
+                if isinstance(admission_evidence, Mapping):
+                    mismatched_evidence_fields = {
+                        key for key in mismatched_evidence_fields
+                        if admission_evidence.get(key) != value.get(key)}
+                if (not isinstance(admission_evidence, Mapping)
+                        or set(admission_evidence) != evidence_fields
+                        or admission_evidence.get("status") != "current"
+                        or mismatched_evidence_fields
+                        or admission_evidence.get("serving_session_id")
+                            != release_receipt.get("serving_session_id")):
+                    raise ValueError(
+                        "resource_release_game_performance_admission_mismatch:" +
+                        ",".join(sorted(mismatched_evidence_fields)))
+            labels = summary.get("pressure_labels")
+            if isinstance(labels, (list, tuple)):
+                summary["pressure_labels"] = tuple(
+                    item for item in labels[:16]
+                    if isinstance(item, str) and len(item) <= 128)
+            for key in ("gpu_telemetry_available", "gpu_telemetry_complete"):
+                if key in summary and type(summary[key]) is not bool:
+                    summary.pop(key)
+            sources = summary.get("gpu_telemetry_sources")
+            if isinstance(sources, (list, tuple)):
+                bounded_sources = []
+                for item in sources[:16]:
+                    if not isinstance(item, Mapping):
+                        continue
+                    base_fields = {"collector_id", "status", "source"}
+                    attribution_fields = base_fields | {"sample_scope",
+                        "per_process_attribution_available"}
+                    if (frozenset(item) not in {frozenset(base_fields),
+                            frozenset(attribution_fields)}
+                            or not all(isinstance(item.get(key), str)
+                                and item.get(key) and len(item[key]) <= 128
+                                for key in base_fields)):
+                        continue
+                    source = {key: item[key] for key in (
+                        "collector_id", "status", "source")}
+                    if set(item) == attribution_fields:
+                        attribution = item.get("per_process_attribution_available")
+                        if (not isinstance(item.get("sample_scope"), str)
+                                or not item["sample_scope"]
+                                or len(item["sample_scope"]) > 128
+                                or (attribution is not None and type(attribution) is not bool)):
+                            continue
+                        source.update({key: item[key] for key in (
+                            "sample_scope", "per_process_attribution_available")})
+                    bounded_sources.append(source)
+                summary["gpu_telemetry_sources"] = tuple(bounded_sources)
+            elif "gpu_telemetry_sources" in summary:
+                summary.pop("gpu_telemetry_sources")
+            return summary
+
+        for release_receipt in verified_resource_release_receipts:
+            if (not isinstance(release_receipt, Mapping)
+                    or release_receipt.get("schema_version") not in {
+                        "sentientos.production_chat_resource_release_receipt:v2",
+                        "sentientos.production_chat_resource_release_receipt:v3",
+                        "sentientos.production_chat_resource_release_receipt:v4",
+                        "sentientos.production_chat_resource_release_receipt:v5",
+                        "sentientos.production_chat_resource_release_receipt:v6",
+                        "sentientos.production_chat_resource_release_receipt:v7"}):
+                raise ValueError("resource_release_receipt_invalid")
+            receipt_id = release_receipt.get("receipt_id")
+            receipt_digest = release_receipt.get("receipt_semantic_digest")
+            # Recovery enriches the stored receipt with independently verified
+            # serving and invocation links. Remove only those derived fields,
+            # then recheck the immutable release body before it contributes to
+            # resource lineage.
+            enriched_fields = {
+                "serving_receipt_linkage_posture", "serving_receipt_id",
+                "serving_receipt_semantic_digest", "invocation_linkage_posture",
+                "cancelled_invocation_receipt_id",
+                "cancelled_invocation_receipt_digest",
+                "cancelled_invocation_preemption_ref",
+                "host_measurement_binding_posture",
+                "preemption_release_linkage_posture",
+                "preemption_cause_invocation_receipt_id",
+                "preemption_cause_invocation_receipt_digest",
+                "preemption_cause_admission_decision_ref",
+            }
+            release_body = {key: value for key, value in release_receipt.items()
+                if key not in enriched_fields and key != "receipt_semantic_digest"}
+            release_identity_body = dict(release_body)
+            release_identity_body.pop("receipt_id", None)
+            try:
+                expected_release_digest = hashlib.sha256(json.dumps(
+                    release_body, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+                expected_release_id = "serving-resource-release-" + hashlib.sha256(
+                    json.dumps(release_identity_body, sort_keys=True,
+                        separators=(",", ":"), ensure_ascii=False,
+                        allow_nan=False).encode("utf-8")).hexdigest()[:24]
+            except (TypeError, ValueError) as exc:
+                raise ValueError("resource_release_receipt_canonicalization_invalid") from exc
+            if receipt_digest != expected_release_digest:
+                raise ValueError("resource_release_receipt_digest_mismatch")
+            if receipt_id != expected_release_id:
+                raise ValueError("resource_release_receipt_id_mismatch")
+            decision_ref = release_receipt.get("release_admission_decision_ref")
+            correlation = release_receipt.get("release_correlation_id")
+            if (not isinstance(receipt_id, str) or not receipt_id
+                    or receipt_id in seen_release_receipt_ids
+                    or not isinstance(receipt_digest, str) or not receipt_digest
+                    or not isinstance(correlation, str) or not correlation
+                    or decision_ref != f"kernel_decision:{correlation}"
+                    or release_receipt.get("serving_receipt_linkage_posture")
+                        != "verified"
+                    or not isinstance(release_receipt.get("serving_receipt_id"), str)
+                    or not isinstance(release_receipt.get(
+                        "serving_receipt_semantic_digest"), str)
+                    or release_receipt.get("invocation_linkage_posture") not in {
+                        "verified", "not_required", "pending_invocation_receipt",
+                        "legacy_unlinked"}):
+                raise ValueError("resource_release_receipt_identity_invalid")
+            if (release_receipt.get("status") == "admission_unrecorded"
+                    and release_receipt.get("schema_version") not in {
+                        "sentientos.production_chat_resource_release_receipt:v4",
+                        "sentientos.production_chat_resource_release_receipt:v5",
+                        "sentientos.production_chat_resource_release_receipt:v6",
+                        "sentientos.production_chat_resource_release_receipt:v7"}):
+                raise ValueError("resource_release_admission_witness_invalid")
+            if release_receipt.get("schema_version") in {
+                    "sentientos.production_chat_resource_release_receipt:v4",
+                    "sentientos.production_chat_resource_release_receipt:v5",
+                    "sentientos.production_chat_resource_release_receipt:v6",
+                    "sentientos.production_chat_resource_release_receipt:v7"}:
+                witness = release_receipt.get("release_admission_witness")
+                witness_fields = {
+                    "schema_version", "outcome", "reason_codes", "current_phase",
+                    "requested_phase", "authority_class", "action_kind", "actor",
+                    "target_subsystem", "correlation_id", "admission_decision_ref"}
+                if (not isinstance(witness, Mapping)
+                        or set(witness) != witness_fields
+                        or witness.get("schema_version")
+                            != "sentientos.resource_release_admission_witness:v1"
+                        or witness.get("outcome")
+                            != release_receipt.get("release_admission_outcome")
+                        or (release_receipt.get("status") == "admission_unrecorded"
+                            and witness.get("outcome") != "allow")
+                        or witness.get("outcome") not in {
+                            "allow", "deny", "defer", "quarantine"}
+                        or witness.get("reason_codes")
+                            != release_receipt.get("release_reason_codes")
+                        or witness.get("authority_class") != "local_model_resource_release"
+                        or witness.get("action_kind") != "local_model_resource_release"
+                        or witness.get("actor") not in {
+                            "production_chat_host_resource_governor",
+                            "production_chat_workload_resource_governor",
+                            "production_chat_game_resource_governor",
+                            "production_chat_resource_entitlement_governor"}
+                        or witness.get("target_subsystem") != "production_chat"
+                        or witness.get("correlation_id") != correlation
+                        or not isinstance(witness.get("correlation_id"), str)
+                        or len(witness["correlation_id"]) > 256
+                        or witness.get("admission_decision_ref") != decision_ref
+                        or witness.get("current_phase") not in {
+                            "bootstrap", "runtime", "maintenance", "shutdown"}
+                        or witness.get("requested_phase") != "runtime"
+                        or not _resource_release_reason_codes_valid(
+                            witness.get("reason_codes"))):
+                    raise ValueError("resource_release_admission_witness_invalid")
+            admission_record = release_receipt.get("release_admission_record")
+            if release_receipt.get("schema_version") in {
+                    "sentientos.production_chat_resource_release_receipt:v5",
+                    "sentientos.production_chat_resource_release_receipt:v6",
+                    "sentientos.production_chat_resource_release_receipt:v7"}:
+                witness = release_receipt.get("release_admission_witness")
+                if not isinstance(witness, Mapping):
+                    raise ValueError("resource_release_admission_witness_invalid")
+                expected_record_fields = {
+                    "event_type", "timestamp", "final_disposition", "outcome",
+                    "reason_codes", "delegate_checks_consulted", "lifecycle_phase",
+                    "current_phase", "requested_phase", "authority_class", "action_kind",
+                    "actor_source", "actor", "execution_owner", "target_subsystem",
+                    "delegated_outcomes", "federation_context", "proof_budget_context",
+                    "protected_mutation_intent", "correlation_id", "admission_decision_ref"}
+                if admission_record is None:
+                    if release_receipt.get("status") in {
+                            "worker_closed", "release_effect_unconfirmed"}:
+                        raise ValueError("resource_release_admission_record_missing")
+                elif (not isinstance(admission_record, Mapping)
+                        or release_receipt.get("status") == "admission_unrecorded"
+                        or set(admission_record) != expected_record_fields
+                        or admission_record.get("event_type") != "control_plane_decision"
+                        or not isinstance(admission_record.get("timestamp"), str)
+                        or not admission_record.get("timestamp")
+                        or admission_record.get("final_disposition")
+                            != release_receipt.get("release_admission_outcome")
+                        or admission_record.get("outcome")
+                            != release_receipt.get("release_admission_outcome")
+                        or admission_record.get("reason_codes")
+                            != release_receipt.get("release_reason_codes")
+                        or admission_record.get("authority_class")
+                            != "local_model_resource_release"
+                        or admission_record.get("action_kind")
+                            != "local_model_resource_release"
+                        or admission_record.get("actor") != witness.get("actor")
+                        or admission_record.get("actor_source")
+                            != admission_record.get("actor")
+                        or admission_record.get("execution_owner")
+                            != admission_record.get("actor")
+                        or admission_record.get("target_subsystem")
+                            != "production_chat"
+                        or admission_record.get("current_phase")
+                            != witness.get("current_phase")
+                        or admission_record.get("lifecycle_phase")
+                            != admission_record.get("current_phase")
+                        or admission_record.get("requested_phase") != "runtime"
+                        or admission_record.get("correlation_id") != correlation
+                        or admission_record.get("admission_decision_ref") != decision_ref
+                        or not _resource_release_checks_valid(
+                            admission_record.get("delegate_checks_consulted"))
+                        or not isinstance(admission_record.get("delegated_outcomes"), Mapping)):
+                    raise ValueError("resource_release_admission_record_invalid")
+            if release_receipt.get("invocation_linkage_posture") in {
+                    "pending_invocation_receipt", "legacy_unlinked"}:
+                release_lineage_findings.append(
+                    "resource_release_invocation_linkage_" + str(
+                        release_receipt.get("invocation_linkage_posture")) + ":" + receipt_id)
+            if release_receipt.get("status") == "admission_unrecorded":
+                release_lineage_findings.append(
+                    "resource_release_admission_unrecorded:" + receipt_id)
+            if release_receipt.get("invocation_linkage_posture") == "verified":
+                invocation_receipt_id = release_receipt.get(
+                    "cancelled_invocation_receipt_id")
+                invocation_receipt_digest = release_receipt.get(
+                    "cancelled_invocation_receipt_digest")
+                if (not isinstance(invocation_receipt_id, str)
+                        or not isinstance(invocation_receipt_digest, str)):
+                    raise ValueError("resource_release_invocation_linkage_invalid")
+            seen_release_receipt_ids.add(receipt_id)
+            summary = {key: release_receipt.get(key) for key in (
+                "schema_version", "receipt_id", "receipt_semantic_digest", "status", "trigger_kind",
+                "trigger_correlation_id", "release_correlation_id",
+                "serving_session_id", "serving_operation_id", "model_identity_digest",
+                "serving_receipt_linkage_posture", "serving_receipt_id",
+                "serving_receipt_semantic_digest",
+                "invocation_linkage_posture", "cancelled_invocation_receipt_id",
+                "cancelled_invocation_receipt_digest",
+                "cancelled_invocation_preemption_ref",
+                "host_measurement_binding_posture",
+                "preemption_cause", "preemption_release_linkage_posture",
+                "preemption_cause_invocation_receipt_id",
+                "preemption_cause_invocation_receipt_digest",
+                "preemption_cause_admission_decision_ref",
+                "release_admission_decision_ref", "release_admission_outcome",
+                "release_admission_witness", "release_admission_record",
+                "active_inference_preemption_requested",
+                "active_inference_cancellation_confirmed", "worker_exit_observed",
+                "close_failure", "inference_performed", "host_mutation_performed")}
+            summary["resource_observation"] = bounded_release_observation(
+                release_receipt.get("resource_observation"))
+            summary["post_release_observation"] = bounded_release_observation(
+                release_receipt.get("post_release_observation"), post_release=True)
+            resource_observation = release_receipt.get("resource_observation")
+            if release_receipt.get("trigger_kind") in {
+                    "call_entitlement_exhausted", "resource_entitlement_invalidated"}:
+                entitlement = (resource_observation.get(
+                    "resource_entitlement_observation")
+                    if isinstance(resource_observation, Mapping) else None)
+                serving_binding = (resource_observation.get(
+                    "serving_entitlement_binding")
+                    if isinstance(resource_observation, Mapping) else None)
+                delegated = (admission_record.get("delegated_outcomes")
+                    if isinstance(admission_record, Mapping) else None)
+                governor = (delegated.get("runtime_governor")
+                    if isinstance(delegated, Mapping) else None)
+                evidence_refs = (governor.get("evidence_refs")
+                    if isinstance(governor, Mapping) else None)
+                admission_evidence = (evidence_refs.get(
+                    "resource_observation_evidence")
+                    if isinstance(evidence_refs, Mapping) else None)
+                if not isinstance(resource_observation, Mapping):
+                    raise ValueError("resource_release_entitlement_evidence_invalid")
+                if not isinstance(entitlement, Mapping):
+                    raise ValueError("resource_release_entitlement_evidence_invalid")
+                if not isinstance(serving_binding, Mapping):
+                    raise ValueError("resource_release_entitlement_evidence_invalid")
+                if not isinstance(admission_evidence, Mapping):
+                    raise ValueError("resource_release_entitlement_evidence_invalid")
+                entitlement_digest = None
+                entitlement_body = {key: item for key, item in entitlement.items()
+                    if key not in {"observation_id", "observation_digest"}}
+                entitlement_digest = hashlib.sha256(canonical_json(
+                    entitlement_body).encode("utf-8")).hexdigest()
+                if (not isinstance(entitlement, Mapping)
+                        or not _resource_entitlement_observation_shape_valid(
+                            entitlement, release_receipt.get("trigger_kind"))
+                        or admission_evidence.get("status") != "current"
+                        or admission_evidence.get("resource_entitlement_observation")
+                            != entitlement
+                        or type(entitlement.get("remaining_call_entitlement")) is not int
+                        or type(entitlement.get("policy_epoch")) is not int
+                        or not isinstance(entitlement.get("checked_at"), str)
+                        or entitlement.get("observation_digest") != entitlement_digest
+                        or entitlement.get("observation_id") !=
+                            "lmentitlement-" + str(entitlement_digest)[:24]
+                        or len(canonical_json(dict(entitlement)).encode("utf-8")) > 4096
+                        or not _serving_resource_entitlement_binding_shape_valid(
+                            serving_binding)
+                        or serving_binding.get("binding_scope") !=
+                            "inference_call_entitlement"
+                        or len(canonical_json(dict(serving_binding)).encode("utf-8")) > 4096
+                        or any(serving_binding.get(key) != entitlement.get(key)
+                            for key in ("allocation_id", "allocation_digest", "allocator_id",
+                                "resource_kind", "policy_digest", "policy_epoch",
+                                "principal_binding_digest"))
+                        or resource_observation.get("host_telemetry_used_for_admission") is not False
+                        or resource_observation.get("host_report_id") is not None
+                        or resource_observation.get("host_report_digest") is not None
+                        or resource_observation.get("pressure_labels") != []):
+                    raise ValueError("resource_release_entitlement_evidence_invalid")
+            policy_binding = (resource_observation.get("host_policy_binding")
+                if isinstance(resource_observation, Mapping) else None)
+            if policy_binding is not None:
+                delegated = (admission_record.get("delegated_outcomes")
+                    if isinstance(admission_record, Mapping) else None)
+                governor = (delegated.get("runtime_governor")
+                    if isinstance(delegated, Mapping) else None)
+                evidence_refs = (governor.get("evidence_refs")
+                    if isinstance(governor, Mapping) else None)
+                admission_evidence = (evidence_refs.get(
+                    "resource_observation_evidence")
+                    if isinstance(evidence_refs, Mapping) else None)
+                evidence_binding = (admission_evidence.get("host_policy_binding")
+                    if isinstance(admission_evidence, Mapping) else None)
+                policy_payload = (policy_binding.get("policy_decision")
+                    if isinstance(policy_binding, Mapping) else None)
+                policy_decision = (host_resource_policy_decision_from_dict(
+                    policy_payload) if isinstance(policy_payload, Mapping) else None)
+                if (not isinstance(policy_binding, Mapping)
+                        or not isinstance(evidence_binding, Mapping)
+                        or dict(policy_binding) != dict(evidence_binding)
+                        or policy_binding.get("schema_version") !=
+                            "sentientos.host_resource_policy_admission_binding:v1"
+                        or set(policy_binding) != {
+                            "schema_version", "policy_decision_id",
+                            "policy_decision_status", "policy_decision_digest",
+                            "policy_proposal_only", "policy_decision"}
+                        or len(canonical_json(dict(policy_binding)).encode("utf-8"))
+                            > 16_384
+                        or policy_decision is None
+                        or host_resource_policy_decision_digest(policy_decision)
+                            != policy_binding.get("policy_decision_digest")
+                        or policy_binding.get("policy_decision_id")
+                            != policy_decision.decision_id
+                        or policy_binding.get("policy_decision_status")
+                            != policy_decision.status
+                        or policy_binding.get("policy_proposal_only") is not True
+                        or not isinstance(resource_observation, Mapping)
+                        or policy_decision.report_id != resource_observation.get(
+                            "host_report_id")
+                        or policy_decision.report_digest != resource_observation.get(
+                            "host_report_digest")):
+                    raise ValueError("resource_release_host_policy_binding_invalid")
+                summary["resource_observation"] = {
+                    **(summary["resource_observation"] or {}),
+                    "host_policy_binding": dict(policy_binding)}
+            comparison = release_receipt.get("resource_measurement_comparison")
+            if isinstance(comparison, Mapping):
+                comparison_summary = {
+                    key: comparison.get(key) for key in (
+                        "status", "gpu_utilization_delta_percentage_points",
+                        "vram_utilization_delta_percentage_points",
+                        "ram_utilization_delta_percentage_points",
+                        "cpu_utilization_delta_percentage_points", "interpretation")
+                    if key in comparison}
+                for side in ("before", "after"):
+                    observation = comparison.get(side)
+                    if isinstance(observation, Mapping):
+                        comparison_summary[side] = bounded_release_observation({
+                            "report_id": observation.get("host_report_id"),
+                            "report_digest": observation.get("host_report_digest"),
+                            "observed_at": observation.get("observed_at"),
+                            "gpu_utilization_percent": observation.get(
+                                "gpu_utilization_percent"),
+                            "vram_utilization_percent": observation.get(
+                                "vram_utilization_percent"),
+                            "ram_utilization_percent": observation.get(
+                                "ram_utilization_percent"),
+                            "cpu_utilization_percent": observation.get(
+                                "cpu_utilization_percent"),
+                            "gpu_telemetry_sources": observation.get(
+                                "gpu_telemetry_sources"),
+                            "gpu_telemetry_available": observation.get(
+                                "gpu_telemetry_available"),
+                            "gpu_telemetry_complete": observation.get(
+                                "gpu_telemetry_complete")}, post_release=True)
+                summary["resource_measurement_comparison"] = comparison_summary
+            release_receipt_summaries.append(summary)
+    if verified_serving_operation_history and release_receipt_summaries:
+        from sentientos.local_model_authority import digest_payload
+        serving_release_bindings: dict[
+            tuple[str, str], tuple[str, str, str, int | None]] = {}
+        for history in verified_serving_operation_history:
+            if not isinstance(history, Mapping):
+                continue
+            receipt = history.get("receipt")
+            if (history.get("status") not in {
+                    "serving_receipt_verified", "legacy_receipt_without_reservation"}
+                    or not isinstance(receipt, Mapping)):
+                continue
+            binding = receipt.get("binding")
+            session_id = receipt.get("session_id")
+            operation_id = (binding.get("serving_operation_id")
+                if isinstance(binding, Mapping) else None)
+            loaded_identity = (binding.get("observed_loaded_model_identity")
+                if isinstance(binding, Mapping) else None)
+            load_configuration = (binding.get("load_configuration")
+                if isinstance(binding, Mapping) else None)
+            gpu_layers = (load_configuration.get("n_gpu_layers")
+                if isinstance(load_configuration, Mapping) else None)
+            if (gpu_layers is not None
+                    and (type(gpu_layers) is not int or not 0 <= gpu_layers <= 256)):
+                raise ValueError("serving_operation_history_gpu_layer_configuration_invalid")
+            serving_receipt_id = receipt.get("receipt_id")
+            serving_receipt_digest = history.get("receipt_semantic_digest")
+            if (not isinstance(session_id, str) or not isinstance(operation_id, str)
+                    or not isinstance(loaded_identity, Mapping)
+                    or not isinstance(serving_receipt_id, str)
+                    or not isinstance(serving_receipt_digest, str)):
+                continue
+            expected_serving_receipt_digest = semantic_digest({
+                key: value for key, value in receipt.items()
+                if key != "receipt_semantic_digest"})
+            expected_serving_receipt_id = "serving-receipt-" + semantic_digest({
+                key: value for key, value in receipt.items()
+                if key not in {"receipt_id", "receipt_semantic_digest"}})[:24]
+            if (serving_receipt_digest != expected_serving_receipt_digest
+                    or receipt.get("receipt_semantic_digest")
+                        != expected_serving_receipt_digest
+                    or serving_receipt_id != expected_serving_receipt_id):
+                raise ValueError("serving_operation_history_receipt_identity_invalid")
+            history_key = (session_id, operation_id)
+            candidate_binding = (
+                digest_payload(dict(loaded_identity)), serving_receipt_id,
+                serving_receipt_digest, gpu_layers)
+            prior_binding = serving_release_bindings.get(history_key)
+            if prior_binding is not None and prior_binding != candidate_binding:
+                raise ValueError("resource_release_serving_history_collision")
+            if prior_binding is not None:
+                continue
+            serving_release_bindings[history_key] = candidate_binding
+        for release in release_receipt_summaries:
+            admission = release.get("release_admission_record")
+            delegated = (admission.get("delegated_outcomes")
+                if isinstance(admission, Mapping) else None)
+            governor = (delegated.get("runtime_governor")
+                if isinstance(delegated, Mapping) else None)
+            evidence_refs = (governor.get("evidence_refs")
+                if isinstance(governor, Mapping) else None)
+            target = (evidence_refs.get("resource_release_target")
+                if isinstance(evidence_refs, Mapping) else None)
+            if not isinstance(target, Mapping):
+                continue
+            binding = serving_release_bindings.get((
+                str(release.get("serving_session_id")),
+                str(release.get("serving_operation_id"))))
+            if binding is None:
+                release_lineage_findings.append(
+                    "resource_release_serving_model_linkage_missing_or_mismatched:"
+                    + str(release.get("receipt_id")))
+            elif (target.get("serving_session_id")
+                    != release.get("serving_session_id")
+                    or target.get("model_identity_digest") != binding[0]
+                    or release.get("model_identity_digest") not in {
+                        binding[0], "sha256:" + binding[0]}
+                    or release.get("serving_receipt_id") != binding[1]
+                    or release.get("serving_receipt_semantic_digest") != binding[2]):
+                release_lineage_findings.append(
+                    "resource_release_serving_model_linkage_missing_or_mismatched:"
+                    + str(release.get("receipt_id")))
+            if release.get("trigger_kind") in {
+                    "idle_game_gpu_residency",
+                    "idle_gaming_profile_gpu_residency",
+                    "idle_game_performance_gpu_residency"}:
+                observation = release.get("resource_observation")
+                observed_layers = (observation.get("model_gpu_layers")
+                    if isinstance(observation, Mapping) else None)
+                if (type(observed_layers) is not int
+                        or not 1 <= observed_layers <= 256
+                        or binding is None
+                        or binding[3] != observed_layers):
+                    release_lineage_findings.append(
+                        "resource_release_gpu_layer_linkage_missing_or_mismatched:"
+                        + str(release.get("receipt_id")))
+    game_recovery_release_linkage_states = []
+    hold_summary_by_id = {str(item.get("hold_id")): item
+        for item in game_recovery_hold_summaries}
+    for hold in verified_game_resource_recovery_holds or ():
+        linkage, release_id = _game_recovery_hold_release_linkage(
+            hold, release_receipt_summaries
+            if verified_resource_release_receipts is not None else None)
+        hold_summary = hold_summary_by_id.get(str(hold.get("hold_id")))
+        if hold_summary is not None:
+            hold_summary["release_receipt_linkage_posture"] = linkage
+            if release_id is not None:
+                hold_summary["release_receipt_id"] = release_id
+        game_recovery_release_linkage_states.append(linkage)
+        if linkage not in {"verified", "not_requested"}:
+            release_lineage_findings.append(
+                f"game_recovery_hold_release_receipt_linkage_{linkage}:"
+                + str(hold.get("hold_id")))
+    game_recovery_custody_posture = (
+        "not_requested" if verified_game_resource_recovery_holds is None
+        else game_resource_recovery_posture)
+    if (verified_game_resource_recovery_holds is not None
+            and verified_resource_release_receipts is not None
+            and not game_recovery_hold_summaries
+            and game_recovery_custody_posture not in {
+                "not_requested", "verified_no_recovery_holds",
+                "verified_recovery_cleared"}):
+        release_lineage_findings.append(
+            "game_recovery_hold_custody_unverified_without_hold_records")
+    admission_by_receipt: dict[str, Mapping[str, Any]] = {}
+    host_observation_binding_posture_by_receipt: dict[str, str] = {}
+    workload_preemption_admission_posture_by_receipt: dict[str, str] = {}
+    witness_v1_fields = {
+        "schema_version", "invocation_receipt_id", "invocation_receipt_digest",
+        "request_id", "request_digest", "admission_decision_ref", "correlation_id",
+        "resource_allocation_binding"}
+    witness_v2_fields = witness_v1_fields | {"host_resource_observation_binding"}
+    witness_v3_fields = witness_v2_fields | {"admission_decision_record"}
+    witness_v4_fields = witness_v3_fields | {
+        "admission_final_disposition", "admission_outcome"}
+    if verified_inference_admission_decisions is not None:
+        for witness in verified_inference_admission_decisions:
+            if (not isinstance(witness, Mapping)
+                    or witness.get("schema_version") not in {
+                        "sentientos.resource_bound_inference_admission_witness:v1",
+                        "sentientos.resource_bound_inference_admission_witness:v2",
+                        "sentientos.resource_bound_inference_admission_witness:v3",
+                        "sentientos.resource_bound_inference_admission_witness:v4"}
+                    or (witness.get("schema_version") ==
+                        "sentientos.resource_bound_inference_admission_witness:v1"
+                        and set(witness) != witness_v1_fields)
+                    or (witness.get("schema_version") ==
+                        "sentientos.resource_bound_inference_admission_witness:v2"
+                        and set(witness) != witness_v2_fields)
+                    or (witness.get("schema_version") ==
+                        "sentientos.resource_bound_inference_admission_witness:v3"
+                        and set(witness) != witness_v3_fields)
+                    or (witness.get("schema_version") ==
+                        "sentientos.resource_bound_inference_admission_witness:v4"
+                        and (set(witness) != witness_v4_fields
+                            or witness.get("admission_final_disposition")
+                                not in {"defer", "deny"}
+                            or witness.get("admission_outcome")
+                                != witness.get("admission_final_disposition")))):
+                raise ValueError("inference_admission_decision_witness_invalid")
+            receipt_id = witness.get("invocation_receipt_id")
+            if not isinstance(receipt_id, str) or not receipt_id or receipt_id in admission_by_receipt:
+                raise ValueError("inference_admission_decision_identity_invalid")
+            admission_by_receipt[receipt_id] = witness
     invocation_by_id: dict[str, Mapping[str, Any]] = {}
+    # Recovery callers may build this projection directly, outside the
+    # installation-state observation owner. Recheck the receipt's own custody
+    # contract here before allowing it to contribute invocation lineage.
+    from sentientos.governed_local_model_invocation import validate_receipt
     for invocation in invocation_receipts:
         if not isinstance(invocation, Mapping):
             raise ValueError("resource_invocation_receipt_invalid")
+        if "schema_version" in invocation:
+            if invocation.get("schema_version") not in {
+                    "sentientos.local_model_invocation_receipt:v2",
+                    "sentientos.local_model_invocation_receipt:v3",
+                    "sentientos.local_model_invocation_receipt:v4",
+                    "sentientos.local_model_invocation_receipt:v5",
+                    "sentientos.local_model_invocation_receipt:v6",
+                    "sentientos.local_model_invocation_receipt:v7",
+                    "sentientos.local_model_invocation_receipt:v8",
+                    "sentientos.local_model_invocation_receipt:v9",
+                    "sentientos.local_model_invocation_receipt:v10"}:
+                raise ValueError("resource_invocation_receipt_schema_unsupported")
+            # Current receipts must prove their semantic digest and schema
+            # contract before any downstream resource lineage uses them. Keep
+            # schema-less historical recovery evidence compatible; it is not
+            # accepted as a current, typed invocation receipt.
+            valid_invocation, invocation_findings = validate_receipt(invocation)
+            if not valid_invocation:
+                raise ValueError("resource_invocation_receipt_invalid:"
+                    + invocation_findings[0])
         receipt_id = invocation.get("receipt_id")
         receipt_digest = invocation.get("receipt_digest")
         if not isinstance(receipt_id, str) or not receipt_id or not isinstance(receipt_digest, str) or not receipt_digest:
@@ -344,6 +1352,229 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 raise ValueError("resource_invocation_receipt_identity_conflict")
             raise ValueError("resource_invocation_receipt_duplicate")
         invocation_by_id[receipt_id] = invocation
+    # Exact preemption-cause receipts remain separate from allocation-scoped
+    # invocations. They can corroborate a verified release cause link below,
+    # but cannot add allocation consumption or admission evidence.
+    for invocation in verified_preemption_invocation_receipts:
+        if not isinstance(invocation, Mapping):
+            raise ValueError("preemption_invocation_receipt_invalid")
+        valid_invocation, invocation_findings = validate_receipt(invocation)
+        if (not valid_invocation or invocation.get("status") != "cancelled"
+                or not isinstance(invocation.get(
+                    "cancellation_admission_decision_ref"), str)):
+            finding = invocation_findings[0] if invocation_findings else (
+                "cancelled_invocation_binding_invalid")
+            raise ValueError("preemption_invocation_receipt_invalid:" + finding)
+        receipt_id = invocation.get("receipt_id")
+        receipt_digest = invocation.get("receipt_digest")
+        if (not isinstance(receipt_id, str) or not receipt_id
+                or not isinstance(receipt_digest, str) or not receipt_digest):
+            raise ValueError("preemption_invocation_receipt_identity_invalid")
+        prior = invocation_by_id.get(receipt_id)
+        if prior is not None:
+            if dict(prior) != dict(invocation):
+                raise ValueError("resource_invocation_receipt_identity_conflict")
+            continue
+        invocation_by_id[receipt_id] = invocation
+    for release_receipt in release_receipt_summaries:
+        if release_receipt.get("invocation_linkage_posture") != "verified":
+            release_receipt.pop("cancelled_invocation_preemption_ref", None)
+            continue
+        invocation_id = release_receipt.get("cancelled_invocation_receipt_id")
+        invocation_digest = release_receipt.get("cancelled_invocation_receipt_digest")
+        linked_invocation = invocation_by_id.get(str(invocation_id))
+        if not isinstance(linked_invocation, Mapping):
+            release_receipt.pop("cancelled_invocation_preemption_ref", None)
+            release_lineage_findings.append(
+                f"resource_release_invocation_linkage_missing_or_mismatched:{release_receipt.get('receipt_id')}")
+            continue
+        linkage_valid = (linked_invocation.get("receipt_digest") == invocation_digest
+                and linked_invocation.get("status") == "cancelled"
+                and linked_invocation.get("cancellation_admission_decision_ref")
+                    == release_receipt.get("release_admission_decision_ref"))
+        if not linkage_valid:
+            release_receipt.pop("cancelled_invocation_preemption_ref", None)
+            release_lineage_findings.append(
+                f"resource_release_invocation_linkage_missing_or_mismatched:{release_receipt.get('receipt_id')}")
+            continue
+        invocation_preemption_ref = linked_invocation.get(
+            "cancellation_preemption_ref")
+        release_preemption_ref = release_receipt.get(
+            "cancelled_invocation_preemption_ref")
+        if (linked_invocation.get("schema_version") ==
+                "sentientos.local_model_invocation_receipt:v10"):
+            if (not isinstance(invocation_preemption_ref, Mapping)
+                    or not isinstance(release_preemption_ref, Mapping)
+                    or dict(release_preemption_ref)
+                        != dict(invocation_preemption_ref)):
+                release_receipt.pop("cancelled_invocation_preemption_ref", None)
+                release_lineage_findings.append(
+                    f"resource_release_preemption_linkage_missing_or_mismatched:{release_receipt.get('receipt_id')}")
+        elif release_preemption_ref is not None:
+            release_receipt.pop("cancelled_invocation_preemption_ref", None)
+            release_lineage_findings.append(
+                f"resource_release_preemption_linkage_unexpected:{release_receipt.get('receipt_id')}")
+    for release_receipt in release_receipt_summaries:
+        if release_receipt.get("schema_version") != (
+                "sentientos.production_chat_resource_release_receipt:v7"):
+            continue
+        cause = release_receipt.get("preemption_cause")
+        cause_reference = (cause.get("cancellation_admission_decision_ref")
+            if isinstance(cause, Mapping) else None)
+        request_reference = (cause.get("active_inference_request_reference")
+            if isinstance(cause, Mapping) else None)
+        invocation = next((item for item in invocation_by_id.values()
+            if isinstance(item.get("request"), Mapping)
+            and isinstance(request_reference, Mapping)
+            and all(item["request"].get(key) == request_reference.get(key)
+                for key in ("request_id", "request_digest", "correlation_id"))), None)
+        invocation_request = (invocation.get("request")
+            if isinstance(invocation, Mapping) else None)
+        invocation_linkage = (invocation_request.get("linkage")
+            if isinstance(invocation_request, Mapping) else None)
+        active_model_identity = (invocation_request.get("active_model_identity")
+            if isinstance(invocation_request, Mapping) else None)
+        release_model_digest = release_receipt.get("model_identity_digest")
+        if (isinstance(release_model_digest, str)
+                and release_model_digest.startswith("sha256:")):
+            release_model_digest = release_model_digest[7:]
+        from sentientos.local_model_authority import digest_payload
+        valid_cause_link = (release_receipt.get(
+                "preemption_release_linkage_posture") == "verified"
+            and isinstance(invocation, Mapping)
+            and invocation.get("receipt_id") == release_receipt.get(
+                "preemption_cause_invocation_receipt_id")
+            and invocation.get("receipt_digest") == release_receipt.get(
+                "preemption_cause_invocation_receipt_digest")
+            and invocation.get("status") == "cancelled"
+            and invocation.get("cancellation_admission_decision_ref") == cause_reference
+            and isinstance(invocation_linkage, Mapping)
+            and invocation_linkage.get("serving_session_id") == release_receipt.get(
+                "serving_session_id")
+            and isinstance(active_model_identity, Mapping)
+            and digest_payload(dict(active_model_identity)) == release_model_digest
+            and release_receipt.get("preemption_cause_admission_decision_ref")
+                == cause_reference)
+        if not valid_cause_link:
+            release_lineage_findings.append(
+                "resource_release_preemption_cause_linkage_missing_or_mismatched:"
+                + str(release_receipt.get("receipt_id")))
+    # An invalidation can first cancel a running invocation, then release the
+    # resident model on the next reconciliation pass. In that two-step path,
+    # the release admission has its own decision reference, so the older
+    # same-decision linkage above does not apply. Join the independently
+    # admitted release and cancellation through the exact owner-minted
+    # entitlement observation they both carry.
+    for release_receipt in release_receipt_summaries:
+        if release_receipt.get("trigger_kind") != "resource_entitlement_invalidated":
+            continue
+        resource_observation = release_receipt.get("resource_observation")
+        entitlement_observation = (resource_observation.get(
+            "resource_entitlement_observation")
+            if isinstance(resource_observation, Mapping) else None)
+        admission_record = release_receipt.get("release_admission_record")
+        delegated = (admission_record.get("delegated_outcomes")
+            if isinstance(admission_record, Mapping) else None)
+        governor = (delegated.get("runtime_governor")
+            if isinstance(delegated, Mapping) else None)
+        evidence_refs = (governor.get("evidence_refs")
+            if isinstance(governor, Mapping) else None)
+        release_evidence = (evidence_refs.get("resource_observation_evidence")
+            if isinstance(evidence_refs, Mapping) else None)
+        admitted_entitlement = (release_evidence.get(
+            "resource_entitlement_observation")
+            if isinstance(release_evidence, Mapping) else None)
+        if (not isinstance(release_evidence, Mapping)
+                or release_evidence.get("status") != "current"
+                or not isinstance(entitlement_observation, Mapping)
+                or dict(entitlement_observation) != admitted_entitlement
+                or not isinstance(entitlement_observation.get("observation_id"), str)
+                or not isinstance(entitlement_observation.get("observation_digest"), str)):
+            release_receipt["entitlement_preemption_linkage_posture"] = (
+                "release_entitlement_evidence_unbound")
+            release_lineage_findings.append(
+                "resource_release_entitlement_preemption_evidence_unbound:"
+                + str(release_receipt.get("receipt_id")))
+            continue
+        matching_invocations = []
+        for invocation in invocation_by_id.values():
+            if (invocation.get("status") != "cancelled"
+                    or "cancelled_for_workload_transition" not in
+                        invocation.get("reason_codes", ())
+                    or invocation.get("schema_version") !=
+                        "sentientos.local_model_invocation_receipt:v10"):
+                continue
+            decision = invocation.get("cancellation_admission_decision")
+            decision_delegated = (decision.get("delegated_outcomes")
+                if isinstance(decision, Mapping) else None)
+            decision_governor = (decision_delegated.get("runtime_governor")
+                if isinstance(decision_delegated, Mapping) else None)
+            decision_evidence_refs = (decision_governor.get("evidence_refs")
+                if isinstance(decision_governor, Mapping) else None)
+            entitlement_evidence = (decision_evidence_refs.get(
+                "resource_entitlement_evidence")
+                if isinstance(decision_evidence_refs, Mapping) else None)
+            preemption = (decision_evidence_refs.get("active_inference_preemption")
+                if isinstance(decision_evidence_refs, Mapping) else None)
+            entitlement_preemption_allowed = (
+                isinstance(decision_governor, Mapping)
+                and decision_governor.get("allowed") is True
+                and decision_governor.get("reason") ==
+                    "allowed_resource_entitlement_invalidation_inference_preemption"
+                and isinstance(decision, Mapping)
+                and decision.get("actor") ==
+                    "production_chat_resource_entitlement_governor")
+            invocation_model_digest = (preemption.get("model_identity_digest")
+                if isinstance(preemption, Mapping) else None)
+            release_model_digest = release_receipt.get("model_identity_digest")
+            if isinstance(release_model_digest, str):
+                release_model_digest = release_model_digest.removeprefix("sha256:")
+            if (not entitlement_preemption_allowed
+                    or not isinstance(entitlement_evidence, Mapping)
+                    or entitlement_evidence.get("entitlement_status") != "invalidated"
+                    or entitlement_evidence.get("observation_id")
+                        != entitlement_observation.get("observation_id")
+                    or entitlement_evidence.get("observation_digest")
+                        != entitlement_observation.get("observation_digest")
+                    or not isinstance(preemption, Mapping)
+                    or preemption.get("preemption_kind")
+                        != "resource_entitlement_invalidated"
+                    or preemption.get("resource_entitlement_observation_id")
+                        != entitlement_observation.get("observation_id")
+                    or preemption.get("resource_entitlement_observation_digest")
+                        != entitlement_observation.get("observation_digest")
+                    or preemption.get("allocation_digest")
+                        != entitlement_observation.get("allocation_digest")
+                    or preemption.get("serving_session_id")
+                        != release_receipt.get("serving_session_id")
+                    or invocation_model_digest != release_model_digest):
+                continue
+            matching_invocations.append(invocation)
+        if len(matching_invocations) > 1:
+            release_receipt["entitlement_preemption_linkage_posture"] = "ambiguous"
+            release_lineage_findings.append(
+                "resource_release_entitlement_preemption_ambiguous:"
+                + str(release_receipt.get("receipt_id")))
+        elif matching_invocations:
+            invocation = matching_invocations[0]
+            reference = invocation.get("cancellation_preemption_ref")
+            if not isinstance(reference, Mapping):
+                release_receipt["entitlement_preemption_linkage_posture"] = (
+                    "invocation_preemption_reference_missing")
+                release_lineage_findings.append(
+                    "resource_release_entitlement_preemption_reference_missing:"
+                    + str(release_receipt.get("receipt_id")))
+            else:
+                release_receipt.update({
+                    "entitlement_preemption_linkage_posture": "verified",
+                    "entitlement_preemption_invocation_receipt_id":
+                        invocation.get("receipt_id"),
+                    "entitlement_preemption_invocation_receipt_digest":
+                        invocation.get("receipt_digest"),
+                    "entitlement_preemption_ref": dict(reference),
+                })
+        else:
+            release_receipt["entitlement_preemption_linkage_posture"] = "not_linked"
     predecessor_invocation_by_id: dict[str, Mapping[str, Any]] = {}
     for predecessor in verified_predecessor_invocation_receipts:
         if not isinstance(predecessor, Mapping):
@@ -413,8 +1644,248 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     ledger_receipts = {str(item.get("receipt_digest")): item for item in raw_receipts if isinstance(item, Mapping)}
     attempt_by_id = {str(item.get("attempt_id")): item for item in attempt_rows if isinstance(item, Mapping)}
     lineage_findings: list[str] = []
+    lineage_findings.extend(release_lineage_findings)
     linked_effect_receipts: dict[str, str] = {}
+    def normalized_host_observation_binding(value: Any) -> dict[str, Any] | None:
+        if not isinstance(value, Mapping) or value.get("status") != "current":
+            return None
+        legacy_fields = (
+            "evaluation_id", "semantic_digest", "epoch_id", "snapshot_id",
+            "report_id", "report_digest", "observation_correlation_id",
+            "observed_at", "pressure_labels", "cpu_utilization_percent",
+            "ram_utilization_percent", "gpu_utilization_percent",
+            "vram_utilization_percent", "thermal_zone_temperatures_c",
+            "gpu_telemetry_available", "gpu_telemetry_complete",
+            "gpu_telemetry_sources")
+        policy_fields = (
+            "policy_decision_id", "policy_decision_status",
+            "policy_decision_digest", "policy_proposal_only")
+        policy_field_count = sum(key in value for key in policy_fields)
+        if policy_field_count not in {0, len(policy_fields)}:
+            return None
+        policy_artifact_present = "policy_decision" in value
+        if policy_artifact_present != bool(policy_field_count):
+            return None
+        policy_artifact = value.get("policy_decision")
+        if policy_artifact_present:
+            policy_decision = (host_resource_policy_decision_from_dict(policy_artifact)
+                if isinstance(policy_artifact, Mapping) else None)
+            if (policy_decision is None
+                    or host_resource_policy_decision_digest(policy_decision)
+                        != value.get("policy_decision_digest")
+                    or policy_decision.decision_id != value.get("policy_decision_id")
+                    or policy_decision.status != value.get("policy_decision_status")
+                    or policy_decision.proposal_only is not True):
+                return None
+        fields = (legacy_fields + (policy_fields if policy_field_count else ())
+            + (("policy_decision",) if policy_artifact_present else ()))
+        if not all(key in value for key in fields):
+            return None
+        if policy_field_count:
+            policy_digest = value.get("policy_decision_digest")
+            if (not isinstance(value.get("policy_decision_id"), str)
+                    or not value.get("policy_decision_id")
+                    or not isinstance(value.get("policy_decision_status"), str)
+                    or not value.get("policy_decision_status")
+                    or not isinstance(policy_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", policy_digest) is None
+                    or value.get("policy_proposal_only") is not True):
+                return None
+        labels = value.get("pressure_labels")
+        if (not isinstance(labels, (list, tuple))
+                or not all(isinstance(label, str) for label in labels)):
+            return None
+        raw_sources = value.get("gpu_telemetry_sources")
+        if not isinstance(raw_sources, (list, tuple)):
+            return None
+        sources = []
+        attribution_scope_present = False
+        for source in raw_sources:
+            if not isinstance(source, Mapping):
+                return None
+            base_fields = {"collector_id", "status", "source"}
+            attribution_fields = base_fields | {"sample_scope",
+                "per_process_attribution_available"}
+            if (frozenset(source) not in {frozenset(base_fields),
+                    frozenset(attribution_fields)}
+                    or not all(isinstance(source.get(key), str) and source.get(key)
+                        and len(source[key]) <= 128 for key in base_fields)):
+                return None
+            normalized_source = {key: source[key]
+                for key in ("collector_id", "status", "source")}
+            if set(source) == attribution_fields:
+                attribution = source.get("per_process_attribution_available")
+                if (not isinstance(source.get("sample_scope"), str)
+                        or not source["sample_scope"]
+                        or len(source["sample_scope"]) > 128
+                        or (attribution is not None and type(attribution) is not bool)):
+                    return None
+                attribution_scope_present = True
+                normalized_source.update({key: source[key] for key in (
+                    "sample_scope", "per_process_attribution_available")})
+            sources.append(normalized_source)
+        thermal = value.get("thermal_zone_temperatures_c")
+        if not isinstance(thermal, Mapping):
+            return None
+        return {"schema_version": (
+                "sentientos.resource_admission_host_observation_binding:v4"
+                if attribution_scope_present else
+                "sentientos.resource_admission_host_observation_binding:v3"
+                if policy_artifact_present else
+                "sentientos.resource_admission_host_observation_binding:v2"
+                if policy_field_count else
+                "sentientos.resource_admission_host_observation_binding:v1"),
+            "status": "current",
+            **{key: (tuple(sorted(set(labels))) if key == "pressure_labels"
+                else dict(thermal) if key == "thermal_zone_temperatures_c"
+                else tuple(sources) if key == "gpu_telemetry_sources"
+                else value[key]) for key in fields}}
+
     for invocation in invocation_receipts[-max_invocation_receipts:]:
+        reason_codes = invocation.get("reason_codes")
+        if (isinstance(reason_codes, (list, tuple))
+                and "cancelled_for_workload_transition" in reason_codes):
+            cancellation_ref = invocation.get("cancellation_admission_decision_ref")
+            if (not isinstance(cancellation_ref, str)
+                    or not cancellation_ref.startswith("kernel_decision:")
+                    or len(cancellation_ref) <= len("kernel_decision:")):
+                lineage_findings.append(
+                    f"workload_preemption_admission_linkage_missing:{invocation.get('receipt_id')}")
+                workload_preemption_admission_posture_by_receipt[str(
+                    invocation.get("receipt_id"))] = "missing_or_invalid_reference"
+            elif (invocation.get("schema_version") in {
+                    "sentientos.local_model_invocation_receipt:v6",
+                    "sentientos.local_model_invocation_receipt:v7",
+                    "sentientos.local_model_invocation_receipt:v8",
+                    "sentientos.local_model_invocation_receipt:v9",
+                    "sentientos.local_model_invocation_receipt:v10"}
+                    and isinstance(invocation.get("cancellation_admission_decision"), Mapping)
+                    and invocation["cancellation_admission_decision"].get(
+                        "admission_decision_ref") == cancellation_ref):
+                workload_preemption_admission_posture_by_receipt[str(
+                    invocation.get("receipt_id"))] = (
+                        "verified_receipt_bound_kernel_record"
+                        if invocation.get("schema_version") in {
+                            "sentientos.local_model_invocation_receipt:v7",
+                            "sentientos.local_model_invocation_receipt:v8",
+                            "sentientos.local_model_invocation_receipt:v9",
+                            "sentientos.local_model_invocation_receipt:v10"}
+                        else "verified_receipt_bound_decision")
+            else:
+                workload_preemption_admission_posture_by_receipt[str(
+                    invocation.get("receipt_id"))] = "legacy_reference_only"
+                lineage_findings.append(
+                    f"workload_preemption_admission_decision_unverified:{invocation.get('receipt_id')}")
+        admission_witness = admission_by_receipt.get(str(invocation.get("receipt_id")))
+        witness_binding = (admission_witness.get("resource_allocation_binding")
+            if isinstance(admission_witness, Mapping) else None)
+        admission_allocation_digest = (witness_binding.get("allocation_digest")
+            if isinstance(witness_binding, Mapping) else None)
+        if (verified_inference_admission_decisions is not None
+                and (invocation.get("resource_allocation_digest") is not None
+                    or (invocation.get("status") in {
+                            "resource_denied", "denied", "deferred"}
+                        and isinstance(invocation.get("effects"), Mapping)
+                        and invocation["effects"].get("local_model_inference") is False
+                        and admission_allocation_digest in allocation_by_digest))):
+            request = invocation.get("request")
+            request_id = request.get("request_id") if isinstance(request, Mapping) else None
+            request_digest = request.get("request_digest") if isinstance(request, Mapping) else None
+            correlation_id = request.get("correlation_id") if isinstance(request, Mapping) else None
+            allocation = allocation_by_digest.get(str(
+                invocation.get("resource_allocation_digest")
+                or admission_allocation_digest))
+            allocation_binding = (admission_witness.get("resource_allocation_binding")
+                if isinstance(admission_witness, Mapping) else None)
+            expected_binding = ({
+                "schema_version": (
+                    "sentientos.governed_local_model_resource_allocation_admission_context:v1"),
+                "allocation_id": allocation.get("allocation_id"),
+                "allocation_digest": allocation.get("allocation_digest"),
+                "allocator_id": allocation.get("allocator_id"),
+                "resource_kind": allocation.get("resource_kind"),
+                "policy_digest": allocation.get("policy_digest"),
+                "policy_epoch": allocation.get("epoch"),
+                "principal_binding_digest": allocation.get("principal_binding_digest"),
+            } if isinstance(allocation, Mapping) else None)
+            host_binding_posture = "not_verified"
+            witness_schema = (admission_witness.get("schema_version")
+                if isinstance(admission_witness, Mapping) else None)
+            request_linkage = request.get("linkage") if isinstance(request, Mapping) else None
+            request_host_observation = (request_linkage.get("host_resource_observation")
+                if isinstance(request_linkage, Mapping) else None)
+            host_binding = (admission_witness.get("host_resource_observation_binding")
+                if isinstance(admission_witness, Mapping)
+                and witness_schema in {
+                    "sentientos.resource_bound_inference_admission_witness:v2",
+                    "sentientos.resource_bound_inference_admission_witness:v3",
+                    "sentientos.resource_bound_inference_admission_witness:v4"}
+                else None)
+            if isinstance(request_host_observation, Mapping):
+                if request_host_observation.get("status") == "current":
+                    expected_host_binding = normalized_host_observation_binding(
+                        request_host_observation)
+                    if (expected_host_binding is None
+                            or not isinstance(host_binding, Mapping)
+                            or dict(host_binding) != expected_host_binding):
+                        lineage_findings.append(
+                            f"inference_host_observation_linkage_missing_or_mismatched:{invocation.get('receipt_id')}")
+                        host_binding_posture = "degraded_current_observation_unbound"
+                    else:
+                        host_binding_posture = "verified_current_observation"
+                else:
+                    host_binding_posture = "not_current_observation"
+            else:
+                host_binding_posture = "not_provided"
+            if (not isinstance(admission_witness, Mapping)
+                    or frozenset(admission_witness) not in {frozenset(witness_v1_fields),
+                        frozenset(witness_v2_fields), frozenset(witness_v3_fields),
+                        frozenset(witness_v4_fields)}
+                    or (witness_schema == "sentientos.resource_bound_inference_admission_witness:v1"
+                        and isinstance(request_host_observation, Mapping)
+                        and request_host_observation.get("status") == "current")
+                    or admission_witness.get("invocation_receipt_id") != invocation.get("receipt_id")
+                    or admission_witness.get("invocation_receipt_digest") != invocation.get("receipt_digest")
+                    or admission_witness.get("request_id") != request_id
+                    or admission_witness.get("request_digest") != request_digest
+                    or admission_witness.get("correlation_id") != correlation_id
+                    or not isinstance(correlation_id, str)
+                    or (invocation.get("schema_version") in {
+                        "sentientos.local_model_invocation_receipt:v8",
+                        "sentientos.local_model_invocation_receipt:v9",
+                        "sentientos.local_model_invocation_receipt:v10"}
+                        and witness_schema not in {
+                            "sentientos.resource_bound_inference_admission_witness:v3",
+                            "sentientos.resource_bound_inference_admission_witness:v4"})
+                    or admission_witness.get("admission_decision_ref")
+                        != invocation.get("admission_decision_ref")
+                    or admission_witness.get("admission_decision_ref")
+                        != f"kernel_decision:{correlation_id}"
+                    or (witness_schema ==
+                        "sentientos.resource_bound_inference_admission_witness:v3"
+                        and admission_witness.get("admission_decision_record")
+                            != invocation.get("admission_decision_record"))
+                    or (witness_schema ==
+                        "sentientos.resource_bound_inference_admission_witness:v4"
+                        and (admission_witness.get("admission_decision_record")
+                                != invocation.get("admission_decision_record")
+                            or not isinstance(invocation.get(
+                                "admission_decision_record"), Mapping)
+                            or admission_witness.get("admission_final_disposition")
+                                != invocation["admission_decision_record"].get(
+                                    "final_disposition")
+                            or admission_witness.get("admission_outcome")
+                                != invocation["admission_decision_record"].get(
+                                    "outcome")
+                            or invocation.get("status") != (
+                                "deferred" if admission_witness.get(
+                                    "admission_outcome") == "defer" else "denied")))
+                    or not isinstance(allocation_binding, Mapping)
+                    or dict(allocation_binding) != expected_binding):
+                lineage_findings.append(
+                    f"inference_admission_linkage_missing_or_mismatched:{invocation.get('receipt_id')}")
+            host_observation_binding_posture_by_receipt[str(
+                invocation.get("receipt_id"))] = host_binding_posture
         allocation_digest = invocation.get("resource_allocation_digest")
         attempt_id = invocation.get("resource_attempt_id")
         receipt_digests = tuple(invocation.get("resource_consumption_receipt_digests") or ())
@@ -426,9 +1897,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             # schema-v2 receipt paired with a ledger effect receipt must retain
             # its linkage fields. A crash between ledger reconciliation and
             # final receipt publication is incomplete custody, not legacy data.
-            if (invocation.get("schema_version") in {
-                    "sentientos.local_model_invocation_receipt:v2",
-                    "sentientos.local_model_invocation_receipt:v3"}
+            if (invocation.get("schema_version") in
+                    _DIGEST_BOUND_INVOCATION_RECEIPT_SCHEMAS
                     and any(isinstance(item, Mapping)
                         and item.get("state") == "reconciled"
                         and item.get("effect_receipt_digest") == invocation.get("receipt_digest")
@@ -493,6 +1963,39 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         observed_effect_digest = item.get("effect_receipt_digest")
         if observed_effect_digest is not None and observed_effect_digest not in invocation_by_effect:
             lineage_findings.append(f"invocation_receipt_missing:{observed_effect_digest}")
+        measurement = item.get("resource_specific_measurement")
+        backend_observation = (measurement.get("backend_resource_observation")
+            if isinstance(measurement, Mapping) else None)
+        if backend_observation is None:
+            continue
+        linked_invocation = invocation_by_effect.get(str(observed_effect_digest))
+        if not isinstance(linked_invocation, Mapping):
+            lineage_findings.append(
+                f"backend_observation_invocation_missing:{observed_effect_digest}"
+            )
+            continue
+        completion = linked_invocation.get("backend_completion")
+        metrics = (completion.get("invocation_resources")
+            if isinstance(completion, Mapping)
+            and completion.get("schema_version") ==
+                "sentientos.llama_cpp_completion_observation:v3" else None)
+        cancellation_observation = linked_invocation.get(
+            "cancellation_resource_observation")
+        expected_observation = (dict(cancellation_observation)
+            if isinstance(cancellation_observation, Mapping) else ({
+                "schema_version": (
+                    "sentientos.governed_local_model_backend_resource_observation:v1"),
+                "backend": "llama_cpp",
+                "observation_source": "exact_runtime_worker_process",
+                "user_cpu_seconds": metrics.get("user_cpu_seconds"),
+                "system_cpu_seconds": metrics.get("system_cpu_seconds"),
+                "wall_seconds": metrics.get("wall_seconds"),
+                "process_peak_rss_bytes": metrics.get("process_peak_rss_bytes"),
+            } if isinstance(metrics, Mapping) else None))
+        if (not isinstance(backend_observation, Mapping)
+                or dict(backend_observation) != expected_observation):
+            lineage_findings.append(
+                f"backend_resource_observation_receipt_mismatch:{item.get('attempt_id')}")
     receipt_states_by_attempt: dict[str, set[str]] = {}
     for item in raw_receipts:
         if isinstance(item, Mapping):
@@ -517,6 +2020,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "generated_output_size": "measured" if isinstance(measurement.get("generated_output_size_bytes"), int) else "unknown",
             "returned_output_size": "measured" if isinstance(measurement.get("returned_output_size_bytes"), int) else "unknown",
             "latency": "measured" if isinstance(measurement.get("latency_ms"), int) else "unknown",
+            "backend_process_cpu_rss": ("backend_reported_measurement"
+                if isinstance(measurement.get("backend_resource_observation"), Mapping)
+                else "unknown"),
             "token_count": "unknown",
             "shared_host_cpu_gpu": "unknown_without_independent_observation",
         }
@@ -530,6 +2036,38 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     selected_allocations = all_allocations[-16:]
     selected_attempts = all_attempts[-max_attempts:]
     selected_invocations = tuple(invocation_receipts[-min(max_invocation_receipts, 16):])
+
+    def resource_admission_projection(invocation: Mapping[str, Any]
+            ) -> Mapping[str, Any]:
+        witness = admission_by_receipt.get(str(invocation.get("receipt_id")))
+        binding = (witness.get("resource_allocation_binding")
+            if isinstance(witness, Mapping) else None)
+        allocation_digest = (binding.get("allocation_digest")
+            if isinstance(binding, Mapping) else None)
+        outcome = (witness.get("admission_outcome", "allow")
+            if isinstance(witness, Mapping) else None)
+        if (isinstance(witness, Mapping) and outcome == "defer"
+                and invocation.get("resource_allocation_digest") is None
+                and allocation_digest in allocation_by_digest):
+            posture = "verified_deferred_before_attempt"
+        elif (isinstance(witness, Mapping) and outcome == "deny"
+                and invocation.get("resource_allocation_digest") is None
+                and allocation_digest in allocation_by_digest):
+            posture = "verified_denied_before_attempt"
+        elif (invocation.get("status") == "resource_denied"
+                and invocation.get("resource_allocation_digest") is None
+                and allocation_digest in allocation_by_digest):
+            posture = "verified_allocator_denial_before_attempt"
+        elif invocation.get("resource_allocation_digest") is not None:
+            posture = "attempt_linked"
+        else:
+            posture = "unlinked"
+        return {
+            "resource_admission_allocation_digest": allocation_digest,
+            "resource_admission_outcome": outcome,
+            "resource_admission_posture": posture,
+        }
+
     compact_invocations = tuple({
         "receipt_id": invocation.get("receipt_id"),
         "receipt_digest": invocation.get("receipt_digest"),
@@ -549,9 +2087,32 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             if isinstance(invocation.get("request"), Mapping) else None),
         "observed_at": invocation.get("observed_at"),
         "resource_allocation_digest": invocation.get("resource_allocation_digest"),
+        **resource_admission_projection(invocation),
         "resource_attempt_id": invocation.get("resource_attempt_id"),
         "resource_consumption_receipt_digests": invocation.get("resource_consumption_receipt_digests"),
         "resource_linkage_digest": invocation.get("resource_linkage_digest"),
+        "admission_decision_ref": admission_by_receipt.get(
+            str(invocation.get("receipt_id")), {}).get("admission_decision_ref"),
+        "admission_decision_record": invocation.get("admission_decision_record"),
+        "cancellation_admission_decision_ref": invocation.get(
+            "cancellation_admission_decision_ref"),
+        "cancellation_admission_decision": invocation.get(
+            "cancellation_admission_decision"),
+        "cancellation_admission_record": invocation.get(
+            "cancellation_admission_record"),
+        **({"cancellation_preemption_ref": dict(
+                invocation["cancellation_preemption_ref"])}
+            if isinstance(invocation.get("cancellation_preemption_ref"), Mapping)
+            else {}),
+        "workload_preemption_admission_posture":
+            workload_preemption_admission_posture_by_receipt.get(
+                str(invocation.get("receipt_id")), "not_required"),
+        "host_resource_observation_binding_posture":
+            host_observation_binding_posture_by_receipt.get(
+                str(invocation.get("receipt_id")), "not_verified"),
+        "host_resource_observation_admission_binding": admission_by_receipt.get(
+            str(invocation.get("receipt_id")), {}).get(
+                "host_resource_observation_binding"),
         "chat_process_handoff_digest": (
             generation_attribution_by_receipt.get(str(invocation.get("receipt_id")), {})
                 .get("chat_process_handoff", {}).get("handoff_digest")
@@ -565,6 +2126,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     retention_incomplete = (len(all_allocations) > 16 or len(all_attempts) > max_attempts
         or len(raw_receipts) > min(max_receipts, 16)
         or len(invocation_receipts) > min(max_invocation_receipts, 16)
+        or len(release_receipt_summaries) > 16
         or len(incomplete_attempt_ids) > 64 or len(set(lineage_findings)) > 64)
     bounded_lineage_findings = tuple(sorted(set(lineage_findings)))
     bounded_incomplete_attempt_ids = tuple(sorted(incomplete_attempt_ids))
@@ -578,6 +2140,36 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "consumption_receipt_count": len(raw_receipts),
                "invocation_receipts": compact_invocations,
                "invocation_receipt_count": len(invocation_receipts),
+               "resource_release_receipts": tuple(release_receipt_summaries[-16:]),
+               "resource_release_receipt_count": len(release_receipt_summaries),
+               "resource_release_receipt_posture": (
+                   "not_requested" if verified_resource_release_receipts is None
+                   else "degraded" if release_lineage_findings
+                   else "verified" if release_receipt_summaries
+                   else "verified_no_release_receipts"),
+               "game_resource_recovery_hold_count": (
+                   0 if verified_game_resource_recovery_holds is None
+                   else len(verified_game_resource_recovery_holds)),
+               "game_resource_recovery_holds": tuple(game_recovery_hold_summaries),
+               "game_resource_recovery_posture": (
+                   "not_requested" if verified_game_resource_recovery_holds is None
+                   else game_resource_recovery_posture),
+               "game_resource_recovery_release_linkage_posture": (
+                   "not_requested" if verified_game_resource_recovery_holds is None
+                       or verified_resource_release_receipts is None else
+                   "verified" if game_recovery_hold_summaries
+                       and all(state == "verified"
+                           for state in game_recovery_release_linkage_states) else
+                   "verified_no_holds" if not game_recovery_hold_summaries
+                       and game_recovery_custody_posture in {
+                           "not_requested", "verified_no_recovery_holds",
+                           "verified_recovery_cleared"} else
+                   "degraded"),
+               "inference_admission_decision_count": len(admission_by_receipt),
+               "inference_admission_decision_posture": (
+                   "not_requested" if verified_inference_admission_decisions is None
+                   else "verified" if not any("inference_admission_linkage" in item for item in lineage_findings)
+                   else "degraded"),
                "verified_chat_process_generation_attributions": selected_generation_attributions,
                "chat_process_generation_posture": (
                    "unknown_no_completed_invocations" if not any(
@@ -601,12 +2193,24 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "lineage_posture": "verified" if not lineage_findings else "degraded",
                "lineage_findings": bounded_lineage_findings[:64],
                "lineage_finding_count": len(bounded_lineage_findings)}
+    game_recovery_posture_complete = payload["game_resource_recovery_posture"] in {
+        "not_requested", "verified_no_recovery_holds", "verified_recovery_cleared"}
+    game_recovery_release_linkage_complete = (
+        not game_recovery_hold_summaries
+        or payload["game_resource_recovery_release_linkage_posture"] == "verified")
+    resource_observation_complete = (
+        not lineage_findings
+        and not release_lineage_findings
+        and payload["recovery_posture"] == "reconciled_or_restored"
+        and game_recovery_posture_complete
+        and game_recovery_release_linkage_complete)
     record = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
              "source_id": "governed_local_model_resource_consumption",
              "schema_version": RESOURCE_CONSUMPTION_WORLD_STATE_SCHEMA,
              "subject_kind": "causal_resource_consumption",
              "subject_id": str(snapshot["ledger_digest"]), "stage": "observation",
-             "disposition": "recorded" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" else "degraded", "evidence_strength": "receipt_bound" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" else "incomplete",
+             "disposition": "recorded" if resource_observation_complete else "degraded",
+             "evidence_strength": "receipt_bound" if resource_observation_complete else "incomplete",
              "effect_claimed": False, "effect_proven": False,
              # The ledger receipt's event time is historical custody. Do not
              # let a restart/reprojection timestamp make old consumption
@@ -785,17 +2389,11 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 # retain the invocation, but do not claim the process served it.
                 software_serving_operation_binding_posture = "legacy_handoff_serving_operation_unknown"
         invocation_event_time = invocation.get("observed_at")
-        invocation_event_time = invocation_event_time if isinstance(invocation_event_time, str) else None
+        invocation_event_time = (invocation_event_time
+            if isinstance(invocation_event_time, str) else None)
         payload["event_time"] = invocation_event_time
         payload["event_time_posture"] = (
-            "invocation_receipt_created_at_semantic_digest_bound"
-            if invocation_event_time is not None
-                and invocation.get("schema_version") in {
-                    "sentientos.local_model_invocation_receipt:v2",
-                    "sentientos.local_model_invocation_receipt:v3"}
-            else "invocation_receipt_observed_at_unbound_metadata"
-                if invocation_event_time is not None
-                else "historical_invocation_time_unknown")
+            _invocation_receipt_event_time_posture(invocation))
         payload["chat_model_serving_lineage"] = {
             "event_time": invocation_event_time,
             "event_time_posture": payload["event_time_posture"],

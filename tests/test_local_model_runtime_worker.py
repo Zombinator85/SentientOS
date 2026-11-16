@@ -2,17 +2,173 @@ from __future__ import annotations
 
 import hashlib
 import json
+import builtins
 import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 import pytest
 
-from sentientos.local_model_runtime_worker import _WORKER, _valid_runtime_resource_seconds
+from sentientos.local_model_runtime_worker import (
+    ExactRuntimeLocalModel, _WORKER, _valid_runtime_resource_seconds,
+)
 from sentientos.local_model_resource_profile import LLAMA_CPP_RESOURCE_PROFILE_SCHEMA
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_exact_runtime_worker_reports_confirmed_process_cancellation() -> None:
+    class Process:
+        returncode = None
+        killed = False
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            self.killed = True
+            self.returncode = -9
+
+        def wait(self, *, timeout):
+            assert timeout == 5
+            return self.returncode
+
+    model = object.__new__(ExactRuntimeLocalModel)
+    process = Process()
+    model._process = process
+
+    assert model.cancel_pending_generation() is True
+    assert process.killed is True
+    assert model.cancel_pending_generation() is False
+
+
+def test_exact_runtime_worker_samples_cpu_before_cancellation(tmp_path, monkeypatch):
+    class Process:
+        returncode = None
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            self.returncode = -9
+
+        def wait(self, *, timeout):
+            assert timeout == 5
+            return self.returncode
+
+    model = object.__new__(ExactRuntimeLocalModel)
+    model._process = Process()
+    model._active_generation_started_at = time.monotonic() - 0.8
+    model._active_generation_cpu_baseline = (1.0, 0.2)
+    model._cancelled_generation_resources = None
+    samples = iter(((1.6, 0.35),))
+    monkeypatch.setattr(ExactRuntimeLocalModel, "_process_cpu_times",
+        lambda self: next(samples))
+
+    assert model.cancel_pending_generation() is True
+    observation = model.take_cancelled_generation_resource_observation()
+    assert observation is not None
+    assert observation["observation_source"] == "parent_sampled_exact_runtime_worker"
+    assert observation["user_cpu_seconds"] == pytest.approx(0.6)
+    assert observation["system_cpu_seconds"] == pytest.approx(0.15)
+    assert observation["wall_seconds"] >= 0.8
+    assert observation["process_peak_rss_bytes"] is None
+    assert model.take_cancelled_generation_resource_observation() is None
+
+
+def test_exact_runtime_worker_cancellation_survives_unavailable_cpu_sample(monkeypatch):
+    class Process:
+        returncode = None
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            self.returncode = -9
+
+        def wait(self, *, timeout):
+            assert timeout == 5
+            return self.returncode
+
+    model = object.__new__(ExactRuntimeLocalModel)
+    model._process = Process()
+    model._active_generation_started_at = time.monotonic() - 0.1
+    model._active_generation_cpu_baseline = (1.0, 0.2)
+    model._cancelled_generation_resources = None
+
+    original_import = builtins.__import__
+
+    def unavailable_import(name, *args, **kwargs):
+        if name == "psutil":
+            raise RuntimeError("worker exited before CPU sample")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", unavailable_import)
+
+    assert model.cancel_pending_generation() is True
+    assert model.take_cancelled_generation_resource_observation() is None
+
+
+def test_exact_runtime_worker_discards_sample_when_process_stop_is_unconfirmed(monkeypatch):
+    class Process:
+        pid = 123
+
+        def poll(self):
+            return None
+
+        def kill(self):
+            pass
+
+        def wait(self, *, timeout):
+            assert timeout == 5
+            raise subprocess.TimeoutExpired("worker", timeout)
+
+    model = object.__new__(ExactRuntimeLocalModel)
+    model._process = Process()
+    model._active_generation_started_at = time.monotonic() - 0.2
+    model._active_generation_cpu_baseline = (1.0, 0.2)
+    model._cancelled_generation_resources = None
+    model._cancelled_generation_confirmation = None
+    model._cancelled_generation_confirmed = False
+    samples = iter(((1.3, 0.25),))
+    monkeypatch.setattr(ExactRuntimeLocalModel, "_process_cpu_times",
+        lambda self: next(samples))
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        model.cancel_pending_generation()
+    assert model.take_cancelled_generation_resource_observation() is None
+
+
+def test_exact_runtime_worker_close_waits_for_live_process_exit() -> None:
+    process = subprocess.Popen(
+        [sys.executable, "-u", "-c",
+         "import sys\n"
+         "print('ready', flush=True)\n"
+         "for line in sys.stdin:\n"
+         "    if line.strip() == '{\"type\":\"shutdown\"}':\n"
+         "        print('shutdown', flush=True)\n"
+         "        break\n"],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, bufsize=1,
+    )
+    model = object.__new__(ExactRuntimeLocalModel)
+    model._process = process
+    try:
+        assert process.stdout is not None
+        assert process.stdout.readline() == "ready\n"
+        assert process.poll() is None
+
+        model.close()
+
+        assert process.wait(timeout=1) == 0
+        assert process.poll() == 0
+        model.close()
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=1)
 
 
 @pytest.mark.parametrize("value", [True, -0.1, float("inf"), 10 ** 1000])
@@ -90,6 +246,13 @@ def test_exact_runtime_worker_reports_bounded_invocation_resources_and_restores_
     else:
         assert generated["type"] == "generated"
         assert generated["output"] == "fixture response"
+        assert generated["backend_thread_limit_control"] == {
+            "schema_version": "sentientos.llama_cpp_backend_thread_limit_control:v1",
+            "requested_ceiling": thread_ceiling,
+            "setter_function": "llama_set_n_threads",
+            "n_threads_argument": effective_threads,
+            "n_threads_batch_argument": effective_threads,
+        }
     assert json.loads(captured_options.read_text(encoding="utf-8")) == {
         "n_ctx": 64, "n_gpu_layers": 0, "n_batch": 128, "n_ubatch": 64,
         "n_threads": 4, "n_threads_batch": 2,

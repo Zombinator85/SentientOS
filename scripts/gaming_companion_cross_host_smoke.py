@@ -406,7 +406,7 @@ def run(*, windows_checkout: Path, windows_python: Path,
     wsl_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
         check=True, capture_output=True, text=True, timeout=3).stdout.strip()
     wsl_dirty = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT,
-        check=True, capture_output=True, text=True, timeout=3).stdout.strip()
+        check=True, capture_output=True, text=True, timeout=60).stdout.strip()
     if wsl_dirty:
         raise ValueError("wsl_checkout_must_be_clean")
     git_exe = Path("/mnt/c/Program Files/Git/cmd/git.exe")
@@ -417,7 +417,7 @@ def run(*, windows_checkout: Path, windows_python: Path,
             timeout=5).stdout.strip()
         dirty = subprocess.run([str(git_exe), "-C", windows_checkout_arg,
             "status", "--porcelain"], check=True, capture_output=True, text=True,
-            timeout=5).stdout.strip()
+            timeout=15).stdout.strip()
     except subprocess.CalledProcessError as exc:
         raise ValueError("windows_checkout_git_verification_failed") from exc
     if dirty:
@@ -507,8 +507,7 @@ def run(*, windows_checkout: Path, windows_python: Path,
             performance = GamePerformanceBridgeDetector(
                 receiver=core, source_id="windows-edge",
                 generation_provider=lambda: "windows-observation-test-1",
-                clock=lambda: datetime.now(timezone.utc) +
-                    timedelta(seconds=windows_clock_offset),
+                source_clock_offset_seconds=windows_clock_offset,
             ).receive_once(timeout=10.0)
             if performance.process_cpu_percent is None or performance.process_rss_bytes is None:
                 raise RuntimeError("windows_process_observation_unavailable")

@@ -16,8 +16,10 @@ from sentientos.gaming_companion_avatar_output import AvatarCommandDispatchStatu
 from sentientos.foreground_game_bridge import BridgeForegroundGameDetector
 from sentientos.gaming_companion_core_runtime import WSLCoreAvatarOutputSession
 from sentientos.gaming_companion_role_entrypoint import (
+    compose_authorized_runtime,
     load_role_manifest,
     resolve_provider,
+    runtime_is_healthy,
     run_role,
 )
 
@@ -159,6 +161,19 @@ def test_role_runner_owns_core_lifetime_and_stops_cleanly() -> None:
     assert session.closed == 1
 
 
+def test_authorized_runtime_composition_reuses_installed_role_boundary() -> None:
+    bridge = _CoreBridge()
+    runtime, _session = _core_runtime(bridge)
+    events: list[str] = []
+    composed = compose_authorized_runtime(role="wsl_core", manifest=_manifest(),
+        runtime_provider=lambda role, _config: events.append("provider:" + role) or runtime,
+        launch_authorizer=lambda role, _config: events.append("authorize:" + role) or True,
+        system_name="Linux", is_wsl=True)
+    assert composed is runtime
+    assert events == ["authorize:wsl_core", "provider:wsl_core"]
+    assert bridge.started == bridge.closed == 0
+
+
 def test_role_runner_fails_closed_and_closes_when_listener_becomes_unhealthy() -> None:
     bridge = _CoreBridge(running=False)
     runtime, session = _core_runtime(bridge)
@@ -185,6 +200,52 @@ def test_role_runner_owns_windows_edge_lifetime() -> None:
     assert result == 0
     assert listener.closed == 1
     assert not dispatcher.running
+
+
+def test_configured_game_performance_publisher_participates_in_edge_health() -> None:
+    listener = _EdgeListener()
+    dispatcher = _EdgeDispatcher()
+    runtime = WindowsEdgeAvatarRuntime(runtime=listener, dispatcher=dispatcher)  # type: ignore[arg-type]
+    runtime.start()
+
+    class Pump:
+        running = False
+
+        def status(self) -> dict[str, object]:
+            return {"running": self.running}
+
+        def close(self) -> None:
+            self.running = False
+
+    pump = Pump()
+    runtime._game_performance_pump = cast(Any, pump)
+    assert not runtime_is_healthy("windows_edge", runtime)
+    pump.running = True
+    assert runtime_is_healthy("windows_edge", runtime)
+    runtime.close()
+
+
+def test_configured_foreground_game_publisher_participates_in_edge_health() -> None:
+    listener = _EdgeListener()
+    dispatcher = _EdgeDispatcher()
+    runtime = WindowsEdgeAvatarRuntime(runtime=listener, dispatcher=dispatcher)  # type: ignore[arg-type]
+    runtime.start()
+
+    class Pump:
+        running = False
+
+        def status(self):
+            return SimpleNamespace(running=self.running)
+
+        def close(self) -> None:
+            self.running = False
+
+    pump = Pump()
+    runtime._foreground_game_pump = cast(Any, pump)
+    assert not runtime_is_healthy("windows_edge", runtime)
+    pump.running = True
+    assert runtime_is_healthy("windows_edge", runtime)
+    runtime.close()
 
 
 def test_unsupported_host_does_not_invoke_or_import_provider() -> None:
@@ -260,6 +321,23 @@ def test_manifest_loader_rejects_symlink_and_invalid_json(tmp_path: Path) -> Non
         load_role_manifest(alias)
     target.write_text("not json", encoding="utf-8")
     with pytest.raises(CompanionBridgeError, match="companion_role_manifest_unreadable"):
+        load_role_manifest(target)
+
+
+def test_manifest_loader_rejects_oversized_input_before_json_parse(tmp_path: Path) -> None:
+    target = tmp_path / "oversized.json"
+    target.write_bytes(b" " * (1_048_576 + 1))
+    with pytest.raises(CompanionBridgeError,
+                       match="companion_role_manifest_size_or_type_invalid"):
+        load_role_manifest(target)
+
+
+def test_manifest_loader_rejects_duplicate_json_fields(tmp_path: Path) -> None:
+    target = tmp_path / "duplicate.json"
+    target.write_text('{"schema_version":"sentientos.gaming_companion_deployment:v3",'
+        '"schema_version":"sentientos.gaming_companion_deployment:v3"}', encoding="utf-8")
+    with pytest.raises(CompanionBridgeError,
+                       match="companion_role_manifest_duplicate_field"):
         load_role_manifest(target)
 
 

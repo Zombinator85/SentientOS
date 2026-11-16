@@ -54,14 +54,18 @@ def test_prepare_is_inert_and_exact_confirmation_creates_consumer_bundle(tmp_pat
         handle, "operator", clock=lambda: NOW, nonce_source=lambda: "nonce")
     assert owner.allocator.ledger.snapshot_counts() == (1, 0, 0)
     assert owner.allocator.ledger.remaining_calls(result.allocation_id) == 2
-    owner.allocator.final_gate(
+    attempt_id = owner.allocator.final_gate(
         allocation=owner.allocation, principal=owner.principal,
         authenticated=owner.authenticated, current=owner.current, policy=owner.policy,
         current_time=NOW, durable_attempt_nonce="first")
+    owner.allocator.record_backend_entry(
+        owner.allocation, attempt_id, observed_at=NOW)
+    owner.close()
     restarted = load_production_chat_resource_context_owner(
         handle, "operator", clock=lambda: NOW, nonce_source=lambda: "next")
     assert restarted.allocation.allocation_id == result.allocation_id
     assert restarted.allocator.ledger.remaining_calls(result.allocation_id) == 1
+    restarted.close()
 
 
 def test_execute_passes_exact_bytes_once_and_confirmation_precedes_open(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

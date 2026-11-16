@@ -33,6 +33,7 @@ from sentientos.codex_task_authority_admission import (
 from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
 from sentientos.runtime_admission import RuntimeAdmissionVerifier
 from sentientos.host_resource_runtime import resource_consumption_world_state_records
+from sentientos.local_model_authority import digest_payload
 from sentientos.developmental_model_replacement_experiment import (
     CONDITION_ORDER, DevelopmentalModelReplacementError,
     DevelopmentalModelReplacementExperiment, FrozenCausalContext, _digest,
@@ -176,6 +177,13 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         linked_digests = tuple(linked_invocation["resource_consumption_receipt_digests"])
         assert len(linked_digests) == 2
         linked_invocation["resource_consumption_receipt_digests"] = linked_digests[:1]
+        linked_invocation["resource_linkage_digest"] = digest_payload({
+            "receipt_digest": linked_invocation["receipt_digest"],
+            "allocation_digest": linked_invocation["resource_allocation_digest"],
+            "attempt_id": linked_invocation["resource_attempt_id"],
+            "consumption_receipt_digests": tuple(
+                linked_invocation["resource_consumption_receipt_digests"]),
+        })
         incomplete_linkage = resource_consumption_world_state_records(
             ledger=observation.ledger,
             invocation_receipts=(linked_invocation,),
@@ -225,6 +233,12 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         resource_facts = [fact for fact in snapshot.facts
             if fact.subject.subject_kind == "causal_resource_consumption"]
         assert len(resource_facts) == 1
+        assert resource_facts[0].disposition == "recorded", {
+            "source_kind": resource_facts[0].source.kind,
+            "source_id": resource_facts[0].source.source_id,
+            "stage": resource_facts[0].stage,
+            "lineage_findings": resource_facts[0].payload.get("lineage_findings"),
+        }
         assert resource_facts[0].payload["shared_host_usage_attribution"] == (
             "unknown_without_independent_observation")
 
@@ -257,7 +271,12 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         epistemic_snapshot = epistemic_surfaces.current_world_state_snapshot
         assert epistemic_snapshot is not None
         developed = epistemic_surfaces.run_epistemic_development(tick_id=tick_id_n)
-        assert developed["status"] == "state_advanced"
+        assert developed["status"] == "state_advanced", {
+            "development": developed,
+            "facts": [(fact.source.kind, fact.source.source_id,
+                fact.subject.subject_kind, fact.subject.subject_id,
+                fact.stage, fact.disposition) for fact in epistemic_snapshot.facts],
+        }
         assert developed["next_tick_only"] is True and developed["authority"] is False
         bindings = epistemic_owner.bindings(proposition.proposition_id)
         assert len(bindings) == 1

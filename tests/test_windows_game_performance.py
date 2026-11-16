@@ -9,6 +9,7 @@ from sentientos.windows_game_performance import (
     MAX_PRESENTMON_ROWS,
     GamePerformanceObservationError,
     WindowsGamePerformanceObserver,
+    allowlisted_game_process_id,
     parse_presentmon_csv,
     parse_presentmon_timeline,
     summarize_frame_times_ms,
@@ -16,6 +17,24 @@ from sentientos.windows_game_performance import (
 )
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_game_process_selection_prefers_allowlisted_foreground_then_running_game():
+    identity = [1234, "Cronos.exe"]
+    provider = lambda: (identity[0], identity[1])
+    assert allowlisted_game_process_id(
+        ["Cronos.exe"], identity_provider=provider) == 1234
+    assert allowlisted_game_process_id(["OtherGame.exe"],
+        identity_provider=provider, running_identities_provider=lambda: (
+            (44, "OtherGame.exe"),)) == 44
+    assert allowlisted_game_process_id(["Cronos.exe"],
+        identity_provider=lambda: (1, "explorer.exe"),
+        running_identities_provider=lambda: (
+            (99, "Cronos.exe"), (87, "Cronos.exe"))) == 87
+    assert allowlisted_game_process_id(["OtherGame.exe"],
+        identity_provider=lambda: (0, "Cronos.exe"),
+        running_identities_provider=lambda: ()) is None
+    assert allowlisted_game_process_id([], identity_provider=provider) is None
 
 
 def test_presentmon_csv_filters_pid_and_reports_hitches_without_retaining_names() -> None:
@@ -103,13 +122,15 @@ def test_windows_fixture_provider_records_process_and_frame_time_observations() 
     frame_digest = "a" * 64
     observer = WindowsGamePerformanceObserver(
         system_provider=lambda: "Windows",
-        process_provider=lambda pid: {"cpu_percent": 42.5, "rss_bytes": 123456},
+        process_provider=lambda pid: {"name": "secret-game.exe",
+            "cpu_percent": 42.5, "rss_bytes": 123456},
         frame_provider=lambda pid: ((16.0, 18.0, 60.0), frame_digest),
         clock=lambda: "2026-11-02T00:00:00+00:00",
     )
     result = observer.observe(987)
     assert result.status == "available"
     assert result.process_id_digest == hashlib.sha256(b"987").hexdigest()
+    assert result.process_name_digest == hashlib.sha256(b"secret-game.exe").hexdigest()
     assert result.process_cpu_percent == 42.5
     assert result.process_rss_bytes == 123456
     assert (result.frame_time_p50_ms, result.frame_time_p95_ms,

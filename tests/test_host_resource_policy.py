@@ -98,6 +98,24 @@ def test_incomplete_telemetry_produces_diagnostics_operator_review_only() -> Non
     assert receipts[0].proposal_scope in {"diagnostics_only", "operator_review_queue"}
 
 
+def test_optional_sensor_gap_preserves_measured_pressure_proposals_as_non_executable() -> None:
+    _, report, decision, receipts = _decision(
+        cpu_utilization_percent=95,
+        ram_utilization_percent=40,
+        disk_utilization_percent=50,
+        unavailable_sensor_labels=("thermal", "fan_pwm"),
+    )
+
+    assert "sensor_unavailable" in report.pressure_labels
+    assert decision.status == "host_resource_policy_proposal_ready"
+    assert "reduce_model_load_candidate" in _kinds(receipts)
+    assert "request_operator_review_candidate" in _kinds(receipts)
+    assert "sensor_gaps_do_not_authorize_fulfillment" in decision.warning_codes
+    assert all(receipt.does_not_execute and receipt.does_not_mutate_host
+               and receipt.not_authorized_for_fulfillment
+               for receipt in receipts)
+
+
 def test_unknown_and_contradictory_reports_block_proposal_readiness() -> None:
     snapshot = build_host_resource_telemetry_snapshot(snapshot_id="snap", cpu_utilization_percent=10, ram_utilization_percent=20, disk_utilization_percent=30)
     report = evaluate_host_resource_pressure(snapshot)

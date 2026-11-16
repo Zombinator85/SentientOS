@@ -55,6 +55,7 @@ ml = ["transformers>=4,<5"]
 windows = ["pywin32>=306; sys_platform == 'win32'", "pywin32-ctypes>=0.2,<1; sys_platform == 'win32'", "pypiwin32>=223; sys_platform == 'win32'", "comtypes>=1.2,<2; sys_platform == 'win32'"]
 runtime = ["requests>=2.31,<3", "python-dotenv>=0.21,<1", "colorama>=0.4,<1", "cryptography>=42,<43", "keyring>=24,<25", "mss>=9,<11", "psutil>=5,<6", "pdfrw>=0.4,<1", "fastcore>=1.7.2", "ghapi>=1,<2"]
 gpu-telemetry = ["nvidia-ml-py>=12,<14"]
+resource-governance = ["psutil>=5,<6", "nvidia-ml-py>=12,<14"]
 full = [
     "pytest>=7,<9; python_version < '3.14'",
     "pytest>=8.4,<9; python_version >= '3.14'",
@@ -137,6 +138,7 @@ sentientos-chat = "sentientos.chat_service:main"
 sentientos-gaming-companion-doctor = "scripts.gaming_companion_deployment_cli:main"
 sentientos-gaming-companion-role = "sentientos.gaming_companion_role_entrypoint:main"
 sentientos-gaming-companion-pair = "sentientos.gaming_companion_pair_entrypoint:main"
+sentientos-gaming-companion-edge-supervisor = "sentientos.gaming_companion_edge_supervisor_entrypoint:main"
 sentientos-updater = "updater:update"
 sosctl = "sosctl:main"
 verify_audits = "sentientos.verify_audits:main"
