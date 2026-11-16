@@ -1864,7 +1864,7 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     prompt_projection = final_history_request.upstream_evidence[
         "task_family_history_prompt_projection"]
     assert prompt_projection["schema_version"] == \
-        "sentientos.task_family_history_prompt_projection:v6"
+        "sentientos.task_family_history_prompt_projection:v7"
     [projected_prior_errors] = prompt_projection["prior_incorrect_examples"]
     assert prompt_projection["prior_incorrect_example_count"] == 3
     assert projected_prior_errors["record_id"] == retained.record_id
