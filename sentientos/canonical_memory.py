@@ -1,6 +1,6 @@
 """Side-effect-free canonical live-memory storage and explicit retention authority."""
 from __future__ import annotations
-import hashlib, json, os, re, stat
+import hashlib, json, math, os, re, stat
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -315,11 +315,18 @@ class CanonicalMemoryStore:
         legacy_sidecar_posture = self._legacy_sidecar_posture()
         legacy_sidecar_present = legacy_sidecar_posture == "present_unverified"
         terms = _memory_retrieval_terms(query)
+        eligible = [record for record in records
+            if not _is_prior_message_recall_question(record["text"])]
+        document_terms = [_memory_retrieval_terms(record["text"]) for record in eligible]
+        document_frequency = {term: sum(term in candidate_terms
+            for candidate_terms in document_terms) for term in terms}
+        term_weights = {term: math.log((len(eligible) + 1) /
+            (frequency + 0.5)) + 1 for term, frequency in document_frequency.items()}
         ranked = []
-        for record in records:
-            if _is_prior_message_recall_question(record["text"]):
-                continue
-            score = len(terms & _memory_retrieval_terms(record["text"]))
+        for record, candidate_terms in zip(eligible, document_terms):
+            # Corpus rarity lets a distinctive anchor outweigh several common
+            # words, while relevance remains lexical and does not imply truth.
+            score = sum(term_weights[term] for term in terms & candidate_terms)
             if score:
                 try:
                     timestamp = datetime.fromisoformat(
