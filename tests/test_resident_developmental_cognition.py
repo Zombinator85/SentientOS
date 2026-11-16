@@ -4825,6 +4825,47 @@ def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_te
         "developmental_history_selection": metadata["developmental_history_selection"]})
 
 
+def test_compact_history_prompt_retains_lesson_scope_and_uncertainty() -> None:
+    from sentientos import resident_developmental_cognition as cognition_module
+
+    lesson = {"statement": "Slower charging reduced overheating in this trial.",
+        "scope": "weak battery charging trial",
+        "applicability": "Only for a similar battery and monitored charge conditions.",
+        "uncertainty": "medium",
+        "uncertainty_rationale": "One controlled trial may not generalize.",
+        "evidence_dependencies": ["fact-prior"],
+        "possible_contradiction_ids": ["fact-conflict"]}
+    record = {"record_id": "lesson-record", "record_digest": "r" * 64,
+        "epistemic_posture": "historical_interpretation_not_current_truth",
+        "candidate": {"candidate_id": "lesson-candidate",
+            "candidate_digest": "c" * 64,
+            "interpretation": "A battery was monitored during a prior trial.",
+            "selected_facts": [],
+            "transformation_provenance": {"kind": "cognition_lesson_candidate",
+                "candidate_posture": (
+                    "untrusted_candidate_not_truth_policy_authority_or_adopted_procedure"),
+                "lesson_candidate": lesson}}}
+
+    bound, _, prompt, record_ids, _ = _bind_history_and_epistemic_context(
+        context={"instruction": cognition_module.COMPANION_HISTORY_INTERVENTION_INSTRUCTION,
+            "developmental_history": []}, records=(record,), projection=None,
+        compact_history_for_input=True,
+        max_input_chars=cognition_module.MAX_RESIDENT_COGNITION_INPUT_CHARS)
+
+    packet = json.loads(prompt)["developmental_history"][0]
+    assert record_ids == (record["record_id"],)
+    assert packet["lesson_statement"] == lesson["statement"]
+    assert packet["scope"] == lesson["scope"]
+    assert packet["applicability"] == lesson["applicability"]
+    assert packet["lesson_uncertainty"] == lesson["uncertainty"]
+    assert packet["uncertainty_rationale"] == lesson["uncertainty_rationale"]
+    assert packet["lesson_candidate_posture"] == (
+        "untrusted_candidate_not_truth_policy_authority_or_adopted_procedure")
+    assert "evidence_dependencies" not in packet
+    assert "possible_contradiction_ids" not in packet
+    assert "treat it as a provisional historical candidate" in bound["instruction"]
+
+
 def test_canonical_user_memory_is_prompt_bound_historical_context_not_evidence(
         tmp_path: Path) -> None:
     cognition, fake = owner(tmp_path)

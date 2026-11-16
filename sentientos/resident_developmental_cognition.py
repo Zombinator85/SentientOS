@@ -329,6 +329,10 @@ COMPANION_HISTORY_INTERVENTION_INSTRUCTION = (
     "unverified operator report, not independent observation or current fact. Describe it only "
     "as something the operator reported, retain its unverified posture, and cite the containing "
     "developmental history record rather than its nested source fact ID."
+    " If a packet contains a lesson_statement, treat it as a provisional historical candidate, "
+    "not verified fact. Apply its scope and applicability as limits on transfer, preserve its "
+    "uncertainty rationale, and do not reuse it when the current evidence or situation falls "
+    "outside those bounds. Cite only the containing developmental record."
 )
 EXPERIMENT_CONTEXT_INSTRUCTION = (
     "Reason over four separately typed, non-authoritative substrates. Current evidence is current external observation "
@@ -2716,13 +2720,18 @@ def _history_context_packet(record: Mapping[str, Any], *,
     if isinstance(provenance, Mapping):
         packet["provenance_kind"] = provenance.get("kind")
         lesson = provenance.get("lesson_candidate")
-        if isinstance(lesson, Mapping) and not compact_for_input_budget:
+        if isinstance(lesson, Mapping):
+            packet["lesson_statement"] = lesson.get("statement")
             packet["scope"] = lesson.get("scope")
             packet["applicability"] = lesson.get("applicability")
+            packet["lesson_uncertainty"] = lesson.get("uncertainty")
             packet["uncertainty_rationale"] = lesson.get("uncertainty_rationale")
-            packet["evidence_dependencies"] = list(lesson.get("evidence_dependencies", ()))[:8]
-            packet["possible_contradiction_ids"] = list(
-                lesson.get("possible_contradiction_ids", ()))[:8]
+            packet["lesson_candidate_posture"] = provenance.get("candidate_posture")
+            if not compact_for_input_budget:
+                packet["evidence_dependencies"] = list(
+                    lesson.get("evidence_dependencies", ()))[:8]
+                packet["possible_contradiction_ids"] = list(
+                    lesson.get("possible_contradiction_ids", ()))[:8]
     encoded = json.dumps(packet, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     if len(encoded.encode("utf-8")) > 32_000:
         raise ResidentDevelopmentalCognitionError("developmental_history_context_packet_unbounded")

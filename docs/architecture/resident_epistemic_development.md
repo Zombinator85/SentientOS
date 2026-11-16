@@ -102,6 +102,18 @@ matching that normalizes common plural endings and weights terms that occur in
 fewer candidate records. It is not semantic retrieval or evidence that selected
 experience improves an answer.
 
+Compact resident history packets now carry the bounded lesson statement,
+scope, applicability, and uncertainty rationale into the prompt. The companion
+instruction treats these as provisional historical limits on transfer and
+requires the model to withhold reuse when current evidence or circumstances do
+not match. Compact packets omit nested dependency and contradiction ID lists;
+the outer record and candidate digests retain their custody binding. The focused
+fixture
+`tests/test_resident_developmental_cognition.py::test_compact_history_prompt_retains_lesson_scope_and_uncertainty`
+verifies those fields survive the production compact binder with historical,
+non-authority posture. This makes applicability information available for
+reasoning, but does not prove a real model will honor it.
+
 The persistent epistemic owner also accepts the current companion question when
 building its bounded prior-state projection. It ranks only propositions that
 have an eligible prior state, splits underscore-delimited identifiers such as
