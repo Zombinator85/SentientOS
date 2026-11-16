@@ -1062,7 +1062,7 @@ class ResidentEpistemicDevelopmentRuntime:
         prior = self.owner.current_state(rule.proposition_id)
         prior_active_ids = self.owner.active_binding_ids(rule.proposition_id)
         all_records = self.owner.bindings(rule.proposition_id)
-        if prior is not None and set(active_ids) == set(prior_active_ids):
+        if prior is not None and binding.binding_id in prior_active_ids:
             return EpistemicDevelopmentFeedback("already_applied", run_id, 1, 1,
                 0, 0, (), (), (), ())
         if binding.evidence_relation == "contextualizes":

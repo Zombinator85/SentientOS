@@ -65,7 +65,8 @@ from sentientos.maintenance_resident_parent_supervision import (
     PARENT_CONFIG_PATH_ENV, ResidentParentLifecycleEvidenceReader,
 )
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
-from sentientos.world_state_board import WorldStateSnapshot, WorldStateSourceKind, record_digest
+from sentientos.world_state_board import (WorldStateFact, WorldStateSnapshot,
+    WorldStateSourceKind, record_digest)
 from sentientos.causal_introspection import (CausalIntrospectionRuntime, CaptureContext,
     IntrospectionConfig, LiveOwnerMetadataProvider, ProviderRegistration,
     load_config as load_causal_introspection_config)
@@ -2990,16 +2991,34 @@ class RuntimeMaintenanceSurfaces:
                     "source_kind": "embodiment",
                     "subject_kind": "developmental_history_intervention_experiment",
                 }
-                rules = tuple(getattr(getattr(runtime, "config", None), "rules", ()))
+                runtime_config = getattr(runtime, "config", None)
+                rules = (tuple(getattr(runtime_config, "rules", ()))
+                    if getattr(runtime_config, "enabled", False) is True else ())
                 task_family_rules = tuple(rule for rule in rules
                     if getattr(rule, "selector", None) == task_family_selector)
                 task_family_facts = tuple(fact for fact in snapshot.facts
                     if fact.source.kind == "embodiment"
                     and fact.subject.subject_kind
                         == "developmental_history_intervention_experiment")
+                configured_task_families: set[str] = set()
+                configured_proposition_ids = {rule.proposition_id for rule in rules}
+                if self._epistemic_state_owner is not None:
+                    for rule in task_family_rules:
+                        family = self._epistemic_state_owner.proposition(
+                            rule.proposition_id).context_scope.get("task_family_id")
+                        if isinstance(family, str) and family:
+                            configured_task_families.add(family)
+                # This subject kind is interpreted only by the exact verified
+                # task-family adapter below. The generic selector is broader
+                # than a proposition's family scope and must not contextualize
+                # an unrelated family's run against that proposition.
                 excluded_fact_ids = (frozenset(fact.fact_id for fact in task_family_facts)
-                    if task_family_rules and self._developmental_history_intervention_run_refs
-                    else frozenset())
+                    if task_family_rules else frozenset())
+                runtime_owner = getattr(runtime, "owner", self._epistemic_state_owner)
+                current_state = getattr(runtime_owner, "current_state", None)
+                states_before = ({proposition_id: current_state(proposition_id)
+                    for proposition_id in configured_proposition_ids}
+                    if callable(current_state) else {})
                 if excluded_fact_ids:
                     result = runtime.process_snapshot(snapshot, tick=tick,
                         recorded_at=instant.isoformat(),
@@ -3008,8 +3027,34 @@ class RuntimeMaintenanceSurfaces:
                     result = runtime.process_snapshot(snapshot, tick=tick,
                         recorded_at=instant.isoformat())
                 feedback = asdict(result)
+                updated_propositions_this_tick = set()
+                if callable(current_state):
+                    for proposition_id, prior_state in states_before.items():
+                        current = current_state(proposition_id)
+                        if (current is not None and (prior_state is None
+                                or current.state_digest != prior_state.state_digest)):
+                            updated_propositions_this_tick.add(proposition_id)
                 selected = {run_id: run_digest for run_id, run_digest
                     in self._developmental_history_intervention_run_refs}
+                selected_fact_digests: dict[str, str] = {}
+                conflicting_run_ids: set[str] = set()
+                for fact in task_family_facts:
+                    run_id = fact.subject.subject_id
+                    run_digest = fact.payload.get("run_digest")
+                    if (fact.payload.get("objective_task_family")
+                            not in configured_task_families
+                            or not isinstance(run_id, str) or not run_id
+                            or not isinstance(run_digest, str) or not run_digest):
+                        continue
+                    prior_digest = selected.get(run_id)
+                    projected_digest = selected_fact_digests.get(run_id)
+                    if ((prior_digest is not None and prior_digest != run_digest)
+                            or (projected_digest is not None
+                                and projected_digest != run_digest)):
+                        conflicting_run_ids.add(run_id)
+                        continue
+                    selected_fact_digests[run_id] = run_digest
+                    selected.setdefault(run_id, run_digest)
                 if task_family_rules and selected:
                     owner = self._resident_developmental_owner
                     experiment_store = getattr(owner, "experiments", None)
@@ -3018,13 +3063,19 @@ class RuntimeMaintenanceSurfaces:
                         feedback["verified_task_family_outcomes_status"] = (
                             "degraded_owner_unavailable")
                     else:
-                        by_run = {fact.subject.subject_id: fact
-                            for fact in task_family_facts}
-                        for run_id, run_digest in sorted(selected.items()):
-                            fact = by_run.get(run_id)
+                        by_run: dict[str, list[WorldStateFact]] = {}
+                        for fact in task_family_facts:
+                            by_run.setdefault(fact.subject.subject_id, []).append(fact)
+                        for run_id, run_digest in selected.items():
+                            matching_facts = by_run.get(run_id, [])
+                            fact = matching_facts[0] if len(matching_facts) == 1 else None
                             payload = fact.payload if fact is not None else {}
                             unresolved_reason = None
-                            if fact is None:
+                            if run_id in conflicting_run_ids:
+                                unresolved_reason = "selected_run_identity_conflict"
+                            elif len(matching_facts) > 1:
+                                unresolved_reason = "selected_run_fact_ambiguous"
+                            elif fact is None:
                                 unresolved_reason = "selected_run_not_in_same_tick_world_state"
                             elif (fact.source.source_id
                                     != "developmental-history-run:" + run_id
@@ -3087,11 +3138,29 @@ class RuntimeMaintenanceSurfaces:
                                     "reason": "selected_run_family_rule_not_unique",
                                     "authority": False, "current_truth": False})
                                 continue
+                            matching_rule = matching_rules[0]
+                            max_updates = getattr(runtime_config,
+                                "max_updated_propositions_per_tick", 16)
+                            if (matching_rule.proposition_id
+                                    in updated_propositions_this_tick
+                                    or len(updated_propositions_this_tick) >= max_updates):
+                                outcome_rows.append({"run_id": run_id,
+                                    "run_digest": run_digest, "status": "unresolved",
+                                    "reason": ("proposition_update_already_performed_this_tick"
+                                        if matching_rule.proposition_id
+                                            in updated_propositions_this_tick else
+                                        "proposition_update_limit_reached_this_tick"),
+                                    "retry_posture": "next_maintenance_tick",
+                                    "authority": False, "current_truth": False})
+                                continue
                             outcome = runtime.process_verified_task_family_run(
                                 experiment_store=experiment_store, run_id=run_id,
                                 expected_run_digest=run_digest,
-                                rule_id=matching_rules[0].rule_id, tick=tick,
+                                rule_id=matching_rule.rule_id, tick=tick,
                                 recorded_at=instant.isoformat())
+                            if outcome.updated_proposition_count:
+                                updated_propositions_this_tick.add(
+                                    matching_rule.proposition_id)
                             outcome_rows.append({
                                 "run_id": run_id, "run_digest": run_digest,
                                 **asdict(outcome),
