@@ -1630,21 +1630,23 @@ def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[s
                 if isinstance(row.get("score"), Mapping) else None for row in scores]
             abstained = [row["score"].get("abstained_count")
                 if isinstance(row.get("score"), Mapping) else None for row in scores]
+            probe_count = len(plan["task"]["probe_inputs"])
             coherent = (len(answered) == 3 and len(abstained) == 3
                 and all(type(answered[index]) is int and type(abstained[index]) is int
-                    and answered[index] + abstained[index] == evaluation["probe_count"]
+                    and cast(int, answered[index]) + cast(int, abstained[index]) == probe_count
                     for index in range(3)))
-            correct_counts = counts
+            answered_values = cast(list[int], answered) if coherent else []
+            abstained_values = cast(list[int], abstained) if coherent else []
+            correct_counts = cast(list[int], counts) if coherent and count_complete else []
             evaluation.update({
-                "condition_answered_counts": answered if coherent else None,
-                "condition_abstained_counts": abstained if coherent else None,
-                "condition_coverage": ([value / evaluation["probe_count"]
-                    for value in answered] if coherent else None),
+                "condition_answered_counts": answered_values if coherent else None,
+                "condition_abstained_counts": abstained_values if coherent else None,
+                "condition_coverage": ([value / probe_count
+                    for value in answered_values] if coherent else None),
                 "condition_selective_accuracy": ([
                     (correct_counts[index] / value if value > 0 else None)
-                    for index, value in enumerate(answered)]
-                    if coherent and all(type(value) is int for value in correct_counts)
-                    else None),
+                    for index, value in enumerate(answered_values)]
+                    if coherent and count_complete else None),
                 "selective_metrics_posture":
                     "per_probe_abstention_scored_separately_from_correctness",
             })
