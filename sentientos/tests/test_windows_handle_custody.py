@@ -504,7 +504,7 @@ def test_windows_replay_publication_create_retry_and_conflict(tmp_path: Path) ->
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows immutable cognition publication")
-def test_windows_self_model_reconciliations_persist_across_restart() -> None:
+def test_windows_self_model_reconciliations_persist_across_restart(tmp_path: Path) -> None:
     from datetime import datetime, timezone
     from tempfile import TemporaryDirectory
 
@@ -522,8 +522,7 @@ def test_windows_self_model_reconciliations_persist_across_restart() -> None:
                 "developmental_history_boundary": "history-1"},
         }])
 
-    with TemporaryDirectory(prefix=".cognition-custody-",
-            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+    with TemporaryDirectory(prefix=".cognition-custody-", dir=tmp_path) as temporary_root:
         root = Path(temporary_root)
         _make_current_user_private(root, directory=True)
         peer_root = root / "peer-records"
@@ -596,11 +595,11 @@ print(result.generation)
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows developmental custody")
-def test_windows_developmental_history_record_and_receipt_recover_after_restart() -> None:
+def test_windows_developmental_history_record_and_receipt_recover_after_restart(
+        tmp_path: Path) -> None:
     from tempfile import TemporaryDirectory
 
-    with TemporaryDirectory(prefix=".developmental-writeback-",
-            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+    with TemporaryDirectory(prefix=".developmental-writeback-", dir=tmp_path) as temporary_root:
         root = Path(temporary_root)
         _make_current_user_private(root, directory=True)
         history_root = root / "history"
@@ -647,11 +646,10 @@ def test_windows_developmental_history_record_and_receipt_recover_after_restart(
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows mutable checkpoint custody")
 def test_windows_resident_cognition_checkpoint_replaces_atomically_and_locks(
-        monkeypatch: pytest.MonkeyPatch) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from tempfile import TemporaryDirectory
 
-    with TemporaryDirectory(prefix=".resident-cognition-state-",
-            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+    with TemporaryDirectory(prefix=".resident-cognition-state-", dir=tmp_path) as temporary_root:
         root = Path(temporary_root)
         _make_current_user_private(root, directory=True)
         owner = object.__new__(ResidentDevelopmentalCognitionOwner)
@@ -689,7 +687,8 @@ def test_windows_resident_cognition_checkpoint_replaces_atomically_and_locks(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows admission ledger custody")
-def test_windows_runtime_admission_updates_are_locked_and_recover_after_restart() -> None:
+def test_windows_runtime_admission_updates_are_locked_and_recover_after_restart(
+        tmp_path: Path) -> None:
     from tempfile import TemporaryDirectory
 
     capability = "fixture.inert.windows_admission"
@@ -702,8 +701,7 @@ def test_windows_runtime_admission_updates_are_locked_and_recover_after_restart(
         approval_requirements=("operator_fixture_approval",),
         purpose="Inert Windows admission persistence test",
     )
-    with TemporaryDirectory(prefix=".runtime-admission-",
-            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+    with TemporaryDirectory(prefix=".runtime-admission-", dir=tmp_path) as temporary_root:
         root = Path(temporary_root)
         _make_current_user_private(root, directory=True)
         ledger = AdmissionLedger(root / "admissions.json")
@@ -732,14 +730,14 @@ def test_windows_runtime_admission_updates_are_locked_and_recover_after_restart(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows persistent cognition custody")
-def test_windows_resident_tick_recovers_and_applies_history_after_restart() -> None:
+def test_windows_resident_tick_recovers_and_applies_history_after_restart(
+        tmp_path: Path) -> None:
     from tempfile import TemporaryDirectory
     from tests.test_resident_developmental_cognition import FakeInvoker
     from tests.test_resident_developmental_cognition import owner as make_cognition_owner
     from tests.test_resident_developmental_cognition import snapshot
 
-    with TemporaryDirectory(prefix=".resident-cognition-loop-",
-            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+    with TemporaryDirectory(prefix=".resident-cognition-loop-", dir=tmp_path) as temporary_root:
         root = Path(temporary_root)
         _make_current_user_private(root, directory=True)
         history_root, state_root = root / "history", root / "state"
@@ -794,14 +792,13 @@ def test_windows_resident_tick_recovers_and_applies_history_after_restart() -> N
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows experiment artifact custody")
-def test_windows_history_comparison_recovers_protocol_and_outcome_run() -> None:
+def test_windows_history_comparison_recovers_protocol_and_outcome_run(tmp_path: Path) -> None:
     from tempfile import TemporaryDirectory
     from tests.test_resident_developmental_cognition import FakeInvoker
     from tests.test_resident_developmental_cognition import owner as make_cognition_owner
     from tests.test_resident_developmental_cognition import snapshot
 
-    with TemporaryDirectory(prefix=".resident-cognition-comparison-",
-            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+    with TemporaryDirectory(prefix=".resident-cognition-comparison-", dir=tmp_path) as temporary_root:
         root = Path(temporary_root)
         _make_current_user_private(root, directory=True)
         (root / "history").mkdir()
@@ -833,7 +830,7 @@ def test_windows_history_comparison_recovers_protocol_and_outcome_run() -> None:
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows objective artifact custody")
-def test_windows_objective_transfer_recovers_plan_scores_and_run() -> None:
+def test_windows_objective_transfer_recovers_plan_scores_and_run(tmp_path: Path) -> None:
     from tempfile import TemporaryDirectory
     from sentientos.developmental_model_replacement_experiment import ObjectivePredictionTask
     from tests.test_resident_developmental_cognition import FakeInvoker
@@ -845,8 +842,7 @@ def test_windows_objective_transfer_recovers_plan_scores_and_run() -> None:
         objective_task_for_request, stage_objective_request,
     )
 
-    with TemporaryDirectory(prefix=".resident-cognition-objective-",
-            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+    with TemporaryDirectory(prefix=".resident-cognition-objective-", dir=tmp_path) as temporary_root:
         root = Path(temporary_root)
         _make_current_user_private(root, directory=True)
         (root / "history").mkdir()
@@ -989,7 +985,7 @@ def test_windows_companion_state_lock_is_exclusive_and_reusable(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows epistemic custody")
-def test_windows_epistemic_correction_recovers_interrupted_transaction() -> None:
+def test_windows_epistemic_correction_recovers_interrupted_transaction(tmp_path: Path) -> None:
     from tempfile import TemporaryDirectory
     from sentientos.persistent_epistemic_state import (
         PersistentEpistemicStateOwner, semantic_packets_for_projection,
@@ -997,8 +993,7 @@ def test_windows_epistemic_correction_recovers_interrupted_transaction() -> None
     from tests.test_persistent_epistemic_state import binding, proposition
     from sentientos import persistent_epistemic_state as epistemic_module
 
-    with TemporaryDirectory(prefix=".resident-epistemic-state-",
-            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+    with TemporaryDirectory(prefix=".resident-epistemic-state-", dir=tmp_path) as temporary_root:
         root = Path(temporary_root)
         _make_current_user_private(root, directory=True)
         store_root = root / "epistemic"
@@ -1060,7 +1055,7 @@ def test_windows_epistemic_correction_recovers_interrupted_transaction() -> None
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows admitted epistemic mutation custody")
-def test_windows_admitted_epistemic_correction_recovers_its_receipt() -> None:
+def test_windows_admitted_epistemic_correction_recovers_its_receipt(tmp_path: Path) -> None:
     from tempfile import TemporaryDirectory
     from sentientos.codex_task_authority_admission import (
         AUTHORITY_DEFINITIONS, RESIDENT_EPISTEMIC_STATE_MUTATION,
@@ -1079,8 +1074,7 @@ def test_windows_admitted_epistemic_correction_recovers_its_receipt() -> None:
         AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
     )
 
-    with TemporaryDirectory(prefix=".resident-epistemic-admitted-",
-            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+    with TemporaryDirectory(prefix=".resident-epistemic-admitted-", dir=tmp_path) as temporary_root:
         root = Path(temporary_root)
         _make_current_user_private(root, directory=True)
         owner_root = root / "epistemic"
