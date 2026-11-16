@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import stat
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
@@ -294,10 +295,16 @@ def _rank_self_model_projection_claims(claims: Sequence[SelfModelClaim], *,
         if isinstance(relevance_query, str) else set())
     if not query_terms:
         return baseline, None
+    query_text = relevance_query.casefold() if isinstance(relevance_query, str) else ""
+    temporal_intent = ("current" if re.search(
+        r"\b(?:current|currently|now|latest|today)\b", query_text) else
+        "historical" if re.search(
+            r"\b(?:prior|previous|earlier|historical|history|past|former|formerly)\b",
+            query_text) else None)
     field_weights = (("predicate", 3), ("value", 2), ("temporal_scope", 2),
         ("subject_id", 2), ("subject_kind", 1), ("claim_category", 1),
         ("lifecycle_stage", 1), ("interpretation", 1))
-    scored: list[tuple[int, SelfModelClaim]] = []
+    scored: list[tuple[int, int, SelfModelClaim]] = []
     for claim in claims:
         term_weights: dict[str, int] = {}
         for field, weight in field_weights:
@@ -306,9 +313,16 @@ def _rank_self_model_projection_claims(claims: Sequence[SelfModelClaim], *,
                 ensure_ascii=False, default=str))
             for term in field_terms:
                 term_weights[term] = max(term_weights.get(term, 0), weight)
-        scored.append((sum(term_weights.values()), claim))
-    ranked = tuple(claim for _, claim in sorted(scored,
-        key=lambda row: (-row[0], row[1].predicate, row[1].claim_id)))
+        temporal_relevance = 0
+        if temporal_intent == "current":
+            temporal_relevance = (2 if claim.status == "current" else
+                1 if claim.status == "contradicted" else 0)
+        elif temporal_intent == "historical":
+            temporal_relevance = (2 if claim.status in {"historical", "withdrawn"}
+                or claim.freshness in {"superseded", "stale", "expired"} else 0)
+        scored.append((sum(term_weights.values()), temporal_relevance, claim))
+    ranked = tuple(claim for _, _, claim in sorted(scored,
+        key=lambda row: (-row[0], -row[1], row[2].predicate, row[2].claim_id)))
     if ranked[:max_claims] == baseline[:max_claims]:
         return baseline, None
     return ranked, _digest(relevance_query)

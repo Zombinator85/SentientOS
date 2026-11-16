@@ -78,6 +78,25 @@ def test_self_model_projection_query_prioritizes_matching_claim_before_bound(
     assert ranked[0] == alphabetical_first
     assert effective_query_digest is None
 
+    old_generation = replace(unrelated, claim_id="claim-a",
+        predicate="cognitive_model_identity", value="model-a", status="historical",
+        freshness="superseded", superseded_by=("claim-z",), supersedes=())
+    current_generation = replace(old_generation, claim_id="claim-z", value="model-b",
+        status="current", freshness="fresh", superseded_by=(),
+        supersedes=("claim-a",))
+    temporal_source = replace(source, claims=(old_generation, current_generation))
+    monkeypatch.setattr(owner, "_load", lambda: (temporal_source,))
+    current_projection = owner.cognitive_projection(before_tick="tick-later",
+        max_claims=1, allowed_predicates=("cognitive_model_identity",),
+        relevance_query="What is the current cognitive model identity?")
+    historical_projection = owner.cognitive_projection(before_tick="tick-later",
+        max_claims=1, allowed_predicates=("cognitive_model_identity",),
+        relevance_query="What was the previous cognitive model identity?")
+    assert current_projection is not None and current_projection.selected_claim_ids == (
+        current_generation.claim_id,)
+    assert historical_projection is not None and historical_projection.selected_claim_ids == (
+        old_generation.claim_id,)
+
 
 def record(*, source: str = "runtime:a", subject: str = "sentientos", disposition: str = "serving",
            observed: str = "2026-09-25T11:59:00Z", model: str = "model-a", generation: str = "software-a",
@@ -350,6 +369,7 @@ def test_generation_and_model_transition_preserves_historical_claims(tmp_path: P
     new = [claim for claim in second.claims if claim.value in {"model-b", "software-b"}]
     assert old and all(claim.status == "historical" and claim.superseded_by for claim in old)
     assert new and all(claim.status == "current" and claim.supersedes for claim in new)
+
 
 
 def test_multigeneration_lineage_preserves_terminal_claim_links(tmp_path: Path) -> None:
