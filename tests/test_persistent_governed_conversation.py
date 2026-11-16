@@ -481,6 +481,111 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert seen_contexts[1] is None
 
 
+def test_verified_epistemic_citation_survives_restart_and_changes_followup_projection(
+        tmp_path: Path) -> None:
+    from tests.test_resident_developmental_cognition import (
+        FakeInvoker as CognitionFakeInvoker, owner as cognition_owner,
+    )
+    from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+    from sentientos.persistent_epistemic_state import (
+        PersistentEpistemicStateOwner, make_proposition,
+    )
+
+    now = datetime.now(timezone.utc)
+    screen = {"modality": "screen", "text": "The neutral test scene is visible.",
+        "capture_digest": "f" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False,
+        "text_change_kind": "initial", "previous_text_digest": None}
+    cognition_invoker = CognitionFakeInvoker()
+    cognition, _ = cognition_owner(tmp_path / "cognition", invoker=cognition_invoker,
+        allowed_source_kinds=("embodiment",))
+    epistemics = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("embodiment",))
+    propositions = (
+        make_proposition(namespace="embodiment", subject="sensor:west",
+            predicate="reports_measurement", object_value="stable reading",
+            polarity="positive", qualifiers={}, temporal_scope={"window": "prior"},
+            context_scope={"facility": "west facility"},
+            proposition_class="descriptive",
+            statement="The west sensor reports a stable reading."),
+        make_proposition(namespace="embodiment", subject="design:launch",
+            predicate="has_status", object_value="delayed", polarity="positive",
+            qualifiers={}, temporal_scope={}, context_scope={},
+            proposition_class="descriptive", statement="The launch is delayed."),
+    )
+    states = {}
+    for tick, proposition in enumerate(propositions, start=1):
+        epistemics.register_proposition(proposition)
+        state, _ = epistemics.commit_update(
+            proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(),
+            correlation_id=f"restart-citation:{tick}", tick=tick,
+            recorded_at=f"2026-01-01T00:00:0{tick}Z")
+        states[proposition.proposition_id] = state
+    target = max(propositions, key=lambda item: item.proposition_id)
+    other = next(item for item in propositions if item.proposition_id != target.proposition_id)
+    target_state = states[target.proposition_id]
+    target_question = ("What does the west sensor report?" if target.subject == "sensor:west"
+        else "What is the launch status?")
+    ep_config = {"cognitive_consumption_enabled": True,
+        "max_cognitive_projection_count": 1}
+
+    first_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
+        cognition_bridge=ResidentDevelopmentalCompanionBridge(cognition,
+            epistemic_state_owner=epistemics,
+            epistemic_state_config=ep_config, clock=lambda: now))
+    session_id = first_app.create_session()
+    first_app.chat(target_question, session_id=session_id,
+        request_id="citation-source-turn", observe_screen=True)
+    first_turns = first_app.sessions.load(session_id)["turns"]
+    assert first_turns[-1]["linkage"][
+        "cognition_epistemic_state_citation_ids"] == [target_state.state_id]
+
+    # Reopen both durable owners before the follow-up consumes the cited state.
+    restarted_invoker = CognitionFakeInvoker()
+    restarted_cognition, _ = cognition_owner(tmp_path / "cognition",
+        invoker=restarted_invoker, allowed_source_kinds=("embodiment",))
+    restarted_epistemics = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("embodiment",))
+    restarted_bridge = ResidentDevelopmentalCompanionBridge(restarted_cognition,
+        epistemic_state_owner=restarted_epistemics,
+        epistemic_state_config=ep_config, clock=lambda: now)
+    source_linkage = first_turns[-1]["linkage"]
+    source_observation = restarted_cognition.verified_cognition_observation(
+        source_linkage["cognition_observation_id"],
+        source_linkage["cognition_observation_digest"])
+    assert source_observation["companion_epistemic_state_citation_ids"] == [
+        target_state.state_id]
+    assert restarted_bridge.verify_committed_response(
+        linkage=source_linkage, response_text=first_turns[-1]["text"],
+        request_id=f"{session_id}:{source_linkage['source_user_turn_id']}")
+    restarted_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
+        cognition_bridge=restarted_bridge)
+    followup_question = "And what should I consider now?"
+    restarted_app.chat(followup_question, session_id=session_id,
+        request_id="citation-followup-turn", observe_screen=True)
+    followup_request = next(request for request in reversed(restarted_invoker.requests)
+        if request.upstream_evidence.get("epistemic_projection_id") is not None)
+
+    control_session_id = restarted_app.create_session()
+    control_request_start = len(restarted_invoker.requests)
+    restarted_app.chat(followup_question, session_id=control_session_id,
+        request_id="citation-followup-control", observe_screen=True)
+    control_request = next(request for request in reversed(
+        restarted_invoker.requests[control_request_start:])
+        if request.upstream_evidence.get("epistemic_projection_id") is not None
+    )
+
+    assert followup_request.upstream_evidence["epistemic_proposition_ids"] == [
+        target.proposition_id]
+    assert followup_request.upstream_evidence["epistemic_state_ids"] == [
+        target_state.state_id]
+    assert control_request.upstream_evidence["epistemic_proposition_ids"] == [
+        other.proposition_id]
+
+
 def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
         tmp_path: Path) -> None:
     retained_texts = ("I prefer concise answers.", "I prefer detailed answers.")

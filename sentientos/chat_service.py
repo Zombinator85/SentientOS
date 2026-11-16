@@ -2455,7 +2455,9 @@ class PersistentConversationService:
                 "cognition_epistemic_state_citation_ids": list(
                     epistemic_state_citation_ids),
                 "cognition_memory_selection_digest": memory_selection_digest,
-                "conversation_context_snapshot_digest": history.snapshot_digest,
+                "conversation_context_snapshot_digest": (
+                    conversation_context.get("source_snapshot_digest")
+                    if conversation_context is not None else None),
                 "conversation_context_selection_digest": (
                     conversation_context.get("selection_digest")
                     if conversation_context is not None else None),

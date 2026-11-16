@@ -3725,7 +3725,8 @@ def _validate_epistemic_observation_binding(value: Mapping[str, Any]) -> None:
                 or value.get("epistemic_projection_present") is not True):
             raise ResidentDevelopmentalCognitionError("cognition_epistemic_legacy_binding_invalid")
     elif schema in {"sentientos.epistemic_cognitive_projection:v2",
-            "sentientos.epistemic_cognitive_projection:v3"}:
+                "sentientos.epistemic_cognitive_projection:v3",
+                "sentientos.epistemic_cognitive_projection:v4"}:
         if (status not in {"all_meanings_delivered",
                 "complete_packets_selected_with_budget_omissions"}
                 or (status == "all_meanings_delivered" and omitted)
