@@ -2767,6 +2767,7 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                                 "record_digest": packet["record_digest"],
                                 **dict(report)})
                 prompt_packets.append(prompt_packet)
+            prompt_packets = _withhold_conflicting_task_family_examples(prompt_packets)
             candidate = {**dict(context), "developmental_history": prompt_packets,
                 "historical_embodiment_reports": historical_embodiment_reports,
                 "developmental_history_selection": prompt_selection}
@@ -2810,6 +2811,53 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
             "history_context_budget_attempts": budget_attempts})
 
 
+def _withhold_conflicting_task_family_examples(
+        packets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Remove same-probe, different-answer examples across selected history."""
+    groups: dict[str, list[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]]] = {}
+    for packet in packets:
+        for experience in packet.get("task_relevant_experience", ()):
+            if not isinstance(experience, dict):
+                continue
+            for example in experience.get("examples", ()):
+                if (not isinstance(example, dict) or "probe_input" not in example
+                        or example.get("evaluator_correct") is not True):
+                    continue
+                probe_key = json.dumps(example["probe_input"], sort_keys=True,
+                    separators=(",", ":"), ensure_ascii=False)
+                groups.setdefault(probe_key, []).append((packet, experience, example))
+    conflicts = {key: rows for key, rows in groups.items()
+        if len({_digest(row[2].get("observed_answer")) for row in rows}) > 1}
+    if not conflicts:
+        return packets
+    for packet in packets:
+        for experience in packet.get("task_relevant_experience", ()):
+            examples = experience.get("examples", ())
+            removed = [row for row in examples if isinstance(row, dict)
+                and row.get("evaluator_correct") is True
+                and json.dumps(row.get("probe_input"), sort_keys=True,
+                    separators=(",", ":"), ensure_ascii=False) in conflicts]
+            if not removed:
+                continue
+            experience["examples"] = [row for row in examples if row not in removed]
+            evidence = [{
+                "record_id": packet.get("record_id"),
+                "record_digest": packet.get("record_digest"),
+                "source_fact_id": experience.get("source_fact_id"),
+                "source_task_digest": experience.get("source_task_digest"),
+                "probe_digest": _digest(row.get("probe_input")),
+                "answer_digest": _digest(row.get("observed_answer")),
+            } for row in removed]
+            experience["conflicting_examples_omission"] = {
+                "posture": "conflicting_evaluator_correct_answers_withheld",
+                "example_count": len(removed),
+                "examples_digest": _digest(evidence),
+                "source_task_digests": sorted({str(item["source_task_digest"])
+                    for item in evidence if item["source_task_digest"]}),
+            }
+    return packets
+
+
 def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         condition_id: str, task_family_id: str) -> dict[str, Any]:
     """Record digest-only evidence of task-family examples in the bound prompt."""
@@ -2824,6 +2872,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
     entries: list[dict[str, Any]] = []
     withheld_adverse_examples: list[dict[str, Any]] = []
     withheld_non_correct_examples: list[dict[str, Any]] = []
+    withheld_conflicting_examples: list[dict[str, Any]] = []
     for packet in history:
         if not isinstance(packet, Mapping):
             raise ResidentDevelopmentalCognitionError(
@@ -2852,7 +2901,8 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
             for omission_key, target in (
                     ("adverse_examples_omission", withheld_adverse_examples),
                     ("non_evaluator_correct_examples_omission",
-                        withheld_non_correct_examples)):
+                        withheld_non_correct_examples),
+                    ("conflicting_examples_omission", withheld_conflicting_examples)):
                 omission = experience.get(omission_key)
                 if isinstance(omission, Mapping):
                     target.append({
@@ -2868,6 +2918,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                         "evaluator_incorrect_count": omission.get("evaluator_incorrect_count"),
                         "evaluator_correctness_unavailable_count": omission.get(
                             "evaluator_correctness_unavailable_count"),
+                        "source_task_digests": omission.get("source_task_digests"),
                     })
         entries.append({
             "record_id": packet["record_id"],
@@ -2882,7 +2933,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 example.get("evaluator_correct") is False for example in example_rows),
         })
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v4",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v5",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",
@@ -2896,6 +2947,9 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         "withheld_non_evaluator_correct_example_count": sum(
             item["example_count"] for item in withheld_non_correct_examples),
         "withheld_non_evaluator_correct_examples": withheld_non_correct_examples,
+        "withheld_conflicting_example_count": sum(
+            item["example_count"] for item in withheld_conflicting_examples),
+        "withheld_conflicting_examples": withheld_conflicting_examples,
         "historical_only": True,
         "current_truth": False,
         "authority": False,

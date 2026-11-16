@@ -2343,6 +2343,51 @@ def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
         target_model_identity=other_identity, task_probe_inputs={2}) == (3, 1, 1)
 
 
+def test_selected_task_family_history_withholds_cross_suite_conflicts() -> None:
+    from copy import deepcopy
+    from sentientos.resident_developmental_cognition import (
+        _task_family_history_prompt_projection,
+        _withhold_conflicting_task_family_examples,
+    )
+
+    packets = [{
+        "record_id": "record-a", "record_digest": "digest-a",
+        "task_relevant_experience": [{"source_fact_id": "fact-a",
+            "source_task_digest": "task-a", "examples": [
+                {"probe_input": 7, "observed_answer": 23, "evaluator_correct": True},
+                {"probe_input": 8, "observed_answer": 26, "evaluator_correct": True},
+            ]}],
+    }, {
+        "record_id": "record-b", "record_digest": "digest-b",
+        "task_relevant_experience": [{"source_fact_id": "fact-b",
+            "source_task_digest": "task-b", "examples": [
+                {"probe_input": 7, "observed_answer": 29, "evaluator_correct": True},
+            ]}],
+    }]
+    durable_prompt_inputs = deepcopy(packets)
+    selected = _withhold_conflicting_task_family_examples(packets)
+    assert durable_prompt_inputs[0]["task_relevant_experience"][0]["examples"][0][
+        "observed_answer"] == 23
+    assert [row["probe_input"] for row in
+        selected[0]["task_relevant_experience"][0]["examples"]] == [8]
+    assert selected[1]["task_relevant_experience"][0]["examples"] == []
+    serialized = json.dumps(selected, sort_keys=True)
+    assert "23" not in serialized and "29" not in serialized
+
+    projection = _task_family_history_prompt_projection({
+        "developmental_history": selected}, condition_id="history_present",
+        task_family_id="integer_affine_prediction")
+    assert projection["task_relevant_example_count"] == 1
+    assert projection["withheld_conflicting_example_count"] == 2
+    omissions = projection["withheld_conflicting_examples"]
+    assert {item["record_id"] for item in omissions} == {"record-a", "record-b"}
+    assert {digest for item in omissions for digest in item["source_task_digests"]} == {
+        "task-a", "task-b"}
+    assert all("observed_answer" not in item for item in omissions)
+    assert projection["authority"] is False
+    assert projection["current_truth"] is False
+
+
 class RootlessHistoryFakeInvoker(FakeInvoker):
     """Fixture for development-only, receipt-bound calls without a serving session."""
 
