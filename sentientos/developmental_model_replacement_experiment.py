@@ -1545,7 +1545,8 @@ class ModelReplacementArtifactStore:
                         and evaluation_digests == score_digests
                         and first_signature.get("schema_version") in {
                             "sentientos.objective_task_score:v3",
-                            "sentientos.objective_task_score:v4"}
+                            "sentientos.objective_task_score:v4",
+                            "sentientos.objective_task_score:v5"}
                         and valid_score_digest(first_signature.get("plan_digest"))
                         and valid_score_digest(first_signature.get("task_digest"))
                         and first_signature.get("evaluator") ==
@@ -1901,13 +1902,19 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
         answer = None
     family_suite = task.get("schema_version") in {FAMILY_TASK_SCHEMA_V3,
         FAMILY_TASK_SCHEMA_V4}
+    if selective_family_suite and isinstance(answer, list) and any(
+            item is None for item in answer):
+        # A selective result contains evaluator-unknown probes. Keep those
+        # separate from known incorrect answers in the aggregate posture.
+        status, correct = "selective", None
     semantic = {"schema_version": ("sentientos.objective_task_score:v3" if family_suite
             else "sentientos.objective_task_score:v2"),
         "plan_digest": plan["plan_digest"],
         "task_digest": plan["task_descriptor"]["task_digest"],
         "output_digest": output_digest,
         "output_retention_posture": (
-            "live_bytes_digest_verified_not_retained" if status in {"correct", "incorrect"}
+            "live_bytes_digest_verified_not_retained" if status in {
+                "correct", "incorrect", "selective"}
             else "live_bytes_invalid_answer_not_retained" if status == "invalid_answer"
             else "output_bytes_truncated_before_scoring" if status == "output_truncated"
             else "output_bytes_unavailable"),
@@ -1920,9 +1927,9 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
         if status in {"output_unavailable", "output_truncated"}:
             semantic["correct_count"] = None
     if selective_family_suite:
-        semantic["schema_version"] = "sentientos.objective_task_score:v4"
+        semantic["schema_version"] = "sentientos.objective_task_score:v5"
         semantic["answered_count"] = (sum(type(item) is int for item in answer)
-            if isinstance(answer, list) and status in {"correct", "incorrect"} else None)
+            if isinstance(answer, list) and status in {"correct", "incorrect", "selective"} else None)
         semantic["abstained_count"] = (len(answer) - semantic["answered_count"]
             if isinstance(answer, list) and semantic["answered_count"] is not None else None)
     if family_suite:
@@ -1933,8 +1940,24 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
             "correct": (actual == target if type(actual) is int else None),
             **({"abstained": True} if selective_family_suite and actual is None else {})}
             for probe, actual, target in zip(probes, answer_values, expected)]
-            if status in {"correct", "incorrect"} else [])
+            if status in {"correct", "incorrect", "selective"} else [])
     return {**semantic, "score_digest": _digest(semantic)}
+
+
+def _objective_score_v4_legacy(plan: Mapping[str, Any], output: object,
+        output_digest: object, *, output_truncated: bool = False) -> dict[str, Any]:
+    """Recompute historical v4 selective scores with their original aggregate semantics."""
+    current = _objective_score(plan, output, output_digest,
+        output_truncated=output_truncated)
+    semantic = {key: value for key, value in current.items() if key != "score_digest"}
+    if semantic.get("schema_version") != "sentientos.objective_task_score:v5":
+        return current
+    semantic["schema_version"] = "sentientos.objective_task_score:v4"
+    if semantic.get("status") == "selective":
+        semantic["status"] = "incorrect"
+        semantic["correct"] = False
+    semantic["score_digest"] = _digest(semantic)
+    return semantic
 
 
 def _objective_score_legacy(plan: Mapping[str, Any], output: object,
@@ -2000,12 +2023,13 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
         expected_fields.add("probe_results")
     if selective_family_suite:
         expected_fields |= {"answered_count", "abstained_count"}
-    expected_score_schema = ("sentientos.objective_task_score:v4"
+    expected_score_schemas = ({"sentientos.objective_task_score:v4",
+            "sentientos.objective_task_score:v5"}
         if selective_family_suite else
-        "sentientos.objective_task_score:v3" if family_suite else
-        "sentientos.objective_task_score:v2")
+        {"sentientos.objective_task_score:v3"} if family_suite else
+        {"sentientos.objective_task_score:v2"})
     if (set(value) != expected_fields
-            or value.get("schema_version") != expected_score_schema
+            or value.get("schema_version") not in expected_score_schemas
             or value.get("plan_digest") != plan.get("plan_digest")
             or value.get("task_digest") != plan.get("task_descriptor", {}).get("task_digest")
             or value.get("evaluator") != ("deterministic_exact_integer_suite_oracle_v2"
@@ -2014,7 +2038,7 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
                 if key != "score_digest"})):
         raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
     status = value.get("status")
-    if status in {"correct", "incorrect"}:
+    if status in {"correct", "incorrect", "selective"}:
         if output_truncated or value.get("output_digest") != expected_output_digest:
             raise DevelopmentalModelReplacementError("objective_score_output_digest_mismatch")
         answer_key = "answers" if is_suite else "answer"
@@ -2026,7 +2050,10 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
             # canonical serialization has a different digest whenever the live
             # response contains harmless whitespace.
             canonical_digest = _digest({"output": canonical_output})
-            expected = _objective_score(plan, canonical_output, canonical_digest)
+            scorer = (_objective_score_v4_legacy
+                if value.get("schema_version") == "sentientos.objective_task_score:v4"
+                else _objective_score)
+            expected = scorer(plan, canonical_output, canonical_digest)
         except (TypeError, ValueError) as exc:
             raise DevelopmentalModelReplacementError("objective_score_answer_invalid") from exc
         expected["output_digest"] = expected_output_digest
@@ -2046,7 +2073,10 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
     elif status == "output_unavailable":
         if output_truncated:
             raise DevelopmentalModelReplacementError("objective_score_truncation_binding_invalid")
-        expected = _objective_score(plan, None, expected_output_digest)
+        scorer = (_objective_score_v4_legacy
+            if value.get("schema_version") == "sentientos.objective_task_score:v4"
+            else _objective_score)
+        expected = scorer(plan, None, expected_output_digest)
         if value != expected:
             raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
     elif status == "output_truncated":
@@ -2063,8 +2093,25 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
 
 def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     scores = [item["objective_task_score"] for item in observations]
-    correctness = [score["correct"] for score in scores]
+    correctness = [score.get("correct") for score in scores]
     complete = len(scores) == 5 and all(type(value) is bool for value in correctness)
+    family_suite = plan["task"].get("schema_version") in {
+        "sentientos.affine_prediction_task_suite:v2",
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
+    selective_task = plan["task"].get("schema_version") == FAMILY_TASK_SCHEMA_V4
+    probe_count = len(plan["task"].get("probe_inputs", ())) if family_suite else 0
+    selective_scoreable = (selective_task and len(scores) == 5 and probe_count > 0
+        and all(score.get("schema_version") == "sentientos.objective_task_score:v5"
+            and score.get("status") in {"correct", "incorrect", "selective"}
+            and type(score.get("correct_count")) is int
+            and type(score.get("answered_count")) is int
+            and type(score.get("abstained_count")) is int
+            and score["answered_count"] + score["abstained_count"] == probe_count
+            and 0 <= score["correct_count"] <= score["answered_count"] <= probe_count
+            and (score.get("status") == "selective")
+                == (score["abstained_count"] > 0)
+            and (score.get("correct") is None) == (score["abstained_count"] > 0)
+            for score in scores))
     evaluation = {"plan_digest": plan["plan_digest"],
         "condition_score_digests": [score["score_digest"] for score in scores],
         "model_a_history_accuracy_delta": int(correctness[0]) - int(correctness[1]) if complete else None,
@@ -2073,15 +2120,12 @@ def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mappin
         "assessment": ("unscoreable_truncated_output" if any(
             score.get("status") == "output_truncated" for score in scores) else
             "preregistered_probe_suite_scored"
-            if complete and plan["task"].get("schema_version") in {
-                "sentientos.affine_prediction_task_suite:v2",
-                FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
+            if family_suite and (complete or selective_scoreable)
             else "single_preregistered_task_scored" if complete
             else "unscoreable_missing_output"),
         "scope": "task_correctness_not_general_learning_or_weight_change",
         "model_behavior_posture": "endpoint_execution_receipts_not_independent_model_attestation"}
-    if plan["task"].get("schema_version") in {"sentientos.affine_prediction_task_suite:v2",
-            FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}:
+    if family_suite:
         counts = [score.get("correct_count") for score in scores]
         count_complete = len(counts) == 5 and all(type(value) is int for value in counts)
         evaluation.update({
@@ -2090,8 +2134,7 @@ def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mappin
             "model_b_history_correct_probe_delta": counts[2] - counts[3] if count_complete else None,
             "restoration_correct_probe_delta": counts[0] - counts[4] if count_complete else None,
         })
-    if plan["task"].get("schema_version") == FAMILY_TASK_SCHEMA_V4:
-        probe_count = len(plan["task"]["probe_inputs"])
+    if selective_task:
         answered = [score.get("answered_count") for score in scores]
         abstained = [score.get("abstained_count") for score in scores]
         answered_complete = len(answered) == 5 and all(

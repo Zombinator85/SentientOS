@@ -2807,7 +2807,7 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     abstention_payload = abstention_fact["payload"]
     abstention_score = next(item for item in abstention_payload["objective_scores"]
         if item["condition_id"] == "history_present")
-    assert abstention_score["schema_version"] == "sentientos.objective_task_score:v4"
+    assert abstention_score["schema_version"] == "sentientos.objective_task_score:v5"
     abstention_score["status"] = "incorrect"
     abstention_score["correct"] = False
     abstention_score["correct_count"] -= 1
@@ -3202,7 +3202,7 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         == "deterministic_exact_integer_suite_oracle_v2"
         for row in prior_task_run["objective_scores"])
     assert all(isinstance(row["score"]["score_digest"], str)
-        and row["score"]["status"] in {"correct", "incorrect", "invalid_answer",
+        and row["score"]["status"] in {"correct", "incorrect", "selective", "invalid_answer",
             "output_unavailable", "output_truncated"}
         for row in prior_task_run["objective_scores"])
     heldout_task_digest = heldout_task.public_descriptor()["task_digest"]

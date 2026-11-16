@@ -92,8 +92,14 @@ application and subsequent performance effects remain unverified.
 New task-family trials use the v4 selective-answer contract. Each probe accepts
 an integer answer or `null` abstention; evaluator correctness and abstention
 are recorded separately, with coverage and accuracy among answered probes
-reported independently. Abstentions have unknown evaluator correctness, so
-they are never positive mapping guidance or negative answer feedback. A
+reported independently. New score records use
+`sentientos.objective_task_score:v5`: when any probe is unanswered, the
+aggregate status is `selective` and aggregate correctness is unknown. Per-probe
+correctness and exact correct-answer counts remain scoreable, so history
+comparison can measure correct answers without counting abstentions as wrong.
+Recovered v4 score records retain their historical aggregate semantics.
+Abstentions have unknown evaluator correctness, so they are never positive
+mapping guidance or negative answer feedback. A
 score-bound v4 abstention is retained separately as a historical decision with
 unknown correctness and no recorded reason. It can make a same-family record
 retrievable for an overlapping probe at zero outcome priority, and appears in a

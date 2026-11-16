@@ -1470,7 +1470,7 @@ def _objective_family_acquisition_readiness(run_payload: Mapping[str, Any]) -> d
         "classification": ("complete_typed_acquisition_examples"
             if eligible else "acquisition_output_not_eligible_for_task_family_history"),
         "score_status": status if status in {
-            "correct", "incorrect", "invalid_answer", "output_truncated",
+            "correct", "incorrect", "selective", "invalid_answer", "output_truncated",
             "output_unavailable"} else "unknown",
         "probe_result_count": len(results) if isinstance(results, list) else 0,
         "required_probe_count": required,

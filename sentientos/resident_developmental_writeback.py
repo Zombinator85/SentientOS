@@ -513,7 +513,7 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
                 and isinstance(row.get("score_digest"), str)
                 and len(row["score_digest"]) == 71
                 and row["score_digest"].startswith("sha256:")
-                and row.get("status") in {"correct", "incorrect", "invalid_answer"}
+                and row.get("status") in {"correct", "incorrect", "selective", "invalid_answer"}
                 for row in scores)):
         return False
     history_score = next((row for row in scores if isinstance(row, Mapping)
@@ -521,7 +521,8 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
     if not (isinstance(history_score, Mapping)
             and history_score.get("schema_version") in {
                 "sentientos.objective_task_score:v3",
-                "sentientos.objective_task_score:v4"}
+                "sentientos.objective_task_score:v4",
+                "sentientos.objective_task_score:v5"}
             and history_score.get("evaluator") == "deterministic_exact_integer_suite_oracle_v2"
             and history_score.get("task_digest") == descriptor.get("task_digest")
             and isinstance(history_score.get("plan_digest"), str)
@@ -632,7 +633,8 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
 
     # Historical examples must be tied to the exact evaluator-scored present
     # condition, rather than being arbitrary content under the expanded cap.
-    if history_score.get("schema_version") == "sentientos.objective_task_score:v4":
+    if history_score.get("schema_version") in {
+            "sentientos.objective_task_score:v4", "sentientos.objective_task_score:v5"}:
         if (type(history_score.get("answered_count")) is not int
                 or type(history_score.get("abstained_count")) is not int
                 or history_score["answered_count"] + history_score["abstained_count"]
@@ -642,7 +644,9 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
             or type(example.get("probe_input")) is not int
             or not (type(example.get("observed_answer")) is int
                 and type(example.get("evaluator_correct")) is bool
-                or history_score.get("schema_version") == "sentientos.objective_task_score:v4"
+                or history_score.get("schema_version") in {
+                    "sentientos.objective_task_score:v4",
+                    "sentientos.objective_task_score:v5"}
                     and example.get("observed_answer") is None
                     and example.get("evaluator_correct") is None)
             or example.get("source_score_digest") != history_score.get("score_digest")
@@ -1287,7 +1291,8 @@ def _model_replacement_interpretation_projection(
                 and valid_contract_digest(semantic.get("task_digest"))
                 and semantic.get("score_schema_version") in {
                     "sentientos.objective_task_score:v3",
-                    "sentientos.objective_task_score:v4"}
+                    "sentientos.objective_task_score:v4",
+                    "sentientos.objective_task_score:v5"}
                 and semantic.get("evaluator") in {
                     "deterministic_exact_integer_oracle_v1",
                     "deterministic_exact_integer_suite_oracle_v2"}
@@ -1525,12 +1530,14 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                 score_semantics_valid = (
                     (score_status == "correct" and correct is True)
                     or (score_status in {"incorrect", "invalid_answer"} and correct is False)
+                    or (score_status == "selective" and correct is None
+                        and type(count) is int and type(probes) is int and count < probes)
                     or (score_status in {"output_unavailable", "output_truncated"}
                         and correct is None))
                 if score_semantics_valid and count is not None:
                     score_semantics_valid = (
                         (score_status == "correct" and count == probes)
-                        or (score_status in {"incorrect", "invalid_answer"}
+                        or (score_status in {"incorrect", "invalid_answer", "selective"}
                             and count < probes)
                         or (score_status in {"output_unavailable", "output_truncated"}
                             and count == 0))
@@ -1890,8 +1897,9 @@ def _developmental_history_interpretation_projection(
                     "probe_count": item.get("probe_count"),
                     **({"answered_count": item.get("answered_count"),
                         "abstained_count": item.get("abstained_count")}
-                        if item.get("schema_version") ==
-                            "sentientos.objective_task_score:v4" else {})}
+                        if item.get("schema_version") in {
+                            "sentientos.objective_task_score:v4",
+                            "sentientos.objective_task_score:v5"} else {})}
                     if "correct_count" in item else {}),
             })
     history_summary = original.get("history_intervention_summary")
@@ -2089,7 +2097,8 @@ def _developmental_history_interpretation_projection(
                     for key in lineage_fields)
                     or history_score.get("schema_version") not in {
                         "sentientos.objective_task_score:v3",
-                        "sentientos.objective_task_score:v4"}
+                        "sentientos.objective_task_score:v4",
+                        "sentientos.objective_task_score:v5"}
                     or history_score.get("evaluator") !=
                         "deterministic_exact_integer_suite_oracle_v2"
                     or history_score.get("task_digest") != descriptor.get("task_digest")
@@ -2120,7 +2129,9 @@ def _developmental_history_interpretation_projection(
                 and result.get("abstained") is True
                 and result.get("observed_answer") is None
                 and result.get("correct") is None
-                and history_score.get("schema_version") == "sentientos.objective_task_score:v4")
+                and history_score.get("schema_version") in {
+                    "sentientos.objective_task_score:v4",
+                    "sentientos.objective_task_score:v5"})
             answered = (isinstance(result, Mapping)
                 and type(result.get("observed_answer")) is int
                 and type(result.get("correct")) is bool)

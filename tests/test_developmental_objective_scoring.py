@@ -13,6 +13,7 @@ from sentientos.developmental_model_replacement_experiment import (
     DevelopmentalModelReplacementError, DevelopmentalModelReplacementExperiment,
     FrozenCausalContext, ModelReplacementArtifactStore, ObjectivePredictionTask,
     _objective_evaluation, _objective_score, _objective_score_legacy,
+    _objective_score_v4_legacy,
     _verify_objective_score,
 )
 from tests.test_developmental_model_replacement_experiment import FakeEndpoint, context, digest, identity
@@ -191,7 +192,7 @@ def test_family_acquisition_discloses_only_explicit_synthetic_training_evidence(
     transfer_descriptor = transfer.public_descriptor()
     assert "synthetic_training_observations" not in transfer_descriptor
     assert "training_evidence_provenance" not in transfer_descriptor
-    assert "same-family evaluator-scored history examples" in transfer_descriptor["question"]
+    assert "same-family evaluator-scored history;" in transfer_descriptor["question"]
 
 
 def test_public_task_commitments_do_not_hash_low_entropy_oracle_inputs(tmp_path):
@@ -586,7 +587,8 @@ def test_selective_family_prediction_abstains_without_history_and_uses_supported
         "task_descriptor": {"task_digest": digest({"task": task_spec})}}
     supported_output = json.dumps({"answers": [23, 26, 29]}, separators=(",", ":"))
     abstaining_output = json.dumps({"answers": [None, None, None]}, separators=(",", ":"))
-    outputs = [supported_output, abstaining_output, supported_output,
+    partial_output = json.dumps({"answers": [23, 999, None]}, separators=(",", ":"))
+    outputs = [supported_output, abstaining_output, partial_output,
         abstaining_output, supported_output]
     scores = []
     for output in outputs:
@@ -598,18 +600,59 @@ def test_selective_family_prediction_abstains_without_history_and_uses_supported
         [{"objective_task_score": score} for score in scores])
     assert evaluation["selective_metrics_posture"] == (
         "per_probe_abstention_scored_separately_from_correctness")
-    assert evaluation["condition_answered_counts"] == [3, 0, 3, 0, 3]
-    assert evaluation["condition_abstained_counts"] == [0, 3, 0, 3, 0]
-    assert evaluation["condition_coverage"] == [1.0, 0.0, 1.0, 0.0, 1.0]
-    assert evaluation["condition_selective_accuracy"] == [1.0, None, 1.0, None, 1.0]
+    assert evaluation["assessment"] == "preregistered_probe_suite_scored"
+    assert evaluation["model_a_history_accuracy_delta"] is None
+    assert evaluation["model_b_history_correct_probe_delta"] == 1
+    assert evaluation["condition_answered_counts"] == [3, 0, 2, 0, 3]
+    assert evaluation["condition_abstained_counts"] == [0, 3, 1, 3, 0]
+    assert evaluation["condition_coverage"] == [1.0, 0.0, 2 / 3, 0.0, 1.0]
+    assert evaluation["condition_selective_accuracy"] == [1.0, None, 0.5, None, 1.0]
     no_history = scores[1]
     history = scores[0]
-    assert no_history["schema_version"] == "sentientos.objective_task_score:v4"
+    assert no_history["schema_version"] == "sentientos.objective_task_score:v5"
+    assert no_history["status"] == "selective" and no_history["correct"] is None
     assert no_history["probe_results"] == [
         {"probe_input": probe, "observed_answer": None, "correct": None,
             "abstained": True} for probe in (7, 8, 9)]
     assert no_history["correct_count"] == 0
     assert history["answered_count"] == 3 and history["abstained_count"] == 0
+    partial = scores[2]
+    assert partial["status"] == "selective" and partial["correct"] is None
+    assert partial["correct_count"] == 1
+    assert partial["answered_count"] == 2 and partial["abstained_count"] == 1
+    assert [row["correct"] for row in partial["probe_results"]] == [True, False, None]
+    assert partial["probe_results"][2]["abstained"] is True
+    assert _verify_objective_score(plan, partial, partial["output_digest"]) == partial
+    legacy_v4 = _objective_score_v4_legacy(plan, abstaining_output,
+        digest({"output": abstaining_output}))
+    assert legacy_v4["schema_version"] == "sentientos.objective_task_score:v4"
+    assert legacy_v4["status"] == "incorrect" and legacy_v4["correct"] is False
+    assert _verify_objective_score(plan, legacy_v4,
+        legacy_v4["output_digest"]) == legacy_v4
+    from sentientos.resident_developmental_cognition import _controlled_task_history_effect
+    conditions = ("history_present", "history_withheld", "history_restored")
+    effect_scores = (partial, history, partial)
+    outcomes = [{
+        "condition_id": condition,
+        "score_schema_version": score["schema_version"],
+        "score_status": score["status"],
+        "score_correct": score["correct"],
+        "evaluator": score["evaluator"],
+        "correct_count": score["correct_count"],
+        "probe_count": score["probe_count"],
+        "answered_count": score["answered_count"],
+        "abstained_count": score["abstained_count"],
+        "score_digest": score["score_digest"],
+        "inference_receipt_id": "receipt-" + condition,
+        "inference_receipt_digest": digest({"receipt": condition}),
+        "historical_only": True, "current_truth": False, "authority": False,
+    } for condition, score in zip(conditions, effect_scores)]
+    effect = _controlled_task_history_effect(outcomes,
+        task_family_id="selective-family",
+        task_digest=plan["task_descriptor"]["task_digest"])
+    assert effect["posture"] == "complete_comparable_condition_scores"
+    assert effect["effect_classification"] == "history_adverse"
+    assert effect["restored_matches_present_score"] is True
     from sentientos.resident_developmental_cognition import _task_family_guidance_examples
     guidance, prior_errors, prior_abstentions, omission = _task_family_guidance_examples(
         [{"probe_input": row["probe_input"],

@@ -291,6 +291,38 @@ def test_scored_campaign_freezes_objective_before_execution_and_summarizes_score
     assert report["objective_evaluation"]["independence_or_improvement_claimed"] is False
 
 
+def test_selective_family_campaign_keeps_probe_and_abstention_totals(tmp_path: Path) -> None:
+    class SelectiveEndpoint(FakeEndpoint):
+        def infer(self, **kwargs: Any) -> Mapping[str, Any]:
+            result = dict(super().infer(**kwargs))
+            if "objective_task_plan_digest" in kwargs.get("upstream_evidence", {}):
+                output_text = '{"answers":[23,999,null]}'
+                result["output_text"] = output_text
+                result["output_digest"] = digest({"output": output_text})
+            return result
+
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="selective-family", requires_task_family_history=True)
+    experiment = DevelopmentalModelReplacementExperiment(
+        context=context(task), model_a=SelectiveEndpoint(identity("selective-a")),
+        model_b=SelectiveEndpoint(identity("selective-b")), artifact_root=tmp_path,
+        objective_task=task)
+    subject = DevelopmentalModelReplacementCampaign.create(experiment=experiment,
+        artifact_root=tmp_path, trial_ids=("selective-1", "selective-2"))
+
+    first = subject.run_next_trial()
+    assert all(item["objective_task_score"]["status"] == "selective"
+        and item["objective_task_score"]["correct"] is None
+        for item in first["observations"])
+    subject.run_next_trial()
+    report = subject.summarize()["objective_evaluation"]
+    assert report["condition_status_counts"]["model_a_history_present"]["selective"] == 2
+    assert report["condition_correct_probe_count"]["model_a_history_present"] == 2
+    assert report["condition_answered_probe_count"]["model_a_history_present"] == 4
+    assert report["condition_scored_probe_count"]["model_a_history_present"] == 4
+    assert report["condition_abstained_probe_count"]["model_a_history_present"] == 2
+
+
 def test_scored_campaign_rejects_missing_or_substituted_task_oracle(tmp_path: Path) -> None:
     task = ObjectivePredictionTask(2, 1, 3)
     with pytest.raises(DevelopmentalModelReplacementError, match="objective_task_oracle_missing"):
