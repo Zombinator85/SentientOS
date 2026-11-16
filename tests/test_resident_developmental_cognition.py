@@ -2341,6 +2341,23 @@ def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
     other_identity = {"provider": "fixture", "model": "another-retrieval-ranking"}
     assert _task_family_history_retrieval_utility([favorable],
         target_model_identity=other_identity, task_probe_inputs={2}) == (3, 1, 1)
+    from sentientos.resident_developmental_cognition import (
+        _task_family_conflicting_probe_inputs,
+    )
+    conflict = {**favorable, "examples": [
+        examples[0], {"probe_input": 4, "observed_answer": 18,
+            "evaluator_correct": True}]}
+    disagreement = {**favorable, "examples": [
+        {"probe_input": 2, "observed_answer": 999, "evaluator_correct": True}]}
+    conflicts = _task_family_conflicting_probe_inputs({
+        "record-a": [conflict], "record-b": [disagreement]},
+        target_model_identity=identity)
+    assert conflicts == {2}
+    assert _task_family_history_retrieval_utility([conflict],
+        target_model_identity=identity, task_probe_inputs={2, 4}) == (3, 2, 2)
+    assert _task_family_history_retrieval_utility([conflict],
+        target_model_identity=identity, task_probe_inputs={2, 4},
+        conflicting_probe_inputs=conflicts) == (3, 1, 1)
 
 
 def test_selected_task_family_history_withholds_cross_suite_conflicts() -> None:

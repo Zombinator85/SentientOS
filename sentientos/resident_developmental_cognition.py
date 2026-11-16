@@ -1502,7 +1502,9 @@ def _task_family_guidance_examples(examples: object, *, effect: Mapping[str, Any
 
 def _task_family_history_retrieval_utility(experiences: object, *,
         target_model_identity: Mapping[str, Any] | None,
-        task_probe_inputs: set[int]) -> tuple[int, int, int]:
+        task_probe_inputs: set[int],
+        conflicting_probe_inputs: set[int] | frozenset[int] = frozenset()
+        ) -> tuple[int, int, int]:
     """Rank validated family history by outcome posture, correct examples, and probe overlap."""
     if not isinstance(experiences, (list, tuple)):
         return (0, 0, 0)
@@ -1523,6 +1525,8 @@ def _task_family_history_retrieval_utility(experiences: object, *,
             continue
         guidance, _ = _task_family_guidance_examples(examples,
             effect=effect, source_fact_id=experience.get("source_fact_id"))
+        guidance = [item for item in guidance
+            if item.get("probe_input") not in conflicting_probe_inputs]
         if not guidance:
             continue
         classification = effect.get("effect_classification")
@@ -1538,6 +1542,33 @@ def _task_family_history_retrieval_utility(experiences: object, *,
             if type(item.get("probe_input")) is int
             and item["probe_input"] in task_probe_inputs)
     return outcome_priority, correct_example_count, len(probe_overlap)
+
+
+def _task_family_conflicting_probe_inputs(experiences_by_record: Mapping[str, object], *,
+        target_model_identity: Mapping[str, Any] | None) -> set[int]:
+    """Find probes whose evaluator-correct guidance disagrees across records."""
+    answers: dict[int, set[str]] = {}
+    for experiences in experiences_by_record.values():
+        if not isinstance(experiences, (list, tuple)):
+            continue
+        for experience in experiences:
+            if (not isinstance(experience, Mapping)
+                    or _task_family_model_applicability(experience,
+                        target_model_identity=target_model_identity)[
+                            "model_identity_relation"] not in {
+                                "same_active_model_identity", "different_active_model_identity"}):
+                continue
+            effect = experience.get("controlled_task_effect")
+            examples = experience.get("examples", ())
+            if not isinstance(effect, Mapping):
+                continue
+            guidance, _ = _task_family_guidance_examples(examples,
+                effect=effect, source_fact_id=experience.get("source_fact_id"))
+            for row in guidance:
+                probe = row.get("probe_input")
+                if type(probe) is int:
+                    answers.setdefault(probe, set()).add(_digest(row.get("observed_answer")))
+    return {probe for probe, values in answers.items() if len(values) > 1}
 
 
 def _task_family_model_applicability(example: Mapping[str, Any], *,
@@ -5638,6 +5669,8 @@ class ResidentDevelopmentalCognitionOwner:
             model_relevance: dict[str, int] = {}
             outcome_relevance: dict[str, int] = {}
             guidance_example_counts: dict[str, int] = {}
+            experiences_by_record: dict[str, list[dict[str, Any]]] = {}
+            matching_facts_by_record: dict[str, list[Mapping[str, Any]]] = {}
             for record_id in reversed(ids):
                 try:
                     record = self.writeback.store.get(record_id)
@@ -5651,27 +5684,34 @@ class ResidentDevelopmentalCognitionOwner:
                         and fact["payload"].get("objective_task_family") == family]
                 if matching_facts:
                     relevant_newest_first.append(record_id)
-                    same_model = False
-                    for fact in matching_facts:
-                        payload = fact["payload"]
-                        source_identity = payload.get("active_model_identity")
-                        source_identity_digest = payload.get(
-                            "active_model_identity_digest")
-                        if (isinstance(target_model_identity, Mapping)
-                                and bool(target_model_identity)
-                                and isinstance(source_identity, Mapping)
-                                and bool(source_identity)
-                                and source_identity_digest == _digest(dict(source_identity))
-                                and dict(source_identity) == dict(target_model_identity)):
-                            same_model = True
-                    model_relevance[record_id] = int(same_model)
-                    experiences = _task_family_history_examples(candidate,
-                        task_family_id=family)
-                    utility = _task_family_history_retrieval_utility(experiences,
-                        target_model_identity=target_model_identity,
-                        task_probe_inputs=probe_set)
-                    outcome_relevance[record_id], guidance_example_counts[record_id], \
-                        relevance[record_id] = utility
+                    matching_facts_by_record[record_id] = matching_facts
+                    experiences_by_record[record_id] = _task_family_history_examples(
+                        candidate, task_family_id=family)
+            conflicting_probe_inputs = _task_family_conflicting_probe_inputs(
+                experiences_by_record, target_model_identity=target_model_identity)
+            for record_id in relevant_newest_first:
+                matching_facts = matching_facts_by_record[record_id]
+                same_model = False
+                for fact in matching_facts:
+                    payload = fact["payload"]
+                    source_identity = payload.get("active_model_identity")
+                    source_identity_digest = payload.get(
+                        "active_model_identity_digest")
+                    if (isinstance(target_model_identity, Mapping)
+                            and bool(target_model_identity)
+                            and isinstance(source_identity, Mapping)
+                            and bool(source_identity)
+                            and source_identity_digest == _digest(dict(source_identity))
+                            and dict(source_identity) == dict(target_model_identity)):
+                        same_model = True
+                model_relevance[record_id] = int(same_model)
+                experiences = experiences_by_record[record_id]
+                utility = _task_family_history_retrieval_utility(experiences,
+                    target_model_identity=target_model_identity,
+                    task_probe_inputs=probe_set,
+                    conflicting_probe_inputs=conflicting_probe_inputs)
+                outcome_relevance[record_id], guidance_example_counts[record_id], \
+                    relevance[record_id] = utility
             # Evaluator-correct guidance and measured outcome posture rank first;
             # exact active-model identity breaks ties before probe overlap and
             # checkpoint order. Oracle-verified examples can remain useful
