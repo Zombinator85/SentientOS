@@ -6959,6 +6959,7 @@ def test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget(
     import sentientos.resident_developmental_cognition as cognition_module
     monkeypatch.setattr(cognition_module, "MAX_RESIDENT_COGNITION_INPUT_CHARS", 16_000)
     epistemic = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    propositions = []
     for index in range(2):
         proposition_value = make_proposition(namespace="embodiment", subject=f"sensor:{index}",
             predicate="long_scoped_measurement", object_value={"value": index}, polarity="positive",
@@ -6966,6 +6967,7 @@ def test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget(
             temporal_scope={"window": f"exact-window-{index}"},
             context_scope={"facility": f"facility-{index}"}, proposition_class="descriptive",
             statement="complete statement " + ("s" * 4500))
+        propositions.append(proposition_value)
         epistemic.register_proposition(proposition_value)
         epistemic.commit_update(proposition_id=proposition_value.proposition_id,
             expected_predecessor_digest=None, stance="unknown", reason="initialization",
@@ -6983,6 +6985,19 @@ def test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget(
         context={"instruction": "prior positions are not truth",
             "companion_question": "What happened in the lunar mission?"},
         projection=projection)
+    cited_state = epistemic.current_state(propositions[0].proposition_id)
+    assert cited_state is not None
+    resolved_citation_priorities = epistemic.proposition_priorities_for_state_ids(
+        (cited_state.state_id,))
+    cited_context, _, cited_prompt = _bind_epistemic_context(
+        context={"instruction": "prior positions are not truth",
+            "companion_question": (
+                "Which long_scoped_measurement came from facility-1 during exact-window-1?"),
+            "session_conversation_context": {
+                "prior_epistemic_state_ids": [cited_state.state_id],
+                "prior_epistemic_proposition_ids": list(
+                    resolved_citation_priorities)}},
+        projection=projection)
     assert len(prompt) <= 16_000
     prior = context["prior_epistemic_state"]
     assert len(prior["semantic_packets"]) == 1
@@ -6990,6 +7005,10 @@ def test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget(
     delivered = prior["semantic_packets"][0]
     assert delivered["proposition"]["qualifiers"]["canonical_qualifier"] == "q" * 4500
     assert delivered["proposition"]["context_scope"]["facility"] == "facility-1"
+    [cited_packet] = cited_context["prior_epistemic_state"]["semantic_packets"]
+    assert cited_packet["proposition"]["proposition_id"] == (
+        propositions[0].proposition_id)
+    assert "prior_epistemic_proposition_ids" not in cited_prompt
     baseline_ids = [packet["packet_id"] for packet in
         baseline_context["prior_epistemic_state"]["semantic_packets"]]
     irrelevant_ids = [packet["packet_id"] for packet in
@@ -7096,6 +7115,70 @@ def test_companion_bridge_passes_question_to_epistemic_projection() -> None:
     assert calls[-1] == {"max_states": 8, "current_tick": 101,
         "prioritized_state_ids": ("epistemic-state:" + "a" * 24,),
         "relevance_query": question}
+
+
+def test_companion_bridge_binds_verified_citation_lineage_into_packet_context():
+    from sentientos.developmental_companion_bridge import (
+        ResidentDevelopmentalCompanionBridge,
+    )
+
+    fixed_now = datetime(2026, 11, 8, 12, 0, tzinfo=timezone.utc)
+    state_id = "epistemic-state:" + "a" * 24
+    proposition_id = "proposition:" + "b" * 24
+    calls = []
+
+    class EpistemicOwner:
+        def proposition_priorities_for_state_ids(self, state_ids):
+            assert state_ids == (state_id,)
+            return (proposition_id,)
+
+        def cognitive_projection(self, **kwargs):
+            calls.append(kwargs)
+            return None
+
+    class CognitionOwner:
+        def run_companion_interaction(self, **kwargs):
+            calls.append(kwargs)
+            return SimpleNamespace(status="admitted_completed")
+
+    bridge = object.__new__(ResidentDevelopmentalCompanionBridge)
+    bridge._owner = CognitionOwner()
+    bridge._self_model_config = None
+    bridge._self_model_owner = None
+    bridge._epistemic_state_owner = EpistemicOwner()
+    bridge._epistemic_state_config = {"cognitive_consumption_enabled": True,
+        "max_cognitive_projection_count": 8}
+    bridge._proprioception_provider = None
+    bridge._cognition_inference_gate = None
+    bridge._clock = lambda: fixed_now
+    turn_text = "The earlier measurement was revised."
+    turn = {"turn_id": "turn-" + "c" * 24, "role": "user",
+        "text": turn_text, "text_digest": digest_payload({"text": turn_text}),
+        "linkage_digest": "d" * 64}
+    semantic_context = {"schema_version": "sentientos.conversation_cognition_context:v1",
+        "session_id": "session-citation-priority",
+        "source_snapshot_digest": "e" * 64, "turns": [turn],
+        "prior_epistemic_state_ids": [state_id], "historical_only": True,
+        "current_truth": False, "authority": False, "mutation_performed": False}
+    conversation_context = {**semantic_context,
+        "selection_digest": digest_payload(semantic_context)}
+    screen = {"modality": "screen", "text": "A visible detail supports the question.",
+        "capture_digest": "f" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": fixed_now.isoformat(), "raw_frame_retained": False}
+
+    bridge.respond(request_id="citation-priority-request",
+        question="What is the current measurement?", screen_observation=screen,
+        conversation_context=conversation_context)
+
+    projection_call = next(item for item in calls if "max_states" in item)
+    assert projection_call["prioritized_state_ids"] == (state_id,)
+    cognition_call = next(item for item in calls if "conversation_context" in item)
+    bound_context = cognition_call["conversation_context"]
+    assert bound_context["prior_epistemic_proposition_ids"] == [proposition_id]
+    assert bound_context["selection_digest"] == digest_payload({
+        key: value for key, value in bound_context.items()
+        if key != "selection_digest"})
 
 
 def test_companion_bridge_passes_question_to_self_model_projection() -> None:

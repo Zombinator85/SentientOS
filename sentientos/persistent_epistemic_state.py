@@ -1132,6 +1132,24 @@ class PersistentEpistemicStateOwner:
                 for v in self._read("states") if v["proposition_id"] == proposition_id]
         return max(states, key=lambda x:x.generation) if states else None
 
+    def proposition_priorities_for_state_ids(
+            self, state_ids: Sequence[str]) -> tuple[str, ...]:
+        """Resolve cited state generations to allowed proposition lineages."""
+        if (not isinstance(state_ids, Sequence) or isinstance(state_ids, (str, bytes))
+                or len(state_ids) > 64
+                or any(not _valid_identity(item, "epistemic-state") for item in state_ids)
+                or len(state_ids) != len(set(state_ids))):
+            raise EpistemicStateError("epistemic_projection_state_priority_invalid")
+        self.verify()
+        proposition_by_state_id = {str(row["state_id"]): str(row["proposition_id"])
+            for row in self._read("states")}
+        allowed_propositions = {str(row["proposition_id"])
+            for row in self._read("propositions")
+            if row.get("namespace") in self.allowed_namespaces}
+        return tuple(dict.fromkeys(proposition_by_state_id[state_id]
+            for state_id in state_ids
+            if proposition_by_state_id.get(state_id) in allowed_propositions))
+
     @contextmanager
     def _mutation_lock(self) -> Iterator[None]:
         """Serialize state-generation compare-and-swap through private custody."""

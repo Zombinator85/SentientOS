@@ -290,6 +290,8 @@ def test_owner_projection_prioritizes_goal_relevant_history_and_binds_omissions(
         prioritized_state_ids=(states[lexicographically_last].state_id,))
     assert cited_projection is not None
     assert cited_projection.proposition_ids == (lexicographically_last,)
+    assert owner.proposition_priorities_for_state_ids(
+        (states[lexicographically_last].state_id,)) == (lexicographically_last,)
 
     superseding, _ = owner.commit_update(
         proposition_id=lexicographically_last,

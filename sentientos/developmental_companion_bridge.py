@@ -906,6 +906,9 @@ class ResidentDevelopmentalCompanionBridge:
         tick_id, projection_tick = self._projection_boundary()
         prioritized_epistemic_state_ids: tuple[str, ...] = ()
         if conversation_context is not None:
+            if not isinstance(conversation_context, Mapping):
+                raise DevelopmentalCompanionBridgeError(
+                    "conversation_epistemic_priority_invalid")
             candidate_ids = conversation_context.get(
                 "prior_epistemic_state_ids", ())
             if (not isinstance(candidate_ids, (list, tuple))
@@ -915,6 +918,22 @@ class ResidentDevelopmentalCompanionBridge:
                 raise DevelopmentalCompanionBridgeError(
                     "conversation_epistemic_priority_invalid")
             prioritized_epistemic_state_ids = tuple(candidate_ids)
+            if (self._epistemic_state_owner is not None
+                    and self._epistemic_state_config.get(
+                        "cognitive_consumption_enabled") is True):
+                try:
+                    proposition_priorities = (
+                        self._epistemic_state_owner.proposition_priorities_for_state_ids(
+                            prioritized_epistemic_state_ids))
+                except Exception as exc:
+                    raise DevelopmentalCompanionBridgeError(
+                        "conversation_epistemic_priority_resolution_failed") from exc
+                semantic_context = {key: value for key, value in
+                    conversation_context.items() if key != "selection_digest"}
+                semantic_context["prior_epistemic_proposition_ids"] = list(
+                    proposition_priorities)
+                conversation_context = {**semantic_context,
+                    "selection_digest": digest_payload(semantic_context)}
         prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
             tick_id=tick_id, projection_tick=projection_tick,
             relevance_query=question,

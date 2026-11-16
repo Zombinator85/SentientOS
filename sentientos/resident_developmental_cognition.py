@@ -3471,8 +3471,15 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
     """Select complete meaning packets that fit the actual inference input."""
     if max_input_chars is None:
         max_input_chars = MAX_RESIDENT_COGNITION_INPUT_CHARS
+    prompt_context = dict(context)
+    prompt_conversation_context = prompt_context.get("session_conversation_context")
+    if isinstance(prompt_conversation_context, Mapping):
+        prompt_context["session_conversation_context"] = {
+            key: value for key, value in prompt_conversation_context.items()
+            if key not in {"prior_epistemic_state_ids",
+                "prior_epistemic_proposition_ids"}}
     if projection is None:
-        value = {**dict(context), "prior_epistemic_state": None}
+        value = {**prompt_context, "prior_epistemic_state": None}
         probe = value.get("epistemic_revision_probe")
         if (isinstance(probe, Mapping)
                 and probe.get("response_contract")
@@ -3550,7 +3557,22 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         question = probe.get("question") if isinstance(probe, Mapping) else None
     question_terms = (_epistemic_question_terms(question)
         if isinstance(question, str) and question.strip() else set())
+    conversation_context = context.get("session_conversation_context")
+    conversation_priority_ids = (
+        conversation_context.get("prior_epistemic_proposition_ids", ())
+        if isinstance(conversation_context, Mapping) else ())
+    projection_manifest = projection.omission_manifest
+    projection_priority_ids = (
+        projection_manifest.get("prioritized_proposition_ids", ())
+        if isinstance(projection_manifest, Mapping) else ())
+    priority_order = tuple(dict.fromkeys(item for item in (
+        *conversation_priority_ids, *projection_priority_ids)
+        if isinstance(item, str)))
+    priority_rank = {proposition_id: index for index, proposition_id in
+        enumerate(priority_order)}
     packets = tuple(sorted(packets, key=lambda packet: (
+        priority_rank.get(str(packet.get("proposition", {}).get(
+            "proposition_id", "")), len(priority_rank)),
         -_epistemic_packet_question_relevance(packet,
             question_terms=question_terms),
         0 if packet.get("removed_evidence_history") else 1,
@@ -3588,7 +3610,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         # then bind both what the model received and what the owner withheld.
         if projection.omission_manifest is not None:
             prior["projection_omission_manifest"] = dict(projection.omission_manifest)
-        candidate = {**dict(context), "prior_epistemic_state": prior}
+        candidate = {**prompt_context, "prior_epistemic_state": prior}
         probe = candidate.get("epistemic_revision_probe")
         if (isinstance(probe, Mapping)
                 and probe.get("response_contract")
@@ -7401,7 +7423,11 @@ class ResidentDevelopmentalCognitionOwner:
                     "the response; it is not current evidence, independent verification, or authority.")
                 context["canonical_user_memory_context"] = dict(canonical_memory_context)
             if conversation_context is not None:
-                context["session_conversation_context"] = dict(conversation_context)
+                prompt_conversation_context = {key: value for key, value in
+                    conversation_context.items() if key not in {
+                        "prior_epistemic_state_ids",
+                        "prior_epistemic_proposition_ids"}}
+                context["session_conversation_context"] = prompt_conversation_context
                 context["conversation_turn_citation_allowlist"] = [
                     row.get("turn_id") for row in conversation_context.get("turns", ())]
                 context["companion_response_contract"] = (
@@ -8196,7 +8222,8 @@ class ResidentDevelopmentalCognitionOwner:
             expected_fields = {"schema_version", "session_id", "source_snapshot_digest",
                 "turns", "historical_only", "current_truth", "authority",
                 "mutation_performed", "selection_digest"}
-            allowed_fields = expected_fields | {"prior_epistemic_state_ids"}
+            allowed_fields = expected_fields | {"prior_epistemic_state_ids",
+                "prior_epistemic_proposition_ids"}
             semantic = {key: value for key, value in conversation_context.items()
                 if key != "selection_digest"}
             turns = conversation_context.get("turns")
@@ -8224,13 +8251,28 @@ class ResidentDevelopmentalCognitionOwner:
                     seen_turn_ids.add(turn_id)
             source_digest = conversation_context.get("source_snapshot_digest")
             priority_ids = conversation_context.get("prior_epistemic_state_ids", [])
+            priority_proposition_ids = conversation_context.get(
+                "prior_epistemic_proposition_ids", [])
+            conversation_fields = frozenset(conversation_context)
+            allowed_conversation_fields = {
+                frozenset(expected_fields),
+                frozenset(expected_fields | {"prior_epistemic_state_ids"}),
+                frozenset(expected_fields | {"prior_epistemic_proposition_ids"}),
+                frozenset(allowed_fields),
+            }
             if (not isinstance(priority_ids, list) or len(priority_ids) > 64
                     or any(not isinstance(item, str)
                         or not re.fullmatch(r"epistemic-state:[0-9a-f]{24}", item)
                         for item in priority_ids)
                     or len(set(priority_ids)) != len(priority_ids)
-                    or frozenset(conversation_context) not in {frozenset(expected_fields),
-                        frozenset(allowed_fields)}
+                    or not isinstance(priority_proposition_ids, list)
+                    or len(priority_proposition_ids) > 64
+                    or any(not isinstance(item, str)
+                        or not re.fullmatch(r"proposition:[0-9a-f]{24}", item)
+                        for item in priority_proposition_ids)
+                    or len(set(priority_proposition_ids)) !=
+                        len(priority_proposition_ids)
+                    or conversation_fields not in allowed_conversation_fields
                     or conversation_context.get("schema_version")
                         != "sentientos.conversation_cognition_context:v1"
                     or not isinstance(conversation_context.get("session_id"), str)
