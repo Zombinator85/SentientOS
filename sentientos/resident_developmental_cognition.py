@@ -2200,7 +2200,19 @@ def _controlled_task_history_effect(condition_outcomes: object, *,
         return semantic
     valid_rows = all(
         by_id[condition].get("evaluator") == "deterministic_exact_integer_suite_oracle_v2"
-        and by_id[condition].get("score_status") in {"correct", "incorrect"}
+        and by_id[condition].get("score_status") in {"correct", "incorrect", "selective"}
+        and (by_id[condition].get("score_status") != "selective"
+            or by_id[condition].get("score_schema_version")
+                == "sentientos.objective_task_score:v5"
+            and type(by_id[condition].get("answered_count")) is int
+            and type(by_id[condition].get("abstained_count")) is int
+            and by_id[condition]["answered_count"]
+                + by_id[condition]["abstained_count"]
+                == by_id[condition].get("probe_count")
+            and by_id[condition]["abstained_count"] > 0
+            and by_id[condition].get("score_correct") is None
+            and by_id[condition].get("correct_count")
+                <= by_id[condition]["answered_count"])
         and type(by_id[condition].get("correct_count")) is int
         and type(by_id[condition].get("probe_count")) is int
         and 1 <= by_id[condition]["probe_count"] <= 16
@@ -2321,7 +2333,8 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
         if (not isinstance(score, Mapping)
                 or score.get("schema_version") not in {
                     "sentientos.objective_task_score:v3",
-                    "sentientos.objective_task_score:v4"}
+                    "sentientos.objective_task_score:v4",
+                    "sentientos.objective_task_score:v5"}
                 or score.get("task_digest") != descriptor.get("task_digest")
                 or score.get("evaluator") != "deterministic_exact_integer_suite_oracle_v2"
                 or not isinstance(score.get("score_digest"), str)
@@ -2334,7 +2347,9 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
         for example in examples:
             abstained = (isinstance(example, Mapping)
                 and isinstance(score, Mapping)
-                and score.get("schema_version") == "sentientos.objective_task_score:v4"
+                and score.get("schema_version") in {
+                    "sentientos.objective_task_score:v4",
+                    "sentientos.objective_task_score:v5"}
                 and example.get("observed_answer") is None
                 and example.get("evaluator_correct") is None)
             answered = (isinstance(example, Mapping)
@@ -2351,7 +2366,9 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                 break
             row = {key: example[key] for key in (
                 "probe_input", "observed_answer", "evaluator_correct")}
-            if score.get("schema_version") == "sentientos.objective_task_score:v4":
+            if score.get("schema_version") in {
+                    "sentientos.objective_task_score:v4",
+                    "sentientos.objective_task_score:v5"}:
                 row["abstained"] = abstained
             rows.append(row)
         if not valid:
@@ -2468,7 +2485,8 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                 if (not isinstance(raw_condition, Mapping)
                         or score_row.get("schema_version", "sentientos.objective_task_score:v3")
                             not in {"sentientos.objective_task_score:v3",
-                                "sentientos.objective_task_score:v4"}
+                                "sentientos.objective_task_score:v4",
+                                "sentientos.objective_task_score:v5"}
                         or score_row.get("task_digest", descriptor.get("task_digest"))
                             != descriptor.get("task_digest")
                         or score_row.get("evaluator", score.get("evaluator"))
@@ -2481,7 +2499,9 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                         or type(score_row.get("correct_count")) is not int
                         or type(score_row.get("probe_count")) is not int
                         or not 0 <= score_row["correct_count"] <= score_row["probe_count"] <= 16
-                        or score_row.get("schema_version") == "sentientos.objective_task_score:v4"
+                        or score_row.get("schema_version") in {
+                            "sentientos.objective_task_score:v4",
+                            "sentientos.objective_task_score:v5"}
                             and (type(score_row.get("answered_count")) is not int
                                 or type(score_row.get("abstained_count")) is not int
                                 or score_row["answered_count"] + score_row["abstained_count"]
@@ -2603,9 +2623,13 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                     "inference_event_time_posture": raw_condition.get("event_time_posture"),
                     "score_digest": score_row.get("score_digest"),
                     "evaluator": score_row.get("evaluator", score.get("evaluator")),
+                    "score_schema_version": score_row.get("schema_version"),
                     "score_status": score_row.get("status"),
+                    "score_correct": score_row.get("correct"),
                     "correct_count": score_row.get("correct_count"),
                     "probe_count": score_row.get("probe_count"),
+                    "answered_count": score_row.get("answered_count"),
+                    "abstained_count": score_row.get("abstained_count"),
                     "resource_context": (resource_match if resource_match is not None else {
                         "posture": resource_posture,
                         **({"unqualified_lineage": unqualified[:4]} if unqualified else {})}),

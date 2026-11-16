@@ -3001,11 +3001,13 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
         """Check the retained score summary's status/result semantics."""
         status = score.get("status")
         correct = score.get("correct")
-        if status not in {"correct", "incorrect", "invalid_answer",
+        if status not in {"correct", "incorrect", "selective", "invalid_answer",
                 "output_unavailable", "output_truncated"}:
             return False
         if ((status in {"correct"} and correct is not True)
                 or (status in {"incorrect", "invalid_answer"} and correct is not False)
+                or (status == "selective" and (correct is not None
+                    or score.get("schema_version") != "sentientos.objective_task_score:v5"))
                 or (status in {"output_unavailable", "output_truncated"}
                     and correct is not None)):
             return False
@@ -3013,23 +3015,32 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
         if correct_count is None and probe_count is None:
             requires_suite_counts = score.get("schema_version") in {
                 "sentientos.objective_task_score:v3",
-                "sentientos.objective_task_score:v4"}
+                "sentientos.objective_task_score:v4",
+                "sentientos.objective_task_score:v5"}
             return expected_probe_count is None and not requires_suite_counts
         if (type(correct_count) is not int or type(probe_count) is not int
                 or not 0 <= correct_count <= probe_count <= 16):
             return False
-        if score.get("schema_version") == "sentientos.objective_task_score:v4":
+        if score.get("schema_version") in {
+                "sentientos.objective_task_score:v4",
+                "sentientos.objective_task_score:v5"}:
             answered = score.get("answered_count")
             abstained = score.get("abstained_count")
             if (type(answered) is not int or type(abstained) is not int
                     or answered + abstained != probe_count
                     or correct_count > answered):
                 return False
+            if (score.get("schema_version") == "sentientos.objective_task_score:v5"
+                    and ((status == "selective") != (abstained > 0)
+                        or (correct is None) != (abstained > 0))):
+                return False
         if expected_probe_count is not None and probe_count != expected_probe_count:
             return False
         if status == "correct" and correct_count != probe_count:
             return False
         if status in {"incorrect", "invalid_answer"} and correct_count >= probe_count:
+            return False
+        if status == "selective" and correct_count >= probe_count:
             return False
         if status in {"output_unavailable", "output_truncated"} and correct_count != 0:
             return False
@@ -3212,7 +3223,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 if (isinstance(raw_score, Mapping)
                         and raw_score.get("schema_version") in {
                             "sentientos.objective_task_score:v3",
-                            "sentientos.objective_task_score:v4"}):
+                        "sentientos.objective_task_score:v4",
+                        "sentientos.objective_task_score:v5"}):
                     request_context["task_family_probe_count"] = raw_score.get("probe_count")
                 model_task_outcome: dict[str, Any] = {"posture": "not_scored_or_legacy"}
                 if raw_score is not None:
