@@ -60,7 +60,7 @@ from .conversation_session import (
     compact_runtime_generation_attribution, transcript_recall_terms,
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
-    ExplicitRetentionAdmissionGate, retention_request_id,
+    ExplicitRetentionAdmissionGate, MAX_MEMORY_CORRECTION_TARGETS, retention_request_id,
     sentientos_data_dir, sentientos_memory_dir)
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
@@ -923,6 +923,7 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str | None = None
     retain: bool = False
+    corrects_memory_ids: tuple[str, ...] = ()
     request_id: str | None = None
     observe_screen: bool = False
 
@@ -2229,6 +2230,59 @@ class PersistentConversationService:
             },
             retention={"status": "not_requested"})
 
+    def _canonical_memory_correction_targets(
+            self, memory_ids: tuple[str, ...] | list[str], *, retain: bool
+            ) -> list[dict[str, str]]:
+        if (not isinstance(memory_ids, (tuple, list))
+                or len(memory_ids) > MAX_MEMORY_CORRECTION_TARGETS
+                or any(not isinstance(memory_id, str)
+                    or re.fullmatch(r"memory-[0-9a-f]{24}", memory_id) is None
+                    for memory_id in memory_ids)
+                or len(set(memory_ids)) != len(memory_ids)):
+            raise ChatRequestStateError("canonical_memory_correction_targets_invalid")
+        if not memory_ids:
+            return []
+        if not retain:
+            raise ChatRequestStateError("memory_corrections_require_explicit_retention")
+        records, posture = self.memories._records()
+        if posture != "complete":
+            raise ChatRequestStateError("canonical_memory_correction_source_incomplete")
+        by_id = {record.get("id"): record for record in records
+            if isinstance(record.get("id"), str)}
+        targets: list[dict[str, str]] = []
+        for memory_id in sorted(memory_ids):
+            record = by_id.get(memory_id)
+            meta = record.get("meta") if isinstance(record, Mapping) else None
+            if (not isinstance(record, Mapping)
+                    or record.get("source") != "conversation_user_turn"
+                    or not isinstance(meta, Mapping)):
+                raise ChatRequestStateError("canonical_memory_correction_target_unverified")
+            source_session_id, source_turn_id = meta.get("session_id"), meta.get("turn_id")
+            try:
+                session = self.sessions.load(str(source_session_id))
+                source_turn = next((turn for turn in session.get("turns", ())
+                    if isinstance(turn, Mapping) and turn.get("turn_id") == source_turn_id), None)
+                receipt = (source_turn.get("retention_receipt")
+                    if isinstance(source_turn, Mapping) else None)
+                verification = (self.retention_writer.verify_committed_artifact(
+                    receipt, source_turn, str(source_session_id))
+                    if isinstance(receipt, Mapping) and isinstance(source_turn, Mapping)
+                    else {})
+            except Exception as exc:
+                raise ChatRequestStateError(
+                    "canonical_memory_correction_target_unverified") from exc
+            if (not isinstance(source_turn, Mapping)
+                    or source_turn.get("retention_state") != "retained"
+                    or verification.get("artifact_status") != "verified"
+                    or verification.get("admission_status")
+                        != "policy_recomputed_not_execution_attested"
+                    or verification.get("memory_id") != memory_id
+                    or verification.get("record_digest") != digest_payload(dict(record))):
+                raise ChatRequestStateError("canonical_memory_correction_target_unverified")
+            targets.append({"memory_id": memory_id,
+                "memory_record_digest": digest_payload(dict(record))})
+        return targets
+
     def _resident_canonical_memory_context(self, question: str) -> dict[str, Any] | None:
         """Bind only explicitly retained, source-turn-verified memories for cognition."""
         retrieved = self.memories.retrieve(question,
@@ -2309,6 +2363,27 @@ class PersistentConversationService:
             seen_ids.add(memory_id)
         if not selected:
             return None
+        selected_ids = {row["memory_id"] for row in selected}
+        raw_correction_relations = retrieved.get("correction_relations", [])
+        correction_relations = []
+        if isinstance(raw_correction_relations, list):
+            for relation in raw_correction_relations:
+                if (not isinstance(relation, Mapping)
+                        or set(relation) != {"correcting_memory_id",
+                            "corrected_memory_id", "corrected_memory_record_digest",
+                            "posture"}
+                        or relation.get("correcting_memory_id") not in selected_ids
+                        or not isinstance(relation.get("corrected_memory_id"), str)
+                        or re.fullmatch(r"memory-[0-9a-f]{24}",
+                            relation["corrected_memory_id"]) is None
+                        or not isinstance(relation.get(
+                            "corrected_memory_record_digest"), str)
+                        or re.fullmatch(r"[0-9a-f]{64}",
+                            relation["corrected_memory_record_digest"]) is None
+                        or relation.get("posture")
+                            != "explicit_user_correction_unverified"):
+                    continue
+                correction_relations.append(dict(relation))
         source_binding_omitted = len(selected) < len(retrieved["memories"])
         selection_posture = ("matching_records_omitted" if source_binding_omitted
             else str(retrieved.get("selection_posture", "unknown")))
@@ -2319,7 +2394,8 @@ class PersistentConversationService:
             "source_snapshot_digest": retrieved["snapshot_digest"],
             "retrieval_posture": retrieval_posture,
             "selection_posture": selection_posture,
-            "records": selected, "read_only": True,
+            "records": selected, "correction_relations": correction_relations,
+            "read_only": True,
             "historical_only": True, "current_truth": False,
             "authority": False, "mutation_performed": False,
         }
@@ -3171,15 +3247,18 @@ class PersistentConversationService:
 
     def chat(self, message: str, *, session_id: str | None = None, retain: bool = False,
              request_id: str | None = None, observe_screen: bool = False,
+             corrects_memory_ids: tuple[str, ...] | list[str] = (),
              on_content_chunk: Callable[[str], None] | None = None) -> ChatResponse:
         if session_id is None:
             return self._chat_unlocked(message, session_id=None, retain=retain,
                 request_id=request_id, observe_screen=observe_screen,
+                corrects_memory_ids=corrects_memory_ids,
                 on_content_chunk=on_content_chunk)
         try:
             with self.sessions.serialize_chat_requests(session_id):
                 return self._chat_unlocked(message, session_id=session_id,
                     retain=retain, request_id=request_id, observe_screen=observe_screen,
+                    corrects_memory_ids=corrects_memory_ids,
                     on_content_chunk=on_content_chunk)
         except ConversationChatLockTimeout as exc:
             raise ChatRequestStateError("chat_session_request_lock_timeout") from exc
@@ -3187,20 +3266,29 @@ class PersistentConversationService:
     def _chat_unlocked(self, message: str, *, session_id: str | None = None,
                        retain: bool = False, request_id: str | None = None,
                        observe_screen: bool = False,
+                       corrects_memory_ids: tuple[str, ...] | list[str] = (),
                        on_content_chunk: Callable[[str], None] | None = None) -> ChatResponse:
         turn_started_ns = time.monotonic_ns()
         if type(observe_screen) is not bool:
             raise ChatRequestStateError("screen_observation_request_invalid")
+        correction_targets = self._canonical_memory_correction_targets(
+            corrects_memory_ids, retain=retain)
+        request_options: dict[str, Any] = {}
+        if observe_screen:
+            request_options["observe_screen"] = True
+        if correction_targets:
+            request_options["canonical_memory_correction_targets"] = correction_targets
         request_options_digest = (hashlib.sha256(json.dumps(
-            {"observe_screen": True}, sort_keys=True, separators=(",", ":")
-        ).encode("utf-8")).hexdigest() if observe_screen else None)
+            request_options, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")).hexdigest() if request_options else None)
         if request_id is not None:
             if session_id is None:
                 raise ChatRequestStateError("idempotent_request_requires_existing_session")
             try:
                 existing = self.sessions.find_user_request(session_id,
                     request_id=request_id, text=message, retain=retain,
-                    request_options_digest=request_options_digest)
+                    request_options_digest=request_options_digest,
+                    correction_targets=correction_targets)
             except FileNotFoundError:
                 raise
             except ValueError as exc:
@@ -3292,13 +3380,17 @@ class PersistentConversationService:
         identity_payload = self._inference.current_conversation_model_identity()
         session = self.sessions.create(model_identity=identity_payload) if session_id is None else self.sessions.load(session_id)
         if request_id is None:
+            user_linkage = ({"canonical_memory_correction_targets": correction_targets}
+                if correction_targets else None)
             user_turn = self.sessions.append_turn(session["session_id"], role="user", text=message,
+                linkage=user_linkage,
                 retention_state="requested" if retain else "not_requested")
         else:
             try:
                 user_turn, created = self.sessions.append_user_request(session["session_id"],
                     request_id=request_id, text=message, retain=retain,
-                    request_options_digest=request_options_digest)
+                    request_options_digest=request_options_digest,
+                    correction_targets=correction_targets)
             except ValueError as exc:
                 raise ChatRequestStateError(str(exc)) from exc
             if not created:
@@ -4203,6 +4295,14 @@ class PersistentConversationService:
                          "source_turn_id": user_turn["turn_id"], "source_role": "user",
                          "source_text_digest": user_turn["text_digest"], "explicitly_requested": True,
                          "request_id": request_id, "operation_id": operation_id}
+            if correction_targets:
+                turn_linkage = user_turn.get("linkage")
+                stored_targets = (turn_linkage.get("canonical_memory_correction_targets")
+                    if isinstance(turn_linkage, Mapping) else None)
+                if stored_targets != correction_targets:
+                    raise ChatRequestStateError(
+                        "memory_correction_turn_binding_mismatch")
+                candidate["correction_targets"] = correction_targets
             admission = self.admission_gate.decide(candidate)
             try:
                 if admission.decision != "retention_admitted": raise PermissionError(admission.reason or "retention_denied")
@@ -4819,6 +4919,7 @@ async def chat_stream_endpoint(request: ChatRequest, http_request: Request) -> S
             response = service.chat(message, session_id=request.session_id,
                 retain=request.retain, request_id=request.request_id,
                 observe_screen=request.observe_screen,
+                corrects_memory_ids=request.corrects_memory_ids,
                 on_content_chunk=on_content_chunk)
             payload = {
                 "response": response.response,
@@ -4902,7 +5003,8 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         service = _get_conversation_service()
         return await asyncio.to_thread(service.chat, message,
             session_id=request.session_id, retain=request.retain,
-            request_id=request.request_id, observe_screen=request.observe_screen)
+            request_id=request.request_id, observe_screen=request.observe_screen,
+            corrects_memory_ids=request.corrects_memory_ids)
     except ScreenObservationBridgeError as exc:
         failure_code = (exc.args[0] if exc.args and isinstance(exc.args[0], str)
                         and re.fullmatch(r"(?:screen|game_screen)_[a-z0-9_]{1,80}",
