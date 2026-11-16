@@ -3119,6 +3119,17 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
             match="task_family_prompt_projection_strategy_invalid"):
         _task_family_history_prompt_projection(forged_context,
             condition_id="history_present", task_family_id="integer_affine_prediction")
+    forged_provenance_context = copy.deepcopy(bound_context)
+    forged_provenance = forged_provenance_context["developmental_history"][0][
+        "task_relevant_experience"][0]["candidate_integer_affine_strategy"]
+    forged_provenance["source_score_digest"] = "sha256:" + "0" * 64
+    forged_provenance_body = {key: value for key, value in forged_provenance.items()
+        if key != "strategy_digest"}
+    forged_provenance["strategy_digest"] = cognition_digest(forged_provenance_body)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="task_family_prompt_projection_strategy_invalid"):
+        _task_family_history_prompt_projection(forged_provenance_context,
+            condition_id="history_present", task_family_id="integer_affine_prediction")
     cross_model_packet = _history_context_packet({"record_id": admitted.record_id,
         "record_digest": admitted.record_digest, "candidate": bound_model_identity,
         "created_at": "fixture-time", "epistemic_posture": "historical_only"},
