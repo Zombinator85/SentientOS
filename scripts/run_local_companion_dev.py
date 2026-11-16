@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-import fcntl
 import hashlib
 import hmac
 import json
@@ -40,6 +39,11 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Mapping, cast
+
+try:
+    import fcntl
+except ImportError:  # Native Windows uses a root-bound kernel mutex below.
+    fcntl = None  # type: ignore[assignment]
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -224,6 +228,83 @@ def _normalize_windows_edge_executable(
     return executable
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+
+def _acquire_active_chat_lock(state_root: Path) -> Callable[[], None]:
+    """Return a release callback for the one active service per state root."""
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+        from sentientos.windows_handle_custody import (
+            WindowsHandleCustodyError, observe_private_directory_identity,
+        )
+
+        try:
+            root_identity = observe_private_directory_identity(state_root)
+        except WindowsHandleCustodyError as exc:
+            raise OSError("companion_state_root_not_private") from exc
+        root_key = hashlib.sha256(
+            f"{root_identity[0]}:{root_identity[1].hex()}".encode("ascii")
+        ).hexdigest()
+        kernel = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+        create_mutex = kernel.CreateMutexW
+        create_mutex.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+        create_mutex.restype = wintypes.HANDLE
+        wait = kernel.WaitForSingleObject
+        wait.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        wait.restype = wintypes.DWORD
+        release = kernel.ReleaseMutex
+        release.argtypes = [wintypes.HANDLE]
+        release.restype = wintypes.BOOL
+        close = kernel.CloseHandle
+        close.argtypes = [wintypes.HANDLE]
+        close.restype = wintypes.BOOL
+        mutex = create_mutex(None, False,
+            "Local\\SentientOS-DevelopmentChat-" + root_key)
+        if not mutex:
+            raise OSError(ctypes.get_last_error(), "companion_state_lock_unavailable")
+        acquired = False
+        try:
+            result = int(wait(mutex, 0))
+            if result == 0x102:
+                raise BlockingIOError("companion_state_lock_busy")
+            if result not in {0, 0x80}:
+                raise OSError("companion_state_lock_unavailable")
+            acquired = True
+            if observe_private_directory_identity(state_root) != root_identity:
+                raise OSError("companion_state_root_identity_changed")
+        except Exception:
+            if acquired:
+                release(mutex)
+            close(mutex)
+            raise
+
+        def release_windows_lock() -> None:
+            released = bool(release(mutex))
+            closed = bool(close(mutex))
+            if not released or not closed:
+                raise OSError("companion_state_lock_release_failed")
+
+        return release_windows_lock
+
+    if fcntl is None:
+        raise OSError("companion_state_lock_unsupported")
+    lock_path = state_root / "active-chat.lock"
+    lock_handle = lock_path.open("a+", encoding="utf-8")
+    os.chmod(lock_path, 0o600)
+    try:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except Exception:
+        lock_handle.close()
+        raise
+
+    def release_posix_lock() -> None:
+        try:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            lock_handle.close()
+
+    return release_posix_lock
 
 
 
@@ -1456,15 +1537,25 @@ def main() -> int:
             not args.enable_resident_cognition or not args.screen_observation_process):
         parser.error("rootless developmental session requires resident cognition and an allowlisted screen observer")
     state = args.state_dir.expanduser().resolve()
-    state.mkdir(mode=0o700, parents=True, exist_ok=True)
-    os.chmod(state, 0o700)
-    lock_path = state / "active-chat.lock"
-    lock_handle = lock_path.open("a+", encoding="utf-8")
-    os.chmod(lock_path, 0o600)
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import (
+            WindowsHandleCustodyError, ensure_private_child_directory,
+        )
+        try:
+            state = ensure_private_child_directory(state.parent, state.name)
+        except WindowsHandleCustodyError as exc:
+            parser.error(
+                "state directory must be a child of an existing private directory: "
+                + exc.code)
+    else:
+        state.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(state, 0o700)
     try:
-        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        release_state_lock = _acquire_active_chat_lock(state)
     except BlockingIOError:
         parser.error("another local companion development process holds this state directory")
+    except OSError as exc:
+        parser.error("state directory lock unavailable: " + str(exc))
 
     runtime = state / "runtime"
     chat_state = state / "chat"
@@ -1879,8 +1970,7 @@ def main() -> int:
                         if edge is not None:
                             edge.close()
                     finally:
-                        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
-                        lock_handle.close()
+                        release_state_lock()
     return 0
 
 

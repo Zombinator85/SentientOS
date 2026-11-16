@@ -954,6 +954,39 @@ def test_windows_epistemic_owner_bootstraps_only_under_private_parent(
     assert not rejected_mutation_root.exists()
 
 
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows named mutexes")
+def test_windows_companion_state_lock_is_exclusive_and_reusable(
+        tmp_path: Path) -> None:
+    from threading import Thread
+    from scripts.run_local_companion_dev import _acquire_active_chat_lock
+
+    _make_current_user_private(tmp_path, directory=True)
+    state_root = tmp_path / "companion-state"
+    state_root.mkdir()
+    _make_current_user_private(state_root, directory=True)
+    release_first = _acquire_active_chat_lock(state_root)
+    contender_results: list[str] = []
+
+    def contend() -> None:
+        try:
+            release = _acquire_active_chat_lock(state_root)
+        except BlockingIOError:
+            contender_results.append("busy")
+        else:
+            contender_results.append("acquired")
+            release()
+
+    thread = Thread(target=contend)
+    thread.start()
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+    assert contender_results == ["busy"]
+    release_first()
+
+    release_second = _acquire_active_chat_lock(state_root)
+    release_second()
+
+
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows epistemic custody")
 def test_windows_epistemic_correction_recovers_interrupted_transaction() -> None:
     from tempfile import TemporaryDirectory
