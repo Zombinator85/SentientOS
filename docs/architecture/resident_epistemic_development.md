@@ -384,10 +384,17 @@ It reopens the cognition and epistemic owners, verifies the persisted answer,
 admits an operator correction through `PersistentConversationService`, then
 starts another session and confirms the cited epistemic state is selected in
 the production bridge prompt. A no-correction session selects the alternative
-state. The corrected prompt labels the old citation historical, non-truth,
-non-authoritative, and non-mutating; the epistemic state's identity remains
-unchanged. This is a deterministic fake-invoker result, not evidence that a
-real model will correctly interpret or act on feedback.
+state. The integration now asks the same target question before and after the
+correction. Its deterministic invoker changes the later response only when the
+historical assistant turn matches the correction target's turn ID and text
+digest, and the feedback assertion and cited dialogue share the exact bound
+feedback digest. The resulting response surfaces the disagreement and keeps
+the operator report unverified. The prompt still labels the old citation
+historical, non-truth, non-authoritative, and non-mutating; the epistemic
+state's identity remains unchanged. This demonstrates that the composed
+context contains enough bound information for a controlled response policy to
+apply a correction without promoting it to truth. It does not establish that a
+real model will correctly interpret feedback or improve open-ended decisions.
 
 The integration exposed a linkage defect: the bridge adds resolved epistemic
 priorities to the conversation context and recomputes its selection digest, but
