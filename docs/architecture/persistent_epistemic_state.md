@@ -58,6 +58,16 @@ The bounded mutation controller implements two independent transactions. An expl
 
 Resident cognition receives four separately typed channels: current World-State evidence, prior self-model, prior epistemic state, and developmental history. The epistemic projection binds proposition/state identities, generations, and evidence-set digests. Before inference, the owner verifies custody and captures the exact immutable update/state inventory as an epistemic epoch; only paired states in that capture are eligible. Update ticks order generations inside that epoch, while the daemon's string tick is never parsed, hashed, or treated as epistemic chronology. A second inventory comparison fails closed on concurrent advancement. Current evidence outranks a stale prior for current-condition reasoning while both remain visible.
 
+Ordinary companion responses now return `epistemic_state_ids` for delivered
+stored positions that materially influenced an answer. The parser checks each
+ID against the exact cognitive projection, and the durable cognition
+observation records those citations beside the projection's state IDs and
+digests. This makes claimed use observable across the response lineage; it does
+not prove that the model reasoned correctly or make the cited position evidence,
+truth, or authority. A deterministic matched A/B/A integration fixture verifies
+that citations appear with the state, disappear when withheld, and return when
+restored, while keeping answer text fixed.
+
 Embodied prediction and maintenance post-adoption comparisons can be adapted only through explicit evidence adapters. Matching observations support and mismatches contradict; renderer/model self-report cannot masquerade as independent corroboration. Calibration custody resolves the exact forecast state, requires that it belongs to the same proposition and predates resolution, and requires proposition-owned source bindings. A foreign proposition's state or binding cannot be smuggled into calibration merely because it exists in custody.
 
 Runtime construction is inert unless `SENTIENTOS_EPISTEMIC_STATE_CONFIG` names an explicit custody root, namespace allowlist, projection bound, and cognition-consumption switch. Read-only queries are available through owner methods (`proposition`, `bindings`, `current_state`, and `verify`); mutation remains controller-only.

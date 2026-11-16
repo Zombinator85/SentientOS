@@ -2340,6 +2340,8 @@ class PersistentConversationService:
         history_record_ids = getattr(result, "history_record_ids", ())
         memory_record_ids = getattr(result, "memory_record_ids", ())
         self_model_claim_ids = getattr(result, "self_model_claim_ids", ())
+        epistemic_state_citation_ids = getattr(
+            result, "epistemic_state_citation_ids", ())
         conversation_citation_ids = getattr(result, "conversation_turn_citation_ids", ())
         memory_selection_digest = getattr(
             result, "canonical_user_memory_selection_digest", None)
@@ -2373,6 +2375,13 @@ class PersistentConversationService:
                 or any(not isinstance(item, str) for item in self_model_claim_ids)
                 or len(set(self_model_claim_ids)) != len(self_model_claim_ids)):
             raise RuntimeError("resident_cognition_self_model_lineage_invalid")
+        if (not isinstance(epistemic_state_citation_ids, (tuple, list))
+                or len(epistemic_state_citation_ids) > 16
+                or any(not isinstance(item, str) or not item
+                    for item in epistemic_state_citation_ids)
+                or len(set(epistemic_state_citation_ids))
+                    != len(epistemic_state_citation_ids)):
+            raise RuntimeError("resident_cognition_epistemic_lineage_invalid")
         conversation_turn_map = ({row["turn_id"]: row["text_digest"] for row in
             conversation_context["turns"]} if conversation_context is not None else {})
         if (not isinstance(conversation_citation_ids, (tuple, list))
@@ -2409,6 +2418,8 @@ class PersistentConversationService:
                 "cognition_history_record_ids": list(history_record_ids),
                 "cognition_memory_citation_ids": list(memory_record_ids),
                 "cognition_self_model_claim_ids": list(self_model_claim_ids),
+                "cognition_epistemic_state_citation_ids": list(
+                    epistemic_state_citation_ids),
                 "cognition_memory_selection_digest": memory_selection_digest,
                 "conversation_context_snapshot_digest": history.snapshot_digest,
                 "conversation_context_selection_digest": (
@@ -2462,6 +2473,8 @@ class PersistentConversationService:
                 "cognition_history_record_ids": list(history_record_ids),
                 "cognition_memory_citation_ids": list(memory_record_ids),
                 "cognition_self_model_claim_ids": list(self_model_claim_ids),
+                "cognition_epistemic_state_citation_ids": list(
+                    epistemic_state_citation_ids),
                 "cognition_memory_selection_digest": memory_selection_digest,
                 "conversation_context_snapshot_digest": history.snapshot_digest,
                 "conversation_context_selection_digest": (

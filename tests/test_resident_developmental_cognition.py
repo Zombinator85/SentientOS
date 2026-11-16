@@ -279,6 +279,8 @@ class FakeInvoker:
                         "record_ids", [])
             decision.setdefault("memory_record_ids", [])
             decision.setdefault("self_model_claim_ids", [])
+            decision.setdefault("epistemic_state_ids",
+                request.upstream_evidence.get("epistemic_state_ids", []))
             if "conversation_turn_ids" in request.structured_output_schema.get(
                     "required", ()):
                 decision.setdefault("conversation_turn_ids", [])
@@ -5248,6 +5250,22 @@ def test_controlled_history_intervention_classifies_unavailable_sentinel_as_abst
     assert normalized["history_record_ids"] == []
 
 
+def test_companion_epistemic_citations_must_be_in_delivered_projection() -> None:
+    payload = {"disposition": "answer", "response": "A bounded answer.",
+        "evidence_ids": ["current-fact"], "history_record_ids": [],
+        "memory_record_ids": [], "self_model_claim_ids": [],
+        "epistemic_state_ids": ["invented-state"]}
+
+    with pytest.raises(ValueError, match="companion_interaction_epistemic_binding_invalid"):
+        _parse_companion_interaction_output(json.dumps(payload), {"current-fact"},
+            set(), set(), set(), None, {"delivered-state"})
+
+    payload["epistemic_state_ids"] = ["delivered-state"]
+    parsed = _parse_companion_interaction_output(json.dumps(payload),
+        {"current-fact"}, set(), set(), set(), None, {"delivered-state"})
+    assert parsed["epistemic_state_ids"] == ["delivered-state"]
+
+
 def test_controlled_history_intervention_rejects_citations_on_unavailable_sentinel() -> None:
     payload = {"disposition": "answer", "response": "HISTORY_UNAVAILABLE",
         "evidence_ids": ["fact-current"], "history_record_ids": [], "memory_record_ids": []}
@@ -5688,6 +5706,13 @@ def test_companion_bridge_consumes_existing_self_model_and_epistemic_projections
         "self_model_projection_digest": result.self_model_projection_digest,
         "epistemic_projection_id": result.epistemic_projection_id,
         "epistemic_projection_digest": result.epistemic_projection_digest,
+        "cognition_epistemic_state_citation_ids": list(
+            result.epistemic_state_citation_ids),
+        "cognition_self_model_claim_ids": list(result.self_model_claim_ids),
+        "cognition_memory_selection_digest": observation[
+            "canonical_user_memory_selection_digest"],
+        "cognition_memory_citation_ids": list(observation[
+            "companion_memory_citation_ids"]),
         "assistant_output_lineage": {
             "status": "resident_cognition_interaction",
             "cognition_observation_id": result.cognition_observation_id,
@@ -12107,8 +12132,8 @@ def test_companion_cycle_persists_epistemic_state_for_later_cognition(
     assert restarted_state.state_digest == state.state_digest
 
     # Matched A/B/A turns hold current evidence, question, and time fixed.
-    # The fixture invoker returns the same answer in every condition, so this
-    # proves delivery/retrieval but records a null behavioral effect.
+    # The fixture answer is stable; its source-bound citation changes with the
+    # delivered state and returns when that state is restored.
     clock_value[0] = now + timedelta(seconds=2)
     outcomes = []
     for condition, consume in (("present", True), ("withheld", False),
@@ -12133,6 +12158,11 @@ def test_companion_cycle_persists_epistemic_state_for_later_cognition(
         [state.state_id], [], [state.state_id]]
     assert [result.response_digest for result in results] == [
         results[0].response_digest] * 3
+    observations = [cognition.verified_cognition_observation(
+        result.cognition_observation_id, result.cognition_observation_digest)
+        for result in results]
+    assert [row["companion_epistemic_state_citation_ids"] for row in observations] == [
+        [state.state_id], [], [state.state_id]]
     for result in results:
         observation = cognition.verified_cognition_observation(
             result.cognition_observation_id, result.cognition_observation_digest)
