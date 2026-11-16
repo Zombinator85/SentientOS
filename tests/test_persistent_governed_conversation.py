@@ -851,6 +851,11 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                             "history_record_ids": [history_packet["record_id"]],
                             "epistemic_state_ids": [],
                         })
+                        if "historical_conversation_citations" in schema.get(
+                                "required", ()):
+                            output["historical_conversation_citations"] = [{
+                                "turn_id": turn["turn_id"],
+                                "text_digest": turn["text_digest"]}]
                     self.companion_output_override = output
                     if prompt.get("session_conversation_context") is not None:
                         conversation = prompt["session_conversation_context"]
@@ -1014,6 +1019,16 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         "cognition_epistemic_state_citation_ids"] == []
     assert corrected_assistant_turn["linkage"]["cognition_evidence_ids"] == []
     assert corrected_assistant_turn["linkage"]["cognition_history_record_ids"]
+    assert corrected_assistant_turn["linkage"][
+        "cognition_historical_conversation_citation_ids"] == [source_assistant["turn_id"]]
+    assert corrected_assistant_turn["linkage"][
+        "cognition_historical_conversation_citation_digests"] == [
+            source_assistant["linkage"]["assistant_output_lineage"]["response_digest"]]
+    assert restarted_bridge.verify_committed_response(
+        linkage=corrected_assistant_turn["linkage"],
+        response_text=corrected_assistant_turn["text"],
+        request_id=(f"{correction_session_id}:"
+            f"{corrected_assistant_turn['linkage']['source_user_turn_id']}"))
     corrected_prompt = json.loads(corrected_request.prompt)
     historical_context = corrected_prompt["historical_cited_conversation_context"]
     assert historical_context["historical_only"] is True

@@ -1161,7 +1161,8 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
                         "sentientos.resident_cognition_observation:v9",
                         "sentientos.resident_cognition_observation:v10",
                         "sentientos.resident_cognition_observation:v11", "sentientos.resident_cognition_observation:v12",
-                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14"}:
+                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14",
+                        "sentientos.resident_cognition_observation:v15"}:
                 for field in ("resource_allocation_digest", "resource_attempt_id",
                         "resource_consumption_receipt_digests", "resource_linkage_digest"):
                     semantic_observation.pop(field, None)
@@ -1171,7 +1172,8 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
                     "sentientos.resident_cognition_observation:v9",
                     "sentientos.resident_cognition_observation:v10",
                     "sentientos.resident_cognition_observation:v11", "sentientos.resident_cognition_observation:v12",
-                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14"}:
+                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14",
+                        "sentientos.resident_cognition_observation:v15"}:
                 # The v6 history-selection binding is absent from older
                 # canonical observation identities, even though dataclass
                 # recovery now supplies its default value.
@@ -1186,22 +1188,28 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
                     "sentientos.resident_cognition_observation:v9",
                     "sentientos.resident_cognition_observation:v10",
                     "sentientos.resident_cognition_observation:v11", "sentientos.resident_cognition_observation:v12",
-                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14"}:
+                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14",
+                        "sentientos.resident_cognition_observation:v15"}:
                 semantic_observation.pop("companion_history_citation_ids", None)
             if schema_version not in {"sentientos.resident_cognition_observation:v9",
                     "sentientos.resident_cognition_observation:v10",
                     "sentientos.resident_cognition_observation:v11", "sentientos.resident_cognition_observation:v12",
-                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14"}:
+                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14",
+                        "sentientos.resident_cognition_observation:v15"}:
                 for field in ("canonical_user_memory_source_snapshot_digest",
                         "canonical_user_memory_selection_digest",
                         "canonical_user_memory_record_ids",
                         "canonical_user_memory_record_digests",
                         "companion_memory_citation_ids"):
                     semantic_observation.pop(field, None)
-            if schema_version != "sentientos.resident_cognition_observation:v14":
+            if schema_version not in {"sentientos.resident_cognition_observation:v14",
+                    "sentientos.resident_cognition_observation:v15"}:
                 # v14 added epistemic-state citations; older canonical
                 # identities must not acquire the dataclass's empty default.
                 semantic_observation.pop("companion_epistemic_state_citation_ids", None)
+            if schema_version != "sentientos.resident_cognition_observation:v15":
+                semantic_observation.pop("companion_historical_conversation_citation_ids", None)
+                semantic_observation.pop("companion_historical_conversation_citation_digests", None)
             calculated = _digest(semantic_observation)
             if schema_version == "sentientos.resident_cognition_observation:v2":
                 semantic_observation.pop("serving_session_id", None)
@@ -1217,7 +1225,8 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
                         "sentientos.resident_cognition_observation:v9",
                         "sentientos.resident_cognition_observation:v10",
                         "sentientos.resident_cognition_observation:v11", "sentientos.resident_cognition_observation:v12",
-                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14"}
+                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14",
+                        "sentientos.resident_cognition_observation:v15"}
                     or observation_digest != calculated
                     or observation_id != "devcog-" + calculated[7:31]):
                 raise DevelopmentalHistoryInterventionError("observation_identity_mismatch")
@@ -1227,7 +1236,8 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
                         "sentientos.resident_cognition_observation:v9",
                         "sentientos.resident_cognition_observation:v10",
                         "sentientos.resident_cognition_observation:v11", "sentientos.resident_cognition_observation:v12",
-                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14"}:
+                        "sentientos.resident_cognition_observation:v13", "sentientos.resident_cognition_observation:v14",
+                        "sentientos.resident_cognition_observation:v15"}:
                 selection = semantic_observation.get("developmental_history_selection")
                 expected_records = [{"record_id": record_id,
                     "record_digest": record_digest} for record_id, record_digest in zip(

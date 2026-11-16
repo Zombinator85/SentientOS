@@ -396,6 +396,17 @@ context contains enough bound information for a controlled response policy to
 apply a correction without promoting it to truth. It does not establish that a
 real model will correctly interpret feedback or improve open-ended decisions.
 
+Historical dialogue citations now remain distinct from same-session citations
+through the interaction result, observation schema v15, and committed assistant
+transcript linkage. Each selected citation stores the exact offered turn ID and
+text digest; parsing rejects references outside the prompt's allowlist, and
+transcript verification checks the linkage against the persisted observation
+and its offered historical context. The composed restart test asserts that the
+correction-conditioned answer cites the earlier turn and digest after a new
+session. This is deterministic citation-lineage evidence only: a controlled
+invoker supplies the citation, and it does not show that a real model will
+select all and only the historical turns that materially influenced its answer.
+
 The integration exposed a linkage defect: the bridge adds resolved epistemic
 priorities to the conversation context and recomputes its selection digest, but
 the response linkage previously kept the pre-bridge digest. The cognition
