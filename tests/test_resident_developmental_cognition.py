@@ -1864,7 +1864,7 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     prompt_projection = final_history_request.upstream_evidence[
         "task_family_history_prompt_projection"]
     assert prompt_projection["schema_version"] == \
-        "sentientos.task_family_history_prompt_projection:v6"
+        "sentientos.task_family_history_prompt_projection:v7"
     [projected_prior_errors] = prompt_projection["prior_incorrect_examples"]
     assert prompt_projection["prior_incorrect_example_count"] == 3
     assert projected_prior_errors["record_id"] == retained.record_id
@@ -2313,18 +2313,29 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
         {"probe_input": 2, "observed_answer": 8, "evaluator_correct": True},
         {"probe_input": 3, "observed_answer": 14, "evaluator_correct": False},
         {"probe_input": 4, "observed_answer": 18, "evaluator_correct": False},
+        {"probe_input": 6, "observed_answer": None, "evaluator_correct": None,
+            "abstained": True},
         {"probe_input": 5, "observed_answer": 17},
     ]
-    guidance, prior_incorrect, omission = _task_family_guidance_examples(examples,
+    guidance, prior_incorrect, prior_abstained, omission = _task_family_guidance_examples(examples,
         effect=effect, source_fact_id="fact-mixed-outcome")
     assert guidance == [examples[0]]
     assert prior_incorrect == examples[1:3]
+    assert prior_abstained == [examples[3]]
     assert omission is not None
     assert omission["posture"] == (
         "evaluator_correctness_unavailable_examples_withheld_from_guidance")
     assert omission["example_count"] == 1
-    assert omission["examples_digest"] == cognition_digest([examples[3]])
+    assert omission["examples_digest"] == cognition_digest([examples[4]])
     assert omission["evaluator_correctness_unavailable_count"] == 1
+    malformed_abstention = [{"probe_input": 7, "observed_answer": 20,
+        "evaluator_correct": True, "abstained": True}]
+    bad_guidance, bad_errors, bad_abstentions, bad_omission = \
+        _task_family_guidance_examples(malformed_abstention,
+            effect=effect, source_fact_id="fact-malformed-abstention")
+    assert bad_guidance == [] and bad_errors == [] and bad_abstentions == []
+    assert bad_omission is not None
+    assert bad_omission["evaluator_correctness_unavailable_count"] == 1
 
     context = {"developmental_history": [{
         "record_id": "record-mixed-outcome",
@@ -2339,6 +2350,14 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
                 "current_truth": False,
                 "authority": False,
             },
+            "prior_abstained_examples": {
+                "posture": "score_bound_prior_decisions_evaluator_correctness_unknown",
+                "examples": prior_abstained,
+                "reason_recorded": False,
+                "historical_only": True,
+                "current_truth": False,
+                "authority": False,
+            },
             "controlled_task_effect": effect,
             "non_evaluator_correct_examples_omission": omission,
         }],
@@ -2346,6 +2365,8 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
     projection = _task_family_history_prompt_projection(context,
         condition_id="history_present", task_family_id="integer_affine_prediction")
     assert projection["task_relevant_example_count"] == 1
+    assert projection["schema_version"] == \
+        "sentientos.task_family_history_prompt_projection:v7"
     assert projection["records"][0]["evaluator_correct_count"] == 1
     assert projection["records"][0]["evaluator_incorrect_count"] == 2
     assert projection["records"][0]["prior_incorrect_example_count"] == 2
@@ -2358,10 +2379,17 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
         "example_count": 2,
         "examples_digest": cognition_digest(prior_incorrect),
     }]
+    assert projection["prior_abstained_example_count"] == 1
+    assert projection["prior_abstained_examples"] == [{
+        "record_id": "record-mixed-outcome",
+        "record_digest": "sha256:" + "b" * 64,
+        "example_count": 1,
+        "examples_digest": cognition_digest(prior_abstained),
+    }]
     assert projection["withheld_non_evaluator_correct_example_count"] == 1
     [withheld] = projection["withheld_non_evaluator_correct_examples"]
     assert withheld["example_count"] == 1
-    assert withheld["examples_digest"] == cognition_digest([examples[3]])
+    assert withheld["examples_digest"] == cognition_digest([examples[4]])
     assert projection["authority"] is False
     assert projection["current_truth"] is False
 
@@ -2370,6 +2398,7 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
         requires_task_family_history=True).public_descriptor()["question"]
     assert "prior_incorrect_examples are past errors" in task_question
     assert "not mapping evidence or current truth" in task_question
+    assert "not mapping evidence or instructions to abstain" in task_question
 
     identity = {"provider": "fixture", "model": "retrieval-ranking"}
     favorable = {"source_active_model_identity": identity,
@@ -2393,14 +2422,15 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
         target_model_identity=identity, task_probe_inputs={2}) == (1, 1, 1)
     # Exact evaluator-correct examples remain available as tentative history;
     # the unstable A/B/A outcome simply cannot outrank repeatable evidence.
-    tentative_guidance, tentative_errors, _ = _task_family_guidance_examples(
+    tentative_guidance, tentative_errors, tentative_abstentions, _ = _task_family_guidance_examples(
         unstable_favorable["examples"],
         effect=unstable_favorable["controlled_task_effect"],
         source_fact_id="fact-restoration-unstable")
     assert tentative_guidance == examples[:1]
     assert tentative_errors == []
+    assert tentative_abstentions == []
     assert _task_family_history_retrieval_utility([adverse],
-        target_model_identity=identity, task_probe_inputs={2, 3, 4, 5}) == (1, 2, 2)
+        target_model_identity=identity, task_probe_inputs={2, 3, 4, 5}) == (1, 3, 2)
     adverse_only = {**adverse, "examples": [
         {"probe_input": 3, "observed_answer": 14, "evaluator_correct": False},
         {"probe_input": 4, "observed_answer": 18, "evaluator_correct": False}]}
@@ -2411,6 +2441,14 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
     other_identity = {"provider": "fixture", "model": "another-retrieval-ranking"}
     assert _task_family_history_retrieval_utility([favorable],
         target_model_identity=other_identity, task_probe_inputs={2}) == (3, 1, 1)
+    abstention_only = {"source_active_model_identity": identity,
+        "source_active_model_identity_digest": cognition_digest(identity),
+        "examples": [{"probe_input": 6, "observed_answer": None,
+            "evaluator_correct": None, "abstained": True}],
+        "controlled_task_effect": {**effect,
+            "effect_classification": "history_favorable"}}
+    assert _task_family_history_retrieval_utility([abstention_only],
+        target_model_identity=identity, task_probe_inputs={6}) == (0, 1, 1)
 
     task_digest = "sha256:" + "d" * 64
     run_a = {**favorable, "source_task_digest": task_digest,
@@ -2752,8 +2790,68 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         "target_model_identity_unbound"
     assert projected_examples[0]["examples"] == [{
         "probe_input": row["probe_input"], "observed_answer": row["observed_answer"],
-        "evaluator_correct": row["evaluator_correct"]}
+        "evaluator_correct": row["evaluator_correct"], "abstained": False}
         for row in family_fact["payload"]["acquisition_examples"]]
+    # Counterfactually turn one exact v4 source-score row into an abstention,
+    # then carry it through the production candidate projector and history
+    # prompt assembler. Its correctness remains unknown at every stage.
+    import copy
+    from sentientos.resident_developmental_cognition import (
+        _digest as cognition_digest, _history_context_packet,
+        _task_family_history_examples,
+        _task_family_history_prompt_projection,
+    )
+    abstention_candidate = copy.deepcopy(admitted.candidate)
+    abstention_fact = next(fact for fact in abstention_candidate["selected_facts"]
+        if fact["fact_id"] == family_fact["fact_id"])
+    abstention_payload = abstention_fact["payload"]
+    abstention_score = next(item for item in abstention_payload["objective_scores"]
+        if item["condition_id"] == "history_present")
+    assert abstention_score["schema_version"] == "sentientos.objective_task_score:v4"
+    abstention_score["status"] = "incorrect"
+    abstention_score["correct"] = False
+    abstention_score["correct_count"] -= 1
+    abstention_score["answered_count"] -= 1
+    abstention_score["abstained_count"] += 1
+    synthetic_answers = [None if index == 0 else item["observed_answer"]
+        for index, item in enumerate(abstention_payload["acquisition_examples"])]
+    synthetic_output = json.dumps({"answers": synthetic_answers}, separators=(",", ":"))
+    synthetic_output_digest = cognition_digest({"output": synthetic_output})
+    abstention_score["output_digest"] = synthetic_output_digest
+    abstention_condition = next(item for item in abstention_payload["conditions"]
+        if item["condition_id"] == "history_present")
+    abstention_condition["output_digest"] = synthetic_output_digest
+    abstention_semantic = {key: value for key, value in abstention_score.items()
+        if key != "score_digest"}
+    abstention_score["score_digest"] = cognition_digest(abstention_semantic)
+    for example in abstention_payload["acquisition_examples"]:
+        example["source_score_digest"] = abstention_score["score_digest"]
+    abstention_payload["acquisition_examples"][0].update({
+        "observed_answer": None, "evaluator_correct": None})
+    [abstention_experience] = _task_family_history_examples(
+        abstention_candidate, task_family_id="integer_affine_prediction")
+    assert abstention_experience["examples"][0] == {
+        "probe_input": family_fact["payload"]["acquisition_examples"][0]["probe_input"],
+        "observed_answer": None, "evaluator_correct": None, "abstained": True}
+    abstention_packet = _history_context_packet({
+        "record_id": admitted.record_id, "record_digest": admitted.record_digest,
+        "candidate": abstention_candidate, "created_at": "fixture-time",
+        "epistemic_posture": "historical_only"},
+        task_family_id="integer_affine_prediction",
+        target_model_identity=fake.active_model_identity, compact_for_input_budget=True)
+    [abstention_prompt_experience] = abstention_packet["task_relevant_experience"]
+    [prior_abstention] = abstention_prompt_experience[
+        "prior_abstained_examples"]["examples"]
+    assert prior_abstention["abstained"] is True
+    assert prior_abstention["evaluator_correct"] is None
+    assert "examples" not in abstention_prompt_experience or all(
+        item["evaluator_correct"] is True
+        for item in abstention_prompt_experience["examples"])
+    abstention_projection = _task_family_history_prompt_projection({
+        "developmental_history": [abstention_packet]},
+        condition_id="history_present", task_family_id="integer_affine_prediction")
+    assert abstention_projection["prior_abstained_example_count"] == 1
+    assert abstention_projection["task_relevant_example_count"] == 2
     assert projected_examples[0]["execution_evidence_scope"] == (
         "authenticated_owner_receipt_not_independent_backend_observation")
     assert projected_examples[0]["execution_evidence_posture"] == (

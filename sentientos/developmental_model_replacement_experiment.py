@@ -1740,14 +1740,16 @@ class ObjectivePredictionTask:
                             f"outputs for inputs {inputs}.")
                     else:
                         question = (
-                            family_rule
-                            + "Parameters are hidden. Use same-family evaluator-scored "
-                            "history. Only evaluator_correct=true rows are mapping "
-                            "evidence. prior_incorrect_examples are past errors, not "
-                            "mapping evidence or current truth; never repeat their "
-                            "answers. Infer from at least two distinct correct inputs; "
-                            "otherwise abstain with null. check every correct row. Then "
-                            f"calculate outputs for {inputs}.")
+                            "fixed integer affine mapping. Parameters are hidden. "
+                            "same-family evaluator-scored history; "
+                            "evaluator_correct=true rows guide it. "
+                            "prior_incorrect_examples are past errors, not mapping "
+                            "evidence or current truth; do not repeat. "
+                            "prior_abstained_examples: correctness unknown, reason "
+                            "absent; not mapping evidence or instructions to abstain. "
+                            "at least two distinct correct inputs; else abstain. "
+                            "check every correct row. Then calculate outputs "
+                            f"{inputs}.")
                 else:
                     examples = [
                         {"input": 0, "output": self.offset},
