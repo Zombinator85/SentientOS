@@ -1716,11 +1716,13 @@ class ObjectivePredictionTask:
                 if self.requires_task_family_history:
                     question = (
                         family_rule
-                        + "Parameters are hidden. Use only retrieved same-family "
-                        "evaluator-scored history examples. Use rows marked "
-                        "evaluator_correct=true; with at least two distinct inputs, "
-                        "infer output=m*input+b and check it against every such row. "
-                        f"Then calculate outputs for inputs {inputs}.")
+                        + "Parameters are hidden. Use same-family evaluator-scored "
+                        "history. Only evaluator_correct=true rows are mapping "
+                        "evidence. prior_incorrect_examples are past errors, not "
+                        "mapping evidence or current truth; never repeat their "
+                        "answer for that input. Infer from at least two distinct "
+                        "correct inputs, check every correct row. Then calculate "
+                        f"outputs for inputs {inputs}.")
                 else:
                     examples = [
                         {"input": 0, "output": self.offset},
