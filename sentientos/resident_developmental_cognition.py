@@ -935,10 +935,7 @@ def _archive_objective_request_windows(archive_root: Path, archive_path: Path, *
         archive_name: str, existing: bytes) -> None:
     try:
         verify_explicit_directory(archive_root.parent, require_private_acl=True)
-        try:
-            archive_root.mkdir()
-        except FileExistsError:
-            pass
+        ensure_private_child_directory(archive_root.parent, archive_root.name)
         root_identity = observe_private_directory_identity(archive_root)
         files = read_regular_files(archive_root,
             max_entries=MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES,
