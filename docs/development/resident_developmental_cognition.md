@@ -537,3 +537,13 @@ conversation text into developmental history or canonical memory. A controlled
 counterfactual test demonstrates that an earlier sensor statement is available
 to the resident route when included and absent when withheld. It uses a test
 double and does not establish real-model accuracy or improved decisions.
+
+When an admitted operator correction cites a prior assistant response, the
+service may carry its cited epistemic state IDs into the next cognition request
+only after verifying the durable response linkage. These IDs remain bounded
+retrieval priorities: the bridge resolves them to proposition priorities without
+changing epistemic stance, evidence bindings, or execution authority.
+Unverified linkage contributes no priority. CPU-only counterfactual tests show
+the verified handoff reaches the bridge and the production bridge selects the
+cited proposition over an unrelated state; they do not establish that a real
+model will apply the selected state correctly.

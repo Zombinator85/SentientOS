@@ -2510,6 +2510,32 @@ class PersistentConversationService:
                 continue
             if used_chars + len(turn["text"]) > 4000:
                 continue
+            linkage = turn["linkage"]
+            epistemic_state_ids: list[str] = []
+            cited_state_ids = linkage.get("cognition_epistemic_state_citation_ids", ())
+            source_user_turn_id = linkage.get("source_user_turn_id")
+            source_user_turn = next((row for row in source_session.get("turns", ())
+                if isinstance(row, Mapping) and row.get("turn_id") == source_user_turn_id
+                and row.get("role") == "user"), None)
+            verifier = getattr(bridge, "verify_committed_response", None)
+            if (turn.get("role") == "assistant"
+                    and isinstance(source_user_turn_id, str)
+                    and isinstance(source_user_turn, Mapping)
+                    and isinstance(cited_state_ids, (list, tuple))
+                    and 0 < len(cited_state_ids) <= 16
+                    and all(isinstance(state_id, str)
+                        and re.fullmatch(r"epistemic-state:[0-9a-f]{24}", state_id)
+                        for state_id in cited_state_ids)
+                    and len(set(cited_state_ids)) == len(cited_state_ids)
+                    and callable(verifier)):
+                try:
+                    verified_response = verifier(linkage=linkage,
+                        response_text=turn["text"],
+                        request_id=f"{source_session_id}:{source_user_turn_id}")
+                except Exception:
+                    verified_response = False
+                if verified_response is True:
+                    epistemic_state_ids = list(cited_state_ids)
             used_chars += len(turn["text"])
             selected.append({
                 "feedback_record_id": reference["feedback_record_id"],
@@ -2520,16 +2546,25 @@ class PersistentConversationService:
                 "session_snapshot_digest": source_snapshot_digest,
                 "turn_id": turn_id, "role": turn["role"], "text": turn["text"],
                 "text_digest": expected_digest,
-                "linkage_digest": digest_payload(dict(turn["linkage"])),
+                "linkage_digest": digest_payload(dict(linkage)),
+                "epistemic_state_citation_ids": epistemic_state_ids,
             })
             seen[key] = expected_digest
         if not selected:
             return None
+        epistemic_state_ids = list(dict.fromkeys(state_id
+            for row in selected
+            for state_id in row["epistemic_state_citation_ids"]))[:64]
+        retained_state_ids = set(epistemic_state_ids)
+        for row in selected:
+            row["epistemic_state_citation_ids"] = [state_id for state_id in
+                row["epistemic_state_citation_ids"] if state_id in retained_state_ids]
         semantic = {
-            "schema_version": "sentientos.historical_cited_conversation_context:v1",
-            "turns": selected, "historical_only": True,
-            "current_truth": False, "authority": False,
-            "mutation_performed": False,
+            "schema_version": "sentientos.historical_cited_conversation_context:v2",
+            "turns": selected,
+            "epistemic_state_citation_ids": epistemic_state_ids,
+            "historical_only": True, "current_truth": False,
+            "authority": False, "mutation_performed": False,
         }
         return {**semantic, "selection_digest": digest_payload(semantic)}
 
@@ -2619,6 +2654,19 @@ class PersistentConversationService:
         historical_citation_context = self._resident_historical_citation_context(
             bridge=bridge, request_id=request_id, question=question,
             conversation_context=conversation_context)
+        if historical_citation_context is not None:
+            historical_state_ids = historical_citation_context.get(
+                "epistemic_state_citation_ids", ())
+            if historical_state_ids and conversation_context is not None:
+                semantic_context = {key: value for key, value in
+                    conversation_context.items() if key != "selection_digest"}
+                current_state_ids = semantic_context.get(
+                    "prior_epistemic_state_ids", [])
+                combined_state_ids = list(dict.fromkeys(
+                    (*historical_state_ids, *current_state_ids)))[:64]
+                semantic_context["prior_epistemic_state_ids"] = combined_state_ids
+                conversation_context = {**semantic_context,
+                    "selection_digest": digest_payload(semantic_context)}
         response_kwargs: dict[str, Any] = {"request_id": request_id,
             "question": question, "screen_observation": screen_observation}
         if canonical_memory_context is not None:

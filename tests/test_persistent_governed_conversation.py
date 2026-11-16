@@ -141,8 +141,15 @@ def test_historical_citation_context_resolves_only_digest_bound_source_turn(
         tmp_path: Path) -> None:
     app = service(tmp_path)
     source = app.sessions.create(model_identity={"model_id": "fixture"})
-    turn = app.sessions.append_turn(source["session_id"], role="user",
+    source_user_turn = app.sessions.append_turn(source["session_id"], role="user",
         text="The prior report named the west sensor.")
+    state_id = "epistemic-state:" + "c" * 24
+    turn = app.sessions.append_turn(source["session_id"], role="assistant",
+        text="The west sensor reading was stable.",
+        linkage={"source_user_turn_id": source_user_turn["turn_id"],
+            "response_origin": "resident_developmental_cognition",
+            "verified_response": True,
+            "cognition_epistemic_state_citation_ids": [state_id]})
     reference = {"feedback_record_id": "record-1",
         "feedback_record_digest": "a" * 64, "feedback_fact_id": "fact-1",
         "feedback_assertion_digest": "b" * 64,
@@ -150,22 +157,157 @@ def test_historical_citation_context_resolves_only_digest_bound_source_turn(
         "turn_id": turn["turn_id"], "text_digest": turn["text_digest"]}
 
     class CitationBridge:
+        verified = True
+
         def selected_historical_operator_citations(self, **_kwargs):
             return (reference,)
 
-    context = app._resident_historical_citation_context(bridge=CitationBridge(),
+        def verify_committed_response(self, *, linkage, response_text, request_id):
+            return (self.verified is True
+                and linkage.get("verified_response") is True
+                and response_text == turn["text"]
+                and request_id == (
+                    source["session_id"] + ":" + source_user_turn["turn_id"]))
+
+    bridge = CitationBridge()
+    context = app._resident_historical_citation_context(bridge=bridge,
         request_id="new-session:turn-" + "c" * 24, question="What did it say?",
         conversation_context=None)
     assert context is not None
     assert context["turns"][0]["text"] == turn["text"]
     assert context["turns"][0]["turn_id"] == turn["turn_id"]
+    assert context["schema_version"] == (
+        "sentientos.historical_cited_conversation_context:v2")
+    assert context["epistemic_state_citation_ids"] == [state_id]
+    assert context["turns"][0]["epistemic_state_citation_ids"] == [state_id]
     assert context["historical_only"] is True
     assert context["current_truth"] is False
+    assert context["authority"] is False
+    assert context["mutation_performed"] is False
 
+    bridge.verified = False
+    unverified = app._resident_historical_citation_context(bridge=bridge,
+        request_id="new-session:turn-" + "c" * 24, question="What did it say?",
+        conversation_context=None)
+    assert unverified is not None
+    assert unverified["epistemic_state_citation_ids"] == []
+    assert unverified["turns"][0]["epistemic_state_citation_ids"] == []
+
+    bridge.verified = True
     reference["text_digest"] = "d" * 64
     assert app._resident_historical_citation_context(bridge=CitationBridge(),
         request_id="new-session:turn-" + "c" * 24, question="What did it say?",
         conversation_context=None) is None
+
+
+def test_cross_session_correction_prioritizes_only_verified_cited_epistemic_states(
+        tmp_path: Path) -> None:
+    source_session_id = "session-" + "a" * 24
+    current_session_id = "session-" + "b" * 24
+    source_user_id = "turn-" + "1" * 24
+    source_assistant_id = "turn-" + "2" * 24
+    current_user_id = "turn-" + "3" * 24
+    state_id = "epistemic-state:" + "c" * 24
+    source_user = {"turn_id": source_user_id, "role": "user",
+        "text": "What did the west sensor report?",
+        "text_digest": chat_service.digest_payload(
+            {"text": "What did the west sensor report?"}), "linkage": {}}
+    source_linkage = {
+        "source_user_turn_id": source_user_id,
+        "response_origin": "resident_developmental_cognition",
+        "cognition_epistemic_state_citation_ids": [state_id],
+        "verified_response": True,
+    }
+    source_text = "The west sensor reported a stable reading."
+    source_assistant = {"turn_id": source_assistant_id, "role": "assistant",
+        "text": source_text,
+        "text_digest": chat_service.digest_payload({"text": source_text}),
+        "linkage": source_linkage}
+    reference = {
+        "feedback_record_id": "record-feedback",
+        "feedback_record_digest": "d" * 64,
+        "feedback_fact_id": "feedback-fact",
+        "feedback_assertion_digest": "e" * 64,
+        "conversation_session_id": source_session_id,
+        "turn_id": source_assistant_id,
+        "text_digest": source_assistant["text_digest"],
+    }
+
+    class SessionStore:
+        def load(self, session_id):
+            assert session_id == source_session_id
+            return {"session_id": source_session_id, "revision": 2,
+                "turns": [source_user, source_assistant]}
+
+        def append_turn(self, session_id, *, role, text, linkage):
+            assert session_id == current_session_id
+            return {"turn_id": "turn-" + "9" * 24}
+
+    class CognitionBridge:
+        verified = True
+
+        def selected_historical_operator_citations(self, **_kwargs):
+            return (reference,)
+
+        def verify_committed_response(self, *, linkage, response_text, request_id):
+            return (self.verified is True
+                and linkage.get("verified_response") is True
+                and response_text == source_text
+                and request_id == f"{source_session_id}:{source_user_id}")
+
+        def respond(self, **kwargs):
+            self.last_call = kwargs
+            return SimpleNamespace(status="admitted_completed", disposition="answer",
+                response="I am reviewing the previously cited state.", evidence_ids=(),
+                cognition_observation_id="devcog-" + "f" * 24,
+                cognition_observation_digest="sha256:" + "1" * 64,
+                snapshot_id="world-state-cross-session", snapshot_digest="2" * 64,
+                inference_receipt_id="lmrec-" + "3" * 24,
+                inference_receipt_digest="4" * 64,
+                invocation_output_digest="5" * 64, model_id="fixture-model",
+                model_artifact_digest="6" * 64, prior_record_ids=(),
+                history_record_ids=(), memory_record_ids=(), self_model_claim_ids=(),
+                epistemic_state_citation_ids=(), conversation_turn_citation_ids=(),
+                canonical_user_memory_selection_digest=None,
+                developmental_history_writeback_performed=False, authority=False,
+                current_truth=False, canonical_explicit_user_retention_mutated=False)
+
+    bridge = CognitionBridge()
+    app = object.__new__(PersistentConversationService)
+    app._resident_cognition_bridge = bridge
+    app.sessions = SessionStore()
+    app._resident_canonical_memory_context = lambda _question: None
+    app._avatar_output = None
+    app._speech_output = None
+    current_user = {"turn_id": current_user_id, "role": "user",
+        "text": "Revisit the west sensor correction.",
+        "text_digest": chat_service.digest_payload(
+            {"text": "Revisit the west sensor correction."}), "linkage": {}}
+    history = ContextSnapshot(current_session_id, (current_user,), 200, False,
+        "7" * 64)
+
+    app._complete_resident_cognition_response(session_id=current_session_id,
+        user_turn=current_user, question=current_user["text"], history=history,
+        screen_observation=None, on_content_chunk=None)
+    supplied = bridge.last_call["conversation_context"]
+    assert supplied["prior_epistemic_state_ids"] == [state_id]
+    assert supplied["selection_digest"] == chat_service.digest_payload({
+        key: value for key, value in supplied.items() if key != "selection_digest"})
+    historical = bridge.last_call["historical_citation_context"]
+    assert historical["epistemic_state_citation_ids"] == [state_id]
+    assert historical["historical_only"] is True
+    assert historical["current_truth"] is False
+    assert historical["authority"] is False
+    assert historical["mutation_performed"] is False
+
+    bridge.verified = False
+    app._complete_resident_cognition_response(session_id=current_session_id,
+        user_turn=current_user, question=current_user["text"], history=history,
+        screen_observation=None, on_content_chunk=None)
+    unverified_call = bridge.last_call
+    assert unverified_call["conversation_context"]["prior_epistemic_state_ids"] == []
+    assert unverified_call["historical_citation_context"][
+        "epistemic_state_citation_ids"] == []
 
 
 def test_historical_citation_context_skips_oversized_excerpt_and_keeps_later_fit(
