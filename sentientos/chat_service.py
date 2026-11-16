@@ -2169,6 +2169,7 @@ class PersistentConversationService:
         prior_record_ids = getattr(result, "prior_record_ids", ())
         history_record_ids = getattr(result, "history_record_ids", ())
         memory_record_ids = getattr(result, "memory_record_ids", ())
+        self_model_claim_ids = getattr(result, "self_model_claim_ids", ())
         memory_selection_digest = getattr(
             result, "canonical_user_memory_selection_digest", None)
         if (not isinstance(observation_id, str) or not observation_id.startswith("devcog-")
@@ -2197,6 +2198,10 @@ class PersistentConversationService:
                 or memory_selection_digest != (canonical_memory_context.get("selection_digest")
                     if canonical_memory_context is not None else None)):
             raise RuntimeError("resident_cognition_memory_lineage_invalid")
+        if (not isinstance(self_model_claim_ids, (tuple, list))
+                or any(not isinstance(item, str) for item in self_model_claim_ids)
+                or len(set(self_model_claim_ids)) != len(self_model_claim_ids)):
+            raise RuntimeError("resident_cognition_self_model_lineage_invalid")
         lineage = {
             "status": "resident_cognition_interaction",
             "cognition_observation_id": observation_id,
@@ -2223,6 +2228,7 @@ class PersistentConversationService:
                 "cognition_prior_record_ids": list(prior_record_ids),
                 "cognition_history_record_ids": list(history_record_ids),
                 "cognition_memory_citation_ids": list(memory_record_ids),
+                "cognition_self_model_claim_ids": list(self_model_claim_ids),
                 "cognition_memory_selection_digest": memory_selection_digest,
                 "cognition_model_id": model_id,
                 "cognition_model_artifact_digest": getattr(result, "model_artifact_digest", None),
@@ -2265,6 +2271,7 @@ class PersistentConversationService:
                 "cognition_prior_record_ids": list(prior_record_ids),
                 "cognition_history_record_ids": list(history_record_ids),
                 "cognition_memory_citation_ids": list(memory_record_ids),
+                "cognition_self_model_claim_ids": list(self_model_claim_ids),
                 "cognition_memory_selection_digest": memory_selection_digest,
                 "cognition_model_id": model_id,
                 "self_model_projection_id": getattr(result, "self_model_projection_id", None),
@@ -2610,6 +2617,9 @@ class PersistentConversationService:
                     "cognition_evidence_ids": linkage.get("cognition_evidence_ids", []),
                     "cognition_prior_record_ids": linkage.get("cognition_prior_record_ids", []),
                     "cognition_history_record_ids": linkage.get("cognition_history_record_ids", []),
+                    "cognition_memory_citation_ids": linkage.get("cognition_memory_citation_ids", []),
+                    "cognition_self_model_claim_ids": linkage.get(
+                        "cognition_self_model_claim_ids", []),
                     "cognition_model_id": linkage.get("cognition_model_id"),
                     "self_model_projection_id": linkage.get("self_model_projection_id"),
                     "self_model_projection_digest": linkage.get("self_model_projection_digest"),

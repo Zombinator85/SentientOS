@@ -433,7 +433,8 @@ class ResidentDevelopmentalCompanionBridge:
                 memory_lineage_valid = (
                     observation.get("schema_version")
                         in {"sentientos.resident_cognition_observation:v9",
-                            "sentientos.resident_cognition_observation:v10"}
+                            "sentientos.resident_cognition_observation:v10",
+                            "sentientos.resident_cognition_observation:v11"}
                     and linkage.get("cognition_memory_selection_digest")
                         == observation.get("canonical_user_memory_selection_digest")
                     and isinstance(memory_citation_ids, (list, tuple))
@@ -441,6 +442,20 @@ class ResidentDevelopmentalCompanionBridge:
                         == list(observation.get("companion_memory_citation_ids", ()))
                     and set(memory_citation_ids) <=
                         set(observation.get("canonical_user_memory_record_ids", ())))
+            if observation.get("schema_version") == "sentientos.resident_cognition_observation:v11":
+                self_model_citation_ids = linkage.get(
+                    "cognition_self_model_claim_ids", ())
+                selection = observation.get("prior_self_model_prompt_selection")
+                selected_ids = (selection.get("selected_claim_ids", ())
+                    if isinstance(selection, Mapping) else ())
+                self_model_lineage_valid = (
+                    isinstance(self_model_citation_ids, (list, tuple))
+                    and list(self_model_citation_ids) == list(observation.get(
+                        "companion_self_model_citation_ids", ()))
+                    and len(set(self_model_citation_ids)) == len(self_model_citation_ids)
+                    and set(self_model_citation_ids) <= set(selected_ids))
+            else:
+                self_model_lineage_valid = "cognition_self_model_claim_ids" not in linkage
             return (
                 linkage.get("response_origin") == "resident_developmental_cognition"
                 and observation.get("condition_id") == "companion-interaction"
@@ -476,9 +491,11 @@ class ResidentDevelopmentalCompanionBridge:
                 and observation.get("schema_version") in {
                     "sentientos.resident_cognition_observation:v8",
                     "sentientos.resident_cognition_observation:v9",
-                    "sentientos.resident_cognition_observation:v10"}
+                    "sentientos.resident_cognition_observation:v10",
+                    "sentientos.resident_cognition_observation:v11"}
                 and observation.get("companion_history_citation_ids") == list(history_record_ids)
                 and memory_lineage_valid
+                and self_model_lineage_valid
                 and history_lineage_valid
                 and linkage.get("cognition_model_id") == observation.get("model_id")
                 and linkage.get("cognition_model_artifact_digest") ==

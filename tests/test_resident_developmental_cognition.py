@@ -277,6 +277,7 @@ class FakeInvoker:
                     decision["history_record_ids"] = request.upstream_evidence.get(
                         "record_ids", [])
             decision.setdefault("memory_record_ids", [])
+            decision.setdefault("self_model_claim_ids", [])
             text = json.dumps(decision, sort_keys=True, separators=(",", ":"))
             original_output = text
         elif request.expected_output_format == "json" and request.structured_output_schema:
@@ -1367,7 +1368,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert later.written_record_id in family_record_ids
     conditions = recovered["conditions"]
     present, withheld, restored = conditions
-    assert all(item["schema_version"] == "sentientos.resident_cognition_observation:v10"
+    assert all(item["schema_version"] == "sentientos.resident_cognition_observation:v11"
         for item in conditions)
     # This fixture uses genuinely unlinked historical-compatible invocation
     # receipts; the new observation version must retain that empty linkage.
@@ -4933,7 +4934,7 @@ def test_canonical_user_memory_is_prompt_bound_historical_context_not_evidence(
     assert result.canonical_user_memory_selection_digest == context["selection_digest"]
     observation = cognition.verified_cognition_observation(
         result.cognition_observation_id, result.cognition_observation_digest)
-    assert observation["schema_version"] == "sentientos.resident_cognition_observation:v10"
+    assert observation["schema_version"] == "sentientos.resident_cognition_observation:v11"
     assert observation["canonical_user_memory_selection_digest"] == context["selection_digest"]
     assert observation["canonical_user_memory_record_ids"] == [
         context["records"][0]["memory_id"]]
@@ -5055,6 +5056,22 @@ def test_companion_interaction_accepts_memory_citations_only_from_selected_memor
     with pytest.raises(ValueError, match="companion_interaction_memory_binding_invalid"):
         _parse_companion_interaction_output(json.dumps(payload), set(), set(),
             {memory_id})
+
+
+def test_companion_interaction_accepts_only_selected_self_model_citations() -> None:
+    claim_id = "self-model-claim-prior-measurement"
+    payload = {"disposition": "answer",
+        "response": "The prior self-model recorded a measurement.",
+        "evidence_ids": [], "history_record_ids": [], "memory_record_ids": [],
+        "self_model_claim_ids": [claim_id]}
+    parsed = _parse_companion_interaction_output(json.dumps(payload), set(), set(),
+        set(), {claim_id})
+    assert parsed["self_model_claim_ids"] == [claim_id]
+    payload["self_model_claim_ids"] = ["omitted-self-model-claim"]
+    with pytest.raises(ValueError,
+            match="companion_interaction_self_model_binding_invalid"):
+        _parse_companion_interaction_output(json.dumps(payload), set(), set(),
+            set(), {claim_id})
 
 
 def test_controlled_history_intervention_classifies_unavailable_sentinel_as_abstention() -> None:
@@ -5189,7 +5206,9 @@ def test_companion_bridge_composes_consented_screen_and_proprioception_without_w
         response_text=result.response + " altered", request_id=request_id)
 
 
-def test_companion_bridge_verifies_v10_observation_lineage(tmp_path: Path) -> None:
+@pytest.mark.parametrize("schema_version", ["v10", "v11"])
+def test_companion_bridge_verifies_versioned_observation_lineage(
+        tmp_path: Path, schema_version: str) -> None:
     request_id = "v10-lineage-request"
     tick_id = "companion-interaction-" + hashlib.sha256(
         request_id.encode("utf-8")).hexdigest()[:32]
@@ -5202,7 +5221,7 @@ def test_companion_bridge_verifies_v10_observation_lineage(tmp_path: Path) -> No
     memory_selection_digest = "4" * 64
     response_digest = digest_payload({"text": response})
     observation = {
-        "schema_version": "sentientos.resident_cognition_observation:v10",
+        "schema_version": f"sentientos.resident_cognition_observation:{schema_version}",
         "condition_id": "companion-interaction", "tick_id": tick_id,
         "correlation_id": f"{tick_id}:resident_developmental_cognition:companion-interaction",
         "current_snapshot_id": "snapshot-v10", "current_snapshot_digest": "5" * 64,
@@ -5216,6 +5235,10 @@ def test_companion_bridge_verifies_v10_observation_lineage(tmp_path: Path) -> No
         "self_model_projection_id": None, "self_model_projection_digest": None,
         "epistemic_projection_id": None, "epistemic_projection_digest": None,
     }
+    if schema_version == "v11":
+        observation["prior_self_model_prompt_selection"] = {
+            "selected_claim_ids": ["self-model-claim-prior"]}
+        observation["companion_self_model_citation_ids"] = ["self-model-claim-prior"]
     cognition, _ = owner(tmp_path)
     cognition.verified_cognition_observation = lambda _id, _digest: observation
     bridge = ResidentDevelopmentalCompanionBridge(cognition)
@@ -5247,11 +5270,17 @@ def test_companion_bridge_verifies_v10_observation_lineage(tmp_path: Path) -> No
             "response_digest": response_digest,
         },
     }
+    if schema_version == "v11":
+        linkage["cognition_self_model_claim_ids"] = ["self-model-claim-prior"]
     assert bridge.verify_committed_response(linkage=linkage,
         response_text=response, request_id=request_id)
     assert not bridge.verify_committed_response(
         linkage={**linkage, "cognition_memory_citation_ids": ["memory-unselected"]},
         response_text=response, request_id=request_id)
+    if schema_version == "v11":
+        assert not bridge.verify_committed_response(
+            linkage={**linkage, "cognition_self_model_claim_ids": ["omitted-claim"]},
+            response_text=response, request_id=request_id)
 
 
 def test_development_chat_configuration_hosts_resident_cognition_owner(
@@ -5320,16 +5349,18 @@ def test_development_chat_configuration_hosts_resident_cognition_owner(
         assert screen_text in json.dumps(cognitive_prompt)
         assert "hosted-fixture-proprioception" in json.dumps(cognitive_prompt)
         assert response.context["cognition_history_record_ids"] == [seed.written_record_id]
+        assert response.context["cognition_self_model_claim_ids"] == []
         observation = cognition.verified_cognition_observation(
             response.context["cognition_observation_id"],
             response.context["cognition_observation_digest"])
-        assert observation["schema_version"] == "sentientos.resident_cognition_observation:v10"
+        assert observation["schema_version"] == "sentientos.resident_cognition_observation:v11"
         assert observation["companion_history_citation_ids"] == [seed.written_record_id]
         turns = app.sessions.load(session_id)["turns"]
         assert turns[-1]["linkage"]["response_origin"] == "resident_developmental_cognition"
         assert turns[-1]["linkage"]["inference_receipt_id"].startswith("lmrec-")
         assert turns[-1]["linkage"]["cognition_evidence_ids"]
         assert turns[-1]["linkage"]["cognition_history_record_ids"] == [seed.written_record_id]
+        assert turns[-1]["linkage"]["cognition_self_model_claim_ids"] == []
         assert screen_text not in json.dumps(app.sessions.load(session_id))
         assert len(list(cognition.writeback.store.records_root.glob("*.json"))) == 1
     finally:
@@ -6883,6 +6914,8 @@ def test_question_selected_self_model_changes_later_companion_response(
                     "disposition": "answer", "response": response,
                     "evidence_ids": current_ids[:1],
                     "history_record_ids": [], "memory_record_ids": [],
+                    "self_model_claim_ids": (["self-model-claim-gpu"]
+                        if has_relevant_claim else []),
                 }
             return super().invoke(request, persist=persist,
                 include_output_in_receipt=include_output_in_receipt,
@@ -6946,6 +6979,8 @@ def test_question_selected_self_model_changes_later_companion_response(
             query_prompt["instruction"])
     assert query_result.response.startswith(
         "The current screen reports 31 percent GPU utilization;")
+    assert query_result.self_model_claim_ids == ("self-model-claim-gpu",)
+    assert baseline_result.self_model_claim_ids == ()
     assert query_result.evidence_ids == tuple(
         query_invoker.requests[-1].upstream_evidence["current_fact_ids"][:1])
     assert "prior self-model record reports 25 percent" in query_result.response
@@ -6960,6 +6995,7 @@ def test_question_selected_self_model_changes_later_companion_response(
         relevant.claim_id, unrelated.claim_id)
     assert query_observation["prior_self_model_prompt_selection"][
         "selected_claim_ids"] == [relevant.claim_id]
+    assert query_observation["companion_self_model_citation_ids"] == (relevant.claim_id,)
     query_request = query_invoker.requests[-1]
     assert query_request.upstream_evidence["self_model_prompt_selection"][
         "selection_digest"] == query_prompt["prior_self_model_prompt_selection"][
@@ -7104,7 +7140,7 @@ def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp
     durable = [json.loads(path.read_text(encoding="utf-8"))
         for path in restarted.observations_root.glob("*.json")]
     by_request = {row["request_id"]: row for row in durable}
-    assert all(by_request[request.request_id]["schema_version"].endswith(":v10")
+    assert all(by_request[request.request_id]["schema_version"].endswith(":v11")
         and by_request[request.request_id]["developmental_history_selection"]
             == request.upstream_evidence["developmental_history_selection"]
         for request in cognition)
@@ -9826,9 +9862,10 @@ def test_pre_v6_observation_recovery_preserves_historical_digest_shape(tmp_path:
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v10"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v11"
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
+    value.pop("companion_self_model_citation_ids")
     value.pop("companion_history_citation_ids")
     for field in ("canonical_user_memory_selection_digest",
             "canonical_user_memory_source_snapshot_digest",
@@ -9867,9 +9904,10 @@ def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_pat
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v10"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v11"
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
+    value.pop("companion_self_model_citation_ids")
     value.pop("companion_history_citation_ids")
     for field in ("canonical_user_memory_selection_digest",
             "canonical_user_memory_source_snapshot_digest",
@@ -9913,9 +9951,10 @@ def test_rehashed_v7_history_selection_substitution_fails_receipt_reconciliation
     path = next(path for path in composition.observations_root.glob("*.json")
         if json.loads(path.read_text(encoding="utf-8")).get("condition_id") == "history_present")
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v10"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v11"
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
+    value.pop("companion_self_model_citation_ids")
     value.pop("companion_history_citation_ids")
     for field in ("canonical_user_memory_selection_digest",
             "canonical_user_memory_source_snapshot_digest",
