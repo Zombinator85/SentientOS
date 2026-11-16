@@ -2946,26 +2946,6 @@ class PersistentConversationService:
                     interrupt_speech(session["session_id"])
                 except Exception as exc:
                     LOGGER.warning("Local speech interruption failed: %s", type(exc).__name__)
-        bridge = self._resident_cognition_bridge
-        should_route_to_cognition = (bridge is not None and not retain)
-        can_handle = getattr(bridge, "can_handle", None)
-        if should_route_to_cognition and callable(can_handle):
-            try:
-                should_route_to_cognition = can_handle() is True
-            except Exception:
-                should_route_to_cognition = False
-        if should_route_to_cognition:
-            try:
-                return self._complete_resident_cognition_response(
-                    session_id=session["session_id"], user_turn=user_turn,
-                    question=message, history=history,
-                    screen_observation=screen_observation,
-                    on_content_chunk=on_content_chunk)
-            except (CognitionEvidenceUnavailable, CognitionWorkloadUnavailable):
-                # Keep ordinary chat available without current evidence, or if
-                # a game becomes active after the readiness check.
-                pass
-
         prior_assistant = next((turn for turn in reversed(session.get("turns", ()))
             if turn.get("role") == "assistant"
             and isinstance(turn.get("linkage"), Mapping)
@@ -3131,6 +3111,25 @@ class PersistentConversationService:
             max_turns=history_turn_limit, oldest_first=earliest_session_recall,
             relevance_query=history_relevance_query,
             prefer_recent_relevant=prefer_recent_relevant)
+        bridge = self._resident_cognition_bridge
+        should_route_to_cognition = (bridge is not None and not retain)
+        can_handle = getattr(bridge, "can_handle", None)
+        if should_route_to_cognition and callable(can_handle):
+            try:
+                should_route_to_cognition = can_handle() is True
+            except Exception:
+                should_route_to_cognition = False
+        if should_route_to_cognition:
+            try:
+                return self._complete_resident_cognition_response(
+                    session_id=session["session_id"], user_turn=user_turn,
+                    question=message, history=history,
+                    screen_observation=screen_observation,
+                    on_content_chunk=on_content_chunk)
+            except (CognitionEvidenceUnavailable, CognitionWorkloadUnavailable):
+                # Keep ordinary chat available without current evidence, or if
+                # a game becomes active after the readiness check.
+                pass
         # Exact recall, casual check-ins, and live runtime questions rely on the
         # relevant transcript or verified runtime facts. Lexical retrieval can
         # over-weight old prompts (for example, prior screen-visibility questions).
