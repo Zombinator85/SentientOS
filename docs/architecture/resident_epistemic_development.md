@@ -136,6 +136,19 @@ and query digest across original, revised, and restored conditions. This
 remains lexical prioritization of non-authoritative claims, not verification
 that those claims are true or useful.
 
+`tests/test_resident_developmental_cognition.py::test_question_selected_self_model_changes_later_companion_response`
+adds a matched counterfactual through the bridge and actual prompt assembler.
+With the same question, scene, source reconciliation, and CPU-only conditioned
+invoker, question-aware selection places the retained prior GPU measurement in
+the prompt and the later response includes it; the legacy predicate ordering
+selects an unrelated claim and the response lacks the prior measurement. The
+prompt retains the historical category, status, false current-truth posture,
+and false authority map, while the observation binds the selected claim and
+projection digest. Because this Windows fixture substitutes the POSIX
+composition lock and immutable observation publication, it demonstrates the
+behavioral integration path but not durable Windows custody or real-model
+generalization.
+
 The focused counterfactual in
 `tests/test_resident_developmental_cognition.py::test_companion_query_selects_relevant_older_experience_over_recent_unrelated_history`
 places a matching older battery-calibration record behind four newer unrelated

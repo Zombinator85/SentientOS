@@ -6612,6 +6612,138 @@ def test_companion_bridge_passes_question_to_self_model_projection() -> None:
         "relevance_query": question}]
 
 
+def test_question_selected_self_model_changes_later_companion_response(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from contextlib import nullcontext
+    from datetime import datetime, timezone
+    from sentientos.longitudinal_self_model import (
+        FALSE_AUTHORITY, LongitudinalSelfModelOwner,
+        LongitudinalSelfModelRuntimeConfig, SelfModelClaim,
+        SelfModelReconciliation,
+    )
+
+    def claim(*, claim_id: str, predicate: str, value: object,
+            subject_id: str, subject_kind: str) -> SelfModelClaim:
+        return SelfModelClaim(claim_id=claim_id, claim_key="key-" + claim_id,
+            subject_id=subject_id, subject_kind=subject_kind, predicate=predicate,
+            value=value, temporal_scope="prior", claim_category="historical_interpretation",
+            lifecycle_stage="observation", status="historical", freshness="unknown",
+            contradiction_state="unresolved", evidence_strength="verified",
+            source_evidence_ids=("evidence-" + claim_id,),
+            source_evidence_digests=("a" * 64,), source_fact_ids=("fact-" + claim_id,),
+            world_state_snapshot_id="snapshot-prior", world_state_snapshot_digest="b" * 64,
+            source_observed_at=("2026-11-07T12:00:00+00:00",),
+            first_supported_generation=1, last_supported_generation=1,
+            first_supported_tick="tick-prior", last_supported_tick="tick-prior",
+            current_truth=False, interpretation=True, authority=dict(FALSE_AUTHORITY))
+
+    unrelated = claim(claim_id="self-model-claim-body",
+        predicate="embodiment.body_generation", value="body-2",
+        subject_id="body:2", subject_kind="installation_body")
+    relevant = claim(claim_id="self-model-claim-gpu",
+        predicate="host_resource_metrics",
+        value={"gpu_utilization_percent": 25},
+        subject_id="host:1", subject_kind="host_runtime")
+    source = SelfModelReconciliation("sentientos.longitudinal_self_model_reconciliation:v1",
+        "self-reconciliation-prior", "c" * 64, 1, "tick-prior", "snapshot-prior",
+        "b" * 64, None, (unrelated, relevant), dict(FALSE_AUTHORITY))
+    self_model = LongitudinalSelfModelOwner(tmp_path / "self-model")
+    monkeypatch.setattr(self_model, "_load", lambda: (source,))
+    self_model_config = LongitudinalSelfModelRuntimeConfig(enabled=True,
+        custody_root=tmp_path / "self-model", cognitive_consumption_enabled=True,
+        max_projection_claims=1,
+        allowed_predicates=("embodiment.body_generation", "host_resource_metrics"),
+        installation_id="fixture")
+
+    class BaselineProjectionOwner:
+        def reconcile(self, *args, **kwargs):
+            return self_model.reconcile(*args, **kwargs)
+
+        def cognitive_projection(self, **kwargs):
+            kwargs.pop("relevance_query", None)
+            return self_model.cognitive_projection(**kwargs)
+
+    class ProjectionConditionedInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                projection = prompt.get("prior_self_model") or {}
+                has_relevant_claim = "self-model-claim-gpu" in projection.get(
+                    "selected_claim_ids", ())
+                current_ids = request.upstream_evidence.get("current_fact_ids", [])
+                response = ("The current screen reports 31 percent GPU utilization; "
+                    "the prior self-model record reports 25 percent."
+                    if has_relevant_claim else
+                    "The current screen reports 31 percent GPU utilization; "
+                    "I have no relevant prior measurement.")
+                self.companion_output_override = {
+                    "disposition": "answer", "response": response,
+                    "evidence_ids": current_ids[:1],
+                    "history_record_ids": [], "memory_record_ids": [],
+                }
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    now = datetime(2026, 11, 8, 12, 0, tzinfo=timezone.utc)
+    screen = {"modality": "screen", "text": "Current GPU utilization is 31 percent.",
+        "capture_digest": "d" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    question = "Compare current GPU utilization with the prior measurement."
+    import sentientos.resident_developmental_cognition as cognition_module
+    captured_observations = {}
+
+    def capture_observation_publication(path, payload, **_kwargs):
+        captured_observations[path.stem] = dict(payload)
+
+    # Windows cannot exercise this POSIX-only immutable publication primitive;
+    # retain the exact payload in memory to verify its lineage in this fixture.
+    monkeypatch.setattr(cognition_module, "_publish_store_json",
+        capture_observation_publication)
+
+    query_cognition, query_invoker = owner(tmp_path / "query-cognition",
+        allowed_source_kinds=("embodiment",), invoker=ProjectionConditionedInvoker())
+    # This isolated, single-threaded fixture does not exercise the POSIX lock.
+    monkeypatch.setattr(query_cognition, "_composition_lock", lambda: nullcontext())
+    query_bridge = ResidentDevelopmentalCompanionBridge(query_cognition,
+        self_model_owner=self_model, self_model_config=self_model_config,
+        clock=lambda: now)
+    query_result = query_bridge.respond(request_id="query-selected-self-model",
+        question=question, screen_observation=screen)
+
+    baseline_cognition, baseline_invoker = owner(tmp_path / "baseline-cognition",
+        allowed_source_kinds=("embodiment",), invoker=ProjectionConditionedInvoker())
+    monkeypatch.setattr(baseline_cognition, "_composition_lock", lambda: nullcontext())
+    baseline_bridge = ResidentDevelopmentalCompanionBridge(baseline_cognition,
+        self_model_owner=BaselineProjectionOwner(), self_model_config=self_model_config,
+        clock=lambda: now)
+    baseline_result = baseline_bridge.respond(request_id="baseline-self-model-order",
+        question=question, screen_observation=screen)
+
+    query_prompt = json.loads(query_invoker.requests[-1].prompt)
+    baseline_prompt = json.loads(baseline_invoker.requests[-1].prompt)
+    assert query_result.status == baseline_result.status == "admitted_completed"
+    assert "prior self-model record reports 25 percent" in query_result.response
+    assert "no relevant prior measurement" in baseline_result.response
+    assert query_prompt["prior_self_model"]["selected_claim_ids"] == [relevant.claim_id]
+    assert baseline_prompt["prior_self_model"]["selected_claim_ids"] == [unrelated.claim_id]
+    assert query_prompt["prior_self_model"]["relevance_query_digest"]
+    assert baseline_prompt["prior_self_model"].get("relevance_query_digest") is None
+    selected_claim = query_prompt["prior_self_model"]["selected_claims"][0]
+    assert selected_claim["claim_category"] == "historical_interpretation"
+    assert selected_claim["status"] == "historical"
+    assert selected_claim["current_truth"] is False
+    assert not any(selected_claim["authority"].values())
+    query_observation = captured_observations[query_result.cognition_observation_id]
+    assert query_observation["self_model_claim_ids"] == (relevant.claim_id,)
+    assert query_observation["self_model_projection_digest"] == (
+        query_result.self_model_projection_digest)
+    assert query_observation["authority"] is False
+
+
 def self_model_projection(root: Path):
     from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
     from tests.test_longitudinal_self_model import record, snapshot as self_model_snapshot
