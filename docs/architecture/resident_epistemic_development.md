@@ -106,7 +106,9 @@ building its bounded prior-state projection. It ranks only propositions that
 have an eligible prior state, splits underscore-delimited identifiers such as
 `reports_temperature` into searchable terms, and weights structured subject,
 predicate, object, qualifier, and scope matches above incidental statement
-wording. Explicit proposition priorities remain ahead of question relevance.
+wording. Each query term contributes once per proposition at its strongest
+matching field, so repeated generic wording cannot outweigh a distinct scope
+match. Explicit proposition priorities remain ahead of question relevance.
 This lets question-relevant prior positions survive the owner-level state cap
 before the prompt packet binder applies its separate byte budget. The behavior
 remains deterministic lexical matching; it does not infer semantic equivalence
@@ -114,9 +116,11 @@ or establish truth.
 
 Focused counterfactuals in
 `tests/test_persistent_epistemic_state.py::test_question_relevance_prefers_structured_terms_over_incidental_statement_match`
+and `tests/test_persistent_epistemic_state.py::test_question_relevance_counts_each_query_term_once_per_proposition`
 and `tests/test_persistent_epistemic_state.py::test_projection_question_priority_ignores_propositions_without_prior_state`
-show that structured query matches outrank an incidental sentence match and
-that propositions without prior state cannot consume relevance priority.
+show that structured query matches outrank incidental sentence matches, term
+repetition does not swamp distinct scope matches, and propositions without
+prior state cannot consume relevance priority.
 
 The focused counterfactual in
 `tests/test_resident_developmental_cognition.py::test_companion_query_selects_relevant_older_experience_over_recent_unrelated_history`

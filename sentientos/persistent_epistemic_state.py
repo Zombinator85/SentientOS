@@ -89,10 +89,14 @@ def _question_relevant_proposition_ids(propositions: Mapping[str, Any], *,
     for proposition_id, proposition in propositions.items():
         if not isinstance(proposition, EpistemicProposition):
             continue
-        relevance = sum(weight * len(query_terms & _epistemic_query_terms(
-            json.dumps(getattr(proposition, field), sort_keys=True,
-                separators=(",", ":"), ensure_ascii=False)))
-            for field, weight in weighted_fields)
+        term_weights: dict[str, int] = {}
+        for field, weight in weighted_fields:
+            field_terms = query_terms & _epistemic_query_terms(json.dumps(
+                getattr(proposition, field), sort_keys=True,
+                separators=(",", ":"), ensure_ascii=False))
+            for term in field_terms:
+                term_weights[term] = max(term_weights.get(term, 0), weight)
+        relevance = sum(term_weights.values())
         if relevance:
             ranked.append((relevance, proposition_id))
     ranked.sort(key=lambda item: (-item[0], item[1]))

@@ -90,6 +90,24 @@ def test_question_relevance_prefers_structured_terms_over_incidental_statement_m
         limit=1) == (structured_match.proposition_id,)
 
 
+def test_question_relevance_counts_each_query_term_once_per_proposition():
+    scoped_match = make_proposition(namespace="embodiment",
+        subject="sensor:west", predicate="has_status", object_value="active",
+        polarity="positive", qualifiers={}, temporal_scope={},
+        context_scope={"room": "lab_a"}, proposition_class="descriptive",
+        statement="A sensor report.")
+    repeated_generic_match = make_proposition(namespace="embodiment",
+        subject="sensor:east", predicate="sensor_status", object_value="active",
+        polarity="positive", qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive",
+        statement="The sensor reading mentions another sensor.")
+    propositions = {scoped_match.proposition_id: scoped_match,
+        repeated_generic_match.proposition_id: repeated_generic_match}
+
+    assert _question_relevant_proposition_ids(propositions,
+        query="sensor lab", limit=1) == (scoped_match.proposition_id,)
+
+
 def binding(p, source, relation="supports", dependency="independently_sourced_observation", upstream=(), freshness="current"):
     return make_evidence_binding(proposition_id=p.proposition_id, source_artifact_id=source,
         source_digest="sha256:"+source.zfill(64), source_schema="sentientos.test_observation:v1",
