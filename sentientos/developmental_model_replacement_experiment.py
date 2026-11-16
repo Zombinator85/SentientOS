@@ -1745,7 +1745,10 @@ class ObjectivePredictionTask:
                             "history. Only evaluator_correct=true rows are mapping "
                             "evidence. prior_incorrect_examples are past errors, not "
                             "mapping evidence or current truth; never repeat their "
-                            "answers. Infer from at least two distinct correct inputs; "
+                            "answers. prior_abstained_examples are prior decisions "
+                            "with unknown correctness and unrecorded reasons; they are "
+                            "not mapping evidence or instructions to abstain. Infer "
+                            "from at least two distinct correct inputs; "
                             "otherwise abstain with null. check every correct row. Then "
                             f"calculate outputs for {inputs}.")
                 else:

@@ -1700,8 +1700,8 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
 
 def _task_family_guidance_examples(examples: object, *, effect: Mapping[str, Any],
         source_fact_id: object) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]],
-            dict[str, Any] | None]:
-    """Separate score-correct guidance, score-incorrect feedback, and withheld rows."""
+            list[Mapping[str, Any]], dict[str, Any] | None]:
+    """Separate mapping evidence, prior errors, abstentions, and unclassified rows."""
     if (not isinstance(examples, (list, tuple))
             or any(not isinstance(item, Mapping) for item in examples)):
         raise ResidentDevelopmentalCognitionError(
@@ -1710,33 +1710,56 @@ def _task_family_guidance_examples(examples: object, *, effect: Mapping[str, Any
         and effect.get("effect_classification") == "history_adverse")
     guidance: list[Mapping[str, Any]] = []
     prior_incorrect: list[Mapping[str, Any]] = []
+    prior_abstained: list[Mapping[str, Any]] = []
     withheld: list[Mapping[str, Any]] = []
     for example in examples:
-        if example.get("evaluator_correct") is False:
+        if "abstained" in example and type(example.get("abstained")) is not bool:
+            withheld.append(example)
+        elif example.get("abstained") is True:
+            if (example.get("observed_answer") is None
+                    and example.get("evaluator_correct") is None):
+                prior_abstained.append(example)
+            else:
+                withheld.append(example)
+        elif example.get("evaluator_correct") is False:
             prior_incorrect.append(example)
         elif not adverse and example.get("evaluator_correct") is True:
             guidance.append(example)
         else:
             withheld.append(example)
     if not withheld:
-        return guidance, prior_incorrect, None
+        return guidance, prior_incorrect, prior_abstained, None
+    def abstention_binding_invalid(item: Mapping[str, Any]) -> bool:
+        if "abstained" not in item:
+            return False
+        marker = item.get("abstained")
+        if type(marker) is not bool:
+            return True
+        if marker:
+            return not (item.get("observed_answer") is None
+                and item.get("evaluator_correct") is None)
+        return not (type(item.get("observed_answer")) is int
+            and type(item.get("evaluator_correct")) is bool)
     omission = {
         "posture": ("adverse_outcome_examples_withheld_from_guidance" if adverse else
             "evaluator_correctness_unavailable_examples_withheld_from_guidance"),
         "example_count": len(withheld),
         "examples_digest": _digest(withheld),
         "evaluator_correct_count": sum(
-            item.get("evaluator_correct") is True for item in withheld),
+            item.get("evaluator_correct") is True
+            and not abstention_binding_invalid(item) for item in withheld),
         "evaluator_incorrect_count": sum(
-            item.get("evaluator_correct") is False for item in withheld),
+            item.get("evaluator_correct") is False
+            and not abstention_binding_invalid(item) for item in withheld),
         "evaluator_correctness_unavailable_count": sum(
-            item.get("evaluator_correct") is not True
-            and item.get("evaluator_correct") is not False for item in withheld),
+            abstention_binding_invalid(item)
+            or (item.get("evaluator_correct") is not True
+                and item.get("evaluator_correct") is not False) for item in withheld),
         "controlled_task_effect_digest": effect.get("comparison_digest"),
         "source_fact_id": source_fact_id,
         "historical_only": True, "current_truth": False, "authority": False,
     }
-    return guidance, prior_incorrect, omission
+    return guidance, prior_incorrect, prior_abstained, omission
 
 
 def _task_family_history_retrieval_utility(experiences: object, *,
@@ -1764,11 +1787,11 @@ def _task_family_history_retrieval_utility(experiences: object, *,
         examples = experience.get("examples", ())
         if not isinstance(effect, Mapping):
             continue
-        guidance, prior_incorrect, _ = _task_family_guidance_examples(examples,
+        guidance, prior_incorrect, prior_abstained, _ = _task_family_guidance_examples(examples,
             effect=effect, source_fact_id=experience.get("source_fact_id"))
         guidance = [item for item in guidance
             if item.get("probe_input") not in conflicting_probe_inputs]
-        if not guidance and not prior_incorrect:
+        if not guidance and not prior_incorrect and not prior_abstained:
             continue
         classification = effect.get("effect_classification")
         restoration_stable = effect.get("restored_matches_present_score") is True
@@ -1788,16 +1811,24 @@ def _task_family_history_retrieval_utility(experiences: object, *,
             2 if restoration_stable and effect.get("posture")
             == "complete_comparable_condition_scores"
             and classification == "no_difference_observed" else 1)
-        if outcome_group in unsettled_outcome_groups:
+        if not guidance and not prior_incorrect:
+            # A prior abstention is a decision event, not a scored outcome.
+            # Keep it retrievable for an overlapping probe at zero outcome
+            # priority so it cannot outrank evaluated examples.
+            priority = 0
+        if outcome_group in unsettled_outcome_groups and (guidance or prior_incorrect):
             priority = 1
         outcome_priority = max(outcome_priority, priority)
         # Score-bound errors are useful negative context, but remain below
         # records with positive guidance because outcome priority sorts first.
-        usable_example_count += len(guidance) + len(prior_incorrect)
+        usable_example_count += len(guidance) + len(prior_incorrect) + len(prior_abstained)
         probe_overlap.update(item["probe_input"] for item in guidance
             if type(item.get("probe_input")) is int
             and item["probe_input"] in task_probe_inputs)
         probe_overlap.update(item["probe_input"] for item in prior_incorrect
+            if type(item.get("probe_input")) is int
+            and item["probe_input"] in task_probe_inputs)
+        probe_overlap.update(item["probe_input"] for item in prior_abstained
             if type(item.get("probe_input")) is int
             and item["probe_input"] in task_probe_inputs)
     return outcome_priority, usable_example_count, len(probe_overlap)
@@ -2107,7 +2138,7 @@ def _task_family_conflicting_probe_inputs(experiences_by_record: Mapping[str, ob
             examples = experience.get("examples", ())
             if not isinstance(effect, Mapping):
                 continue
-            guidance, _, _ = _task_family_guidance_examples(examples,
+            guidance, _, _, _ = _task_family_guidance_examples(examples,
                 effect=effect, source_fact_id=experience.get("source_fact_id"))
             for row in guidance:
                 probe = row.get("probe_input")
@@ -2318,8 +2349,11 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                     or example.get("source_condition") != "history_present"):
                 valid = False
                 break
-            rows.append({key: example[key] for key in (
-                "probe_input", "observed_answer", "evaluator_correct")})
+            row = {key: example[key] for key in (
+                "probe_input", "observed_answer", "evaluator_correct")}
+            if score.get("schema_version") == "sentientos.objective_task_score:v4":
+                row["abstained"] = abstained
+            rows.append(row)
         if not valid:
             continue
         # Join resource evidence only when it names this exact experiment run,
@@ -3364,13 +3398,22 @@ def _history_context_packet(record: Mapping[str, Any], *,
                 effect = item.get("controlled_task_effect")
                 examples = item.get("examples", ())
                 if isinstance(effect, Mapping):
-                    guidance, prior_incorrect, omission = _task_family_guidance_examples(examples,
+                    guidance, prior_incorrect, prior_abstained, omission = _task_family_guidance_examples(examples,
                         effect=effect, source_fact_id=item.get("source_fact_id"))
                     projected["examples"] = guidance
                     if prior_incorrect:
                         projected["prior_incorrect_examples"] = {
                             "posture": "score_bound_past_errors_not_mapping_evidence",
                             "examples": prior_incorrect,
+                            "historical_only": True,
+                            "current_truth": False,
+                            "authority": False,
+                        }
+                    if prior_abstained:
+                        projected["prior_abstained_examples"] = {
+                            "posture": "score_bound_prior_decisions_evaluator_correctness_unknown",
+                            "examples": prior_abstained,
+                            "reason_recorded": False,
                             "historical_only": True,
                             "current_truth": False,
                             "authority": False,
@@ -3727,6 +3770,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
     withheld_non_correct_examples: list[dict[str, Any]] = []
     withheld_conflicting_examples: list[dict[str, Any]] = []
     prior_incorrect_refs: list[dict[str, Any]] = []
+    prior_abstained_refs: list[dict[str, Any]] = []
     for packet in history:
         if not isinstance(packet, Mapping):
             raise ResidentDevelopmentalCognitionError(
@@ -3742,6 +3786,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 "task_family_prompt_projection_examples_invalid")
         example_rows: list[Mapping[str, Any]] = []
         prior_incorrect_rows: list[Mapping[str, Any]] = []
+        prior_abstained_rows: list[Mapping[str, Any]] = []
         for experience in experiences:
             rows = experience.get("examples", ())
             if (not isinstance(rows, (list, tuple))
@@ -3764,6 +3809,24 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                     raise ResidentDevelopmentalCognitionError(
                         "task_family_prompt_projection_negative_examples_invalid")
                 prior_incorrect_rows.extend(negative["examples"])
+            abstained = experience.get("prior_abstained_examples")
+            if abstained is not None:
+                if (not isinstance(abstained, Mapping)
+                        or abstained.get("posture") !=
+                            "score_bound_prior_decisions_evaluator_correctness_unknown"
+                        or abstained.get("reason_recorded") is not False
+                        or abstained.get("historical_only") is not True
+                        or abstained.get("current_truth") is not False
+                        or abstained.get("authority") is not False
+                        or not isinstance(abstained.get("examples"), (list, tuple))
+                        or any(not isinstance(row, Mapping)
+                            or row.get("abstained") is not True
+                            or row.get("observed_answer") is not None
+                            or row.get("evaluator_correct") is not None
+                            for row in abstained["examples"])):
+                    raise ResidentDevelopmentalCognitionError(
+                        "task_family_prompt_projection_abstentions_invalid")
+                prior_abstained_rows.extend(abstained["examples"])
         effect_digests = [effect.get("comparison_digest")
             for experience in experiences
             if isinstance((effect := experience.get("controlled_task_effect")), Mapping)]
@@ -3802,6 +3865,8 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
             "evaluator_incorrect_count": len(prior_incorrect_rows),
             "prior_incorrect_example_count": len(prior_incorrect_rows),
             "prior_incorrect_examples_digest": _digest(prior_incorrect_rows),
+            "prior_abstained_example_count": len(prior_abstained_rows),
+            "prior_abstained_examples_digest": _digest(prior_abstained_rows),
         }
         entries.append(entry)
         if prior_incorrect_rows:
@@ -3811,8 +3876,15 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 "example_count": entry["prior_incorrect_example_count"],
                 "examples_digest": entry["prior_incorrect_examples_digest"],
             })
+        if prior_abstained_rows:
+            prior_abstained_refs.append({
+                "record_id": entry["record_id"],
+                "record_digest": entry["record_digest"],
+                "example_count": entry["prior_abstained_example_count"],
+                "examples_digest": entry["prior_abstained_examples_digest"],
+            })
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v6",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v7",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",
@@ -3823,6 +3895,9 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         "prior_incorrect_example_count": sum(
             item["example_count"] for item in prior_incorrect_refs),
         "prior_incorrect_examples": prior_incorrect_refs,
+        "prior_abstained_example_count": sum(
+            item["example_count"] for item in prior_abstained_refs),
+        "prior_abstained_examples": prior_abstained_refs,
         "withheld_adverse_example_count": sum(
             item["example_count"] for item in withheld_adverse_examples),
         "withheld_adverse_examples": withheld_adverse_examples,

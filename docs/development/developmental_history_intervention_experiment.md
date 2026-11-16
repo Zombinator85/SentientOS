@@ -93,13 +93,21 @@ New task-family trials use the v4 selective-answer contract. Each probe accepts
 an integer answer or `null` abstention; evaluator correctness and abstention
 are recorded separately, with coverage and accuracy among answered probes
 reported independently. Abstentions have unknown evaluator correctness, so
-they are withheld from both positive mapping guidance and negative answer
-feedback. The history-conditioned prompt asks for abstention until at least two
-distinct evaluator-correct inputs support the mapping. Historical v3 task
-descriptors and scores remain readable with their original integer-only
-contract. These deterministic fixtures validate the scoring and evidence
-handling path; they do not demonstrate that a real model will abstain
-appropriately or apply the learned mapping.
+they are never positive mapping guidance or negative answer feedback. A
+score-bound v4 abstention is retained separately as a historical decision with
+unknown correctness and no recorded reason. It can make a same-family record
+retrievable for an overlapping probe at zero outcome priority, and appears in a
+separate `prior_abstained_examples` prompt block. The task prompt instructs
+the model not to treat it as mapping evidence or an instruction to abstain
+again.
+Unclassified unknown rows, including legacy v3 rows, remain withheld with
+digest-only omission evidence. The history-conditioned prompt asks for
+abstention until at least two distinct evaluator-correct inputs support the
+mapping. Historical v3 task descriptors and scores remain readable with their
+original integer-only contract. CPU-only controlled fixtures validate the
+decision-history path and its score limits; they do not demonstrate that a
+real model will use an abstention appropriately, abstain for a well-founded
+reason, or apply the learned mapping.
 
 When a bounded history selection includes a run from such a group, the
 read-only retrieval projection also carries the exact-task, source-model, and

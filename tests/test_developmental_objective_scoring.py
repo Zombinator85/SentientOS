@@ -611,13 +611,14 @@ def test_selective_family_prediction_abstains_without_history_and_uses_supported
     assert no_history["correct_count"] == 0
     assert history["answered_count"] == 3 and history["abstained_count"] == 0
     from sentientos.resident_developmental_cognition import _task_family_guidance_examples
-    guidance, prior_errors, omission = _task_family_guidance_examples(
+    guidance, prior_errors, prior_abstentions, omission = _task_family_guidance_examples(
         [{"probe_input": row["probe_input"],
             "observed_answer": row["observed_answer"],
-            "evaluator_correct": row["correct"]} for row in no_history["probe_results"]],
+            "evaluator_correct": row["correct"],
+            "abstained": row["abstained"]} for row in no_history["probe_results"]],
         effect={"posture": "comparison_unavailable"}, source_fact_id="selective-run")
     assert guidance == [] and prior_errors == []
-    assert omission["evaluator_correctness_unavailable_count"] == 3
+    assert len(prior_abstentions) == 3 and omission is None
 
 
 def test_v3_family_task_contract_remains_readable():
