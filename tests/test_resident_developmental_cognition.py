@@ -4764,9 +4764,37 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_lesson_scope_then_recency_fill:v5"
+        "query_overlap_with_lesson_scope_and_session_context_then_recency_fill:v6"
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
+
+    # An elliptical follow-up has no useful lexical overlap by itself. The
+    # validated prior user turn should keep the older, scoped experience
+    # selectable even though newer unrelated records fill the history window.
+    prior_user_text = "Which battery calibration scope applied to the weak cell?"
+    turns = [{"turn_id": "turn-" + "2" * 24, "role": "user",
+        "text": prior_user_text,
+        "text_digest": digest_payload({"text": prior_user_text}),
+        "linkage_digest": "a" * 64}]
+    context_semantic = {"schema_version": "sentientos.conversation_cognition_context:v1",
+        "session_id": "session-query-context", "source_snapshot_digest": "b" * 64,
+        "turns": turns, "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False}
+    conversation_context = {**context_semantic,
+        "selection_digest": digest_payload(context_semantic)}
+    fallback = cognition.run_companion_interaction(snapshot=snapshot(),
+        request_id="query-history-elliptical-without-context",
+        question="What about that?")
+    assert relevant.written_record_id not in fallback.prior_record_ids
+    followup = cognition.run_companion_interaction(snapshot=snapshot(),
+        request_id="query-history-elliptical-followup",
+        question="What about that?", conversation_context=conversation_context)
+    assert relevant.written_record_id in followup.prior_record_ids
+    assert unrelated_ids[0] not in followup.prior_record_ids
+    followup_prompt = json.loads(fake.requests[-1].prompt)
+    assert followup_prompt["companion_question"] == "What about that?"
+    assert followup_prompt["developmental_history_retrieval_policy_id"] == \
+        "query_overlap_with_lesson_scope_and_session_context_then_recency_fill:v6"
 
 
 def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_text() -> None:
@@ -4824,7 +4852,7 @@ def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_te
     from sentientos import resident_developmental_cognition as cognition_module
     _, metadata, _, _, _ = cognition_module._bind_history_and_epistemic_context(
         context={"developmental_history_retrieval_policy_id":
-            "query_overlap_with_lesson_scope_then_recency_fill:v5"},
+            "query_overlap_with_lesson_scope_and_session_context_then_recency_fill:v6"},
         records=(), projection=None, history_present=False)
     cognition_module._validate_developmental_history_selection({
         "developmental_history_selection": metadata["developmental_history_selection"]})
