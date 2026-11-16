@@ -5133,6 +5133,21 @@ def test_canonical_user_memory_is_prompt_bound_historical_context_not_evidence(
             canonical_memory_context=invalid)
     assert len(fake.requests) == before
 
+    invalid_relation = {**context, "correction_relations": [{
+        **context["correction_relations"][0],
+        "corrected_memory_record_digest": "not-a-digest",
+    }]}
+    invalid_relation_semantic = {key: value for key, value in invalid_relation.items()
+        if key != "selection_digest"}
+    invalid_relation["selection_digest"] = digest_payload(invalid_relation_semantic)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="canonical_user_memory_context_invalid"):
+        cognition.run_companion_interaction(snapshot=snapshot(),
+            request_id="canonical-memory-correction-relation-rejected",
+            question="What response style should you use?",
+            canonical_memory_context=invalid_relation)
+    assert len(fake.requests) == before
+
 
 def test_incomplete_memory_selection_forces_clarification_when_memory_cited(
         tmp_path: Path) -> None:
