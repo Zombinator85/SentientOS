@@ -8277,6 +8277,7 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
         "capture_scope": "allowlisted_foreground_game_client_area",
         "captured_at": now.isoformat(), "raw_frame_retained": False}
     from sentientos.developmental_companion_bridge import (
+        DevelopmentalCompanionBridgeError,
         make_operator_feedback_record,
     )
     bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
@@ -8308,6 +8309,19 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
         {"turn_id": cited_turn_id, "text_digest": cited_turn_digest}]
     assert feedback["payload"]["correction_target"] == {
         "turn_id": cited_turn_id, "text_digest": cited_turn_digest}
+    with pytest.raises(DevelopmentalCompanionBridgeError,
+            match="operator_feedback_contract_invalid"):
+        make_operator_feedback_record(
+            feedback_text, request_id="cycle-uncited-feedback",
+            assistant_turn_id="turn-" + "b" * 24,
+            assistant_response_digest="f" * 64,
+            source_capture_digest="b" * 64,
+            followup_capture_digest=screen["capture_digest"],
+            observed_at=now.isoformat(),
+            conversation_citation_ids=(cited_turn_id,),
+            conversation_citation_digests=(cited_turn_digest,),
+            conversation_session_id="session-" + "c" * 24,
+            correction_target_turn_id="turn-" + "e" * 24)
 
     cycle = bridge.run_developmental_cycle(
         tick_id="operator-confirmed-cycle-1", screen_observation=screen,
