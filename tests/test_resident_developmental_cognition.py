@@ -1544,7 +1544,7 @@ def test_objective_staging_arguments_can_require_exact_task_family_history() -> 
 
 
 def test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer(
-        tmp_path: Path) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A family match is relevant evidence, not an implicit success claim."""
     fake = SessionBoundFakeInvoker()
     fake.active_model_identity = {"provider": "fixture", "model": "adverse-correction-family"}
@@ -1598,8 +1598,22 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         admission_authority=RuntimeAdmissionAuthority(
             definitions=epistemic_definitions, ledger=epistemic_ledger),
         admission_ledger=epistemic_ledger)
+    completed_run_refs: list[tuple[str, str]] = []
+
+    def discover_completed_runs(*, limit: int = 32) -> tuple[tuple[str, str], ...]:
+        return tuple(completed_run_refs[-limit:])
+
+    # This deterministic test double supplies owner-discovered references for
+    # its synthetic fixture. Production discovery continues to require verified
+    # nonsynthetic inference; the production run and score owners still recheck
+    # every reference after projection.
+    monkeypatch.setattr(cognition, "inspect_completed_objective_experiment_run_refs",
+        discover_completed_runs)
 
     def admit_outcome(run: Mapping[str, Any], tick: int):
+        run_ref = (str(run["run_id"]), str(run["run_digest"]))
+        if run_ref not in completed_run_refs:
+            completed_run_refs.append(run_ref)
         binding = cognition.experiments.objective_task_family_evidence_binding(
             run_id=str(run["run_id"]), expected_run_digest=str(run["run_digest"]),
             proposition_id=proposition.proposition_id)
@@ -1610,8 +1624,6 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         surfaces = RuntimeMaintenanceSurfaces(
             tmp_path, runtime_state_root=tmp_path / "runtime-epistemic-outcomes",
             resident_developmental_owner=cognition,
-            developmental_history_intervention_run_refs=((
-                str(run["run_id"]), str(run["run_digest"])),),
             epistemic_state_owner=epistemic_owner,
             epistemic_state_config={"status": "configured",
                 "cognitive_consumption_enabled": True,
@@ -1619,23 +1631,56 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
             epistemic_development_runtime=epistemic_runtime)
         if tick == 1:
             early_time = event_time - timedelta(seconds=1)
+            prior_state = epistemic_owner.current_state(proposition.proposition_id)
+            prior_bindings = epistemic_owner.bindings(proposition.proposition_id)
             surfaces.build_world_state_board(tick_id=early_time.isoformat())
             early_feedback = surfaces.run_epistemic_development(
                 tick_id=early_time.isoformat())
-            assert early_feedback["verified_task_family_outcome_count"] == 0
-            assert early_feedback["verified_task_family_outcomes_status"] == "unresolved"
-            assert early_feedback["verified_task_family_outcomes"][0]["reason"] == (
+            future_outcome = next(row for row in early_feedback[
+                "verified_task_family_outcomes"] if row["run_id"] == run["run_id"])
+            assert future_outcome["status"] == "unresolved"
+            assert future_outcome["reason"] == (
                 "selected_run_event_time_is_future")
-            assert epistemic_owner.current_state(proposition.proposition_id) is None
-            assert epistemic_owner.bindings(proposition.proposition_id) == ()
+            assert epistemic_owner.current_state(proposition.proposition_id) == prior_state
+            assert epistemic_owner.bindings(proposition.proposition_id) == prior_bindings
         surfaces.build_world_state_board(tick_id=tick_time.isoformat())
         daemon_feedback = surfaces.run_epistemic_development(
             tick_id=tick_time.isoformat())
-        assert daemon_feedback["verified_task_family_outcomes_status"] == "verified"
-        assert daemon_feedback["verified_task_family_outcome_count"] == 1
-        feedback = SimpleNamespace(**daemon_feedback[
-            "verified_task_family_outcomes"][0])
+        for _ in range(32):
+            outcome = next(row for row in daemon_feedback[
+                "verified_task_family_outcomes"] if row["run_id"] == run["run_id"])
+            if not (outcome["status"] == "unresolved"
+                    and outcome.get("reason")
+                        == "proposition_update_already_performed_this_tick"):
+                break
+            tick_time += timedelta(seconds=1)
+            surfaces.build_world_state_board(tick_id=tick_time.isoformat())
+            daemon_feedback = surfaces.run_epistemic_development(
+                tick_id=tick_time.isoformat())
+        else:
+            pytest.fail("completed task-family run was not processed within the per-tick bound")
+        assert daemon_feedback["verified_task_family_outcomes_status"] in {
+            "verified", "partially_resolved"}
+        outcome = next(row for row in daemon_feedback[
+            "verified_task_family_outcomes"] if row["run_id"] == run["run_id"])
+        assert outcome["status"] in {"state_advanced", "evidence_appended"}
+        feedback = SimpleNamespace(**outcome)
         assert binding in epistemic_owner.bindings(proposition.proposition_id)
+
+        # The daemon discovers the already completed run again on the next
+        # maintenance tick. Reconciliation is idempotent and does not append a
+        # second evidence record or advance the same epistemic position.
+        prior_state = epistemic_owner.current_state(proposition.proposition_id)
+        prior_bindings = epistemic_owner.bindings(proposition.proposition_id)
+        replay_tick = tick_time + timedelta(seconds=1)
+        surfaces.build_world_state_board(tick_id=replay_tick.isoformat())
+        replay_feedback = surfaces.run_epistemic_development(
+            tick_id=replay_tick.isoformat())
+        replay_outcome = next(row for row in replay_feedback[
+            "verified_task_family_outcomes"] if row["run_id"] == run["run_id"])
+        assert replay_outcome["status"] == "already_applied"
+        assert epistemic_owner.current_state(proposition.proposition_id) == prior_state
+        assert epistemic_owner.bindings(proposition.proposition_id) == prior_bindings
         return binding, feedback
 
     # The fixture endpoint is preregistered to answer incorrectly when history
