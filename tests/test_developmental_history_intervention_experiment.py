@@ -136,6 +136,13 @@ def test_stable_difference_and_no_difference_are_bounded_descriptions() -> None:
         semantic.pop("observation_id"); semantic.pop("observation_digest")
         semantic.pop("developmental_history_selection")
         semantic.pop("companion_history_citation_ids")
+        semantic.pop("companion_epistemic_state_citation_ids")
+        for field in ("canonical_user_memory_source_snapshot_digest",
+                "canonical_user_memory_selection_digest",
+                "canonical_user_memory_record_ids",
+                "canonical_user_memory_record_digests",
+                "companion_memory_citation_ids"):
+            semantic.pop(field)
         for field in ("resource_allocation_digest", "resource_attempt_id",
                 "resource_consumption_receipt_digests", "resource_linkage_digest"):
             semantic.pop(field)

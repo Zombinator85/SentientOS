@@ -261,10 +261,10 @@ class AdmissionLedger:
             raise AdmissionError("admission_ledger_publication_unsupported_platform")
         if len(admissions) > MAX_ADMISSIONS or len(revocations) > MAX_REVOCATIONS:
             raise AdmissionError("admission_ledger_retention_limit_exceeded")
-        payload: dict[str, Any] = {"schema": SCHEMA, "admissions": [asdict(x) for x in admissions],
+        posix_payload: dict[str, Any] = {"schema": SCHEMA, "admissions": [asdict(x) for x in admissions],
             "revocations": [asdict(x) for x in revocations]}
-        payload["ledger_digest"] = _digest(payload)
-        raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        posix_payload["ledger_digest"] = _digest(posix_payload)
+        raw = json.dumps(posix_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
         if len(raw) > MAX_LEDGER_BYTES:
             raise AdmissionError("admission_ledger_size_limit_exceeded")
         try:

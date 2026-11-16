@@ -576,10 +576,12 @@ RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA = {
 }
 RESIDENT_COMPANION_SESSION_INTERACTION_OUTPUT_SCHEMA = {
     **RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
-    "required": [*RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["required"],
+    "required": [*cast(list[str],
+        RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["required"]),
         "conversation_turn_ids"],
     "properties": {
-        **RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["properties"],
+        **cast(dict[str, dict[str, object]],
+            RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["properties"]),
         "conversation_turn_ids": {"type": "array", "maxItems": 16,
             "uniqueItems": True,
             "items": {"type": "string", "pattern": "^turn-[0-9a-f]{24}$"}},

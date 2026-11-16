@@ -496,7 +496,8 @@ def test_windows_replay_publication_create_retry_and_conflict(tmp_path: Path) ->
     target = tmp_path / replay_module._record_name(1)
     assert read_explicit_file(target, max_bytes=64, require_private_acl=True) == b"record-one"
     assert _publish_test_record(tmp_path) is False
-    with pytest.raises(publication_module.WindowsReplayCustodyError, match="replay_owner_record_conflict"):
+    with pytest.raises(publication_module.WindowsReplayCustodyError,
+            match="replay_owner_record_conflict"):
         _publish_test_record(tmp_path, b"conflicting record")
     assert target.read_bytes() == b"record-one"
     assert [p.name for p in tmp_path.iterdir()] == [target.name]
@@ -1312,7 +1313,8 @@ def test_windows_replay_publication_preserves_destination_race(
             _make_current_user_private(target, directory=False)
 
     monkeypatch.setattr(publication_module, "_publication_boundary", create_conflict)
-    with pytest.raises(publication_module.WindowsReplayCustodyError, match="replay_owner_record_conflict"):
+    with pytest.raises(publication_module.WindowsReplayCustodyError,
+            match="windows_replay_mutable_destination_raced"):
         _publish_test_record(tmp_path)
     assert target.read_bytes() == b"foreign conflict"
     assert [p.name for p in tmp_path.iterdir()] == [target.name]

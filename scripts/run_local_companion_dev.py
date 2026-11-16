@@ -263,7 +263,8 @@ def _acquire_active_chat_lock(state_root: Path) -> Callable[[], None]:
         mutex = create_mutex(None, False,
             "Local\\SentientOS-DevelopmentChat-" + root_key)
         if not mutex:
-            raise OSError(ctypes.get_last_error(), "companion_state_lock_unavailable")
+            raise OSError(getattr(ctypes, "get_last_error")(),
+                "companion_state_lock_unavailable")
         acquired = False
         try:
             result = int(wait(mutex, 0))

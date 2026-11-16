@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -5503,16 +5504,19 @@ def test_chat_transcript_preserves_self_model_citations_across_idempotent_recove
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path / "user-memory"))
     conversation_root = tmp_path / "chat" / "conversations"
     conversation_root.mkdir(parents=True)
-    current_user = next(csv.reader([subprocess.check_output(
-        ["whoami", "/user", "/fo", "csv", "/nh"], text=True)]))[1]
-    inheritance = "(OI)(CI)(F)"
-    subprocess.run(["icacls", str(conversation_root), "/grant:r",
-        f"*{current_user}:{inheritance}", f"*S-1-5-18:{inheritance}",
-        f"*S-1-5-32-544:{inheritance}"], check=True, capture_output=True, text=True)
-    subprocess.run(["icacls", str(conversation_root), "/inheritance:r"],
-        check=True, capture_output=True, text=True)
-    subprocess.run(["icacls", str(conversation_root), "/setowner", f"*{current_user}"],
-        check=True, capture_output=True, text=True)
+    if os.name == "nt":
+        current_user = next(csv.reader([subprocess.check_output(
+            ["whoami", "/user", "/fo", "csv", "/nh"], text=True)]))[1]
+        inheritance = "(OI)(CI)(F)"
+        subprocess.run(["icacls", str(conversation_root), "/grant:r",
+            f"*{current_user}:{inheritance}", f"*S-1-5-18:{inheritance}",
+            f"*S-1-5-32-544:{inheritance}"], check=True, capture_output=True, text=True)
+        subprocess.run(["icacls", str(conversation_root), "/inheritance:r"],
+            check=True, capture_output=True, text=True)
+        subprocess.run(["icacls", str(conversation_root), "/setowner", f"*{current_user}"],
+            check=True, capture_output=True, text=True)
+    else:
+        conversation_root.chmod(0o700)
     def fixture_publish(path, payload, **_kwargs):
         path.write_bytes(json.dumps(payload, indent=2, sort_keys=True).encode("utf-8") + b"\n")
         path.chmod(0o600)

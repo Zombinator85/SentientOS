@@ -3164,7 +3164,7 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
         task_family_id=scoped_task_family_id,
         target_model_identity=target_model_identity)
         for record in records) for mode in packet_modes}
-    self_model_variants: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
+    self_model_variants: list[tuple[dict[str, Any] | None, dict[str, Any] | None]] = []
     raw_self_model = context.get("prior_self_model")
     if isinstance(raw_self_model, Mapping):
         claims = raw_self_model.get("selected_claims", ())
@@ -3183,7 +3183,7 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
         for count in range(len(claims), -1, -1):
             selected_ids = list(claim_ids[:count])
             selected_digests = list(claim_digests[:count])
-            omitted = [{"claim_id": str(cid), "claim_digest": str(digest)}
+            omitted_claims = [{"claim_id": str(cid), "claim_digest": str(digest)}
                 for cid, digest in zip(claim_ids[count:], claim_digests[count:])]
             variant = dict(raw_self_model)
             variant["selected_claims"] = list(claims[:count])
@@ -3198,9 +3198,9 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                 "available_claim_count": len(claims),
                 "selected_claim_ids": selected_ids,
                 "selected_claim_digests": selected_digests,
-                "omitted_claims": omitted,
-                "omitted_claims_digest": _digest(omitted),
-                "omission_reason": "inference_input_budget" if omitted else None}
+                "omitted_claims": omitted_claims,
+                "omitted_claims_digest": _digest(omitted_claims),
+                "omission_reason": "inference_input_budget" if omitted_claims else None}
             selection["selection_digest"] = _digest(selection)
             candidate_self_model = variant if count else None
             self_model_variants.append((candidate_self_model, selection))
@@ -3219,13 +3219,13 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
             for mode in packet_modes:
                 packets = packets_by_mode[mode]
                 selected = packets[len(packets) - count:] if count else ()
-                omitted = packets[:len(packets) - count] if count else packets
+                omitted_packets = packets[:len(packets) - count] if count else packets
                 selected_refs = tuple({"record_id": packet["record_id"],
                     "record_digest": packet["record_digest"]} for packet in selected)
                 omitted_refs = tuple({"record_id": packet["record_id"],
-                    "record_digest": packet["record_digest"]} for packet in omitted)
-                omission_reason = ("history_withheld_control" if omitted and not history_present else
-                    "inference_input_budget" if omitted else None)
+                    "record_digest": packet["record_digest"]} for packet in omitted_packets)
+                omission_reason = ("history_withheld_control" if omitted_packets and not history_present else
+                    "inference_input_budget" if omitted_packets else None)
                 retrieval_policy = context.get("developmental_history_retrieval_policy_id",
                     "completed_tick_recency_suffix:v1")
                 custody_selection = {"schema_version": "sentientos.developmental_history_selection:v1",
@@ -3253,7 +3253,7 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                     "selected_records": list(selected_refs),
                     "omitted_records": prompt_omitted,
                     "omitted_records_digest": _digest(prompt_omitted),
-                    "omission_reason": ("inference_input_budget" if omitted else None)
+                    "omission_reason": ("inference_input_budget" if omitted_packets else None)
                         if history_present else None}
                 prompt_selection["selection_digest"] = _digest(prompt_selection)
                 prompt_packets: list[dict[str, Any]] = []
@@ -3886,8 +3886,8 @@ def _validate_self_model_prompt_selection(value: Mapping[str, Any]) -> None:
             or len({item["claim_id"] for item in omitted}) != len(omitted)
             or set(selected_ids) & {item["claim_id"] for item in omitted}
             or selection["available_claim_count"] != len(selected_ids) + len(omitted)
-            or selected_ids + [item["claim_id"] for item in omitted] != list(available_ids)
-            or selected_digests + [item["claim_digest"] for item in omitted]
+            or [*selected_ids, *(item["claim_id"] for item in omitted)] != list(available_ids)
+            or [*selected_digests, *(item["claim_digest"] for item in omitted)]
                 != list(available_digests)
             or selection.get("omitted_claims_digest") != _digest(list(omitted))
             or selection.get("omission_reason") != (

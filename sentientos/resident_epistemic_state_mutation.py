@@ -766,14 +766,15 @@ class ResidentEpistemicStateMutationController:
             raise EpistemicMutationError("candidate_evidence_missing_foreign_or_withdrawn")
         # A binding receipt is evidence of append only; its admission may never authorize this stage.
         evidence_receipt_directory = self.receipt_root / "receipts" / "evidence"
+        evidence_receipt_entries: list[tuple[str, bytes | None]]
         if os.name == "nt":
             try:
-                evidence_receipt_entries = read_regular_files(
+                evidence_receipt_entries = list(read_regular_files(
                     evidence_receipt_directory,
                     max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
                     max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
                     max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES,
-                    require_private_acl=True)
+                    require_private_acl=True))
             except WindowsHandleCustodyError as exc:
                 raise EpistemicMutationError(
                     "mutation_receipt_windows_recovery_failed") from exc
@@ -781,8 +782,8 @@ class ResidentEpistemicStateMutationController:
             evidence_receipt_paths = sorted(evidence_receipt_directory.glob("*.json"))
             if len(evidence_receipt_paths) > MAX_MUTATION_CUSTODY_ENTRIES:
                 raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
-            evidence_receipt_entries = tuple((path.name, self._read_bounded(path))
-                for path in evidence_receipt_paths)
+            evidence_receipt_entries = [(path.name, self._read_bounded(path))
+                for path in evidence_receipt_paths]
         used_evidence_admissions: set[str] = set()
         for receipt_name, raw_bytes in evidence_receipt_entries:
             try:

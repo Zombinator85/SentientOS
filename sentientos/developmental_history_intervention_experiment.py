@@ -1188,6 +1188,10 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
                         "canonical_user_memory_record_digests",
                         "companion_memory_citation_ids"):
                     semantic_observation.pop(field, None)
+            if schema_version != "sentientos.resident_cognition_observation:v14":
+                # v14 added epistemic-state citations; older canonical
+                # identities must not acquire the dataclass's empty default.
+                semantic_observation.pop("companion_epistemic_state_citation_ids", None)
             calculated = _digest(semantic_observation)
             if schema_version == "sentientos.resident_cognition_observation:v2":
                 semantic_observation.pop("serving_session_id", None)

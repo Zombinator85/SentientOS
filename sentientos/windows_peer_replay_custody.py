@@ -515,7 +515,7 @@ def publish_immutable_replay_bytes(
             staging = None
             staging_path = str(path.parent / temporary_name)
             if not replace_file(str(path), staging_path, None, 0x1, None, None):
-                fail(f"windows_replay_atomic_replace_failed_0x{ctypes.get_last_error():08x}")
+                fail(f"windows_replay_atomic_replace_failed_0x{getattr(ctypes, 'get_last_error')():08x}")
             staging = open_at(root_handle, path.name, writable=True, sharing=7)
             if identity(staging) != source_identity:
                 fail("windows_replay_destination_identity_mismatch")

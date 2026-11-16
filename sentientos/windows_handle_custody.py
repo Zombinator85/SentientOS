@@ -129,7 +129,10 @@ def _verify_handle_acl(handle: int, *, require_private: bool) -> None:
             raise WindowsHandleCustodyError("private_acl_owner_mismatch")
 
         trusted: list[ctypes.c_void_p] = [current_user]
-        trusted_names = ["S-1-5-18", "S-1-5-32-544"]
+        # OWNER RIGHTS is scoped by Windows to the object owner. The owner is
+        # checked against this trusted set below, so this ACE does not grant
+        # replacement rights to an otherwise untrusted principal.
+        trusted_names = ["S-1-5-18", "S-1-5-32-544", "S-1-3-4"]
         if not require_private:
             trusted_names.append(
                 "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464")
