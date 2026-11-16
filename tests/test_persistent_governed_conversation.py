@@ -824,6 +824,30 @@ def test_malicious_recalled_memory_cannot_become_system_authority(tmp_path: Path
     assert "do not infer visual details from the empty OCR result" in no_text_prompt
 
 
+def test_memory_prompt_distinguishes_complete_from_incomplete_retrieval(
+        tmp_path: Path) -> None:
+    sessions = ConversationSessionStore(tmp_path / "sessions")
+    session = sessions.create(model_identity={})
+    history = sessions.reconstruct(session["session_id"], budget_chars=100)
+    memories = [{"text": "I prefer concise replies."}]
+    complete = assemble_local_chat_context(history=history,
+        memory_snapshot={"memories": memories, "retrieval_posture": "complete",
+            "selection_posture": "all_matching_records_selected",
+            "omitted_memory_count": 0}, current_message="What style should I use?")
+    incomplete = assemble_local_chat_context(history=history,
+        memory_snapshot={"memories": memories, "retrieval_posture": "complete",
+            "selection_posture": "matching_records_omitted",
+            "omitted_memory_count": 2}, current_message="What style should I use?")
+
+    assert '"selection_complete":true' in complete
+    assert '"selection_complete":false' in incomplete
+    assert '"omitted_memory_count":2' in incomplete
+    assert "If memory is incomplete or unknown" in incomplete
+    assert "do not infer absence" in incomplete
+    assert "resolve conflicts by recency" in incomplete
+    assert "\"authority\":false" in incomplete
+
+
 def test_compact_gaming_context_prioritizes_direct_grounded_replies() -> None:
     history = ContextSnapshot("session-test", (), 0, False, "0" * 64)
     prompt = assemble_local_chat_context(
