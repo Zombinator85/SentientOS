@@ -8455,7 +8455,7 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert control_later.response == "I do not have a relevant retained report."
 
 
-def test_targeted_operator_citation_precedes_earlier_general_citations_under_budget(
+def test_targeted_operator_citations_deduplicate_before_budget(
         tmp_path: Path) -> None:
     from contextlib import nullcontext
     from sentientos.developmental_companion_bridge import (
@@ -8480,17 +8480,19 @@ def test_targeted_operator_citation_precedes_earlier_general_citations_under_bud
         conversation_session_id=session_id)
     target_turn_id = "turn-" + "f" * 24
     target_turn_digest = "4" * 64
-    targeted_feedback = make_operator_feedback_record(
-        "A targeted unverified correction.", request_id="targeted-feedback",
-        assistant_turn_id="turn-" + "b" * 24,
-        assistant_response_digest="5" * 64,
-        source_capture_digest="6" * 64,
-        followup_capture_digest="7" * 64,
-        observed_at="2026-11-16T12:01:00Z",
-        conversation_citation_ids=(target_turn_id,),
-        conversation_citation_digests=(target_turn_digest,),
-        conversation_session_id=session_id,
-        correction_target_turn_id=target_turn_id)
+    def targeted_feedback(label: str, assistant_index: int,
+            turn_id: str, turn_digest: str) -> Mapping[str, Any]:
+        return make_operator_feedback_record(
+            "A targeted unverified correction.", request_id=f"targeted-{label}",
+            assistant_turn_id="turn-" + f"{assistant_index:024x}",
+            assistant_response_digest="5" * 64,
+            source_capture_digest="6" * 64,
+            followup_capture_digest="7" * 64,
+            observed_at="2026-11-16T12:01:00Z",
+            conversation_citation_ids=(turn_id,),
+            conversation_citation_digests=(turn_digest,),
+            conversation_session_id=session_id,
+            correction_target_turn_id=turn_id)
 
     def projection_record(label: str, feedback: Mapping[str, Any],
             assistant_turn_id: str) -> dict[str, Any]:
@@ -8509,13 +8511,20 @@ def test_targeted_operator_citation_precedes_earlier_general_citations_under_bud
             "observed_at": "2026-11-16T12:00:00Z",
         }
         return {"record_id": f"history-record-{label}",
-            "record_digest": "9" * 64,
+            "record_digest": hashlib.sha256(label.encode("utf-8")).hexdigest(),
             "candidate": {"selected_fact_ids": [fact_id], "selected_facts": [fact]}}
 
-    records = (
-        projection_record("general", general_feedback, "turn-" + "a" * 24),
-        projection_record("targeted", targeted_feedback, "turn-" + "b" * 24),
-    )
+    duplicate_target_records = tuple(projection_record(
+        f"target-{index}", targeted_feedback(f"duplicate-{index}", index + 10,
+            target_turn_id, target_turn_digest), "turn-" + f"{index + 10:024x}")
+        for index in range(16))
+    distinct_target_turn_id = "turn-" + "e" * 24
+    distinct_target_digest = "a" * 64
+    distinct_target = projection_record("target-distinct",
+        targeted_feedback("distinct", 99, distinct_target_turn_id,
+            distinct_target_digest), "turn-" + f"{99:024x}")
+    records = (projection_record("general", general_feedback,
+        "turn-" + "a" * 24), *duplicate_target_records, distinct_target)
     cognition._composition_lock = nullcontext
     cognition._state = lambda: {}
     cognition._prior_projection = lambda _state, _tick, **_kwargs: (
@@ -8528,9 +8537,12 @@ def test_targeted_operator_citation_precedes_earlier_general_citations_under_bud
     assert len(references) == 16
     assert references[0]["turn_id"] == target_turn_id
     assert references[0]["text_digest"] == target_turn_digest
-    assert references[0]["feedback_fact_id"] == "feedback-fact-targeted"
-    assert [reference["turn_id"] for reference in references[1:]] == list(
-        general_turn_ids[:15])
+    assert references[0]["feedback_fact_id"] == "feedback-fact-target-0"
+    assert references[1]["turn_id"] == distinct_target_turn_id
+    assert references[1]["text_digest"] == distinct_target_digest
+    assert references[1]["feedback_fact_id"] == "feedback-fact-target-distinct"
+    assert [reference["turn_id"] for reference in references[2:]] == list(
+        general_turn_ids[:14])
 
 
 def test_companion_cycle_runs_configured_epistemic_owner_after_cognition(
