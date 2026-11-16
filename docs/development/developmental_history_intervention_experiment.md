@@ -73,6 +73,13 @@ selection rule helps later context distinguish a one-run outcome from a
 repeat-run-consistent one. It does not establish statistical independence,
 causality, general learning, or improved performance.
 
+When a bounded history selection includes a run from such a group, the
+read-only retrieval projection also carries the exact-task, source-model, and
+run-reference summary into the task-family prompt. This keeps the reason for a
+record's higher retrieval priority visible when only one episode fits. The
+history-withheld control omits this summary along with the history itself. The
+summary is derived context only and remains explicitly non-authoritative.
+
 This is a prompt-projection constraint, not a new memory owner, general truth filter, or cross-model transfer rule. The v3 Hermes transfer family exercises the scoped path; its synthetic results are mixed and do not establish reliable transfer or improved performance.
 
 The broader capability remains `partial`. The separate controlled
