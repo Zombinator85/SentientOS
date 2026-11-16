@@ -432,7 +432,8 @@ class ResidentDevelopmentalCompanionBridge:
                 memory_citation_ids = linkage.get("cognition_memory_citation_ids", ())
                 memory_lineage_valid = (
                     observation.get("schema_version")
-                        == "sentientos.resident_cognition_observation:v9"
+                        in {"sentientos.resident_cognition_observation:v9",
+                            "sentientos.resident_cognition_observation:v10"}
                     and linkage.get("cognition_memory_selection_digest")
                         == observation.get("canonical_user_memory_selection_digest")
                     and isinstance(memory_citation_ids, (list, tuple))
@@ -474,7 +475,8 @@ class ResidentDevelopmentalCompanionBridge:
                     list(observation.get("retrieved_record_ids", ()))
                 and observation.get("schema_version") in {
                     "sentientos.resident_cognition_observation:v8",
-                    "sentientos.resident_cognition_observation:v9"}
+                    "sentientos.resident_cognition_observation:v9",
+                    "sentientos.resident_cognition_observation:v10"}
                 and observation.get("companion_history_citation_ids") == list(history_record_ids)
                 and memory_lineage_valid
                 and history_lineage_valid

@@ -5189,6 +5189,71 @@ def test_companion_bridge_composes_consented_screen_and_proprioception_without_w
         response_text=result.response + " altered", request_id=request_id)
 
 
+def test_companion_bridge_verifies_v10_observation_lineage(tmp_path: Path) -> None:
+    request_id = "v10-lineage-request"
+    tick_id = "companion-interaction-" + hashlib.sha256(
+        request_id.encode("utf-8")).hexdigest()[:32]
+    response = "The current observation is available."
+    observation_id = "devcog-0123456789abcdef01234567"
+    observation_digest = "sha256:" + "1" * 64
+    inference_receipt_id = "lmrec-v10-lineage"
+    inference_receipt_digest = "sha256:" + "2" * 64
+    output_digest = "sha256:" + "3" * 64
+    memory_selection_digest = "4" * 64
+    response_digest = digest_payload({"text": response})
+    observation = {
+        "schema_version": "sentientos.resident_cognition_observation:v10",
+        "condition_id": "companion-interaction", "tick_id": tick_id,
+        "correlation_id": f"{tick_id}:resident_developmental_cognition:companion-interaction",
+        "current_snapshot_id": "snapshot-v10", "current_snapshot_digest": "5" * 64,
+        "inference_receipt_id": inference_receipt_id,
+        "inference_receipt_digest": inference_receipt_digest,
+        "output_digest": output_digest, "current_fact_ids": [],
+        "retrieved_record_ids": [], "companion_history_citation_ids": [],
+        "canonical_user_memory_selection_digest": memory_selection_digest,
+        "canonical_user_memory_record_ids": [], "companion_memory_citation_ids": [],
+        "model_id": "fixture-model", "model_artifact_digest": None,
+        "self_model_projection_id": None, "self_model_projection_digest": None,
+        "epistemic_projection_id": None, "epistemic_projection_digest": None,
+    }
+    cognition, _ = owner(tmp_path)
+    cognition.verified_cognition_observation = lambda _id, _digest: observation
+    bridge = ResidentDevelopmentalCompanionBridge(cognition)
+    linkage = {
+        "response_origin": "resident_developmental_cognition",
+        "cognition_observation_id": observation_id,
+        "cognition_observation_digest": observation_digest,
+        "cognition_snapshot_id": observation["current_snapshot_id"],
+        "cognition_snapshot_digest": observation["current_snapshot_digest"],
+        "inference_receipt_id": inference_receipt_id,
+        "inference_receipt_digest": inference_receipt_digest,
+        "invocation_output_digest": output_digest,
+        "response_digest": response_digest,
+        "cognition_evidence_ids": [], "cognition_prior_record_ids": [],
+        "cognition_history_record_ids": [],
+        "cognition_memory_selection_digest": memory_selection_digest,
+        "cognition_memory_citation_ids": [],
+        "cognition_model_id": observation["model_id"],
+        "cognition_model_artifact_digest": None,
+        "self_model_projection_id": None, "self_model_projection_digest": None,
+        "epistemic_projection_id": None, "epistemic_projection_digest": None,
+        "assistant_output_lineage": {
+            "status": "resident_cognition_interaction",
+            "cognition_observation_id": observation_id,
+            "cognition_observation_digest": observation_digest,
+            "inference_receipt_id": inference_receipt_id,
+            "inference_receipt_digest": inference_receipt_digest,
+            "invocation_output_digest": output_digest,
+            "response_digest": response_digest,
+        },
+    }
+    assert bridge.verify_committed_response(linkage=linkage,
+        response_text=response, request_id=request_id)
+    assert not bridge.verify_committed_response(
+        linkage={**linkage, "cognition_memory_citation_ids": ["memory-unselected"]},
+        response_text=response, request_id=request_id)
+
+
 def test_development_chat_configuration_hosts_resident_cognition_owner(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
