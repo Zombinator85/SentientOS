@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import subprocess
@@ -5283,6 +5284,89 @@ def test_companion_bridge_verifies_versioned_observation_lineage(
             response_text=response, request_id=request_id)
 
 
+def test_chat_transcript_preserves_self_model_citations_across_idempotent_recovery(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from contextlib import nullcontext
+    from sentientos import chat_service
+    from sentientos import conversation_session
+
+    claim_id = "self-model-claim-prior-capability"
+    expected_response_text = "The earlier self-model recorded this capability."
+
+    class CitationBridge:
+        def can_handle(self):
+            return True
+
+        def respond(self, **_kwargs):
+            return SimpleNamespace(status="admitted_completed", response=expected_response_text,
+                disposition="answer", evidence_ids=(), prior_record_ids=(),
+                history_record_ids=(), memory_record_ids=(),
+                self_model_claim_ids=(claim_id,),
+                canonical_user_memory_selection_digest=None,
+                cognition_observation_id="devcog-" + "a" * 24,
+                cognition_observation_digest="sha256:" + "b" * 64,
+                inference_receipt_id="lmrec-citation-bridge",
+                inference_receipt_digest="c" * 64,
+                invocation_output_digest="d" * 64,
+                model_id="fixture-model", model_artifact_digest=None,
+                snapshot_id="snapshot-citation", snapshot_digest="e" * 64,
+                developmental_history_writeback_performed=False,
+                authority=False, current_truth=False,
+                canonical_explicit_user_retention_mutated=False)
+
+        def verify_committed_response(self, *, linkage, response_text, request_id):
+            return (request_id.startswith("session-")
+                and response_text == expected_response_text
+                and linkage.get("cognition_self_model_claim_ids") == [claim_id])
+
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path / "user-memory"))
+    conversation_root = tmp_path / "chat" / "conversations"
+    conversation_root.mkdir(parents=True)
+    current_user = next(csv.reader([subprocess.check_output(
+        ["whoami", "/user", "/fo", "csv", "/nh"], text=True)]))[1]
+    inheritance = "(OI)(CI)(F)"
+    subprocess.run(["icacls", str(conversation_root), "/grant:r",
+        f"*{current_user}:{inheritance}", f"*S-1-5-18:{inheritance}",
+        f"*S-1-5-32-544:{inheritance}"], check=True, capture_output=True, text=True)
+    subprocess.run(["icacls", str(conversation_root), "/inheritance:r"],
+        check=True, capture_output=True, text=True)
+    subprocess.run(["icacls", str(conversation_root), "/setowner", f"*{current_user}"],
+        check=True, capture_output=True, text=True)
+    def fixture_publish(path, payload, **_kwargs):
+        path.write_bytes(json.dumps(payload, indent=2, sort_keys=True).encode("utf-8") + b"\n")
+        path.chmod(0o600)
+    monkeypatch.setattr(conversation_session, "_atomic_json", fixture_publish)
+    monkeypatch.setattr(conversation_session.ConversationSessionStore,
+        "serialize_chat_requests", lambda _self, _session_id: nullcontext())
+    monkeypatch.setattr(conversation_session, "require_flock", lambda: None)
+    monkeypatch.setattr(conversation_session.fcntl, "flock", lambda _fd, _operation: None)
+    monkeypatch.setattr(conversation_session, "_open_session_lock_file",
+        lambda root, name, **_kwargs: (root / name).open("a+", encoding="utf-8"))
+    fake_invoker = FakeInvoker()
+    fake_identity = {"model_id": "fixture-citation-model", "posture": "development_only"}
+    fake_invoker.model = SimpleNamespace(active_identity=SimpleNamespace(
+        to_dict=lambda: fake_identity))
+    chat_service.configure_development_chat(invoker=fake_invoker,
+        data_root=tmp_path / "chat", resident_cognition_bridge=CitationBridge())
+    try:
+        app = chat_service._CONVERSATION_SERVICE
+        assert app is not None
+        session_id = app.create_session()
+        first = app.chat("What did the earlier self-model record?", session_id=session_id,
+            request_id="self-model-citation-request")
+        turns = app.sessions.load(session_id)["turns"]
+        assert first.context["cognition_self_model_claim_ids"] == [claim_id]
+        assert turns[-1]["linkage"]["cognition_self_model_claim_ids"] == [claim_id]
+
+        recovered = app.chat("What did the earlier self-model record?",
+            session_id=session_id, request_id="self-model-citation-request")
+        assert recovered.context["recovered_without_inference"] is True
+        assert recovered.context["cognition_self_model_claim_ids"] == [claim_id]
+        assert recovered.response == expected_response_text
+    finally:
+        chat_service.close_production_chat()
+
+
 def test_development_chat_configuration_hosts_resident_cognition_owner(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
@@ -6932,9 +7016,12 @@ def test_question_selected_self_model_changes_later_companion_response(
 
     def capture_observation_publication(path, payload, **_kwargs):
         captured_observations[path.stem] = dict(payload)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(json.dumps(payload, indent=2, sort_keys=True).encode("utf-8") + b"\n")
+        path.chmod(0o600)
 
-    # Windows cannot exercise this POSIX-only immutable publication primitive;
-    # retain the exact payload in memory to verify its lineage in this fixture.
+    # Use a test-only publisher, then exercise the actual Windows recovery reader
+    # against canonical durable bytes from the generated observation.
     monkeypatch.setattr(cognition_module, "_publish_store_json",
         capture_observation_publication)
 
@@ -6996,6 +7083,26 @@ def test_question_selected_self_model_changes_later_companion_response(
     assert query_observation["prior_self_model_prompt_selection"][
         "selected_claim_ids"] == [relevant.claim_id]
     assert query_observation["companion_self_model_citation_ids"] == (relevant.claim_id,)
+    recovered_observation = query_cognition.verified_cognition_observation(
+        query_result.cognition_observation_id, query_result.cognition_observation_digest)
+    assert recovered_observation["companion_self_model_citation_ids"] == [relevant.claim_id]
+    assert recovered_observation["prior_self_model_prompt_selection"][
+        "selected_claim_ids"] == [relevant.claim_id]
+    tampered_observation = dict(recovered_observation)
+    tampered_observation.pop("observation_id")
+    tampered_observation.pop("observation_digest")
+    tampered_observation["companion_self_model_citation_ids"] = [unrelated.claim_id]
+    tampered_digest = "sha256:" + digest_payload(tampered_observation)
+    tampered_id = "devcog-" + tampered_digest[7:31]
+    tampered_observation["observation_id"] = tampered_id
+    tampered_observation["observation_digest"] = tampered_digest
+    tampered_path = query_cognition.observations_root / f"{tampered_id}.json"
+    tampered_path.write_bytes(json.dumps(tampered_observation, indent=2,
+        sort_keys=True).encode("utf-8") + b"\n")
+    tampered_path.chmod(0o600)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="cognition_companion_self_model_citations_invalid"):
+        query_cognition._recover_observation_ticks(include_records=True)
     query_request = query_invoker.requests[-1]
     assert query_request.upstream_evidence["self_model_prompt_selection"][
         "selection_digest"] == query_prompt["prior_self_model_prompt_selection"][
