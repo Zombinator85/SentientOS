@@ -62,6 +62,8 @@ order-effect estimate. These are bounded associations only.
 
 For a structured objective task whose descriptor explicitly requires task-family history, the resident owner projects only exact, score-bound examples from the requested family that also match the active cognitive-model identity. The record-level natural-language interpretation is omitted from that task-specific prompt, and its separate digest is not sent to the model. The enclosing record and candidate digests continue to bind the omitted source content for audit. Unrelated selected facts and embodiment/security projections are not carried into that scoped packet. Included examples retain their evaluator correctness flags, so an incorrect example remains evidence of an incorrect outcome rather than being silently promoted to a lesson. The stored record and ordinary history remain unchanged.
 
+Outcome posture affects retrieval priority only when the restored score matches the history-present score. A favorable present-vs-withheld contrast with failed restoration is ranked as tentative history, below restoration-stable favorable evidence. Exact evaluator-correct examples remain available with their source and uncertainty qualifiers; the unstable comparison does not establish a repeatable history effect.
+
 This is a prompt-projection constraint, not a new memory owner, general truth filter, or cross-model transfer rule. The v3 Hermes transfer family exercises the scoped path; its synthetic results are mixed and do not establish reliable transfer or improved performance.
 
 The broader capability remains `partial`. The separate controlled

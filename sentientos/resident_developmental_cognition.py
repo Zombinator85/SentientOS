@@ -1761,10 +1761,11 @@ def _task_family_history_retrieval_utility(experiences: object, *,
         if not guidance:
             continue
         classification = effect.get("effect_classification")
-        priority = (3 if effect.get("posture")
+        restoration_stable = effect.get("restored_matches_present_score") is True
+        priority = (3 if restoration_stable and effect.get("posture")
             == "complete_comparable_condition_scores"
             and classification == "history_favorable" else
-            2 if effect.get("posture")
+            2 if restoration_stable and effect.get("posture")
             == "complete_comparable_condition_scores"
             and classification == "no_difference_observed" else 1)
         outcome_priority = max(outcome_priority, priority)

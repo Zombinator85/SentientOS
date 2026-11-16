@@ -2300,6 +2300,7 @@ def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
     effect = {
         "posture": "complete_comparable_condition_scores",
         "effect_classification": "no_difference_observed",
+        "restored_matches_present_score": True,
         "comparison_digest": "sha256:" + "a" * 64,
     }
     examples = [
@@ -2345,6 +2346,10 @@ def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
         "examples": examples[:1],
         "controlled_task_effect": {**effect,
             "effect_classification": "history_favorable"}}
+    unstable_favorable = {**favorable,
+        "controlled_task_effect": {**effect,
+            "effect_classification": "history_favorable",
+            "restored_matches_present_score": False}}
     adverse = {"source_active_model_identity": identity,
         "source_active_model_identity_digest": cognition_digest(identity),
         "examples": [*examples, {"probe_input": 5, "observed_answer": 23,
@@ -2353,6 +2358,15 @@ def test_task_family_guidance_projection_withholds_incorrect_examples() -> None:
             "effect_classification": "history_adverse"}}
     assert _task_family_history_retrieval_utility([favorable],
         target_model_identity=identity, task_probe_inputs={2}) == (3, 1, 1)
+    assert _task_family_history_retrieval_utility([unstable_favorable],
+        target_model_identity=identity, task_probe_inputs={2}) == (1, 1, 1)
+    # Exact evaluator-correct examples remain available as tentative history;
+    # the unstable A/B/A outcome simply cannot outrank repeatable evidence.
+    tentative_guidance, _ = _task_family_guidance_examples(
+        unstable_favorable["examples"],
+        effect=unstable_favorable["controlled_task_effect"],
+        source_fact_id="fact-restoration-unstable")
+    assert tentative_guidance == examples[:1]
     assert _task_family_history_retrieval_utility([adverse],
         target_model_identity=identity, task_probe_inputs={2, 3, 4, 5}) == (0, 0, 0)
     other_identity = {"provider": "fixture", "model": "another-retrieval-ranking"}
