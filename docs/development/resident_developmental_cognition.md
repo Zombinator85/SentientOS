@@ -146,9 +146,14 @@ reconstructs checkpoint, observation, admission, record, and receipt custody
 after restart, selects the earlier record, and changes a deterministic fake
 invoker's interpretation only when that history appears in its prompt. This
 demonstrates the integrated software path with a controlled substitute; it does
-not demonstrate real-model learning or improved real-world decisions. Optional
-objective and comparison experiments still depend on POSIX-only experiment
-artifact publication, and no GPU or real-model validation was performed.
+not demonstrate real-model learning or improved real-world decisions. A second
+native Windows integration test now persists and reloads the controlled A/B/A
+history comparison protocol and outcome run. It verifies that the deterministic
+fake's present and restored outcomes differ from withheld history and match one
+another; the result remains a bounded observed association, not a learning or
+causal claim. Objective-task plans and score checkpoints still depend on
+POSIX-only experiment artifact publication. No GPU or real-model validation was
+performed.
 
 A renderer's proprioceptive report remains a report from the renderer, not an
 independent measurement of the avatar's actual effect. The self-model owner

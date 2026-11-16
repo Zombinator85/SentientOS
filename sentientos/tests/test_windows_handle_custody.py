@@ -792,6 +792,45 @@ def test_windows_resident_tick_recovers_and_applies_history_after_restart() -> N
             max_bytes=16_777_216, require_private_acl=True)
 
 
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows experiment artifact custody")
+def test_windows_history_comparison_recovers_protocol_and_outcome_run() -> None:
+    from tempfile import TemporaryDirectory
+    from tests.test_resident_developmental_cognition import FakeInvoker
+    from tests.test_resident_developmental_cognition import owner as make_cognition_owner
+    from tests.test_resident_developmental_cognition import snapshot
+
+    with TemporaryDirectory(prefix=".resident-cognition-comparison-",
+            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        (root / "history").mkdir()
+        (root / "state").mkdir()
+        _make_current_user_private(root / "history", directory=True)
+        _make_current_user_private(root / "state", directory=True)
+
+        cognition, _ = make_cognition_owner(root, comparison=True,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=FakeInvoker())
+        seed = cognition.run_tick(snapshot=snapshot(1), tick_id="windows-comparison-seed")
+        assert seed.written_record_id
+        measured = cognition.run_tick(snapshot=snapshot(2),
+            tick_id="windows-comparison-history")
+        assert measured.changed_cognition_measurement_id
+
+        recovered, _ = make_cognition_owner(root, comparison=True,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=FakeInvoker())
+        run = recovered.experiments.load_run(measured.changed_cognition_measurement_id)
+        assert run["validity"] == "valid_controlled_observation"
+        assert [row["condition_id"] for row in run["conditions"]] == [
+            "history_present", "history_withheld", "history_restored"]
+        summary = run["summary"]
+        assert summary["present_vs_withheld_difference_observed"] is True
+        assert summary["restored_vs_withheld_difference_observed"] is True
+        assert summary["restored_matches_present"] is True
+        assert summary["claims_posture"] == "bounded_observed_association_only"
+
+
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows no-replace rename")
 def test_windows_replay_publication_preserves_destination_race(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
