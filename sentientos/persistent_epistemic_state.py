@@ -1244,6 +1244,7 @@ class PersistentEpistemicStateOwner:
     def cognitive_projection(self, *, max_states: int,
                              current_tick: int | None = None,
                              prioritized_proposition_ids: Sequence[str] = (),
+                             prioritized_state_ids: Sequence[str] = (),
                              relevance_query: str | None = None
                              ) -> EpistemicCognitiveProjection | None:
         """Capture a verified, bounded prior projection without changing custody.
@@ -1268,10 +1269,18 @@ class PersistentEpistemicStateOwner:
                 or len(prioritized_proposition_ids) !=
                     len(set(prioritized_proposition_ids))):
             raise EpistemicStateError("epistemic_projection_priority_invalid")
+        if (not isinstance(prioritized_state_ids, Sequence)
+                or isinstance(prioritized_state_ids, (str, bytes))
+                or len(prioritized_state_ids) > MAX_COGNITIVE_PROJECTION_PRIORITIES
+                or any(not _valid_identity(item, "epistemic-state")
+                    for item in prioritized_state_ids)
+                or len(prioritized_state_ids) != len(set(prioritized_state_ids))):
+            raise EpistemicStateError("epistemic_projection_state_priority_invalid")
         if (relevance_query is not None
                 and (not isinstance(relevance_query, str) or len(relevance_query) > 4000)):
             raise EpistemicStateError("epistemic_projection_query_invalid")
         requested_priorities = tuple(prioritized_proposition_ids)
+        requested_state_priorities = tuple(prioritized_state_ids)
         self.verify()
         if (self._published_mutation_bound_state_digests
                 - self._verified_mutation_bound_state_digests):
@@ -1319,12 +1328,22 @@ class PersistentEpistemicStateOwner:
                 if all(event.tick < current_tick for event in
                     events_by_proposition.get(proposition_id, ()))}
         available_by_id = {item.proposition_id: item for item in latest.values()}
+        # A verified citation names a historical state generation. Resolve its
+        # proposition lineage, then project only that proposition's latest
+        # eligible prior state so a correction supersedes the cited generation.
+        proposition_by_state_id = {state.state_id: state.proposition_id
+            for state in states}
+        state_priorities = tuple(dict.fromkeys(
+            proposition_by_state_id[state_id] for state_id in requested_state_priorities
+            if state_id in proposition_by_state_id))
+        merged_priorities = tuple(dict.fromkeys(
+            (*requested_priorities, *state_priorities)))
         active_priorities = _projection_priority_ids(proposition_by_id,
             available_proposition_ids=set(available_by_id),
-            prioritized_proposition_ids=requested_priorities,
+            prioritized_proposition_ids=merged_priorities,
             query=relevance_query,
             limit=min(max_states, MAX_COGNITIVE_PROJECTION_PRIORITIES))
-        active_explicit_priorities = tuple(item for item in requested_priorities
+        active_explicit_priorities = tuple(item for item in merged_priorities
             if item in available_by_id)
         active_query_priorities = tuple(item for item in active_priorities
             if item not in active_explicit_priorities)

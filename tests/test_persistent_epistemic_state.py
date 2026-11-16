@@ -267,6 +267,29 @@ def test_owner_projection_prioritizes_goal_relevant_history_and_binds_omissions(
         "omitted_state_identities"]} == {"provisionally_supported"}
     validate_cognitive_projection(projection, require_meaning=True)
 
+    cited_projection = owner.cognitive_projection(
+        max_states=1, current_tick=4,
+        prioritized_state_ids=(states[lexicographically_last].state_id,))
+    assert cited_projection is not None
+    assert cited_projection.proposition_ids == (lexicographically_last,)
+
+    superseding, _ = owner.commit_update(
+        proposition_id=lexicographically_last,
+        expected_predecessor_digest=states[lexicographically_last].state_digest,
+        stance="suspended", reason="operator_error_correction",
+        active_binding_ids=(), correlation_id="supersede-cited-state", tick=5,
+        recorded_at="2026-01-01T00:00:05Z")
+    stale_citation_projection = owner.cognitive_projection(
+        max_states=1, current_tick=6,
+        prioritized_state_ids=(states[lexicographically_last].state_id,))
+    assert stale_citation_projection is not None
+    assert stale_citation_projection.proposition_ids == (lexicographically_last,)
+    assert stale_citation_projection.state_ids == (superseding.state_id,)
+    with pytest.raises(EpistemicStateError,
+            match="epistemic_projection_state_priority_invalid"):
+        owner.cognitive_projection(max_states=1,
+            prioritized_state_ids=("fabricated-state",))
+
     tampered_manifest = dict(manifest)
     tampered_manifest["prioritized_proposition_ids"] = (
         min(item.proposition_id for item in propositions),)

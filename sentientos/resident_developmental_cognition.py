@@ -8196,6 +8196,7 @@ class ResidentDevelopmentalCognitionOwner:
             expected_fields = {"schema_version", "session_id", "source_snapshot_digest",
                 "turns", "historical_only", "current_truth", "authority",
                 "mutation_performed", "selection_digest"}
+            allowed_fields = expected_fields | {"prior_epistemic_state_ids"}
             semantic = {key: value for key, value in conversation_context.items()
                 if key != "selection_digest"}
             turns = conversation_context.get("turns")
@@ -8222,7 +8223,14 @@ class ResidentDevelopmentalCognitionOwner:
                         break
                     seen_turn_ids.add(turn_id)
             source_digest = conversation_context.get("source_snapshot_digest")
-            if (set(conversation_context) != expected_fields
+            priority_ids = conversation_context.get("prior_epistemic_state_ids", [])
+            if (not isinstance(priority_ids, list) or len(priority_ids) > 64
+                    or any(not isinstance(item, str)
+                        or not re.fullmatch(r"epistemic-state:[0-9a-f]{24}", item)
+                        for item in priority_ids)
+                    or len(set(priority_ids)) != len(priority_ids)
+                    or frozenset(conversation_context) not in {frozenset(expected_fields),
+                        frozenset(allowed_fields)}
                     or conversation_context.get("schema_version")
                         != "sentientos.conversation_cognition_context:v1"
                     or not isinstance(conversation_context.get("session_id"), str)

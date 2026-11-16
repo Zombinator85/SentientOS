@@ -2296,11 +2296,45 @@ class PersistentConversationService:
                     "text": text, "text_digest": turn["text_digest"],
                     "linkage_digest": digest_payload(dict(linkage)),
                 })
+            # Carry forward only citations from assistant outputs whose durable
+            # cognition observation, inference receipt, and transcript linkage
+            # still verify. They are retrieval hints, never truth or authority.
+            prior_state_ids: list[str] = []
+            verifier = getattr(bridge, "verify_committed_response", None)
+            if callable(verifier):
+                by_id = {str(turn.get("turn_id")): turn for turn in history.turns
+                    if isinstance(turn, Mapping)}
+                for turn in selected_turns:
+                    if turn.get("role") != "assistant":
+                        continue
+                    linkage = turn.get("linkage", {})
+                    source_user_turn_id = (linkage.get("source_user_turn_id")
+                        if isinstance(linkage, Mapping) else None)
+                    citations = (linkage.get("cognition_epistemic_state_citation_ids", ())
+                        if isinstance(linkage, Mapping) else ())
+                    if (not isinstance(source_user_turn_id, str)
+                            or source_user_turn_id not in by_id
+                            or by_id[source_user_turn_id].get("role") != "user"
+                            or not isinstance(citations, (list, tuple))
+                            or len(citations) > 16
+                            or any(not isinstance(item, str) for item in citations)):
+                        continue
+                    if verifier(linkage=linkage, response_text=str(turn.get("text", "")),
+                            request_id=f"{session_id}:{source_user_turn_id}") is True:
+                        for citation in citations:
+                            if citation not in prior_state_ids:
+                                prior_state_ids.append(citation)
+                            if len(prior_state_ids) >= 64:
+                                break
+                    if len(prior_state_ids) >= 64:
+                        break
             semantic_context: dict[str, Any] = {
                 "schema_version": "sentientos.conversation_cognition_context:v1",
                 "session_id": history.session_id,
                 "source_snapshot_digest": history.snapshot_digest,
-                "turns": context_turns, "historical_only": True,
+                "turns": context_turns,
+                "prior_epistemic_state_ids": prior_state_ids,
+                "historical_only": True,
                 "current_truth": False, "authority": False,
                 "mutation_performed": False,
             }

@@ -592,7 +592,9 @@ class ResidentDevelopmentalCompanionBridge:
 
     def _prior_cognitive_context(self, *, tick_id: str,
             projection_tick: int,
-            relevance_query: str | None = None) -> tuple[Any | None, Any | None]:
+            relevance_query: str | None = None,
+            prioritized_epistemic_state_ids: Sequence[str] = ()
+            ) -> tuple[Any | None, Any | None]:
         prior_self_model = None
         config = self._self_model_config
         if (config is not None and config.enabled
@@ -616,6 +618,7 @@ class ResidentDevelopmentalCompanionBridge:
                     "epistemic_projection_bound_invalid")
             prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
                 max_states=maximum, current_tick=projection_tick,
+                prioritized_state_ids=prioritized_epistemic_state_ids,
                 relevance_query=relevance_query)
         return prior_self_model, prior_epistemic_state
 
@@ -901,9 +904,21 @@ class ResidentDevelopmentalCompanionBridge:
                     "proprioception_provider_output_invalid")
             proprioception = tuple(value)
         tick_id, projection_tick = self._projection_boundary()
+        prioritized_epistemic_state_ids: tuple[str, ...] = ()
+        if conversation_context is not None:
+            candidate_ids = conversation_context.get(
+                "prior_epistemic_state_ids", ())
+            if (not isinstance(candidate_ids, (list, tuple))
+                    or len(candidate_ids) > 64
+                    or any(not isinstance(item, str) for item in candidate_ids)
+                    or len(set(candidate_ids)) != len(candidate_ids)):
+                raise DevelopmentalCompanionBridgeError(
+                    "conversation_epistemic_priority_invalid")
+            prioritized_epistemic_state_ids = tuple(candidate_ids)
         prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
             tick_id=tick_id, projection_tick=projection_tick,
-            relevance_query=question)
+            relevance_query=question,
+            prioritized_epistemic_state_ids=prioritized_epistemic_state_ids)
         snapshot = build_companion_snapshot(
             screen_observation=screen_observation,
             proprioception=proprioception, clock=self._clock)

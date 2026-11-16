@@ -394,6 +394,11 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     seen_contexts = []
 
     class CognitionBridge:
+        def verify_committed_response(self, *, linkage, response_text, request_id):
+            return (linkage.get("source_user_turn_id") == "turn-" + "1" * 24
+                and response_text == "I recorded that report."
+                and request_id == "session-followup:turn-" + "1" * 24)
+
         def respond(self, *, request_id, question, screen_observation=None,
                 conversation_context=None):
             seen_contexts.append(conversation_context)
@@ -436,7 +441,9 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
         {"turn_id": "turn-" + "2" * 24, "role": "assistant",
             "text": "I recorded that report.",
             "text_digest": chat_service.digest_payload({"text": "I recorded that report."}),
-            "linkage": {}},
+            "linkage": {"source_user_turn_id": "turn-" + "1" * 24,
+                "cognition_epistemic_state_citation_ids": [
+                    "epistemic-state:" + "a" * 24]}},
     ), 4000, False, "a" * 64)
     followup = app._complete_resident_cognition_response(
         session_id="session-followup",
@@ -454,6 +461,8 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert "do not have" in control.response
     supplied = seen_contexts[0]
     assert supplied["schema_version"] == "sentientos.conversation_cognition_context:v1"
+    assert supplied["prior_epistemic_state_ids"] == [
+        "epistemic-state:" + "a" * 24]
     assert [row["role"] for row in supplied["turns"]] == ["user", "assistant"]
     assert supplied["turns"][0]["text"] == (
         "The west sensor drifted by three degrees after warmup.")

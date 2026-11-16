@@ -7085,7 +7085,17 @@ def test_companion_bridge_passes_question_to_epistemic_projection() -> None:
     assert self_model is None
     assert epistemic == "bounded-prior-projection"
     assert calls == [{"max_states": 8, "current_tick": 100,
-        "relevance_query": question}]
+        "prioritized_state_ids": (), "relevance_query": question}]
+
+    self_model, epistemic = bridge._prior_cognitive_context(
+        tick_id="2026-11-15T00:00:00+00:00", projection_tick=101,
+        relevance_query=question,
+        prioritized_epistemic_state_ids=("epistemic-state:" + "a" * 24,))
+    assert self_model is None
+    assert epistemic == "bounded-prior-projection"
+    assert calls[-1] == {"max_states": 8, "current_tick": 101,
+        "prioritized_state_ids": ("epistemic-state:" + "a" * 24,),
+        "relevance_query": question}
 
 
 def test_companion_bridge_passes_question_to_self_model_projection() -> None:
