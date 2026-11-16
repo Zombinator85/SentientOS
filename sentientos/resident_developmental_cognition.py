@@ -3198,6 +3198,7 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
             semantic["conversation_citations"] = conversation_citations
             semantic["conversation_session_id"] = conversation_session_id
         elif feedback_schema == "sentientos.local_operator_feedback:v4":
+            assert isinstance(correction_target, Mapping)
             semantic["conversation_citations"] = conversation_citations
             semantic["conversation_session_id"] = conversation_session_id
             semantic["correction_target"] = dict(correction_target)
@@ -3233,6 +3234,7 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
                 for item in conversation_citations]
             summary["conversation_session_id"] = conversation_session_id
         elif feedback_schema == "sentientos.local_operator_feedback:v4":
+            assert isinstance(correction_target, Mapping)
             summary["conversation_citations"] = [dict(item)
                 for item in conversation_citations]
             summary["conversation_session_id"] = conversation_session_id
