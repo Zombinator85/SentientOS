@@ -831,6 +831,58 @@ def test_windows_history_comparison_recovers_protocol_and_outcome_run() -> None:
         assert summary["claims_posture"] == "bounded_observed_association_only"
 
 
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows objective artifact custody")
+def test_windows_objective_transfer_recovers_plan_scores_and_run() -> None:
+    from tempfile import TemporaryDirectory
+    from sentientos.developmental_model_replacement_experiment import ObjectivePredictionTask
+    from tests.test_resident_developmental_cognition import FakeInvoker
+    from tests.test_resident_developmental_cognition import owner as make_cognition_owner
+    from tests.test_resident_developmental_cognition import snapshot
+
+    with TemporaryDirectory(prefix=".resident-cognition-objective-",
+            dir=Path(__file__).resolve().parents[2]) as temporary_root:
+        root = Path(temporary_root)
+        _make_current_user_private(root, directory=True)
+        (root / "history").mkdir()
+        (root / "state").mkdir()
+        _make_current_user_private(root / "history", directory=True)
+        _make_current_user_private(root / "state", directory=True)
+
+        seed_invoker = FakeInvoker()
+        seed_invoker.history_interpretation = (
+            "Historical examples: input 1 produced 5; input 2 produced 8.")
+        seed_owner, _ = make_cognition_owner(root,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=seed_invoker)
+        seed = seed_owner.run_tick(snapshot=snapshot(1), tick_id="windows-objective-seed")
+        assert seed.written_record_id
+
+        task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+        invoker = FakeInvoker()
+        invoker.history_interpretation = (
+            "Historical examples: input 1 produced 5; input 2 produced 8.")
+        invoker.objective_plan_root = root / "state" / "developmental_experiments" / "protocols"
+        cognition, _ = make_cognition_owner(root, comparison=True,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            objective_task=task, invoker=invoker)
+        measured = cognition.run_tick(snapshot=snapshot(2),
+            tick_id="windows-objective-transfer")
+        assert measured.changed_cognition_measurement_id
+
+        recovered_invoker = FakeInvoker()
+        recovered_invoker.objective_plan_root = invoker.objective_plan_root
+        recovered, _ = make_cognition_owner(root, comparison=True,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            objective_task=task, invoker=recovered_invoker)
+        run = recovered.experiments.load_run(measured.changed_cognition_measurement_id)
+        assert run["validity"] == "valid_controlled_observation"
+        assert [item["condition_id"] for item in run["objective_scores"]] == [
+            "history_present", "history_withheld", "history_restored"]
+        evaluation = run["objective_evaluation"]
+        assert evaluation["history_accuracy_delta"] == 1
+        assert evaluation["restoration_correctness_stable"] is True
+
+
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows no-replace rename")
 def test_windows_replay_publication_preserves_destination_race(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,

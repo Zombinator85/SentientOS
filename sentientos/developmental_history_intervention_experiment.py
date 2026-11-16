@@ -286,10 +286,17 @@ class DevelopmentalExperimentStore:
             return
         if os.name == "nt":
             root_identity = self._ensure_windows_collection(path.parent)
-            policy = ("developmental_experiment_protocol"
-                if path.parent == self.protocols else
-                "developmental_experiment_run"
-                if path.parent == self.runs else None)
+            policy = ("objective_task_plan"
+                if (path.parent == self.protocols
+                    and path.name.startswith("objective-task-plan-")) else
+                "objective_condition_score"
+                if (path.parent == self.protocols
+                    and path.name.startswith("objective-score-")) else None)
+            if policy is None:
+                policy = ("developmental_experiment_protocol"
+                    if path.parent == self.protocols else
+                    "developmental_experiment_run"
+                    if path.parent == self.runs else None)
             if policy is None:
                 raise DevelopmentalHistoryInterventionError(
                     "experiment_artifact_windows_filename_policy_invalid")

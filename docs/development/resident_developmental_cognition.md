@@ -151,9 +151,12 @@ native Windows integration test now persists and reloads the controlled A/B/A
 history comparison protocol and outcome run. It verifies that the deterministic
 fake's present and restored outcomes differ from withheld history and match one
 another; the result remains a bounded observed association, not a learning or
-causal claim. Objective-task plans and score checkpoints still depend on
-POSIX-only experiment artifact publication. No GPU or real-model validation was
-performed.
+causal claim. Objective-task plans and score checkpoints now use the same
+private Windows state-root custody policy and recover with the run after owner
+restart. A deterministic objective-transfer fixture demonstrates that scored
+history-present and restored answers are correct while the withheld answer is
+not; this is a controlled software result, not evidence of real-model learning
+or generalization. No GPU or real-model validation was performed.
 
 A renderer's proprioceptive report remains a report from the renderer, not an
 independent measurement of the avatar's actual effect. The self-model owner

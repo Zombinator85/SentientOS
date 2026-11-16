@@ -77,21 +77,30 @@ def publish_immutable_replay_bytes(
         if filename_policy == "developmental_experiment_protocol" else
         re.fullmatch(r"devexp-run-[0-9a-f]{24}\.json", path.name)
         if filename_policy == "developmental_experiment_run" else None)
+    objective_artifact_match = (
+        re.fullmatch(r"objective-task-plan-devexp-protocol-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "objective_task_plan" else
+        re.fullmatch(r"objective-score-devexp-protocol-[0-9a-f]{24}-(history_present|history_withheld|history_restored)\.json", path.name)
+        if filename_policy == "objective_condition_score" else None)
     sequence_number = (int(sequence_match.group(1)) if sequence_match is not None
         else 1 if (content_addressed_match is not None
             or mutable_state_match or cognition_artifact_match is not None
-            or experiment_artifact_match is not None) else 0)
+            or experiment_artifact_match is not None
+            or objective_artifact_match is not None) else 0)
     maximum_file_bytes = (16_777_216 if filename_policy in {
         "resident_cognition_state", "epistemic_probe_capture"}
         else 4_194_304 if filename_policy == "longitudinal_self_model"
         else 4_194_304 if filename_policy == "runtime_admission_ledger"
         else 4_194_304 if filename_policy in {
             "developmental_experiment_protocol", "developmental_experiment_run"}
+        else 4_194_304 if filename_policy in {
+            "objective_task_plan", "objective_condition_score"}
         else 1_048_576)
     if (not path.is_absolute()
             or (sequence_match is None and content_addressed_match is None
                 and cognition_artifact_match is None
                 and experiment_artifact_match is None
+                and objective_artifact_match is None
                 and not mutable_state_match)
             or type(replace_existing) is not bool
             or (replace_existing and not mutable_state_match)
