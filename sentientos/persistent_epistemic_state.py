@@ -57,7 +57,9 @@ _EPISTEMIC_QUERY_STOP_WORDS = frozenset((
 
 def _epistemic_query_terms(text: str) -> set[str]:
     terms: set[str] = set()
-    for token in re.findall(r"[A-Za-z0-9_]{3,}", text.casefold()):
+    # Underscores delimit machine-authored predicate names such as
+    # ``reports_temperature``; treat their components as natural-language terms.
+    for token in re.findall(r"[A-Za-z0-9]{3,}", text.casefold()):
         if token in _EPISTEMIC_QUERY_STOP_WORDS:
             continue
         if len(token) > 4 and token.endswith("ies"):
@@ -79,16 +81,20 @@ def _question_relevant_proposition_ids(propositions: Mapping[str, Any], *,
     if not query_terms:
         return ()
     ranked: list[tuple[int, str]] = []
+    weighted_fields = (
+        ("subject", 3), ("predicate", 3), ("object_value", 2),
+        ("qualifiers", 2), ("temporal_scope", 2),
+        ("context_scope", 2), ("statement", 1),
+    )
     for proposition_id, proposition in propositions.items():
         if not isinstance(proposition, EpistemicProposition):
             continue
-        searchable = json.dumps({key: getattr(proposition, key) for key in (
-            "subject", "predicate", "object_value", "statement", "qualifiers",
-            "temporal_scope", "context_scope")}, sort_keys=True,
-            separators=(",", ":"), ensure_ascii=False)
-        overlap = len(query_terms & _epistemic_query_terms(searchable))
-        if overlap:
-            ranked.append((overlap, proposition_id))
+        relevance = sum(weight * len(query_terms & _epistemic_query_terms(
+            json.dumps(getattr(proposition, field), sort_keys=True,
+                separators=(",", ":"), ensure_ascii=False)))
+            for field, weight in weighted_fields)
+        if relevance:
+            ranked.append((relevance, proposition_id))
     ranked.sort(key=lambda item: (-item[0], item[1]))
     return tuple(proposition_id for _, proposition_id in ranked[:limit])
 

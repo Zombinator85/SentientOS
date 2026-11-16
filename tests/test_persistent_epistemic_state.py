@@ -71,6 +71,25 @@ def test_projection_question_priority_ignores_propositions_without_prior_state()
         limit=1) == (has_prior_state.proposition_id,)
 
 
+def test_question_relevance_prefers_structured_terms_over_incidental_statement_match():
+    structured_match = make_proposition(namespace="embodiment",
+        subject="sensor:west", predicate="reports_temperature",
+        object_value="stable", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={"room": "lab_a"},
+        proposition_class="descriptive", statement="A retained sensor report.")
+    wording_match = make_proposition(namespace="embodiment",
+        subject="plant:greenhouse", predicate="has_status",
+        object_value="healthy", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The temperature reading was mentioned incidentally.")
+    propositions = {structured_match.proposition_id: structured_match,
+        wording_match.proposition_id: wording_match}
+
+    assert _question_relevant_proposition_ids(propositions,
+        query="temperature",
+        limit=1) == (structured_match.proposition_id,)
+
+
 def binding(p, source, relation="supports", dependency="independently_sourced_observation", upstream=(), freshness="current"):
     return make_evidence_binding(proposition_id=p.proposition_id, source_artifact_id=source,
         source_digest="sha256:"+source.zfill(64), source_schema="sentientos.test_observation:v1",
