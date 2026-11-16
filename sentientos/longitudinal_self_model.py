@@ -21,7 +21,8 @@ from .private_file_custody import (
 from .platform_fcntl import fcntl, require_flock
 from .world_state_board import WorldStateFact, WorldStateSnapshot, validate_snapshot
 from .windows_handle_custody import (
-    WindowsHandleCustodyError, observe_private_directory_identity,
+    WindowsHandleCustodyError, ensure_private_child_directory,
+    observe_private_directory_identity,
     read_explicit_file, read_regular_files, verify_explicit_directory,
 )
 from .windows_peer_replay_custody import (
@@ -1104,10 +1105,8 @@ class LongitudinalSelfModelOwner:
                 # immutable writer then pins that child's identity throughout
                 # publication and readback.
                 verify_explicit_directory(self.root, require_private_acl=True)
-                try:
-                    self.entries.mkdir()
-                except FileExistsError:
-                    pass
+                self.entries = ensure_private_child_directory(
+                    self.root, self.entries.name)
                 root_identity = observe_private_directory_identity(self.entries)
                 publish_immutable_replay_bytes(path, data,
                     max_bytes=MAX_RECONCILIATION_BYTES,

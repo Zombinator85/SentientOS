@@ -55,7 +55,8 @@ from .private_file_custody import (PrivateFileCustodyError, list_bounded_json_na
     open_private_directory, publish_immutable_bytes, read_private_file_at,
     replace_private_bytes)
 from .windows_handle_custody import (
-    WindowsHandleCustodyError, observe_private_directory_identity,
+    WindowsHandleCustodyError, ensure_private_child_directory,
+    observe_private_directory_identity,
     read_explicit_file, read_regular_files, verify_explicit_directory,
 )
 from .windows_peer_replay_custody import (
@@ -4520,10 +4521,8 @@ class ResidentDevelopmentalCognitionOwner:
         try:
             verify_explicit_directory(self.config.state_root,
                 require_private_acl=True)
-            try:
-                collection.mkdir()
-            except FileExistsError:
-                pass
+            collection = ensure_private_child_directory(
+                self.config.state_root, collection.name)
             return observe_private_directory_identity(collection)
         except (WindowsHandleCustodyError, OSError) as exc:
             raise ResidentDevelopmentalCognitionError(

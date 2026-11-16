@@ -34,7 +34,8 @@ from .platform_fcntl import fcntl, require_flock
 from .runtime_admission import AdmissionError, AdmissionEvidence, RuntimeAdmissionVerifier
 from .world_state_board import WorldStateSnapshot, digest, to_dict, validate_snapshot
 from .windows_handle_custody import (
-    WindowsHandleCustodyError, observe_private_directory_identity,
+    WindowsHandleCustodyError, ensure_private_child_directory,
+    observe_private_directory_identity,
     read_regular_files, verify_explicit_directory,
 )
 from .windows_peer_replay_custody import (
@@ -2365,10 +2366,7 @@ class DevelopmentalHistoryStore:
             raise DevelopmentalWritebackError("durable_windows_collection_invalid")
         try:
             verify_explicit_directory(self.root, require_private_acl=True)
-            try:
-                collection.mkdir()
-            except FileExistsError:
-                pass
+            collection = ensure_private_child_directory(self.root, collection.name)
             return observe_private_directory_identity(collection)
         except (WindowsHandleCustodyError, OSError) as exc:
             raise DevelopmentalWritebackError(

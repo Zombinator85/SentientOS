@@ -1,7 +1,8 @@
-"""Read-only, reparse-safe bounded Windows custody reads.
+"""Reparse-safe bounded Windows custody reads and private child setup.
 
 This helper deliberately supports only local drive paths and regular files
-under an explicit directory. It does not publish or mutate custody.
+under an explicit directory. Its sole directory mutation creates one child of
+an existing private root and binds that child to the current user's ownership.
 """
 from __future__ import annotations
 
@@ -643,11 +644,82 @@ def observe_private_directory_identity(root: Path) -> tuple[int, bytes]:
     return result[1]
 
 
-def ensure_private_child_directory(parent: Path, child_name: str) -> Path:
-    """Create or verify one child directory under a stable private parent.
+def _set_current_user_owner(directory: Path) -> None:
+    """Set a just-created directory's owner without following a reparse point."""
+    if os.name != "nt":
+        raise WindowsHandleCustodyError("windows_custody_platform_unsupported")
+    import ctypes
+    from ctypes import wintypes
 
-    The child inherits its ACL from the already private parent. This helper
-    never creates ancestors, changes permissions, or follows a reparse point.
+    class FILE_ATTRIBUTE_TAG_INFO(ctypes.Structure):
+        _fields_ = [("FileAttributes", wintypes.DWORD), ("ReparseTag", wintypes.DWORD)]
+
+    kernel = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+    advapi = getattr(ctypes, "WinDLL")("advapi32", use_last_error=True)
+    create_file = kernel.CreateFileW
+    create_file.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+        ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    create_file.restype = wintypes.HANDLE
+    close_handle = kernel.CloseHandle
+    close_handle.argtypes = [wintypes.HANDLE]
+    close_handle.restype = wintypes.BOOL
+    get_current_process = kernel.GetCurrentProcess
+    get_current_process.argtypes = []
+    get_current_process.restype = wintypes.HANDLE
+    get_info = kernel.GetFileInformationByHandleEx
+    get_info.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+    get_info.restype = wintypes.BOOL
+    open_token = advapi.OpenProcessToken
+    open_token.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    open_token.restype = wintypes.BOOL
+    token_info = advapi.GetTokenInformation
+    token_info.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p,
+        wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+    token_info.restype = wintypes.BOOL
+    set_security = advapi.SetSecurityInfo
+    set_security.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.DWORD,
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+    set_security.restype = wintypes.DWORD
+
+    invalid = ctypes.c_void_p(-1).value
+    directory_handle = create_file(str(directory), 0x80 | 0x00020000 | 0x00080000,
+        0x7, None, 3, 0x02000000 | 0x00200000, None)
+    if not directory_handle or directory_handle == invalid:
+        raise WindowsHandleCustodyError("windows_custody_child_owner_handle_unavailable")
+    token = wintypes.HANDLE()
+    try:
+        info = FILE_ATTRIBUTE_TAG_INFO()
+        if (not get_info(directory_handle, 9, ctypes.byref(info), ctypes.sizeof(info))
+                or not info.FileAttributes & 0x10 or info.FileAttributes & 0x400):
+            raise WindowsHandleCustodyError("windows_custody_child_owner_target_invalid")
+        if not open_token(get_current_process(), 0x0008, ctypes.byref(token)):
+            raise WindowsHandleCustodyError("windows_custody_current_user_unavailable")
+        needed = wintypes.DWORD()
+        token_info(token, 1, None, 0, ctypes.byref(needed))
+        if needed.value < ctypes.sizeof(ctypes.c_void_p) or needed.value > 65536:
+            raise WindowsHandleCustodyError("windows_custody_current_user_invalid")
+        token_buffer = ctypes.create_string_buffer(needed.value)
+        if not token_info(token, 1, token_buffer, needed.value, ctypes.byref(needed)):
+            raise WindowsHandleCustodyError("windows_custody_current_user_unavailable")
+        current_user = ctypes.cast(token_buffer, ctypes.POINTER(ctypes.c_void_p)).contents
+        if not current_user.value:
+            raise WindowsHandleCustodyError("windows_custody_current_user_invalid")
+        status = set_security(directory_handle, 1, 0x1, current_user, None, None, None)
+        if status != 0:
+            raise WindowsHandleCustodyError("windows_custody_child_owner_assignment_failed")
+    finally:
+        if token:
+            close_handle(token)
+        close_handle(directory_handle)
+
+
+def ensure_private_child_directory(parent: Path, child_name: str) -> Path:
+    """Create or verify one current-user-owned child under a stable private root.
+
+    A new child inherits its ACL from the private parent and gets an explicit
+    current-user owner even when the process token defaults ownership to
+    Administrators. This helper never creates ancestors or follows reparse
+    points.
     """
     if os.name != "nt":
         raise WindowsHandleCustodyError("windows_custody_platform_unsupported")
@@ -657,12 +729,16 @@ def ensure_private_child_directory(parent: Path, child_name: str) -> Path:
     try:
         parent_identity = observe_private_directory_identity(parent)
         child = parent / child_name
+        created = False
         try:
             child.mkdir()
+            created = True
         except FileExistsError:
             pass
         if observe_private_directory_identity(parent) != parent_identity:
             raise WindowsHandleCustodyError("windows_custody_parent_changed")
+        if created:
+            _set_current_user_owner(child)
         verify_explicit_directory(child, require_private_acl=True)
         return child
     except WindowsHandleCustodyError:
