@@ -7734,7 +7734,8 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
                             "The cited prior turn said: " + matching_cited_turn["text"]
                             + ". An operator later reported: "
                             + matching_reports[0]["assertion_text"]
-                            + " That report remains unverified.")
+                            + ". These reports conflict; I cannot resolve which is accurate "
+                            "from this dialogue, and the operator report remains unverified.")
                             if isinstance(matching_cited_turn, Mapping) else (
                             "An earlier operator report stated: "
                             + matching_reports[0]["assertion_text"]
@@ -7779,7 +7780,7 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert ResidentDevelopmentalCompanionBridge(
         restricted, clock=lambda: now).operator_feedback_available() is False
     cited_turn_id = "turn-" + "a" * 24
-    cited_turn_text = "The earlier dialogue said the altar had four candle objects."
+    cited_turn_text = "The earlier dialogue said the altar had three candle objects."
     cited_turn_digest = digest_payload({"text": cited_turn_text})
     feedback = make_operator_feedback_record(
         feedback_text,
@@ -7830,6 +7831,7 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert "operator_assertion_unverified" in json.dumps(
         later_prompt["developmental_history"])
     assert "which turn the operator corrected" in later_prompt["instruction"]
+    assert "state the disagreement" in later_prompt["instruction"]
     assert "conversation_citations" in json.dumps(
         later_prompt["developmental_history"])
     historical_feedback = json.dumps(later_prompt["developmental_history"])
@@ -7854,7 +7856,9 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
         screen_observation=screen, conversation_context=cited_context)
     assert cited_turn_text in later_with_source.response
     assert later_with_source.conversation_turn_citation_ids == (cited_turn_id,)
-    assert "unverified" in later_with_source.response
+    assert "reports conflict" in later_with_source.response
+    assert "cannot resolve which is accurate" in later_with_source.response
+    assert "remains unverified" in later_with_source.response
 
     # Same observation and later question without the feedback cycle do not
     # produce the historical answer: the report's admitted writeback changes

@@ -220,7 +220,9 @@ writeback into later history context. This preserves which dialogue the reply
 said influenced it; it does not identify which cited turn the operator meant
 to correct, or establish the dialogue or correction as true. Cognition compares
 the cited turn with a correction only when that exact dialogue text is also
-present in the current session context. The report is not independent sensor
+present in the current session context. When they conflict, the prompt directs
+cognition to surface the disagreement and preserve uncertainty instead of
+automatically accepting either source. The report is not independent sensor
 evidence or proof that an action occurred. The UI asks for explicit confirmation
 before capture and writeback. Repeating the same request identity cannot reuse
 a completed tick. No gameplay action is authorized by this control. Cognition inference is
