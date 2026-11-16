@@ -5285,6 +5285,8 @@ def test_boilerplate_history_query_falls_back_to_recent_records() -> None:
     assert cognition_query_terms("What did we do with it?") == set()
     assert cognition_query_terms("batteries watches boxes classes") == {
         "battery", "watch", "box", "class"}
+    assert cognition_query_terms("overheating singing morning nothing charged") == {
+        "overheat", "sing", "morning", "nothing", "charge"}
     assert cognition_query_terms("overheating charged batteries") == {
         "overheat", "charge", "battery"}
     projection = ResidentDevelopmentalCognitionOwner._prior_projection(

@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
 from typing import Any, Mapping
+from .cognition_retrieval import normalize_cognition_term
 from .windows_handle_custody import (
     WindowsHandleCustodyError, read_explicit_file, read_regular_files,
 )
@@ -162,16 +163,9 @@ def _memory_retrieval_terms(text: str) -> set[str]:
     for token in re.findall(r"[a-z0-9]+", text.casefold()):
         if len(token) <= 2 or token in _MEMORY_RETRIEVAL_STOP_WORDS:
             continue
-        # Normalize common English plurals so a query about an "answer" can
-        # retrieve a retained statement about "answers". Keep this deliberately
-        # narrow: retrieval remains lexical and does not claim semantic entailment.
-        if len(token) > 4 and token.endswith("ies"):
-            token = token[:-3] + "y"
-        elif (len(token) > 4 and token.endswith(("ches", "shes", "sses", "xes", "zes"))):
-            token = token[:-2]
-        elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
-            token = token[:-1]
-        terms.add(token)
+        # Keep canonical memory aligned with resident-history morphology while
+        # retaining this subsystem's own stop words and ranking policy.
+        terms.add(normalize_cognition_term(token))
     return terms
 
 
