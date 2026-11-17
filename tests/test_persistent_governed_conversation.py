@@ -1379,6 +1379,17 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
             linkage={"source_user_turn_id": last_intervening_user["turn_id"]})
     followup_anchor = "west sensor" if target.subject == "sensor:west" else "launch"
     followup_question = f"What should I consider about the {followup_anchor} now?"
+    # Capture the no-citation control before the cited follow-up can itself add
+    # cognition/writeback evidence that would contaminate the counterfactual.
+    control_session_id = restarted_app.create_session()
+    control_request_start = len(restarted_invoker.requests)
+    control_response = restarted_app.chat(followup_question, session_id=control_session_id,
+        request_id="citation-followup-control", observe_screen=True)
+    control_request = next(request for request in reversed(
+        restarted_invoker.requests[control_request_start:])
+        if request.upstream_evidence.get("epistemic_projection_id") is not None
+    )
+
     followup_response = restarted_app.chat(followup_question, session_id=session_id,
         request_id="citation-followup-turn", observe_screen=True)
     followup_request = next(request for request in reversed(restarted_invoker.requests)
@@ -1395,15 +1406,6 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert len(selected_turn_ids) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
     assert sum(len(turn["text"]) for turn in selected_conversation["turns"]) <= (
         chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
-
-    control_session_id = restarted_app.create_session()
-    control_request_start = len(restarted_invoker.requests)
-    control_response = restarted_app.chat(followup_question, session_id=control_session_id,
-        request_id="citation-followup-control", observe_screen=True)
-    control_request = next(request for request in reversed(
-        restarted_invoker.requests[control_request_start:])
-        if request.upstream_evidence.get("epistemic_projection_id") is not None
-    )
 
     assert followup_request.upstream_evidence["epistemic_proposition_ids"] == [
         target.proposition_id]
