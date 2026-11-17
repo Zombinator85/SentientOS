@@ -1444,7 +1444,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert later.written_record_id not in withheld["retrieved_record_ids"]
     assert later.written_record_id in restored["retrieved_record_ids"]
     assert present["developmental_history_selection"]["retrieval_policy_id"] == \
-        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v6"
+        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_before_example_volume_then_recency_fill:v7"
     assert present["developmental_history_selection"]["task_family_id"] == \
         "integer_affine_prediction"
     assert withheld["developmental_history_selection"]["treatment"] == "withheld"
@@ -11534,6 +11534,49 @@ def test_task_family_retrieval_prioritizes_bound_current_model_before_probe_over
     current_fact = records["old-current-model"].candidate["selected_facts"][0]
     assert current_fact["payload"]["acquisition_examples"][0][
         "evaluator_correct"] is False
+
+
+def test_task_family_retrieval_prefers_probe_overlap_to_example_volume(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An exact probe match survives the cap over larger same-model histories."""
+    from types import SimpleNamespace
+    from sentientos import resident_developmental_cognition as cognition_module
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    identity = {"provider": "fixture", "model": "probe-relevance"}
+    records: dict[str, Any] = {}
+    record_ids = ["direct-overlap", *(f"large-unrelated-{index}" for index in range(4))]
+    for record_id in record_ids:
+        fact = {"payload": {
+            "objective_task_family": "integer_affine_prediction",
+            "active_model_identity": dict(identity),
+            "active_model_identity_digest": cognition_module._digest(identity),
+        }}
+        records[record_id] = SimpleNamespace(candidate={
+            "record_id": record_id, "selected_facts": [fact]})
+
+    cognition, _ = owner(tmp_path)
+    monkeypatch.setattr(cognition.writeback.store, "get",
+        lambda record_id: records[record_id])
+    monkeypatch.setattr(cognition.writeback, "retrieve", lambda ids, *, limit:
+        DevelopmentalHistoryProjection(tuple(records[record_id]
+            for record_id in ids), tuple(ids)))
+    monkeypatch.setattr(cognition_module, "_task_family_history_examples",
+        lambda candidate, *, task_family_id: [{"record_id": candidate["record_id"]}])
+    monkeypatch.setattr(cognition_module, "_task_family_history_retrieval_utility",
+        lambda experiences, **_kwargs: ((3, 1, 1) if experiences[0]["record_id"]
+            == "direct-overlap" else (3, 16, 0)))
+
+    selected = cognition._prior_projection({"completed_ticks": [
+            {"tick_id": record_id, "record_id": record_id} for record_id in record_ids]},
+        "later-task", task_family_id="integer_affine_prediction",
+        task_probe_inputs=(10, 11), require_task_family_history=True,
+        target_model_identity=identity)
+
+    assert selected.requested_record_ids[-1] == "direct-overlap"
+    assert len(selected.requested_record_ids) == cognition.config.max_retrieved_records
+    assert any(record_id not in selected.requested_record_ids
+        for record_id in record_ids[1:])
 
 
 def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_single_run(
