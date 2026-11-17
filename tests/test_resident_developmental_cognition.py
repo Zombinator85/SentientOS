@@ -5645,6 +5645,89 @@ def test_companion_interaction_uses_existing_history_without_learning_from_curre
     assert result.response not in durable
 
 
+@pytest.mark.skipif(os.name == "nt",
+    reason="temporary test fixtures cannot satisfy the resident owner's Windows custody paths")
+def test_companion_distinguishes_assistant_recommendation_from_user_decision(
+        tmp_path: Path) -> None:
+    class DecisionAttributionInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                turns = prompt.get("session_conversation_context", {}).get("turns", ())
+                recommendation = next(row for row in turns
+                    if row["role"] == "assistant"
+                    and "I recommend stopping" in row["text"])
+                acceptance = next((row for row in turns
+                    if row["role"] == "user" and "Yes, I agree" in row["text"]), None)
+                if acceptance is None:
+                    response = ("The assistant recommended stopping the launch. "
+                        "No user decision is recorded in this conversation.")
+                    citations = [recommendation["turn_id"]]
+                else:
+                    response = ("You explicitly accepted the proposal to stop the launch. "
+                        "The conversation records your decision, but it does not show "
+                        "that the action was carried out.")
+                    citations = [recommendation["turn_id"], acceptance["turn_id"]]
+                self.companion_output_override = {
+                    "disposition": "answer", "response": response,
+                    "evidence_ids": [], "history_record_ids": [],
+                    "conversation_turn_ids": citations,
+                }
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    invoker = DecisionAttributionInvoker()
+    cognition, _ = owner(tmp_path / "cognition", invoker=invoker,
+        allowed_source_kinds=("capability_registry",))
+
+    def context(*, confirmed: bool) -> dict[str, object]:
+        turn_rows = [
+            {"turn_id": "turn-" + "1" * 24, "role": "user",
+                "text": "Should we stop the launch?",
+                "text_digest": digest_payload({"text": "Should we stop the launch?"}),
+                "linkage_digest": digest_payload({})},
+            {"turn_id": "turn-" + "2" * 24, "role": "assistant",
+                "text": "I recommend stopping until the warning is checked.",
+                "text_digest": digest_payload({
+                    "text": "I recommend stopping until the warning is checked."}),
+                "linkage_digest": digest_payload({})},
+        ]
+        if confirmed:
+            text = "Yes, I agree; let's stop the launch."
+            turn_rows.append({"turn_id": "turn-" + "3" * 24, "role": "user",
+                "text": text, "text_digest": digest_payload({"text": text}),
+                "linkage_digest": digest_payload({})})
+        semantic = {"schema_version": "sentientos.conversation_cognition_context:v1",
+            "session_id": "decision-attribution", "source_snapshot_digest": "a" * 64,
+            "turns": turn_rows, "historical_only": True, "current_truth": False,
+            "authority": False, "mutation_performed": False}
+        return {**semantic, "selection_digest": digest_payload(semantic)}
+
+    question = "What did we decide about the launch?"
+    no_confirmation = cognition.run_companion_interaction(
+        snapshot=snapshot(), request_id="decision-without-user-confirmation",
+        question=question, conversation_context=context(confirmed=False))
+    confirmed = cognition.run_companion_interaction(
+        snapshot=snapshot(), request_id="decision-with-user-confirmation",
+        question=question, conversation_context=context(confirmed=True))
+
+    assert "assistant recommended" in no_confirmation.response
+    assert "No user decision is recorded" in no_confirmation.response
+    assert "explicitly accepted" in confirmed.response
+    assert "does not show that the action was carried out" in confirmed.response
+    assert no_confirmation.conversation_turn_citation_ids == ("turn-" + "2" * 24,)
+    assert confirmed.conversation_turn_citation_ids == (
+        "turn-" + "2" * 24, "turn-" + "3" * 24)
+    assert no_confirmation.authority is False and no_confirmation.action_authority is False
+    assert confirmed.authority is False and confirmed.action_authority is False
+    assert no_confirmation.current_truth is False and confirmed.current_truth is False
+    assert "An assistant suggestion or recommendation is not a user-made decision" in (
+        json.loads(invoker.requests[-2].prompt)["instruction"])
+
+
 def test_companion_query_selects_relevant_older_experience_over_recent_unrelated_history(
         tmp_path: Path) -> None:
     cognition, fake = owner(tmp_path)
