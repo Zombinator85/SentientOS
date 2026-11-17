@@ -3993,6 +3993,7 @@ def test_unsettled_score_bound_outcomes_change_later_strategy_use_after_restart(
         request_id="conflict-decision-cross-model-transfer",
         request_digest=str(transfer_request["request_digest"]),
         active_model_identity=replacement_identity,
+        publish_session=True,
         prior_request_refs=(
             ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
             ("conflict-decision-settled", str(stable_request["request_digest"])),
