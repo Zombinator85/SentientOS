@@ -267,6 +267,102 @@ def test_unverified_operator_feedback_cannot_drive_directional_epistemic_update(
     assert owner.current_state(proposition.proposition_id) is None
 
 
+@pytest.mark.skipif(os.name == "nt",
+    reason="persistent epistemic mutation integration requires hosted Linux custody paths")
+def test_v5_operator_correction_targets_cited_state_but_only_independent_evidence_revises(
+        tmp_path):
+    owner, proposition, _ledger, runtime = fixture(tmp_path)
+    seeded = runtime.process_snapshot(snapshot(), tick=20, recorded_at=NOW)
+    assert seeded.status == "state_advanced"
+    [original_state] = [owner.current_state(proposition.proposition_id)]
+    assert original_state is not None
+
+    runtime.config = replace(runtime.config, rules=(replace(
+        runtime.config.rules[0], selector={
+            "source_kind": "operator_input",
+            "subject_kind": "operator_reported_companion_feedback",
+            "stage": "observation", "disposition": "reported"}),))
+    from sentientos.developmental_companion_bridge import make_operator_feedback_record
+    feedback = make_operator_feedback_record(
+        "The prior answer was incorrect.", request_id="feedback-request-v5",
+        assistant_turn_id="turn-" + "a" * 24,
+        assistant_response_digest="b" * 64, source_capture_digest="c" * 64,
+        followup_capture_digest="d" * 64, observed_at=NOW,
+        conversation_citation_ids=("turn-" + "a" * 24,),
+        conversation_citation_digests=("e" * 64,),
+        conversation_session_id="session-v5-test",
+        correction_target_turn_id="turn-" + "a" * 24,
+        correction_target_epistemic_state_ids=(original_state.state_id,))
+    feedback_snapshot = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW)).build([feedback])
+
+    contextual = runtime.process_snapshot(feedback_snapshot, tick=21,
+        recorded_at=NOW)
+
+    [binding] = [item for item in owner.bindings(proposition.proposition_id)
+        if item.source_class == "operator_input"]
+    assert contextual.new_binding_count == 1
+    assert contextual.updated_proposition_count == 0
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+    assert binding.reliability_posture == "operator_assertion_unverified_context_only"
+    assert owner.current_state(proposition.proposition_id) == original_state
+
+    unknown_feedback = make_operator_feedback_record(
+        "This citation is not in durable epistemic custody.",
+        request_id="feedback-request-unknown-v5",
+        assistant_turn_id="turn-" + "f" * 24,
+        assistant_response_digest="1" * 64, source_capture_digest="2" * 64,
+        followup_capture_digest="3" * 64, observed_at=NOW,
+        conversation_citation_ids=("turn-" + "f" * 24,),
+        conversation_citation_digests=("4" * 64,),
+        conversation_session_id="session-v5-test",
+        correction_target_turn_id="turn-" + "f" * 24,
+        correction_target_epistemic_state_ids=("epistemic-state:" + "f" * 24,))
+    unknown_snapshot = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW)).build([unknown_feedback])
+    unknown = runtime.process_snapshot(unknown_snapshot, tick=211, recorded_at=NOW)
+    assert unknown.matched_fact_count == 0
+    assert unknown.new_binding_count == 0
+    assert len(owner.bindings(proposition.proposition_id)) == 2
+
+    # A separate configured observation still uses the ordinary evidence and
+    # state admissions to revise the same proposition after the correction.
+    runtime.config = replace(runtime.config, rules=(replace(
+        runtime.config.rules[0], selector={
+            "source_kind": "runtime_supervisor", "subject_id": "service-a",
+            "stage": "observation", "disposition": "degraded"},
+        evidence_relation="contradicts",
+        dependency_kind="independently_sourced_observation",
+        independence_basis="separate outcome observation fixture"),))
+    revised = runtime.process_snapshot(snapshot("degraded", source_id="supervisor-independent"),
+        tick=22, recorded_at=NOW)
+    successor = owner.current_state(proposition.proposition_id)
+    assert revised.status == "state_advanced"
+    assert revised.updated_proposition_count == 1
+    assert successor is not None and successor.state_id != original_state.state_id
+    assert successor.generation == original_state.generation + 1
+
+    # A later cognitive projection resolves the original correction citation
+    # through durable lineage and supplies the latest admitted successor.
+    recovered = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("operator",))
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions={RESIDENT_EPISTEMIC_STATE_MUTATION:
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION},
+            ledger=runtime.ledger),
+        current_sequence=runtime.controller.current_sequence,
+        receipt_root=tmp_path / "receipts")
+    assert recovered_controller.recovery_status["status"] == "verified"
+    projection = recovered.cognitive_projection(max_states=1,
+        prioritized_state_ids=(original_state.state_id,))
+    assert projection is not None
+    assert projection.state_ids == (successor.state_id,)
+    assert projection.proposition_ids == (proposition.proposition_id,)
+
+
 def test_freshness_revision_replaces_active_binding_and_withdrawal_stays_withdrawn(tmp_path):
     owner, proposition, _ledger, runtime = fixture(tmp_path)
     fresh_snapshot = snapshot()
