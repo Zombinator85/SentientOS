@@ -29,16 +29,18 @@ def run_epistemic_revision_pair_once(*, cognition: ResidentDevelopmentalCognitio
         before_projection: EpistemicCognitiveProjection,
         after_projection: EpistemicCognitiveProjection,
         tick_prefix: str) -> dict[str, Any]:
-    """Run one evidence or inference transition through the cognition owner.
+    """Run one evidence transition or context-only comparison through the owner.
 
     Both prompts are checked before the first invocation. Answer keys remain in
     the controller-side case object and are only supplied to the evaluator
-    after both verified captures have been persisted.
+    after both verified captures have been persisted. The unverified-operator-
+    context case holds epistemic state and current evidence fixed while changing
+    only the source-bound context projection and its required caution sentence.
     """
     if (not isinstance(cognition, ResidentDevelopmentalCognitionOwner)
             or not isinstance(case, RevisionCase)
             or case.kind not in {"contrary_evidence", "inference_correction",
-                "outdated_evidence"}
+                "outdated_evidence", "unverified_operator_context"}
             or not isinstance(tick_prefix, str) or not tick_prefix.strip()
             or len(tick_prefix) > 180):
         raise ResidentDevelopmentalCognitionError(
