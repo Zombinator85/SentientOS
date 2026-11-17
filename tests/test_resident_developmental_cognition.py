@@ -4092,7 +4092,7 @@ def test_unsettled_score_bound_outcomes_change_later_strategy_use_after_restart(
         for experience in packet.get("task_relevant_experience", ())]
     assert any(experience.get("source_task_digest")
         == later_task.public_descriptor()["task_digest"]
-        and experience.get("candidate_integer_affine_strategy_withheld", {}).get(
+        and (experience.get("candidate_integer_affine_strategy_withheld") or {}).get(
             "posture") == "withheld_unsettled_score_bound_outcomes"
         for experience in replacement_later_experiences)
 
@@ -4126,8 +4126,8 @@ def test_unsettled_score_bound_outcomes_change_later_strategy_use_after_restart(
         for experience in third_experiences
         if experience.get("source_task_digest")
             == later_task.public_descriptor()["task_digest"]
-        and experience.get(
-            "candidate_integer_affine_strategy_source_outcomes_unsettled", {}).get(
+        and (experience.get(
+            "candidate_integer_affine_strategy_source_outcomes_unsettled") or {}).get(
                 "posture") == "source_model_outcomes_unsettled_cross_model_candidate"]
     assert replacement_conflict_candidate["model_identity_relation"] == (
         "different_active_model_identity")
