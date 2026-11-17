@@ -86,6 +86,11 @@ from .resident_developmental_writeback import (
 from .runtime_admission import RuntimeAdmissionAuthority
 from .world_state_board import WorldStateSnapshot, digest as _world_state_digest, validate_snapshot
 
+_HISTORY_DECISION_PREDICATE_TERMS = frozenset((
+    "accept", "agree", "allow", "approve", "authorize", "confirm",
+    "consent", "decide", "permit", "support"))
+_HISTORY_DECISION_NEGATION_TERMS = frozenset(("no", "nor", "not"))
+
 
 def _parse_cognition_lesson_output(text: str, consumed_ids: set[str]) -> Mapping[str, Any]:
     """Accept only a complete, exact-output lesson packet bound to consumed evidence."""
@@ -7990,7 +7995,11 @@ class ResidentDevelopmentalCognitionOwner:
                 document_term_weights[record_id] = term_weights
             document_frequency = {term: sum(term in weights
                 for weights in document_term_weights.values()) for term in query_terms}
-            ranked: list[tuple[float, int, str]] = []
+            query_decision_polarity = bool(
+                query_terms & _HISTORY_DECISION_PREDICATE_TERMS)
+            query_is_negative_decision = bool(
+                query_terms & _HISTORY_DECISION_NEGATION_TERMS)
+            ranked: list[tuple[float, int, int, str]] = []
             document_count = max(1, len(document_term_weights))
             for order, record_id in enumerate(ids):
                 weights = document_term_weights[record_id]
@@ -7998,7 +8007,18 @@ class ResidentDevelopmentalCognitionOwner:
                 relevance_score = sum(weights[term] * (math.log((document_count + 1) /
                     (document_frequency[term] + 0.5)) + 1) ** 2 for term in shared)
                 if relevance_score:
-                    ranked.append((relevance_score, order, record_id))
+                    exchange_mentions_decision = bool(
+                        shared & _HISTORY_DECISION_PREDICATE_TERMS)
+                    exchange_is_negative_decision = (
+                        exchange_mentions_decision
+                        and bool(weights.keys() & _HISTORY_DECISION_NEGATION_TERMS))
+                    polarity_match = int(
+                        not query_decision_polarity
+                        or (not exchange_mentions_decision
+                            and not query_is_negative_decision)
+                        or query_is_negative_decision
+                            == exchange_is_negative_decision)
+                    ranked.append((relevance_score, polarity_match, order, record_id))
             ranked.sort(reverse=True)
 
             # Keep feedback records about the same exact cited turn together.
@@ -8036,19 +8056,23 @@ class ResidentDevelopmentalCognitionOwner:
             for record_id in ids:
                 unit_members.setdefault(find_group(record_id), []).append(record_id)
             ranked_score_by_id = {record_id: score
-                for score, _order, record_id in ranked}
+                for score, _polarity, _order, record_id in ranked}
+            ranked_polarity_by_id = {record_id: polarity
+                for _score, polarity, _order, record_id in ranked}
             unit_ranking = []
             for members in unit_members.values():
                 score = max((ranked_score_by_id.get(record_id, 0.0)
                     for record_id in members), default=0.0)
+                polarity_match = max((ranked_polarity_by_id.get(record_id, 0)
+                    for record_id in members), default=0)
                 newest_order = max(checkpoint_order[record_id]
                     for record_id in members)
                 if score > 0:
-                    unit_ranking.append((score, newest_order, members))
-            unit_ranking.sort(key=lambda item: (item[0], item[1]), reverse=True)
+                    unit_ranking.append((score, polarity_match, newest_order, members))
+            unit_ranking.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
             selected_record_ids: list[str] = []
             selected_general_set: set[str] = set()
-            for _score, _newest_order, members in unit_ranking:
+            for _score, _polarity_match, _newest_order, members in unit_ranking:
                 if (len(selected_record_ids) + len(members)
                         > self.config.max_retrieved_records):
                     continue
@@ -8069,9 +8093,11 @@ class ResidentDevelopmentalCognitionOwner:
                 selected_general_set.update(members)
             # History budgeting keeps a complete suffix. Put strongest query
             # matches last so ranking survives a smaller input budget.
-            overlap_by_id = {item[2]: item[0] for item in ranked}
+            overlap_by_id = {item[3]: item[0] for item in ranked}
+            polarity_by_id = {item[3]: item[1] for item in ranked}
             ids = sorted(selected_record_ids, key=lambda record_id: (
-                overlap_by_id.get(record_id, 0), checkpoint_order[record_id]))
+                overlap_by_id.get(record_id, 0),
+                polarity_by_id.get(record_id, 0), checkpoint_order[record_id]))
         ids = ids[-self.config.max_retrieved_records:]
         projection = self.writeback.retrieve(ids,
             limit=self.config.max_retrieved_records)

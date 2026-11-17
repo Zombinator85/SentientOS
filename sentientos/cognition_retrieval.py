@@ -5,6 +5,14 @@ import re
 import unicodedata
 
 
+_QUERY_NEGATION_WORD_PATTERN = re.compile(r"\b(?:no|nor|not)\b")
+_QUERY_NEGATION_CONTRACTION_PATTERN = re.compile(
+    r"\b(?:ain|aren|can|couldn|didn|doesn|don|hadn|hasn|haven|isn|mustn|"
+    r"shouldn|wasn|weren|won|wouldn)['’]t\b")
+_QUERY_NEGATION_CONTRACTION_FRAGMENTS = frozenset((
+    "ain", "aren", "couldn", "didn", "doesn", "don", "hadn", "hasn",
+    "haven", "isn", "mustn", "shouldn", "wasn", "weren", "won", "wouldn"))
+
 _QUERY_STOP_WORDS = frozenset((
     "a", "about", "after", "again", "all", "also", "an", "and", "any", "are",
     "as", "at", "be", "because", "been", "before", "being", "between", "both",
@@ -12,7 +20,7 @@ _QUERY_STOP_WORDS = frozenset((
     "few", "for", "from", "had", "has", "have", "he", "her", "here", "hers",
     "him", "his", "how", "i", "if", "in", "into", "is", "it", "its", "just",
     "learn", "like", "may", "me", "might", "more", "most", "much", "must", "my",
-    "no", "nor", "not", "now", "of", "off", "on", "once", "only", "or", "other",
+    "now", "of", "off", "on", "once", "only", "or", "other",
     "our", "ours", "out", "over", "same", "she", "should", "so", "some", "such",
     "than", "that", "the", "their", "theirs", "them", "then", "there", "these",
     "they", "this", "those", "through", "to", "under", "until", "up", "us", "very",
@@ -78,10 +86,14 @@ def cognition_tokens(text: str) -> tuple[str, ...]:
 
 
 def cognition_query_terms(text: str) -> set[str]:
-    """Return normalized topic terms, excluding question framing and stop words."""
+    """Return normalized topic terms while preserving explicit query negation."""
     terms: set[str] = set()
     for token in cognition_tokens(text):
-        if token in _QUERY_STOP_WORDS:
+        if (token in _QUERY_STOP_WORDS
+                or token in _QUERY_NEGATION_CONTRACTION_FRAGMENTS):
             continue
         terms.add(token)
+    terms.update(_QUERY_NEGATION_WORD_PATTERN.findall(text.casefold()))
+    if _QUERY_NEGATION_CONTRACTION_PATTERN.search(text.casefold()):
+        terms.add("not")
     return terms
