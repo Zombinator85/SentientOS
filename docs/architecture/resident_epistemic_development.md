@@ -305,7 +305,21 @@ truth or authority. A restart counterfactual checks that a contradicted forecast
 changes a later resident response when its calibration is delivered, while the
 underlying epistemic state remains unchanged. These are deterministic owner and
 controlled-responder results; real-model use of calibration history remains
-unverified.
+unverified. A follow-up counterfactual showed that the stored comparison label
+could disagree with the cited binding's relation. Semantic packets now derive
+`evidence_consistency` from all cited bindings: only a complete set of current,
+non-withdrawn, dependency-resolved bindings with a matching support or
+contradiction relation is marked `consistent_with_bound_current_evidence`.
+Inconclusive, stale, unknown-dependency, missing, or mismatched evidence is
+marked `unresolved_against_bound_evidence`. Resident instructions require the
+consistent posture before using a calibration label to qualify a decision. A
+restart-backed controlled-responder counterfactual confirms the matching
+contradiction changes the later response while a mismatched label does not.
+The persisted-owner composition is exercised in hosted Linux validation; the
+local Windows checkout can run the pure classification test but not that
+durable-custody fixture. This is evidence-consistency checking, not independent verification of the
+underlying outcome; model interpretation and real-world calibration remain
+unproven.
 
 ## Explicitly retained user context in resident serving
 

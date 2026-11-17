@@ -398,6 +398,28 @@ def _normalize_calibration_record(raw: Mapping[str, Any]) -> EpistemicCalibratio
     return EpistemicCalibrationEvent(**value)
 
 
+def _calibration_evidence_consistency(outcome: Mapping[str, Any],
+        evidence_by_id: Mapping[str, EvidenceBinding]) -> str:
+    """Classify whether every cited binding agrees with a historical result label."""
+    expected_relation = {"supported": "supports",
+        "contradicted": "contradicts"}.get(outcome.get("comparison_result"))
+    binding_ids = outcome.get("source_binding_ids", ())
+    cited = [evidence_by_id[binding_id] for binding_id in binding_ids
+        if binding_id in evidence_by_id]
+    complete = bool(binding_ids) and len(cited) == len(binding_ids)
+    matching = complete and all(
+        not binding.withdrawn
+        and binding.freshness == "current"
+        and binding.dependency_kind != "unknown_dependency"
+        and expected_relation is not None
+        and (binding.evidence_relation == expected_relation
+            or (binding.evidence_relation == "predictive_outcome"
+                and binding.reliability_posture == outcome.get("comparison_result")))
+        for binding in cited)
+    return ("consistent_with_bound_current_evidence" if matching
+        else "unresolved_against_bound_evidence")
+
+
 def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Mapping[str, Any], *,
                                   require_meaning: bool = False) -> None:
     """Verify projection identity and every canonical position/evidence join."""
@@ -842,9 +864,18 @@ def semantic_packets_for_projection(projection: EpistemicCognitiveProjection) ->
             "interpretation_posture": "canonical_prior_position_not_current_truth",
             "authority": False, "policy": False, "goal": False}
         if projection.schema_version == COGNITIVE_PROJECTION_SCHEMA_V5:
+            calibration_evidence = {
+                item["binding_id"]: _normalize_binding_record(item)
+                for item in (*bindings, *removed,
+                    *calibration_history["evidence_bindings"])}
+            calibration_outcomes = []
+            for item in calibration_history["events"]:
+                outcome = dict(item)
+                outcome["evidence_consistency"] = _calibration_evidence_consistency(
+                    outcome, calibration_evidence)
+                calibration_outcomes.append(outcome)
             packet.update({
-                "calibration_outcomes": [dict(item) for item in
-                    calibration_history["events"]],
+                "calibration_outcomes": calibration_outcomes,
                 "calibration_evidence_bindings": [dict(item) for item in
                     calibration_history["evidence_bindings"]],
                 "omitted_calibration_count": calibration_history["omitted_count"],

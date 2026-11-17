@@ -15,6 +15,7 @@ from sentientos.persistent_epistemic_state import (
     validate_cognitive_projection, _question_relevant_proposition_ids,
     _projection_priority_ids,
     _proposition_priorities_from_state_citations,
+    _calibration_evidence_consistency,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -184,6 +185,34 @@ def binding(p, source, relation="supports", dependency="independently_sourced_ob
         source_class="independent_fixture", observation_time="2026-01-01T00:00:00Z",
         evidence_relation=relation, dependency_kind=dependency, dependency_group=source,
         upstream_binding_ids=upstream, freshness=freshness, reliability_posture=relation)
+
+
+def test_calibration_label_requires_complete_matching_current_resolved_evidence():
+    p = proposition()
+    contradictory = binding(p, "calibration-contradiction", "contradicts")
+    supported = binding(p, "calibration-support", "supports")
+    stale = binding(p, "calibration-stale", "contradicts", freshness="stale")
+    unknown = binding(p, "calibration-unknown", "contradicts",
+        dependency="unknown_dependency")
+    base = {"comparison_result": "contradicted",
+        "source_binding_ids": (contradictory.binding_id,)}
+
+    assert _calibration_evidence_consistency(base,
+        {contradictory.binding_id: contradictory}) == (
+            "consistent_with_bound_current_evidence")
+    assert _calibration_evidence_consistency(base,
+        {supported.binding_id: supported}) == (
+            "unresolved_against_bound_evidence")
+    assert _calibration_evidence_consistency(base,
+        {stale.binding_id: stale}) == "unresolved_against_bound_evidence"
+    assert _calibration_evidence_consistency(base,
+        {unknown.binding_id: unknown}) == "unresolved_against_bound_evidence"
+    assert _calibration_evidence_consistency({**base,
+        "comparison_result": "inconclusive"},
+        {contradictory.binding_id: contradictory}) == (
+            "unresolved_against_bound_evidence")
+    assert _calibration_evidence_consistency(base, {}) == (
+        "unresolved_against_bound_evidence")
 
 
 def test_semantic_identity_ignores_display_wording_and_mutation_fails(tmp_path):
@@ -790,6 +819,8 @@ def test_question_relevant_projection_carries_bounded_prior_calibrations_after_r
         f"outcome-west-{minute}" for minute in range(3, 19)]
     assert all(item["comparison_result"] == "contradicted"
         and item["authority"] == FALSE_AUTHORITY for item in outcomes)
+    assert all(item["evidence_consistency"] ==
+        "unresolved_against_bound_evidence" for item in outcomes)
     assert packet["omitted_calibration_count"] == 2
     assert packet["omitted_calibration_identity_digest"].startswith("sha256:")
     assert all(item["observed_outcome_id"] != "outcome-west-future"
