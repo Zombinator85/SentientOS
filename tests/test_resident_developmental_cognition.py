@@ -42,6 +42,8 @@ from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
     _bind_history_and_epistemic_context, _history_context_packet,
+    _history_decision_contrast_context,
+    _historical_embodiment_retrieval_text,
     load_objective_request, objective_task_for_request, stage_objective_request,
     stored_objective_request_disposition, stored_objective_request_record,
     _valid_rootless_epistemic_session_binding, _parse_companion_interaction_output,
@@ -5224,6 +5226,54 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
         admission_authority=RuntimeAdmissionAuthority(
             definitions=epistemic_definitions, ledger=epistemic_ledger),
         admission_ledger=epistemic_ledger)
+    foreign_model_proposition = make_proposition(namespace="operator",
+        subject="task_family:integer_affine_prediction", predicate="history_effect",
+        object_value="history presence changes held-out correctness", polarity="positive",
+        qualifiers={"run_scope": run_id}, temporal_scope={"kind": "single_run"},
+        context_scope={"task_family_id": "integer_affine_prediction",
+            "active_model_identity_digest": "sha256:" + "0" * 64},
+        proposition_class="causal_hypothesis")
+    epistemics.register_proposition(foreign_model_proposition)
+    foreign_model_rule = EpistemicDevelopmentRule("foreign-model-task-family",
+        foreign_model_proposition.proposition_id,
+        foreign_model_proposition.proposition_digest,
+        {"source_kind": "embodiment",
+            "subject_kind": "developmental_history_intervention_experiment"},
+        "supports", "unknown_dependency", "bounded_fixture")
+    foreign_model_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 1, 1, (foreign_model_rule,),
+            ("operator",)),
+        owner=epistemics, mutation_controller=controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        admission_ledger=epistemic_ledger)
+    with pytest.raises(EpistemicDevelopmentError,
+            match="task_family_model_identity_mismatch"):
+        foreign_model_runtime.process_verified_task_family_run(
+            experiment_store=restarted.experiments, run_id=run_id,
+            expected_run_digest=run_digest, rule_id=foreign_model_rule.rule_id,
+            tick=1, recorded_at=evaluated_at.isoformat())
+    assert epistemic_ledger.load()[0] == ()
+    assert epistemics.bindings(foreign_model_proposition.proposition_id) == ()
+    assert epistemics.current_state(foreign_model_proposition.proposition_id) is None
+
+    class UnverifiedModelIdentityStore:
+        def load_run(self, requested_run_id):
+            value = restarted.experiments.load_run(requested_run_id)
+            value["protocol"] = {**value["protocol"],
+                "active_model_identity_digest": "sha256:" + "1" * 64}
+            return value
+
+        def objective_task_family_evidence_binding(self, **_kwargs):
+            raise AssertionError("unverified model identity reached evidence adapter")
+
+    with pytest.raises(EpistemicDevelopmentError,
+            match="task_family_model_identity_unverified"):
+        foreign_model_runtime.process_verified_task_family_run(
+            experiment_store=UnverifiedModelIdentityStore(), run_id=run_id,
+            expected_run_digest=run_digest, rule_id=foreign_model_rule.rule_id,
+            tick=1, recorded_at=evaluated_at.isoformat())
+    assert epistemic_ledger.load()[0] == ()
     with pytest.raises(DevelopmentalHistoryInterventionError,
             match="epistemic_run_digest_mismatch"):
         runtime.process_verified_task_family_run(
@@ -5758,7 +5808,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
+        "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9"
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
 
@@ -5788,7 +5838,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     followup_prompt = json.loads(fake.requests[-1].prompt)
     assert followup_prompt["companion_question"] == "What about that?"
     assert followup_prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
+        "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9"
 
     # A specific new topic takes precedence over the prior user turn, which
     # should not drag its unrelated battery lesson into the bounded selection.
@@ -5891,7 +5941,7 @@ def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_te
     from sentientos import resident_developmental_cognition as cognition_module
     _, metadata, _, _, _ = cognition_module._bind_history_and_epistemic_context(
         context={"developmental_history_retrieval_policy_id":
-            "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"},
+            "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9"},
         records=(), projection=None, history_present=False)
     cognition_module._validate_developmental_history_selection({
         "developmental_history_selection": metadata["developmental_history_selection"]})
@@ -8600,15 +8650,32 @@ def test_epistemic_only_prior_context_causes_real_owner_cognition(tmp_path: Path
 
 @pytest.mark.skipif(os.name == "nt",
     reason="epistemic-owner fixtures require hosted Linux durable-custody paths")
-@pytest.mark.parametrize(("outcome_relation", "expected_posture"), [
-    ("contradicts", "consistent_with_bound_current_evidence"),
-    ("supports", "unresolved_against_bound_evidence"),
-])
-def test_calibrated_epistemic_outcome_changes_later_resident_decision(
+@pytest.mark.parametrize("outcome_relation", ["contradicts", "supports"])
+def test_admitted_calibration_changes_later_decision_only_when_evidence_agrees(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-        outcome_relation: str, expected_posture: str) -> None:
+        outcome_relation: str) -> None:
     from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
-    from sentientos.persistent_epistemic_state import make_evidence_binding
+    from sentientos.codex_task_authority_admission import (
+        RESIDENT_EPISTEMIC_STATE_MUTATION,
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    )
+    from sentientos.persistent_epistemic_state import (
+        make_evidence_binding, semantic_packets_for_projection,
+    )
+    from sentientos.resident_epistemic_calibration_authority import (
+        RESIDENT_EPISTEMIC_CALIBRATION_REVIEW,
+        RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION,
+    )
+    from sentientos.resident_epistemic_development import (
+        EpistemicDevelopmentConfig, EpistemicDevelopmentRule,
+        ResidentEpistemicDevelopmentRuntime,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        ResidentEpistemicStateMutationController,
+    )
+    from sentientos.runtime_admission import (
+        AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
+    )
 
     class CalibrationAwareInvoker(FakeInvoker):
         def invoke(self, request, *, persist, include_output_in_receipt,
@@ -8637,7 +8704,7 @@ def test_calibrated_epistemic_outcome_changes_later_resident_decision(
                 include_output_in_receipt=include_output_in_receipt,
                 resource_context=resource_context)
 
-    now = datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, 0, 4, tzinfo=timezone.utc)
     forecast_tick = int(datetime(2026, 1, 1, 0, 0,
         tzinfo=timezone.utc).timestamp())
     epistemic = PersistentEpistemicStateOwner(
@@ -8680,7 +8747,18 @@ def test_calibrated_epistemic_outcome_changes_later_resident_decision(
         dependency_group="outcome-source", upstream_binding_ids=(),
         freshness="current", reliability_posture="contradicts")
     epistemic.bind_evidence(outcome_evidence)
-    epistemic.record_calibration(
+    outcome_state, _ = epistemic.commit_update(
+        proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=state.state_digest,
+        stance=("contested" if outcome_relation == "contradicts"
+            else "provisionally_supported"),
+        reason="new_evidence",
+        active_binding_ids=(forecast_evidence.binding_id,
+            outcome_evidence.binding_id),
+        added_binding_ids=(outcome_evidence.binding_id,),
+        correlation_id="independent-outcome-observation",
+        tick=forecast_tick + 60, recorded_at="2026-01-01T00:01:00Z")
+    calibration = epistemic.record_calibration(
         proposition_id=proposition.proposition_id,
         forecast_artifact_id="forecast-artifact",
         forecast_state_digest=state.state_digest,
@@ -8689,11 +8767,64 @@ def test_calibrated_epistemic_outcome_changes_later_resident_decision(
         source_binding_ids=(outcome_evidence.binding_id,),
         resolved_at="2026-01-01T00:01:00Z")
 
+    ledger = AdmissionLedger(tmp_path / "admissions.json")
+    definitions = {
+        RESIDENT_EPISTEMIC_STATE_MUTATION:
+            RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+        RESIDENT_EPISTEMIC_CALIBRATION_REVIEW:
+            RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION,
+    }
+
+    def current_sequence() -> int:
+        admissions, revocations = ledger.load()
+        return max([item.issued_sequence for item in admissions]
+            + [item.sequence for item in revocations], default=1)
+
+    verifier = RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger)
+    mutation_controller = ResidentEpistemicStateMutationController(
+        owner=epistemic, admission_verifier=verifier,
+        current_sequence=current_sequence,
+        receipt_root=tmp_path / "epistemic-receipts")
+    rule = EpistemicDevelopmentRule(
+        "west-sensor-calibration", proposition.proposition_id,
+        proposition.proposition_digest,
+        {"source_kind": "independent_fixture", "subject_id": "sensor:west"},
+        "contradicts", "independently_sourced_observation", "contradicts",
+        independence_basis="separate deterministic outcome fixture")
+    runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 8, 4, (rule,), ("embodiment",)),
+        owner=epistemic, mutation_controller=mutation_controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=definitions, ledger=ledger), admission_ledger=ledger,
+        calibration_review_verifier=verifier)
+
     question = "How should I treat the west sensor's earlier forecast?"
     baseline_projection = epistemic.cognitive_projection(max_states=1,
-        current_tick=forecast_tick + 30, relevance_query=question)
+        current_tick=forecast_tick + 120, relevance_query=question)
     assert baseline_projection is not None
-    assert baseline_projection.schema_version == "sentientos.epistemic_cognitive_projection:v2"
+    assert baseline_projection.schema_version == "sentientos.epistemic_cognitive_projection:v5"
+    [withheld_packet] = semantic_packets_for_projection(baseline_projection)
+    assert withheld_packet["calibration_outcomes"] == []
+    assert withheld_packet["omitted_calibration_count"] == 1
+    review = runtime.process_calibration_event(
+        calibration_id=calibration.calibration_id,
+        expected_calibration_digest=calibration.calibration_digest,
+        rule_id=rule.rule_id, tick=forecast_tick + 180,
+        recorded_at="2026-01-01T00:03:00Z")
+    reviewed_projection = epistemic.cognitive_projection(max_states=1,
+        current_tick=forecast_tick + 240, relevance_query=question)
+    assert reviewed_projection is not None
+    [reviewed_packet] = semantic_packets_for_projection(reviewed_projection)
+    if outcome_relation == "contradicts":
+        assert review.status == "state_advanced"
+        assert reviewed_packet["calibration_outcomes"][0][
+            "evidence_consistency"] == "consistent_with_bound_current_evidence"
+        assert epistemic.current_state(proposition.proposition_id).generation == 2
+    else:
+        assert review.status == "calibration_unresolved"
+        assert reviewed_packet["calibration_outcomes"] == []
+        assert reviewed_packet["omitted_calibration_count"] == 1
+        assert epistemic.current_state(proposition.proposition_id).generation == 1
     cognition, invoker = owner(tmp_path / "cognition",
         allowed_source_kinds=("embodiment",), invoker=CalibrationAwareInvoker())
     bridge = ResidentDevelopmentalCompanionBridge(cognition,
@@ -8706,12 +8837,12 @@ def test_calibrated_epistemic_outcome_changes_later_resident_decision(
         "capture_scope": "allowlisted_foreground_game_client_area",
         "captured_at": now.isoformat(), "raw_frame_retained": False}
 
-    projection_reader = epistemic.cognitive_projection
     monkeypatch.setattr(epistemic, "cognitive_projection",
         lambda **_kwargs: baseline_projection)
     control = bridge.respond(request_id="calibration-withheld-control",
         question=question, screen_observation=screen)
-    monkeypatch.setattr(epistemic, "cognitive_projection", projection_reader)
+    monkeypatch.setattr(epistemic, "cognitive_projection",
+        lambda **_kwargs: reviewed_projection)
     calibrated = bridge.respond(request_id="calibration-present-followup",
         question=question, screen_observation=screen)
 
@@ -8720,24 +8851,33 @@ def test_calibrated_epistemic_outcome_changes_later_resident_decision(
     calibrated_prompt = json.loads(calibrated_request.prompt)
     [calibrated_packet] = calibrated_prompt["prior_epistemic_state"][
         "semantic_packets"]
-    assert "calibration_outcomes" not in control_prompt[
-        "prior_epistemic_state"]["semantic_packets"][0]
-    assert calibrated_packet["calibration_outcomes"][0][
-        "observed_outcome_id"] == "observed-outcome-1"
-    assert calibrated_packet["calibration_outcomes"][0][
-        "evidence_consistency"] == expected_posture
+    [control_packet] = control_prompt["prior_epistemic_state"][
+        "semantic_packets"]
+    assert control_packet["calibration_outcomes"] == []
+    assert control_packet["omitted_calibration_count"] == 1
     if outcome_relation == "contradicts":
+        assert calibrated_packet["calibration_outcomes"][0][
+            "calibration_id"] == calibration.calibration_id
         assert "bound outcome" in calibrated.response
         assert calibrated.response != control.response
+        assert calibrated_request.upstream_evidence["epistemic_state_ids"] == [
+            epistemic.current_state(proposition.proposition_id).state_id]
     else:
+        assert calibrated_packet["calibration_outcomes"] == []
+        assert calibrated_packet["omitted_calibration_count"] == 1
         assert "reliability remains unresolved" in calibrated.response
         assert calibrated.response == control.response
-    assert calibrated_request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
-    assert control_request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
-    assert "evidence_consistency is consistent_with_bound_current_evidence" in (
-        calibrated_prompt["instruction"])
+    assert control_request.upstream_evidence["epistemic_state_ids"] == [
+        outcome_state.state_id]
+    if outcome_relation == "contradicts":
+        assert "evidence_consistency is consistent_with_bound_current_evidence" in (
+            calibrated_prompt["instruction"])
+    else:
+        assert "evidence_consistency is consistent_with_bound_current_evidence" not in (
+            calibrated_prompt["instruction"])
     assert calibrated.authority is control.authority is False
-    assert epistemic.current_state(proposition.proposition_id).state_id == state.state_id
+    assert epistemic.current_state(proposition.proposition_id).generation == (
+        2 if outcome_relation == "contradicts" else 1)
 
 
 def test_self_model_and_epistemic_context_run_one_ordinary_condition(tmp_path: Path) -> None:
@@ -8887,6 +9027,7 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert decoy.written_record_id != initial.written_record_id
 
     fake = FakeInvoker()
+    fake.active_model_identity = {"provider": "fixture", "model": "model-a"}
     proposals = {
         "history_present": {"disposition": "answer",
             "response": '{"requested_pose":"idle","predicted_pose":"idle"}',
@@ -8904,6 +9045,7 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     fake.companion_output_by_condition = proposals
     source = snapshot(2)
     compared_owner, _ = owner(tmp_path / "cognition", comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"),
         max_inference_timeout_seconds=90)
     with pytest.raises(ResidentDevelopmentalCognitionError,
             match="history_record_allowlist_not_admitted"):
@@ -8951,6 +9093,236 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert decision_audit[1]["disposition_normalization"] == (
         "history_unavailable_sentinel_means_abstention")
     assert "HISTORY_UNAVAILABLE" not in json.dumps(decision_audit)
+    decision_records = compared_owner.experiments.world_state_records(run_refs=((
+        persisted_run["run_id"], persisted_run["run_digest"]),))
+    assert len(decision_records) == 1
+    decision_world = WorldStateBoardBuilder().build(decision_records)
+    projection_owner, _ = owner(tmp_path / "cognition", invoker=fake,
+        allowed_source_kinds=("embodiment",))
+    decision_writeback = projection_owner.run_tick(snapshot=decision_world,
+        tick_id="companion-decision-projection-writeback")
+    assert decision_writeback.written_record_id
+    contrast_record_id = decision_writeback.written_record_id
+    contrast_record = projection_owner.writeback.store.get(contrast_record_id)
+    contrast_index_terms = _historical_embodiment_retrieval_text(
+        contrast_record.candidate,
+        target_model_identity=fake.active_model_identity)
+    assert any("history decision proposal response disposition comparison" in term
+        for term in contrast_index_terms)
+    contrast_retrieval_owner, contrast_retrieval_fake = owner(
+        tmp_path / "cognition", invoker=FakeInvoker(),
+        allowed_source_kinds=("capability_registry", "embodiment"))
+    contrast_retrieval_fake.active_model_identity = dict(fake.active_model_identity)
+    newer_unrelated_ids = []
+    for index in range(4):
+        contrast_retrieval_fake.history_interpretation = (
+            f"An unrelated astronomy observation about stars {index}.")
+        unrelated = contrast_retrieval_owner.run_tick(
+            snapshot=snapshot(30 + index),
+            tick_id=f"decision-contrast-retrieval-unrelated-{index}")
+        assert unrelated.written_record_id
+        newer_unrelated_ids.append(unrelated.written_record_id)
+    contrast_retrieval_fake.companion_output_override = {
+        "disposition": "answer", "response": "Prior comparison considered.",
+        "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
+    }
+    contrast_question = (
+        "What did the history decision comparison reveal about response "
+        "disposition and restoration stability?")
+    contrast_retrieval = contrast_retrieval_owner.run_companion_interaction(
+        snapshot=decision_world, request_id="retrieve-old-decision-contrast",
+        question=contrast_question)
+    assert contrast_record_id in contrast_retrieval.prior_record_ids
+    assert newer_unrelated_ids[0] not in contrast_retrieval.prior_record_ids
+    contrast_retrieval_prompt = json.loads(
+        contrast_retrieval_fake.requests[-1].prompt)
+    assert contrast_retrieval_prompt["developmental_history_retrieval_policy_id"] == (
+        "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_"
+        "and_elliptical_session_context_then_recency_fill:v9")
+
+    other_identity_owner, other_identity_fake = owner(
+        tmp_path / "cognition", invoker=FakeInvoker(),
+        allowed_source_kinds=("capability_registry", "embodiment"))
+    other_identity_fake.active_model_identity = {
+        "provider": "fixture", "model": "model-b"}
+    other_identity_fake.companion_output_override = {
+        "disposition": "answer", "response": "Prior comparison considered.",
+        "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
+    }
+    other_identity_retrieval = other_identity_owner.run_companion_interaction(
+        snapshot=decision_world, request_id="other-model-does-not-retrieve-contrast",
+        question=contrast_question)
+    assert contrast_record_id not in other_identity_retrieval.prior_record_ids
+    assert set(newer_unrelated_ids[1:]).issubset(
+        set(other_identity_retrieval.prior_record_ids))
+    assert any(decision_audit[0]["response_digest"] in item.prompt
+        for item in fake.requests)
+    decision_memory = projection_owner.writeback.store.get(
+        decision_writeback.written_record_id)
+    decision_facts = [item for item in decision_memory.candidate["selected_facts"]
+        if item["payload"].get("history_decision_contrast")]
+    assert len(decision_facts) == 1
+    decision_contrast = decision_facts[0]["payload"]["history_decision_contrast"]
+    assert decision_facts[0]["payload"]["active_model_identity_digest"] == (
+        "sha256:" + digest_payload(fake.active_model_identity))
+    assert decision_contrast["schema_version"] == "sentientos.history_decision_contrast:v1"
+    assert decision_contrast["classification"] == (
+        "owner_verified_condition_rows_retained_for_interpretation")
+    assert [item["condition_id"] for item in decision_contrast["conditions"]] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert [item["response_digest"] for item in decision_contrast["conditions"]] == [
+        item["response_digest"] for item in decision_audit]
+    assert [item["history_record_ids"] for item in decision_contrast["conditions"]] == [
+        item["history_record_ids"] for item in decision_audit]
+    assert decision_contrast["current_truth"] is False
+    assert decision_contrast["authority"] is False
+    assert decision_contrast["action_executed"] is False
+    assert decision_contrast["performance_improvement_established"] is False
+    assert "HISTORY_UNAVAILABLE" not in json.dumps(decision_contrast)
+    assert "response" not in decision_contrast["conditions"][0]
+    contrast_context_payload = {
+        "interpretation_projection": {"schema_version":
+            "sentientos.developmental_history_interpretation_projection:v2"},
+        "history_decision_contrast": decision_contrast,
+        "active_model_identity_digest": "sha256:" + digest_payload(
+            fake.active_model_identity),
+        "conditions": persisted_run["conditions"],
+    }
+    stable_pattern = _history_decision_contrast_context(
+        contrast_context_payload,
+        target_model_identity=fake.active_model_identity)["decision_pattern"]
+    assert stable_pattern["proposal_fingerprint_relation"] == (
+        "history_associated_difference_restoration_stable")
+    assert stable_pattern["present_withheld_history_citations_differ"] is True
+    citation_only_payload = copy.deepcopy(contrast_context_payload)
+    citation_only_conditions = citation_only_payload[
+        "history_decision_contrast"]["conditions"]
+    for item in citation_only_conditions:
+        item["response_digest"] = citation_only_conditions[0]["response_digest"]
+        item["disposition"] = "abstain"
+    citation_only_pattern = _history_decision_contrast_context(
+        citation_only_payload,
+        target_model_identity=fake.active_model_identity)["decision_pattern"]
+    assert citation_only_pattern["proposal_fingerprint_relation"] == (
+        "no_difference_observed")
+    assert citation_only_pattern["present_withheld_history_citations_differ"] is True
+    unstable_payload = copy.deepcopy(contrast_context_payload)
+    unstable_conditions = unstable_payload[
+        "history_decision_contrast"]["conditions"]
+    unstable_conditions[2]["response_digest"] = "f" * 64
+    unstable_pattern = _history_decision_contrast_context(
+        unstable_payload,
+        target_model_identity=fake.active_model_identity)["decision_pattern"]
+    assert unstable_pattern["proposal_fingerprint_relation"] == (
+        "restoration_unstable")
+    # Reconstruct a later history-conditioned cognition run. The retained
+    # contrast should reach the matching model in present/restored conditions,
+    # while the controlled withheld condition receives no history packet.
+    class ContrastApplyingFakeInvoker(FakeInvoker):
+        @staticmethod
+        def _decision_for_prompt(prompt):
+            reports = prompt.get("historical_embodiment_reports", ())
+            patterns = [report.get("reported_values", {}).get(
+                "history_intervention_result", {}).get(
+                    "history_decision_contrast", {}).get("decision_pattern", {})
+                for report in reports if isinstance(report, Mapping)]
+            relation = next((pattern.get("proposal_fingerprint_relation")
+                for pattern in patterns if isinstance(pattern, Mapping)
+                and pattern.get("proposal_fingerprint_relation") is not None), None)
+            if relation != "history_associated_difference_restoration_stable":
+                return {
+                    "disposition": "ask",
+                    "response": "No restoration-stable proposal difference is available.",
+                    "evidence_ids": [], "history_record_ids": [],
+                }
+            return {
+                "disposition": "answer",
+                "response": ("A prior restoration-stable history comparison changed "
+                    "the recorded proposal fingerprint; it did not establish correctness."),
+                "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
+            }
+
+        def invoke(self, request, **kwargs):
+            if (request.purpose
+                    == "resident_developmental_history_intervention_experiment"):
+                prompt = json.loads(request.prompt)
+                condition_id = request.linkage.get("condition_id")
+                self.companion_output_by_condition[condition_id] = (
+                    self._decision_for_prompt(prompt))
+            return super().invoke(request, **kwargs)
+
+    followup_fake = ContrastApplyingFakeInvoker()
+    followup_fake.active_model_identity = dict(fake.active_model_identity)
+    followup_owner, _ = owner(tmp_path / "cognition", comparison=True,
+        invoker=followup_fake, allowed_source_kinds=("embodiment",))
+    followup = followup_owner.run_companion_history_intervention(
+        snapshot=source, tick_id="companion-decision-apply-retained-contrast",
+        question="Use the retained decision comparison as context for this proposal.",
+        history_record_allowlist=(decision_writeback.written_record_id,))
+    followup_requests = [request for request in followup_fake.requests
+        if request.purpose == "resident_developmental_history_intervention_experiment"
+        and request.linkage.get("condition_id") in {
+            "history_present", "history_withheld", "history_restored"}]
+    assert len(followup_requests) == 3
+    followup_contexts = [json.loads(request.prompt) for request in followup_requests]
+    present_context, withheld_context, restored_context = followup_contexts
+    assert "A history_decision_contrast is a digest-bound comparison" in (
+        present_context["instruction"])
+    assert "citation differences alone are not a proposal difference" in (
+        present_context["instruction"])
+    assert "A history_decision_contrast is a digest-bound comparison" not in (
+        withheld_context["instruction"])
+    for context in (present_context, restored_context):
+        embodiment_packets = context.get("historical_embodiment_reports", [])
+        contrast_packets = [report.get("reported_values", {}).get(
+            "history_intervention_result", {}).get("history_decision_contrast")
+            for report in embodiment_packets]
+        contrast_packets = [packet for packet in contrast_packets if packet is not None]
+        assert len(contrast_packets) == 1
+        assert contrast_packets[0]["model_identity_relation"] == (
+            "same_active_model_identity")
+        assert contrast_packets[0]["current_truth"] is False
+        assert contrast_packets[0]["authority"] is False
+        assert contrast_packets[0]["performance_improvement_established"] is False
+        pattern = contrast_packets[0]["decision_pattern"]
+        assert pattern["schema_version"] == "sentientos.history_decision_pattern:v2"
+        assert pattern["present_restored_response_digest_match"] is True
+        assert pattern["present_withheld_response_digest_differs"] is True
+        assert pattern["present_restored_disposition_match"] is True
+        assert pattern["present_withheld_disposition_differs"] is True
+        assert pattern["proposal_fingerprint_relation"] == (
+            "history_associated_difference_restoration_stable")
+        assert pattern["interpretation_posture"] == (
+            "proposal_association_only_outcome_quality_unmeasured")
+        assert "HISTORY_UNAVAILABLE" not in json.dumps(contrast_packets[0])
+    assert not any(report.get("reported_values", {}).get(
+        "history_intervention_result", {}).get("history_decision_contrast")
+        for report in withheld_context.get("historical_embodiment_reports", []))
+    assert followup.restored_prompt_matches is True
+    followup_present, followup_withheld, followup_restored = followup.conditions
+    assert followup_present["response"] == followup_restored["response"]
+    assert "did not establish correctness" in followup_present["response"]
+    assert followup_present["disposition"] == followup_restored["disposition"] == "answer"
+    assert followup_present["history_record_ids"] == (
+        decision_writeback.written_record_id,)
+    assert followup_restored["history_record_ids"] == (
+        decision_writeback.written_record_id,)
+    assert followup_withheld["disposition"] == "ask"
+    assert followup_withheld["history_record_ids"] == ()
+    neutral_context = copy.deepcopy(present_context)
+    neutral_report = neutral_context["historical_embodiment_reports"][0]
+    neutral_report["reported_values"]["history_intervention_result"][
+        "history_decision_contrast"]["decision_pattern"][
+            "proposal_fingerprint_relation"] = "no_difference_observed"
+    assert ContrastApplyingFakeInvoker._decision_for_prompt(
+        neutral_context)["disposition"] == "ask"
+    unstable_context = copy.deepcopy(present_context)
+    unstable_report = unstable_context["historical_embodiment_reports"][0]
+    unstable_report["reported_values"]["history_intervention_result"][
+        "history_decision_contrast"]["decision_pattern"][
+            "proposal_fingerprint_relation"] = "restoration_unstable"
+    assert ContrastApplyingFakeInvoker._decision_for_prompt(
+        unstable_context)["disposition"] == "ask"
     assert all(item["snapshot_digest"] == source.digest for item in result.conditions)
     matched_controls = [item["matched_control_inputs"] for item in result.conditions]
     assert matched_controls[0] == matched_controls[1] == matched_controls[2]
@@ -8959,11 +9331,11 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert matched_controls[0]["question_digest"] == "sha256:" + digest_payload({
         "question": "For the synthetic avatar, choose the next pose and predict "
             "its encoder pose. Return JSON with requested_pose and predicted_pose."})
-    assert all(request.budget.timeout_seconds == 90 for request in fake.requests)
     intervention_requests = [request for request in fake.requests
         if request.purpose == "resident_developmental_history_intervention_experiment"
         and request.linkage.get("condition_id") in
             {"history_present", "history_withheld", "history_restored"}]
+    assert all(request.budget.timeout_seconds == 90 for request in intervention_requests)
     assert [request.linkage["condition_id"] for request in intervention_requests] == [
         "history_present", "history_withheld", "history_restored"]
     assert all(item["prompt_digest"] == "sha256:" + request.prompt_digest
@@ -8990,7 +9362,9 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         json.loads(path.read_text(encoding="utf-8"))
         for path in compared_owner.observations_root.glob("*.json")
         if json.loads(path.read_text(encoding="utf-8")).get("condition_id")
-            in {"history_present", "history_withheld", "history_restored"}]
+            in {"history_present", "history_withheld", "history_restored"}
+            and json.loads(path.read_text(encoding="utf-8")).get("tick_id")
+                == "companion-decision-1"]
     assert len(intervention_observations) == 3
     assert all(item["companion_history_citation_ids"] == []
         for item in intervention_observations)

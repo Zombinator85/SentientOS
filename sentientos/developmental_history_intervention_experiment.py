@@ -1068,10 +1068,11 @@ class DevelopmentalExperimentStore:
                     "retrieved_record_digests", "serving_session_id", "observed_at")},
                     **({key: condition.get(key) for key in (
                         "model_id", "model_artifact_digest", "authority_map_digest",
-                        "active_model_identity", "developmental_history_selection",
+                        "developmental_history_selection",
                         "resource_allocation_digest", "resource_attempt_id",
                         "resource_consumption_receipt_digests", "resource_linkage_digest")}
-                        if "resource_allocation_digest" in condition else {})}
+                        if "resource_allocation_digest" in condition else {}),
+                    }
                     for condition in conditions],
                 "condition_event_times": event_times,
                 "event_time_posture": ("all_condition_invocation_receipt_times_verified"
@@ -1083,6 +1084,12 @@ class DevelopmentalExperimentStore:
                     "authenticated_owner_receipt_not_independent_backend_observation"),
                 "independent_backend_observation": False,
                 "history_intervention_summary": run["summary"],
+                # Keep the exact, owner-verified decision contrast available to
+                # later cognition. The response text stays private; digests,
+                # dispositions, and citations remain bound to the observation
+                # and invocation receipts validated by load_run().
+                "companion_intervention_decisions": run.get(
+                    "companion_intervention_decisions"),
                 "objective_scores": score_projection,
                 "objective_evaluation": objective_evaluation,
                 "objective_task_descriptor": task_descriptor,

@@ -422,6 +422,16 @@ def _calibration_evidence_consistency(outcome: Mapping[str, Any],
         else "unresolved_against_bound_evidence")
 
 
+def calibration_review_correlation_id(calibration_id: str,
+        calibration_digest: str) -> str:
+    """Bind an admitted update event to one exact calibration record."""
+    if (not _valid_identity(calibration_id, "epistemic-calibration")
+            or not isinstance(calibration_digest, str)
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", calibration_digest)):
+        raise EpistemicStateError("epistemic_calibration_identity_invalid")
+    return f"calibration-review:{calibration_id}:{calibration_digest}"
+
+
 def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Mapping[str, Any], *,
                                   require_meaning: bool = False) -> None:
     """Verify projection identity and every canonical position/evidence join."""
@@ -1335,6 +1345,24 @@ class PersistentEpistemicStateOwner:
                 for v in self._read("states") if v["proposition_id"] == proposition_id]
         return max(states, key=lambda x:x.generation) if states else None
 
+    def state_by_digest(self, state_digest: str) -> EpistemicState | None:
+        """Resolve one exact historical state generation from immutable custody."""
+        matches = [_normalize_state_record(raw) for raw in self._read("states")
+            if raw.get("state_digest") == state_digest]
+        if len(matches) > 1:
+            raise EpistemicStateError("epistemic_state_digest_ambiguous")
+        return matches[0] if matches else None
+
+    def calibration_events(self, proposition_id: str
+            ) -> tuple[EpistemicCalibrationEvent, ...]:
+        """Return exact stored calibration events for one existing proposition."""
+        self.proposition(proposition_id)
+        events = tuple(_normalize_calibration_record(raw)
+            for raw in self._read("calibrations")
+            if raw.get("proposition_id") == proposition_id)
+        return tuple(sorted(events, key=lambda item: (
+            item.resolved_at, item.calibration_id)))
+
     def proposition_priorities_for_state_ids(
             self, state_ids: Sequence[str]) -> tuple[str, ...]:
         """Resolve cited state generations to allowed proposition lineages."""
@@ -1527,6 +1555,9 @@ class PersistentEpistemicStateOwner:
                 or calibration_bytes != self._collection_bytes("calibrations")):
             raise EpistemicStateError("epistemic_projection_boundary_changed")
         events = [EpistemicUpdateEvent(**json.loads(raw)) for _, raw in update_bytes]
+        reviewed_calibration_links = {
+            (event.proposition_id, event.correlation_id) for event in events
+            if event.reason == "calibration_outcome"}
         states = [EpistemicState(**json.loads(raw)) for _, raw in state_bytes]
         propositions = [EpistemicProposition(**json.loads(raw)) for _, raw in proposition_bytes]
         bindings = [EvidenceBinding(**{**json.loads(raw),
@@ -1664,6 +1695,7 @@ class PersistentEpistemicStateOwner:
             forecast_state_digests = {item.successor_state_digest for item in history}
             eligible = []
             excluded = []
+            unreviewed = []
             for calibration in calibrations_by_proposition.get(
                     state.proposition_id, ()):
                 if calibration.forecast_state_digest not in forecast_state_digests:
@@ -1677,6 +1709,13 @@ class PersistentEpistemicStateOwner:
                 if resolved_tick < 0 or (current_tick is not None
                         and resolved_tick >= current_tick):
                     continue
+                calibration_link = (state.proposition_id,
+                    calibration_review_correlation_id(
+                        calibration.calibration_id,
+                        calibration.calibration_digest))
+                if calibration_link not in reviewed_calibration_links:
+                    unreviewed.append(calibration)
+                    continue
                 if (not isinstance(calibration.forecast_artifact_id, str)
                         or not 1 <= len(calibration.forecast_artifact_id) <= 256
                         or not isinstance(calibration.observed_outcome_id, str)
@@ -1689,13 +1728,17 @@ class PersistentEpistemicStateOwner:
             eligible.sort(key=lambda item: (item[0], item[1].calibration_id))
             excluded.sort(key=lambda item: (item[0], item[1].calibration_id))
             has_calibration_history = has_calibration_history or bool(
-                eligible or excluded)
+                eligible or excluded or unreviewed)
             omitted = [*excluded,
                 *eligible[:-MAX_COGNITIVE_PROJECTION_CALIBRATIONS_PER_STATE]]
             retained = eligible[-MAX_COGNITIVE_PROJECTION_CALIBRATIONS_PER_STATE:]
             omitted_identity_rows = [{"calibration_id": item.calibration_id,
                 "calibration_digest": item.calibration_digest}
                 for _, item in omitted]
+            omitted_identity_rows.extend({"calibration_id": item.calibration_id,
+                "calibration_digest": item.calibration_digest}
+                for item in unreviewed)
+            omitted_identity_rows.sort(key=lambda item: item["calibration_id"])
             calibration_histories.append({
                 "events": tuple(asdict(item) for _, item in retained),
                 "evidence_bindings": tuple(asdict(binding_by_id[binding_id])

@@ -41,6 +41,13 @@ plan-only allocation after reconstruction. Missing, mismatched, ambiguous, or
 future-dated run evidence remains explicitly unresolved and does not create an
 epistemic position.
 
+When a task-family proposition includes an
+`active_model_identity_digest` scope, outcome ingestion verifies that the run's
+identity object matches its recorded digest and that the digest exactly matches
+the proposition scope. A different or unverifiable model identity is rejected
+before either evidence or state admission. Propositions without a model scope
+retain the existing family-level aggregation behavior.
+
 The development companion can opt into this same owner without introducing a
 second epistemic store. Its launcher composes the runtime only when both
 `SENTIENTOS_EPISTEMIC_STATE_CONFIG` and
@@ -98,8 +105,12 @@ objective truth, or improved intelligence.
 
 The resident companion interaction ranks already admitted developmental
 interpretations, source-verified operator-report text, typed historical
-embodiment reports, and admitted lesson content against the current question
-before the bounded history projection.
+embodiment reports, identity-bound history decision contrasts, and admitted
+lesson content against the current question before the bounded history
+projection. A decision contrast contributes retrieval terms only when its
+verified source identity matches the active serving identity; response
+fingerprints remain opaque, and retrieval does not imply correctness or
+improvement.
 Lesson scope and applicability matches receive more weight than generic
 interpretation wording. The latest prior user turn from a validated bounded
 session context contributes topic terms only when the current question has
@@ -108,7 +119,7 @@ letting stale topics dilute a specific question. Conversation terms affect
 ranking only and are not evidence or durable memory.
 Unmatched slots are filled from the recent checkpoint sequence. The selected
 record identities and retrieval policy
-(`query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8`)
+(`query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9`)
 remain in normal history selection lineage. History packets remain explicitly historical,
 non-authoritative, and not current truth. This remains deterministic lexical
 matching that normalizes common plural endings and weights terms that occur in
@@ -294,18 +305,21 @@ outcomes revise the underlying knowledge state appropriately. The next cognition
 milestone should evaluate that feedback and revision loop.
 
 Epistemic calibration records were previously durable but absent from later
-cognitive projections. Meaning-bearing projections now include up to 16
-chronologically latest calibration outcomes per selected proposition, together
-with any source evidence bindings not already present in that proposition's
+Meaning-bearing projections now expose up to 16 chronologically latest
+calibration outcomes per selected proposition only after an exact
+`calibration_outcome` update event binds the calibration ID and digest. An
+unreviewed event contributes only to a bounded omitted-identity count; its
+comparison label and outcome text do not reach cognition. Reviewed outcomes
+include any source evidence bindings not already present in that proposition's
 state history. Projection validation joins each outcome to its forecast state
 and source evidence, excludes outcomes at or after the cognition tick, and
-digest-binds the omitted older records. The resident instruction treats these
-as historical forecast comparisons that can qualify confidence, not as current
-truth or authority. A restart counterfactual checks that a contradicted forecast
-changes a later resident response when its calibration is delivered, while the
-underlying epistemic state remains unchanged. These are deterministic owner and
-controlled-responder results; real-model use of calibration history remains
-unverified. A follow-up counterfactual showed that the stored comparison label
+digest-binds omitted records. The resident instruction treats exposed outcomes
+as historical forecast comparisons that can qualify a decision, not as current
+truth or authority. Previously, a controlled-responder counterfactual showed
+that a contradicted forecast can change a later response when delivered, while
+the underlying epistemic state remained unchanged. These are deterministic
+owner and controlled-responder results; real-model use of calibration history
+remains unverified. A follow-up counterfactual showed that the stored comparison label
 could disagree with the cited binding's relation. Semantic packets now derive
 `evidence_consistency` from all cited bindings: only a complete set of current,
 non-withdrawn, dependency-resolved bindings with a matching support or
@@ -317,9 +331,18 @@ restart-backed controlled-responder counterfactual confirms the matching
 contradiction changes the later response while a mismatched label does not.
 The persisted-owner composition is exercised in hosted Linux validation; the
 local Windows checkout can run the pure classification test but not that
-durable-custody fixture. This is evidence-consistency checking, not independent verification of the
-underlying outcome; model interpretation and real-world calibration remain
-unproven.
+durable-custody fixture. The new runtime review path verifies one exact event,
+forecast state, and active outcome bindings, obtains a calibration-review
+admission to construct a proposal, then requires the existing separate
+state-update admission and CAS. Its candidate definition is not registered in
+the canonical authority catalog pending operator approval; production review
+therefore fails closed. The hosted Required Quality Gate passes the
+restart-backed composition and a deterministic responder
+counterfactual: a consistent admitted calibration changes the later response,
+while a mismatched comparison label remains withheld and leaves that response
+unchanged. This validates software integration with controlled substitutes;
+it does not independently verify the underlying outcome, and real-model
+interpretation and real-world calibration remain unproven.
 
 ## Explicitly retained user context in resident serving
 
