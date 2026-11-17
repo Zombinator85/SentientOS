@@ -508,6 +508,15 @@ counterfactual alongside rare-anchor and anaphoric-follow-up selection. This
 establishes bounded exchange integrity in the deterministic selector; it does
 not establish that a real model will interpret the selected history correctly.
 
+Relevance ranking also runs when the recent slice already fits the character
+budget. An older exchange that directly matches the current question can take
+priority over unrelated recent exchanges, after which recent exchanges fill
+remaining turn and character capacity. Focused tests show the older decision
+survives in a concise long transcript without exceeding either bound; the
+hosted source-validation suite verifies this together with the exchange-pair,
+rare-anchor, and anaphoric-follow-up cases. Real-model selection and use of
+historical decisions remain unverified.
+
 The integration exposed a linkage defect: the bridge adds resolved epistemic
 priorities to the conversation context and recomputes its selection digest, but
 the response linkage previously kept the pre-bridge digest. The cognition

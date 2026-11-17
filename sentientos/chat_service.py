@@ -122,20 +122,6 @@ def _select_resident_conversation_context_turns(
     def exchange_cost(exchange: tuple[int, ...]) -> int:
         return sum(costs[turn_index] for turn_index in exchange)
 
-    recent_exchanges: list[tuple[int, ...]] = []
-    recent_turn_count = 0
-    for exchange in reversed(exchanges):
-        if recent_turn_count + len(exchange) > MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:
-            break
-        recent_exchanges.append(exchange)
-        recent_turn_count += len(exchange)
-    if sum(exchange_cost(exchange) for exchange in recent_exchanges) <= (
-            MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS):
-        selected_recent = {turn_index for exchange in recent_exchanges
-            for turn_index in exchange}
-        return [turn for turn_index, turn in enumerate(all_turns)
-            if turn_index in selected_recent]
-
     query_terms = transcript_recall_terms(question)
     question_tokens = set(re.findall(r"[a-z0-9]+", question.casefold()))
     anaphoric = bool(question_tokens & RESIDENT_CONTEXT_ANAPHORA_TERMS)
@@ -175,6 +161,20 @@ def _select_resident_conversation_context_turns(
                 used_turns += len(exchange)
                 used_chars += cost
     for exchange_index in selection_order:
+        if used_turns >= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:
+            break
+        if exchange_index in selected_exchanges:
+            continue
+        exchange = exchanges[exchange_index]
+        cost = exchange_cost(exchange)
+        if (used_turns + len(exchange) <= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+                and cost <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS - used_chars):
+            selected_exchanges.add(exchange_index)
+            used_turns += len(exchange)
+            used_chars += cost
+    # Relevance gets first choice across the full transcript; recent exchanges
+    # then fill any remaining capacity so the prompt retains local continuity.
+    for exchange_index in reversed(range(len(exchanges))):
         if used_turns >= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:
             break
         if exchange_index in selected_exchanges:

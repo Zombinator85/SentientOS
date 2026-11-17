@@ -80,8 +80,44 @@ def test_resident_context_keeps_relevant_exchange_when_only_question_matches() -
     selected = _select_resident_conversation_context_turns(
         tuple(turns), question="What did we decide about the amber relay warning?")
 
-    assert [item["turn_id"] for item in selected] == [
-        "amber-user", "amber-assistant"]
+    selected_ids = [item["turn_id"] for item in selected]
+    assert selected_ids[:2] == ["amber-user", "amber-assistant"]
+    assert "unrelated-user-11" in selected_ids
+    assert "unrelated-user-0" not in selected_ids
+    assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(str(item["text"])) for item in selected) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+
+def test_resident_context_selects_older_relevant_exchange_when_recent_fits() -> None:
+    def turn(turn_id: str, role: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": role, "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}),
+            "linkage": {}}
+
+    turns = [
+        turn("old-amber-user", "user",
+            "The amber relay warning returned during startup."),
+        turn("old-amber-assistant", "assistant",
+            "Schedule an optical inspection before launch."),
+    ]
+    for index in range(10):
+        turns.extend((
+            turn(f"recent-user-{index}", "user",
+                f"We reviewed agenda item {index} today."),
+            turn(f"recent-assistant-{index}", "assistant",
+                f"The meeting note for item {index} is saved."),
+        ))
+    assert sum(len(str(item["text"])) for item in turns[-16:]) < (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+    selected = _select_resident_conversation_context_turns(
+        tuple(turns), question="What did we decide about the amber relay warning?")
+
+    selected_ids = [item["turn_id"] for item in selected]
+    assert selected_ids[:2] == ["old-amber-user", "old-amber-assistant"]
+    assert "recent-user-9" in selected_ids
+    assert "recent-user-0" not in selected_ids
     assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
     assert sum(len(str(item["text"])) for item in selected) <= (
         chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
