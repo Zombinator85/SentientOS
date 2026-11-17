@@ -6308,6 +6308,53 @@ def test_boilerplate_history_query_falls_back_to_recent_records() -> None:
     assert projection.requested_record_ids == tuple(order[1:])
 
 
+def test_history_query_prefers_matching_decision_polarity_over_recency() -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.cognition_retrieval import cognition_query_terms
+
+    candidates = {
+        "older-positive": {"selected_facts": [],
+            "interpretation": "I approved the west sensor."},
+        "newer-negative": {"selected_facts": [],
+            "interpretation": "I did not approve the west sensor."},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            self.selected = tuple(record_ids)
+            return SimpleNamespace(records=(), requested_record_ids=self.selected,
+                limit=limit)
+
+    writeback = Writeback()
+    fake_owner = SimpleNamespace(writeback=writeback,
+        config=SimpleNamespace(max_retrieved_records=1), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": "tick-0", "record_id": "older-positive"},
+        {"tick_id": "tick-1", "record_id": "newer-negative"},
+    ]}
+
+    negative_query = "What didn't I approve about the west sensor?"
+    positive_query = "What did I approve about the west sensor?"
+    assert "not" in cognition_query_terms(negative_query)
+    assert "didn" not in cognition_query_terms(negative_query)
+
+    negative_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-negative", relevance_query=negative_query)
+    positive_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-positive", relevance_query=positive_query)
+
+    assert negative_projection.requested_record_ids == ("newer-negative",)
+    assert positive_projection.requested_record_ids == ("older-positive",)
+
+
 def test_compact_history_prompt_retains_lesson_scope_and_uncertainty() -> None:
     from sentientos import resident_developmental_cognition as cognition_module
 

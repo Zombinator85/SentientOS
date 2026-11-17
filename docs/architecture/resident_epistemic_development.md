@@ -716,3 +716,11 @@ exchange most recently and checks that a two-turn limit still selects the
 matching negative or positive exchange. This validates retrieval ranking and
 source-turn linkage; it does not establish that a real model will interpret
 selected context correctly.
+
+Persistent developmental-history retrieval now uses the same negation-aware
+query terms and ranks matching approval/decision polarity ahead of recency when
+topic relevance ties. A one-slot counterfactual places a negative approval
+record newest: a contracted negative query selects it, while the positive query
+selects the older positive record. This demonstrates polarity-sensitive
+historical record selection with deterministic fixtures; it does not validate
+real-model interpretation, current truth, or execution authority.
