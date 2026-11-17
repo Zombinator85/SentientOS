@@ -1377,8 +1377,9 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         restarted_app.sessions.append_turn(session_id, role="assistant",
             text=f"The display note for topic {index} is saved.",
             linkage={"source_user_turn_id": last_intervening_user["turn_id"]})
-    followup_anchor = "west sensor" if target.subject == "sensor:west" else "launch"
-    followup_question = f"What should I consider about the {followup_anchor} now?"
+    # Keep the request neutral so lexical relevance cannot select the target
+    # proposition without the cited conversation lineage.
+    followup_question = "What should I consider now?"
     # Capture the no-citation control before the cited follow-up can itself add
     # cognition/writeback evidence that would contaminate the counterfactual.
     control_session_id = restarted_app.create_session()
