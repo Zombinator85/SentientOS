@@ -8819,8 +8819,12 @@ def test_admitted_calibration_changes_later_decision_only_when_evidence_agrees(
         assert calibrated.response == control.response
     assert control_request.upstream_evidence["epistemic_state_ids"] == [
         outcome_state.state_id]
-    assert "evidence_consistency is consistent_with_bound_current_evidence" in (
-        calibrated_prompt["instruction"])
+    if outcome_relation == "contradicts":
+        assert "evidence_consistency is consistent_with_bound_current_evidence" in (
+            calibrated_prompt["instruction"])
+    else:
+        assert "evidence_consistency is consistent_with_bound_current_evidence" not in (
+            calibrated_prompt["instruction"])
     assert calibrated.authority is control.authority is False
     assert epistemic.current_state(proposition.proposition_id).generation == (
         2 if outcome_relation == "contradicts" else 1)
