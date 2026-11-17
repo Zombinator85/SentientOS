@@ -84,6 +84,10 @@ LOGGER = logging.getLogger(__name__)
 MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES = 16
 MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS = 16
 MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS = 4000
+# Keep a small rolling candidate window so resident cognition can rank older
+# relevant exchanges before ordinary chat's tighter transcript budget evicts
+# them. The final cognition prompt remains capped by the constants above.
+MAX_RESIDENT_CONVERSATION_CANDIDATE_TURNS = 64
 RESIDENT_CONTEXT_ANAPHORA_TERMS = frozenset((
     "it", "its", "this", "that", "they", "them", "these", "those",
     "there", "same", "former", "latter"))
@@ -3714,6 +3718,14 @@ class PersistentConversationService:
                     # Prior transcript remains usable as untrusted chat context;
                     # it cannot establish a transition predecessor.
                     pass
+        bridge = self._resident_cognition_bridge
+        should_route_to_cognition = (bridge is not None and not retain)
+        can_handle = getattr(bridge, "can_handle", None)
+        if should_route_to_cognition and callable(can_handle):
+            try:
+                should_route_to_cognition = can_handle() is True
+            except Exception:
+                should_route_to_cognition = False
         history_budget = self.context_budget_chars
         gaming_development_turn = (
             isinstance(self._inference, DevelopmentLocalChatInference)
@@ -3779,19 +3791,23 @@ class PersistentConversationService:
         prefer_recent_relevant = (
             recent_session_recall and _is_recent_user_statement_reminder(message)
             and history_roles == ("user",) and history_relevance_query is not None)
+        if (should_route_to_cognition
+                and history_turn_limit is None):
+            # Resident cognition performs its own relevance selection, but it
+            # cannot select an older cited exchange if ordinary chat has already
+            # removed it while building this candidate history. Keep enough
+            # bounded candidates for that selector to compare relevance with
+            # recency, then apply its smaller prompt limits downstream.
+            candidate_history_budget = min(
+                MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS,
+                3000 if gaming_development_turn else MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+            history_budget = max(history_budget, candidate_history_budget)
+            history_turn_limit = MAX_RESIDENT_CONVERSATION_CANDIDATE_TURNS
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
             exclude_turn_id=user_turn["turn_id"], include_roles=history_roles,
             max_turns=history_turn_limit, oldest_first=earliest_session_recall,
             relevance_query=history_relevance_query,
             prefer_recent_relevant=prefer_recent_relevant)
-        bridge = self._resident_cognition_bridge
-        should_route_to_cognition = (bridge is not None and not retain)
-        can_handle = getattr(bridge, "can_handle", None)
-        if should_route_to_cognition and callable(can_handle):
-            try:
-                should_route_to_cognition = can_handle() is True
-            except Exception:
-                should_route_to_cognition = False
         if should_route_to_cognition:
             try:
                 return self._complete_resident_cognition_response(

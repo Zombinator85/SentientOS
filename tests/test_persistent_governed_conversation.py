@@ -243,6 +243,60 @@ def test_resident_context_keeps_recent_antecedent_for_anaphoric_followup() -> No
     assert sum(len(str(item["text"])) for item in selected) <= 4000
 
 
+@pytest.mark.skipif(os.name == "nt",
+    reason="temporary test fixtures cannot satisfy the resident owner's Windows custody paths")
+def test_chat_preserves_older_relevant_exchange_for_resident_context_selection(
+        tmp_path: Path) -> None:
+    class ReadyBridge:
+        def respond(self, **_kwargs):
+            raise AssertionError("captured cognition path should not invoke the bridge")
+
+        def can_handle(self) -> bool:
+            return True
+
+    app = service(tmp_path, cognition_bridge=ReadyBridge())
+    captured: dict[str, object] = {}
+
+    def capture_context(**kwargs):
+        captured.update(kwargs)
+        return "resident context captured"
+
+    app._complete_resident_cognition_response = capture_context
+    session_id = app.create_session()
+    source_user = app.sessions.append_turn(session_id, role="user",
+        text="The west sensor showed a rising temperature. Should we pause?")
+    source_assistant = app.sessions.append_turn(session_id, role="assistant",
+        text="Review the west sensor before the next run.",
+        linkage={"source_user_turn_id": source_user["turn_id"]})
+    for index in range(10):
+        user_turn = app.sessions.append_turn(session_id, role="user",
+            text=f"We reviewed unrelated north display topic {index}.")
+        app.sessions.append_turn(session_id, role="assistant",
+            text=f"The display note for topic {index} is saved.",
+            linkage={"source_user_turn_id": user_turn["turn_id"]})
+
+    all_turns = app.sessions.load(session_id)["turns"]
+    assert sum(len(turn["text"]) for turn in all_turns) > app.context_budget_chars
+    assert app.chat("What should I consider about the west sensor now?",
+        session_id=session_id) == "resident context captured"
+
+    history = captured["history"]
+    selected = _select_resident_conversation_context_turns(
+        history.turns, question=captured["question"])
+    selected_ids = [turn["turn_id"] for turn in selected]
+    legacy_history = app.sessions.reconstruct(session_id,
+        budget_chars=app.context_budget_chars,
+        exclude_turn_id=captured["user_turn"]["turn_id"])
+    assert source_user["turn_id"] not in {
+        turn["turn_id"] for turn in legacy_history.turns}
+    assert source_user["turn_id"] in selected_ids
+    assert source_assistant["turn_id"] in selected_ids
+    assert all_turns[-2]["turn_id"] in selected_ids
+    assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(turn["text"]) for turn in selected) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+
 class Identity:
     def to_dict(self):
         return {"model_id": "commissioned-local", "route_id": "route-a", "posture": "production"}
