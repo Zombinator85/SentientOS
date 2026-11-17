@@ -499,6 +499,15 @@ session. This is deterministic citation-lineage evidence only: a controlled
 invoker supplies the citation, and it does not show that a real model will
 select all and only the historical turns that materially influenced its answer.
 
+When resident transcript context exceeds its budget, selection now ranks
+adjacent user/assistant exchanges as units. A query matching the user's earlier
+question therefore keeps the assistant's differently worded decision with it,
+while the existing 16-turn and 4,000-character bounds remain in force. The
+hosted source-validation suite and focused resident-context cases pass this
+counterfactual alongside rare-anchor and anaphoric-follow-up selection. This
+establishes bounded exchange integrity in the deterministic selector; it does
+not establish that a real model will interpret the selected history correctly.
+
 The integration exposed a linkage defect: the bridge adds resolved epistemic
 priorities to the conversation context and recomputes its selection digest, but
 the response linkage previously kept the pre-bridge digest. The cognition
