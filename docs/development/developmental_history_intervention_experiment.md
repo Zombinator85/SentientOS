@@ -69,6 +69,15 @@ proposal identity and citations; it does not mark the proposal correct, executed
 or improved, and it does not establish that later cognition applied the result
 successfully.
 
+Later context assembly exposes this contrast only when the current serving
+identity matches the experiment's verified identity digest. The protocol keeps
+the full identity and receipt lineage; the compact writeback fact keeps the
+identity digest to stay within the existing evidence-size budget. Present and
+restored history packets can therefore carry the comparison for that same
+serving identity, while the matched withheld packet carries no history. This
+is still an experimental proposal contrast: it establishes neither correctness,
+cross-model transfer, execution, nor improved decisions.
+
 For a structured objective task whose descriptor explicitly requires task-family history, the resident owner projects exact, score-bound examples from the requested family with their source-model applicability posture. The record-level natural-language interpretation is omitted from that task-specific prompt, and its separate digest is not sent to the model. The enclosing record and candidate digests continue to bind the omitted source content for audit. Unrelated selected facts and embodiment/security projections are not carried into that scoped packet. Evaluator-correct examples are the only positive mapping evidence. Evaluator-incorrect examples are passed in a separate `prior_incorrect_examples` block explicitly labeled as historical errors, not mapping evidence, current truth, or authority; unknown-correctness rows remain withheld and represented by digest-only omission evidence. The task prompt tells the model not to repeat a failed answer for the same input. The durable record and ordinary history remain unchanged.
 
 Outcome posture affects retrieval priority only when the restored score matches the history-present score. A favorable present-vs-withheld contrast with failed restoration is ranked as tentative history, below restoration-stable favorable evidence. Exact evaluator-correct examples remain available with their source and uncertainty qualifiers; the unstable comparison does not establish a repeatable history effect.

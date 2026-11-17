@@ -2895,8 +2895,117 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
     return projected
 
 
+def _history_decision_contrast_context(payload: Mapping[str, Any], *,
+        target_model_identity: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Expose a verified companion contrast only to the exact source model."""
+    projection = payload.get("interpretation_projection")
+    projection_version = (projection.get("schema_version")
+        if isinstance(projection, Mapping) else None)
+    contrast = payload.get("history_decision_contrast")
+    if projection_version != "sentientos.developmental_history_interpretation_projection:v2":
+        if contrast is not None:
+            raise ResidentDevelopmentalCognitionError(
+                "history_decision_contrast_projection_version_invalid")
+        return None
+    expected_fields = {
+        "schema_version", "measurement_scope", "classification", "conditions",
+        "current_truth", "authority", "action_executed",
+        "performance_improvement_established",
+    }
+    if (not isinstance(contrast, Mapping) or set(contrast) != expected_fields
+            or contrast.get("schema_version") != "sentientos.history_decision_contrast:v1"
+            or contrast.get("measurement_scope") != "history_conditioned_decision_proposal"
+            or contrast.get("classification")
+                != "owner_verified_condition_rows_retained_for_interpretation"
+            or contrast.get("current_truth") is not False
+            or contrast.get("authority") is not False
+            or contrast.get("action_executed") is not False
+            or contrast.get("performance_improvement_established") is not False):
+        raise ResidentDevelopmentalCognitionError(
+            "history_decision_contrast_invalid")
+    source_identity_digest = payload.get("active_model_identity_digest")
+    if (not isinstance(source_identity_digest, str)
+            or len(source_identity_digest) != 71
+            or not source_identity_digest.startswith("sha256:")
+            or any(character not in "0123456789abcdef"
+                for character in source_identity_digest[7:])):
+        raise ResidentDevelopmentalCognitionError(
+            "history_decision_contrast_model_identity_invalid")
+    decisions = contrast.get("conditions")
+    conditions = payload.get("conditions")
+    expected_order = ("history_present", "history_withheld", "history_restored")
+    decision_fields = {
+        "condition_id", "observation_id", "observation_digest", "output_digest",
+        "inference_receipt_id", "inference_receipt_digest", "response_digest",
+        "disposition", "model_disposition", "disposition_normalization",
+        "evidence_ids", "history_record_ids",
+    }
+    if (not isinstance(decisions, (list, tuple)) or len(decisions) != 3
+            or not isinstance(conditions, (list, tuple)) or len(conditions) != 3):
+        raise ResidentDevelopmentalCognitionError(
+            "history_decision_contrast_conditions_invalid")
+    projected_decisions: list[dict[str, Any]] = []
+    for expected_condition, decision, condition in zip(
+            expected_order, decisions, conditions):
+        if (not isinstance(decision, Mapping) or set(decision) != decision_fields
+                or decision.get("condition_id") != expected_condition
+                or not isinstance(condition, Mapping)
+                or condition.get("condition_id") != expected_condition
+                or any(decision.get(key) != condition.get(key) for key in (
+                    "observation_id", "observation_digest", "output_digest",
+                    "inference_receipt_id", "inference_receipt_digest"))):
+            raise ResidentDevelopmentalCognitionError(
+                "history_decision_contrast_condition_binding_invalid")
+        response_digest = decision.get("response_digest")
+        if (not isinstance(response_digest, str) or len(response_digest) != 64
+                or any(character not in "0123456789abcdef" for character in response_digest)
+                or decision.get("disposition") not in {"answer", "ask", "abstain"}
+                or decision.get("model_disposition") not in {"answer", "ask", "abstain"}):
+            raise ResidentDevelopmentalCognitionError(
+                "history_decision_contrast_decision_invalid")
+        evidence_ids = decision.get("evidence_ids")
+        retrieved_ids, history_ids = (condition.get("retrieved_record_ids"),
+            decision.get("history_record_ids"))
+        for values in (evidence_ids, retrieved_ids, history_ids):
+            if (not isinstance(values, (list, tuple)) or len(values) > 64
+                    or any(not isinstance(value, str) or not value for value in values)
+                    or len(set(values)) != len(values)):
+                raise ResidentDevelopmentalCognitionError(
+                    "history_decision_contrast_citation_invalid")
+        if not set(history_ids).issubset(retrieved_ids):
+            raise ResidentDevelopmentalCognitionError(
+                "history_decision_contrast_citation_binding_invalid")
+        normalization = decision.get("disposition_normalization")
+        if (normalization is not None and (
+                normalization != "history_unavailable_sentinel_means_abstention"
+                or expected_condition != "history_withheld"
+                or decision["model_disposition"] != "answer"
+                or decision["disposition"] != "abstain"
+                or evidence_ids or history_ids)):
+            raise ResidentDevelopmentalCognitionError(
+                "history_decision_contrast_normalization_invalid")
+        projected_decisions.append(dict(decision))
+    target_identity_digest = ("sha256:" + digest_payload(dict(target_model_identity))
+        if isinstance(target_model_identity, Mapping) and target_model_identity else None)
+    if target_identity_digest != source_identity_digest:
+        return None
+    return {
+        "schema_version": "sentientos.history_decision_contrast_context:v1",
+        "measurement_scope": "history_conditioned_decision_proposal",
+        "source_active_model_identity_digest": source_identity_digest,
+        "model_identity_relation": "same_active_model_identity",
+        "conditions": projected_decisions,
+        "current_truth": False,
+        "authority": False,
+        "action_executed": False,
+        "performance_improvement_established": False,
+        "response_text_retained": False,
+    }
+
+
 def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
-        compact_for_input_budget: bool = False) -> list[dict[str, Any]]:
+        compact_for_input_budget: bool = False,
+        target_model_identity: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
     """Retain typed, bounded past embodiment reports beside their interpretation."""
     selected_ids = candidate.get("selected_fact_ids")
     selected_facts = candidate.get("selected_facts")
@@ -3000,6 +3109,11 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
                     "independent_backend_observation"),
                 "learning_established": payload.get("learning_established"),
             }}
+            decision_contrast = _history_decision_contrast_context(payload,
+                target_model_identity=target_model_identity)
+            if decision_contrast is not None:
+                roles["history_intervention_result"][
+                    "history_decision_contrast"] = decision_contrast
         elif schema in ("sentientos.avatar_renderer_report:v1",
                 "sentientos.avatar_renderer_report:v2"):
             # Renderer reports are useful historical embodiment context, but
@@ -3567,7 +3681,8 @@ def _history_context_packet(record: Mapping[str, Any], *,
         })
     embodiment_context = ([] if task_family_scoped else
         _historical_embodiment_evidence_context(candidate,
-            compact_for_input_budget=compact_for_input_budget))
+            compact_for_input_budget=compact_for_input_budget,
+            target_model_identity=target_model_identity))
     if embodiment_context:
         if omit_historical_embodiment_details:
             packet["historical_embodiment_reports_digest"] = _digest(embodiment_context)
@@ -9840,7 +9955,8 @@ class ResidentDevelopmentalCognitionOwner:
         # task-family records survive the bounded history cap.
         preflight_target_model_identity = (
             _observed_current_cognition_model_identity(self.invoker)
-            if isinstance(family_id, str) else None)
+            if (isinstance(family_id, str)
+                or companion_intervention_question is not None) else None)
         prior = self._prior_projection(state, tick_id, task_family_id=family_id,
             task_probe_inputs=task_probe_inputs,
             require_task_family_history=require_family,
@@ -9911,7 +10027,9 @@ class ResidentDevelopmentalCognitionOwner:
                                     epistemic_revision_probe_expected_prompt_digest=(
                                         epistemic_revision_probe_expected_prompt_digest),
                                     target_model_identity=preflight_target_model_identity,
-                                    target_model_identity_observed=isinstance(family_id, str)))
+                                    target_model_identity_observed=(
+                                        isinstance(family_id, str)
+                                        or companion_intervention_question is not None)))
             else:
                 # Freeze the exact history that fits the real inference context
                 # before preregistering the comparison. Conditions rerun this
@@ -10084,7 +10202,9 @@ class ResidentDevelopmentalCognitionOwner:
                         interaction_capture=capture,
                         companion_intervention=companion_intervention_question is not None,
                         target_model_identity=preflight_target_model_identity,
-                        target_model_identity_observed=isinstance(family_id, str))
+                        target_model_identity_observed=(
+                            isinstance(family_id, str)
+                            or companion_intervention_question is not None))
                     condition_observations[condition_id] = observation
                     if capture is not None:
                         condition_captures[condition_id] = capture

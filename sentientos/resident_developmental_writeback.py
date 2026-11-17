@@ -1853,6 +1853,12 @@ def _developmental_history_interpretation_projection(
         raise DevelopmentalWritebackError("developmental_history_conditions_invalid")
     selected_conditions: list[dict[str, Any]] = []
     family_projection = original.get("objective_task_family") is not None
+    companion_decisions = original.get("companion_intervention_decisions")
+    if (companion_decisions is not None
+            and (not isinstance(companion_decisions, (list, tuple))
+                or len(companion_decisions) != 3)):
+        raise DevelopmentalWritebackError(
+            "developmental_history_companion_decisions_invalid")
     if family_projection:
         descriptor = original.get("objective_task_descriptor")
         if (not isinstance(descriptor, Mapping)
@@ -1875,8 +1881,11 @@ def _developmental_history_interpretation_projection(
             if key not in selected:
                 continue
             value = selected[key]
-            if not isinstance(value, (list, tuple)) or len(value) > 64:
-                raise DevelopmentalWritebackError("developmental_history_retrieval_lineage_invalid")
+            error = "developmental_history_retrieval_lineage_invalid"
+            if (not isinstance(value, (list, tuple)) or len(value) > 64
+                    or any(not isinstance(item, str) or not item for item in value)
+                    or len(set(value)) != len(value)):
+                raise DevelopmentalWritebackError(error)
             selected[key] = list(value)
         selected_conditions.append(selected)
     scores = original.get("objective_scores")
@@ -1953,8 +1962,12 @@ def _developmental_history_interpretation_projection(
         "current_truth": False, "authority": False,
         "learning_established": False, "reconstruction_time_is_event_time": False,
     }
-    companion_decisions = original.get("companion_intervention_decisions")
     if companion_decisions is not None:
+        # The protocol's verified identity digest is sufficient for exact
+        # model matching on later context assembly; retaining the full mapping
+        # here duplicates provenance and can push this bounded fact over its
+        # existing evidence-selection budget.
+        summary.pop("active_model_identity", None)
         expected_conditions = ("history_present", "history_withheld", "history_restored")
         by_condition = {item.get("condition_id"): item for item in selected_conditions}
         decision_fields = {
