@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 
 _QUERY_STOP_WORDS = frozenset((
@@ -39,7 +40,7 @@ _IRREGULAR_VES_PLURALS = {
 
 def normalize_cognition_term(token: str) -> str:
     """Normalize common English inflections without external model dependencies."""
-    token = token.casefold()
+    token = unicodedata.normalize("NFC", token.casefold())
     if token in _IRREGULAR_VES_PLURALS:
         return _IRREGULAR_VES_PLURALS[token]
     if token in _NONVERB_ING_WORDS:
@@ -69,11 +70,18 @@ def normalize_cognition_term(token: str) -> str:
     return token
 
 
+def cognition_tokens(text: str) -> tuple[str, ...]:
+    """Return NFC-normalized Unicode word terms for retrieval selectors."""
+    normalized_text = unicodedata.normalize("NFC", text.casefold())
+    return tuple(normalize_cognition_term(token)
+        for token in re.findall(r"[^\W_]{3,}", normalized_text))
+
+
 def cognition_query_terms(text: str) -> set[str]:
     """Return normalized topic terms, excluding question framing and stop words."""
     terms: set[str] = set()
-    for token in re.findall(r"[A-Za-z0-9]{3,}", text.casefold()):
+    for token in cognition_tokens(text):
         if token in _QUERY_STOP_WORDS:
             continue
-        terms.add(normalize_cognition_term(token))
+        terms.add(token)
     return terms

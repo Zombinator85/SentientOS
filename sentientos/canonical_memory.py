@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
 from typing import Any, Mapping
-from .cognition_retrieval import normalize_cognition_term
+from .cognition_retrieval import cognition_tokens
 from .windows_handle_custody import (
     WindowsHandleCustodyError, read_explicit_file, read_regular_files,
 )
@@ -160,12 +160,10 @@ class ExplicitRetentionAdmissionGate:
 def _memory_retrieval_terms(text: str) -> set[str]:
     """Use content anchors so common chat phrasing cannot dominate memory matches."""
     terms: set[str] = set()
-    for token in re.findall(r"[a-z0-9]+", text.casefold()):
+    for token in cognition_tokens(text):
         if len(token) <= 2 or token in _MEMORY_RETRIEVAL_STOP_WORDS:
             continue
-        # Keep canonical memory aligned with resident-history morphology while
-        # retaining this subsystem's own stop words and ranking policy.
-        terms.add(normalize_cognition_term(token))
+        terms.add(token)
     return terms
 
 
