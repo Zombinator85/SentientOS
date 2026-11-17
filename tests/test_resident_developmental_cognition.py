@@ -4023,6 +4023,119 @@ def test_unsettled_score_bound_outcomes_change_later_strategy_use_after_restart(
     assert "Do not reconstruct or apply that candidate relation" not in (
         transfer_prompt["instruction"])
 
+    # The receiving model's result becomes its own evidence. A later conflict
+    # for the exact same task and model must govern that model's next decision,
+    # while a third model still receives the history as a provisional
+    # cross-model candidate rather than inheriting B's withholding authority.
+    transfer_world = WorldStateBoardBuilder().build(
+        cognition.experiments.world_state_records(run_refs=((
+            transfer_run["run_id"], transfer_run["run_digest"]),)))
+    transfer_feedback = cognition.run_tick(snapshot=transfer_world,
+        tick_id="conflict-decision-cross-model-transfer-feedback")
+    assert transfer_feedback.written_record_id
+
+    _, replacement_adverse_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-replacement-adverse-repeat", task=later_task)
+    replacement_adverse_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-replacement-adverse-repeat",
+        request_digest=str(replacement_adverse_request["request_digest"]),
+        active_model_identity=replacement_identity, publish_session=True,
+        prior_request_refs=(
+            ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
+            ("conflict-decision-settled", str(stable_request["request_digest"])),
+            ("conflict-decision-adverse-repeat", str(adverse_request["request_digest"])),
+            ("conflict-decision-cross-model-transfer",
+                str(transfer_request["request_digest"]))),
+        objective_mode="adverse_when_strategy_present")
+    assert "run" in replacement_adverse_episode, replacement_adverse_episode
+    replacement_adverse_run = replacement_adverse_episode["run"]
+    replacement_adverse_scores = {row["condition_id"]: row["score"]
+        for row in replacement_adverse_run["objective_scores"]}
+    assert replacement_adverse_scores["history_present"]["correct_count"] == 0
+    assert replacement_adverse_scores["history_withheld"]["correct_count"] == 3
+    assert replacement_adverse_scores["history_restored"]["correct_count"] == 0
+    replacement_adverse_world = WorldStateBoardBuilder().build(
+        cognition.experiments.world_state_records(run_refs=((
+            replacement_adverse_run["run_id"], replacement_adverse_run["run_digest"]),)))
+    replacement_adverse_feedback = cognition.run_tick(snapshot=replacement_adverse_world,
+        tick_id="conflict-decision-replacement-adverse-feedback")
+    assert replacement_adverse_feedback.written_record_id
+
+    post_conflict_task = ObjectivePredictionTask(3, 2, 22, (23, 24),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    _, replacement_later_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-replacement-after-conflict", task=post_conflict_task)
+    replacement_later_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-replacement-after-conflict",
+        request_digest=str(replacement_later_request["request_digest"]),
+        active_model_identity=replacement_identity, publish_session=True,
+        prior_request_refs=(
+            ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
+            ("conflict-decision-settled", str(stable_request["request_digest"])),
+            ("conflict-decision-adverse-repeat", str(adverse_request["request_digest"])),
+            ("conflict-decision-cross-model-transfer",
+                str(transfer_request["request_digest"])),
+            ("conflict-decision-replacement-adverse-repeat",
+                str(replacement_adverse_request["request_digest"]))),
+        objective_mode="apply_or_abstain_when_unsettled")
+    assert "run" in replacement_later_episode, replacement_later_episode
+    replacement_later_scores = {row["condition_id"]: row["score"]
+        for row in replacement_later_episode["run"]["objective_scores"]}
+    assert replacement_later_scores["history_present"]["status"] == "selective"
+    assert replacement_later_scores["history_present"]["abstained_count"] == 3
+    replacement_later_prompt = json.loads(
+        replacement_later_episode["prompts"]["history_present"])
+    replacement_later_experiences = [experience
+        for packet in replacement_later_prompt["developmental_history"]
+        for experience in packet.get("task_relevant_experience", ())]
+    assert any(experience.get("source_task_digest")
+        == later_task.public_descriptor()["task_digest"]
+        and experience.get("candidate_integer_affine_strategy_withheld", {}).get(
+            "posture") == "withheld_unsettled_score_bound_outcomes"
+        for experience in replacement_later_experiences)
+
+    third_identity = {"provider": "fixture", "model": "third-after-replacement-conflict"}
+    _, third_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-third-after-replacement-conflict",
+        task=post_conflict_task)
+    third_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-third-after-replacement-conflict",
+        request_digest=str(third_request["request_digest"]),
+        active_model_identity=third_identity, publish_session=True,
+        prior_request_refs=(
+            ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
+            ("conflict-decision-settled", str(stable_request["request_digest"])),
+            ("conflict-decision-adverse-repeat", str(adverse_request["request_digest"])),
+            ("conflict-decision-cross-model-transfer",
+                str(transfer_request["request_digest"])),
+            ("conflict-decision-replacement-adverse-repeat",
+                str(replacement_adverse_request["request_digest"]))),
+        objective_mode="apply_or_abstain_when_unsettled")
+    assert "run" in third_episode, third_episode
+    third_scores = {row["condition_id"]: row["score"]
+        for row in third_episode["run"]["objective_scores"]}
+    assert third_scores["history_present"]["correct_count"] == 3
+    third_prompt = json.loads(third_episode["prompts"]["history_present"])
+    third_experiences = [experience
+        for packet in third_prompt["developmental_history"]
+        for experience in packet.get("task_relevant_experience", ())]
+    [replacement_conflict_candidate] = [experience
+        for experience in third_experiences
+        if experience.get("source_task_digest")
+            == later_task.public_descriptor()["task_digest"]
+        and experience.get(
+            "candidate_integer_affine_strategy_source_outcomes_unsettled", {}).get(
+                "posture") == "source_model_outcomes_unsettled_cross_model_candidate"]
+    assert replacement_conflict_candidate["model_identity_relation"] == (
+        "different_active_model_identity")
+    assert "Those outcomes do not establish this model's performance" in (
+        third_prompt["instruction"])
+    assert "Do not reconstruct or apply that candidate relation" not in (
+        third_prompt["instruction"])
+
 
 def test_historical_embodiment_context_preserves_typed_report_roles() -> None:
     from sentientos.resident_developmental_cognition import _history_context_packet
