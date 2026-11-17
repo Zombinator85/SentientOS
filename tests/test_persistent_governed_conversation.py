@@ -1542,7 +1542,19 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert "unresolved and unverified" in no_transcript_response.response
     assert no_transcript_request.upstream_evidence["epistemic_state_ids"] == [
         target_state.state_id]
-    assert no_transcript_request.upstream_evidence["history_record_ids"]
+    linked_feedback_reports = [
+        report
+        for packet in no_transcript_prompt.get("developmental_history", ())
+        if isinstance(packet, Mapping)
+        for report in packet.get("operator_feedback_context", ())
+        if isinstance(report, Mapping)
+        and isinstance(report.get("correction_target"), Mapping)
+        and target_state.state_id in report["correction_target"].get(
+            "epistemic_state_citation_ids", ())]
+    assert {report["assertion_text"] for report in linked_feedback_reports} == {
+        correction_assertion, conflicting_assertion}
+    assert len({report["correction_target"]["epistemic_state_citation_ids"][0]
+        for report in linked_feedback_reports}) == 1
     assert restarted_epistemics.current_state(target.proposition_id).state_id == (
         target_state.state_id)
 
