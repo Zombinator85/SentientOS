@@ -42,6 +42,7 @@ from sentientos.rootless_experimental_local_model import (
     RootlessExperimentalError,
     _rootless_governance_custody,
     execute_intent, prepare_intent, validate_experiment_root, verify_model_manifest,
+    verify_private_experiment_directory,
     verify_runtime_bundle,
     verify_intent, verify_rootless_receipt,
 )
@@ -67,6 +68,45 @@ def test_rootless_preregistration_binds_finite_no_retry_call_deadline():
         "per_call_timeout_seconds": MAX_CALL_TIMEOUT_SECONDS,
         "retry_policy": "no_retry"}
     assert MAX_CALL_TIMEOUT_SECONDS == 180
+
+
+def test_private_experiment_directory_requires_platform_private_custody(tmp_path):
+    workspace = tmp_path / "private-workspace"
+    workspace.mkdir()
+    if os.name == "nt":
+        import csv
+        import subprocess
+
+        subprocess.run(["icacls", str(workspace), "/grant:r",
+            "*S-1-1-0:(RX)"], check=True, capture_output=True, text=True)
+        with pytest.raises(RootlessExperimentalError,
+                match="experimental_directory_acl_not_private"):
+            verify_private_experiment_directory(workspace)
+
+        identity = subprocess.check_output(
+            ["whoami", "/user", "/fo", "csv", "/nh"], text=True)
+        user_sid = next(csv.reader([identity]))[1]
+        grants = [f"*{user_sid}:(OI)(CI)(F)",
+            "*S-1-5-18:(OI)(CI)(F)", "*S-1-5-32-544:(OI)(CI)(F)"]
+        subprocess.run(["icacls", str(workspace), "/grant:r", *grants],
+            check=True, capture_output=True, text=True)
+        subprocess.run(["icacls", str(workspace), "/inheritance:r"],
+            check=True, capture_output=True, text=True)
+        subprocess.run(["icacls", str(workspace), "/remove:g", "*S-1-1-0"],
+            check=True, capture_output=True, text=True)
+        subprocess.run(["icacls", str(workspace), "/setowner", f"*{user_sid}"],
+            check=True, capture_output=True, text=True)
+    else:
+        workspace.chmod(0o777)
+        with pytest.raises(RootlessExperimentalError,
+                match="experimental_directory_not_private"):
+            verify_private_experiment_directory(workspace)
+        workspace.chmod(0o700)
+
+    verify_private_experiment_directory(workspace)
+    child = workspace / "sentientos-data"
+    child.mkdir()
+    verify_private_experiment_directory(child)
 
 
 def test_rootless_score_write_failure_preserves_partial_and_capture_custody(
