@@ -8752,7 +8752,7 @@ def test_admitted_calibration_changes_later_decision_only_when_evidence_agrees(
     baseline_projection = epistemic.cognitive_projection(max_states=1,
         current_tick=forecast_tick + 120, relevance_query=question)
     assert baseline_projection is not None
-    assert baseline_projection.schema_version == "sentientos.epistemic_cognitive_projection:v2"
+    assert baseline_projection.schema_version == "sentientos.epistemic_cognitive_projection:v5"
     [withheld_packet] = semantic_packets_for_projection(baseline_projection)
     assert withheld_packet["calibration_outcomes"] == []
     assert withheld_packet["omitted_calibration_count"] == 1
