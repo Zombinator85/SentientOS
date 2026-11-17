@@ -401,8 +401,10 @@ def _normalize_calibration_record(raw: Mapping[str, Any]) -> EpistemicCalibratio
 def _calibration_evidence_consistency(outcome: Mapping[str, Any],
         evidence_by_id: Mapping[str, EvidenceBinding]) -> str:
     """Classify whether every cited binding agrees with a historical result label."""
-    expected_relation = {"supported": "supports",
-        "contradicted": "contradicts"}.get(outcome.get("comparison_result"))
+    comparison_result = outcome.get("comparison_result")
+    expected_relation = ({"supported": "supports",
+        "contradicted": "contradicts"}.get(comparison_result)
+        if isinstance(comparison_result, str) else None)
     binding_ids = outcome.get("source_binding_ids", ())
     cited = [evidence_by_id[binding_id] for binding_id in binding_ids
         if binding_id in evidence_by_id]
