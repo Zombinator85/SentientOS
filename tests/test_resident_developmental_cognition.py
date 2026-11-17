@@ -9137,8 +9137,8 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     contrast_retrieval_prompt = json.loads(
         contrast_retrieval_fake.requests[-1].prompt)
     assert contrast_retrieval_prompt["developmental_history_retrieval_policy_id"] == (
-        "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_"
-        "and_elliptical_session_context_then_recency_fill:v9")
+        "query_overlap_with_identity_bound_correction_groups_decision_contrasts_"
+        "embodied_reports_and_elliptical_session_context_then_recency_fill:v10")
 
     other_identity_owner, other_identity_fake = owner(
         tmp_path / "cognition", invoker=FakeInvoker(),
