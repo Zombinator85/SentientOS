@@ -3746,6 +3746,7 @@ class PersistentConversationService:
         history_roles: tuple[str, ...] | None
         history_turn_limit: int | None = None
         history_relevance_query: str | None = None
+        history_relevance_exchange_groups = False
         if recent_session_recall:
             asks_for_assistant_reply = any(marker in " ".join(
                 re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
@@ -3793,21 +3794,23 @@ class PersistentConversationService:
             and history_roles == ("user",) and history_relevance_query is not None)
         if (should_route_to_cognition
                 and history_turn_limit is None):
-            # Resident cognition performs its own relevance selection, but it
-            # cannot select an older cited exchange if ordinary chat has already
-            # removed it while building this candidate history. Keep enough
-            # bounded candidates for that selector to compare relevance with
-            # recency, then apply its smaller prompt limits downstream.
+            # Search linked exchanges across the stored session before applying
+            # the candidate-turn cap. The cognition selector then compares this
+            # bounded relevance set with recent dialogue under its smaller prompt
+            # limits.
             candidate_history_budget = min(
                 MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS,
                 3000 if gaming_development_turn else MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
-            history_budget = max(history_budget, candidate_history_budget)
+            history_budget = candidate_history_budget
             history_turn_limit = MAX_RESIDENT_CONVERSATION_CANDIDATE_TURNS
+            history_relevance_query = message
+            history_relevance_exchange_groups = True
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
             exclude_turn_id=user_turn["turn_id"], include_roles=history_roles,
             max_turns=history_turn_limit, oldest_first=earliest_session_recall,
             relevance_query=history_relevance_query,
-            prefer_recent_relevant=prefer_recent_relevant)
+            prefer_recent_relevant=prefer_recent_relevant,
+            relevance_exchange_groups=history_relevance_exchange_groups)
         if should_route_to_cognition:
             try:
                 return self._complete_resident_cognition_response(
@@ -4033,7 +4036,8 @@ class PersistentConversationService:
                         exclude_turn_id=user_turn["turn_id"], include_roles=history_roles,
                         max_turns=history_turn_limit, oldest_first=earliest_session_recall,
                         relevance_query=history_relevance_query,
-                        prefer_recent_relevant=prefer_recent_relevant)
+                        prefer_recent_relevant=prefer_recent_relevant,
+                        relevance_exchange_groups=history_relevance_exchange_groups)
                 else:
                     raise ChatInputBudgetError("chat_input_exceeds_gaming_budget")
                 runtime_context = self._verified_runtime_context(

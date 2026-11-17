@@ -268,7 +268,7 @@ def test_chat_preserves_older_relevant_exchange_for_resident_context_selection(
     source_assistant = app.sessions.append_turn(session_id, role="assistant",
         text="Review the west sensor before the next run.",
         linkage={"source_user_turn_id": source_user["turn_id"]})
-    for index in range(10):
+    for index in range(40):
         user_turn = app.sessions.append_turn(session_id, role="user",
             text=f"We reviewed unrelated north display topic {index}.")
         app.sessions.append_turn(session_id, role="assistant",
@@ -285,7 +285,8 @@ def test_chat_preserves_older_relevant_exchange_for_resident_context_selection(
         history.turns, question=captured["question"])
     selected_ids = [turn["turn_id"] for turn in selected]
     legacy_history = app.sessions.reconstruct(session_id,
-        budget_chars=app.context_budget_chars,
+        budget_chars=chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS,
+        max_turns=chat_service.MAX_RESIDENT_CONVERSATION_CANDIDATE_TURNS,
         exclude_turn_id=captured["user_turn"]["turn_id"])
     assert source_user["turn_id"] not in {
         turn["turn_id"] for turn in legacy_history.turns}
