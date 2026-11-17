@@ -6817,6 +6817,7 @@ try:
         request_digest=request_digest)
 except Exception as exc:
     print(json.dumps({"status": "rejected", "reason": str(exc),
+        "cause": str(exc.__cause__) if exc.__cause__ is not None else None,
         "new_invocations": len(invoker.requests)}, sort_keys=True))
     raise SystemExit(0)
 run = owner.experiments.load_run(str(result.changed_cognition_measurement_id))
