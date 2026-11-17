@@ -1391,7 +1391,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert source_assistant["turn_id"] in selected_turn_ids
     assert last_intervening_user is not None
     assert last_intervening_user["turn_id"] in selected_turn_ids
-    assert target_state.state_id in selected_conversation["prior_epistemic_state_ids"]
+    assert "prior_epistemic_state_ids" not in selected_conversation
     assert len(selected_turn_ids) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
     assert sum(len(turn["text"]) for turn in selected_conversation["turns"]) <= (
         chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
