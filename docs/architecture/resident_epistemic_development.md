@@ -181,6 +181,20 @@ versioned as v2 to carry source kind, staleness, and finding. This tests the
 prompt contract with a deterministic responder; real-model adherence remains
 unverified.
 
+The production interaction boundary now also enforces freshness for explicitly
+present-condition questions marked by terms such as "current", "now", "today",
+or "still". An answer must cite current World-State evidence whose source
+finding is valid and whose posture is fresh or aging; a cited stale, expired,
+undated, unknown, or not-applicable source is converted to a request for a fresh
+observation. Memory or dialogue citations alone cannot establish the current
+condition. Aging evidence receives a deterministic qualification in the
+response. Historical questions remain able to report what an older source said.
+A controlled production-path counterfactual makes the responder answer from an
+expired source and verifies that the boundary asks instead, while fresh current
+evidence still answers and a historical question still reports the expired
+reading. This guard covers explicit present-condition wording; implicit current
+questions and real-model interpretation remain unverified.
+
 The persistent epistemic owner also accepts the current companion question when
 building its bounded prior-state projection. It ranks only propositions that
 have an eligible prior state, splits underscore-delimited identifiers such as

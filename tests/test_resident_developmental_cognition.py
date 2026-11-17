@@ -5848,15 +5848,18 @@ def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_o
                 source = selected.get("source", {})
                 freshness = source.get("staleness")
                 fact_id = selected.get("fact_id")
+                question = str(prompt.get("companion_question", "")).casefold()
                 if freshness == "fresh":
                     decision = {"disposition": "answer",
                         "response": "The fresh observation reports 18 C.",
                         "evidence_ids": [fact_id], "history_record_ids": []}
+                elif "previous report" in question:
+                    decision = {"disposition": "answer",
+                        "response": "The previous report recorded 18 C.",
+                        "evidence_ids": [fact_id], "history_record_ids": []}
                 else:
-                    decision = {"disposition": "ask",
-                        "response": (
-                            "The last observation is expired, so I cannot confirm "
-                            "the current temperature. Can you provide a fresh reading?"),
+                    decision = {"disposition": "answer",
+                        "response": "The room temperature is 18 C now.",
                         "evidence_ids": [fact_id], "history_record_ids": []}
                 self.companion_output_override = decision
             return super().invoke(request, persist=persist,
@@ -5888,8 +5891,10 @@ def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_o
         stale_prompt["instruction"])
     assert "Stale, expired, undated, unknown, and not-applicable are historical only" in (
         stale_prompt["instruction"])
+    assert stale_invoker.companion_output_override["disposition"] == "answer"
     assert stale_result.disposition == "ask"
-    assert "cannot confirm the current temperature" in stale_result.response
+    assert "fresh, cited observation" in stale_result.response
+    assert "current condition" in stale_result.response
 
     fresh_snapshot = temperature_snapshot(now - timedelta(minutes=5))
     fresh_owner, fresh_invoker = owner(tmp_path / "fresh",
@@ -5901,6 +5906,27 @@ def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_o
     assert fresh_source["staleness"] == "fresh"
     assert fresh_result.disposition == "answer"
     assert fresh_result.response == "The fresh observation reports 18 C."
+
+    aging_snapshot = temperature_snapshot(now - timedelta(hours=2))
+    aging_owner, aging_invoker = owner(tmp_path / "aging",
+        invoker=FreshnessAwareInvoker(), allowed_source_kinds=("capability_registry",))
+    aging_result = aging_owner.run_companion_interaction(snapshot=aging_snapshot,
+        request_id="aging-temperature-current-question", question=question)
+    aging_prompt = json.loads(aging_invoker.requests[-1].prompt)
+    aging_source = aging_prompt["current_evidence"]["facts"][0]["source"]
+    assert aging_source["staleness"] == "aging"
+    assert aging_result.disposition == "answer"
+    assert aging_result.response.startswith(
+        "The available observation is aging and may be out of date:")
+
+    historical_owner, historical_invoker = owner(tmp_path / "historical",
+        invoker=FreshnessAwareInvoker(), allowed_source_kinds=("capability_registry",))
+    historical_result = historical_owner.run_companion_interaction(
+        snapshot=stale_snapshot, request_id="stale-temperature-historical-question",
+        question="What did the previous report say about the current room temperature?")
+    assert historical_invoker.companion_output_override["disposition"] == "answer"
+    assert historical_result.disposition == "answer"
+    assert historical_result.response == "The previous report recorded 18 C."
 
 
 @pytest.mark.skipif(os.name == "nt",
@@ -6925,7 +6951,9 @@ def test_development_chat_configuration_hosts_resident_cognition_owner(
             session_id=session_id, request_id="hosted-cognition-request-1",
             observe_screen=True)
 
-        assert response.response == "The current observation is recorded."
+        assert response.response == (
+            "I do not have a fresh, cited observation that establishes the current "
+            "condition. Could you provide a fresh observation?")
         assert response.context["response_origin"] == "resident_developmental_cognition"
         assert response.context["developmental_history_writeback_performed"] is False
         assert len(fake.requests) == request_count_before_chat + 1
@@ -8612,7 +8640,7 @@ def test_companion_interaction_validates_and_forwards_session_context(
             question="How much did it drift?", conversation_context=tampered)
 
 
-def test_question_selected_self_model_changes_later_companion_response(
+def test_question_selected_self_model_cannot_override_unknown_current_evidence(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from contextlib import nullcontext
     from datetime import datetime, timezone
@@ -8733,8 +8761,9 @@ def test_question_selected_self_model_changes_later_companion_response(
     query_prompt = json.loads(query_invoker.requests[-1].prompt)
     baseline_prompt = json.loads(baseline_invoker.requests[-1].prompt)
     assert query_result.status == baseline_result.status == "admitted_completed"
-    assert "prior self-model record reports 25 percent" in query_result.response
-    assert "selected context contains no prior measurement" in baseline_result.response
+    assert query_result.response == baseline_result.response == (
+        "I do not have a fresh, cited observation that establishes the current "
+        "condition. Could you provide a fresh observation?")
     assert query_prompt["prior_self_model"]["selected_claim_ids"] == [relevant.claim_id]
     assert baseline_prompt["prior_self_model"] is None
     assert query_prompt["prior_self_model_prompt_selection"]["selected_claim_ids"] == [
@@ -8748,13 +8777,10 @@ def test_question_selected_self_model_changes_later_companion_response(
     assert ("Current World-State evidence with a source posture that supports the claim takes "
         "precedence over conflicting prior self-model claims, prior epistemic positions, "
         "and developmental-history interpretations") in query_prompt["instruction"]
-    assert query_result.response.startswith(
-        "The current screen reports 31 percent GPU utilization;")
     assert query_result.self_model_claim_ids == ("self-model-claim-gpu",)
     assert baseline_result.self_model_claim_ids == ()
     assert query_result.evidence_ids == tuple(
         query_invoker.requests[-1].upstream_evidence["current_fact_ids"][:1])
-    assert "prior self-model record reports 25 percent" in query_result.response
     assert baseline_prompt["prior_self_model_prompt_selection"]["policy"] == ("owner_ordered_prefix:v1")
     selected_claim = query_prompt["prior_self_model"]["selected_claims"][0]
     assert selected_claim["claim_category"] == "historical_interpretation"
