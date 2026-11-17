@@ -293,6 +293,20 @@ that a real model will reason correctly about disagreement, or that later
 outcomes revise the underlying knowledge state appropriately. The next cognition
 milestone should evaluate that feedback and revision loop.
 
+Epistemic calibration records were previously durable but absent from later
+cognitive projections. Meaning-bearing projections now include up to 16
+chronologically latest calibration outcomes per selected proposition, together
+with any source evidence bindings not already present in that proposition's
+state history. Projection validation joins each outcome to its forecast state
+and source evidence, excludes outcomes at or after the cognition tick, and
+digest-binds the omitted older records. The resident instruction treats these
+as historical forecast comparisons that can qualify confidence, not as current
+truth or authority. A restart counterfactual checks that a contradicted forecast
+changes a later resident response when its calibration is delivered, while the
+underlying epistemic state remains unchanged. These are deterministic owner and
+controlled-responder results; real-model use of calibration history remains
+unverified.
+
 ## Explicitly retained user context in resident serving
 
 Resident-routed chat now queries the existing canonical memory store with the

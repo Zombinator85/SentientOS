@@ -4647,7 +4647,8 @@ def _validate_epistemic_observation_binding(value: Mapping[str, Any]) -> None:
             raise ResidentDevelopmentalCognitionError("cognition_epistemic_legacy_binding_invalid")
     elif schema in {"sentientos.epistemic_cognitive_projection:v2",
                 "sentientos.epistemic_cognitive_projection:v3",
-                "sentientos.epistemic_cognitive_projection:v4"}:
+                "sentientos.epistemic_cognitive_projection:v4",
+                "sentientos.epistemic_cognitive_projection:v5"}:
         if (status not in {"all_meanings_delivered",
                 "complete_packets_selected_with_budget_omissions"}
                 or (status == "all_meanings_delivered" and omitted)
@@ -8416,12 +8417,24 @@ class ResidentDevelopmentalCognitionOwner:
                 if companion_intervention else
                 "sentientos.companion_interaction_decision:v3")
             context["companion_question"] = interaction_question
-            context["instruction"] += (
-                " When prior_epistemic_state is present, cite each stored epistemic state "
-                "that materially influenced this response in epistemic_state_ids. These IDs "
-                "identify earlier system positions, not truth or evidence. Leave the list "
-                "empty when none influenced the response; never cite a state absent from the "
-                "supplied projection.")
+            if prior_epistemic_state is not None:
+                context["instruction"] += (
+                    " When prior_epistemic_state is present, cite each stored epistemic state "
+                    "that materially influenced this response in epistemic_state_ids. These IDs "
+                    "identify earlier system positions, not truth or evidence. Leave the list "
+                    "empty when none influenced the response; never cite a state absent from the "
+                    "supplied projection.")
+                calibration_histories = getattr(
+                    prior_epistemic_state, "calibration_histories", ())
+                if (isinstance(calibration_histories, (list, tuple))
+                        and any(isinstance(history, Mapping)
+                            and bool(history.get("events"))
+                            for history in calibration_histories)):
+                    context["instruction"] += (
+                        " If a packet includes calibration_outcomes, treat each as a prior "
+                        "comparison between that forecast state and its bound outcome evidence. "
+                        "Use a contradiction to qualify confidence or applicability, while "
+                        "keeping the outcome historical and distinct from current evidence or authority.")
             context["canonical_user_memory_citation_allowlist"] = (
                 [row.get("memory_id") for row in canonical_memory_context.get("records", ())]
                 if canonical_memory_context is not None else [])

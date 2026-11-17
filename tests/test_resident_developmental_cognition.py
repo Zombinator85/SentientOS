@@ -8598,6 +8598,136 @@ def test_epistemic_only_prior_context_causes_real_owner_cognition(tmp_path: Path
     assert observation["authority"] is False
 
 
+@pytest.mark.skipif(os.name == "nt",
+    reason="epistemic-owner fixtures require hosted Linux durable-custody paths")
+def test_calibrated_epistemic_outcome_changes_later_resident_decision(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+    from sentientos.persistent_epistemic_state import make_evidence_binding
+
+    class CalibrationAwareInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                prior = prompt.get("prior_epistemic_state") or {}
+                packets = prior.get("semantic_packets", ())
+                outcomes = [outcome for packet in packets
+                    for outcome in packet.get("calibration_outcomes", ())]
+                state_ids = [packet["state"]["state_id"] for packet in packets]
+                response = ("The earlier forecast was contradicted by its bound "
+                    "outcome; I should not repeat that position as reliable without "
+                    "fresh support." if any(item.get("comparison_result") == "contradicted"
+                        for item in outcomes) else
+                    "The earlier position has no calibrated outcome yet, so its "
+                    "reliability remains unresolved.")
+                self.companion_output_override = {
+                    "disposition": "answer", "response": response,
+                    "evidence_ids": ["__CURRENT_FACT__"],
+                    "history_record_ids": [], "epistemic_state_ids": state_ids}
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    now = datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc)
+    forecast_tick = int(datetime(2026, 1, 1, 0, 0,
+        tzinfo=timezone.utc).timestamp())
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    proposition = make_proposition(namespace="embodiment",
+        subject="sensor:west", predicate="reports_measurement",
+        object_value="stable", polarity="positive", qualifiers={},
+        temporal_scope={"window": "trial-west"}, context_scope={},
+        proposition_class="predictive",
+        statement="The west sensor will report a stable measurement.")
+    epistemic.register_proposition(proposition)
+    forecast_evidence = make_evidence_binding(
+        proposition_id=proposition.proposition_id,
+        source_artifact_id="forecast-source",
+        source_digest="sha256:" + "a" * 64,
+        source_schema="sentientos.test_forecast:v1",
+        source_class="independent_fixture",
+        observation_time="2026-01-01T00:00:00Z",
+        evidence_relation="supports",
+        dependency_kind="independently_sourced_observation",
+        dependency_group="forecast-source", upstream_binding_ids=(),
+        freshness="current", reliability_posture="supports")
+    epistemic.bind_evidence(forecast_evidence)
+    state, _ = epistemic.commit_update(
+        proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="provisionally_supported",
+        reason="initialization", active_binding_ids=(forecast_evidence.binding_id,),
+        added_binding_ids=(forecast_evidence.binding_id,),
+        correlation_id="calibrated-forecast", tick=forecast_tick,
+        recorded_at="2026-01-01T00:00:00Z")
+    outcome_evidence = make_evidence_binding(
+        proposition_id=proposition.proposition_id,
+        source_artifact_id="outcome-source",
+        source_digest="sha256:" + "b" * 64,
+        source_schema="sentientos.test_outcome:v1",
+        source_class="independent_fixture",
+        observation_time="2026-01-01T00:01:00Z",
+        evidence_relation="contradicts",
+        dependency_kind="independently_sourced_observation",
+        dependency_group="outcome-source", upstream_binding_ids=(),
+        freshness="current", reliability_posture="contradicts")
+    epistemic.bind_evidence(outcome_evidence)
+    epistemic.record_calibration(
+        proposition_id=proposition.proposition_id,
+        forecast_artifact_id="forecast-artifact",
+        forecast_state_digest=state.state_digest,
+        observed_outcome_id="observed-outcome-1",
+        comparison_result="contradicted",
+        source_binding_ids=(outcome_evidence.binding_id,),
+        resolved_at="2026-01-01T00:01:00Z")
+
+    question = "How should I treat the west sensor's earlier forecast?"
+    baseline_projection = epistemic.cognitive_projection(max_states=1,
+        current_tick=forecast_tick + 30, relevance_query=question)
+    assert baseline_projection is not None
+    assert baseline_projection.schema_version == "sentientos.epistemic_cognitive_projection:v2"
+    cognition, invoker = owner(tmp_path / "cognition",
+        allowed_source_kinds=("embodiment",), invoker=CalibrationAwareInvoker())
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        epistemic_state_owner=epistemic,
+        epistemic_state_config={"cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 1}, clock=lambda: now)
+    screen = {"modality": "screen",
+        "text": "A bounded fixture observation; no external fact is asserted.",
+        "capture_digest": "c" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+
+    projection_reader = epistemic.cognitive_projection
+    monkeypatch.setattr(epistemic, "cognitive_projection",
+        lambda **_kwargs: baseline_projection)
+    control = bridge.respond(request_id="calibration-withheld-control",
+        question=question, screen_observation=screen)
+    monkeypatch.setattr(epistemic, "cognitive_projection", projection_reader)
+    calibrated = bridge.respond(request_id="calibration-present-followup",
+        question=question, screen_observation=screen)
+
+    control_request, calibrated_request = invoker.requests[-2:]
+    control_prompt = json.loads(control_request.prompt)
+    calibrated_prompt = json.loads(calibrated_request.prompt)
+    [calibrated_packet] = calibrated_prompt["prior_epistemic_state"][
+        "semantic_packets"]
+    assert "calibration_outcomes" not in control_prompt[
+        "prior_epistemic_state"]["semantic_packets"][0]
+    assert calibrated_packet["calibration_outcomes"][0][
+        "observed_outcome_id"] == "observed-outcome-1"
+    assert "bound outcome" in calibrated.response
+    assert "reliability remains unresolved" in control.response
+    assert calibrated.response != control.response
+    assert calibrated_request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
+    assert control_request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
+    assert "Use a contradiction to qualify confidence or applicability" in (
+        calibrated_prompt["instruction"])
+    assert calibrated.authority is control.authority is False
+    assert epistemic.current_state(proposition.proposition_id).state_id == state.state_id
+
+
 def test_self_model_and_epistemic_context_run_one_ordinary_condition(tmp_path: Path) -> None:
     epistemic, _, _ = epistemic_projection(tmp_path / "epistemic")
     self_model = self_model_projection(tmp_path / "self-model")
