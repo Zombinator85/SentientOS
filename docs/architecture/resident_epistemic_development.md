@@ -41,6 +41,13 @@ plan-only allocation after reconstruction. Missing, mismatched, ambiguous, or
 future-dated run evidence remains explicitly unresolved and does not create an
 epistemic position.
 
+When a task-family proposition includes an
+`active_model_identity_digest` scope, outcome ingestion verifies that the run's
+identity object matches its recorded digest and that the digest exactly matches
+the proposition scope. A different or unverifiable model identity is rejected
+before either evidence or state admission. Propositions without a model scope
+retain the existing family-level aggregation behavior.
+
 The development companion can opt into this same owner without introducing a
 second epistemic store. Its launcher composes the runtime only when both
 `SENTIENTOS_EPISTEMIC_STATE_CONFIG` and

@@ -5224,6 +5224,54 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
         admission_authority=RuntimeAdmissionAuthority(
             definitions=epistemic_definitions, ledger=epistemic_ledger),
         admission_ledger=epistemic_ledger)
+    foreign_model_proposition = make_proposition(namespace="operator",
+        subject="task_family:integer_affine_prediction", predicate="history_effect",
+        object_value="history presence changes held-out correctness", polarity="positive",
+        qualifiers={"run_scope": run_id}, temporal_scope={"kind": "single_run"},
+        context_scope={"task_family_id": "integer_affine_prediction",
+            "active_model_identity_digest": "sha256:" + "0" * 64},
+        proposition_class="causal_hypothesis")
+    epistemics.register_proposition(foreign_model_proposition)
+    foreign_model_rule = EpistemicDevelopmentRule("foreign-model-task-family",
+        foreign_model_proposition.proposition_id,
+        foreign_model_proposition.proposition_digest,
+        {"source_kind": "embodiment",
+            "subject_kind": "developmental_history_intervention_experiment"},
+        "supports", "unknown_dependency", "bounded_fixture")
+    foreign_model_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 1, 1, (foreign_model_rule,),
+            ("operator",)),
+        owner=epistemics, mutation_controller=controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        admission_ledger=epistemic_ledger)
+    with pytest.raises(EpistemicDevelopmentError,
+            match="task_family_model_identity_mismatch"):
+        foreign_model_runtime.process_verified_task_family_run(
+            experiment_store=restarted.experiments, run_id=run_id,
+            expected_run_digest=run_digest, rule_id=foreign_model_rule.rule_id,
+            tick=1, recorded_at=evaluated_at.isoformat())
+    assert epistemic_ledger.load()[0] == ()
+    assert epistemics.bindings(foreign_model_proposition.proposition_id) == ()
+    assert epistemics.current_state(foreign_model_proposition.proposition_id) is None
+
+    class UnverifiedModelIdentityStore:
+        def load_run(self, requested_run_id):
+            value = restarted.experiments.load_run(requested_run_id)
+            value["protocol"] = {**value["protocol"],
+                "active_model_identity_digest": "sha256:" + "1" * 64}
+            return value
+
+        def objective_task_family_evidence_binding(self, **_kwargs):
+            raise AssertionError("unverified model identity reached evidence adapter")
+
+    with pytest.raises(EpistemicDevelopmentError,
+            match="task_family_model_identity_unverified"):
+        foreign_model_runtime.process_verified_task_family_run(
+            experiment_store=UnverifiedModelIdentityStore(), run_id=run_id,
+            expected_run_digest=run_digest, rule_id=foreign_model_rule.rule_id,
+            tick=1, recorded_at=evaluated_at.isoformat())
+    assert epistemic_ledger.load()[0] == ()
     with pytest.raises(DevelopmentalHistoryInterventionError,
             match="epistemic_run_digest_mismatch"):
         runtime.process_verified_task_family_run(

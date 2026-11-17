@@ -1038,6 +1038,27 @@ class ResidentEpistemicDevelopmentRuntime:
                 or proposition.context_scope.get("task_family_id") != family
                 or proposition.proposition_class != "causal_hypothesis"):
             raise EpistemicDevelopmentError("task_family_proposition_binding_invalid")
+        if "active_model_identity_digest" in proposition.context_scope:
+            expected_model_digest = proposition.context_scope.get(
+                "active_model_identity_digest")
+            protocol = run.get("protocol")
+            model_identity = (protocol.get("active_model_identity")
+                if isinstance(protocol, Mapping) else None)
+            observed_model_digest = (protocol.get("active_model_identity_digest")
+                if isinstance(protocol, Mapping) else None)
+            if (not isinstance(expected_model_digest, str)
+                    or len(expected_model_digest) != 71
+                    or not expected_model_digest.startswith("sha256:")
+                    or any(character not in "0123456789abcdef"
+                        for character in expected_model_digest[7:])
+                    or not isinstance(model_identity, Mapping) or not model_identity
+                    or not isinstance(observed_model_digest, str)
+                    or observed_model_digest != digest(dict(model_identity))):
+                raise EpistemicDevelopmentError(
+                    "task_family_model_identity_unverified")
+            if expected_model_digest != observed_model_digest:
+                raise EpistemicDevelopmentError(
+                    "task_family_model_identity_mismatch")
         binding = experiment_store.objective_task_family_evidence_binding(
             run_id=run_id, expected_run_digest=expected_run_digest,
             proposition_id=rule.proposition_id)
