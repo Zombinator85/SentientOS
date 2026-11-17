@@ -8688,7 +8688,7 @@ def test_calibrated_epistemic_outcome_changes_later_resident_decision(
     assert baseline_projection is not None
     assert baseline_projection.schema_version == "sentientos.epistemic_cognitive_projection:v2"
     cognition, invoker = owner(tmp_path / "cognition",
-        allowed_source_kinds=("embodiment",))
+        allowed_source_kinds=("embodiment",), invoker=CalibrationAwareInvoker())
     bridge = ResidentDevelopmentalCompanionBridge(cognition,
         epistemic_state_owner=epistemic,
         epistemic_state_config={"cognitive_consumption_enabled": True,
