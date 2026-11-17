@@ -8787,7 +8787,13 @@ def test_question_selected_self_model_cannot_override_unknown_current_evidence(
     query_prompt = json.loads(query_invoker.requests[-1].prompt)
     baseline_prompt = json.loads(baseline_invoker.requests[-1].prompt)
     assert query_result.status == baseline_result.status == "admitted_completed"
-    assert query_result.response == baseline_result.response == (
+    assert query_result.response == (
+        'A prior self-model record lists "host_resource_metrics" = '
+        '{"gpu_utilization_percent":25}. That record is historical and does not '
+        'establish the current condition. Could you provide a fresh observation '
+        'so I can compare it?')
+    assert "31 percent" not in query_result.response
+    assert baseline_result.response == (
         "I do not have a fresh, cited observation that establishes the current "
         "condition. Could you provide a fresh observation?")
     assert query_prompt["prior_self_model"]["selected_claim_ids"] == [relevant.claim_id]

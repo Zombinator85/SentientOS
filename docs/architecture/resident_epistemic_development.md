@@ -191,8 +191,13 @@ answer must cite current World-State evidence whose source
 finding is valid and whose posture is fresh or aging; a cited stale, expired,
 undated, unknown, or not-applicable source is converted to a request for a fresh
 observation. Memory or dialogue citations alone cannot establish the current
-condition. Aging evidence receives a deterministic qualification in the
-response. Historical questions remain able to report what an older source said.
+condition. If the model cited an eligible prior self-model claim, the normalized
+response may include a bounded deterministic description of that historical
+record while still asking for a fresh observation; it explicitly says that the
+record does not establish current truth. The owner derives that note from the
+selected attributed claim, never from the model's discarded current-condition
+wording. Aging evidence receives a deterministic qualification in the response.
+Historical questions remain able to report what an older source said.
 A controlled production-path counterfactual makes the responder answer from an
 expired source and verifies that the boundary asks instead; fresh evidence still
 answers, historical questions still report the expired reading, common implicit
@@ -239,10 +244,12 @@ that those claims are true or useful.
 adds a matched counterfactual through the bridge and actual prompt assembler.
 With the same question, scene, source reconciliation, and CPU-only conditioned
 invoker, question-aware selection places the retained prior GPU measurement in
-the prompt and preserves its citation, while the response still asks for a fresh
-observation because the current screen source has unknown freshness. The prompt
-binder now tries the complete owner projection first, then
-removes a suffix of the owner's ranked claims until the full assembled context
+the prompt and preserves its citation; when the current screen source has
+unknown freshness, the response labels the prior measurement as historical and
+asks for a fresh observation without repeating the model's unsupported current
+reading. The prompt
+binder now tries the complete owner projection first, then removes a suffix of
+the owner's ranked claims until the full assembled context
 fits. Across competing context types, it first preserves the largest complete
 ranked history suffix that can fit, then trims the self-model prefix within
 that history choice. A digest-bound selection manifest records consumed and
