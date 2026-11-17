@@ -8601,11 +8601,31 @@ def test_epistemic_only_prior_context_causes_real_owner_cognition(tmp_path: Path
 @pytest.mark.skipif(os.name == "nt",
     reason="epistemic-owner fixtures require hosted Linux durable-custody paths")
 @pytest.mark.parametrize("outcome_relation", ["contradicts", "supports"])
-def test_unreviewed_calibration_outcome_does_not_change_later_resident_decision(
+def test_admitted_calibration_changes_later_decision_only_when_evidence_agrees(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
         outcome_relation: str) -> None:
     from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
-    from sentientos.persistent_epistemic_state import make_evidence_binding
+    from sentientos.codex_task_authority_admission import (
+        RESIDENT_EPISTEMIC_STATE_MUTATION,
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    )
+    from sentientos.persistent_epistemic_state import (
+        make_evidence_binding, semantic_packets_for_projection,
+    )
+    from sentientos.resident_epistemic_calibration_authority import (
+        RESIDENT_EPISTEMIC_CALIBRATION_REVIEW,
+        RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION,
+    )
+    from sentientos.resident_epistemic_development import (
+        EpistemicDevelopmentConfig, EpistemicDevelopmentRule,
+        ResidentEpistemicDevelopmentRuntime,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        ResidentEpistemicStateMutationController,
+    )
+    from sentientos.runtime_admission import (
+        AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
+    )
 
     class CalibrationAwareInvoker(FakeInvoker):
         def invoke(self, request, *, persist, include_output_in_receipt,
@@ -8677,7 +8697,18 @@ def test_unreviewed_calibration_outcome_does_not_change_later_resident_decision(
         dependency_group="outcome-source", upstream_binding_ids=(),
         freshness="current", reliability_posture="contradicts")
     epistemic.bind_evidence(outcome_evidence)
-    epistemic.record_calibration(
+    outcome_state, _ = epistemic.commit_update(
+        proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=state.state_digest,
+        stance=("contested" if outcome_relation == "contradicts"
+            else "provisionally_supported"),
+        reason="evidence_observation",
+        active_binding_ids=(forecast_evidence.binding_id,
+            outcome_evidence.binding_id),
+        added_binding_ids=(outcome_evidence.binding_id,),
+        correlation_id="independent-outcome-observation",
+        tick=forecast_tick + 60, recorded_at="2026-01-01T00:01:00Z")
+    calibration = epistemic.record_calibration(
         proposition_id=proposition.proposition_id,
         forecast_artifact_id="forecast-artifact",
         forecast_state_digest=state.state_digest,
@@ -8686,11 +8717,64 @@ def test_unreviewed_calibration_outcome_does_not_change_later_resident_decision(
         source_binding_ids=(outcome_evidence.binding_id,),
         resolved_at="2026-01-01T00:01:00Z")
 
+    ledger = AdmissionLedger(tmp_path / "admissions.json")
+    definitions = {
+        RESIDENT_EPISTEMIC_STATE_MUTATION:
+            RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+        RESIDENT_EPISTEMIC_CALIBRATION_REVIEW:
+            RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION,
+    }
+
+    def current_sequence() -> int:
+        admissions, revocations = ledger.load()
+        return max([item.issued_sequence for item in admissions]
+            + [item.sequence for item in revocations], default=1)
+
+    verifier = RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger)
+    mutation_controller = ResidentEpistemicStateMutationController(
+        owner=epistemic, admission_verifier=verifier,
+        current_sequence=current_sequence,
+        receipt_root=tmp_path / "epistemic-receipts")
+    rule = EpistemicDevelopmentRule(
+        "west-sensor-calibration", proposition.proposition_id,
+        proposition.proposition_digest,
+        {"source_kind": "independent_fixture", "subject_id": "sensor:west"},
+        "contradicts", "independently_sourced_observation", "contradicts",
+        independence_basis="separate deterministic outcome fixture")
+    runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 8, 4, (rule,), ("embodiment",)),
+        owner=epistemic, mutation_controller=mutation_controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=definitions, ledger=ledger), admission_ledger=ledger,
+        calibration_review_verifier=verifier)
+
     question = "How should I treat the west sensor's earlier forecast?"
     baseline_projection = epistemic.cognitive_projection(max_states=1,
-        current_tick=forecast_tick + 30, relevance_query=question)
+        current_tick=forecast_tick + 120, relevance_query=question)
     assert baseline_projection is not None
     assert baseline_projection.schema_version == "sentientos.epistemic_cognitive_projection:v2"
+    [withheld_packet] = semantic_packets_for_projection(baseline_projection)
+    assert withheld_packet["calibration_outcomes"] == []
+    assert withheld_packet["omitted_calibration_count"] == 1
+    review = runtime.process_calibration_event(
+        calibration_id=calibration.calibration_id,
+        expected_calibration_digest=calibration.calibration_digest,
+        rule_id=rule.rule_id, tick=forecast_tick + 180,
+        recorded_at="2026-01-01T00:03:00Z")
+    reviewed_projection = epistemic.cognitive_projection(max_states=1,
+        current_tick=forecast_tick + 240, relevance_query=question)
+    assert reviewed_projection is not None
+    [reviewed_packet] = semantic_packets_for_projection(reviewed_projection)
+    if outcome_relation == "contradicts":
+        assert review.status == "state_advanced"
+        assert reviewed_packet["calibration_outcomes"][0][
+            "evidence_consistency"] == "consistent_with_bound_current_evidence"
+        assert epistemic.current_state(proposition.proposition_id).generation == 2
+    else:
+        assert review.status == "calibration_unresolved"
+        assert reviewed_packet["calibration_outcomes"] == []
+        assert reviewed_packet["omitted_calibration_count"] == 1
+        assert epistemic.current_state(proposition.proposition_id).generation == 1
     cognition, invoker = owner(tmp_path / "cognition",
         allowed_source_kinds=("embodiment",), invoker=CalibrationAwareInvoker())
     bridge = ResidentDevelopmentalCompanionBridge(cognition,
@@ -8703,12 +8787,12 @@ def test_unreviewed_calibration_outcome_does_not_change_later_resident_decision(
         "capture_scope": "allowlisted_foreground_game_client_area",
         "captured_at": now.isoformat(), "raw_frame_retained": False}
 
-    projection_reader = epistemic.cognitive_projection
     monkeypatch.setattr(epistemic, "cognitive_projection",
         lambda **_kwargs: baseline_projection)
     control = bridge.respond(request_id="calibration-withheld-control",
         question=question, screen_observation=screen)
-    monkeypatch.setattr(epistemic, "cognitive_projection", projection_reader)
+    monkeypatch.setattr(epistemic, "cognitive_projection",
+        lambda **_kwargs: reviewed_projection)
     calibrated = bridge.respond(request_id="calibration-present-followup",
         question=question, screen_observation=screen)
 
@@ -8719,16 +8803,25 @@ def test_unreviewed_calibration_outcome_does_not_change_later_resident_decision(
         "semantic_packets"]
     assert "calibration_outcomes" not in control_prompt[
         "prior_epistemic_state"]["semantic_packets"][0]
-    assert calibrated_packet["calibration_outcomes"] == []
-    assert calibrated_packet["omitted_calibration_count"] == 1
-    assert "reliability remains unresolved" in calibrated.response
-    assert calibrated.response == control.response
-    assert calibrated_request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
-    assert control_request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
+    if outcome_relation == "contradicts":
+        assert calibrated_packet["calibration_outcomes"][0][
+            "calibration_id"] == calibration.calibration_id
+        assert "bound outcome" in calibrated.response
+        assert calibrated.response != control.response
+        assert calibrated_request.upstream_evidence["epistemic_state_ids"] == [
+            epistemic.current_state(proposition.proposition_id).state_id]
+    else:
+        assert calibrated_packet["calibration_outcomes"] == []
+        assert calibrated_packet["omitted_calibration_count"] == 1
+        assert "reliability remains unresolved" in calibrated.response
+        assert calibrated.response == control.response
+    assert control_request.upstream_evidence["epistemic_state_ids"] == [
+        outcome_state.state_id]
     assert "evidence_consistency is consistent_with_bound_current_evidence" in (
         calibrated_prompt["instruction"])
     assert calibrated.authority is control.authority is False
-    assert epistemic.current_state(proposition.proposition_id).state_id == state.state_id
+    assert epistemic.current_state(proposition.proposition_id).generation == (
+        2 if outcome_relation == "contradicts" else 1)
 
 
 def test_self_model_and_epistemic_context_run_one_ordinary_condition(tmp_path: Path) -> None:
