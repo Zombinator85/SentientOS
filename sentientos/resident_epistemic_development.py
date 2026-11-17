@@ -345,6 +345,8 @@ class ResidentEpistemicDevelopmentRuntime:
         payload = fact.payload if isinstance(fact.payload, Mapping) else {}
         target = payload.get("correction_target")
         text = payload.get("assertion_text")
+        if not isinstance(text, str):
+            return frozenset()
         expected_fields = {"schema_version", "request_id", "assistant_turn_id",
             "assistant_response_digest", "source_capture_digest",
             "followup_capture_digest", "conversation_citations", "assertion_text",
