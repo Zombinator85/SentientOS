@@ -8654,7 +8654,7 @@ def test_admitted_calibration_changes_later_decision_only_when_evidence_agrees(
                 include_output_in_receipt=include_output_in_receipt,
                 resource_context=resource_context)
 
-    now = datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, 0, 4, tzinfo=timezone.utc)
     forecast_tick = int(datetime(2026, 1, 1, 0, 0,
         tzinfo=timezone.utc).timestamp())
     epistemic = PersistentEpistemicStateOwner(
