@@ -724,3 +724,27 @@ record newest: a contracted negative query selects it, while the positive query
 selects the older positive record. This demonstrates polarity-sensitive
 historical record selection with deterministic fixtures; it does not validate
 real-model interpretation, current truth, or execution authority.
+
+### Rootless Windows epistemic-series execution (2026-11-17)
+
+The Ollama correction-pressure runner now creates its Windows run, cognition,
+history, state, and held-out-key directories through private native custody.
+New directories receive current-user-only inheritable access, and resident
+epistemic prompts use one measured 18 KiB character ceiling throughout prompt
+preview and invocation. The JSON payload is flushed on Windows; directory-entry
+flush is POSIX-only because Python cannot open Windows directories with
+`os.open`, so power-loss durability of the directory name is not claimed there.
+
+The actual Windows path reached pre-registration and one governed local
+inference attempt with Qwen3 8B (`rootless-epistemic-run-e3b493426b7a4d7c803fe13a`,
+preregistration digest `28d55184db27c719997ab9bfcbaf76c2c3b1cdfcb7c76643f649c06c0e392765`)
+and Qwen3 1.7B (`rootless-epistemic-run-f8c49ecb01964af5b1a4cdf4`,
+preregistration digest `1f5664e013026d67c0b0a062b7fe859efbee3953b8db36429fb689ea184db7d0`).
+Each invocation ended in `backend_failure:ModelLoadError` at the 120-second Ollama
+backend timeout; both receipts have no output digest, no capture index was
+produced, and scoring did not start. These runs establish path execution and
+the runtime timeout, not model behavior or correction performance. Their
+preregistration and failure records remain in the private local evidence
+workspace; neither run is production-serving evidence. Focused custody,
+prompt-bound, runner, and serialization tests pass. The remaining empirical
+blocker is a completed bounded local-model response.

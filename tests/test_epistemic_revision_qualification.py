@@ -22,6 +22,7 @@ from sentientos.governed_local_model_invocation import (
 from sentientos.epistemic_qualification_execution_binding import build_execution_binding
 from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionError
+from sentientos.rootless_experimental_epistemic_session import MAX_PROMPT_CHARS
 
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -454,6 +455,8 @@ def test_rootless_epistemic_session_scores_only_allowed_evidence_bindings(
         for capture in captures)
     assert all(capture.request["purpose"] ==
         "rootless_experimental_epistemic_revision_probe" for capture in captures)
+    assert all(capture.request["budget"]["max_input_chars"] == MAX_PROMPT_CHARS
+        for capture in captures)
     case = RevisionCase(case_id="rootless-fixture-pair", kind="retained_correction",
         proposition_id=proposition.proposition_id, evaluator_version="rootless-v1",
         before_prompt_digest=previews[0]["prompt_digest"],

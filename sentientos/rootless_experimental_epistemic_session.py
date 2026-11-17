@@ -32,10 +32,11 @@ from .rootless_experimental_local_model import (
 
 MAX_CALLS = 4
 MAX_CALL_TIMEOUT_SECONDS = 180
-# The existing governed epistemic prompt is slightly over 8 KiB even for the
-# smallest valid projection. Keep a fixed 16 KiB ceiling; the worker remains
-# independently bounded to a 4,096-token context and 128 generated tokens.
-MAX_PROMPT_CHARS = 16_384
+# A complete resident epistemic prompt with current model identity and a
+# contested evidence projection measured 16,544 characters on Windows. Keep a
+# bounded 18 KiB ceiling while the worker independently enforces its 8,192-token
+# context and 128 generated-token limits.
+MAX_PROMPT_CHARS = 18_432
 MAX_OUTPUT_CHARS = 1024
 MAX_NEW_TOKENS = 128
 MAX_CONTEXT_TOKENS = 8192

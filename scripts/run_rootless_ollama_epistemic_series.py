@@ -39,6 +39,26 @@ if not _help_requested:
         except RootlessExperimentalError as exc:
             raise SystemExit("experimental directory must have private custody") from exc
 
+    def _ensure_private_directory(path: Path, *, windows: bool | None = None) -> None:
+        """Create one private child and assign its Windows owner when needed."""
+        use_windows_custody = os.name == "nt" if windows is None else windows
+        try:
+            if use_windows_custody:
+                from sentientos.windows_handle_custody import (
+                    WindowsHandleCustodyError, ensure_private_child_directory,
+                )
+                try:
+                    ensure_private_child_directory(path.parent, path.name)
+                except WindowsHandleCustodyError as exc:
+                    raise RootlessExperimentalError(
+                        "experimental_directory_acl_not_private") from exc
+            else:
+                path.mkdir(parents=True, exist_ok=True, mode=0o700)
+                os.chmod(path, 0o700)
+            verify_private_experiment_directory(path)
+        except RootlessExperimentalError as exc:
+            raise SystemExit("experimental directory must have private custody") from exc
+
     if not _workspace.exists():
         if os.name == "nt":
             _require_private_directory(_workspace.parent)
@@ -140,13 +160,12 @@ def _stage_manifest(source: Path) -> Path:
 def run(*, manifest_path: Path, model_name: str) -> dict[str, Any]:
     run_id = "rootless-epistemic-run-" + uuid.uuid4().hex[:24]
     session_id = "rootless-epistemic-session-" + uuid.uuid4().hex[:24]
-    RUNS_ROOT.mkdir(parents=True, exist_ok=True, mode=0o700)
+    _ensure_private_directory(RUNS_ROOT)
     if RUNS_ROOT.is_symlink():
         raise RootlessExperimentalError("experimental_runs_path_invalid")
-    os.chmod(RUNS_ROOT, 0o700)
     run_root = RUNS_ROOT / run_id
     _no_symlink_path(run_root)
-    run_root.mkdir(parents=True, mode=0o700)
+    _ensure_private_directory(run_root)
     manifest_path = _stage_manifest(manifest_path)
     manifest_digest, manifest_size = stream_sha256(manifest_path)
     runtime, runtime_digest = _ollama_runtime(manifest_digest)
@@ -171,6 +190,8 @@ def run(*, manifest_path: Path, model_name: str) -> dict[str, Any]:
         cognition_root = run_root / "cognition"
         history_root = cognition_root / "history"
         state_root = cognition_root / "state"
+        for private_path in (cognition_root, history_root, state_root):
+            _ensure_private_directory(private_path)
         ledger = AdmissionLedger(state_root / "runtime_admissions.json")
         definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK:
             RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}

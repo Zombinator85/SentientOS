@@ -43,6 +43,52 @@ def test_epistemic_cli_help_does_not_create_experiment_workspace(tmp_path):
     assert not workspace.exists()
 
 
+def test_windows_private_directories_use_native_child_custody(monkeypatch, tmp_path):
+    module = importlib.import_module(
+        "scripts.run_rootless_ollama_epistemic_series")
+    from sentientos import windows_handle_custody
+
+    parent = tmp_path / "private-root"
+    child = parent / "epistemic-runs"
+    calls = []
+
+    def ensure_child(observed_parent, child_name):
+        calls.append((observed_parent, child_name))
+        return observed_parent / child_name
+
+    monkeypatch.setattr(
+        windows_handle_custody, "ensure_private_child_directory", ensure_child)
+    monkeypatch.setattr(
+        module, "verify_private_experiment_directory", lambda _path: None)
+
+    module._ensure_private_directory(child, windows=True)
+
+    assert calls == [(parent, "epistemic-runs")]
+
+
+def test_windows_held_out_key_directory_uses_native_child_custody(
+        monkeypatch, tmp_path):
+    module = importlib.import_module(
+        "sentientos.rootless_experimental_epistemic_series")
+    from sentientos import windows_handle_custody
+
+    parent = tmp_path / "private-root"
+    child = parent / "epistemic-held-out-keys"
+    calls = []
+
+    def ensure_child(observed_parent, child_name):
+        calls.append((observed_parent, child_name))
+        return observed_parent / child_name
+
+    monkeypatch.setattr(
+        windows_handle_custody, "ensure_private_child_directory", ensure_child)
+    monkeypatch.setattr(module, "_no_symlink_path", lambda path: path)
+
+    module._private_directory(child, windows=True)
+
+    assert calls == [(parent, "epistemic-held-out-keys")]
+
+
 
 def test_main_returns_scored_failure_exit_code(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv(

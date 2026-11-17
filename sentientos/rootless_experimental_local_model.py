@@ -155,7 +155,18 @@ def _exclusive_json(path: Path, value: Mapping[str, Any], *, root: Path) -> None
         stream.write(payload)
         stream.flush()
         os.fsync(stream.fileno())
-    directory_fd = os.open(target.parent, os.O_RDONLY)
+    _fsync_directory_entry(target.parent)
+
+
+def _fsync_directory_entry(path: Path, *, windows: bool | None = None) -> None:
+    """Flush parent-directory metadata where the platform exposes that operation."""
+    use_windows = os.name == "nt" if windows is None else windows
+    if use_windows:
+        # Python's os.open does not open Windows directories as file handles.
+        # The file itself was flushed above; namespace durability across sudden
+        # power loss is not claimed on this platform.
+        return
+    directory_fd = os.open(path, os.O_RDONLY)
     try:
         os.fsync(directory_fd)
     finally:

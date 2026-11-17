@@ -645,7 +645,7 @@ def observe_private_directory_identity(root: Path) -> tuple[int, bytes]:
 
 
 def _set_current_user_owner(directory: Path) -> None:
-    """Set a just-created directory's owner without following a reparse point."""
+    """Set current-user ownership and inheritable access without following links."""
     if os.name != "nt":
         raise WindowsHandleCustodyError("windows_custody_platform_unsupported")
     import ctypes
@@ -680,13 +680,40 @@ def _set_current_user_owner(directory: Path) -> None:
     set_security.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.DWORD,
         ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
     set_security.restype = wintypes.DWORD
+    get_security = advapi.GetSecurityInfo
+    get_security.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.DWORD,
+        ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p)]
+    get_security.restype = wintypes.DWORD
+    set_entries = advapi.SetEntriesInAclW
+    set_entries.argtypes = [wintypes.ULONG, ctypes.c_void_p, ctypes.c_void_p,
+        ctypes.POINTER(ctypes.c_void_p)]
+    set_entries.restype = wintypes.DWORD
+    local_free = kernel.LocalFree
+    local_free.argtypes = [ctypes.c_void_p]
+    local_free.restype = ctypes.c_void_p
+
+    class TRUSTEE_W(ctypes.Structure):
+        _fields_ = [("pMultipleTrustee", ctypes.c_void_p),
+            ("MultipleTrusteeOperation", ctypes.c_int),
+            ("TrusteeForm", ctypes.c_int), ("TrusteeType", ctypes.c_int),
+            ("ptstrName", ctypes.c_void_p)]
+
+    class EXPLICIT_ACCESS_W(ctypes.Structure):
+        _fields_ = [("grfAccessPermissions", wintypes.DWORD),
+            ("grfAccessMode", ctypes.c_int), ("grfInheritance", wintypes.DWORD),
+            ("Trustee", TRUSTEE_W)]
 
     invalid = ctypes.c_void_p(-1).value
-    directory_handle = create_file(str(directory), 0x80 | 0x00020000 | 0x00080000,
+    directory_handle = create_file(str(directory),
+        0x80 | 0x00020000 | 0x00040000 | 0x00080000,
         0x7, None, 3, 0x02000000 | 0x00200000, None)
     if not directory_handle or directory_handle == invalid:
         raise WindowsHandleCustodyError("windows_custody_child_owner_handle_unavailable")
     token = wintypes.HANDLE()
+    security_descriptor = ctypes.c_void_p()
+    new_dacl = ctypes.c_void_p()
     try:
         info = FILE_ATTRIBUTE_TAG_INFO()
         if (not get_info(directory_handle, 9, ctypes.byref(info), ctypes.sizeof(info))
@@ -707,7 +734,25 @@ def _set_current_user_owner(directory: Path) -> None:
         status = set_security(directory_handle, 1, 0x1, current_user, None, None, None)
         if status != 0:
             raise WindowsHandleCustodyError("windows_custody_child_owner_assignment_failed")
+        existing_dacl = ctypes.c_void_p()
+        status = get_security(directory_handle, 1, 0x4, None, None,
+            ctypes.byref(existing_dacl), None, ctypes.byref(security_descriptor))
+        if status != 0 or not existing_dacl.value:
+            raise WindowsHandleCustodyError("windows_custody_child_acl_unavailable")
+        trustee = TRUSTEE_W(None, 0, 0, 1, current_user.value)
+        access = EXPLICIT_ACCESS_W(0x001F01FF, 1, 0x3, trustee)
+        status = set_entries(1, ctypes.byref(access), existing_dacl,
+            ctypes.byref(new_dacl))
+        if status != 0 or not new_dacl.value:
+            raise WindowsHandleCustodyError("windows_custody_child_acl_build_failed")
+        status = set_security(directory_handle, 1, 0x4, None, None, new_dacl, None)
+        if status != 0:
+            raise WindowsHandleCustodyError("windows_custody_child_acl_assignment_failed")
     finally:
+        if new_dacl.value:
+            local_free(new_dacl)
+        if security_descriptor.value:
+            local_free(security_descriptor)
         if token:
             close_handle(token)
         close_handle(directory_handle)
@@ -716,10 +761,10 @@ def _set_current_user_owner(directory: Path) -> None:
 def ensure_private_child_directory(parent: Path, child_name: str) -> Path:
     """Create or verify one current-user-owned child under a stable private root.
 
-    A new child inherits its ACL from the private parent and gets an explicit
-    current-user owner even when the process token defaults ownership to
-    Administrators. This helper never creates ancestors or follows reparse
-    points.
+    A new child inherits its ACL from the private parent and gets current-user
+    ownership plus inheritable access even when the process token defaults
+    ownership to Administrators. This helper never creates ancestors or follows
+    reparse points.
     """
     if os.name != "nt":
         raise WindowsHandleCustodyError("windows_custody_platform_unsupported")

@@ -236,3 +236,12 @@ def test_ollama_epistemic_profile_enforces_epistemic_resource_envelope():
             match="ollama_experimental_session_request_out_of_scope"):
         session.build_request(**_kwargs(ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
             "over-limit", input_chars=MAX_PROMPT_CHARS + 1))
+
+
+def test_ollama_epistemic_profile_accepts_complete_resident_prompt():
+    session = _session(developmental=False)
+    request = session.build_request(**_kwargs(
+        ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE, "resident-prompt",
+        input_chars=16_544))
+
+    assert len(request.prompt) == 16_544

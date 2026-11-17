@@ -43,16 +43,27 @@ def _call_budget_record() -> dict[str, int | str]:
         "retry_policy": "no_retry"}
 
 
-def _private_directory(path: Path) -> None:
+def _private_directory(path: Path, *, windows: bool | None = None) -> None:
     _no_symlink_path(path)
+    use_windows_custody = os.name == "nt" if windows is None else windows
+    if use_windows_custody:
+        from .windows_handle_custody import (
+            WindowsHandleCustodyError, ensure_private_child_directory,
+        )
+        try:
+            ensure_private_child_directory(path.parent, path.name)
+        except WindowsHandleCustodyError as exc:
+            raise RootlessExperimentalError(
+                "experimental_directory_custody_invalid") from exc
+        return
     if path.exists():
         if path.is_symlink() or not path.is_dir():
             raise RootlessExperimentalError("experimental_directory_invalid")
-        if os.name != "nt" and stat.S_IMODE(path.stat().st_mode) != 0o700:
+        if stat.S_IMODE(path.stat().st_mode) != 0o700:
             raise RootlessExperimentalError("experimental_directory_permissions_invalid")
         return
     path.mkdir(mode=0o700, parents=True, exist_ok=False)
-    if os.name != "nt" and stat.S_IMODE(path.stat().st_mode) != 0o700:
+    if stat.S_IMODE(path.stat().st_mode) != 0o700:
         raise RootlessExperimentalError("experimental_directory_permissions_invalid")
 
 
