@@ -6951,7 +6951,9 @@ def test_development_chat_configuration_hosts_resident_cognition_owner(
             session_id=session_id, request_id="hosted-cognition-request-1",
             observe_screen=True)
 
-        assert response.response == "The current observation is recorded."
+        assert response.response == (
+            "I do not have a fresh, cited observation that establishes the current "
+            "condition. Could you provide a fresh observation?")
         assert response.context["response_origin"] == "resident_developmental_cognition"
         assert response.context["developmental_history_writeback_performed"] is False
         assert len(fake.requests) == request_count_before_chat + 1
@@ -8638,7 +8640,7 @@ def test_companion_interaction_validates_and_forwards_session_context(
             question="How much did it drift?", conversation_context=tampered)
 
 
-def test_question_selected_self_model_changes_later_companion_response(
+def test_question_selected_self_model_cannot_override_unknown_current_evidence(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from contextlib import nullcontext
     from datetime import datetime, timezone
@@ -8759,8 +8761,9 @@ def test_question_selected_self_model_changes_later_companion_response(
     query_prompt = json.loads(query_invoker.requests[-1].prompt)
     baseline_prompt = json.loads(baseline_invoker.requests[-1].prompt)
     assert query_result.status == baseline_result.status == "admitted_completed"
-    assert "prior self-model record reports 25 percent" in query_result.response
-    assert "selected context contains no prior measurement" in baseline_result.response
+    assert query_result.response == baseline_result.response == (
+        "I do not have a fresh, cited observation that establishes the current "
+        "condition. Could you provide a fresh observation?")
     assert query_prompt["prior_self_model"]["selected_claim_ids"] == [relevant.claim_id]
     assert baseline_prompt["prior_self_model"] is None
     assert query_prompt["prior_self_model_prompt_selection"]["selected_claim_ids"] == [
@@ -8774,13 +8777,10 @@ def test_question_selected_self_model_changes_later_companion_response(
     assert ("Current World-State evidence with a source posture that supports the claim takes "
         "precedence over conflicting prior self-model claims, prior epistemic positions, "
         "and developmental-history interpretations") in query_prompt["instruction"]
-    assert query_result.response.startswith(
-        "The current screen reports 31 percent GPU utilization;")
     assert query_result.self_model_claim_ids == ("self-model-claim-gpu",)
     assert baseline_result.self_model_claim_ids == ()
     assert query_result.evidence_ids == tuple(
         query_invoker.requests[-1].upstream_evidence["current_fact_ids"][:1])
-    assert "prior self-model record reports 25 percent" in query_result.response
     assert baseline_prompt["prior_self_model_prompt_selection"]["policy"] == ("owner_ordered_prefix:v1")
     selected_claim = query_prompt["prior_self_model"]["selected_claims"][0]
     assert selected_claim["claim_category"] == "historical_interpretation"
