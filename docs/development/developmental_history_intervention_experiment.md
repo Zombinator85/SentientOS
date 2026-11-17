@@ -96,6 +96,16 @@ For a structured objective task whose descriptor explicitly requires task-family
 
 Outcome posture affects retrieval priority only when the restored score matches the history-present score. A favorable present-vs-withheld contrast with failed restoration is ranked as tentative history, below restoration-stable favorable evidence. Exact evaluator-correct examples remain available with their source and uncertainty qualifiers; the unstable comparison does not establish a repeatable history effect.
 
+Within equal outcome posture and model applicability, retrieval now ranks exact
+overlap with the current task's probe inputs before total example volume. This
+keeps a smaller directly applicable record ahead of a larger same-model record
+whose examples do not match the current probes. Example volume remains a
+tie-breaker, so non-overlapping relation evidence can still be selected when a
+task is novel. The retrieval policy identity records this ordering; earlier
+policy identities remain accepted for persisted history. The controlled
+fixture verifies selection under the record cap, not that a model will apply
+the retrieved answer correctly.
+
 Retrieval gives an additional priority to a favorable result only when at least
 two distinct admitted run IDs share the exact task commitment and source model
 identity, and every available comparable run in that group is restoration-stable
