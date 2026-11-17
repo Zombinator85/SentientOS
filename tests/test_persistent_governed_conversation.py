@@ -2066,9 +2066,10 @@ def test_bounded_exchange_retrieval_preserves_decision_polarity(
         text="I approve the west sensor inspection.",
         linkage={"source_user_turn_id": approved["turn_id"]})
 
-    negative_query = "What did I not approve about the west sensor?"
+    negative_query = "What didn't I approve about the west sensor?"
     positive_query = "What did I approve about the west sensor?"
     assert "not" in transcript_recall_terms(negative_query)
+    assert "not" in transcript_recall_terms("I can't approve this change.")
     assert "no" in transcript_recall_terms("No sensor was approved.")
 
     negative = store.reconstruct(session_id, budget_chars=1000,

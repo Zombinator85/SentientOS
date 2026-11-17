@@ -707,8 +707,9 @@ interpretation, repeated outcome measurement, and improvement across open-ended
 decisions remain unproven.
 
 Same-session transcript retrieval now preserves explicit `no`, `not`, and `nor`
-markers alongside topical terms. This lets bounded exchange selection distinguish
-otherwise similar positive and negative user decisions. A deterministic paired
-query fixture checks that a two-turn limit selects the matching negative or
-positive exchange. This validates retrieval ranking and source-turn linkage; it
-does not establish that a real model will interpret selected context correctly.
+markers and normalizes common negative contractions to `not` alongside topical
+terms. This lets bounded exchange selection distinguish otherwise similar
+positive and negative user decisions. A deterministic paired query fixture
+checks that a two-turn limit selects the matching negative or positive exchange.
+This validates retrieval ranking and source-turn linkage; it does not establish
+that a real model will interpret selected context correctly.

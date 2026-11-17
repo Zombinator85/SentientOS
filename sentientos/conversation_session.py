@@ -45,6 +45,9 @@ _TRANSCRIPT_RECALL_STOP_WORDS = frozenset((
     "replied", "screen", "see", "they", "two", "word", "words",
 ))
 _TRANSCRIPT_RECALL_NEGATION_WORDS = frozenset(("no", "not", "nor"))
+_TRANSCRIPT_RECALL_NEGATION_CONTRACTION = re.compile(
+    r"\b(?:ain|aren|can|couldn|didn|doesn|don|hadn|hasn|haven|isn|mustn|"
+    r"shouldn|wasn|weren|won|wouldn)['’]t\b")
 
 
 def transcript_recall_terms(text: str) -> frozenset[str]:
@@ -57,6 +60,8 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
     terms.update(re.findall(
         r"\b(?:" + "|".join(sorted(_TRANSCRIPT_RECALL_NEGATION_WORDS))
         + r")\b", text.casefold()))
+    if _TRANSCRIPT_RECALL_NEGATION_CONTRACTION.search(text.casefold()):
+        terms.add("not")
     for token in cognition_tokens(text):
         if len(token) <= 2 or token in _TRANSCRIPT_RECALL_STOP_WORDS:
             continue
