@@ -2476,6 +2476,7 @@ class PersistentConversationService:
         selected: list[dict[str, Any]] = []
         used_chars = 0
         seen: dict[tuple[str, str], str] = {}
+        seen_reports: set[tuple[str, ...]] = set()
         session_cache: dict[str, tuple[dict[str, Any], str]] = {}
         expected_fields = {"feedback_record_id", "feedback_record_digest",
             "feedback_fact_id", "feedback_assertion_digest",
@@ -2499,7 +2500,14 @@ class PersistentConversationService:
                 if seen[key] != expected_digest:
                     selected = []
                     break
+            report_identity = (str(reference.get("feedback_record_id", "")),
+                str(reference.get("feedback_record_digest", "")),
+                str(reference.get("feedback_fact_id", "")),
+                str(reference.get("feedback_assertion_digest", "")),
+                source_session_id, turn_id, expected_digest)
+            if report_identity in seen_reports:
                 continue
+            seen_reports.add(report_identity)
             try:
                 if source_session_id not in session_cache:
                     source_session = self.sessions.load(source_session_id)

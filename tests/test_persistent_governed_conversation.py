@@ -818,7 +818,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                         if isinstance(report, Mapping)
                         and report.get("evidence_posture")
                             == "operator_assertion_unverified"]
-                    bound_correction = next((
+                    bound_corrections = [
                         (history_packet, report, turn)
                         for history_packet, report in reports
                         if isinstance(history_packet.get("record_id"), str)
@@ -836,21 +836,26 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                         and turn.get("feedback_assertion_digest")
                             == report.get("assertion_digest")
                         and turn.get("feedback_fact_id")
-                            == report.get("operator_feedback_fact_id")), None)
-                    if bound_correction is not None:
-                        history_packet, report, turn = bound_correction
+                            == report.get("operator_feedback_fact_id")]
+                    if bound_corrections:
+                        _, _, turn = bound_corrections[0]
+                        report_texts = list(dict.fromkeys(
+                            str(bound_report.get("assertion_text", ""))
+                            for _, bound_report, _ in bound_corrections))
                         output.update({
                             "response": (
                                 "The earlier evidence-bound epistemic position was: "
                                 + packet["proposition"]["statement"]
                                 + ". The exact earlier cited reply said: "
-                                + turn["text"] + ". The operator later reported: "
-                                + str(report.get("assertion_text", ""))
+                                + turn["text"] + ". The operator reports were: "
+                                + " | ".join(report_texts)
                                 + ". These reports disagree; I cannot resolve which "
                                 "is accurate from this history, and the operator "
                                 "report remains unverified."),
                             "evidence_ids": [],
-                            "history_record_ids": [history_packet["record_id"]],
+                            "history_record_ids": list(dict.fromkeys(
+                                packet_row["record_id"] for packet_row, _, _
+                                in bound_corrections)),
                             "epistemic_state_ids": [packet["state"]["state_id"]],
                         })
                         if "historical_conversation_citations" in schema.get(
@@ -996,6 +1001,13 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         operator_feedback=correction_assertion,
         correction_target_turn_id=source_assistant["turn_id"])
     assert correction_cycle["status"] == "completed_writeback"
+    conflicting_assertion = "I now believe the west sensor reading was stable after all."
+    conflicting_cycle = restarted_app.run_developmental_cycle(
+        session_id=session_id, assistant_turn_id=correction_assistant["turn_id"],
+        request_id="cross-session-conflicting-operator-feedback",
+        operator_feedback=conflicting_assertion,
+        correction_target_turn_id=source_assistant["turn_id"])
+    assert conflicting_cycle["status"] == "completed_writeback"
 
     correction_session_id = restarted_app.create_session()
     correction_request_start = len(restarted_invoker.requests)
@@ -1013,6 +1025,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert source_assistant["text"] in corrected_context_response.response
     assert target.statement in corrected_context_response.response
     assert correction_assertion in corrected_context_response.response
+    assert conflicting_assertion in corrected_context_response.response
     assert "reports disagree" in corrected_context_response.response
     assert "cannot resolve which is accurate" in corrected_context_response.response
     assert "remains unverified" in corrected_context_response.response
@@ -1035,6 +1048,12 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     corrected_prompt = json.loads(corrected_request.prompt)
     assert "cite its exact state ID" in corrected_prompt["instruction"]
     historical_context = corrected_prompt["historical_cited_conversation_context"]
+    target_rows = [row for row in historical_context["turns"]
+        if row["turn_id"] == source_assistant["turn_id"]]
+    assert len(target_rows) == 2
+    assert len({row["feedback_fact_id"] for row in target_rows}) == 2
+    assert conflicting_cycle["written_record_id"] in corrected_assistant_turn[
+        "linkage"]["cognition_history_record_ids"]
     assert historical_context["historical_only"] is True
     assert historical_context["current_truth"] is False
     assert historical_context["authority"] is False
