@@ -913,7 +913,7 @@ def test_rootless_epistemic_authority_accepts_only_bound_ollama_candidate(tmp_pa
     config = ModelConfig([ModelCandidate(manifest, "ollama", "hermes-test", {
         "api_base": "http://127.0.0.1:11434", "model": "hermes-test",
         "manifest_sha256": digest, "num_gpu": 99, "keep_alive": "15m",
-        "think": False, "timeout_seconds": 120,
+        "think": False, "timeout_seconds": 180,
     })], default_engine="ollama", max_context_tokens=8192,
         generation=GenerationConfig(max_new_tokens=128, temperature=0, top_p=1))
     authority = build_rootless_experimental_epistemic_authority_map(

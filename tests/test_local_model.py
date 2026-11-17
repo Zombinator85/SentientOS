@@ -432,6 +432,7 @@ def test_ollama_backend_forwards_governed_json_schema(monkeypatch: pytest.Monkey
         "api_base": "http://127.0.0.1:11434",
         "model": "sentientos-hermes4:14b-q4km",
         "manifest_sha256": digest,
+        "timeout_seconds": 180,
         "seed": 42,
     })
 
@@ -484,6 +485,7 @@ def test_ollama_backend_forwards_governed_json_schema(monkeypatch: pytest.Monkey
         lambda *_args, **_kwargs: Opener())
     monkeypatch.setattr("sentientos.local_model.http.client.HTTPConnection", Connection)
     backend = _OllamaBackend(candidate, {}, 1024)
+    assert backend._timeout == 180
     schema = {"type": "object", "properties": {"answer": {"type": "integer"}},
         "required": ["answer"], "additionalProperties": False}
 
@@ -497,6 +499,10 @@ def test_ollama_backend_forwards_governed_json_schema(monkeypatch: pytest.Monkey
     assert "structured_output_schema" not in captured["body"]
     candidate.options["seed"] = -1
     with pytest.raises(ModelLoadError, match="ollama_seed_out_of_range"):
+        _OllamaBackend(candidate, {}, 1024)
+    candidate.options["seed"] = 42
+    candidate.options["timeout_seconds"] = 181
+    with pytest.raises(ModelLoadError, match="ollama_timeout_out_of_range"):
         _OllamaBackend(candidate, {}, 1024)
     with pytest.raises(ModelLoadError, match="ollama_structured_output_schema_invalid"):
         backend.generate_with_metadata("invalid schema", [], {

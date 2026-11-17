@@ -124,3 +124,21 @@ Model provenance and the aggregate result are summarized in
 Exact prompts, responses, preregistration, invocation records, and per-call
 provenance remain in the workspace evidence package; the held-out key remains
 separate. Those detailed records are not published in this repository.
+
+## 2026-11-17 epistemic request timeout alignment
+
+The preregistered epistemic call budget is 180 seconds, but the rootless Ollama
+adapter configured a 120-second HTTP timeout and the shared backend rejected
+timeouts above 120 seconds. Two new Qwen3 series attempts therefore ended in
+backend failure at approximately 120 seconds without output capture or scoring.
+The epistemic adapter now configures the admitted 180-second limit, and the
+Ollama backend accepts at most that same limit. The separate developmental
+profile remains capped at 120 seconds.
+
+Focused CPU tests demonstrate acceptance at 180 seconds and rejection at 181
+seconds at the session and backend boundaries. A new real-model series has not
+yet been run: this checkout does not have an accessible verified Qwen3-1.7B
+artifact manifest and matching runtime bundle in its configured experiment
+workspace. Existing protected experiment directories and evidence were left
+untouched. This change therefore repairs the configured deadline but does not
+yet demonstrate that a four-call series completes or scores under that limit.

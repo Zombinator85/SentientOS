@@ -284,7 +284,7 @@ class _OllamaBackend(_ModelBackend):
         if not isinstance(model, str) or not model or len(model) > 128:
             raise ModelLoadError("ollama_model_name_required")
         timeout = options.get("timeout_seconds", 60)
-        if type(timeout) not in {int, float} or not 1 <= timeout <= 120:
+        if type(timeout) not in {int, float} or not 1 <= timeout <= 180:
             raise ModelLoadError("ollama_timeout_out_of_range")
         authority = f"[{address}]" if address.version == 6 else str(address)
         self._base = f"http://{authority}:{port or 11434}"
