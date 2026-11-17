@@ -1,9 +1,10 @@
-"""Run the preregistered cognition series through local Hermes in Ollama.
+"""Run the preregistered cognition series through a local Ollama model.
 
 Exit 0 means the scored series passed; exit 2 means it completed but failed
 its behavioral criteria; exit 3 means no recognized completed score was produced.
-Requires SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE to point at a private Linux
-directory (0700). This is experimental evidence only; it is not production use.
+Requires SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE to point at a private POSIX
+directory (0700) or a Windows directory accepted by native handle ACL checks.
+This is experimental evidence only; it is not production use.
 """
 from __future__ import annotations
 
@@ -25,21 +26,37 @@ if str(_repository_root) not in sys.path:
 _workspace = Path(os.environ.get(
     "SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE",
     str(Path.home() / ".local/state/sentientos-hermes-epistemic")))
+os.environ["SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE"] = str(_workspace)
 _help_requested = any(argument in {"-h", "--help"} for argument in sys.argv[1:])
 if not _help_requested:
-    _workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
+    from sentientos.rootless_experimental_local_model import (
+        RootlessExperimentalError, verify_private_experiment_directory,
+    )
+
+    def _require_private_directory(path: Path) -> None:
+        try:
+            verify_private_experiment_directory(path)
+        except RootlessExperimentalError as exc:
+            raise SystemExit("experimental directory must have private custody") from exc
+
+    if not _workspace.exists():
+        if os.name == "nt":
+            _require_private_directory(_workspace.parent)
+        _workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
     if _workspace.is_symlink():
         raise SystemExit("experimental workspace cannot be a symlink")
-    os.chmod(_workspace, 0o700)
+    if os.name != "nt":
+        os.chmod(_workspace, 0o700)
+    _require_private_directory(_workspace)
     for _private_path in (_workspace / "sentientos-data",
             _workspace / "sentientos-data" / "rootless-experimental"):
-        _private_path.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if not _private_path.exists():
+            _private_path.mkdir(parents=True, exist_ok=True, mode=0o700)
         if _private_path.is_symlink():
             raise SystemExit("experimental data path cannot be a symlink")
-        os.chmod(_private_path, 0o700)
-    if _workspace.stat().st_mode & 0o077:
-        raise SystemExit("experimental workspace must be private (mode 0700)")
-os.environ["SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE"] = str(_workspace)
+        if os.name != "nt":
+            os.chmod(_private_path, 0o700)
+        _require_private_directory(_private_path)
 
 from sentientos.codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK,

@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -79,6 +80,28 @@ def _no_symlink_path(path: Path) -> Path:
         except OSError as exc:
             raise RootlessExperimentalError("experimental_path_unavailable") from exc
     return absolute
+
+
+def verify_private_experiment_directory(path: Path) -> None:
+    """Verify POSIX mode or the equivalent private Windows directory ACL."""
+    candidate = _no_symlink_path(Path(path))
+    if os.name == "nt":
+        from .windows_handle_custody import (
+            WindowsHandleCustodyError, verify_explicit_directory,
+        )
+        try:
+            verify_explicit_directory(candidate, require_private_acl=True)
+        except WindowsHandleCustodyError as exc:
+            raise RootlessExperimentalError(
+                "experimental_directory_acl_not_private") from exc
+        return
+    try:
+        private_mode = stat.S_IMODE(candidate.stat().st_mode) & 0o077 == 0
+    except OSError as exc:
+        raise RootlessExperimentalError(
+            "experimental_directory_unavailable") from exc
+    if not private_mode or not candidate.is_dir():
+        raise RootlessExperimentalError("experimental_directory_not_private")
 
 
 def validate_experiment_root(root: Path, *, workspace_root: Path | None = None) -> Path:
