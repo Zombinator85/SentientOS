@@ -3331,9 +3331,11 @@ _EMBODIMENT_RETRIEVAL_FIELDS = frozenset((
     "task_goal_met"))
 
 
-def _historical_embodiment_retrieval_text(candidate: Mapping[str, Any]) -> list[str]:
-    """Expose typed past action/outcome values to lexical ranking, never as truth."""
-    reports = _historical_embodiment_evidence_context(candidate)
+def _historical_embodiment_retrieval_text(candidate: Mapping[str, Any], *,
+        target_model_identity: Mapping[str, Any] | None = None) -> list[str]:
+    """Expose typed past outcomes and applicable decision relations to lexical ranking."""
+    reports = _historical_embodiment_evidence_context(candidate,
+        target_model_identity=target_model_identity)
     searchable: list[str] = []
 
     def collect(value: Any) -> None:
@@ -3353,6 +3355,26 @@ def _historical_embodiment_retrieval_text(candidate: Mapping[str, Any]) -> list[
         for name in _EMBODIMENT_RETRIEVAL_FIELDS:
             if name in fields:
                 collect(fields[name])
+        roles = report.get("semantic_report_roles")
+        intervention = (roles.get("history_intervention_result")
+            if isinstance(roles, Mapping) else None)
+        contrast = (intervention.get("history_decision_contrast")
+            if isinstance(intervention, Mapping) else None)
+        pattern = (contrast.get("decision_pattern")
+            if isinstance(contrast, Mapping) else None)
+        relation = (pattern.get("proposal_fingerprint_relation")
+            if isinstance(pattern, Mapping) else None)
+        if (isinstance(contrast, Mapping)
+                and contrast.get("model_identity_relation")
+                    == "same_active_model_identity"
+                and relation in {
+                    "history_associated_difference_restoration_stable",
+                    "no_difference_observed", "restoration_unstable"}):
+            searchable.extend((
+                "history decision proposal response disposition comparison "
+                "restoration present withheld restored",
+                str(relation).replace("_", " "),
+            ))
     return searchable
 
 
@@ -4882,7 +4904,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "query_overlap_with_lesson_scope_then_recency_fill:v5",
                 "query_overlap_with_lesson_scope_and_session_context_then_recency_fill:v6",
                 "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7",
-                "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"}
+                "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8",
+                "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9"}
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
@@ -7795,7 +7818,7 @@ class ResidentDevelopmentalCognitionOwner:
                     searchable_parts.extend(item["assertion_text"]
                         for item in _historical_operator_feedback_context(candidate))
                     searchable_parts.extend(_historical_embodiment_retrieval_text(
-                        candidate))
+                        candidate, target_model_identity=target_model_identity))
                     provenance = candidate.get("transformation_provenance")
                     lesson = (provenance.get("lesson_candidate")
                         if isinstance(provenance, Mapping) else None)
@@ -8757,7 +8780,7 @@ class ResidentDevelopmentalCognitionOwner:
                 and bool(observed_target_identity))
             else "task_family_probe_overlap_then_recency_fill:v2"
             if isinstance(task_family_id, str) else
-            "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
+            "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9"
             if interaction_question is not None
                 and condition_id == "companion-interaction"
             else "completed_tick_recency_suffix:v1")
@@ -9623,7 +9646,10 @@ class ResidentDevelopmentalCognitionOwner:
                 relevance_context=(next((row["text"] for row in reversed(
                     conversation_context.get("turns", ()))
                     if row.get("role") == "user"), None)
-                    if conversation_context is not None else None))
+                    if conversation_context is not None else None),
+                target_model_identity=(
+                    _observed_current_cognition_model_identity(
+                        getattr(self, "invoker", None))))
             historical_citation_context = _validated_historical_citation_context(
                 historical_citation_context, records=projection.records,
                 conversation_context=conversation_context)

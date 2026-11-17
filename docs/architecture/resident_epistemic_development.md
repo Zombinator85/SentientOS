@@ -105,8 +105,12 @@ objective truth, or improved intelligence.
 
 The resident companion interaction ranks already admitted developmental
 interpretations, source-verified operator-report text, typed historical
-embodiment reports, and admitted lesson content against the current question
-before the bounded history projection.
+embodiment reports, identity-bound history decision contrasts, and admitted
+lesson content against the current question before the bounded history
+projection. A decision contrast contributes retrieval terms only when its
+verified source identity matches the active serving identity; response
+fingerprints remain opaque, and retrieval does not imply correctness or
+improvement.
 Lesson scope and applicability matches receive more weight than generic
 interpretation wording. The latest prior user turn from a validated bounded
 session context contributes topic terms only when the current question has
@@ -115,7 +119,7 @@ letting stale topics dilute a specific question. Conversation terms affect
 ranking only and are not evidence or durable memory.
 Unmatched slots are filled from the recent checkpoint sequence. The selected
 record identities and retrieval policy
-(`query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8`)
+(`query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9`)
 remain in normal history selection lineage. History packets remain explicitly historical,
 non-authoritative, and not current truth. This remains deterministic lexical
 matching that normalizes common plural endings and weights terms that occur in

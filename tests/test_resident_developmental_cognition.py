@@ -43,6 +43,7 @@ from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
     _bind_history_and_epistemic_context, _history_context_packet,
     _history_decision_contrast_context,
+    _historical_embodiment_retrieval_text,
     load_objective_request, objective_task_for_request, stage_objective_request,
     stored_objective_request_disposition, stored_objective_request_record,
     _valid_rootless_epistemic_session_binding, _parse_companion_interaction_output,
@@ -5807,7 +5808,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
+        "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9"
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
 
@@ -5837,7 +5838,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     followup_prompt = json.loads(fake.requests[-1].prompt)
     assert followup_prompt["companion_question"] == "What about that?"
     assert followup_prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
+        "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9"
 
     # A specific new topic takes precedence over the prior user turn, which
     # should not drag its unrelated battery lesson into the bounded selection.
@@ -5940,7 +5941,7 @@ def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_te
     from sentientos import resident_developmental_cognition as cognition_module
     _, metadata, _, _, _ = cognition_module._bind_history_and_epistemic_context(
         context={"developmental_history_retrieval_policy_id":
-            "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"},
+            "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9"},
         records=(), projection=None, history_present=False)
     cognition_module._validate_developmental_history_selection({
         "developmental_history_selection": metadata["developmental_history_selection"]})
@@ -9101,6 +9102,59 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     decision_writeback = projection_owner.run_tick(snapshot=decision_world,
         tick_id="companion-decision-projection-writeback")
     assert decision_writeback.written_record_id
+    contrast_record_id = decision_writeback.written_record_id
+    contrast_record = projection_owner.writeback.store.get(contrast_record_id)
+    contrast_index_terms = _historical_embodiment_retrieval_text(
+        contrast_record.candidate,
+        target_model_identity=fake.active_model_identity)
+    assert any("history decision proposal response disposition comparison" in term
+        for term in contrast_index_terms)
+    contrast_retrieval_owner, contrast_retrieval_fake = owner(
+        tmp_path / "cognition", invoker=FakeInvoker(),
+        allowed_source_kinds=("capability_registry", "embodiment"))
+    contrast_retrieval_fake.active_model_identity = dict(fake.active_model_identity)
+    newer_unrelated_ids = []
+    for index in range(4):
+        contrast_retrieval_fake.history_interpretation = (
+            f"An unrelated astronomy observation about stars {index}.")
+        unrelated = contrast_retrieval_owner.run_tick(
+            snapshot=snapshot(30 + index),
+            tick_id=f"decision-contrast-retrieval-unrelated-{index}")
+        assert unrelated.written_record_id
+        newer_unrelated_ids.append(unrelated.written_record_id)
+    contrast_retrieval_fake.companion_output_override = {
+        "disposition": "answer", "response": "Prior comparison considered.",
+        "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
+    }
+    contrast_question = (
+        "What did the history decision comparison reveal about response "
+        "disposition and restoration stability?")
+    contrast_retrieval = contrast_retrieval_owner.run_companion_interaction(
+        snapshot=decision_world, request_id="retrieve-old-decision-contrast",
+        question=contrast_question)
+    assert contrast_record_id in contrast_retrieval.prior_record_ids
+    assert newer_unrelated_ids[0] not in contrast_retrieval.prior_record_ids
+    contrast_retrieval_prompt = json.loads(
+        contrast_retrieval_fake.requests[-1].prompt)
+    assert contrast_retrieval_prompt["developmental_history_retrieval_policy_id"] == (
+        "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_"
+        "and_elliptical_session_context_then_recency_fill:v9")
+
+    other_identity_owner, other_identity_fake = owner(
+        tmp_path / "cognition", invoker=FakeInvoker(),
+        allowed_source_kinds=("capability_registry", "embodiment"))
+    other_identity_fake.active_model_identity = {
+        "provider": "fixture", "model": "model-b"}
+    other_identity_fake.companion_output_override = {
+        "disposition": "answer", "response": "Prior comparison considered.",
+        "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
+    }
+    other_identity_retrieval = other_identity_owner.run_companion_interaction(
+        snapshot=decision_world, request_id="other-model-does-not-retrieve-contrast",
+        question=contrast_question)
+    assert contrast_record_id not in other_identity_retrieval.prior_record_ids
+    assert set(newer_unrelated_ids[1:]).issubset(
+        set(other_identity_retrieval.prior_record_ids))
     assert any(decision_audit[0]["response_digest"] in item.prompt
         for item in fake.requests)
     decision_memory = projection_owner.writeback.store.get(
