@@ -41,9 +41,10 @@ _TRANSCRIPT_RECALL_STOP_WORDS = frozenset((
     "there", "this", "to", "was", "were", "what", "when", "where", "which",
     "who", "why", "will", "with", "would", "you", "your", "ask", "asked",
     "answer", "answered", "briefly", "chat", "claim", "conversation", "current",
-    "exact", "foreground", "game", "gameplay", "guess", "not", "our", "reply",
+    "exact", "foreground", "game", "gameplay", "guess", "our", "reply",
     "replied", "screen", "see", "they", "two", "word", "words",
 ))
+_TRANSCRIPT_RECALL_NEGATION_WORDS = frozenset(("no", "not", "nor"))
 
 
 def transcript_recall_terms(text: str) -> frozenset[str]:
@@ -51,6 +52,11 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
     if not isinstance(text, str):
         raise ValueError("conversation_recall_query_invalid")
     terms: set[str] = set()
+    # Negation changes the meaning of a remembered decision. Keep these
+    # markers alongside content words so polarity participates in ranking.
+    terms.update(re.findall(
+        r"\b(?:" + "|".join(sorted(_TRANSCRIPT_RECALL_NEGATION_WORDS))
+        + r")\b", text.casefold()))
     for token in cognition_tokens(text):
         if len(token) <= 2 or token in _TRANSCRIPT_RECALL_STOP_WORDS:
             continue

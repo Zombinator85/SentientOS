@@ -2050,6 +2050,42 @@ def test_transcript_recall_normalizes_shared_inflections() -> None:
     assert transcript_recall_terms("overheating") == frozenset({"overheat"})
 
 
+def test_bounded_exchange_retrieval_preserves_decision_polarity(
+        tmp_path: Path) -> None:
+    store = ConversationSessionStore(tmp_path / "sessions")
+    session = store.create(model_identity={})
+    session_id = session["session_id"]
+    rejected = store.append_turn(session_id, role="user",
+        text="I do not approve the west sensor installation.")
+    rejected_reply = store.append_turn(session_id, role="assistant",
+        text="I do not approve the west sensor installation.",
+        linkage={"source_user_turn_id": rejected["turn_id"]})
+    approved = store.append_turn(session_id, role="user",
+        text="I approve the west sensor inspection.")
+    approved_reply = store.append_turn(session_id, role="assistant",
+        text="I approve the west sensor inspection.",
+        linkage={"source_user_turn_id": approved["turn_id"]})
+
+    negative_query = "What did I not approve about the west sensor?"
+    positive_query = "What did I approve about the west sensor?"
+    assert "not" in transcript_recall_terms(negative_query)
+    assert "no" in transcript_recall_terms("No sensor was approved.")
+
+    negative = store.reconstruct(session_id, budget_chars=1000,
+        relevance_query=negative_query, relevance_exchange_groups=True,
+        max_turns=2)
+    positive = store.reconstruct(session_id, budget_chars=1000,
+        relevance_query=positive_query, relevance_exchange_groups=True,
+        max_turns=2)
+
+    assert [turn["turn_id"] for turn in negative.turns] == [
+        rejected["turn_id"], rejected_reply["turn_id"]]
+    assert negative.turns[1]["linkage"]["source_user_turn_id"] == rejected["turn_id"]
+    assert [turn["turn_id"] for turn in positive.turns] == [
+        approved["turn_id"], approved_reply["turn_id"]]
+    assert positive.turns[1]["linkage"]["source_user_turn_id"] == approved["turn_id"]
+
+
 def test_transcript_recall_selects_accented_term_across_canonical_spellings(
         tmp_path: Path) -> None:
     assert transcript_recall_terms("café cafe\u0301") == frozenset({"café"})
