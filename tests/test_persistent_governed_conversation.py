@@ -799,8 +799,9 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
                 prior_record_ids=(), history_record_ids=(), memory_record_ids=(),
                 self_model_claim_ids=(), developmental_history_writeback_performed=False,
                 conversation_turn_citation_ids=(
-                    (conversation_context["turns"][0]["turn_id"],)
-                    if conversation_context and "west sensor" in prior_text else ()),
+                    tuple(row["turn_id"] for row in conversation_context["turns"]
+                        if row["role"] == "user" and "west sensor" in row["text"])
+                    if conversation_context else ()),
                 authority=False, current_truth=False,
                 canonical_explicit_user_retention_mutated=False)
 
@@ -854,6 +855,7 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert "three degrees" in followup.response
     assert "do not have" in control.response
     assert [turn["turn_id"] for turn in seen_contexts[0]["turns"]] == [
+        "turn-unrelated-18", "turn-unrelated-19",
         "turn-" + "1" * 24, "turn-" + "2" * 24]
     assert seen_contexts[0]["prior_epistemic_state_ids"] == [
         "epistemic-state:" + "a" * 24]
@@ -861,8 +863,9 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert supplied["schema_version"] == "sentientos.conversation_cognition_context:v1"
     assert supplied["prior_epistemic_state_ids"] == [
         "epistemic-state:" + "a" * 24]
-    assert [row["role"] for row in supplied["turns"]] == ["user", "assistant"]
-    assert supplied["turns"][0]["text"] == (
+    assert [row["role"] for row in supplied["turns"]] == [
+        "user", "assistant", "user", "assistant"]
+    assert supplied["turns"][2]["text"] == (
         "The west sensor drifted by three degrees after warmup.")
     assert supplied["historical_only"] is True
     assert supplied["current_truth"] is False
@@ -873,10 +876,126 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert followup.context["conversation_context_turn_ids"] == [
         row["turn_id"] for row in supplied["turns"]]
     assert followup.context["cognition_conversation_turn_citation_ids"] == [
-        supplied["turns"][0]["turn_id"]]
+        supplied["turns"][2]["turn_id"]]
     assert followup.context["cognition_conversation_turn_citation_digests"] == [
-        supplied["turns"][0]["text_digest"]]
+        supplied["turns"][2]["text_digest"]]
     assert seen_contexts[1] is None
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="temporary test fixtures cannot satisfy the resident owner's Windows custody paths")
+def test_newest_relevant_correction_changes_bounded_resident_response(
+        tmp_path: Path) -> None:
+    from tests.test_resident_developmental_cognition import (
+        FakeInvoker as CognitionFakeInvoker, owner as cognition_owner,
+    )
+    from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+
+    class CorrectionAwareInvoker(CognitionFakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                context = prompt.get("session_conversation_context", {})
+                turns = context.get("turns", ()) if isinstance(context, Mapping) else ()
+                correction = next((row for row in turns
+                    if "Correction: the amber warning has cleared" in row.get("text", "")), None)
+                if correction is not None:
+                    response = ("The latest user correction reports that the warning had cleared. "
+                        "That is the newest dialogue report, not current verification; the "
+                        "earlier stop recommendation should be revisited using current evidence.")
+                    citations = [correction["turn_id"]]
+                else:
+                    response = ("The repeated earlier exchanges record a stop recommendation "
+                        "because the warning was active. That is historical dialogue, not "
+                        "current verification.")
+                    citations = []
+                self.companion_output_override = {
+                    "disposition": "answer", "response": response,
+                    "evidence_ids": [], "history_record_ids": [],
+                    "conversation_turn_ids": citations,
+                }
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    class SessionSink:
+        def append_turn(self, session_id, *, role, text, linkage):
+            return {"turn_id": "turn-assistant-" + session_id}
+
+    def turn(turn_id: str, role: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": role, "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}), "linkage": {}}
+
+    repeated_history = []
+    for index in range(10):
+        repeated_history.extend((
+            turn(f"turn-{index * 2:024x}", "user",
+                f"The amber relay warning was active in diagnostic episode {index}."),
+            turn(f"turn-{index * 2 + 1:024x}", "assistant",
+                f"We decided episode {index} required a stop because the amber relay warning signaled a fault."),
+        ))
+    latest_correction_turn_id = f"turn-{len(repeated_history):024x}"
+    correction_exchange = [
+        turn(latest_correction_turn_id, "user",
+            "Correction: the amber warning has cleared."),
+        turn(f"turn-{len(repeated_history) + 1:024x}", "assistant",
+            "Proceed with the routine launch checklist."),
+    ]
+
+    now = datetime.now(timezone.utc)
+    invoker = CorrectionAwareInvoker()
+    cognition, _ = cognition_owner(tmp_path / "cognition", invoker=invoker,
+        allowed_source_kinds=("embodiment",))
+    bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
+    app = object.__new__(PersistentConversationService)
+    app._resident_cognition_bridge = bridge
+    app.sessions = SessionSink()
+    app._resident_canonical_memory_context = lambda _question: None
+    app._avatar_output = None
+    app._speech_output = None
+    question = "What did we decide about the amber relay warning?"
+    screen_observation = {"modality": "screen",
+        "text": "The current test scene is visible.", "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    corrected = app._complete_resident_cognition_response(
+        session_id="corrected-history", user_turn={"turn_id": "new-user-corrected"},
+        question=question, history=ContextSnapshot("corrected-history",
+            (*repeated_history, *correction_exchange), 4000, False, "a" * 64),
+        screen_observation=screen_observation, on_content_chunk=None)
+    control = app._complete_resident_cognition_response(
+        session_id="older-history-control", user_turn={"turn_id": "new-user-control"},
+        question=question, history=ContextSnapshot("older-history-control",
+            tuple(repeated_history), 4000, False, "b" * 64),
+        screen_observation=screen_observation, on_content_chunk=None)
+
+    corrected_prompt = json.loads(invoker.requests[-2].prompt)
+    control_prompt = json.loads(invoker.requests[-1].prompt)
+    supplied = corrected_prompt["session_conversation_context"]
+    selected_ids = [row["turn_id"] for row in supplied["turns"]]
+    assert "turn-000000000000000000000012" in selected_ids
+    assert "turn-000000000000000000000013" in selected_ids
+    assert latest_correction_turn_id in selected_ids
+    assert f"turn-{len(repeated_history) + 1:024x}" in selected_ids
+    assert len(selected_ids) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(row["text"]) for row in supplied["turns"]) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+    assert "reports that the warning had cleared" in corrected.response
+    assert "not current verification" in corrected.response
+    assert "latest user correction reports" in corrected_prompt["instruction"]
+    assert "Recency does not make the newer statement externally true or authoritative" in (
+        corrected_prompt["instruction"])
+    assert "stop" in control.response
+    assert corrected.response != control.response
+    assert corrected.context["cognition_conversation_turn_citation_ids"] == [
+        latest_correction_turn_id]
+    assert supplied["historical_only"] is True
+    assert supplied["current_truth"] is False
+    assert supplied["authority"] is False
+    assert latest_correction_turn_id not in {
+        row["turn_id"] for row in control_prompt["session_conversation_context"]["turns"]}
 
 
 def test_verified_epistemic_citation_survives_restart_and_changes_followup_projection(

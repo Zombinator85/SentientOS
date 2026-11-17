@@ -534,6 +534,17 @@ existing turn and character bounds. This is deterministic selector evidence;
 real-model interpretation of competing old and new information remains
 unverified.
 
+The resident prompt now directs the model to use an explicit later user
+correction to revise its account of what was said or decided, while attributing
+both statements and refusing to treat recency as current evidence or authority.
+A composed CPU fixture sends repeated older mentions and a latest correction
+through bounded selection, the resident bridge, and prompt assembly; its
+controlled responder cites the correction and changes its qualified answer
+relative to an older-history-only control. The full owner fixture requires
+Linux durable-custody paths and is skipped on Windows; the hosted source
+validation suite exercises it. Real-model interpretation and application
+remain unverified.
+
 The integration exposed a linkage defect: the bridge adds resolved epistemic
 priorities to the conversation context and recomputes its selection digest, but
 the response linkage previously kept the pre-bridge digest. The cognition
