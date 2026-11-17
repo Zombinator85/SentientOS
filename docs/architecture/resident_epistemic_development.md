@@ -614,6 +614,16 @@ selection and changes the qualified response relative to an older-history-only
 control. Hosted source validation is required to exercise the owner fixture;
 real-model interpretation remains unverified.
 
+Resident cognition now receives a bounded candidate history of up to 64 recent
+turns and at least 4,000 transcript characters before applying the existing
+16-turn, 4,000-character prompt selector. This prevents ordinary chat's smaller
+transcript budget from discarding an older relevant exchange before cognition
+can rank it. A deterministic chat-path counterfactual shows the original
+user/assistant exchange is absent under the ordinary 400-character budget but
+survives into the bounded cognition selection alongside a recent exchange.
+This demonstrates candidate availability and bounded selection with synthetic
+dialogue; real-model use remains unverified.
+
 The same speaker and evidence rule applies when recalling decisions: an
 assistant recommendation is not a user-confirmed decision. The resident prompt
 now requires explicit user acceptance before describing a plan as user-decided,
