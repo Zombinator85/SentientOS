@@ -6847,6 +6847,7 @@ print(json.dumps({"fresh_process": True, "fixture_only": True,
         if tampered_path is not None:
             assert result == {"status": "rejected",
                 "reason": "cognition_invocation_receipt_reconciliation_failed",
+                "cause": "historical_invocation_receipt_invalid",
                 "new_invocations": 0}
             return {"rejected_before_owner_recovery": True, "fixture_only": True}
         return result
