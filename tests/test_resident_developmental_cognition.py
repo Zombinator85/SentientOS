@@ -5837,6 +5837,10 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
 
 def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_ones(
         tmp_path: Path) -> None:
+    from sentientos.resident_developmental_cognition import (
+        _asks_about_present_condition,
+    )
+
     class FreshnessAwareInvoker(FakeInvoker):
         def invoke(self, request, *, persist, include_output_in_receipt,
                 resource_context=None):
@@ -5896,6 +5900,16 @@ def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_o
     assert "fresh, cited observation" in stale_result.response
     assert "current condition" in stale_result.response
 
+    for index, implicit_question in enumerate((
+            "What is the room temperature?",
+            "Is the room temperature 18 C?")):
+        implicit_stale_result = stale_owner.run_companion_interaction(
+            snapshot=stale_snapshot,
+            request_id=f"stale-temperature-implicit-question-{index}",
+            question=implicit_question)
+        assert implicit_stale_result.disposition == "ask"
+        assert "fresh, cited observation" in implicit_stale_result.response
+
     fresh_snapshot = temperature_snapshot(now - timedelta(minutes=5))
     fresh_owner, fresh_invoker = owner(tmp_path / "fresh",
         invoker=FreshnessAwareInvoker(), allowed_source_kinds=("capability_registry",))
@@ -5906,6 +5920,18 @@ def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_o
     assert fresh_source["staleness"] == "fresh"
     assert fresh_result.disposition == "answer"
     assert fresh_result.response == "The fresh observation reports 18 C."
+
+    fresh_implicit_result = fresh_owner.run_companion_interaction(
+        snapshot=fresh_snapshot, request_id="fresh-temperature-implicit-question",
+        question="What's the room temperature?")
+    assert fresh_implicit_result.disposition == "answer"
+    assert fresh_implicit_result.response == "The fresh observation reports 18 C."
+
+    assert _asks_about_present_condition("What is a room temperature?") is False
+    assert _asks_about_present_condition("What is the room temperature?") is True
+    assert _asks_about_present_condition("Is the pump online?") is True
+    assert _asks_about_present_condition(
+        "What did the previous report say about the current room temperature?") is False
 
     aging_snapshot = temperature_snapshot(now - timedelta(hours=2))
     aging_owner, aging_invoker = owner(tmp_path / "aging",
