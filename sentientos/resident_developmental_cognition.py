@@ -3517,7 +3517,9 @@ def _history_context_packet(record: Mapping[str, Any], *,
         compact_for_input_budget: bool = False,
         omit_historical_embodiment_details: bool = False,
         task_family_id: str | None = None,
-        target_model_identity: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        target_model_identity: Mapping[str, Any] | None = None,
+        unsettled_outcome_groups: set[tuple[str, str]] | frozenset[tuple[str, str]] = frozenset()
+        ) -> dict[str, Any]:
     """Project a verified durable record to the bounded semantics cognition needs.
 
     Durable writeback retains the full source request/output for recovery and
@@ -3608,8 +3610,31 @@ def _history_context_packet(record: Mapping[str, Any], *,
                     candidate_strategy = _candidate_integer_affine_strategy(
                         projected, guidance)
                     if candidate_strategy is not None:
-                        projected["candidate_integer_affine_strategy"] = (
-                            candidate_strategy)
+                        outcome_group = (item.get("source_task_digest"),
+                            item.get("source_active_model_identity_digest"))
+                        if outcome_group in unsettled_outcome_groups:
+                            projected.pop("candidate_integer_affine_strategy", None)
+                            withheld = {
+                                "posture": "withheld_unsettled_score_bound_outcomes",
+                                "source_fact_id": candidate_strategy.get("source_fact_id"),
+                                "source_run_digest": candidate_strategy.get(
+                                    "source_run_digest"),
+                                "source_task_digest": candidate_strategy.get(
+                                    "source_task_digest"),
+                                "source_score_digest": candidate_strategy.get(
+                                    "source_score_digest"),
+                                "strategy_digest": candidate_strategy.get(
+                                    "strategy_digest"),
+                                "outcome_group_digest": _digest(list(outcome_group)),
+                                "historical_only": True,
+                                "current_truth": False,
+                                "authority": False,
+                            }
+                            projected["candidate_integer_affine_strategy_withheld"] = (
+                                withheld)
+                        else:
+                            projected["candidate_integer_affine_strategy"] = (
+                                candidate_strategy)
                     if prior_incorrect:
                         projected["prior_incorrect_examples"] = {
                             "posture": "score_bound_past_errors_not_mapping_evidence",
@@ -3729,6 +3754,7 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
         records: tuple[Mapping[str, Any], ...],
         projection: EpistemicCognitiveProjection | None,
         history_present: bool = True, compact_history_for_input: bool = False,
+        unsettled_task_family_outcome_groups: set[tuple[str, str]] | frozenset[tuple[str, str]] = frozenset(),
         max_input_chars: int | None = None,
         ) -> tuple[dict[str, Any], dict[str, Any], str, tuple[str, ...], tuple[str, ...]]:
     """Fit whole recent history packets and epistemic packets to one input bound."""
@@ -3746,12 +3772,22 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
     target_model_identity = context.get("developmental_history_target_model_identity")
     if not isinstance(target_model_identity, Mapping):
         target_model_identity = None
-    packets_by_mode = {mode: tuple(_history_context_packet(record,
-        include_source_evidence_context=mode[0], compact_for_input_budget=mode[1],
-        omit_historical_embodiment_details=mode[2],
-        task_family_id=scoped_task_family_id,
-        target_model_identity=target_model_identity)
-        for record in records) for mode in packet_modes}
+    packets_by_mode = {}
+    for mode in packet_modes:
+        mode_packets = []
+        for record in records:
+            packet_options: dict[str, Any] = {
+                "include_source_evidence_context": mode[0],
+                "compact_for_input_budget": mode[1],
+                "omit_historical_embodiment_details": mode[2],
+                "task_family_id": scoped_task_family_id,
+                "target_model_identity": target_model_identity,
+            }
+            if unsettled_task_family_outcome_groups:
+                packet_options["unsettled_outcome_groups"] = (
+                    unsettled_task_family_outcome_groups)
+            mode_packets.append(_history_context_packet(record, **packet_options))
+        packets_by_mode[mode] = tuple(mode_packets)
     self_model_variants: list[tuple[dict[str, Any] | None, dict[str, Any] | None]] = []
     raw_self_model = context.get("prior_self_model")
     if isinstance(raw_self_model, Mapping):
@@ -3984,6 +4020,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
     prior_incorrect_refs: list[dict[str, Any]] = []
     prior_abstained_refs: list[dict[str, Any]] = []
     candidate_strategy_refs: list[dict[str, Any]] = []
+    withheld_candidate_strategy_refs: list[dict[str, Any]] = []
     for packet in history:
         if not isinstance(packet, Mapping):
             raise ResidentDevelopmentalCognitionError(
@@ -4007,6 +4044,52 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 raise ResidentDevelopmentalCognitionError(
                     "task_family_prompt_projection_examples_invalid")
             strategy = experience.get("candidate_integer_affine_strategy")
+            strategy_withheld = experience.get(
+                "candidate_integer_affine_strategy_withheld")
+            if strategy_withheld is not None:
+                rederived_withheld_strategy = _candidate_integer_affine_strategy(
+                    experience, rows)
+                expected_outcome_group_digest = _digest([
+                    experience.get("source_task_digest"),
+                    experience.get("source_active_model_identity_digest")])
+                if (not isinstance(strategy_withheld, Mapping)
+                        or rederived_withheld_strategy is None
+                        or strategy_withheld.get("posture")
+                            != "withheld_unsettled_score_bound_outcomes"
+                        or strategy_withheld.get("source_fact_id")
+                            != experience.get("source_fact_id")
+                        or strategy_withheld.get("source_run_digest")
+                            != experience.get("source_run_digest")
+                        or strategy_withheld.get("source_task_digest")
+                            != experience.get("source_task_digest")
+                        or strategy_withheld.get("source_score_digest")
+                            != experience.get("source_score_digest")
+                        or strategy_withheld.get("strategy_digest")
+                            != rederived_withheld_strategy.get("strategy_digest")
+                        or not isinstance(strategy_withheld.get("strategy_digest"), str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                            strategy_withheld["strategy_digest"]) is None
+                        or not isinstance(strategy_withheld.get(
+                            "outcome_group_digest"), str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                            strategy_withheld["outcome_group_digest"]) is None
+                        or strategy_withheld.get("outcome_group_digest")
+                            != expected_outcome_group_digest
+                        or strategy_withheld.get("historical_only") is not True
+                        or strategy_withheld.get("current_truth") is not False
+                        or strategy_withheld.get("authority") is not False
+                        or strategy is not None):
+                    raise ResidentDevelopmentalCognitionError(
+                        "task_family_prompt_projection_withheld_strategy_invalid")
+                withheld_candidate_strategy_refs.append({
+                    "record_id": packet["record_id"],
+                    "record_digest": packet["record_digest"],
+                    "source_fact_id": strategy_withheld["source_fact_id"],
+                    "strategy_digest": strategy_withheld["strategy_digest"],
+                    "outcome_group_digest": strategy_withheld[
+                        "outcome_group_digest"],
+                    "posture": strategy_withheld["posture"],
+                })
             if strategy is not None:
                 if not isinstance(strategy, Mapping):
                     raise ResidentDevelopmentalCognitionError(
@@ -4135,7 +4218,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 "examples_digest": entry["prior_abstained_examples_digest"],
             })
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v8",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v9",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",
@@ -4145,6 +4228,10 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         "records": entries,
         "candidate_integer_affine_strategy_count": len(candidate_strategy_refs),
         "candidate_integer_affine_strategies": candidate_strategy_refs,
+        "withheld_unsettled_candidate_integer_affine_strategy_count": len(
+            withheld_candidate_strategy_refs),
+        "withheld_unsettled_candidate_integer_affine_strategies": (
+            withheld_candidate_strategy_refs),
         "prior_incorrect_example_count": sum(
             item["example_count"] for item in prior_incorrect_refs),
         "prior_incorrect_examples": prior_incorrect_refs,
@@ -7254,6 +7341,7 @@ class ResidentDevelopmentalCognitionOwner:
         family = task_family_id or (self.objective_task.public_descriptor().get("task_family_id")
             if self.objective_task is not None else None)
         task_family_outcome_corroboration: tuple[Mapping[str, Any], ...] = ()
+        task_family_unsettled_outcome_groups: tuple[tuple[str, str], ...] = ()
         if isinstance(family, str):
             # The completed-tick checkpoint bounds this search to
             # MAX_RECOVERED_TICKS. Search newest-first across that complete
@@ -7292,6 +7380,8 @@ class ResidentDevelopmentalCognitionOwner:
                 experiences_by_record, target_model_identity=target_model_identity)
             unsettled_outcome_groups = _task_family_unsettled_outcome_groups(
                 experiences_by_record, target_model_identity=target_model_identity)
+            task_family_unsettled_outcome_groups = tuple(sorted(
+                unsettled_outcome_groups))
             for record_id in relevant_newest_first:
                 matching_facts = matching_facts_by_record[record_id]
                 same_model = False
@@ -7441,9 +7531,13 @@ class ResidentDevelopmentalCognitionOwner:
         ids = ids[-self.config.max_retrieved_records:]
         projection = self.writeback.retrieve(ids,
             limit=self.config.max_retrieved_records)
-        if task_family_outcome_corroboration:
-            return replace(projection, task_family_outcome_corroboration=(
-                task_family_outcome_corroboration))
+        if (task_family_outcome_corroboration
+                or task_family_unsettled_outcome_groups):
+            return replace(projection,
+                task_family_outcome_corroboration=(
+                    task_family_outcome_corroboration),
+                task_family_unsettled_outcome_groups=(
+                    task_family_unsettled_outcome_groups))
         return projection
 
     def selected_historical_operator_citations(self, *, request_id: str,
@@ -8327,6 +8421,8 @@ class ResidentDevelopmentalCognitionOwner:
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
                 projection=prior_epistemic_state, history_present=with_history,
+                unsettled_task_family_outcome_groups=set(getattr(
+                    projection, "task_family_unsettled_outcome_groups", ())),
                 # Interactive chat and objective-transfer cognition both run
                 # under bounded serving context windows. Keep admitted task-family
                 # examples and their source identities without repeating bulky
@@ -9714,6 +9810,8 @@ class ResidentDevelopmentalCognitionOwner:
                 _, preflight_metadata, _, protocol_record_ids, record_digests = (
                     _bind_history_and_epistemic_context(context=preflight_context,
                         records=prior.records, projection=prior_epistemic_state,
+                        unsettled_task_family_outcome_groups=set(getattr(
+                            prior, "task_family_unsettled_outcome_groups", ())),
                         history_present=True, compact_history_for_input=(
                             companion_intervention_question is not None),
                         max_input_chars=self.max_inference_input_chars))
