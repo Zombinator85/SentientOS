@@ -14,8 +14,10 @@ from test_resident_developmental_cognition import (  # noqa: E402
 )
 from sentientos.epistemic_revision_qualification import (
     IndependentAnswerKey, RevisionCase, _prompt_context_mismatch,
-    capture_position, evaluate_pair, evaluate_verified_probe_pair,
+    _operator_context_treatment_valid, capture_position, evaluate_pair,
+    evaluate_verified_probe_pair,
 )
+from sentientos.epistemic_revision_probe_runner import run_epistemic_revision_pair_once
 from sentientos.governed_local_model_invocation import (
     RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
 )
@@ -23,6 +25,9 @@ from sentientos.epistemic_qualification_execution_binding import build_execution
 from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionError
 from sentientos.rootless_experimental_epistemic_session import MAX_PROMPT_CHARS
+from sentientos.persistent_epistemic_state import (
+    FALSE_AUTHORITY, PersistentEpistemicStateOwner, make_evidence_binding,
+)
 
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -79,6 +84,120 @@ def test_successor_model_identity_is_the_only_additional_prompt_treatment() -> N
     after["future_prompt_field"] = "changed"
     assert _prompt_context_mismatch(before, after,
         additional_treatment_fields=("developmental_history_target_model_identity",)) is True
+
+
+def test_unverified_operator_context_treatment_is_exact_and_not_citable() -> None:
+    from sentientos.resident_developmental_cognition import (
+        UNVERIFIED_CONTEXT_EVIDENCE_INSTRUCTION,
+    )
+
+    context_row = {"schema_version": "sentientos.epistemic_evidence_binding:v2",
+        "binding_id": "evidence:" + "a" * 24,
+        "source_schema": "sentientos.local_operator_feedback:v5",
+        "source_class": "operator_input", "evidence_relation": "contextualizes",
+        "dependency_kind": "unknown_dependency",
+        "reliability_posture": "operator_assertion_unverified_context_only",
+        "unverified_context_text": "The prior result should be reversed."}
+    before_packet = {"unverified_context_evidence_bindings": []}
+    after_packet = {"unverified_context_evidence_bindings": [context_row]}
+    before_context = {"instruction": "same instructions",
+        "epistemic_revision_probe": {"allowed_evidence_binding_ids": ["evidence:trusted"]}}
+    after_context = {"instruction": "same instructions" +
+            UNVERIFIED_CONTEXT_EVIDENCE_INSTRUCTION,
+        "epistemic_revision_probe": {"allowed_evidence_binding_ids": ["evidence:trusted"]}}
+
+    assert _operator_context_treatment_valid(before_packet=before_packet,
+        after_packet=after_packet, before_context=before_context,
+        after_context=after_context)
+    assert _operator_context_treatment_valid(before_packet=before_packet,
+        after_packet=after_packet, before_context=before_context,
+        after_context={**after_context, "epistemic_revision_probe": {
+            "allowed_evidence_binding_ids": ["evidence:trusted", context_row["binding_id"]]}}) is False
+    assert _operator_context_treatment_valid(before_packet=before_packet,
+        after_packet={"unverified_context_evidence_bindings": [context_row, context_row]},
+        before_context=before_context, after_context=after_context) is False
+    malformed_extra = {**context_row,
+        "reliability_posture": "verified"}
+    assert _operator_context_treatment_valid(before_packet=before_packet,
+        after_packet={"unverified_context_evidence_bindings": [
+            context_row, malformed_extra]},
+        before_context=before_context, after_context=after_context) is False
+    assert _operator_context_treatment_valid(before_packet=before_packet,
+        after_packet=after_packet, before_context=before_context,
+        after_context={**after_context, "instruction": "unrelated instruction"}) is False
+
+
+def test_unverified_operator_context_pair_preserves_position_and_citations(
+        tmp_path: Path) -> None:
+    class ContextProbeInvoker(StructuredFixtureInvoker):
+        def invoke(self, request, **kwargs):
+            receipt = super().invoke(request, **kwargs)
+            context = json.loads(request.prompt)
+            packet = context["prior_epistemic_state"]["semantic_packets"][0]
+            output = json.dumps({"conclusion": packet["state"]["stance"],
+                "reason_code": "retain_state_evidence",
+                "evidence_ids": context["epistemic_revision_probe"][
+                    "allowed_evidence_binding_ids"]}, separators=(",", ":"))
+            simulated = replace(receipt, output_text=output,
+                output_digest=digest_payload({"output": output}),
+                output_size_bytes=len(output.encode("utf-8")))
+            self.receipts.pop(receipt.receipt_id, None)
+            self.receipts[simulated.receipt_id] = simulated
+            return simulated
+
+    before_projection, proposition, state = epistemic_projection(
+        tmp_path / "epistemic", with_evidence=True)
+    position_owner = PersistentEpistemicStateOwner(tmp_path / "epistemic",
+        allowed_namespaces=["embodiment"])
+    context_binding = make_evidence_binding(
+        proposition_id=proposition.proposition_id,
+        source_artifact_id="operator-report:later-correction",
+        source_digest="sha256:" + "d" * 64,
+        source_schema="sentientos.local_operator_feedback:v5",
+        source_class="operator_input", observation_time="2026-01-01T00:01:00Z",
+        evidence_relation="contextualizes", dependency_kind="unknown_dependency",
+        dependency_group=None, upstream_binding_ids=(), freshness="unknown",
+        reliability_posture="operator_assertion_unverified_context_only",
+        authority=dict(FALSE_AUTHORITY),
+        unverified_context_text=("The supported sensor conclusion is wrong; "
+            "the sensor is unsafe and the position should be reversed."))
+    position_owner.bind_evidence(context_binding)
+    after_projection = position_owner.cognitive_projection(max_states=1,
+        current_tick=before_projection.current_tick,
+        prioritized_proposition_ids=(proposition.proposition_id,))
+    assert after_projection is not None
+    assert before_projection.state_digests == after_projection.state_digests
+    assert before_projection.evidence_set_digests == after_projection.evidence_set_digests
+
+    cognition, _ = owner(tmp_path / "cognition", invoker=ContextProbeInvoker())
+    before_snapshot = snapshot()
+    after_snapshot = snapshot()
+    before_preview = cognition.preview_epistemic_revision_probe_prompt(
+        snapshot=before_snapshot, tick_id="operator-context:before",
+        prior_epistemic_state=before_projection)
+    after_preview = cognition.preview_epistemic_revision_probe_prompt(
+        snapshot=after_snapshot, tick_id="operator-context:after",
+        prior_epistemic_state=after_projection)
+    key = IndependentAnswerKey("supported", "supported", "retain_state_evidence",
+        tuple(state.support_binding_ids))
+    case = RevisionCase(case_id="unverified-operator-context-1",
+        kind="unverified_operator_context", proposition_id=proposition.proposition_id,
+        evaluator_version="v1", before_prompt_digest=before_preview["prompt_digest"],
+        after_prompt_digest=after_preview["prompt_digest"],
+        before_key=key, after_key=key, commitment_nonce="e" * 64)
+
+    report = run_epistemic_revision_pair_once(cognition=cognition, case=case,
+        before_snapshot=before_snapshot, after_snapshot=after_snapshot,
+        before_projection=before_projection, after_projection=after_projection,
+        tick_prefix="operator-context")
+
+    assert report["status"] == "case_passed", report["control_mismatches"]
+    assert report["state_transition_appropriate"] is True
+    assert report["unverified_operator_context_treatment_valid"] is True
+    assert report["before"]["citations_correct"] is True
+    assert report["after"]["citations_correct"] is True
+    assert report["before"]["state_digest"] == report["after"]["state_digest"]
+    assert report["real_model_qualification_established"] is False
 
 
 @pytest.fixture(autouse=True)

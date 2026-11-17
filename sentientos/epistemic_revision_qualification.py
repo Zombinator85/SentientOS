@@ -19,7 +19,8 @@ from .persistent_epistemic_state import (
 
 SCHEMA = "sentientos.epistemic_revision_case_result:v2"
 KINDS = frozenset({"contrary_evidence", "unsupported_pressure", "inference_correction",
-                   "retained_correction", "outdated_evidence", "model_replacement"})
+                   "retained_correction", "outdated_evidence", "model_replacement",
+                   "unverified_operator_context"})
 STANCES = frozenset({"unknown", "suspended", "provisionally_supported", "supported",
                      "contested", "provisionally_contradicted", "contradicted", "superseded"})
 MAX_BYTES = 1_048_576
@@ -142,6 +143,9 @@ class RevisionCase:
                 key.reason_code not in self.reason_code_vocabulary
                 for key in (self.before_key, self.after_key)):
             raise ValueError("qualification_reason_code_not_in_vocabulary")
+        if (self.kind == "unverified_operator_context"
+                and self.before_key != self.after_key):
+            raise ValueError("qualification_unverified_operator_context_key_changed")
         for value in (self.before_prompt_digest, self.after_prompt_digest):
             if (not isinstance(value, str) or len(value) != 71 or not value.startswith("sha256:")
                     or any(char not in "0123456789abcdef" for char in value[7:])):
@@ -371,6 +375,59 @@ def _sample(*, reader: ObservationReader, observation_id: str,
     return result, expected_packet, context
 
 
+def _operator_context_binding_ids(packet: Mapping[str, Any]) -> tuple[str, ...]:
+    rows = packet.get("unverified_context_evidence_bindings", ())
+    if not isinstance(rows, (list, tuple)):
+        return ()
+    return tuple(str(row.get("binding_id")) for row in rows
+        if isinstance(row, Mapping)
+        and row.get("source_schema") == "sentientos.local_operator_feedback:v5"
+        and row.get("source_class") == "operator_input"
+        and row.get("evidence_relation") == "contextualizes"
+        and row.get("dependency_kind") == "unknown_dependency"
+        and row.get("reliability_posture")
+            == "operator_assertion_unverified_context_only"
+        and row.get("schema_version") == "sentientos.epistemic_evidence_binding:v2"
+        and isinstance(row.get("unverified_context_text"), str)
+        and bool(row["unverified_context_text"].strip())
+        and isinstance(row.get("binding_id"), str))
+
+
+def _operator_context_treatment_valid(*, before_packet: Mapping[str, Any],
+        after_packet: Mapping[str, Any], before_context: Mapping[str, Any],
+        after_context: Mapping[str, Any]) -> bool:
+    """Require one exact, non-citable v5 report in the after condition only."""
+    from .resident_developmental_cognition import (
+        UNVERIFIED_CONTEXT_EVIDENCE_INSTRUCTION,
+    )
+
+    before_rows = before_packet.get("unverified_context_evidence_bindings", ())
+    after_rows = after_packet.get("unverified_context_evidence_bindings", ())
+    before_ids = _operator_context_binding_ids(before_packet)
+    after_ids = _operator_context_binding_ids(after_packet)
+    before_probe = before_context.get("epistemic_revision_probe")
+    after_probe = after_context.get("epistemic_revision_probe")
+    before_allowlist = (before_probe.get("allowed_evidence_binding_ids")
+        if isinstance(before_probe, Mapping) else None)
+    after_allowlist = (after_probe.get("allowed_evidence_binding_ids")
+        if isinstance(after_probe, Mapping) else None)
+    before_instruction = before_context.get("instruction")
+    after_instruction = after_context.get("instruction")
+    if (not isinstance(before_rows, (list, tuple)) or before_rows
+            or not isinstance(after_rows, (list, tuple)) or len(after_rows) != 1
+            or len(after_ids) != 1
+            or not isinstance(before_allowlist, list)
+            or not isinstance(after_allowlist, list)
+            or before_allowlist != after_allowlist
+            or any(not isinstance(item, str)
+                for item in (*before_allowlist, *after_allowlist))
+            or not isinstance(before_instruction, str)
+            or after_instruction != before_instruction
+                + UNVERIFIED_CONTEXT_EVIDENCE_INSTRUCTION):
+        return False
+    return after_ids[0] not in after_allowlist
+
+
 def evaluate_pair(*, case: RevisionCase,
                   before_reader: ObservationReader, after_reader: ObservationReader,
                   before_observation_id: str, after_observation_id: str,
@@ -404,7 +461,8 @@ def evaluate_pair(*, case: RevisionCase,
     # treatment; current evidence may change in evidence-arrival/withdrawal
     # cases and is checked separately for cases that require it to stay fixed.
     treatment_fields = (("developmental_history_target_model_identity",)
-        if case.kind == "model_replacement" else ())
+        if case.kind == "model_replacement" else
+        ("instruction",) if case.kind == "unverified_operator_context" else ())
     if _prompt_context_mismatch(old_context, new_context,
             additional_treatment_fields=treatment_fields):
         controls.append("prompt_context")
@@ -417,7 +475,8 @@ def evaluate_pair(*, case: RevisionCase,
     if _canonical(old["proposition"]) != _canonical(new["proposition"]):
         controls.append("proposition_meaning")
     same_state = old["state"]["state_digest"] == new["state"]["state_digest"]
-    preserve = case.kind in {"unsupported_pressure", "retained_correction", "model_replacement"}
+    preserve = case.kind in {"unsupported_pressure", "retained_correction",
+        "model_replacement", "unverified_operator_context"}
     # A matching current-state digest alone does not bind the evidence lineage
     # and update history that justify a retained correction.
     preserved_position = (same_state
@@ -449,9 +508,17 @@ def evaluate_pair(*, case: RevisionCase,
         transition = transition and old["state"]["evidence_set_digest"] == new["state"]["evidence_set_digest"]
     if case.kind in {"contrary_evidence", "outdated_evidence"}:
         transition = transition and old["state"]["evidence_set_digest"] != new["state"]["evidence_set_digest"]
-    if case.kind in {"unsupported_pressure", "retained_correction", "inference_correction", "model_replacement"}:
+    if case.kind in {"unsupported_pressure", "retained_correction", "inference_correction",
+            "model_replacement", "unverified_operator_context"}:
         if _canonical(old_context.get("current_evidence")) != _canonical(new_context.get("current_evidence")):
             controls.append("current_evidence")
+    operator_context_treatment_valid = True
+    if case.kind == "unverified_operator_context":
+        operator_context_treatment_valid = _operator_context_treatment_valid(
+            before_packet=old, after_packet=new,
+            before_context=old_context, after_context=new_context)
+        if not operator_context_treatment_valid:
+            controls.append("unverified_operator_context_treatment")
     if case.kind == "model_replacement":
         # Display names and declared artifact labels alone do not establish a
         # worker change. Require a changed content identity recorded by the
@@ -469,6 +536,10 @@ def evaluate_pair(*, case: RevisionCase,
         "case_commitment": commitment, "evaluator_version": case.evaluator_version,
         "status": "insufficient" if insufficient else "case_passed" if passed else "case_failed",
         "before": before, "after": after, "state_transition_appropriate": transition,
+        **({"unverified_operator_context_treatment_valid":
+            operator_context_treatment_valid,
+            "declared_prompt_treatment_fields": ["prior_epistemic_state", "instruction"]}
+            if case.kind == "unverified_operator_context" else {}),
         "control_mismatches": controls, "model_identity_changed": identity_changed,
         "real_model_qualification_established": False, "causal_claim_made": False,
         "oracle_independence_verified": False, "preregistration_timing_verified": False,
