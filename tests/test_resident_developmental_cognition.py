@@ -9042,6 +9042,7 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     fake.companion_output_by_condition = proposals
     source = snapshot(2)
     compared_owner, _ = owner(tmp_path / "cognition", comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"),
         max_inference_timeout_seconds=90)
     with pytest.raises(ResidentDevelopmentalCognitionError,
             match="history_record_allowlist_not_admitted"):
@@ -9089,6 +9090,38 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert decision_audit[1]["disposition_normalization"] == (
         "history_unavailable_sentinel_means_abstention")
     assert "HISTORY_UNAVAILABLE" not in json.dumps(decision_audit)
+    decision_records = compared_owner.experiments.world_state_records(run_refs=((
+        persisted_run["run_id"], persisted_run["run_digest"]),))
+    assert len(decision_records) == 1
+    decision_world = WorldStateBoardBuilder().build(decision_records)
+    projection_owner, _ = owner(tmp_path / "cognition", invoker=fake,
+        allowed_source_kinds=("embodiment",))
+    decision_writeback = projection_owner.run_tick(snapshot=decision_world,
+        tick_id="companion-decision-projection-writeback")
+    assert decision_writeback.written_record_id
+    assert any(decision_audit[0]["response_digest"] in item.prompt
+        for item in fake.requests)
+    decision_memory = projection_owner.writeback.store.get(
+        decision_writeback.written_record_id)
+    decision_facts = [item for item in decision_memory.candidate["selected_facts"]
+        if item["payload"].get("history_decision_contrast")]
+    assert len(decision_facts) == 1
+    decision_contrast = decision_facts[0]["payload"]["history_decision_contrast"]
+    assert decision_contrast["schema_version"] == "sentientos.history_decision_contrast:v1"
+    assert decision_contrast["classification"] == (
+        "owner_verified_condition_rows_retained_for_interpretation")
+    assert [item["condition_id"] for item in decision_contrast["conditions"]] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert [item["response_digest"] for item in decision_contrast["conditions"]] == [
+        item["response_digest"] for item in decision_audit]
+    assert [item["history_record_ids"] for item in decision_contrast["conditions"]] == [
+        item["history_record_ids"] for item in decision_audit]
+    assert decision_contrast["current_truth"] is False
+    assert decision_contrast["authority"] is False
+    assert decision_contrast["action_executed"] is False
+    assert decision_contrast["performance_improvement_established"] is False
+    assert "HISTORY_UNAVAILABLE" not in json.dumps(decision_contrast)
+    assert "response" not in decision_contrast["conditions"][0]
     assert all(item["snapshot_digest"] == source.digest for item in result.conditions)
     matched_controls = [item["matched_control_inputs"] for item in result.conditions]
     assert matched_controls[0] == matched_controls[1] == matched_controls[2]
@@ -9097,11 +9130,11 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert matched_controls[0]["question_digest"] == "sha256:" + digest_payload({
         "question": "For the synthetic avatar, choose the next pose and predict "
             "its encoder pose. Return JSON with requested_pose and predicted_pose."})
-    assert all(request.budget.timeout_seconds == 90 for request in fake.requests)
     intervention_requests = [request for request in fake.requests
         if request.purpose == "resident_developmental_history_intervention_experiment"
         and request.linkage.get("condition_id") in
             {"history_present", "history_withheld", "history_restored"}]
+    assert all(request.budget.timeout_seconds == 90 for request in intervention_requests)
     assert [request.linkage["condition_id"] for request in intervention_requests] == [
         "history_present", "history_withheld", "history_restored"]
     assert all(item["prompt_digest"] == "sha256:" + request.prompt_digest

@@ -1083,6 +1083,12 @@ class DevelopmentalExperimentStore:
                     "authenticated_owner_receipt_not_independent_backend_observation"),
                 "independent_backend_observation": False,
                 "history_intervention_summary": run["summary"],
+                # Keep the exact, owner-verified decision contrast available to
+                # later cognition. The response text stays private; digests,
+                # dispositions, and citations remain bound to the observation
+                # and invocation receipts validated by load_run().
+                "companion_intervention_decisions": run.get(
+                    "companion_intervention_decisions"),
                 "objective_scores": score_projection,
                 "objective_evaluation": objective_evaluation,
                 "objective_task_descriptor": task_descriptor,

@@ -60,6 +60,15 @@ across matched
 trials, but does not randomize nuisance variables or by itself support a causal
 order-effect estimate. These are bounded associations only.
 
+For companion-decision runs, the verified run projection now carries each
+condition's response digest, normalized and model disposition, and exact
+current-evidence and history citations into the ordinary World-State/writeback
+path. The writeback interpretation projection preserves this text-free contrast
+for later cognition to evaluate. This records which condition produced which
+proposal identity and citations; it does not mark the proposal correct, executed,
+or improved, and it does not establish that later cognition applied the result
+successfully.
+
 For a structured objective task whose descriptor explicitly requires task-family history, the resident owner projects exact, score-bound examples from the requested family with their source-model applicability posture. The record-level natural-language interpretation is omitted from that task-specific prompt, and its separate digest is not sent to the model. The enclosing record and candidate digests continue to bind the omitted source content for audit. Unrelated selected facts and embodiment/security projections are not carried into that scoped packet. Evaluator-correct examples are the only positive mapping evidence. Evaluator-incorrect examples are passed in a separate `prior_incorrect_examples` block explicitly labeled as historical errors, not mapping evidence, current truth, or authority; unknown-correctness rows remain withheld and represented by digest-only omission evidence. The task prompt tells the model not to repeat a failed answer for the same input. The durable record and ordinary history remain unchanged.
 
 Outcome posture affects retrieval priority only when the restored score matches the history-present score. A favorable present-vs-withheld contrast with failed restoration is ranked as tentative history, below restoration-stable favorable evidence. Exact evaluator-correct examples remain available with their source and uncertainty qualifiers; the unstable comparison does not establish a repeatable history effect.
