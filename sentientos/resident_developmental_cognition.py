@@ -65,7 +65,7 @@ from .windows_peer_replay_custody import (
     WindowsReplayCustodyError, publish_immutable_replay_bytes,
 )
 from .platform_fcntl import fcntl, require_flock
-from .longitudinal_self_model import CognitiveSelfModelProjection
+from .longitudinal_self_model import CognitiveSelfModelProjection, FALSE_AUTHORITY
 from .persistent_epistemic_state import (EpistemicCognitiveProjection,
     MeaningBearingEpistemicCognitiveProjection, semantic_packets_for_projection,
     validate_cognitive_projection)
@@ -5186,9 +5186,46 @@ def _asks_about_present_condition(question: str) -> bool:
         or _IMPLICIT_CURRENT_CONDITION_QUESTION_MARKER.search(question) is not None)
 
 
+def _cited_historical_self_model_note(
+        decision: Mapping[str, Any], *,
+        prior_self_model: CognitiveSelfModelProjection | None) -> str | None:
+    if prior_self_model is None:
+        return None
+    cited_ids = set(decision.get("self_model_claim_ids", ()))
+    for claim in prior_self_model.selected_claims:
+        if not isinstance(claim, Mapping) or claim.get("claim_id") not in cited_ids:
+            continue
+        authority = claim.get("authority")
+        if (claim.get("status") != "historical"
+                or claim.get("claim_category") != "historical_interpretation"
+                or claim.get("current_truth") is not False
+                or claim.get("interpretation") is not True
+                or not isinstance(authority, Mapping)
+                or set(authority) != set(FALSE_AUTHORITY)
+                or any(authority[key] is not False for key in FALSE_AUTHORITY)):
+            continue
+        predicate = claim.get("predicate")
+        if not isinstance(predicate, str) or not predicate or len(predicate) > 128:
+            continue
+        try:
+            encoded_value = json.dumps(claim.get("value"), sort_keys=True,
+                separators=(",", ":"), ensure_ascii=False)
+        except (TypeError, ValueError):
+            continue
+        if len(encoded_value) > 320:
+            continue
+        encoded_predicate = json.dumps(predicate, ensure_ascii=False)
+        return (f"A prior self-model record lists {encoded_predicate} = {encoded_value}. "
+            "That record is historical and does not establish the current condition. "
+            "Could you provide a fresh observation so I can compare it?")
+    return None
+
+
 def _normalize_present_answer_for_source_freshness(
         decision: Mapping[str, Any], *, question: str,
-        current: CurrentWorldStateCognitiveProjection) -> dict[str, Any]:
+        current: CurrentWorldStateCognitiveProjection,
+        prior_self_model: CognitiveSelfModelProjection | None = None
+        ) -> dict[str, Any]:
     """Require cited current evidence before answering explicitly present questions."""
     normalized = dict(decision)
     if (normalized.get("disposition") != "answer"
@@ -5211,12 +5248,14 @@ def _normalize_present_answer_for_source_freshness(
             nonfresh_citations.append(str(fact.get("fact_id")))
 
     if not cited_current_facts or nonfresh_citations:
+        historical_note = _cited_historical_self_model_note(
+            normalized, prior_self_model=prior_self_model)
         normalized.update({
             "model_disposition": "answer",
             "disposition": "ask",
             "disposition_normalization": (
                 "present_condition_requires_fresh_cited_current_evidence"),
-            "response": (
+            "response": historical_note or (
                 "I do not have a fresh, cited observation that establishes the current "
                 "condition. Could you provide a fresh observation?"),
         })
@@ -9317,7 +9356,8 @@ class ResidentDevelopmentalCognitionOwner:
                         "conversation_turn_ids": [],
                     }
                 decision = _normalize_present_answer_for_source_freshness(
-                    decision, question=interaction_question, current=current)
+                    decision, question=interaction_question, current=current,
+                    prior_self_model=prior_self_model)
             except (TypeError, ValueError, json.JSONDecodeError) as exc:
                 raise ResidentDevelopmentalCognitionError(
                     "companion_interaction_decision_invalid") from exc
