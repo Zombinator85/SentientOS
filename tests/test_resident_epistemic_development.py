@@ -1,17 +1,26 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
 
 from sentientos.codex_task_authority_admission import (
+    AUTHORITY_DEFINITIONS,
     RESIDENT_EPISTEMIC_STATE_MUTATION,
     RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    authority_definition_digest,
+)
+from sentientos.resident_epistemic_calibration_authority import (
+    CALIBRATION_REVIEW_EFFECTS,
+    RESIDENT_EPISTEMIC_CALIBRATION_REVIEW,
+    RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION,
 )
 from sentientos.persistent_epistemic_state import (
-    PersistentEpistemicStateOwner, make_epistemic_update_candidate, make_proposition,
+    PersistentEpistemicStateOwner, make_epistemic_update_candidate,
+    make_proposition, semantic_packets_for_projection,
 )
 from sentientos.embodiment_self_observation import EmbodimentEvidenceOwner, EmbodimentObservation
 from sentientos.resident_epistemic_development import (
@@ -37,7 +46,15 @@ pytestmark = pytest.mark.no_legacy_skip
 NOW = "2026-09-28T12:00:00+00:00"
 
 
-def fixture(tmp_path, *, relation="supports", disposition="nominal"):
+def test_calibration_review_definition_is_not_registered_without_operator_approval():
+    assert RESIDENT_EPISTEMIC_CALIBRATION_REVIEW not in AUTHORITY_DEFINITIONS
+    assert authority_definition_digest(
+        RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION) == (
+            "d36226d1f3486bfcf24951c818772af744683c4523aa96190f47aa8fd076f285")
+
+
+def fixture(tmp_path, *, relation="supports", disposition="nominal",
+        calibration_review=False):
     owner = PersistentEpistemicStateOwner(tmp_path / "epistemics", allowed_namespaces=("operator",))
     proposition = make_proposition(namespace="operator", subject="service-a", predicate="is_nominal",
         object_value=True, polarity="positive", qualifiers={}, temporal_scope={}, context_scope={},
@@ -45,6 +62,9 @@ def fixture(tmp_path, *, relation="supports", disposition="nominal"):
     owner.register_proposition(proposition)
     ledger = AdmissionLedger(tmp_path / "admissions.json")
     definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION: RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+    if calibration_review:
+        definitions[RESIDENT_EPISTEMIC_CALIBRATION_REVIEW] = (
+            RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION)
     def current():
         admissions, revocations = ledger.load()
         return max([x.issued_sequence for x in admissions] + [x.sequence for x in revocations], default=1)
@@ -58,7 +78,9 @@ def fixture(tmp_path, *, relation="supports", disposition="nominal"):
     runtime = ResidentEpistemicDevelopmentRuntime(config=config, owner=owner,
         mutation_controller=controller,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
-        admission_ledger=ledger)
+        admission_ledger=ledger,
+        calibration_review_verifier=(RuntimeAdmissionVerifier(
+            definitions=definitions, ledger=ledger) if calibration_review else None))
     return owner, proposition, ledger, runtime
 
 
@@ -81,6 +103,132 @@ def test_one_tick_evidence_and_state_mutation_uses_distinct_admissions(tmp_path)
     assert len(admissions) == 2 and admissions[0].admission_id != admissions[1].admission_id
     assert set(admissions[0].effects).isdisjoint(set(admissions[1].effects) - {"exact_epistemic_proposition_read", "epistemic_mutation_receipt_write", "read_only_epistemic_post_mutation_verification"})
     assert state.evidence_set_digest
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="epistemic-owner fixtures require hosted Linux durable-custody paths")
+@pytest.mark.parametrize("outcome_relation", ["contradicts", "supports"])
+def test_calibration_review_is_admitted_before_prior_context_exposes_outcome(
+        tmp_path, outcome_relation):
+    owner, proposition, ledger, runtime = fixture(
+        tmp_path, calibration_review=True)
+    forecast = runtime.process_snapshot(snapshot(), tick=1,
+        recorded_at="2026-09-28T12:00:00+00:00")
+    forecast_state = owner.current_state(proposition.proposition_id)
+    assert forecast.status == "state_advanced"
+    assert forecast_state is not None
+
+    outcome_time = "2026-09-28T12:01:00+00:00"
+    runtime.config = replace(runtime.config, rules=(replace(
+        runtime.config.rules[0],
+        selector={"source_kind": "runtime_supervisor",
+            "subject_id": "service-a", "stage": "observation",
+            "disposition": "degraded"},
+        evidence_relation=outcome_relation,
+        dependency_kind="independently_sourced_observation",
+        independence_basis="separate deterministic outcome fixture"),))
+    outcome_snapshot = snapshot(disposition="degraded",
+        source_id="supervisor-outcome", observed_at=outcome_time)
+    outcome = runtime.process_snapshot(outcome_snapshot, tick=2,
+        recorded_at=outcome_time)
+    assert outcome.status == "state_advanced"
+    outcome_state = owner.current_state(proposition.proposition_id)
+    assert outcome_state is not None and outcome_state.stance == "contested"
+    [outcome_binding] = [item for item in owner.bindings(
+        proposition.proposition_id)
+        if item.dependency_group == "separate deterministic outcome fixture"]
+
+    calibration = owner.record_calibration(
+        proposition_id=proposition.proposition_id,
+        forecast_artifact_id="forecast-artifact-exact",
+        forecast_state_digest=forecast_state.state_digest,
+        observed_outcome_id="outcome-exact",
+        comparison_result="contradicted",
+        source_binding_ids=(outcome_binding.binding_id,),
+        resolved_at="2026-09-28T12:02:00+00:00")
+
+    before_review = owner.cognitive_projection(max_states=1,
+        current_tick=1790597100)
+    assert before_review is not None
+    [before_packet] = semantic_packets_for_projection(before_review)
+    assert before_packet["calibration_outcomes"] == []
+    assert before_packet["omitted_calibration_count"] == 1
+
+    reviewed = runtime.process_calibration_event(
+        calibration_id=calibration.calibration_id,
+        expected_calibration_digest=calibration.calibration_digest,
+        rule_id="service-nominal", tick=3,
+        recorded_at="2026-09-28T12:03:00+00:00")
+    if outcome_relation == "supports":
+        assert reviewed.status == "calibration_unresolved"
+        unchanged = owner.current_state(proposition.proposition_id)
+        assert unchanged is not None and unchanged.generation == 1
+        assert not any(event.reason == "calibration_outcome"
+            for event in owner.update_events(proposition.proposition_id))
+        after_mismatch = owner.cognitive_projection(max_states=1,
+            current_tick=1790597100)
+        assert after_mismatch is not None
+        [mismatched_packet] = semantic_packets_for_projection(after_mismatch)
+        assert mismatched_packet["calibration_outcomes"] == []
+        assert mismatched_packet["omitted_calibration_count"] == 1
+        admissions, _ = ledger.load()
+        assert not any(item.capability_id == RESIDENT_EPISTEMIC_CALIBRATION_REVIEW
+            for item in admissions)
+        return
+    assert reviewed.status == "state_advanced"
+    current_state = owner.current_state(proposition.proposition_id)
+    assert current_state is not None and current_state.generation == 2
+    assert current_state.stance == "contested"
+    [calibration_update] = [event for event in owner.update_events(
+        proposition.proposition_id) if event.reason == "calibration_outcome"]
+    assert calibration_update.correlation_id == (
+        f"calibration-review:{calibration.calibration_id}:"
+        f"{calibration.calibration_digest}")
+
+    after_review = owner.cognitive_projection(max_states=1,
+        current_tick=1790597100)
+    assert after_review is not None
+    [after_packet] = semantic_packets_for_projection(after_review)
+    assert after_packet["calibration_outcomes"][0][
+        "calibration_id"] == calibration.calibration_id
+    assert after_packet["calibration_outcomes"][0][
+        "evidence_consistency"] == "consistent_with_bound_current_evidence"
+    assert after_packet["state"]["generation"] == 2
+
+    admissions, _ = ledger.load()
+    review_admission = next(item for item in admissions
+        if item.capability_id == RESIDENT_EPISTEMIC_CALIBRATION_REVIEW)
+    state_admission = admissions[-1]
+    assert state_admission.capability_id == RESIDENT_EPISTEMIC_STATE_MUTATION
+    assert set(review_admission.effects) == set(CALIBRATION_REVIEW_EFFECTS)
+    assert set(review_admission.effects).isdisjoint(state_admission.effects)
+
+    recovered_owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("operator",))
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered_owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions={RESIDENT_EPISTEMIC_STATE_MUTATION:
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+                RESIDENT_EPISTEMIC_CALIBRATION_REVIEW:
+                RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION},
+            ledger=ledger),
+        current_sequence=lambda: max(item.issued_sequence
+            for item in ledger.load()[0]),
+        receipt_root=tmp_path / "receipts")
+    assert recovered_controller.verify_receipts()["status"] == "verified"
+    repeated = ResidentEpistemicDevelopmentRuntime(
+        config=runtime.config, owner=recovered_owner,
+        mutation_controller=recovered_controller,
+        admission_authority=runtime.authority, admission_ledger=ledger,
+        calibration_review_verifier=runtime.calibration_review_verifier)
+    again = repeated.process_calibration_event(
+        calibration_id=calibration.calibration_id,
+        expected_calibration_digest=calibration.calibration_digest,
+        rule_id="service-nominal", tick=4,
+        recorded_at="2026-09-28T12:04:00+00:00")
+    assert again.status == "already_applied"
+    assert recovered_owner.current_state(proposition.proposition_id).generation == 2
 
 
 def test_unverified_operator_feedback_cannot_drive_directional_epistemic_update(

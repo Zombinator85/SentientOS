@@ -814,22 +814,11 @@ def test_question_relevant_projection_carries_bounded_prior_calibrations_after_r
         states[west.proposition_id].state_id)
     [packet] = semantic_packets_for_projection(projection)
     outcomes = packet["calibration_outcomes"]
-    assert len(outcomes) == 16
-    assert [item["observed_outcome_id"] for item in outcomes] == [
-        f"outcome-west-{minute}" for minute in range(3, 19)]
-    assert all(item["comparison_result"] == "contradicted"
-        and item["authority"] == FALSE_AUTHORITY for item in outcomes)
-    assert all(item["evidence_consistency"] ==
-        "unresolved_against_bound_evidence" for item in outcomes)
-    assert packet["omitted_calibration_count"] == 2
+    assert outcomes == []
+    assert packet["omitted_calibration_count"] == 18
     assert packet["omitted_calibration_identity_digest"].startswith("sha256:")
-    assert all(item["observed_outcome_id"] != "outcome-west-future"
-        for item in outcomes)
-    assert all(item["proposition_id"] == west.proposition_id for item in outcomes)
-    assert {item["binding_id"] for item in packet[
-        "calibration_evidence_bindings"]} == {
-            binding_id for event in outcomes
-            for binding_id in event["source_binding_ids"]}
+    assert packet["calibration_evidence_bindings"] == []
+    assert len(recovered.calibration_events(west.proposition_id)) == 19
     validate_cognitive_projection(projection, require_meaning=True)
     unprioritized = recovered.cognitive_projection(max_states=1,
         current_tick=1767227400)

@@ -71,6 +71,15 @@ restored, while keeping answer text fixed.
 
 Embodied prediction and maintenance post-adoption comparisons can be adapted only through explicit evidence adapters. Matching observations support and mismatches contradict; renderer/model self-report cannot masquerade as independent corroboration. Calibration custody resolves the exact forecast state, requires that it belongs to the same proposition and predates resolution, and requires proposition-owned source bindings. A foreign proposition's state or binding cannot be smuggled into calibration merely because it exists in custody.
 
+Calibration records enter a meaning-bearing cognitive projection only after
+their exact calibration ID and digest are linked to a `calibration_outcome`
+update event. Unreviewed records contribute only to a bounded omitted-identity
+count; their label and outcome text remain unavailable to later reasoning. The
+proposed calibration-review definition is not registered in the canonical
+authority catalog yet, so the runtime review path currently fails closed unless
+an explicitly injected review authority is available. See the
+[calibration runtime authority proposal](../development/resident_epistemic_calibration_runtime_authority_proposal.md).
+
 Runtime construction is inert unless `SENTIENTOS_EPISTEMIC_STATE_CONFIG` names an explicit custody root, namespace allowlist, projection bound, and cognition-consumption switch. Read-only queries are available through owner methods (`proposition`, `bindings`, `current_state`, and `verify`); mutation remains controller-only.
 
 ## Existing surfaces

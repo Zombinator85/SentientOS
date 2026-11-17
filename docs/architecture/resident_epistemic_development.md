@@ -294,18 +294,21 @@ outcomes revise the underlying knowledge state appropriately. The next cognition
 milestone should evaluate that feedback and revision loop.
 
 Epistemic calibration records were previously durable but absent from later
-cognitive projections. Meaning-bearing projections now include up to 16
-chronologically latest calibration outcomes per selected proposition, together
-with any source evidence bindings not already present in that proposition's
+Meaning-bearing projections now expose up to 16 chronologically latest
+calibration outcomes per selected proposition only after an exact
+`calibration_outcome` update event binds the calibration ID and digest. An
+unreviewed event contributes only to a bounded omitted-identity count; its
+comparison label and outcome text do not reach cognition. Reviewed outcomes
+include any source evidence bindings not already present in that proposition's
 state history. Projection validation joins each outcome to its forecast state
 and source evidence, excludes outcomes at or after the cognition tick, and
-digest-binds the omitted older records. The resident instruction treats these
-as historical forecast comparisons that can qualify confidence, not as current
-truth or authority. A restart counterfactual checks that a contradicted forecast
-changes a later resident response when its calibration is delivered, while the
-underlying epistemic state remains unchanged. These are deterministic owner and
-controlled-responder results; real-model use of calibration history remains
-unverified. A follow-up counterfactual showed that the stored comparison label
+digest-binds omitted records. The resident instruction treats exposed outcomes
+as historical forecast comparisons that can qualify a decision, not as current
+truth or authority. Previously, a controlled-responder counterfactual showed
+that a contradicted forecast can change a later response when delivered, while
+the underlying epistemic state remained unchanged. These are deterministic
+owner and controlled-responder results; real-model use of calibration history
+remains unverified. A follow-up counterfactual showed that the stored comparison label
 could disagree with the cited binding's relation. Semantic packets now derive
 `evidence_consistency` from all cited bindings: only a complete set of current,
 non-withdrawn, dependency-resolved bindings with a matching support or
@@ -317,9 +320,15 @@ restart-backed controlled-responder counterfactual confirms the matching
 contradiction changes the later response while a mismatched label does not.
 The persisted-owner composition is exercised in hosted Linux validation; the
 local Windows checkout can run the pure classification test but not that
-durable-custody fixture. This is evidence-consistency checking, not independent verification of the
-underlying outcome; model interpretation and real-world calibration remain
-unproven.
+durable-custody fixture. The new runtime review path verifies one exact event,
+forecast state, and active outcome bindings, obtains a calibration-review
+admission to construct a proposal, then requires the existing separate
+state-update admission and CAS. Its candidate definition is not registered in
+the canonical authority catalog pending operator approval; production review
+therefore fails closed. The focused restart integration is still required in
+hosted Linux before this composition is established. This is
+evidence-consistency checking, not independent verification of the underlying
+outcome; model interpretation and real-world calibration remain unproven.
 
 ## Explicitly retained user context in resident serving
 

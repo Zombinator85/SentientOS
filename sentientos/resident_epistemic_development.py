@@ -17,15 +17,26 @@ from .codex_task_authority_admission import (
     RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
 )
 from .persistent_epistemic_state import (
-    EpistemicStateError, EvidenceBinding, PersistentEpistemicStateOwner,
+    EpistemicCalibrationEvent, EpistemicStateError, EvidenceBinding,
+    PersistentEpistemicStateOwner, _calibration_evidence_consistency, digest,
     evidence_posture, make_epistemic_update_candidate, make_evidence_binding,
+    calibration_review_correlation_id,
+)
+from .resident_epistemic_calibration_authority import (
+    CALIBRATION_REVIEW_EFFECTS,
+    RESIDENT_EPISTEMIC_CALIBRATION_REVIEW,
+    RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION,
+    RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_PRINCIPAL,
 )
 from .resident_epistemic_state_mutation import (
     EVIDENCE_BINDING_EFFECTS, PRINCIPAL, STATE_UPDATE_EFFECTS,
     ResidentEpistemicStateMutationController,
     make_epistemic_evidence_source_proof,
 )
-from .runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority
+from .runtime_admission import (
+    AdmissionError, AdmissionLedger, RuntimeAdmissionAuthority,
+    RuntimeAdmissionVerifier,
+)
 from .world_state_board import WorldStateFact, WorldStateSnapshot, validate_snapshot
 from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
@@ -148,11 +159,13 @@ class ResidentEpistemicDevelopmentRuntime:
                  owner: PersistentEpistemicStateOwner,
                  mutation_controller: ResidentEpistemicStateMutationController,
                  admission_authority: RuntimeAdmissionAuthority,
-                 admission_ledger: AdmissionLedger) -> None:
+                 admission_ledger: AdmissionLedger,
+                 calibration_review_verifier: RuntimeAdmissionVerifier | None = None) -> None:
         _validate_config(config)
         self.config, self.owner = config, owner
         self.controller, self.authority = mutation_controller, admission_authority
         self.ledger = admission_ledger
+        self.calibration_review_verifier = calibration_review_verifier
         for rule in config.rules:
             proposition = owner.proposition(rule.proposition_id)
             if proposition.proposition_digest != rule.proposition_digest:
@@ -1109,6 +1122,177 @@ class ResidentEpistemicDevelopmentRuntime:
         return EpistemicDevelopmentFeedback("state_advanced", run_id, 1, 1,
             len(evidence_receipts), 1, evidence_receipts, (state_receipt.receipt_id,),
             (state_receipt.successor_state_id,), (state_receipt.generation,))
+
+    def process_calibration_event(self, *, calibration_id: str,
+            expected_calibration_digest: str, rule_id: str, tick: int,
+            recorded_at: str) -> EpistemicDevelopmentFeedback:
+        """Review one exact calibration, then separately admit its state update.
+
+        The calibration review definition is intentionally absent from the
+        canonical authority catalog pending operator registration. Production
+        calls therefore fail closed until that exact capability is registered
+        and supplied to both the issuer and verifier.
+        """
+        rules = [rule for rule in self.config.rules if rule.rule_id == rule_id]
+        if not self.config.enabled or len(rules) != 1:
+            raise EpistemicDevelopmentError("calibration_review_rule_invalid")
+        if self.calibration_review_verifier is None:
+            raise EpistemicDevelopmentError(
+                "calibration_review_authority_unregistered")
+        rule = rules[0]
+        proposition = self.owner.proposition(rule.proposition_id)
+        if proposition.proposition_digest != rule.proposition_digest:
+            raise EpistemicDevelopmentError("proposition_digest_mismatch")
+        try:
+            self.owner.verify()
+            recovery = self.controller.verify_receipts()
+        except (EpistemicStateError, ValueError) as exc:
+            raise EpistemicDevelopmentError(
+                "calibration_review_custody_unverified") from exc
+        if recovery.get("status") != "verified":
+            raise EpistemicDevelopmentError(
+                "epistemic_mutation_recovery_incomplete")
+        events = [item for item in self.owner.calibration_events(
+            rule.proposition_id) if item.calibration_id == calibration_id]
+        if len(events) != 1:
+            raise EpistemicDevelopmentError(
+                "calibration_event_missing_or_ambiguous")
+        calibration = events[0]
+        if calibration.calibration_digest != expected_calibration_digest:
+            raise EpistemicDevelopmentError("calibration_event_digest_mismatch")
+        forecast = self.owner.state_by_digest(calibration.forecast_state_digest)
+        current = self.owner.current_state(rule.proposition_id)
+        if (forecast is None or current is None
+                or forecast.proposition_id != rule.proposition_id
+                or forecast.generation >= current.generation):
+            raise EpistemicDevelopmentError(
+                "calibration_forecast_not_superseded_by_outcome_state")
+        try:
+            event_time = datetime.fromisoformat(
+                calibration.resolved_at.replace("Z", "+00:00"))
+            update_time = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+            if (event_time.tzinfo is None or update_time.tzinfo is None
+                    or event_time.utcoffset() is None or update_time.utcoffset() is None
+                    or event_time >= update_time):
+                raise ValueError("calibration_event_not_before_update")
+            self.owner.validate_update_timestamp(tick=tick,
+                recorded_at=recorded_at)
+        except (EpistemicStateError, OverflowError, OSError, ValueError) as exc:
+            raise EpistemicDevelopmentError(
+                "calibration_event_chronology_invalid") from exc
+
+        binding_by_id = {item.binding_id: item for item in
+            self.owner.bindings(rule.proposition_id)}
+        active_ids = self.owner.active_binding_ids(rule.proposition_id)
+        if (not calibration.source_binding_ids
+                or any(binding_id not in binding_by_id
+                    or binding_id not in active_ids
+                    for binding_id in calibration.source_binding_ids)):
+            raise EpistemicDevelopmentError(
+                "calibration_outcome_binding_not_active")
+        outcome_bindings = {binding_id: binding_by_id[binding_id]
+            for binding_id in calibration.source_binding_ids}
+        consistency = _calibration_evidence_consistency(
+            asdict(calibration), outcome_bindings)
+        if consistency != "consistent_with_bound_current_evidence":
+            return EpistemicDevelopmentFeedback(
+                "calibration_unresolved", calibration.calibration_id,
+                1, 1, 0, 0, (), (), (), (),
+                recovery_status=str(recovery.get("status", "verified")))
+        correlation_id = calibration_review_correlation_id(
+            calibration.calibration_id, calibration.calibration_digest)
+        if any(event.reason == "calibration_outcome"
+                and event.correlation_id == correlation_id
+                for event in self.owner.update_events(rule.proposition_id)):
+            return EpistemicDevelopmentFeedback(
+                "already_applied", calibration.calibration_id, 1, 1,
+                0, 0, (), (), (), (),
+                recovery_status=str(recovery.get("status", "verified")))
+
+        active_bindings = tuple(binding_by_id[item] for item in active_ids)
+        if len(active_bindings) > MAX_ACTIVE_EVIDENCE:
+            raise EpistemicDevelopmentError("active_evidence_bound_exceeded")
+        posture = evidence_posture(active_bindings)
+        stance = {"support_only": "provisionally_supported",
+            "contradiction_only": "provisionally_contradicted",
+            "mixed": "contested", "all_evidence_stale": "suspended"}.get(
+                str(posture["posture"]))
+        if stance is None:
+            return EpistemicDevelopmentFeedback(
+                "calibration_unresolved", calibration.calibration_id,
+                1, 1, 0, 0, (), (), (), (),
+                recovery_status=str(recovery.get("status", "verified")))
+        review_request = {
+            "calibration_id": calibration.calibration_id,
+            "calibration_digest": calibration.calibration_digest,
+            "forecast_state_digest": forecast.state_digest,
+            "current_state_digest": current.state_digest,
+            "source_binding_ids": list(calibration.source_binding_ids),
+            "source_binding_digests": [binding_by_id[item].binding_digest
+                for item in calibration.source_binding_ids],
+            "active_binding_ids": list(active_ids),
+            "proposed_stance": stance,
+            "evidence_consistency": consistency,
+        }
+        configuration_digest = digest(review_request)
+        try:
+            review_admission = self.authority.issue_next(
+                admission_id_for_sequence=lambda sequence:
+                    f"epistemic-calibration-review-{tick}-{sequence}",
+                capability_id=RESIDENT_EPISTEMIC_CALIBRATION_REVIEW,
+                definition_version=1, subsystem_kind="epistemics",
+                principal_id=RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_PRINCIPAL,
+                principal_kind=RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_PRINCIPAL,
+                effects=CALIBRATION_REVIEW_EFFECTS,
+                subject_id=calibration.calibration_id,
+                request_configuration_digest=configuration_digest,
+                provenance=calibration.calibration_digest,
+                affirmative_preconditions=(
+                    RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION
+                    .approval_requirements))
+        except AdmissionError as exc:
+            raise EpistemicDevelopmentError(
+                "calibration_review_authority_unregistered") from exc
+        admissions, revocations = self.ledger.load()
+        current_sequence = max([item.issued_sequence for item in admissions]
+            + [item.sequence for item in revocations], default=1)
+        for effect in CALIBRATION_REVIEW_EFFECTS:
+            self.calibration_review_verifier.verify(review_admission,
+                current_sequence=current_sequence,
+                capability_id=RESIDENT_EPISTEMIC_CALIBRATION_REVIEW,
+                principal_id=RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_PRINCIPAL,
+                effect=effect, subject_id=calibration.calibration_id,
+                request_configuration_digest=configuration_digest)
+
+        candidate = make_epistemic_update_candidate(
+            proposition_id=rule.proposition_id,
+            predecessor_state_digest=current.state_digest,
+            proposed_stance=stance, evidence_binding_ids=active_ids,
+            reason="calibration_outcome",
+            rationale=(f"Admitted calibration review {review_admission.admission_id} "
+                f"{calibration.calibration_id} is consistent with its exact current "
+                "outcome bindings; stance derives from the complete active evidence "
+                f"posture {posture['posture']} and remains provisional."),
+            uncertainty="high" if posture["dependency_unresolved"] else "medium",
+            model_id=None, proposer_kind="deterministic_rule",
+            proposer_id=rule_id)
+        operation = f"{tick}:{rule_id}:{calibration.calibration_id}:state"
+        state_configuration = self.controller.state_configuration_digest(
+            candidate=candidate, operation_id=operation)
+        state_admission = self._issue(
+            admission_id=f"epistemic-calibration-state-{tick}-{candidate.candidate_id}",
+            effects=STATE_UPDATE_EFFECTS, subject_id=candidate.candidate_id,
+            configuration_digest=state_configuration,
+            provenance=correlation_id)
+        receipt = self.controller.commit_update_candidate(
+            candidate=candidate, admission=state_admission,
+            operation_id=operation, correlation_id=correlation_id,
+            tick=tick, recorded_at=recorded_at)
+        return EpistemicDevelopmentFeedback(
+            "state_advanced", calibration.calibration_id, 1, 1, 0, 1,
+            (), (receipt.receipt_id,), (receipt.successor_state_id,),
+            (receipt.generation,), recovery_status=str(
+                self.controller.recovery_status.get("status", "verified")))
 
     def process_snapshot(self, snapshot: WorldStateSnapshot, *, tick: int,
                          recorded_at: str,

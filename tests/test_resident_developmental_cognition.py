@@ -8600,13 +8600,10 @@ def test_epistemic_only_prior_context_causes_real_owner_cognition(tmp_path: Path
 
 @pytest.mark.skipif(os.name == "nt",
     reason="epistemic-owner fixtures require hosted Linux durable-custody paths")
-@pytest.mark.parametrize(("outcome_relation", "expected_posture"), [
-    ("contradicts", "consistent_with_bound_current_evidence"),
-    ("supports", "unresolved_against_bound_evidence"),
-])
-def test_calibrated_epistemic_outcome_changes_later_resident_decision(
+@pytest.mark.parametrize("outcome_relation", ["contradicts", "supports"])
+def test_unreviewed_calibration_outcome_does_not_change_later_resident_decision(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-        outcome_relation: str, expected_posture: str) -> None:
+        outcome_relation: str) -> None:
     from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
     from sentientos.persistent_epistemic_state import make_evidence_binding
 
@@ -8722,16 +8719,10 @@ def test_calibrated_epistemic_outcome_changes_later_resident_decision(
         "semantic_packets"]
     assert "calibration_outcomes" not in control_prompt[
         "prior_epistemic_state"]["semantic_packets"][0]
-    assert calibrated_packet["calibration_outcomes"][0][
-        "observed_outcome_id"] == "observed-outcome-1"
-    assert calibrated_packet["calibration_outcomes"][0][
-        "evidence_consistency"] == expected_posture
-    if outcome_relation == "contradicts":
-        assert "bound outcome" in calibrated.response
-        assert calibrated.response != control.response
-    else:
-        assert "reliability remains unresolved" in calibrated.response
-        assert calibrated.response == control.response
+    assert calibrated_packet["calibration_outcomes"] == []
+    assert calibrated_packet["omitted_calibration_count"] == 1
+    assert "reliability remains unresolved" in calibrated.response
+    assert calibrated.response == control.response
     assert calibrated_request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
     assert control_request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
     assert "evidence_consistency is consistent_with_bound_current_evidence" in (
