@@ -271,7 +271,7 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         "sentientos.local_operator_feedback:v3"
         if conversation_session_id is not None else
         "sentientos.local_operator_feedback:v2")
-    semantic = {
+    semantic: dict[str, Any] = {
         "schema_version": schema_version,
         "request_id": request_id,
         "assistant_turn_id": assistant_turn_id,
