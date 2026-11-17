@@ -1360,7 +1360,7 @@ class ResidentEpistemicDevelopmentRuntime:
         if (not isinstance(excluded_fact_ids, frozenset)
                 or any(not isinstance(item, str) or not item for item in excluded_fact_ids)):
             raise EpistemicDevelopmentError("excluded_world_state_fact_selection_invalid")
-        matches = []
+        matches: list[tuple[EpistemicDevelopmentRule, WorldStateFact]] = []
         for fact in snapshot.facts:
             if fact.fact_id in excluded_fact_ids:
                 continue
