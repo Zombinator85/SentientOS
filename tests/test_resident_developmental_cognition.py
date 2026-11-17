@@ -2440,6 +2440,7 @@ def test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context
             "selected_facts": [], "selected_sources": []},
         "created_at": "fixture-time",
         "epistemic_posture": "historical_interpretation_not_current_truth"}
+    base_instruction = cognition_module.EXPERIMENT_CONTEXT_INSTRUCTION
     stable_packet = cognition_module._history_context_packet(record,
         task_family_id="integer_affine_prediction",
         target_model_identity=identity)
@@ -2448,12 +2449,13 @@ def test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context
     assert stable_strategy["relation"] == "output = 3 * input + 1"
     stable_context, _, stable_prompt, _, _ = (
         cognition_module._bind_history_and_epistemic_context(
-            context={"instruction": "Use score-bound history within its exact scope.",
+            context={"instruction": base_instruction,
                 "developmental_history_task_family_id": "integer_affine_prediction",
                 "developmental_history_task_family_history_required": True,
                 "developmental_history_target_model_identity": identity},
             records=(record,), projection=None))
     assert stable_strategy["relation"] in stable_prompt
+    assert "Do not reconstruct or apply that candidate relation" not in stable_prompt
     assert cognition_module._task_family_history_prompt_projection(
         stable_context, condition_id="history_present",
         task_family_id="integer_affine_prediction")[
@@ -2461,7 +2463,7 @@ def test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context
 
     unsettled_group = (experience["source_task_digest"], identity_digest)
     context, _, prompt, _, _ = cognition_module._bind_history_and_epistemic_context(
-        context={"instruction": "Use score-bound history within its exact scope.",
+        context={"instruction": base_instruction,
             "developmental_history_task_family_id": "integer_affine_prediction",
             "developmental_history_task_family_history_required": True,
             "developmental_history_target_model_identity": identity},
@@ -2474,6 +2476,8 @@ def test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context
     assert projected["examples"] == experience["examples"]
     assert stable_strategy["relation"] not in prompt
     assert "withheld_unsettled_score_bound_outcomes" in prompt
+    assert "Do not reconstruct or apply that candidate relation" in prompt
+    assert "wait for new comparable evidence or abstain" in prompt
     prompt_projection = cognition_module._task_family_history_prompt_projection(
         context, condition_id="history_present",
         task_family_id="integer_affine_prediction")
