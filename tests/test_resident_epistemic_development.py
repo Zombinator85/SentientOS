@@ -127,13 +127,21 @@ def test_calibration_review_is_admitted_before_prior_context_exposes_outcome(
         evidence_relation=outcome_relation,
         dependency_kind="independently_sourced_observation",
         independence_basis="separate deterministic outcome fixture"),))
-    outcome_snapshot = snapshot(disposition="degraded",
-        source_id="supervisor-outcome", observed_at=outcome_time)
+    outcome_snapshot = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(outcome_time)).build([{
+            "source_kind": "runtime_supervisor",
+            "source_id": "supervisor-outcome",
+            "subject_kind": "service", "subject_id": "service-a",
+            "stage": "observation", "disposition": "degraded",
+            "observed_at": outcome_time, "payload": {"check": "degraded"},
+        }])
     outcome = runtime.process_snapshot(outcome_snapshot, tick=2,
         recorded_at=outcome_time)
     assert outcome.status == "state_advanced"
     outcome_state = owner.current_state(proposition.proposition_id)
-    assert outcome_state is not None and outcome_state.stance == "contested"
+    assert outcome_state is not None and outcome_state.stance == (
+        "contested" if outcome_relation == "contradicts"
+        else "provisionally_supported")
     [outcome_binding] = [item for item in owner.bindings(
         proposition.proposition_id)
         if item.dependency_group == "separate deterministic outcome fixture"]

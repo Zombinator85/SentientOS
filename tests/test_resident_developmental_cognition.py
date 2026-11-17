@@ -8702,7 +8702,7 @@ def test_admitted_calibration_changes_later_decision_only_when_evidence_agrees(
         expected_predecessor_digest=state.state_digest,
         stance=("contested" if outcome_relation == "contradicts"
             else "provisionally_supported"),
-        reason="evidence_observation",
+        reason="new_evidence",
         active_binding_ids=(forecast_evidence.binding_id,
             outcome_evidence.binding_id),
         added_binding_ids=(outcome_evidence.binding_id,),
