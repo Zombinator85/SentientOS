@@ -171,6 +171,37 @@ def _select_resident_conversation_context_turns(
                 selected_exchanges.add(newest_relevant_exchange)
                 used_turns += len(exchange)
                 used_chars += cost
+        # A concise correction can refer only to the immediately preceding
+        # relevant exchange ("No, that was outdated. It cleared later."). Keep
+        # that user report with its antecedent without treating every recent
+        # correction as relevant history.
+        ranked_exchange_indexes = {exchange_index for _, exchange_index in ranked}
+        correction_markers = re.compile(
+            r"\b(?:correction|actually|outdated|incorrect|wrong|mistaken|"
+            r"misspoke|misremembered|not true)\b|"
+            r"\bno\s*,?\s*(?:that|this|it|they|those|these)\b", re.IGNORECASE)
+        anaphoric_reference = re.compile(
+            r"\b(?:it|that|this|they|those|these|he|she|we|i)\b", re.IGNORECASE)
+        for exchange_index in reversed(range(len(exchanges))):
+            if exchange_index in ranked_exchange_indexes or exchange_index == 0:
+                continue
+            previous_exchange_index = exchange_index - 1
+            if previous_exchange_index not in ranked_exchange_indexes:
+                continue
+            user_text = " ".join(str(all_turns[turn_index]["text"])
+                for turn_index in exchanges[exchange_index]
+                if all_turns[turn_index].get("role") == "user")
+            if (not correction_markers.search(user_text)
+                    or not anaphoric_reference.search(user_text)):
+                continue
+            exchange = exchanges[exchange_index]
+            cost = exchange_cost(exchange)
+            if (used_turns + len(exchange) <= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+                    and cost <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS - used_chars):
+                selected_exchanges.add(exchange_index)
+                used_turns += len(exchange)
+                used_chars += cost
+            break
     for exchange_index in selection_order:
         if used_turns >= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:
             break
