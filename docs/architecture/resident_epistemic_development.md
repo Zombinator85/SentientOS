@@ -382,6 +382,27 @@ rejects it. These are deterministic software-path results, not evidence of
 real-model learning, broad task transfer, or improved open-ended decisions.
 No model inference was used for this milestone; validation is CPU-only.
 
+## Revising strategy projection when outcomes conflict
+
+The next cognition increment closes a gap between outcome-aware retrieval and
+context assembly. The goal is to keep a provisional task-family strategy out of
+later guidance when score-bound outcomes for its exact task and source-model
+group are unsettled, while retaining the underlying historical examples and
+their provenance. Acceptance requires a controlled settled/unsettled
+counterfactual: settled evidence still projects its candidate strategy;
+contrary outcomes suppress that strategy in assembled context and the bound
+prompt; the suppressed candidate remains traceable by digest and carries no
+truth or authority posture.
+
+The history projection now carries unsettled task/model outcome groups into the
+production context binder. When a candidate relation belongs to one of those
+groups, the binder omits the relation, marks its digest as withheld due to
+unsettled score-bound outcomes, and preserves the examples. Prompt projection
+records both available and withheld candidate summaries so later review can
+distinguish omission from missing source evidence. This is still a deterministic
+software-path capability: it does not prove that a real model correctly
+interprets unresolved evidence or improves later decisions.
+
 ## Cross-session correction integration
 
 A verified assistant answer can now carry its bounded screen-capture provenance

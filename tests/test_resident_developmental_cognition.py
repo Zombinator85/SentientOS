@@ -1931,7 +1931,7 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     prompt_projection = final_history_request.upstream_evidence[
         "task_family_history_prompt_projection"]
     assert prompt_projection["schema_version"] == \
-        "sentientos.task_family_history_prompt_projection:v8"
+        "sentientos.task_family_history_prompt_projection:v9"
     [projected_prior_errors] = prompt_projection["prior_incorrect_examples"]
     assert prompt_projection["prior_incorrect_example_count"] == 3
     assert projected_prior_errors["record_id"] == retained.record_id
@@ -2406,6 +2406,85 @@ def test_candidate_integer_affine_strategy_requires_score_bound_consistent_examp
         examples) is None
 
 
+def test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import resident_developmental_cognition as cognition_module
+
+    identity = {"provider": "fixture", "model": "unsettled-strategy"}
+    identity_digest = cognition_module._digest(identity)
+    experience = {
+        "task_family_id": "integer_affine_prediction",
+        "source_fact_id": "fact-affine-unsettled",
+        "source_run_id": "run-affine-favorable",
+        "source_run_digest": "sha256:" + "1" * 64,
+        "source_task_digest": "sha256:" + "2" * 64,
+        "source_score_digest": "sha256:" + "3" * 64,
+        "source_active_model_identity": identity,
+        "source_active_model_identity_digest": identity_digest,
+        "evaluator": "deterministic_exact_integer_suite_oracle_v2",
+        "controlled_task_effect": {"effect_classification": "history_favorable"},
+        "model_identity_relation": "same_active_model_identity",
+        "historical_only": True, "current_truth": False, "authority": False,
+        "examples": [
+            {"probe_input": 2, "observed_answer": 7, "evaluator_correct": True},
+            {"probe_input": 4, "observed_answer": 13, "evaluator_correct": True},
+            {"probe_input": 5, "observed_answer": 16, "evaluator_correct": True},
+        ],
+    }
+    monkeypatch.setattr(cognition_module, "_task_family_history_examples",
+        lambda candidate, *, task_family_id: [dict(experience)])
+    record = {"record_id": "record-affine-favorable",
+        "record_digest": "sha256:" + "4" * 64,
+        "candidate": {"candidate_id": "candidate-affine-favorable",
+            "candidate_digest": "sha256:" + "5" * 64,
+            "selected_facts": [], "selected_sources": []},
+        "created_at": "fixture-time",
+        "epistemic_posture": "historical_interpretation_not_current_truth"}
+    stable_packet = cognition_module._history_context_packet(record,
+        task_family_id="integer_affine_prediction",
+        target_model_identity=identity)
+    [stable_experience] = stable_packet["task_relevant_experience"]
+    stable_strategy = stable_experience["candidate_integer_affine_strategy"]
+    assert stable_strategy["relation"] == "output = 3 * input + 1"
+    stable_context, _, stable_prompt, _, _ = (
+        cognition_module._bind_history_and_epistemic_context(
+            context={"instruction": "Use score-bound history within its exact scope.",
+                "developmental_history_task_family_id": "integer_affine_prediction",
+                "developmental_history_task_family_history_required": True,
+                "developmental_history_target_model_identity": identity},
+            records=(record,), projection=None))
+    assert stable_strategy["relation"] in stable_prompt
+    assert cognition_module._task_family_history_prompt_projection(
+        stable_context, condition_id="history_present",
+        task_family_id="integer_affine_prediction")[
+            "candidate_integer_affine_strategy_count"] == 1
+
+    unsettled_group = (experience["source_task_digest"], identity_digest)
+    context, _, prompt, _, _ = cognition_module._bind_history_and_epistemic_context(
+        context={"instruction": "Use score-bound history within its exact scope.",
+            "developmental_history_task_family_id": "integer_affine_prediction",
+            "developmental_history_task_family_history_required": True,
+            "developmental_history_target_model_identity": identity},
+        records=(record,), projection=None,
+        unsettled_task_family_outcome_groups={unsettled_group})
+    [projected] = context["developmental_history"][0]["task_relevant_experience"]
+    assert "candidate_integer_affine_strategy" not in projected
+    assert projected["candidate_integer_affine_strategy_withheld"]["posture"] == (
+        "withheld_unsettled_score_bound_outcomes")
+    assert projected["examples"] == experience["examples"]
+    assert stable_strategy["relation"] not in prompt
+    assert "withheld_unsettled_score_bound_outcomes" in prompt
+    prompt_projection = cognition_module._task_family_history_prompt_projection(
+        context, condition_id="history_present",
+        task_family_id="integer_affine_prediction")
+    assert prompt_projection["candidate_integer_affine_strategy_count"] == 0
+    assert prompt_projection[
+        "withheld_unsettled_candidate_integer_affine_strategy_count"] == 1
+    [withheld_ref] = prompt_projection[
+        "withheld_unsettled_candidate_integer_affine_strategies"]
+    assert withheld_ref["strategy_digest"] == stable_strategy["strategy_digest"]
+
+
 def test_task_family_projection_separates_correct_and_incorrect_examples() -> None:
     from sentientos.resident_developmental_cognition import (
         _digest as cognition_digest, _task_family_guidance_examples,
@@ -2477,7 +2556,7 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
         condition_id="history_present", task_family_id="integer_affine_prediction")
     assert projection["task_relevant_example_count"] == 1
     assert projection["schema_version"] == \
-        "sentientos.task_family_history_prompt_projection:v8"
+        "sentientos.task_family_history_prompt_projection:v9"
     assert projection["records"][0]["evaluator_correct_count"] == 1
     assert projection["records"][0]["evaluator_incorrect_count"] == 2
     assert projection["records"][0]["prior_incorrect_example_count"] == 2
@@ -3110,6 +3189,55 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert strategy_ref["strategy_digest"] == strategy["strategy_digest"]
     assert strategy_ref["supporting_examples_digest"] == strategy[
         "supporting_examples_digest"]
+    unsettled_group = (bound_projection["source_task_digest"],
+        bound_projection["source_active_model_identity_digest"])
+    unsettled_packet = _history_context_packet({"record_id": admitted.record_id,
+        "record_digest": admitted.record_digest, "candidate": bound_model_identity,
+        "created_at": "fixture-time", "epistemic_posture": "historical_only"},
+        task_family_id="integer_affine_prediction",
+        target_model_identity=identity, compact_for_input_budget=True,
+        unsettled_outcome_groups={unsettled_group})
+    [withheld_experience] = unsettled_packet["task_relevant_experience"]
+    assert "candidate_integer_affine_strategy" not in withheld_experience
+    withheld_strategy = withheld_experience[
+        "candidate_integer_affine_strategy_withheld"]
+    assert withheld_strategy["posture"] == (
+        "withheld_unsettled_score_bound_outcomes")
+    assert withheld_strategy["strategy_digest"] == strategy["strategy_digest"]
+    assert withheld_experience["examples"] == task_experience["examples"]
+    from sentientos.resident_developmental_cognition import (
+        _bind_history_and_epistemic_context,
+    )
+    unsettled_context, _, unsettled_prompt, _, _ = (
+        _bind_history_and_epistemic_context(
+            context={"instruction": "Use historical outcomes within scope.",
+                "developmental_history_task_family_id": (
+                    "integer_affine_prediction"),
+                "developmental_history_task_family_history_required": True,
+                "developmental_history_target_model_identity": identity},
+            records=({"record_id": admitted.record_id,
+                "record_digest": admitted.record_digest,
+                "candidate": bound_model_identity,
+                "created_at": "fixture-time",
+                "epistemic_posture": "historical_only"},),
+            projection=None,
+            unsettled_task_family_outcome_groups={unsettled_group},
+            compact_history_for_input=True))
+    assert "candidate_integer_affine_strategy" not in (
+        unsettled_context["developmental_history"][0][
+            "task_relevant_experience"][0])
+    assert "withheld_unsettled_score_bound_outcomes" in unsettled_prompt
+    assert strategy["relation"] not in unsettled_prompt
+    unsettled_prompt_projection = _task_family_history_prompt_projection(
+        unsettled_context, condition_id="history_present",
+        task_family_id="integer_affine_prediction")
+    assert unsettled_prompt_projection[
+        "candidate_integer_affine_strategy_count"] == 0
+    assert unsettled_prompt_projection[
+        "withheld_unsettled_candidate_integer_affine_strategy_count"] == 1
+    assert unsettled_prompt_projection[
+        "withheld_unsettled_candidate_integer_affine_strategies"][0][
+            "strategy_digest"] == strategy["strategy_digest"]
     forged_context = copy.deepcopy(bound_context)
     forged_strategy = forged_context["developmental_history"][0][
         "task_relevant_experience"][0]["candidate_integer_affine_strategy"]
@@ -10214,6 +10342,8 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
     assert observed_unsettled_groups["run-a"] == expected_unsettled_group
     assert observed_unsettled_groups["run-b"] == expected_unsettled_group
     assert unsettled_selection.requested_record_ids == ("newer-single",)
+    assert unsettled_selection.task_family_unsettled_outcome_groups == (
+        (task_digest, identity_digest),)
     assert unsettled_selection.task_family_outcome_corroboration == ()
 
 
