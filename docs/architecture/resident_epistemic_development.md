@@ -420,6 +420,17 @@ examples, and explicitly directs the model not to reconstruct or apply it.
 This verifies prompt assembly with deterministic evidence; real-model
 interpretation and later task outcomes remain untested.
 
+The longitudinal fixture now uses the production objective-intervention and
+writeback paths to admit two distinct runs with contrary, receipt-bound outcomes
+for the same task and model, then assembles history for a later task in a fresh
+owner process. Its controlled acceptance result checks strategy use while
+outcomes are settled, admission of the adverse run without editing prior
+evidence, and strategy withholding plus abstention only after the retained group
+becomes unsettled. This remains a deterministic policy-fixture result rather
+than a real-model improvement claim. The Windows checkout cannot run the durable
+custody portion because that storage contract currently rejects this platform;
+hosted Linux validation is pending.
+
 ## Cross-session correction integration
 
 A verified assistant answer can now carry its bounded screen-capture provenance

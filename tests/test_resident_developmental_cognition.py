@@ -203,24 +203,44 @@ class FakeInvoker:
                     multiplier = (y2 - y1) // (x2 - x1)
                     offset = y1 - multiplier * x1
                     answers = [multiplier * probe + offset for probe in probes]
-            elif self.objective_mode == "derive_from_candidate_strategy":
-                import re
-                strategies = [experience.get("candidate_integer_affine_strategy")
+            elif self.objective_mode == "adverse_when_strategy_present":
+                has_candidate_strategy = any(
+                    isinstance(experience, Mapping)
+                    and isinstance(experience.get("candidate_integer_affine_strategy"), Mapping)
+                    and experience.get("task_family_id") == descriptor.get("task_family_id")
                     for packet in history
-                    for experience in packet.get("task_relevant_experience", ())
-                    if isinstance(experience, Mapping)
-                    and experience.get("task_family_id") == descriptor.get("task_family_id")]
-                relations = {item.get("relation") for item in strategies
-                    if isinstance(item, Mapping)}
-                if strategies and len(relations) == 1:
-                    relation = next(iter(relations))
-                    match = (re.fullmatch(r"output = (-?\d+) \* input ([+-]) (\d+)",
-                        relation) if isinstance(relation, str) else None)
-                    if match is not None:
-                        multiplier = int(match.group(1))
-                        signed_offset = int(match.group(3))
-                        offset = signed_offset if match.group(2) == "+" else -signed_offset
-                        answers = [multiplier * probe + offset for probe in probes]
+                    for experience in packet.get("task_relevant_experience", ()))
+                answers = [3 * probe + 2 for probe in probes]
+                if has_candidate_strategy:
+                    answers = [0 for _ in probes]
+            elif self.objective_mode in {"derive_from_candidate_strategy",
+                    "apply_or_abstain_when_unsettled"}:
+                if (self.objective_mode == "apply_or_abstain_when_unsettled"
+                        and "Do not reconstruct or apply that candidate relation"
+                            in request.prompt):
+                    answers = [None for _ in probes]
+                    relations = set()
+                else:
+                    relations = None
+                import re
+                if relations is None:
+                    strategies = [experience.get("candidate_integer_affine_strategy")
+                        for packet in history
+                        for experience in packet.get("task_relevant_experience", ())
+                        if isinstance(experience, Mapping)
+                        and experience.get("task_family_id") == descriptor.get("task_family_id")]
+                    relations = {item.get("relation") for item in strategies
+                        if isinstance(item, Mapping)}
+                if relations:
+                    if len(relations) == 1:
+                        relation = next(iter(relations))
+                        match = (re.fullmatch(r"output = (-?\d+) \* input ([+-]) (\d+)",
+                            relation) if isinstance(relation, str) else None)
+                        if match is not None:
+                            multiplier = int(match.group(1))
+                            signed_offset = int(match.group(3))
+                            offset = signed_offset if match.group(2) == "+" else -signed_offset
+                            answers = [multiplier * probe + offset for probe in probes]
             elif self.objective_mode in {"derive_from_admitted_family",
                     "derive_from_latest_admitted_family", "derive_from_controlled_effect"}:
                 examples = []
@@ -3774,6 +3794,160 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         tamper_receipt_id=tampered_receipt)["rejected_before_owner_recovery"] is True
 
 
+def test_unsettled_score_bound_outcomes_change_later_strategy_use_after_restart(
+        tmp_path: Path) -> None:
+    """A conflict admitted from a later run changes a subsequent controlled decision."""
+    from scripts.stage_resident_objective_intervention import stage_request
+    from sentientos.resident_developmental_cognition import _task_family_history_examples
+
+    fake = InstallationCustodyFakeInvoker()
+    identity = {"provider": "fixture", "model": "outcome-conflict-decision"}
+    fake.active_model_identity = identity
+    _bind_fixture_installation_custody(tmp_path, fake)
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    config_path = tmp_path / "objective-config.json"
+    config_path.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(tmp_path / "history"), "state_root": str(tmp_path / "state"),
+        "allowed_source_kinds": ["capability_registry", "embodiment"],
+        "max_selected_facts": 16, "max_retrieved_records": 4,
+        "comparison_enabled": True}), encoding="utf-8")
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    assert cognition.run_tick(snapshot=snapshot(), tick_id="conflict-decision-seed").written_record_id
+
+    acquisition_task = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="integer_affine_prediction")
+    _, acquisition_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-acquisition", task=acquisition_task)
+    acquisition = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="conflict-decision-acquisition", objective_task=acquisition_task,
+        request_id="conflict-decision-acquisition",
+        request_digest=str(acquisition_request["request_digest"]))
+    acquisition_run = cognition.experiments.load_run(
+        str(acquisition.changed_cognition_measurement_id))
+    acquisition_world = WorldStateBoardBuilder().build(
+        cognition.experiments.world_state_records(run_refs=((
+            acquisition_run["run_id"], acquisition_run["run_digest"]),)))
+    acquisition_feedback = cognition.run_tick(snapshot=acquisition_world,
+        tick_id="conflict-decision-acquisition-feedback")
+    assert acquisition_feedback.written_record_id
+
+    repeated_task = ObjectivePredictionTask(3, 2, 10, (11, 12),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    repeated_task_digest = repeated_task.public_descriptor()["task_digest"]
+    _, stable_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-settled", task=repeated_task)
+    stable_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-settled",
+        request_digest=str(stable_request["request_digest"]),
+        active_model_identity=identity,
+        prior_request_refs=(("conflict-decision-acquisition",
+            str(acquisition_request["request_digest"])),),
+        objective_mode="apply_or_abstain_when_unsettled")
+    stable_run = stable_episode["run"]
+    stable_scores = {row["condition_id"]: row["score"]
+        for row in stable_run["objective_scores"]}
+    assert stable_scores["history_present"]["correct_count"] == 3
+    assert stable_scores["history_restored"]["correct_count"] == 3
+    stable_prompt = json.loads(stable_episode["prompts"]["history_present"])
+    stable_experiences = [experience for packet in stable_prompt["developmental_history"]
+        for experience in packet.get("task_relevant_experience", ())]
+    assert any("candidate_integer_affine_strategy" in experience
+        for experience in stable_experiences)
+    assert "Do not reconstruct or apply that candidate relation" not in stable_prompt[
+        "instruction"]
+
+    stable_world = WorldStateBoardBuilder().build(
+        cognition.experiments.world_state_records(run_refs=((
+            stable_run["run_id"], stable_run["run_digest"]),)))
+    stable_feedback = cognition.run_tick(snapshot=stable_world,
+        tick_id="conflict-decision-stable-feedback")
+    assert stable_feedback.written_record_id
+    [stable_experience] = _task_family_history_examples(
+        cognition.writeback.store.get(stable_feedback.written_record_id).candidate,
+        task_family_id="integer_affine_prediction")
+    assert stable_experience["source_task_digest"] == repeated_task_digest
+    assert stable_experience["controlled_task_effect"]["effect_classification"] == (
+        "history_favorable")
+
+    _, adverse_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-adverse-repeat", task=repeated_task)
+    assert adverse_request["task_descriptor"]["task_digest"] == repeated_task_digest
+    adverse_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-adverse-repeat",
+        request_digest=str(adverse_request["request_digest"]),
+        active_model_identity=identity,
+        prior_request_refs=(
+            ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
+            ("conflict-decision-settled", str(stable_request["request_digest"]))),
+        objective_mode="adverse_when_strategy_present")
+    adverse_run = adverse_episode["run"]
+    adverse_scores = {row["condition_id"]: row["score"]
+        for row in adverse_run["objective_scores"]}
+    assert adverse_scores["history_present"]["correct_count"] == 0
+    assert adverse_scores["history_withheld"]["correct_count"] == 3
+    assert adverse_scores["history_restored"]["correct_count"] == 0
+
+    adverse_world = WorldStateBoardBuilder().build(
+        cognition.experiments.world_state_records(run_refs=((
+            adverse_run["run_id"], adverse_run["run_digest"]),)))
+    adverse_feedback = cognition.run_tick(snapshot=adverse_world,
+        tick_id="conflict-decision-adverse-feedback")
+    assert adverse_feedback.written_record_id
+    [adverse_experience] = _task_family_history_examples(
+        cognition.writeback.store.get(adverse_feedback.written_record_id).candidate,
+        task_family_id="integer_affine_prediction")
+    assert adverse_experience["source_task_digest"] == repeated_task_digest
+    assert adverse_experience["source_active_model_identity_digest"] == (
+        stable_experience["source_active_model_identity_digest"])
+    assert adverse_experience["controlled_task_effect"]["effect_classification"] == (
+        "history_adverse")
+    assert adverse_experience["source_run_id"] != stable_experience["source_run_id"]
+
+    later_task = ObjectivePredictionTask(3, 2, 16, (17, 18),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    _, later_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-after-revision", task=later_task)
+    later_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-after-revision",
+        request_digest=str(later_request["request_digest"]),
+        active_model_identity=identity,
+        prior_request_refs=(
+            ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
+            ("conflict-decision-settled", str(stable_request["request_digest"])),
+            ("conflict-decision-adverse-repeat", str(adverse_request["request_digest"]))),
+        objective_mode="apply_or_abstain_when_unsettled")
+    later_run = later_episode["run"]
+    later_scores = {row["condition_id"]: row["score"]
+        for row in later_run["objective_scores"]}
+    assert later_scores["history_present"]["status"] == "selective"
+    assert later_scores["history_present"]["abstained_count"] == 3
+    assert later_scores["history_restored"]["status"] == "selective"
+    assert later_scores["history_restored"]["abstained_count"] == 3
+
+    later_prompt = json.loads(later_episode["prompts"]["history_present"])
+    later_experiences = [experience for packet in later_prompt["developmental_history"]
+        for experience in packet.get("task_relevant_experience", ())]
+    [withheld] = [experience["candidate_integer_affine_strategy_withheld"]
+        for experience in later_experiences
+        if "candidate_integer_affine_strategy_withheld" in experience
+        and experience.get("source_task_digest") == repeated_task_digest]
+    assert withheld["posture"] == "withheld_unsettled_score_bound_outcomes"
+    assert not any("candidate_integer_affine_strategy" in experience
+        and experience.get("source_task_digest") == repeated_task_digest
+        for experience in later_experiences)
+    assert "Do not reconstruct or apply that candidate relation" in later_prompt[
+        "instruction"]
+    assert "wait for new comparable evidence or abstain" in later_prompt["instruction"]
+    withheld_condition_prompt = json.loads(later_episode["prompts"]["history_withheld"])
+    assert "Do not reconstruct or apply that candidate relation" not in (
+        withheld_condition_prompt["instruction"])
+
+
 def test_historical_embodiment_context_preserves_typed_report_roles() -> None:
     from sentientos.resident_developmental_cognition import _history_context_packet
 
@@ -6510,7 +6684,8 @@ def _run_family_episode_in_child(root: Path, *, acquisition_request_digest: str,
         active_model_identity: Mapping[str, Any] | None = None,
         publish_session: bool = False,
         prior_request_refs: tuple[tuple[str, str], ...] = (),
-        tamper_receipt_id: str | None = None) -> Mapping[str, Any]:
+        tamper_receipt_id: str | None = None,
+        objective_mode: str = "derive_from_candidate_strategy") -> Mapping[str, Any]:
     """Run transfer in a fresh process through installation-scoped production readers.
 
     Inference itself is issued by a deterministic fixture; the persisted receipt
@@ -6541,6 +6716,7 @@ request_id, request_digest = sys.argv[3:5]
 prior_request_refs = json.loads(sys.argv[5])
 active_model_identity = json.loads(sys.argv[6])
 publish_session = sys.argv[7] == "true"
+objective_mode = sys.argv[8]
 test_path = Path.cwd() / "tests" / "test_resident_developmental_cognition.py"
 spec = importlib.util.spec_from_file_location("fixture_cognition_tests", test_path)
 module = importlib.util.module_from_spec(spec)
@@ -6551,7 +6727,7 @@ invoker.active_model_identity = active_model_identity
 module._bind_fixture_installation_custody(root, invoker, publish_session=publish_session)
 # The mock model consumes only the production candidate strategy. It does not
 # inspect the private task plan or infer from raw examples in this counterfactual.
-invoker.objective_mode = "derive_from_candidate_strategy"
+invoker.objective_mode = objective_mode
 invoker.objective_plan_root = root / "state" / "developmental_experiments" / "protocols"
 owner, _ = module.owner(root, comparison=True, invoker=invoker,
     allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
@@ -6585,7 +6761,8 @@ print(json.dumps({"fresh_process": True, "fixture_only": True,
             json.dumps(prior_request_refs or (("episode-acquisition",
                 acquisition_request_digest),)),
             json.dumps(dict(active_model_identity or {})),
-            "true" if publish_session else "false"], cwd=Path(__file__).resolve().parents[1],
+            "true" if publish_session else "false", objective_mode],
+            cwd=Path(__file__).resolve().parents[1],
             capture_output=True, text=True)
         if child.returncode != 0:
             raise AssertionError("fresh-process fixture episode failed: " + child.stderr[-4000:])
