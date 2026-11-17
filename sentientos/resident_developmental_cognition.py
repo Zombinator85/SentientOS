@@ -500,12 +500,16 @@ HISTORY_DECISION_CONTRAST_INSTRUCTION = (
     "decisions under history-present, history-withheld, and history-restored "
     "conditions for the same serving identity. Its decision_pattern reports only "
     "whether response digests, dispositions, and citations repeated or differed. "
-    "Use it as evidence that the supplied history was associated with a prior "
-    "proposal difference, not as evidence that either proposal was correct, useful, "
-    "executed, or improved. Do not infer response meaning from a digest or copy a "
-    "prior proposal. Apply the prior comparison only as uncertain context; rely on "
-    "current evidence and the exact retrieved history for the present decision, and "
-    "cite the containing developmental record when describing the comparison."
+    "Use proposal_fingerprint_relation to determine whether response or disposition "
+    "differences were observed and reproduced after history restoration; citation "
+    "differences alone are not a proposal difference. A restoration_unstable relation "
+    "does not support a repeatable history association, and no_difference_observed "
+    "does not show that history changed the proposal. Even a restoration-stable "
+    "difference is only an observed association, not evidence that either proposal "
+    "was correct, useful, executed, or improved. Do not infer response meaning from "
+    "a digest or copy a prior proposal. Apply the prior comparison only as uncertain "
+    "context; rely on current evidence and the exact retrieved history for the present "
+    "decision, and cite the containing developmental record when describing it."
 )
 EPISTEMIC_REVISION_PROBE_INSTRUCTION = (
     " For this probe, report the current stored epistemic stance for the sole proposition in "
@@ -3006,8 +3010,22 @@ def _history_decision_contrast_context(payload: Mapping[str, Any], *,
     if target_identity_digest != source_identity_digest:
         return None
     present, withheld, restored = projected_decisions
+    present_restored_match = (
+        present["response_digest"] == restored["response_digest"]
+        and present["disposition"] == restored["disposition"])
+    present_withheld_difference = (
+        present["response_digest"] != withheld["response_digest"]
+        or present["disposition"] != withheld["disposition"])
+    if not present_restored_match:
+        proposal_fingerprint_relation = "restoration_unstable"
+    elif present_withheld_difference:
+        proposal_fingerprint_relation = (
+            "history_associated_difference_restoration_stable")
+    else:
+        proposal_fingerprint_relation = "no_difference_observed"
     decision_pattern = {
-        "schema_version": "sentientos.history_decision_pattern:v1",
+        "schema_version": "sentientos.history_decision_pattern:v2",
+        "proposal_fingerprint_relation": proposal_fingerprint_relation,
         "present_restored_response_digest_match": (
             present["response_digest"] == restored["response_digest"]),
         "present_withheld_response_digest_differs": (

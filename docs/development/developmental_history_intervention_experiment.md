@@ -79,14 +79,18 @@ is still an experimental proposal contrast: it establishes neither correctness,
 cross-model transfer, execution, nor improved decisions.
 
 The later prompt adds a compact `decision_pattern` derived from the three
-response digests, dispositions, and history citations. Its instruction tells
-the model that the pattern can show a prior proposal difference associated
-with history, but cannot identify the better proposal or supply a response from
-the digest. A deterministic fake-inference counterfactual consumes that cue in
-the matching present/restored prompts and changes its answer disposition; the
-withheld prompt has neither the cue nor its citation. This verifies the
-context-to-inference interface, not whether a real model will interpret the
-pattern correctly or make better decisions.
+response digests, dispositions, and history citations. Its
+`proposal_fingerprint_relation` distinguishes a difference reproduced after
+restoration, no observed response/disposition difference, and an unstable
+restoration. Citation-only differences do not count as proposal differences.
+The prompt keeps response digests opaque and warns that even a restoration-stable
+difference does not identify the better proposal. A deterministic fake-inference
+counterfactual consumes that relation in matching present/restored prompts and
+changes its disposition; controls with no proposal difference or unstable
+restoration do not trigger the same response. The withheld prompt has neither
+the cue nor its citation. This verifies calibrated context-to-inference
+behavior with a deterministic substitute, not whether a real model will
+interpret the pattern correctly or make better decisions.
 
 For a structured objective task whose descriptor explicitly requires task-family history, the resident owner projects exact, score-bound examples from the requested family with their source-model applicability posture. The record-level natural-language interpretation is omitted from that task-specific prompt, and its separate digest is not sent to the model. The enclosing record and candidate digests continue to bind the omitted source content for audit. Unrelated selected facts and embodiment/security projections are not carried into that scoped packet. Evaluator-correct examples are the only positive mapping evidence. Evaluator-incorrect examples are passed in a separate `prior_incorrect_examples` block explicitly labeled as historical errors, not mapping evidence, current truth, or authority; unknown-correctness rows remain withheld and represented by digest-only omission evidence. The task prompt tells the model not to repeat a failed answer for the same input. The durable record and ordinary history remain unchanged.
 

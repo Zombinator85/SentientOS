@@ -42,6 +42,7 @@ from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
     _bind_history_and_epistemic_context, _history_context_packet,
+    _history_decision_contrast_context,
     load_objective_request, objective_task_for_request, stage_objective_request,
     stored_objective_request_disposition, stored_objective_request_record,
     _valid_rootless_epistemic_session_binding, _parse_companion_interaction_output,
@@ -9125,35 +9126,75 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert decision_contrast["performance_improvement_established"] is False
     assert "HISTORY_UNAVAILABLE" not in json.dumps(decision_contrast)
     assert "response" not in decision_contrast["conditions"][0]
+    contrast_context_payload = {
+        "interpretation_projection": {"schema_version":
+            "sentientos.developmental_history_interpretation_projection:v2"},
+        "history_decision_contrast": decision_contrast,
+        "active_model_identity_digest": "sha256:" + digest_payload(
+            fake.active_model_identity),
+        "conditions": persisted_run["conditions"],
+    }
+    stable_pattern = _history_decision_contrast_context(
+        contrast_context_payload,
+        target_model_identity=fake.active_model_identity)["decision_pattern"]
+    assert stable_pattern["proposal_fingerprint_relation"] == (
+        "history_associated_difference_restoration_stable")
+    assert stable_pattern["present_withheld_history_citations_differ"] is True
+    citation_only_payload = copy.deepcopy(contrast_context_payload)
+    citation_only_conditions = citation_only_payload[
+        "history_decision_contrast"]["conditions"]
+    for item in citation_only_conditions:
+        item["response_digest"] = citation_only_conditions[0]["response_digest"]
+        item["disposition"] = "abstain"
+    citation_only_pattern = _history_decision_contrast_context(
+        citation_only_payload,
+        target_model_identity=fake.active_model_identity)["decision_pattern"]
+    assert citation_only_pattern["proposal_fingerprint_relation"] == (
+        "no_difference_observed")
+    assert citation_only_pattern["present_withheld_history_citations_differ"] is True
+    unstable_payload = copy.deepcopy(contrast_context_payload)
+    unstable_conditions = unstable_payload[
+        "history_decision_contrast"]["conditions"]
+    unstable_conditions[2]["response_digest"] = "f" * 64
+    unstable_pattern = _history_decision_contrast_context(
+        unstable_payload,
+        target_model_identity=fake.active_model_identity)["decision_pattern"]
+    assert unstable_pattern["proposal_fingerprint_relation"] == (
+        "restoration_unstable")
     # Reconstruct a later history-conditioned cognition run. The retained
     # contrast should reach the matching model in present/restored conditions,
     # while the controlled withheld condition receives no history packet.
     class ContrastApplyingFakeInvoker(FakeInvoker):
+        @staticmethod
+        def _decision_for_prompt(prompt):
+            reports = prompt.get("historical_embodiment_reports", ())
+            patterns = [report.get("reported_values", {}).get(
+                "history_intervention_result", {}).get(
+                    "history_decision_contrast", {}).get("decision_pattern", {})
+                for report in reports if isinstance(report, Mapping)]
+            relation = next((pattern.get("proposal_fingerprint_relation")
+                for pattern in patterns if isinstance(pattern, Mapping)
+                and pattern.get("proposal_fingerprint_relation") is not None), None)
+            if relation != "history_associated_difference_restoration_stable":
+                return {
+                    "disposition": "ask",
+                    "response": "No restoration-stable proposal difference is available.",
+                    "evidence_ids": [], "history_record_ids": [],
+                }
+            return {
+                "disposition": "answer",
+                "response": ("A prior restoration-stable history comparison changed "
+                    "the recorded proposal fingerprint; it did not establish correctness."),
+                "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
+            }
+
         def invoke(self, request, **kwargs):
             if (request.purpose
                     == "resident_developmental_history_intervention_experiment"):
                 prompt = json.loads(request.prompt)
-                reports = prompt.get("historical_embodiment_reports", ())
-                has_contrast = any(
-                    isinstance(report, Mapping)
-                    and isinstance(report.get("reported_values"), Mapping)
-                    and isinstance(report["reported_values"].get(
-                        "history_intervention_result"), Mapping)
-                    and isinstance(report["reported_values"][
-                        "history_intervention_result"].get(
-                            "history_decision_contrast"), Mapping)
-                    for report in reports)
                 condition_id = request.linkage.get("condition_id")
-                self.companion_output_by_condition[condition_id] = ({
-                    "disposition": "answer",
-                    "response": ("A prior history comparison changed the recorded "
-                        "proposal pattern; it did not establish correctness."),
-                    "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
-                } if has_contrast else {
-                    "disposition": "ask",
-                    "response": "No prior decision comparison is available here.",
-                    "evidence_ids": [], "history_record_ids": [],
-                })
+                self.companion_output_by_condition[condition_id] = (
+                    self._decision_for_prompt(prompt))
             return super().invoke(request, **kwargs)
 
     followup_fake = ContrastApplyingFakeInvoker()
@@ -9173,6 +9214,8 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     present_context, withheld_context, restored_context = followup_contexts
     assert "A history_decision_contrast is a digest-bound comparison" in (
         present_context["instruction"])
+    assert "citation differences alone are not a proposal difference" in (
+        present_context["instruction"])
     assert "A history_decision_contrast is a digest-bound comparison" not in (
         withheld_context["instruction"])
     for context in (present_context, restored_context):
@@ -9188,10 +9231,13 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         assert contrast_packets[0]["authority"] is False
         assert contrast_packets[0]["performance_improvement_established"] is False
         pattern = contrast_packets[0]["decision_pattern"]
+        assert pattern["schema_version"] == "sentientos.history_decision_pattern:v2"
         assert pattern["present_restored_response_digest_match"] is True
         assert pattern["present_withheld_response_digest_differs"] is True
         assert pattern["present_restored_disposition_match"] is True
         assert pattern["present_withheld_disposition_differs"] is True
+        assert pattern["proposal_fingerprint_relation"] == (
+            "history_associated_difference_restoration_stable")
         assert pattern["interpretation_posture"] == (
             "proposal_association_only_outcome_quality_unmeasured")
         assert "HISTORY_UNAVAILABLE" not in json.dumps(contrast_packets[0])
@@ -9209,6 +9255,20 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         decision_writeback.written_record_id,)
     assert followup_withheld["disposition"] == "ask"
     assert followup_withheld["history_record_ids"] == ()
+    neutral_context = copy.deepcopy(present_context)
+    neutral_report = neutral_context["historical_embodiment_reports"][0]
+    neutral_report["reported_values"]["history_intervention_result"][
+        "history_decision_contrast"]["decision_pattern"][
+            "proposal_fingerprint_relation"] = "no_difference_observed"
+    assert ContrastApplyingFakeInvoker._decision_for_prompt(
+        neutral_context)["disposition"] == "ask"
+    unstable_context = copy.deepcopy(present_context)
+    unstable_report = unstable_context["historical_embodiment_reports"][0]
+    unstable_report["reported_values"]["history_intervention_result"][
+        "history_decision_contrast"]["decision_pattern"][
+            "proposal_fingerprint_relation"] = "restoration_unstable"
+    assert ContrastApplyingFakeInvoker._decision_for_prompt(
+        unstable_context)["disposition"] == "ask"
     assert all(item["snapshot_digest"] == source.digest for item in result.conditions)
     matched_controls = [item["matched_control_inputs"] for item in result.conditions]
     assert matched_controls[0] == matched_controls[1] == matched_controls[2]
