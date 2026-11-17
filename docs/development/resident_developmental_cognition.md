@@ -506,6 +506,16 @@ or currentness. Deterministic fake-model tests cover the storage and selection
 counterfactual; real-model application and long-term behavioral improvement
 remain unverified.
 
+When resident cognition receives one of these verified links, its prompt now
+uses the linked later statement as the user's updated preference when that
+preference directly applies, and cites the correcting memory. The older linked
+statement remains historical; the relation does not establish truth,
+currentness, instruction, or authority. Unrelated unresolved conflicts still
+require clarification. A restart-spanning production-path counterfactual
+compares corrected preference retrieval with the same unlinked conflicting
+statements using a deterministic responder. This verifies context integration
+and citation lineage, not real-model adherence or improved decisions.
+
 ## Fourth substrate: prior epistemic state
 
 Cognition can receive a separately typed, prior-tick epistemic projection binding exact proposition IDs, state IDs/digests, generations, and evidence-set digests. Current World-State evidence outranks a conflicting stale position for current-condition reasoning. Same-tick projections fail closed, so a cognition cannot certify its own update. See [persistent epistemic state](../architecture/persistent_epistemic_state.md).
