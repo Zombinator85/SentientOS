@@ -170,6 +170,17 @@ matching side to a controlled responder, while a two-fact limit delivers both
 and leaves the answer unresolved. This is deterministic selection behavior;
 real-model conflict handling remains unverified.
 
+Ordinary companion context now preserves source freshness in compact current
+evidence rows as well as in the full projection. The prompt directs the model
+to treat stale, expired, undated, unknown, and not-applicable sources as
+historical reports rather than support for a present-condition claim; an
+aging report must be qualified. A controlled production-path counterfactual
+asks for a fresh temperature reading when the only selected report is expired,
+while the same path answers from a fresh report. The compact projection row is
+versioned as v2 to carry source kind, staleness, and finding. This tests the
+prompt contract with a deterministic responder; real-model adherence remains
+unverified.
+
 The persistent epistemic owner also accepts the current companion question when
 building its bounded prior-state projection. It ranks only propositions that
 have an eligible prior state, splits underscore-delimited identifiers such as
