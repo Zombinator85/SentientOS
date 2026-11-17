@@ -3998,6 +3998,7 @@ def test_unsettled_score_bound_outcomes_change_later_strategy_use_after_restart(
             ("conflict-decision-settled", str(stable_request["request_digest"])),
             ("conflict-decision-adverse-repeat", str(adverse_request["request_digest"]))),
         objective_mode="apply_or_abstain_when_unsettled")
+    assert "run" in transfer_episode, transfer_episode
     transfer_run = transfer_episode["run"]
     transfer_scores = {row["condition_id"]: row["score"]
         for row in transfer_run["objective_scores"]}
