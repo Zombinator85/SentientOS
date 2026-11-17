@@ -9128,20 +9128,53 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     # Reconstruct a later history-conditioned cognition run. The retained
     # contrast should reach the matching model in present/restored conditions,
     # while the controlled withheld condition receives no history packet.
-    requests_before_followup = len(fake.requests)
+    class ContrastApplyingFakeInvoker(FakeInvoker):
+        def invoke(self, request, **kwargs):
+            if (request.purpose
+                    == "resident_developmental_history_intervention_experiment"):
+                prompt = json.loads(request.prompt)
+                reports = prompt.get("historical_embodiment_reports", ())
+                has_contrast = any(
+                    isinstance(report, Mapping)
+                    and isinstance(report.get("reported_values"), Mapping)
+                    and isinstance(report["reported_values"].get(
+                        "history_intervention_result"), Mapping)
+                    and isinstance(report["reported_values"][
+                        "history_intervention_result"].get(
+                            "history_decision_contrast"), Mapping)
+                    for report in reports)
+                condition_id = request.linkage.get("condition_id")
+                self.companion_output_by_condition[condition_id] = ({
+                    "disposition": "answer",
+                    "response": ("A prior history comparison changed the recorded "
+                        "proposal pattern; it did not establish correctness."),
+                    "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
+                } if has_contrast else {
+                    "disposition": "ask",
+                    "response": "No prior decision comparison is available here.",
+                    "evidence_ids": [], "history_record_ids": [],
+                })
+            return super().invoke(request, **kwargs)
+
+    followup_fake = ContrastApplyingFakeInvoker()
+    followup_fake.active_model_identity = dict(fake.active_model_identity)
     followup_owner, _ = owner(tmp_path / "cognition", comparison=True,
-        invoker=fake, allowed_source_kinds=("embodiment",))
+        invoker=followup_fake, allowed_source_kinds=("embodiment",))
     followup = followup_owner.run_companion_history_intervention(
         snapshot=source, tick_id="companion-decision-apply-retained-contrast",
         question="Use the retained decision comparison as context for this proposal.",
         history_record_allowlist=(decision_writeback.written_record_id,))
-    followup_requests = [request for request in fake.requests[requests_before_followup:]
+    followup_requests = [request for request in followup_fake.requests
         if request.purpose == "resident_developmental_history_intervention_experiment"
         and request.linkage.get("condition_id") in {
             "history_present", "history_withheld", "history_restored"}]
     assert len(followup_requests) == 3
     followup_contexts = [json.loads(request.prompt) for request in followup_requests]
     present_context, withheld_context, restored_context = followup_contexts
+    assert "A history_decision_contrast is a digest-bound comparison" in (
+        present_context["instruction"])
+    assert "A history_decision_contrast is a digest-bound comparison" not in (
+        withheld_context["instruction"])
     for context in (present_context, restored_context):
         embodiment_packets = context.get("historical_embodiment_reports", [])
         contrast_packets = [report.get("reported_values", {}).get(
@@ -9154,11 +9187,28 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         assert contrast_packets[0]["current_truth"] is False
         assert contrast_packets[0]["authority"] is False
         assert contrast_packets[0]["performance_improvement_established"] is False
+        pattern = contrast_packets[0]["decision_pattern"]
+        assert pattern["present_restored_response_digest_match"] is True
+        assert pattern["present_withheld_response_digest_differs"] is True
+        assert pattern["present_restored_disposition_match"] is True
+        assert pattern["present_withheld_disposition_differs"] is True
+        assert pattern["interpretation_posture"] == (
+            "proposal_association_only_outcome_quality_unmeasured")
         assert "HISTORY_UNAVAILABLE" not in json.dumps(contrast_packets[0])
     assert not any(report.get("reported_values", {}).get(
         "history_intervention_result", {}).get("history_decision_contrast")
         for report in withheld_context.get("historical_embodiment_reports", []))
     assert followup.restored_prompt_matches is True
+    followup_present, followup_withheld, followup_restored = followup.conditions
+    assert followup_present["response"] == followup_restored["response"]
+    assert "did not establish correctness" in followup_present["response"]
+    assert followup_present["disposition"] == followup_restored["disposition"] == "answer"
+    assert followup_present["history_record_ids"] == (
+        decision_writeback.written_record_id,)
+    assert followup_restored["history_record_ids"] == (
+        decision_writeback.written_record_id,)
+    assert followup_withheld["disposition"] == "ask"
+    assert followup_withheld["history_record_ids"] == ()
     assert all(item["snapshot_digest"] == source.digest for item in result.conditions)
     matched_controls = [item["matched_control_inputs"] for item in result.conditions]
     assert matched_controls[0] == matched_controls[1] == matched_controls[2]
@@ -9167,7 +9217,7 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert matched_controls[0]["question_digest"] == "sha256:" + digest_payload({
         "question": "For the synthetic avatar, choose the next pose and predict "
             "its encoder pose. Return JSON with requested_pose and predicted_pose."})
-    intervention_requests = [request for request in fake.requests[:requests_before_followup]
+    intervention_requests = [request for request in fake.requests
         if request.purpose == "resident_developmental_history_intervention_experiment"
         and request.linkage.get("condition_id") in
             {"history_present", "history_withheld", "history_restored"}]

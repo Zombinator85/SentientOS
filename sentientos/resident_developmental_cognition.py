@@ -495,6 +495,18 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "never infer per-invocation CPU, GPU, energy, or token measurements from shared host use, call counts, output size, "
     "or latency."
 )
+HISTORY_DECISION_CONTRAST_INSTRUCTION = (
+    " A history_decision_contrast is a digest-bound comparison of prior proposed "
+    "decisions under history-present, history-withheld, and history-restored "
+    "conditions for the same serving identity. Its decision_pattern reports only "
+    "whether response digests, dispositions, and citations repeated or differed. "
+    "Use it as evidence that the supplied history was associated with a prior "
+    "proposal difference, not as evidence that either proposal was correct, useful, "
+    "executed, or improved. Do not infer response meaning from a digest or copy a "
+    "prior proposal. Apply the prior comparison only as uncertain context; rely on "
+    "current evidence and the exact retrieved history for the present decision, and "
+    "cite the containing developmental record when describing the comparison."
+)
 EPISTEMIC_REVISION_PROBE_INSTRUCTION = (
     " For this probe, report the current stored epistemic stance for the sole proposition in "
     "prior_epistemic_state. Inspect its active_evidence_bindings and update history; do not merely "
@@ -2993,12 +3005,30 @@ def _history_decision_contrast_context(payload: Mapping[str, Any], *,
         if isinstance(target_model_identity, Mapping) and target_model_identity else None)
     if target_identity_digest != source_identity_digest:
         return None
+    present, withheld, restored = projected_decisions
+    decision_pattern = {
+        "schema_version": "sentientos.history_decision_pattern:v1",
+        "present_restored_response_digest_match": (
+            present["response_digest"] == restored["response_digest"]),
+        "present_withheld_response_digest_differs": (
+            present["response_digest"] != withheld["response_digest"]),
+        "present_restored_disposition_match": (
+            present["disposition"] == restored["disposition"]),
+        "present_withheld_disposition_differs": (
+            present["disposition"] != withheld["disposition"]),
+        "present_restored_history_citations_match": (
+            present["history_record_ids"] == restored["history_record_ids"]),
+        "present_withheld_history_citations_differ": (
+            present["history_record_ids"] != withheld["history_record_ids"]),
+        "interpretation_posture": "proposal_association_only_outcome_quality_unmeasured",
+    }
     return {
         "schema_version": "sentientos.history_decision_contrast_context:v1",
         "measurement_scope": "history_conditioned_decision_proposal",
         "source_active_model_identity_digest": source_identity_digest,
         "model_identity_relation": "same_active_model_identity",
         "conditions": projected_decisions,
+        "decision_pattern": decision_pattern,
         "current_truth": False,
         "authority": False,
         "action_executed": False,
@@ -4038,6 +4068,22 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                     prompt_packets.append(prompt_packet)
                 prompt_packets = _withhold_conflicting_task_family_examples(prompt_packets)
                 candidate_context = dict(context)
+                has_history_decision_contrast = any(
+                    isinstance(report, Mapping)
+                    and isinstance(report.get("reported_values"), Mapping)
+                    and isinstance(report["reported_values"].get(
+                        "history_intervention_result"), Mapping)
+                    and isinstance(report["reported_values"][
+                        "history_intervention_result"].get(
+                            "history_decision_contrast"), Mapping)
+                    for report in historical_embodiment_reports)
+                if has_history_decision_contrast:
+                    instruction = candidate_context.get("instruction")
+                    if not isinstance(instruction, str):
+                        raise ResidentDevelopmentalCognitionError(
+                            "developmental_history_instruction_invalid")
+                    candidate_context["instruction"] = instruction + (
+                        HISTORY_DECISION_CONTRAST_INSTRUCTION)
                 has_unsettled_candidate_strategy = any(
                     isinstance(experience, Mapping)
                     and isinstance(experience.get(
