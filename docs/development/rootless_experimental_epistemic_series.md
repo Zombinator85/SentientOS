@@ -136,9 +136,20 @@ Ollama backend accepts at most that same limit. The separate developmental
 profile remains capped at 120 seconds.
 
 Focused CPU tests demonstrate acceptance at 180 seconds and rejection at 181
-seconds at the session and backend boundaries. A new real-model series has not
-yet been run: this checkout does not have an accessible verified Qwen3-1.7B
-artifact manifest and matching runtime bundle in its configured experiment
-workspace. Existing protected experiment directories and evidence were left
-untouched. This change therefore repairs the configured deadline but does not
-yet demonstrate that a four-call series completes or scores under that limit.
+seconds at the session and backend boundaries. One fresh run used the installed
+`qwen3:1.7b` artifact (`8f68893c685c3ddff2aa3fffce2aa60a30bb2da65ca488b61fff134a4d1730e7`)
+and its locally observed Ollama runtime. The first governed invocation reached
+the aligned 180-second deadline and produced a persisted `timeout` receipt with
+reason `timeout_worker_terminated` after 180,287 ms. It recorded no output
+digest, the series scorer did not start, and no retry occurred. The runner
+surfaced `retrieval_cognition_not_completed` after that timeout. The run is
+preserved privately as
+`rootless-epistemic-run-171dcc00fd104cdc86597728`; its preregistration digest is
+`22f1c1630e90a4d669b9ed203ec15aa24aeedca31311338a38d921e3fa656508`. Earlier
+experiment directories and evidence were left untouched.
+
+The configuration mismatch is repaired, but the first probe still does not
+complete at the maximum admitted deadline. A four-call result, cognition score,
+and any behavioral benefit remain unproven. The receipt is evidence of a
+bounded timeout, not evidence that the model's epistemic response was wrong or
+right.
