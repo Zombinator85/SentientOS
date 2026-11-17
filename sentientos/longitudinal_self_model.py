@@ -32,7 +32,7 @@ from .windows_peer_replay_custody import (
 SCHEMA = "sentientos.longitudinal_self_model:v1"
 RECONCILIATION_SCHEMA = "sentientos.longitudinal_self_model_reconciliation:v1"
 CONFIG_SCHEMA = "sentientos.longitudinal_self_model_runtime_config:v1"
-PROJECTION_SCHEMA = "sentientos.cognitive_self_model_projection:v1"
+PROJECTION_SCHEMA = "sentientos.cognitive_self_model_projection:v2"
 PROJECTION_POLICY = "predicate_then_claim_id:v1"
 QUESTION_RELEVANT_PROJECTION_POLICY = "question_relevance_then_predicate_then_claim_id:v1"
 MAX_PROJECTION_CLAIMS = 32
@@ -193,6 +193,7 @@ class CognitiveSelfModelProjection:
     current_truth: bool = False
     interpretation: bool = False
     relevance_query_digest: str | None = None
+    omitted_conflict_groups: tuple[Mapping[str, Any], ...] = ()
 
     def semantic_payload(self) -> dict[str, Any]:
         value = asdict(self)
@@ -200,6 +201,8 @@ class CognitiveSelfModelProjection:
         value.pop("projection_digest")
         if value.get("relevance_query_digest") is None:
             value.pop("relevance_query_digest")
+        if not value.get("omitted_conflict_groups"):
+            value.pop("omitted_conflict_groups")
         return value
 
 
@@ -369,6 +372,49 @@ def _rank_self_model_projection_claims(claims: Sequence[SelfModelClaim], *,
     if ranked[:max_claims] == baseline[:max_claims]:
         return baseline, None
     return ranked, _digest(relevance_query)
+
+
+def _select_self_model_projection_claims(
+        ranked_claims: Sequence[SelfModelClaim], *, max_claims: int
+        ) -> tuple[tuple[SelfModelClaim, ...], tuple[Mapping[str, Any], ...]]:
+    """Select ranked claims without splitting an explicit contradiction group."""
+    claims_by_key: dict[str, list[SelfModelClaim]] = {}
+    for claim in ranked_claims:
+        claims_by_key.setdefault(claim.claim_key, []).append(claim)
+    conflict_groups = {
+        key: tuple(members) for key, members in claims_by_key.items()
+        if len(members) > 1 and any(
+            claim.status == "contradicted"
+            or claim.contradiction_state == "contradicted"
+            for claim in members)
+    }
+    group_by_claim_id = {claim.claim_id: members
+        for members in conflict_groups.values() for claim in members}
+    selected: list[SelfModelClaim] = []
+    omitted_groups: list[Mapping[str, Any]] = []
+    processed_groups: set[str] = set()
+    for claim in ranked_claims:
+        group = group_by_claim_id.get(claim.claim_id)
+        if group is None:
+            if len(selected) < max_claims:
+                selected.append(claim)
+            continue
+        if claim.claim_key in processed_groups:
+            continue
+        processed_groups.add(claim.claim_key)
+        ordered_group = tuple(member for member in ranked_claims
+            if member.claim_id in {item.claim_id for item in group})
+        if len(selected) + len(ordered_group) <= max_claims:
+            selected.extend(ordered_group)
+            continue
+        identities = {
+            "claim_key": claim.claim_key,
+            "claim_ids": [member.claim_id for member in ordered_group],
+            "claim_digests": [_digest(asdict(member)) for member in ordered_group],
+            "reason": "projection_claim_limit",
+        }
+        omitted_groups.append({**identities, "group_digest": _digest(identities)})
+    return tuple(selected), tuple(omitted_groups)
 
 
 @dataclass(frozen=True)
@@ -1383,12 +1429,21 @@ class LongitudinalSelfModelOwner:
         ranked_claims, relevance_query_digest = _rank_self_model_projection_claims(
             eligible_claims, relevance_query=relevance_query,
             max_claims=max_claims)
-        claims = ranked_claims[:max_claims]
+        claims, omitted_conflict_groups = _select_self_model_projection_claims(
+            ranked_claims, max_claims=max_claims)
+        claims_by_key: dict[str, list[SelfModelClaim]] = {}
+        for claim in eligible_claims:
+            claims_by_key.setdefault(claim.claim_key, []).append(claim)
+        contradicted_claim_keys = {key for key, members in claims_by_key.items()
+            if len(members) > 1 and any(member.status == "contradicted"
+                or member.contradiction_state == "contradicted"
+                for member in members)}
         selected: list[Mapping[str, Any]] = []
         digests: list[str] = []
         for claim in claims:
             bounded = {
-                "claim_id": claim.claim_id, "semantic_digest": _digest(asdict(claim)),
+                "claim_id": claim.claim_id,
+                "semantic_digest": _digest(asdict(claim)),
                 "predicate": claim.predicate, "value": _bounded(claim.value),
                 "temporal_scope": claim.temporal_scope,
                 "claim_category": claim.claim_category,
@@ -1410,6 +1465,8 @@ class LongitudinalSelfModelOwner:
                 "cognitive_model_identity": claim.cognitive_model_identity,
                 "developmental_history_boundary": claim.developmental_history_boundary,
             }
+            if claim.claim_key in contradicted_claim_keys:
+                bounded["claim_key"] = claim.claim_key
             selected.append(bounded); digests.append(str(bounded["semantic_digest"]))
         raw = CognitiveSelfModelProjection(
             PROJECTION_SCHEMA, "", "", source.reconciliation_id, source.reconciliation_digest,
@@ -1419,7 +1476,8 @@ class LongitudinalSelfModelOwner:
             tuple(sorted({c.developmental_history_boundary for c in claims if c.developmental_history_boundary})),
             (QUESTION_RELEVANT_PROJECTION_POLICY if relevance_query_digest is not None
                 else PROJECTION_POLICY), dict(FALSE_AUTHORITY),
-            relevance_query_digest=relevance_query_digest)
+            relevance_query_digest=relevance_query_digest,
+            omitted_conflict_groups=omitted_conflict_groups)
         digest = _digest(raw.semantic_payload())
         return replace(raw, projection_id="cognitive-self-model-" + digest[7:31], projection_digest=digest)
 

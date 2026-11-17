@@ -11609,6 +11609,100 @@ def test_context_budget_trims_self_model_before_dropping_retrieved_experience(
     assert len(full_model_bound["prior_self_model"]["selected_claim_ids"]) == 2
 
 
+def test_self_model_prompt_budget_withholds_conflict_group_atomically(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    import sentientos.resident_developmental_cognition as cognition_module
+    from sentientos.resident_developmental_cognition import (
+        _validate_self_model_prompt_selection,
+    )
+
+    record = {"record_id": "budget-history", "record_digest": "r" * 64}
+    monkeypatch.setattr(cognition_module, "_history_context_packet",
+        lambda item, **_kwargs: {**item, "padding": "h" * 300,
+            "task_relevant_experience": [], "historical_embodiment_reports": []})
+    claim_rows = [
+        {"claim_id": "conflict-current", "claim_key": "claim-key",
+            "status": "contradicted", "contradiction_state": "contradicted",
+            "value": "current position " + "c" * 520},
+        {"claim_id": "conflict-historical", "claim_key": "claim-key",
+            "status": "contradicted", "contradiction_state": "contradicted",
+            "value": "historical position " + "h" * 520},
+    ]
+
+    def context(*, conflict: bool) -> dict[str, Any]:
+        claims = [dict(row) for row in claim_rows]
+        if not conflict:
+            for row in claims:
+                row["status"] = "historical"
+                row["contradiction_state"] = "unresolved"
+        return {"instruction": "Use bounded prior self-model context.",
+            "prior_self_model": {
+                "projection_id": "self-model-projection",
+                "projection_digest": "sha256:" + "c" * 64,
+                "relevance_query_digest": "sha256:" + "q" * 64,
+                "selected_claims": claims,
+                "selected_claim_ids": [row["claim_id"] for row in claims],
+                "selected_claim_digests": ["sha256:" + letter * 64
+                    for letter in ("a", "b")],
+                "omitted_conflict_groups": []},
+            "developmental_history": []}
+
+    def bind(candidate: dict[str, Any], capacity: int):
+        return _bind_history_and_epistemic_context(context=candidate,
+            records=(record,), projection=None, history_present=True,
+            max_input_chars=capacity)
+
+    selected_capacity = None
+    for capacity in range(1024, 6001, 16):
+        try:
+            bound, metadata, prompt, ids, _ = bind(context(conflict=True), capacity)
+        except ResidentDevelopmentalCognitionError as exc:
+            if str(exc) != "cognition_input_budget_exceeded":
+                raise
+            continue
+        selection = metadata.get("prior_self_model_prompt_selection", {})
+        if selection.get("selected_claim_ids") != []:
+            continue
+        omitted_groups = selection.get("omitted_conflict_groups", ())
+        if (len(omitted_groups) == 1
+                and omitted_groups[0].get("reason") == "inference_input_budget"):
+            try:
+                ordinary_bound, ordinary_metadata, ordinary_prompt, ordinary_ids, _ = bind(
+                    context(conflict=False), capacity)
+            except ResidentDevelopmentalCognitionError as exc:
+                if str(exc) != "cognition_input_budget_exceeded":
+                    raise
+                continue
+            ordinary_selection = ordinary_metadata.get(
+                "prior_self_model_prompt_selection", {})
+            if len(ordinary_selection.get("selected_claim_ids", ())) == 1:
+                selected_capacity = capacity
+                break
+
+    assert selected_capacity is not None
+    bounded, metadata, prompt, ids, _ = bind(context(conflict=True), selected_capacity)
+    selection = metadata["prior_self_model_prompt_selection"]
+    [omitted_group] = selection["omitted_conflict_groups"]
+    assert omitted_group["claim_ids"] == [
+        "conflict-current", "conflict-historical"]
+    assert selection["omitted_conflict_groups_digest"] == cognition_module._digest(
+        selection["omitted_conflict_groups"])
+    assert "Do not treat withheld claims as absent, resolved" in bounded["instruction"]
+    _validate_self_model_prompt_selection({
+        "self_model_projection_present": True,
+        "self_model_projection_digest": "sha256:" + "c" * 64,
+        "self_model_claim_ids": ["conflict-current", "conflict-historical"],
+        "self_model_claim_digests": ["sha256:" + "a" * 64,
+            "sha256:" + "b" * 64],
+        "prior_self_model_prompt_selection": selection,
+    })
+    full_bound, full_metadata, full_prompt, _, _ = bind(
+        context(conflict=True), 10_000)
+    assert full_metadata["prior_self_model_prompt_selection"][
+        "selected_claim_ids"] == ["conflict-current", "conflict-historical"]
+    assert len(full_prompt) <= 10_000
+
+
 def test_task_family_retrieval_prioritizes_bound_current_model_before_probe_overlap(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Applicable history survives the retrieval cap over higher-overlap other-model records."""

@@ -105,6 +105,14 @@ continue to select the historical revision. Claims without an explicit
 supersession link keep their independent relevance scores; query wording does
 not establish freshness or truth.
 
+Projection and inference-input bounds also treat claims marked contradictory
+under the same stable claim key as one selection unit. If the complete group
+does not fit a bound, the projection or prompt-selection record carries the
+group identities and a digest-bound omission reason, and cognition is told not
+to infer that the disagreement is absent or resolved. A bound may therefore
+return fewer claims than its numeric maximum rather than deliver one side of a
+recorded conflict by itself.
+
 Cognition for tick N runs before reconciliation of World-State N and can receive
 only a projection whose source tick differs from N. Receipts bind its exact
 reconciliation, generation, claims, current projection, history, model, and

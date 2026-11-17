@@ -290,7 +290,8 @@ def test_value_conflict_retains_current_and_historical_source_categories(tmp_pat
         disposition="stopped")
     historical.update({"source_kind": "runtime_supervisor",
         "subject_kind": "observed_running_software_generation"})
-    result = LongitudinalSelfModelOwner(tmp_path).reconcile(
+    projection_owner = LongitudinalSelfModelOwner(tmp_path)
+    result = projection_owner.reconcile(
         snapshot(current, historical), tick_id="tick-conflicting-temporal-support")
     claims = [claim for claim in result.claims
         if claim.predicate == "lifecycle.observation.disposition"]
@@ -302,6 +303,26 @@ def test_value_conflict_retains_current_and_historical_source_categories(tmp_pat
         }
     assert all(claim.contradiction_state == "contradicted" for claim in claims)
     assert all(claim.current_truth is False for claim in claims)
+    one_claim_projection = projection_owner.cognitive_projection(
+        before_tick="tick-after-conflict", max_claims=1,
+        allowed_predicates=("lifecycle.observation.disposition",))
+    assert one_claim_projection is not None
+    assert one_claim_projection.selected_claim_ids == ()
+    [omitted_group] = one_claim_projection.omitted_conflict_groups
+    assert set(omitted_group["claim_ids"]) == {
+        claim.claim_id for claim in claims}
+    assert len(omitted_group["claim_digests"]) == 2
+    group_identity = {key: value for key, value in omitted_group.items()
+        if key != "group_digest"}
+    assert omitted_group["group_digest"] == self_model_digest(group_identity)
+
+    complete_projection = projection_owner.cognitive_projection(
+        before_tick="tick-after-conflict", max_claims=2,
+        allowed_predicates=("lifecycle.observation.disposition",))
+    assert complete_projection is not None
+    assert set(complete_projection.selected_claim_ids) == {
+        claim.claim_id for claim in claims}
+    assert complete_projection.omitted_conflict_groups == ()
 
 
 def test_unambiguous_current_evidence_supersedes_only_conflicting_temporal_branch(

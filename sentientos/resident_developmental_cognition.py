@@ -4058,19 +4058,64 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                 or len(claims) != len(claim_digests)
                 or any(not isinstance(claim, Mapping) for claim in claims)):
             raise ResidentDevelopmentalCognitionError("invalid_self_model_projection")
+        conflict_members_by_key: dict[str, list[Mapping[str, Any]]] = {}
+        for claim in claims:
+            claim_key = claim.get("claim_key")
+            if (isinstance(claim_key, str) and claim_key
+                    and (claim.get("status") == "contradicted"
+                        or claim.get("contradiction_state") == "contradicted")):
+                conflict_members_by_key.setdefault(claim_key, []).append(claim)
+        conflict_groups = {key: tuple(members)
+            for key, members in conflict_members_by_key.items() if len(members) > 1}
+        conflict_group_ids = tuple(tuple(str(member["claim_id"]) for member in members)
+            for members in conflict_groups.values())
+        owner_omitted_conflict_groups = raw_self_model.get(
+            "omitted_conflict_groups", ())
+        if (not isinstance(owner_omitted_conflict_groups, (list, tuple))
+                or any(not _valid_self_model_conflict_group(group)
+                    or group.get("reason") != "projection_claim_limit"
+                    for group in owner_omitted_conflict_groups)):
+            raise ResidentDevelopmentalCognitionError(
+                "invalid_self_model_conflict_omission")
         # The owner already ranks claims for the current question. Preserve that
         # order while reducing the projection only when the assembled prompt
-        # cannot fit the configured inference input bound.
+        # cannot fit the configured inference input bound. Complete conflict
+        # groups are atomic even when the remaining prompt budget could fit one
+        # side by itself.
         for count in range(len(claims), -1, -1):
             selected_ids = list(claim_ids[:count])
             selected_digests = list(claim_digests[:count])
+            selected_id_set = set(selected_ids)
+            if any(selected_id_set.intersection(group_ids)
+                    and not set(group_ids).issubset(selected_id_set)
+                    for group_ids in conflict_group_ids):
+                continue
             omitted_claims = [{"claim_id": str(cid), "claim_digest": str(digest)}
                 for cid, digest in zip(claim_ids[count:], claim_digests[count:])]
+            omitted_id_set = {item["claim_id"] for item in omitted_claims}
+            budget_omitted_conflict_groups = []
+            for claim_key, members in conflict_groups.items():
+                member_ids = [str(member["claim_id"]) for member in members]
+                if set(member_ids).issubset(omitted_id_set):
+                    member_digests = [str(digest) for member_id, digest in
+                        zip(claim_ids, claim_digests) if member_id in set(member_ids)]
+                    identities = {"claim_key": claim_key,
+                        "claim_ids": member_ids,
+                        "claim_digests": member_digests,
+                        "reason": "inference_input_budget"}
+                    budget_omitted_conflict_groups.append({**identities,
+                        "group_digest": _digest(identities)})
+            omitted_conflict_groups = [
+                *[dict(group) for group in owner_omitted_conflict_groups],
+                *budget_omitted_conflict_groups]
             variant = dict(raw_self_model)
             variant["selected_claims"] = list(claims[:count])
             variant["selected_claim_ids"] = selected_ids
             variant["selected_claim_digests"] = selected_digests
-            selection = {"schema_version": "sentientos.self_model_prompt_selection:v1",
+            selection = {"schema_version": (
+                    "sentientos.self_model_prompt_selection:v2"
+                    if omitted_conflict_groups
+                    else "sentientos.self_model_prompt_selection:v1"),
                 "policy": ("question_relevance_ranked_prefix:v1"
                     if raw_self_model.get("relevance_query_digest")
                     else "owner_ordered_prefix:v1"),
@@ -4082,6 +4127,10 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                 "omitted_claims": omitted_claims,
                 "omitted_claims_digest": _digest(omitted_claims),
                 "omission_reason": "inference_input_budget" if omitted_claims else None}
+            if omitted_conflict_groups:
+                selection["omitted_conflict_groups"] = omitted_conflict_groups
+                selection["omitted_conflict_groups_digest"] = _digest(
+                    omitted_conflict_groups)
             selection["selection_digest"] = _digest(selection)
             candidate_self_model = variant if count else None
             self_model_variants.append((candidate_self_model, selection))
@@ -4240,6 +4289,17 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                     "developmental_history": prompt_packets,
                     "historical_embodiment_reports": historical_embodiment_reports,
                     "developmental_history_selection": prompt_selection}
+                if self_model_selection is not None:
+                    omitted_conflicts = self_model_selection.get(
+                        "omitted_conflict_groups", ())
+                    if omitted_conflicts:
+                        candidate["instruction"] = str(candidate.get("instruction", "")) + (
+                            " prior_self_model_prompt_selection.omitted_conflict_groups "
+                            "identifies complete contradictory self-model groups withheld "
+                            "by the projection or inference bound. Do not treat withheld "
+                            "claims as absent, resolved, or evidence that no disagreement "
+                            "exists; preserve the unresolved status and do not invent either "
+                            "side's content.")
                 if self_model_selection is not None:
                     candidate["prior_self_model_prompt_selection"] = self_model_selection
                 if "companion_question" in context:
@@ -5036,6 +5096,35 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_omission_invalid")
 
 
+def _valid_self_model_conflict_group(value: Any) -> bool:
+    if not isinstance(value, Mapping) or set(value) != {
+            "claim_key", "claim_ids", "claim_digests", "reason", "group_digest"}:
+        return False
+    claim_key = value.get("claim_key")
+    claim_ids = value.get("claim_ids")
+    claim_digests = value.get("claim_digests")
+    reason = value.get("reason")
+    group_digest = value.get("group_digest")
+    if (not isinstance(claim_key, str) or not claim_key
+            or not isinstance(claim_ids, (list, tuple)) or not 2 <= len(claim_ids) <= 32
+            or any(not isinstance(item, str) or not item for item in claim_ids)
+            or len(set(claim_ids)) != len(claim_ids)
+            or not isinstance(claim_digests, (list, tuple))
+            or len(claim_digests) != len(claim_ids)
+            or any(not isinstance(item, str) or len(item) != 71
+                or not item.startswith("sha256:")
+                or any(character not in "0123456789abcdef" for character in item[7:])
+                for item in claim_digests)
+            or reason not in {"projection_claim_limit", "inference_input_budget"}
+            or not isinstance(group_digest, str) or len(group_digest) != 71
+            or not group_digest.startswith("sha256:")
+            or any(character not in "0123456789abcdef" for character in group_digest[7:])):
+        return False
+    semantic = {"claim_key": claim_key, "claim_ids": list(claim_ids),
+        "claim_digests": list(claim_digests), "reason": reason}
+    return group_digest == _digest(semantic)
+
+
 def _validate_self_model_prompt_selection(value: Mapping[str, Any]) -> None:
     selection = value.get("prior_self_model_prompt_selection")
     if selection is None:
@@ -5047,21 +5136,32 @@ def _validate_self_model_prompt_selection(value: Mapping[str, Any]) -> None:
         "source_projection_digest", "available_claim_count", "selected_claim_ids",
         "selected_claim_digests", "omitted_claims", "omitted_claims_digest",
         "omission_reason", "selection_digest"}
-    if not isinstance(selection, Mapping) or set(selection) != expected:
+    if (not isinstance(selection, Mapping)
+            or selection.get("schema_version") not in {
+                "sentientos.self_model_prompt_selection:v1",
+                "sentientos.self_model_prompt_selection:v2"}):
+        raise ResidentDevelopmentalCognitionError("self_model_prompt_selection_invalid")
+    is_v2 = selection["schema_version"] == "sentientos.self_model_prompt_selection:v2"
+    if is_v2:
+        expected |= {"omitted_conflict_groups", "omitted_conflict_groups_digest"}
+    if set(selection) != expected:
         raise ResidentDevelopmentalCognitionError("self_model_prompt_selection_invalid")
     semantic = dict(selection)
     claimed_digest = semantic.pop("selection_digest")
     selected_ids = selection.get("selected_claim_ids")
     selected_digests = selection.get("selected_claim_digests")
     omitted = selection.get("omitted_claims")
+    omitted_conflicts = selection.get("omitted_conflict_groups", ())
     available_ids = value.get("self_model_claim_ids")
     available_digests = value.get("self_model_claim_digests")
+    omitted_digest_by_id = ({item.get("claim_id"): item.get("claim_digest")
+        for item in omitted if isinstance(item, Mapping)}
+        if isinstance(omitted, (list, tuple)) else {})
     def valid_digest(item: Any) -> bool:
         return (isinstance(item, str) and len(item) == 71
             and item.startswith("sha256:")
             and all(character in "0123456789abcdef" for character in item[7:]))
-    if (selection.get("schema_version") != "sentientos.self_model_prompt_selection:v1"
-            or selection.get("policy") not in {
+    if (selection.get("policy") not in {
                 "question_relevance_ranked_prefix:v1", "owner_ordered_prefix:v1"}
             or not isinstance(selection.get("source_projection_id"), str)
             or not selection.get("source_projection_id")
@@ -5099,6 +5199,25 @@ def _validate_self_model_prompt_selection(value: Mapping[str, Any]) -> None:
             or [*selected_digests, *(item["claim_digest"] for item in omitted)]
                 != list(available_digests)
             or selection.get("omitted_claims_digest") != _digest(list(omitted))
+            or not isinstance(omitted_conflicts, (list, tuple))
+            or len(omitted_conflicts) > 32
+            or any(not _valid_self_model_conflict_group(item)
+                for item in omitted_conflicts)
+            or len({claim_id for group in omitted_conflicts
+                for claim_id in group["claim_ids"]}) != sum(
+                    len(group["claim_ids"]) for group in omitted_conflicts)
+            or any((group["reason"] == "inference_input_budget"
+                    and not set(group["claim_ids"]).issubset(
+                        {item["claim_id"] for item in omitted}))
+                    or (group["reason"] == "inference_input_budget"
+                        and any(omitted_digest_by_id.get(claim_id) != claim_digest
+                            for claim_id, claim_digest in zip(
+                                group["claim_ids"], group["claim_digests"])))
+                or (group["reason"] == "projection_claim_limit"
+                    and set(group["claim_ids"]) & set(available_ids))
+                for group in omitted_conflicts)
+            or (is_v2 and selection.get("omitted_conflict_groups_digest")
+                != _digest(list(omitted_conflicts)))
             or selection.get("omission_reason") != (
                 "inference_input_budget" if omitted else None)
             or claimed_digest != _digest(semantic)):
