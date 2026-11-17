@@ -440,6 +440,18 @@ digest-bound source-conflict marker and tells the target model that source-model
 outcomes do not establish its performance. The existing exact-family and
 evaluator-example checks still apply; this does not claim cross-model transfer.
 
+The hosted restart-safe counterfactual now follows that case through the
+receiving model's own feedback. Model B applies the provisional candidate on a
+held-out task, its receipt-bound favorable result is admitted through ordinary
+World-State and developmental writeback, and an adverse repeat on the same
+task makes B's own candidate unavailable to B's next prompt; the deterministic
+policy abstains. A third identity still receives B's candidate with the
+cross-model unsettled-source marker and solves the same held-out task from the
+oracle-verified relation. This demonstrates that outcome custody, writeback,
+model-specific history selection, and later model-conditioned context compose
+across a restart. It does not establish real-model interpretation, durable
+performance improvement, or general cross-model transfer.
+
 ## Cross-session correction integration
 
 A verified assistant answer can now carry its bounded screen-capture provenance
