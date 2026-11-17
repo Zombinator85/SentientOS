@@ -1951,7 +1951,7 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     prompt_projection = final_history_request.upstream_evidence[
         "task_family_history_prompt_projection"]
     assert prompt_projection["schema_version"] == \
-        "sentientos.task_family_history_prompt_projection:v9"
+        "sentientos.task_family_history_prompt_projection:v10"
     [projected_prior_errors] = prompt_projection["prior_incorrect_examples"]
     assert prompt_projection["prior_incorrect_example_count"] == 3
     assert projected_prior_errors["record_id"] == retained.record_id
@@ -2508,6 +2508,43 @@ def test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context
         "withheld_unsettled_candidate_integer_affine_strategies"]
     assert withheld_ref["strategy_digest"] == stable_strategy["strategy_digest"]
 
+    other_identity = {"provider": "fixture", "model": "unsettled-strategy-transfer"}
+    cross_model_context, _, cross_model_prompt, _, _ = (
+        cognition_module._bind_history_and_epistemic_context(
+            context={"instruction": base_instruction,
+                "developmental_history_task_family_id": "integer_affine_prediction",
+                "developmental_history_task_family_history_required": True,
+                "developmental_history_target_model_identity": other_identity},
+            records=(record,), projection=None,
+            unsettled_task_family_outcome_groups={unsettled_group}))
+    [cross_model_experience] = cross_model_context["developmental_history"][0][
+        "task_relevant_experience"]
+    assert cross_model_experience["model_identity_relation"] == (
+        "different_active_model_identity")
+    cross_model_strategy = cross_model_experience[
+        "candidate_integer_affine_strategy"]
+    assert cross_model_strategy["relation"] == stable_strategy["relation"]
+    cross_model_caution = cross_model_experience[
+        "candidate_integer_affine_strategy_source_outcomes_unsettled"]
+    assert cross_model_caution["posture"] == (
+        "source_model_outcomes_unsettled_cross_model_candidate")
+    assert cross_model_caution["strategy_digest"] == cross_model_strategy[
+        "strategy_digest"]
+    assert cross_model_caution["authority"] is False
+    assert cross_model_caution["current_truth"] is False
+    assert "Do not reconstruct or apply that candidate relation" not in (
+        cross_model_prompt)
+    assert "Those outcomes do not establish this model's performance" in (
+        cross_model_prompt)
+    cross_model_projection = cognition_module._task_family_history_prompt_projection(
+        cross_model_context, condition_id="history_present",
+        task_family_id="integer_affine_prediction")
+    assert cross_model_projection[
+        "cross_model_unsettled_candidate_integer_affine_strategy_count"] == 1
+    [cross_model_ref] = cross_model_projection[
+        "cross_model_unsettled_candidate_integer_affine_strategies"]
+    assert cross_model_ref["strategy_digest"] == cross_model_strategy["strategy_digest"]
+
 
 def test_task_family_projection_separates_correct_and_incorrect_examples() -> None:
     from sentientos.resident_developmental_cognition import (
@@ -2580,7 +2617,7 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
         condition_id="history_present", task_family_id="integer_affine_prediction")
     assert projection["task_relevant_example_count"] == 1
     assert projection["schema_version"] == \
-        "sentientos.task_family_history_prompt_projection:v9"
+        "sentientos.task_family_history_prompt_projection:v10"
     assert projection["records"][0]["evaluator_correct_count"] == 1
     assert projection["records"][0]["evaluator_incorrect_count"] == 2
     assert projection["records"][0]["prior_incorrect_example_count"] == 2
@@ -3947,6 +3984,42 @@ def test_unsettled_score_bound_outcomes_change_later_strategy_use_after_restart(
     withheld_condition_prompt = json.loads(later_episode["prompts"]["history_withheld"])
     assert "Do not reconstruct or apply that candidate relation" not in (
         withheld_condition_prompt["instruction"])
+
+    replacement_identity = {"provider": "fixture", "model": "replacement-after-conflict"}
+    _, transfer_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-cross-model-transfer", task=later_task)
+    transfer_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-cross-model-transfer",
+        request_digest=str(transfer_request["request_digest"]),
+        active_model_identity=replacement_identity,
+        prior_request_refs=(
+            ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
+            ("conflict-decision-settled", str(stable_request["request_digest"])),
+            ("conflict-decision-adverse-repeat", str(adverse_request["request_digest"]))),
+        objective_mode="apply_or_abstain_when_unsettled")
+    transfer_run = transfer_episode["run"]
+    transfer_scores = {row["condition_id"]: row["score"]
+        for row in transfer_run["objective_scores"]}
+    assert transfer_scores["history_present"]["correct_count"] == 3
+    assert transfer_scores["history_restored"]["correct_count"] == 3
+    assert transfer_scores["history_withheld"]["correct_count"] == 0
+    transfer_prompt = json.loads(transfer_episode["prompts"]["history_present"])
+    transfer_experiences = [experience
+        for packet in transfer_prompt["developmental_history"]
+        for experience in packet.get("task_relevant_experience", ())]
+    [transfer_experience] = [experience for experience in transfer_experiences
+        if experience.get("source_task_digest") == repeated_task_digest
+        and isinstance(experience.get("candidate_integer_affine_strategy"), Mapping)]
+    assert transfer_experience["model_identity_relation"] == (
+        "different_active_model_identity")
+    assert transfer_experience[
+        "candidate_integer_affine_strategy_source_outcomes_unsettled"]["posture"] == (
+            "source_model_outcomes_unsettled_cross_model_candidate")
+    assert "Those outcomes do not establish this model's performance" in (
+        transfer_prompt["instruction"])
+    assert "Do not reconstruct or apply that candidate relation" not in (
+        transfer_prompt["instruction"])
 
 
 def test_historical_embodiment_context_preserves_typed_report_roles() -> None:

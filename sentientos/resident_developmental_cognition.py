@@ -1658,6 +1658,7 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
         "target_active_model_identity_digest", "model_identity_relation",
         "applicability_posture", "evaluator", "event_scope", "examples",
         "candidate_integer_affine_strategy", "controlled_task_effect",
+        "candidate_integer_affine_strategy_source_outcomes_unsettled",
         "independent_backend_observation", "execution_evidence_scope",
         "execution_evidence_posture", "historical_only", "current_truth", "authority")}
     resource_context = example.get("resource_context")
@@ -3612,7 +3613,9 @@ def _history_context_packet(record: Mapping[str, Any], *,
                     if candidate_strategy is not None:
                         outcome_group = (item.get("source_task_digest"),
                             item.get("source_active_model_identity_digest"))
-                        if outcome_group in unsettled_outcome_groups:
+                        if (outcome_group in unsettled_outcome_groups
+                                and item.get("model_identity_relation")
+                                    == "same_active_model_identity"):
                             projected.pop("candidate_integer_affine_strategy", None)
                             withheld = {
                                 "posture": "withheld_unsettled_score_bound_outcomes",
@@ -3635,6 +3638,27 @@ def _history_context_packet(record: Mapping[str, Any], *,
                         else:
                             projected["candidate_integer_affine_strategy"] = (
                                 candidate_strategy)
+                            if outcome_group in unsettled_outcome_groups:
+                                projected[
+                                    "candidate_integer_affine_strategy_source_outcomes_unsettled"] = {
+                                        "posture": (
+                                            "source_model_outcomes_unsettled_cross_model_candidate"),
+                                        "source_fact_id": candidate_strategy.get(
+                                            "source_fact_id"),
+                                        "source_run_digest": candidate_strategy.get(
+                                            "source_run_digest"),
+                                        "source_task_digest": candidate_strategy.get(
+                                            "source_task_digest"),
+                                        "strategy_digest": candidate_strategy.get(
+                                            "strategy_digest"),
+                                        "outcome_group_digest": _digest(
+                                            list(outcome_group)),
+                                        "target_active_model_identity_digest": item.get(
+                                            "target_active_model_identity_digest"),
+                                        "historical_only": True,
+                                        "current_truth": False,
+                                        "authority": False,
+                                    }
                     if prior_incorrect:
                         projected["prior_incorrect_examples"] = {
                             "posture": "score_bound_past_errors_not_mapping_evidence",
@@ -3903,6 +3927,17 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                         "posture") == "withheld_unsettled_score_bound_outcomes"
                     for packet in prompt_packets
                     for experience in packet.get("task_relevant_experience", ()))
+                has_cross_model_unsettled_candidate = any(
+                    isinstance(experience, Mapping)
+                    and isinstance(experience.get(
+                        "candidate_integer_affine_strategy_source_outcomes_unsettled"),
+                        Mapping)
+                    and experience[
+                        "candidate_integer_affine_strategy_source_outcomes_unsettled"].get(
+                            "posture")
+                        == "source_model_outcomes_unsettled_cross_model_candidate"
+                    for packet in prompt_packets
+                    for experience in packet.get("task_relevant_experience", ()))
                 if has_unsettled_candidate_strategy:
                     instruction = candidate_context.get("instruction")
                     if not isinstance(instruction, str):
@@ -3916,6 +3951,20 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                         "retained examples while the outcomes are unsettled. Preserve "
                         "the examples as historical evidence, keep the conflict "
                         "uncertain, and wait for new comparable evidence or abstain.")
+                if has_cross_model_unsettled_candidate:
+                    instruction = candidate_context.get("instruction")
+                    if not isinstance(instruction, str):
+                        raise ResidentDevelopmentalCognitionError(
+                            "developmental_history_instruction_invalid")
+                    candidate_context["instruction"] = instruction + (
+                        " A candidate_integer_affine_strategy_source_outcomes_unsettled "
+                        "entry means the strategy's source model had conflicting or "
+                        "unstable outcomes, while this model identity is different. "
+                        "Those outcomes do not establish this model's performance. "
+                        "Treat the relation only as a provisional, oracle-verified "
+                        "same-family candidate; check it against the accompanying "
+                        "correct examples and current task, preserve the source "
+                        "uncertainty, and make no cross-model performance claim.")
                 corroboration = _task_family_corroboration_for_selected_packets(
                     context.get("developmental_history_outcome_corroboration"),
                     prompt_packets)
@@ -4042,6 +4091,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
     prior_abstained_refs: list[dict[str, Any]] = []
     candidate_strategy_refs: list[dict[str, Any]] = []
     withheld_candidate_strategy_refs: list[dict[str, Any]] = []
+    cross_model_unsettled_candidate_strategy_refs: list[dict[str, Any]] = []
     for packet in history:
         if not isinstance(packet, Mapping):
             raise ResidentDevelopmentalCognitionError(
@@ -4067,6 +4117,8 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
             strategy = experience.get("candidate_integer_affine_strategy")
             strategy_withheld = experience.get(
                 "candidate_integer_affine_strategy_withheld")
+            cross_model_unsettled = experience.get(
+                "candidate_integer_affine_strategy_source_outcomes_unsettled")
             if strategy_withheld is not None:
                 rederived_withheld_strategy = _candidate_integer_affine_strategy(
                     experience, rows)
@@ -4075,6 +4127,8 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                     experience.get("source_active_model_identity_digest")])
                 if (not isinstance(strategy_withheld, Mapping)
                         or rederived_withheld_strategy is None
+                        or experience.get("model_identity_relation")
+                            != "same_active_model_identity"
                         or strategy_withheld.get("posture")
                             != "withheld_unsettled_score_bound_outcomes"
                         or strategy_withheld.get("source_fact_id")
@@ -4099,7 +4153,8 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                         or strategy_withheld.get("historical_only") is not True
                         or strategy_withheld.get("current_truth") is not False
                         or strategy_withheld.get("authority") is not False
-                        or strategy is not None):
+                        or strategy is not None
+                        or cross_model_unsettled is not None):
                     raise ResidentDevelopmentalCognitionError(
                         "task_family_prompt_projection_withheld_strategy_invalid")
                 withheld_candidate_strategy_refs.append({
@@ -4148,6 +4203,57 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                     "supporting_example_count": strategy.get(
                         "supporting_example_count"),
                 })
+                if cross_model_unsettled is not None:
+                    target_model_identity = context.get(
+                        "developmental_history_target_model_identity")
+                    expected_applicability = _task_family_model_applicability(
+                        experience, target_model_identity=(
+                            target_model_identity
+                            if isinstance(target_model_identity, Mapping) else None))
+                    expected_outcome_group_digest = _digest([
+                        experience.get("source_task_digest"),
+                        experience.get("source_active_model_identity_digest")])
+                    if (not isinstance(cross_model_unsettled, Mapping)
+                            or expected_applicability.get("model_identity_relation")
+                                != "different_active_model_identity"
+                            or expected_applicability.get(
+                                "target_active_model_identity_digest")
+                                != cross_model_unsettled.get(
+                                    "target_active_model_identity_digest")
+                            or cross_model_unsettled.get("posture")
+                                != "source_model_outcomes_unsettled_cross_model_candidate"
+                            or cross_model_unsettled.get("source_fact_id")
+                                != experience.get("source_fact_id")
+                            or cross_model_unsettled.get("source_run_digest")
+                                != experience.get("source_run_digest")
+                            or cross_model_unsettled.get("source_task_digest")
+                                != experience.get("source_task_digest")
+                            or cross_model_unsettled.get("strategy_digest")
+                                != strategy.get("strategy_digest")
+                            or cross_model_unsettled.get("outcome_group_digest")
+                                != expected_outcome_group_digest
+                            or cross_model_unsettled.get(
+                                "target_active_model_identity_digest")
+                                != experience.get("target_active_model_identity_digest")
+                            or cross_model_unsettled.get("historical_only") is not True
+                            or cross_model_unsettled.get("current_truth") is not False
+                            or cross_model_unsettled.get("authority") is not False):
+                        raise ResidentDevelopmentalCognitionError(
+                            "task_family_prompt_projection_cross_model_outcome_marker_invalid")
+                    cross_model_unsettled_candidate_strategy_refs.append({
+                        "record_id": packet["record_id"],
+                        "record_digest": packet["record_digest"],
+                        "source_fact_id": cross_model_unsettled["source_fact_id"],
+                        "strategy_digest": cross_model_unsettled["strategy_digest"],
+                        "outcome_group_digest": cross_model_unsettled[
+                            "outcome_group_digest"],
+                        "target_active_model_identity_digest": cross_model_unsettled[
+                            "target_active_model_identity_digest"],
+                        "posture": cross_model_unsettled["posture"],
+                    })
+            elif cross_model_unsettled is not None:
+                raise ResidentDevelopmentalCognitionError(
+                    "task_family_prompt_projection_cross_model_outcome_marker_invalid")
             example_rows.extend(rows)
             negative = experience.get("prior_incorrect_examples")
             if negative is not None:
@@ -4239,7 +4345,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 "examples_digest": entry["prior_abstained_examples_digest"],
             })
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v9",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v10",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",
@@ -4253,6 +4359,10 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
             withheld_candidate_strategy_refs),
         "withheld_unsettled_candidate_integer_affine_strategies": (
             withheld_candidate_strategy_refs),
+        "cross_model_unsettled_candidate_integer_affine_strategy_count": len(
+            cross_model_unsettled_candidate_strategy_refs),
+        "cross_model_unsettled_candidate_integer_affine_strategies": (
+            cross_model_unsettled_candidate_strategy_refs),
         "prior_incorrect_example_count": sum(
             item["example_count"] for item in prior_incorrect_refs),
         "prior_incorrect_examples": prior_incorrect_refs,
