@@ -776,10 +776,12 @@ def test_history_projection_accepts_direct_renderer_report_fact_payload():
     source = {"kind": "embodiment",
         "source_id": "renderer-report:direct-payload",
         "schema_version": report["schema_version"],
+        "staleness": "expired", "finding": "ok",
         "digest": "sha256:" + "a" * 64}
     run_id = "developmental-history-run:sample"
     run_source = {"kind": "embodiment", "source_id": run_id,
         "schema_version": "sentientos.developmental_history_intervention_run:v2",
+        "staleness": "not_applicable", "finding": "ok",
         "digest": "sha256:" + "d" * 64}
     run_fact = {"fact_id": "fact-history-run", "source": run_source,
         "subject": {"subject_kind": "developmental_history_intervention_experiment"},
@@ -836,7 +838,8 @@ def test_history_projection_accepts_direct_renderer_report_fact_payload():
                     "independent_observation_posture": "insufficient", "effect_proven": False}),
             )):
         source_item = {"kind": "embodiment", "source_id": f"embodiment:{index}",
-            "schema_version": schema, "digest": "sha256:" + str(index) * 64}
+            "schema_version": schema, "staleness": "fresh", "finding": "ok",
+            "digest": "sha256:" + str(index) * 64}
         fact_item = {"fact_id": f"fact-embodiment-{index}", "source": source_item,
             "subject": {"subject_kind": schema.rsplit(":", 1)[0]},
             "stage": "observation", "disposition": "recorded",
@@ -855,12 +858,18 @@ def test_history_projection_accepts_direct_renderer_report_fact_payload():
     compact = _current_evidence_prompt_payload(current)
     assert compact["fact_ids"] == [item["fact_id"] for item in current_facts]
     assert compact["projection_digest"] == current.projection_digest
-    assert compact["fact_row_schema"] == "sentientos.current_world_state_fact_row:v1"
+    assert compact["schema_version"] == (
+        "sentientos.current_world_state_cognitive_projection_summary:v4")
+    assert compact["fact_row_schema"] == "sentientos.current_world_state_fact_row:v2"
     assert all(len(row) == len(compact["fact_row_fields"]) for row in compact["facts"])
     rows = [dict(zip(compact["fact_row_fields"], row)) for row in compact["facts"]]
     assert rows[0]["source_id"] == source["source_id"]
+    assert rows[0]["source_staleness"] == "expired"
+    assert rows[0]["source_kind"] == "embodiment"
+    assert rows[0]["source_finding"] == "ok"
     assert compact["evidence_posture"]["current_observation"] is True
     assert compact["evidence_posture"]["historical_only"] is False
+    assert compact["freshness_posture"] == "source_freshness_is_preserved_per_fact"
     assert compact["sources_digest"]
     assert rows[0]["reported_values"]["renderer_self_report"][
         "reported_state"]["motion"]["active_motion"] == "wave"

@@ -5835,6 +5835,74 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
         question="Is the west entry safe for entry?").fact_ids == ()
 
 
+def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_ones(
+        tmp_path: Path) -> None:
+    class FreshnessAwareInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            if request.structured_output_schema and "disposition" in (
+                    request.structured_output_schema.get("required", ())):
+                prompt = json.loads(request.prompt)
+                facts = prompt.get("current_evidence", {}).get("facts", ())
+                selected = facts[0] if facts else {}
+                source = selected.get("source", {})
+                freshness = source.get("staleness")
+                fact_id = selected.get("fact_id")
+                if freshness == "fresh":
+                    decision = {"disposition": "answer",
+                        "response": "The fresh observation reports 18 C.",
+                        "evidence_ids": [fact_id], "history_record_ids": []}
+                else:
+                    decision = {"disposition": "ask",
+                        "response": (
+                            "The last observation is expired, so I cannot confirm "
+                            "the current temperature. Can you provide a fresh reading?"),
+                        "evidence_ids": [fact_id], "history_record_ids": []}
+                self.companion_output_override = decision
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    now = datetime(2026, 11, 17, 12, 0, tzinfo=timezone.utc)
+
+    def temperature_snapshot(observed_at: datetime):
+        return WorldStateBoardBuilder(clock=lambda: now).build([{
+            "source_id": "temperature-sensor",
+            "source_kind": "capability_registry",
+            "subject_id": "room-temperature",
+            "stage": "observation", "disposition": "recorded",
+            "observed_at": observed_at.isoformat(),
+            "payload": {"description": "The room temperature is 18 C."},
+        }])
+
+    question = "What is the room temperature now?"
+    stale_snapshot = temperature_snapshot(now - timedelta(days=8))
+    stale_owner, stale_invoker = owner(tmp_path / "stale",
+        invoker=FreshnessAwareInvoker(), allowed_source_kinds=("capability_registry",))
+    stale_result = stale_owner.run_companion_interaction(snapshot=stale_snapshot,
+        request_id="stale-temperature-current-question", question=question)
+    stale_prompt = json.loads(stale_invoker.requests[-1].prompt)
+    stale_source = stale_prompt["current_evidence"]["facts"][0]["source"]
+    assert stale_source["staleness"] == "expired"
+    assert "Only fresh observations can support an unqualified current claim" in (
+        stale_prompt["instruction"])
+    assert "historical reports and cannot establish the present condition" in (
+        stale_prompt["instruction"])
+    assert stale_result.disposition == "ask"
+    assert "cannot confirm the current temperature" in stale_result.response
+
+    fresh_snapshot = temperature_snapshot(now - timedelta(minutes=5))
+    fresh_owner, fresh_invoker = owner(tmp_path / "fresh",
+        invoker=FreshnessAwareInvoker(), allowed_source_kinds=("capability_registry",))
+    fresh_result = fresh_owner.run_companion_interaction(snapshot=fresh_snapshot,
+        request_id="fresh-temperature-current-question", question=question)
+    fresh_prompt = json.loads(fresh_invoker.requests[-1].prompt)
+    fresh_source = fresh_prompt["current_evidence"]["facts"][0]["source"]
+    assert fresh_source["staleness"] == "fresh"
+    assert fresh_result.disposition == "answer"
+    assert fresh_result.response == "The fresh observation reports 18 C."
+
+
 @pytest.mark.skipif(os.name == "nt",
     reason="temporary test fixtures cannot satisfy the resident owner's Windows custody paths")
 def test_companion_distinguishes_assistant_recommendation_from_user_decision(
