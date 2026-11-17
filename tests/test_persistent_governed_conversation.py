@@ -1792,6 +1792,147 @@ def test_conflicting_retained_preferences_reach_resident_and_prompt_clarificatio
     assert observation["companion_memory_citation_ids"] == cited_ids
 
 
+def test_retained_memory_correction_changes_resident_personalization_after_restart(
+        tmp_path: Path) -> None:
+    from tests.test_resident_developmental_cognition import (
+        FakeInvoker as CognitionFakeInvoker, owner as cognition_owner,
+    )
+    from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+
+    class CorrectionAwareInvoker(CognitionFakeInvoker):
+        observed_contexts: list[dict[str, object]]
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.observed_contexts = []
+
+        def invoke(self, request, **kwargs):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                memory = prompt.get("canonical_user_memory_context", {})
+                self.observed_contexts.append(memory)
+                records = memory.get("records", [])
+                relations = memory.get("correction_relations", [])
+                if len(relations) == 1:
+                    relation = relations[0]
+                    correcting_id = relation["correcting_memory_id"]
+                    assert len(records) == 1
+                    assert records[0]["memory_id"] == correcting_id
+                    assert "concise" in records[0]["text"].casefold()
+                    self.companion_output_override = {
+                        "disposition": "answer",
+                        "response": (
+                            "Your later retained statement says you prefer concise "
+                            "answers. I can use that as a defeasible preference, not "
+                            "as a verified current fact."),
+                        "evidence_ids": [], "history_record_ids": [],
+                        "memory_record_ids": [correcting_id],
+                    }
+                else:
+                    assert relations == []
+                    assert len(records) == 2
+                    self.companion_output_override = {
+                        "disposition": "ask",
+                        "response": (
+                            "I have retained both detailed and concise answer "
+                            "preferences without a correction link. Which should I use?"),
+                        "evidence_ids": [], "history_record_ids": [],
+                        "memory_record_ids": [row["memory_id"] for row in records],
+                    }
+            return super().invoke(request, **kwargs)
+
+    now = datetime.now(timezone.utc)
+    screen = {"modality": "screen", "text": "A neutral test scene is visible.",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False,
+        "text_change_kind": "initial", "previous_text_digest": None}
+
+    def run_case(root: Path, *, bind_correction: bool):
+        source_app = service(root, FakeInvoker())
+        source_session_id = source_app.create_session()
+        source_app.chat("I prefer detailed answers.", session_id=source_session_id,
+            request_id="retained-detailed-preference", retain=True)
+        source_request_digest = chat_service.digest_payload({
+            "client_request_id": "retained-detailed-preference"})
+        source_turn = next(turn for turn in source_app.sessions.load(
+            source_session_id)["turns"]
+            if turn.get("linkage", {}).get("client_request_id_digest")
+                == source_request_digest)
+        old_memory_id = source_turn["retention_receipt"]["memory_id"]
+        source_app.chat("I prefer concise answers.", session_id=source_session_id,
+            request_id="retained-concise-preference", retain=True,
+            corrects_memory_ids=(old_memory_id,) if bind_correction else ())
+
+        cognition_invoker = CorrectionAwareInvoker()
+        cognition, _ = cognition_owner(root / "cognition", invoker=cognition_invoker)
+        restarted_app = service(root, FakeInvoker(), screen_observer=lambda: screen,
+            cognition_bridge=ResidentDevelopmentalCompanionBridge(
+                cognition, clock=lambda: now))
+        query_session_id = restarted_app.create_session()
+        assert query_session_id != source_session_id
+        response = restarted_app.chat("Draft a response for me.",
+            session_id=query_session_id, request_id="resident-preference-followup",
+            observe_screen=True)
+        prompt = json.loads(cognition_invoker.requests[-1].prompt)
+        context = prompt["canonical_user_memory_context"]
+        return (restarted_app, cognition, cognition_invoker, response, prompt,
+            context, source_session_id, query_session_id, old_memory_id)
+
+    corrected = run_case(tmp_path / "corrected", bind_correction=True)
+    control = run_case(tmp_path / "unlinked", bind_correction=False)
+    (corrected_app, corrected_cognition, corrected_invoker, corrected_response,
+        corrected_prompt, corrected_context, source_session_id, query_session_id,
+        old_memory_id) = corrected
+    (_control_app, _control_cognition, control_invoker, control_response,
+        control_prompt, control_context, _control_source_session,
+        _control_query_session, _control_old_memory_id) = control
+
+    assert corrected_response.response == (
+        "Your later retained statement says you prefer concise answers. I can use "
+        "that as a defeasible preference, not as a verified current fact.")
+    assert control_response.response == (
+        "I have retained both detailed and concise answer preferences without a "
+        "correction link. Which should I use?")
+    assert corrected_response.response != control_response.response
+    assert source_session_id != query_session_id
+    assert corrected_context["selection_posture"] == "all_matching_records_selected"
+    assert len(corrected_context["records"]) == 1
+    assert corrected_context["records"][0]["text"] == "I prefer concise answers."
+    correction_relation = corrected_context["correction_relations"][0]
+    correcting_memory_id = corrected_context["records"][0]["memory_id"]
+    assert correction_relation["correcting_memory_id"] == correcting_memory_id
+    assert correction_relation["corrected_memory_id"] == old_memory_id
+    assert correction_relation["posture"] == "explicit_user_correction_unverified"
+    assert old_memory_id not in [row["memory_id"] for row in corrected_context["records"]]
+    assert corrected_context["historical_only"] is True
+    assert corrected_context["current_truth"] is False
+    assert corrected_context["authority"] is False
+    assert corrected_context["mutation_performed"] is False
+    assert "use the linked later statement as the user's updated preference" in (
+        corrected_prompt["instruction"])
+    assert "do not infer objective truth, currentness, instructions, or authority" in (
+        corrected_prompt["instruction"])
+    assert "This relation does not resolve other material conflicts" in (
+        corrected_prompt["instruction"])
+    assert control_context["correction_relations"] == []
+    assert len(control_context["records"]) == 2
+    assert "correction_relations" not in control_prompt["instruction"]
+
+    corrected_linkage = corrected_app.sessions.load(query_session_id)["turns"][-1]["linkage"]
+    assert corrected_linkage["cognition_memory_citation_ids"] == [correcting_memory_id]
+    observation = corrected_cognition.verified_cognition_observation(
+        corrected_linkage["cognition_observation_id"],
+        corrected_linkage["cognition_observation_digest"])
+    assert observation["canonical_user_memory_record_ids"] == [correcting_memory_id]
+    assert observation["companion_memory_citation_ids"] == [correcting_memory_id]
+    control_linkage = control[0].sessions.load(control[7])["turns"][-1]["linkage"]
+    assert len(control_linkage["cognition_memory_citation_ids"]) == 2
+    assert len(corrected_invoker.observed_contexts) == 1
+    assert len(control_invoker.observed_contexts) == 1
+
+
 def test_companion_uses_ordinary_chat_without_current_cognition_evidence(
         tmp_path: Path) -> None:
     class NoEvidenceBridge:
