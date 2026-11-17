@@ -10,7 +10,7 @@ import json
 import os
 import re
 import stat
-from datetime import datetime
+from datetime import datetime, timezone
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
