@@ -1014,6 +1014,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         epistemic_state_owner=restarted_epistemics,
         epistemic_state_config=ep_config, clock=lambda: now)
     source_linkage = first_turns[-1]["linkage"]
+    source_assistant = first_turns[-1]
     source_observation = restarted_cognition.verified_cognition_observation(
         source_linkage["cognition_observation_id"],
         source_linkage["cognition_observation_digest"])
@@ -1024,11 +1025,31 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         request_id=f"{session_id}:{source_linkage['source_user_turn_id']}")
     restarted_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=restarted_bridge)
-    followup_question = "And what should I consider now?"
+    last_intervening_user = None
+    for index in range(10):
+        last_intervening_user = restarted_app.sessions.append_turn(session_id,
+            role="user", text=(f"We reviewed unrelated north display topic {index}."))
+        restarted_app.sessions.append_turn(session_id, role="assistant",
+            text=f"The display note for topic {index} is saved.",
+            linkage={"source_user_turn_id": last_intervening_user["turn_id"]})
+    followup_anchor = "west sensor" if target.subject == "sensor:west" else "launch"
+    followup_question = f"What should I consider about the {followup_anchor} now?"
     followup_response = restarted_app.chat(followup_question, session_id=session_id,
         request_id="citation-followup-turn", observe_screen=True)
     followup_request = next(request for request in reversed(restarted_invoker.requests)
         if request.upstream_evidence.get("epistemic_projection_id") is not None)
+    followup_prompt = json.loads(followup_request.prompt)
+    selected_conversation = followup_prompt["session_conversation_context"]
+    selected_turn_ids = [turn["turn_id"] for turn in selected_conversation["turns"]]
+    source_user_turn_id = source_assistant["linkage"]["source_user_turn_id"]
+    assert source_user_turn_id in selected_turn_ids
+    assert source_assistant["turn_id"] in selected_turn_ids
+    assert last_intervening_user is not None
+    assert last_intervening_user["turn_id"] in selected_turn_ids
+    assert target_state.state_id in selected_conversation["prior_epistemic_state_ids"]
+    assert len(selected_turn_ids) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(turn["text"]) for turn in selected_conversation["turns"]) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
 
     control_session_id = restarted_app.create_session()
     control_request_start = len(restarted_invoker.requests)
@@ -1049,7 +1070,6 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert other.statement in control_response.response
     assert followup_response.response != control_response.response
 
-    source_assistant = first_turns[-1]
     followup_turns = restarted_app.sessions.load(session_id)["turns"]
     correction_source = next(turn for turn in followup_turns
         if turn["turn_id"] == source_assistant["turn_id"])
