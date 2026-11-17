@@ -5168,6 +5168,22 @@ _EXPLICIT_CURRENT_QUESTION_MARKER = re.compile(
 _HISTORICAL_QUESTION_MARKER = re.compile(
     r"\b(?:what did|what was|previously?|last time|last week|yesterday|historical|at the time)\b",
     re.IGNORECASE)
+_IMPLICIT_CURRENT_CONDITION_QUESTION_MARKER = re.compile(
+    r"^\s*(?:"
+    r"(?:what|where|when|who)(?:'s| is| are)\s+"
+        r"(?:the|my|your|our|its|this|that)\b"
+    r"|(?:is|are|do|does|has|have)\s+"
+        r"(?:the|my|your|our|its|this|that)\b"
+    r"|how\s+(?:much|many)\s+(?:is|are)\s+"
+        r"(?:the|my|your|our|its|this|that)\b)",
+    re.IGNORECASE)
+
+
+def _asks_about_present_condition(question: str) -> bool:
+    if _HISTORICAL_QUESTION_MARKER.search(question) is not None:
+        return False
+    return (_EXPLICIT_CURRENT_QUESTION_MARKER.search(question) is not None
+        or _IMPLICIT_CURRENT_CONDITION_QUESTION_MARKER.search(question) is not None)
 
 
 def _normalize_present_answer_for_source_freshness(
@@ -5176,8 +5192,7 @@ def _normalize_present_answer_for_source_freshness(
     """Require cited current evidence before answering explicitly present questions."""
     normalized = dict(decision)
     if (normalized.get("disposition") != "answer"
-            or _HISTORICAL_QUESTION_MARKER.search(question) is not None
-            or _EXPLICIT_CURRENT_QUESTION_MARKER.search(question) is None):
+            or not _asks_about_present_condition(question)):
         return normalized
 
     facts_by_id = {str(fact.get("fact_id")): fact for fact in current.facts

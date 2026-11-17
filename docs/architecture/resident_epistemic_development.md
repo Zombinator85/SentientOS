@@ -181,19 +181,24 @@ versioned as v2 to carry source kind, staleness, and finding. This tests the
 prompt contract with a deterministic responder; real-model adherence remains
 unverified.
 
-The production interaction boundary now also enforces freshness for explicitly
-present-condition questions marked by terms such as "current", "now", "today",
-or "still". An answer must cite current World-State evidence whose source
+The production interaction boundary now also enforces freshness for present-
+condition questions. It recognizes explicit temporal markers such as "current",
+"now", "today", or "still", plus common direct question forms with definite,
+possessive, or demonstrative subjects (for example, "What is the room
+temperature?" and "Is the pump online?"). Indefinite definition questions such
+as "What is a moon phase?" remain outside this current-condition classifier. An
+answer must cite current World-State evidence whose source
 finding is valid and whose posture is fresh or aging; a cited stale, expired,
 undated, unknown, or not-applicable source is converted to a request for a fresh
 observation. Memory or dialogue citations alone cannot establish the current
 condition. Aging evidence receives a deterministic qualification in the
 response. Historical questions remain able to report what an older source said.
 A controlled production-path counterfactual makes the responder answer from an
-expired source and verifies that the boundary asks instead, while fresh current
-evidence still answers and a historical question still reports the expired
-reading. This guard covers explicit present-condition wording; implicit current
-questions and real-model interpretation remain unverified.
+expired source and verifies that the boundary asks instead; fresh evidence still
+answers, historical questions still report the expired reading, common implicit
+present-state forms receive the same freshness check, and definition questions
+remain answerable. The classifier is intentionally lexical and bounded; other
+implicit forms and real-model interpretation remain unverified.
 
 The persistent epistemic owner also accepts the current companion question when
 building its bounded prior-state projection. It ranks only propositions that
@@ -230,12 +235,13 @@ and query digest across original, revised, and restored conditions. This
 remains lexical prioritization of non-authoritative claims, not verification
 that those claims are true or useful.
 
-`tests/test_resident_developmental_cognition.py::test_question_selected_self_model_changes_later_companion_response`
+`tests/test_resident_developmental_cognition.py::test_question_selected_self_model_cannot_override_unknown_current_evidence`
 adds a matched counterfactual through the bridge and actual prompt assembler.
 With the same question, scene, source reconciliation, and CPU-only conditioned
 invoker, question-aware selection places the retained prior GPU measurement in
-the prompt and the later response includes it; the legacy predicate ordering
-does not. The prompt binder now tries the complete owner projection first, then
+the prompt and preserves its citation, while the response still asks for a fresh
+observation because the current screen source has unknown freshness. The prompt
+binder now tries the complete owner projection first, then
 removes a suffix of the owner's ranked claims until the full assembled context
 fits. Across competing context types, it first preserves the largest complete
 ranked history suffix that can fit, then trims the self-model prefix within
