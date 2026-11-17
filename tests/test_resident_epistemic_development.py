@@ -276,12 +276,11 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
     assert seeded.status == "state_advanced"
     [original_state] = [owner.current_state(proposition.proposition_id)]
     assert original_state is not None
+    configured_evidence_rule = runtime.config.rules[0]
 
-    runtime.config = replace(runtime.config, rules=(replace(
-        runtime.config.rules[0], selector={
-            "source_kind": "operator_input",
-            "subject_kind": "operator_reported_companion_feedback",
-            "stage": "observation", "disposition": "reported"}),))
+    # No static operator-input selector exists. A verified v5 state ID itself
+    # supplies the narrow, allowlisted context-to-proposition join.
+    runtime.config = replace(runtime.config, rules=())
     from sentientos.developmental_companion_bridge import make_operator_feedback_record
     feedback = make_operator_feedback_record(
         "The prior answer was incorrect.", request_id="feedback-request-v5",
@@ -329,7 +328,7 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
     # A separate configured observation still uses the ordinary evidence and
     # state admissions to revise the same proposition after the correction.
     runtime.config = replace(runtime.config, rules=(replace(
-        runtime.config.rules[0], selector={
+        configured_evidence_rule, selector={
             "source_kind": "runtime_supervisor", "subject_id": "service-a",
             "stage": "observation", "disposition": "degraded"},
         evidence_relation="contradicts",
