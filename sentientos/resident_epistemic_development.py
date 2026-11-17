@@ -318,6 +318,36 @@ class ResidentEpistemicDevelopmentRuntime:
             "stage": fact.stage, "disposition": fact.disposition}
         return all(values[key] == value for key, value in rule.selector.items())
 
+    def _operator_correction_propositions(self, fact: WorldStateFact) -> frozenset[str] | None:
+        """Resolve v5 operator correction citations without trusting their claims.
+
+        ``None`` preserves the legacy configured selector behavior. A v5 report
+        with an absent, malformed, or unknown citation resolves to an empty set
+        and cannot be attached to any proposition by a broad operator selector.
+        Resolved citations are used only to bind the report as contextualizing
+        evidence; the ordinary independent evidence and mutation admissions
+        remain the only way to change state.
+        """
+        if (fact.source.kind != "operator_input"
+                or fact.source.schema_version != "sentientos.local_operator_feedback:v5"):
+            return None
+        payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        target = payload.get("correction_target")
+        if (payload.get("schema_version") != "sentientos.local_operator_feedback:v5"
+                or not isinstance(target, Mapping)):
+            return frozenset()
+        state_ids = target.get("epistemic_state_citation_ids")
+        if (not isinstance(state_ids, (tuple, list)) or not state_ids
+                or len(state_ids) > 16
+                or any(not isinstance(item, str)
+                    or len(item) != 40
+                    or not item.startswith("epistemic-state:")
+                    or any(character not in "0123456789abcdef" for character in item[16:])
+                    for item in state_ids)
+                or len(set(state_ids)) != len(state_ids)):
+            return frozenset()
+        return frozenset(self.owner.proposition_priorities_for_state_ids(state_ids))
+
     @staticmethod
     def _adapt(snapshot: WorldStateSnapshot, fact: WorldStateFact,
                rule: EpistemicDevelopmentRule) -> tuple[Any, EvidenceBinding]:
@@ -1326,8 +1356,19 @@ class ResidentEpistemicDevelopmentRuntime:
         if (not isinstance(excluded_fact_ids, frozenset)
                 or any(not isinstance(item, str) or not item for item in excluded_fact_ids)):
             raise EpistemicDevelopmentError("excluded_world_state_fact_selection_invalid")
-        matches = [(rule, fact) for rule in self.config.rules for fact in snapshot.facts
-            if fact.fact_id not in excluded_fact_ids and self._matches(rule, fact)]
+        matches = []
+        correction_targets: dict[str, frozenset[str] | None] = {}
+        for fact in snapshot.facts:
+            if fact.fact_id in excluded_fact_ids:
+                continue
+            correction_targets[fact.fact_id] = self._operator_correction_propositions(fact)
+            for rule in self.config.rules:
+                if not self._matches(rule, fact):
+                    continue
+                targeted = correction_targets[fact.fact_id]
+                if (targeted is not None and rule.proposition_id not in targeted):
+                    continue
+                matches.append((rule, fact))
         matches.sort(key=lambda pair: (pair[0].rule_id, pair[1].fact_id))
         recovery = self.controller.verify_receipts()
         if recovery.get("status") == "incomplete":
@@ -1390,6 +1431,16 @@ class ResidentEpistemicDevelopmentRuntime:
             prior = self.owner.current_state(proposition_id)
             prior_active_ids = set(self.owner.active_binding_ids(proposition_id))
             if prior and set(active_ids) == prior_active_ids:
+                continue
+            newly_active_ids = set(active_ids) - prior_active_ids
+            newly_active_relations = {item.evidence_relation for item in bindings
+                if item.binding_id in newly_active_ids}
+            if (prior is not None and newly_active_ids
+                    and newly_active_relations == {"contextualizes"}):
+                # Context can accompany a proposition without becoming a
+                # state-generation trigger. Keep its evidence receipt, but do
+                # not rewrite an unchanged epistemic posture because context
+                # was appended.
                 continue
             posture = evidence_posture(bindings)
             posture_name = posture["posture"]
