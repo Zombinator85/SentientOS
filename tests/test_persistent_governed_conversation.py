@@ -55,6 +55,38 @@ def test_resident_context_budget_keeps_relevant_older_exchange() -> None:
     assert sum(len(str(item["text"])) for item in selected) <= 4000
 
 
+def test_resident_context_keeps_relevant_exchange_when_only_question_matches() -> None:
+    def turn(turn_id: str, role: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": role, "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}),
+            "linkage": {}}
+
+    turns = [
+        turn("amber-user", "user",
+            "The amber relay warning appeared before startup. Should we stop?"),
+        turn("amber-assistant", "assistant",
+            "Schedule an optical inspection before the next launch."),
+    ]
+    for index in range(12):
+        turns.extend((
+            turn(f"unrelated-user-{index}", "user",
+                "The weekly inventory listed cables and spare parts. "
+                + "Inventory item count was reviewed. " * 12),
+            turn(f"unrelated-assistant-{index}", "assistant",
+                "The stock report is complete for the warehouse. "
+                + "The next count is scheduled. " * 12),
+        ))
+
+    selected = _select_resident_conversation_context_turns(
+        tuple(turns), question="What did we decide about the amber relay warning?")
+
+    assert [item["turn_id"] for item in selected] == [
+        "amber-user", "amber-assistant"]
+    assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(str(item["text"])) for item in selected) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+
 def test_resident_context_ranks_rare_query_anchor_above_common_recent_term() -> None:
     def turn(turn_id: str, text: str) -> dict[str, object]:
         return {"turn_id": turn_id, "role": "user", "text": text,

@@ -91,9 +91,8 @@ RESIDENT_CONTEXT_ANAPHORA_TERMS = frozenset((
 
 def _select_resident_conversation_context_turns(
         turns: Any, *, question: str) -> list[Mapping[str, Any]]:
-    """Keep a bounded, query-relevant transcript slice for resident cognition."""
+    """Keep bounded relevant dialogue exchanges for resident cognition."""
     all_turns = list(turns)
-    recent_turns = all_turns[-MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:]
 
     def context_cost(turn: Any) -> int:
         text = turn.get("text") if isinstance(turn, Mapping) else None
@@ -106,48 +105,91 @@ def _select_resident_conversation_context_turns(
             raise ChatRequestStateError("resident_conversation_context_invalid")
         return len(text)
 
-    costs = [context_cost(turn) for turn in recent_turns]
-    if sum(costs) <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS:
-        return recent_turns
+    costs = [context_cost(turn) for turn in all_turns]
+    exchanges: list[tuple[int, ...]] = []
+    index = 0
+    while index < len(all_turns):
+        turn = all_turns[index]
+        next_turn = all_turns[index + 1] if index + 1 < len(all_turns) else None
+        if (turn.get("role") == "user" and isinstance(next_turn, Mapping)
+                and next_turn.get("role") == "assistant"):
+            exchanges.append((index, index + 1))
+            index += 2
+        else:
+            exchanges.append((index,))
+            index += 1
 
-    candidates = all_turns
-    costs = [context_cost(turn) for turn in candidates]
+    def exchange_cost(exchange: tuple[int, ...]) -> int:
+        return sum(costs[turn_index] for turn_index in exchange)
+
+    recent_exchanges: list[tuple[int, ...]] = []
+    recent_turn_count = 0
+    for exchange in reversed(exchanges):
+        if recent_turn_count + len(exchange) > MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:
+            break
+        recent_exchanges.append(exchange)
+        recent_turn_count += len(exchange)
+    if sum(exchange_cost(exchange) for exchange in recent_exchanges) <= (
+            MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS):
+        selected_recent = {turn_index for exchange in recent_exchanges
+            for turn_index in exchange}
+        return [turn for turn_index, turn in enumerate(all_turns)
+            if turn_index in selected_recent]
 
     query_terms = transcript_recall_terms(question)
     question_tokens = set(re.findall(r"[a-z0-9]+", question.casefold()))
     anaphoric = bool(question_tokens & RESIDENT_CONTEXT_ANAPHORA_TERMS)
+    exchange_terms = [frozenset(term for turn_index in exchange
+        for term in transcript_recall_terms(str(all_turns[turn_index]["text"])))
+        for exchange in exchanges]
     ranked: list[tuple[float, int]] = []
     if query_terms:
-        turn_terms = [transcript_recall_terms(str(turn["text"]))
-            for turn in candidates]
-        document_frequency = {term: sum(term in candidate_terms
-            for candidate_terms in turn_terms) for term in query_terms}
-        term_weights = {term: math.log((len(candidates) + 1)
+        document_frequency = {term: sum(term in terms for terms in exchange_terms)
+            for term in query_terms}
+        term_weights = {term: math.log((len(exchanges) + 1)
             / (frequency + 0.5)) + 1
             for term, frequency in document_frequency.items()}
         ranked = [(sum(term_weights[term] for term in query_terms & terms), index)
-            for index, terms in enumerate(turn_terms)]
+            for index, terms in enumerate(exchange_terms)]
         ranked = [item for item in ranked if item[0] > 0]
     if ranked:
         ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
-        selection_order = [index for _, index in ranked]
+        selection_order = [exchange_index for _, exchange_index in ranked]
     else:
-        selection_order = list(reversed(range(len(candidates))))
+        selection_order = list(reversed(range(len(exchanges))))
 
-    selected_indexes = (set(range(max(0, len(candidates) - 2), len(candidates)))
-        if anaphoric else set())
-    used = sum(costs[index] for index in selected_indexes)
-    selection_order = [index for index in selection_order
-        if index not in selected_indexes]
-    for index in selection_order:
-        if len(selected_indexes) >= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:
+    selected_exchanges: set[int] = set()
+    used_chars = 0
+    used_turns = 0
+    if anaphoric:
+        trailing_indexes = set(range(max(0, len(all_turns) - 2), len(all_turns)))
+        trailing_exchange_indexes = [exchange_index
+            for exchange_index, exchange in enumerate(exchanges)
+            if trailing_indexes.intersection(exchange)]
+        for exchange_index in reversed(trailing_exchange_indexes):
+            exchange = exchanges[exchange_index]
+            cost = exchange_cost(exchange)
+            if (used_turns + len(exchange) <= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+                    and cost <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS - used_chars):
+                selected_exchanges.add(exchange_index)
+                used_turns += len(exchange)
+                used_chars += cost
+    for exchange_index in selection_order:
+        if used_turns >= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:
             break
-        cost = costs[index]
-        if cost <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS - used:
-            selected_indexes.add(index)
-            used += cost
-    return [turn for index, turn in enumerate(candidates)
-        if index in selected_indexes]
+        if exchange_index in selected_exchanges:
+            continue
+        exchange = exchanges[exchange_index]
+        cost = exchange_cost(exchange)
+        if (used_turns + len(exchange) <= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+                and cost <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS - used_chars):
+            selected_exchanges.add(exchange_index)
+            used_turns += len(exchange)
+            used_chars += cost
+    selected_indexes = {turn_index for exchange_index in selected_exchanges
+        for turn_index in exchanges[exchange_index]}
+    return [turn for turn_index, turn in enumerate(all_turns)
+        if turn_index in selected_indexes]
 
 
 def _is_earliest_session_recall_request(message: str) -> bool:
