@@ -41,9 +41,16 @@ _TRANSCRIPT_RECALL_STOP_WORDS = frozenset((
     "there", "this", "to", "was", "were", "what", "when", "where", "which",
     "who", "why", "will", "with", "would", "you", "your", "ask", "asked",
     "answer", "answered", "briefly", "chat", "claim", "conversation", "current",
-    "exact", "foreground", "game", "gameplay", "guess", "not", "our", "reply",
+    "exact", "foreground", "game", "gameplay", "guess", "our", "reply",
     "replied", "screen", "see", "they", "two", "word", "words",
 ))
+_TRANSCRIPT_RECALL_NEGATION_WORDS = frozenset(("no", "not", "nor"))
+_TRANSCRIPT_RECALL_NEGATION_CONTRACTION = re.compile(
+    r"\b(?:ain|aren|can|couldn|didn|doesn|don|hadn|hasn|haven|isn|mustn|"
+    r"shouldn|wasn|weren|won|wouldn)['’]t\b")
+_TRANSCRIPT_RECALL_DECISION_TERMS = frozenset((
+    "accept", "agree", "allow", "approve", "authorize", "confirm",
+    "consent", "decide", "permit", "support"))
 
 
 def transcript_recall_terms(text: str) -> frozenset[str]:
@@ -51,6 +58,13 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
     if not isinstance(text, str):
         raise ValueError("conversation_recall_query_invalid")
     terms: set[str] = set()
+    # Negation changes the meaning of a remembered decision. Keep these
+    # markers alongside content words so polarity participates in ranking.
+    terms.update(re.findall(
+        r"\b(?:" + "|".join(sorted(_TRANSCRIPT_RECALL_NEGATION_WORDS))
+        + r")\b", text.casefold()))
+    if _TRANSCRIPT_RECALL_NEGATION_CONTRACTION.search(text.casefold()):
+        terms.add("not")
     for token in cognition_tokens(text):
         if len(token) <= 2 or token in _TRANSCRIPT_RECALL_STOP_WORDS:
             continue
@@ -64,24 +78,41 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
 def rank_transcript_exchange_terms(
         query_terms: frozenset[str],
         exchange_terms: Sequence[frozenset[str]],
-        ) -> list[tuple[int, float, int]]:
-    """Rank exchanges by query-term coverage, then rarity, then recency.
+        ) -> list[tuple[int, int, float, int]]:
+    """Rank by query coverage, decision polarity, rarity, and recency.
 
     Leading with distinct-term coverage keeps one rare lexical overlap from
-    outranking an exchange that matches more of the question. IDF remains a
-    useful tie-breaker for queries where candidates match the same number of
-    terms.
+    outranking an exchange that matches more of the question. For queries about
+    a decision predicate, matching explicit negation is the next tie-breaker;
+    IDF and recency follow when candidates cover the same query terms.
     """
     if not query_terms:
         return []
+    query_decision_polarity = bool(
+        query_terms & _TRANSCRIPT_RECALL_DECISION_TERMS)
+    query_is_negative_decision = bool(query_terms & _TRANSCRIPT_RECALL_NEGATION_WORDS)
     document_frequency = {term: sum(term in terms for terms in exchange_terms)
         for term in query_terms}
     term_weights = {term: math.log((len(exchange_terms) + 1)
         / (frequency + 0.5)) + 1
         for term, frequency in document_frequency.items()}
-    ranked = [(len(overlap), sum(term_weights[term] for term in overlap), index)
-        for index, terms in enumerate(exchange_terms)
-        if (overlap := query_terms & terms)]
+    ranked = []
+    for index, terms in enumerate(exchange_terms):
+        overlap = query_terms & terms
+        if not overlap:
+            continue
+        exchange_mentions_decision = bool(
+            terms & query_terms & _TRANSCRIPT_RECALL_DECISION_TERMS)
+        exchange_is_negative_decision = (
+            exchange_mentions_decision
+            and bool(terms & _TRANSCRIPT_RECALL_NEGATION_WORDS))
+        polarity_match = int(
+            not query_decision_polarity
+            or not exchange_mentions_decision
+            and not query_is_negative_decision
+            or query_is_negative_decision == exchange_is_negative_decision)
+        ranked.append((len(overlap), polarity_match,
+            sum(term_weights[term] for term in overlap), index))
     ranked.sort(reverse=True)
     return ranked
 
@@ -820,14 +851,14 @@ class ConversationSessionStore:
                         for turn in exchange)]
                 eligible_exchange_set = set(eligible_exchanges)
                 eligible_ranked = [item for item in ranked_exchanges
-                    if item[2] in eligible_exchange_set]
+                    if item[3] in eligible_exchange_set]
                 if eligible_ranked:
                     ranked_exchanges = eligible_ranked
             candidate_turn_limit = (max_turns if max_turns is not None
                 else len(candidates))
             selected_indexes: list[int] = []
             selected_turn_count = 0
-            for _, _, exchange_index in ranked_exchanges:
+            for _, _, _, exchange_index in ranked_exchanges:
                 exchange_size = len(exchanges[exchange_index])
                 if selected_turn_count + exchange_size <= candidate_turn_limit:
                     selected_indexes.append(exchange_index)

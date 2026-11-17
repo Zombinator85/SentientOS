@@ -59,7 +59,7 @@ def normalize_cognition_term(token: str) -> str:
         token = token[:-2]
         if len(token) > 2 and token[-1] == token[-2]:
             token = token[:-1]
-        elif token.endswith("g"):
+        elif token.endswith(("g", "v")):
             token += "e"
     elif len(token) > 4 and token.endswith("ies"):
         token = token[:-3] + "y"

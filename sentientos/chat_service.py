@@ -136,7 +136,7 @@ def _select_resident_conversation_context_turns(
     ranked = rank_transcript_exchange_terms(query_terms, exchange_terms)
     if ranked:
         selection_order = [exchange_index
-            for _, _, exchange_index in ranked]
+            for _, _, _, exchange_index in ranked]
     else:
         selection_order = list(reversed(range(len(exchanges))))
 
@@ -157,8 +157,12 @@ def _select_resident_conversation_context_turns(
                 used_turns += len(exchange)
                 used_chars += cost
     if ranked:
+        polarity_matched_exchanges = [exchange_index
+            for _, polarity_match, _, exchange_index in ranked
+            if polarity_match]
         newest_relevant_exchange = max(exchange_index
-            for _, _, exchange_index in ranked)
+            for exchange_index in (polarity_matched_exchanges or [
+                item[3] for item in ranked]))
         if newest_relevant_exchange not in selected_exchanges:
             exchange = exchanges[newest_relevant_exchange]
             cost = exchange_cost(exchange)
@@ -172,7 +176,7 @@ def _select_resident_conversation_context_turns(
         # that user report with its antecedent without treating every recent
         # correction as relevant history.
         ranked_exchange_indexes = {exchange_index
-            for _, _, exchange_index in ranked}
+            for _, _, _, exchange_index in ranked}
         correction_markers = re.compile(
             r"\b(?:correction|actually|outdated|incorrect|wrong|mistaken|"
             r"misspoke|misremembered|not true)\b|"

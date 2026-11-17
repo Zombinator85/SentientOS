@@ -705,3 +705,14 @@ developmental-cycle authorization, explicit-confirmation, and historical
 citation tests. No Hermes or GPU inference was used. Real-model feedback
 interpretation, repeated outcome measurement, and improvement across open-ended
 decisions remain unproven.
+
+Same-session transcript retrieval now preserves explicit `no`, `not`, and `nor`
+markers and normalizes common negative contractions to `not` alongside topical
+terms. Shared inflection normalization now maps common `-ved` past-tense forms
+back to their final-`e` stems, so “approved” matches “approve.” For decision
+predicates, retrieval ranks matching query polarity ahead of recency when topic
+coverage ties. A deterministic paired query fixture places the opposite-polarity
+exchange most recently and checks that a two-turn limit still selects the
+matching negative or positive exchange. This validates retrieval ranking and
+source-turn linkage; it does not establish that a real model will interpret
+selected context correctly.
