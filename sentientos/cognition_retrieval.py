@@ -24,11 +24,24 @@ _NONVERB_ING_WORDS = frozenset((
 _ING_BASES_WITHOUT_FINAL_E = frozenset((
     "bang", "bring", "cling", "fang", "fling", "hang", "ring", "sing",
     "sling", "spring", "sting", "string", "swing", "wring"))
+_IRREGULAR_VES_PLURALS = {
+    "calves": "calf",
+    "halves": "half",
+    "knives": "knife",
+    "loaves": "loaf",
+    "selves": "self",
+    "shelves": "shelf",
+    "thieves": "thief",
+    "wives": "wife",
+    "wolves": "wolf",
+}
 
 
 def normalize_cognition_term(token: str) -> str:
     """Normalize common English inflections without external model dependencies."""
     token = token.casefold()
+    if token in _IRREGULAR_VES_PLURALS:
+        return _IRREGULAR_VES_PLURALS[token]
     if token in _NONVERB_ING_WORDS:
         return token
     if len(token) > 5 and token.endswith("ying"):

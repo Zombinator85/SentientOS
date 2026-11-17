@@ -1905,6 +1905,23 @@ def test_transcript_recall_normalizes_shared_inflections() -> None:
     assert transcript_recall_terms("overheating") == frozenset({"overheat"})
 
 
+def test_transcript_recall_normalizes_irregular_ves_plural_for_selection(
+        tmp_path: Path) -> None:
+    assert transcript_recall_terms("wolves knives shelves") == frozenset(
+        {"wolf", "knife", "shelf"})
+    store = ConversationSessionStore(tmp_path / "sessions")
+    session = store.create(model_identity={})
+    target = store.append_turn(session["session_id"], role="user",
+        text="A wolf approached the west sensor.")
+    store.append_turn(session["session_id"], role="user",
+        text="The east display remains stable.")
+
+    snapshot = store.reconstruct(session["session_id"], budget_chars=1000,
+        include_roles=("user",), max_turns=1, relevance_query="wolves")
+
+    assert snapshot.turns == (target,)
+
+
 def test_transcript_recall_inflection_changes_bounded_selection(
         tmp_path: Path) -> None:
     store = ConversationSessionStore(tmp_path / "sessions")
