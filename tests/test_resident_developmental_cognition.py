@@ -8475,7 +8475,12 @@ def test_question_selected_self_model_changes_later_companion_response(
     query_prompt = json.loads(query_invoker.requests[-1].prompt)
     baseline_prompt = json.loads(baseline_invoker.requests[-1].prompt)
     assert query_result.status == baseline_result.status == "admitted_completed"
-    assert "prior self-model record reports 25 percent" in query_result.response
+    assert "prior self-model record reports 25 percent" in query_result.response, {
+        "selected_claim_ids": query_prompt["prior_self_model"].get(
+            "selected_claim_ids") if query_prompt.get("prior_self_model") else None,
+        "prompt_selection": query_prompt.get("prior_self_model_prompt_selection"),
+        "prompt_size": len(query_invoker.requests[-1].prompt),
+    }
     assert "selected context contains no prior measurement" in baseline_result.response
     assert query_prompt["prior_self_model"]["selected_claim_ids"] == [relevant.claim_id]
     assert baseline_prompt["prior_self_model"] is None
