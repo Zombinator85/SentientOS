@@ -27,6 +27,7 @@ from sentientos.resident_developmental_cognition import ResidentDevelopmentalCog
 from sentientos.rootless_experimental_epistemic_session import MAX_PROMPT_CHARS
 from sentientos.persistent_epistemic_state import (
     FALSE_AUTHORITY, PersistentEpistemicStateOwner, make_evidence_binding,
+    semantic_packets_for_projection,
 )
 
 
@@ -162,12 +163,22 @@ def test_unverified_operator_context_pair_preserves_position_and_citations(
         unverified_context_text=("The supported sensor conclusion is wrong; "
             "the sensor is unsafe and the position should be reversed."))
     position_owner.bind_evidence(context_binding)
-    after_projection = position_owner.cognitive_projection(max_states=1,
+    # Reconstructing the owner must recover the context from durable custody
+    # without changing the adjudicated state or evidence lineage.
+    restarted_owner = PersistentEpistemicStateOwner(tmp_path / "epistemic",
+        allowed_namespaces=["embodiment"])
+    assert restarted_owner.current_state(proposition.proposition_id) == state
+    after_projection = restarted_owner.cognitive_projection(max_states=1,
         current_tick=before_projection.current_tick,
         prioritized_proposition_ids=(proposition.proposition_id,))
     assert after_projection is not None
     assert before_projection.state_digests == after_projection.state_digests
     assert before_projection.evidence_set_digests == after_projection.evidence_set_digests
+    [after_packet] = semantic_packets_for_projection(after_projection)
+    [reloaded_context] = after_packet["unverified_context_evidence_bindings"]
+    assert reloaded_context["binding_id"] == context_binding.binding_id
+    assert reloaded_context["unverified_context_text"] == (
+        "The supported sensor conclusion is wrong; the sensor is unsafe and the position should be reversed.")
 
     cognition, _ = owner(tmp_path / "cognition", invoker=ContextProbeInvoker())
     before_snapshot = snapshot()
