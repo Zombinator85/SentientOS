@@ -545,6 +545,16 @@ Linux durable-custody paths and is skipped on Windows; the hosted source
 validation suite exercises it. Real-model interpretation and application
 remain unverified.
 
+The same speaker and evidence rule applies when recalling decisions: an
+assistant recommendation is not a user-confirmed decision. The resident prompt
+now requires explicit user acceptance before describing a plan as user-decided,
+and treats that confirmation as dialogue evidence rather than proof that the
+action occurred. A controlled resident-owner counterfactual compares a
+recommendation without acceptance to the same recommendation followed by an
+explicit user acceptance, checks the attributed citation set, and keeps action
+authority false. Its full-owner fixture runs in hosted Linux source validation;
+real-model interpretation remains unverified.
+
 The integration exposed a linkage defect: the bridge adds resolved epistemic
 priorities to the conversation context and recomputes its selection digest, but
 the response linkage previously kept the pre-bridge digest. The cognition
