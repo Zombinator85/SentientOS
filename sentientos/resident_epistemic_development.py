@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,7 +21,7 @@ from .persistent_epistemic_state import (
     EpistemicCalibrationEvent, EpistemicStateError, EvidenceBinding,
     PersistentEpistemicStateOwner, _calibration_evidence_consistency, digest,
     evidence_posture, make_epistemic_update_candidate, make_evidence_binding,
-    calibration_review_correlation_id,
+    calibration_review_correlation_id, BINDING_SCHEMA_V2,
 )
 from .resident_epistemic_calibration_authority import (
     CALIBRATION_REVIEW_EFFECTS,
@@ -59,6 +60,16 @@ class EpistemicDevelopmentError(ValueError):
 def _valid_optional_lower_sha256(value: Any) -> bool:
     return (value is None or (type(value) is str and len(value) == 64
         and all(character in "0123456789abcdef" for character in value)))
+
+
+def _valid_operator_assertion_text(value: Any) -> bool:
+    if not isinstance(value, str) or not value or value != value.strip() or len(value) > 800:
+        return False
+    try:
+        encoded = value.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return len(encoded) <= 2048
 
 
 def _latest_historical_event_time(values: list[str]) -> str | None:
@@ -333,20 +344,66 @@ class ResidentEpistemicDevelopmentRuntime:
             return None
         payload = fact.payload if isinstance(fact.payload, Mapping) else {}
         target = payload.get("correction_target")
+        text = payload.get("assertion_text")
+        expected_fields = {"schema_version", "request_id", "assistant_turn_id",
+            "assistant_response_digest", "source_capture_digest",
+            "followup_capture_digest", "conversation_citations", "assertion_text",
+            "assertion_digest", "evidence_posture", "authority",
+            "conversation_session_id", "correction_target"}
         if (fact.subject.subject_kind != "operator_reported_companion_feedback"
                 or fact.stage != "observation" or fact.disposition != "reported"
                 or fact.evidence_strength != "operator_assertion_unverified"
                 or fact.effect_claimed is not False or fact.effect_proven is not False
                 or payload.get("schema_version") != "sentientos.local_operator_feedback:v5"
-                or not isinstance(target, Mapping)):
+                or set(payload) != expected_fields or not isinstance(target, Mapping)
+                or not _valid_operator_assertion_text(text)
+                or not isinstance(payload.get("request_id"), str)
+                or not payload["request_id"] or len(payload["request_id"]) > 256
+                or not isinstance(payload.get("assistant_turn_id"), str)
+                or not payload["assistant_turn_id"]
+                or len(payload["assistant_turn_id"]) > 256
+                or payload.get("assertion_digest") != hashlib.sha256(
+                    text.encode("utf-8")).hexdigest()
+                or payload.get("evidence_posture") != "operator_assertion_unverified"
+                or payload.get("authority") != {"decision": False,
+                    "admission": False, "execution": False, "adoption": False,
+                    "truth": False}):
+            return frozenset()
+        citations = payload.get("conversation_citations")
+        if (any(not isinstance(payload.get(key), str)
+                or re.fullmatch(r"[0-9a-f]{64}", payload[key]) is None
+                for key in ("assistant_response_digest", "source_capture_digest",
+                    "followup_capture_digest"))
+                or not isinstance(citations, (tuple, list)) or not citations
+                or len(citations) > 16
+                or any(not isinstance(item, Mapping)
+                    or set(item) != {"turn_id", "text_digest"}
+                    or not isinstance(item.get("turn_id"), str)
+                    or re.fullmatch(r"turn-[0-9a-f]{24}", item["turn_id"]) is None
+                    or not isinstance(item.get("text_digest"), str)
+                    or re.fullmatch(r"[0-9a-f]{64}", item["text_digest"]) is None
+                    for item in citations)
+                or len({item["turn_id"] for item in citations}) != len(citations)
+                or not isinstance(payload.get("conversation_session_id"), str)
+                or re.fullmatch(r"[a-z0-9][a-z0-9-]{7,63}",
+                    payload["conversation_session_id"]) is None
+                or set(target) != {"turn_id", "text_digest",
+                    "epistemic_state_citation_ids"}):
+            return frozenset()
+        cited_turn = next((item for item in citations
+            if item["turn_id"] == target.get("turn_id")), None)
+        if (cited_turn is None or target.get("text_digest") != cited_turn["text_digest"]
+                or not isinstance(target.get("epistemic_state_citation_ids"), (tuple, list))):
+            return frozenset()
+        identity = hashlib.sha256(json.dumps(dict(payload), sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+        if fact.source.source_id != f"local-operator-feedback:{identity}":
             return frozenset()
         state_ids = target.get("epistemic_state_citation_ids")
         if (not isinstance(state_ids, (tuple, list)) or not state_ids
                 or len(state_ids) > 16
                 or any(not isinstance(item, str)
-                    or len(item) != 40
-                    or not item.startswith("epistemic-state:")
-                    or any(character not in "0123456789abcdef" for character in item[16:])
+                    or re.fullmatch(r"epistemic-state:[0-9a-f]{24}", item) is None
                     for item in state_ids)
                 or len(set(state_ids)) != len(state_ids)):
             return frozenset()
@@ -971,6 +1028,11 @@ class ResidentEpistemicDevelopmentRuntime:
                 and all(key in fact.payload for key in introspection_lineage_fields)):
             provenance_values["causal_introspection_snapshot_lineage"] = {
                 key: fact.payload[key] for key in introspection_lineage_fields}
+        if (fact.source.kind == "operator_input"
+                and fact.source.schema_version == "sentientos.local_operator_feedback:v5"
+                and isinstance(fact.payload, Mapping)):
+            provenance_values["operator_assertion_digest"] = fact.payload.get(
+                "assertion_digest")
         provenance = json.dumps(provenance_values, sort_keys=True, separators=(",", ":"))
         proof = make_epistemic_evidence_source_proof(source_artifact_id=artifact_id,
             source_digest=stable_source_digest, source_schema=fact.source.schema_version,
@@ -1034,7 +1096,14 @@ class ResidentEpistemicDevelopmentRuntime:
                 else "integrity_controller_verification_context_only" if integrity_controller_context
                 else "operator_assertion_unverified_context_only" if fact.source.kind == "operator_input"
                 else "unverified_source_context_only" if unverified_source_context
-                else rule.reliability_posture))
+                else rule.reliability_posture),
+            **({"schema_version": BINDING_SCHEMA_V2,
+                "unverified_context_text": fact.payload["assertion_text"]}
+                if (fact.source.kind == "operator_input"
+                    and fact.source.schema_version ==
+                        "sentientos.local_operator_feedback:v5"
+                    and isinstance(fact.payload, Mapping)
+                    and isinstance(fact.payload.get("assertion_text"), str)) else {}))
         return proof, binding
 
     def _issue(self, *, admission_id: str, effects: tuple[str, ...], subject_id: str,

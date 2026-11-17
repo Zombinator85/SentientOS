@@ -513,8 +513,8 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "or latency."
 )
 UNVERIFIED_CONTEXT_EVIDENCE_INSTRUCTION = (
-    " If a semantic packet includes unverified_context_evidence_bindings, treat them as source-bound "
-    "operator reports attached to the proposition but excluded from its state-update history. Do not count them as "
+    " Treat unverified_context_evidence_bindings and any v2 evidence binding with unverified_context_text as "
+    "source-bound operator reports attached to the proposition but excluded from its state-update history. Do not count them as "
     "support, contradiction, independent evidence, or truth; do not cite them as evidence or revise stance from them. "
     "If the exact report text is separately supplied, preserve it as unresolved correction context and compare it "
     "with current evidence. Without that text, do not infer what the operator claimed."
@@ -4815,12 +4815,26 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                                 or not row["binding_id"]):
                             raise ResidentDevelopmentalCognitionError(
                                 "epistemic_probe_evidence_bindings_invalid")
+                        if (row.get("source_class") == "operator_input"
+                                and row.get("source_schema") ==
+                                    "sentientos.local_operator_feedback:v5"
+                                and row.get("evidence_relation") == "contextualizes"
+                                and row.get("dependency_kind") == "unknown_dependency"
+                                and row.get("reliability_posture") ==
+                                    "operator_assertion_unverified_context_only"):
+                            continue
                         visible_binding_ids.add(str(row["binding_id"]))
             candidate["epistemic_revision_probe"] = {
                 **dict(probe),
                 "allowed_evidence_binding_ids": sorted(visible_binding_ids)}
-        if (any(packet.get("unverified_context_evidence_bindings")
-                for packet in consumed)
+        has_unverified_context_text = any(
+            any(isinstance(row, Mapping) and row.get("unverified_context_text")
+                for collection in (packet.get("active_evidence_bindings", ()),
+                    packet.get("removed_evidence_history", ()),
+                    packet.get("unverified_context_evidence_bindings", ()))
+                if isinstance(collection, (list, tuple)) for row in collection)
+            for packet in consumed)
+        if (has_unverified_context_text
                 and isinstance(candidate.get("instruction"), str)
                 and "unverified_context_evidence_bindings" not in candidate["instruction"]):
             candidate["instruction"] += UNVERIFIED_CONTEXT_EVIDENCE_INSTRUCTION
@@ -4915,7 +4929,9 @@ def _validate_epistemic_observation_binding(value: Mapping[str, Any]) -> None:
     elif schema in {"sentientos.epistemic_cognitive_projection:v2",
                 "sentientos.epistemic_cognitive_projection:v3",
                 "sentientos.epistemic_cognitive_projection:v4",
-                "sentientos.epistemic_cognitive_projection:v5"}:
+                "sentientos.epistemic_cognitive_projection:v5",
+                "sentientos.epistemic_cognitive_projection:v6",
+                "sentientos.epistemic_cognitive_projection:v7"}:
         if (status not in {"all_meanings_delivered",
                 "complete_packets_selected_with_budget_omissions"}
                 or (status == "all_meanings_delivered" and omitted)
