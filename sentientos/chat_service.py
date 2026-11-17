@@ -1608,6 +1608,41 @@ class PersistentConversationService:
                         and correction_target_turn_id not in citation_ids):
                     raise ChatRequestStateError(
                         "developmental_cycle_correction_target_not_cited")
+                correction_target_epistemic_state_ids: list[str] = []
+                target_turn = (transcript_turns.get(correction_target_turn_id)
+                    if correction_target_turn_id is not None else None)
+                target_linkage = (target_turn.get("linkage")
+                    if isinstance(target_turn, Mapping) else None)
+                target_state_ids = (target_linkage.get(
+                    "cognition_epistemic_state_citation_ids", [])
+                    if isinstance(target_linkage, Mapping) else [])
+                target_source_turn_id = (target_linkage.get("source_user_turn_id")
+                    if isinstance(target_linkage, Mapping) else None)
+                target_source_turn = (transcript_turns.get(target_source_turn_id)
+                    if isinstance(target_source_turn_id, str) else None)
+                if (isinstance(target_turn, Mapping)
+                        and target_turn.get("role") == "assistant"
+                        and isinstance(target_linkage, Mapping)
+                        and target_linkage.get("response_origin")
+                            == "resident_developmental_cognition"
+                        and isinstance(target_state_ids, list)
+                        and 1 <= len(target_state_ids) <= 16
+                        and all(isinstance(state_id, str)
+                            and re.fullmatch(
+                                r"epistemic-state:[0-9a-f]{24}", state_id)
+                            for state_id in target_state_ids)
+                        and len(set(target_state_ids)) == len(target_state_ids)
+                        and isinstance(target_source_turn, Mapping)
+                        and target_source_turn.get("role") == "user"):
+                    try:
+                        target_response_verified = verifier(
+                            linkage=target_linkage,
+                            response_text=str(target_turn.get("text", "")),
+                            request_id=f"{session_id}:{target_source_turn_id}")
+                    except Exception:
+                        target_response_verified = False
+                    if target_response_verified is True:
+                        correction_target_epistemic_state_ids = list(target_state_ids)
                 feedback_record = make_operator_feedback_record(
                     operator_feedback, request_id=request_id,
                     assistant_turn_id=assistant_turn_id,
@@ -1618,7 +1653,9 @@ class PersistentConversationService:
                     conversation_citation_ids=citation_ids,
                     conversation_citation_digests=citation_digests,
                     conversation_session_id=session_id,
-                    correction_target_turn_id=correction_target_turn_id)
+                    correction_target_turn_id=correction_target_turn_id,
+                    correction_target_epistemic_state_ids=(
+                        correction_target_epistemic_state_ids))
             cycle_kwargs: dict[str, Any] = {
                 "tick_id": tick_id, "screen_observation": observation,
                 "operator_feedback": feedback_record,

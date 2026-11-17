@@ -1251,6 +1251,31 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                             output["historical_conversation_citations"] = [{
                                 "turn_id": turn["turn_id"],
                                 "text_digest": turn["text_digest"]}]
+                    else:
+                        state_id = packet["state"]["state_id"]
+                        durable_corrections = [
+                            (history_packet, report)
+                            for history_packet, report in reports
+                            if isinstance(history_packet.get("record_id"), str)
+                            and isinstance(report.get("correction_target"), Mapping)
+                            and state_id in report["correction_target"].get(
+                                "epistemic_state_citation_ids", ())]
+                        if durable_corrections:
+                            output.update({
+                                "response": (
+                                    "The earlier evidence-bound epistemic position was: "
+                                    + packet["proposition"]["statement"]
+                                    + ". The cited dialogue is unavailable, but the retained "
+                                    "operator reports challenge that exact state: "
+                                    + " | ".join(str(report.get("assertion_text", ""))
+                                        for _, report in durable_corrections)
+                                    + ". Their content remains unresolved and unverified."),
+                                "evidence_ids": [],
+                                "history_record_ids": list(dict.fromkeys(
+                                    history_packet["record_id"]
+                                    for history_packet, _ in durable_corrections)),
+                                "epistemic_state_ids": [state_id],
+                            })
                     self.companion_output_override = output
                     if prompt.get("session_conversation_context") is not None:
                         conversation = prompt["session_conversation_context"]
@@ -1468,8 +1493,41 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert historical_context["mutation_performed"] is False
     assert historical_context["epistemic_state_citation_ids"] == [
         target_state.state_id]
-    assert "operator_assertion_unverified" in json.dumps(
-        corrected_prompt["developmental_history"])
+    corrected_reports = [report for packet in corrected_prompt["developmental_history"]
+        for report in packet.get("operator_feedback_context", ())
+        if report.get("assertion_text") in {
+            correction_assertion, conflicting_assertion}]
+    assert len(corrected_reports) == 2
+    assert all(report["source_schema_version"]
+        == "sentientos.local_operator_feedback:v5" for report in corrected_reports)
+    assert all(report["correction_target"]["epistemic_state_citation_ids"] == [
+        target_state.state_id] for report in corrected_reports)
+    assert all(report["evidence_posture"] == "operator_assertion_unverified"
+        and report["authority"] is False for report in corrected_reports)
+    assert restarted_epistemics.current_state(target.proposition_id).state_id == (
+        target_state.state_id)
+
+    # The report retains its exact state relation when the source transcript
+    # can no longer be recovered. The next cognition sees no dialogue excerpt,
+    # yet can still identify which evidence-bound state the report challenges.
+    restarted_app.sessions._path(session_id).unlink()
+    no_transcript_session_id = restarted_app.create_session()
+    no_transcript_start = len(restarted_invoker.requests)
+    no_transcript_response = restarted_app.chat(target_question,
+        session_id=no_transcript_session_id,
+        request_id="correction-without-source-transcript", observe_screen=True)
+    no_transcript_request = next(request for request in reversed(
+        restarted_invoker.requests[no_transcript_start:])
+        if request.upstream_evidence.get("epistemic_projection_id") is not None)
+    no_transcript_prompt = json.loads(no_transcript_request.prompt)
+    assert "historical_cited_conversation_context" not in no_transcript_prompt
+    assert target.statement in no_transcript_response.response
+    assert correction_assertion in no_transcript_response.response
+    assert conflicting_assertion in no_transcript_response.response
+    assert "unresolved and unverified" in no_transcript_response.response
+    assert no_transcript_request.upstream_evidence["epistemic_state_ids"] == [
+        target_state.state_id]
+    assert no_transcript_request.upstream_evidence["history_record_ids"]
     assert restarted_epistemics.current_state(target.proposition_id).state_id == (
         target_state.state_id)
 

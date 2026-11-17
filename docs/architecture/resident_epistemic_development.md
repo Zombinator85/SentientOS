@@ -362,6 +362,22 @@ that a real model will reason correctly about disagreement, or that later
 outcomes revise the underlying knowledge state appropriately. The next cognition
 milestone should evaluate that feedback and revision loop.
 
+Feedback schema `sentientos.local_operator_feedback:v5` also binds a correction
+to the epistemic state IDs cited by the exact assistant turn it challenges. The
+chat service copies those IDs only after verifying the committed response
+lineage and the turn's source user turn; malformed or unverifiable linkage
+retains the v4 transcript citation without a state link. Later history
+projection validates the bounded state ID list and keeps it nested under the
+correction target. This preserves which evidence-bound position was challenged
+even when the source transcript is unavailable. The link identifies a state;
+it does not recover missing dialogue, establish the operator report as true,
+authorize an action, or revise the state. The expanded restart counterfactual
+in `tests/test_persistent_governed_conversation.py::test_verified_epistemic_citation_survives_restart_and_changes_followup_projection`
+removes the cited session transcript and demonstrates that both conflicting,
+unverified reports remain associated with the exact unchanged state in a later
+projection. This is deterministic substitute behavior; real-model interpretation
+and outcome-driven revision remain unproven.
+
 Epistemic calibration records were previously durable but absent from later
 Meaning-bearing projections now expose up to 16 chronologically latest
 calibration outcomes per selected proposition only after an exact
