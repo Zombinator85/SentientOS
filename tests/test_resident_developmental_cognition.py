@@ -5721,9 +5721,11 @@ def test_companion_distinguishes_assistant_recommendation_from_user_decision(
     assert no_confirmation.conversation_turn_citation_ids == ("turn-" + "2" * 24,)
     assert confirmed.conversation_turn_citation_ids == (
         "turn-" + "2" * 24, "turn-" + "3" * 24)
-    assert no_confirmation.authority is False and no_confirmation.action_authority is False
-    assert confirmed.authority is False and confirmed.action_authority is False
+    assert no_confirmation.authority is False
+    assert confirmed.authority is False
     assert no_confirmation.current_truth is False and confirmed.current_truth is False
+    assert no_confirmation.developmental_history_writeback_performed is False
+    assert confirmed.developmental_history_writeback_performed is False
     assert "An assistant suggestion or recommendation is not a user-made decision" in (
         json.loads(invoker.requests[-2].prompt)["instruction"])
 
