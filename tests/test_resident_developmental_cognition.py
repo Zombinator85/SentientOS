@@ -8801,8 +8801,10 @@ def test_admitted_calibration_changes_later_decision_only_when_evidence_agrees(
     calibrated_prompt = json.loads(calibrated_request.prompt)
     [calibrated_packet] = calibrated_prompt["prior_epistemic_state"][
         "semantic_packets"]
-    assert "calibration_outcomes" not in control_prompt[
-        "prior_epistemic_state"]["semantic_packets"][0]
+    [control_packet] = control_prompt["prior_epistemic_state"][
+        "semantic_packets"]
+    assert control_packet["calibration_outcomes"] == []
+    assert control_packet["omitted_calibration_count"] == 1
     if outcome_relation == "contradicts":
         assert calibrated_packet["calibration_outcomes"][0][
             "calibration_id"] == calibration.calibration_id
