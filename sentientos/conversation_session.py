@@ -61,6 +61,31 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
     return frozenset(terms)
 
 
+def rank_transcript_exchange_terms(
+        query_terms: frozenset[str],
+        exchange_terms: Sequence[frozenset[str]],
+        ) -> list[tuple[int, float, int]]:
+    """Rank exchanges by query-term coverage, then rarity, then recency.
+
+    Leading with distinct-term coverage keeps one rare lexical overlap from
+    outranking an exchange that matches more of the question. IDF remains a
+    useful tie-breaker for queries where candidates match the same number of
+    terms.
+    """
+    if not query_terms:
+        return []
+    document_frequency = {term: sum(term in terms for terms in exchange_terms)
+        for term in query_terms}
+    term_weights = {term: math.log((len(exchange_terms) + 1)
+        / (frequency + 0.5)) + 1
+        for term, frequency in document_frequency.items()}
+    ranked = [(len(overlap), sum(term_weights[term] for term in overlap), index)
+        for index, terms in enumerate(exchange_terms)
+        if (overlap := query_terms & terms)]
+    ranked.sort(reverse=True)
+    return ranked
+
+
 def _is_prior_message_recall_question(text: str) -> bool:
     """Avoid treating an earlier recall question as the evidence it requested."""
     normalized = " ".join(re.findall(r"[a-z0-9]+", text.casefold()))
@@ -784,17 +809,9 @@ class ConversationSessionStore:
             exchange_terms = [frozenset(term for turn in exchange
                 for term in transcript_recall_terms(str(turn.get("text", ""))))
                 for exchange in exchanges]
-            ranked_exchanges: list[tuple[float, int]] = []
-            if query_terms:
-                document_frequency = {term: sum(term in terms for terms in exchange_terms)
-                    for term in query_terms}
-                term_weights = {term: math.log((len(exchanges) + 1)
-                    / (frequency + 0.5)) + 1
-                    for term, frequency in document_frequency.items()}
-                ranked_exchanges = [(sum(term_weights[term]
-                    for term in query_terms & terms), exchange_index)
-                    for exchange_index, terms in enumerate(exchange_terms)]
-                ranked_exchanges = [item for item in ranked_exchanges if item[0] > 0]
+            ranked_exchanges = rank_transcript_exchange_terms(
+                query_terms, exchange_terms)
+            if ranked_exchanges:
                 eligible_exchanges = [exchange_index for exchange_index, exchange in
                     enumerate(exchanges) if not any(
                         turn.get("role") == "user"
@@ -803,15 +820,14 @@ class ConversationSessionStore:
                         for turn in exchange)]
                 eligible_exchange_set = set(eligible_exchanges)
                 eligible_ranked = [item for item in ranked_exchanges
-                    if item[1] in eligible_exchange_set]
+                    if item[2] in eligible_exchange_set]
                 if eligible_ranked:
                     ranked_exchanges = eligible_ranked
-            ranked_exchanges.sort(key=lambda item: (item[0], item[1]), reverse=True)
             candidate_turn_limit = (max_turns if max_turns is not None
                 else len(candidates))
             selected_indexes: list[int] = []
             selected_turn_count = 0
-            for _, exchange_index in ranked_exchanges:
+            for _, _, exchange_index in ranked_exchanges:
                 exchange_size = len(exchanges[exchange_index])
                 if selected_turn_count + exchange_size <= candidate_turn_limit:
                     selected_indexes.append(exchange_index)

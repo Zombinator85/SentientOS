@@ -619,11 +619,18 @@ stored session before applying a bounded candidate limit of 64 turns and a
 4,000-character reconstruction budget (3,000 in gaming mode). Relevant complete
 exchanges receive priority; recent exchanges fill remaining capacity. The
 existing cognition selector then applies its 16-turn, 4,000-character prompt
-limits. A deterministic chat-path counterfactual with 40 newer unrelated
-exchanges shows a recent-only 64-turn window omits the older west-sensor source,
-while the relevance-ranked candidate path retains it alongside recent dialogue.
-This demonstrates bounded long-session retrieval with synthetic dialogue;
-real-model use remains unverified.
+limits. Both selection stages rank the number of distinct query terms matched
+before using inverse document frequency to break ties. This prevents a batch of
+one-term identifier matches from crowding out a linked exchange that matches
+multiple terms in the question. The deterministic counterfactual
+`tests/test_persistent_governed_conversation.py::test_query_coverage_keeps_multi_term_exchange_across_both_history_bounds`
+shows the older source is excluded by the prior IDF-sum policy but survives the
+64-turn candidate window and 16-turn final selector under query-coverage ranking.
+A separate chat-path counterfactual with 40 newer unrelated exchanges shows a
+recent-only 64-turn window omits the older west-sensor source, while
+relevance-ranked retrieval retains it alongside recent dialogue. These tests
+demonstrate bounded retrieval with synthetic dialogue; real-model use remains
+unverified.
 
 The same speaker and evidence rule applies when recalling decisions: an
 assistant recommendation is not a user-confirmed decision. The resident prompt
