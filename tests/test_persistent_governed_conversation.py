@@ -1390,14 +1390,15 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     # cognition/writeback evidence that would contaminate the counterfactual.
     control_session_id = restarted_app.create_session()
     control_request_start = len(restarted_invoker.requests)
-    control_response = restarted_app.chat(followup_question, session_id=control_session_id,
+    restarted_app.chat(followup_question, session_id=control_session_id,
         request_id="citation-followup-control", observe_screen=True)
     control_request = next(request for request in reversed(
         restarted_invoker.requests[control_request_start:])
         if request.upstream_evidence.get("epistemic_projection_id") is not None
     )
+    control_prompt = json.loads(control_request.prompt)
 
-    followup_response = restarted_app.chat(followup_question, session_id=session_id,
+    restarted_app.chat(followup_question, session_id=session_id,
         request_id="citation-followup-turn", observe_screen=True)
     followup_request = next(request for request in reversed(restarted_invoker.requests)
         if request.upstream_evidence.get("epistemic_projection_id") is not None)
@@ -1420,9 +1421,12 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         target_state.state_id]
     assert control_request.upstream_evidence["epistemic_proposition_ids"] == [
         other.proposition_id]
-    assert target.statement in followup_response.response
-    assert other.statement in control_response.response
-    assert followup_response.response != control_response.response
+    followup_packets = followup_prompt["prior_epistemic_state"]["semantic_packets"]
+    control_packets = control_prompt["prior_epistemic_state"]["semantic_packets"]
+    assert [packet["proposition"]["proposition_id"] for packet in followup_packets] == [
+        target.proposition_id]
+    assert [packet["proposition"]["proposition_id"] for packet in control_packets] == [
+        other.proposition_id]
 
     followup_turns = restarted_app.sessions.load(session_id)["turns"]
     correction_source = next(turn for turn in followup_turns
