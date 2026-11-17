@@ -3613,6 +3613,7 @@ def _history_context_packet(record: Mapping[str, Any], *,
                         outcome_group = (item.get("source_task_digest"),
                             item.get("source_active_model_identity_digest"))
                         if outcome_group in unsettled_outcome_groups:
+                            projected.pop("candidate_integer_affine_strategy", None)
                             withheld = {
                                 "posture": "withheld_unsettled_score_bound_outcomes",
                                 "source_fact_id": candidate_strategy.get("source_fact_id"),
@@ -3771,13 +3772,22 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
     target_model_identity = context.get("developmental_history_target_model_identity")
     if not isinstance(target_model_identity, Mapping):
         target_model_identity = None
-    packets_by_mode = {mode: tuple(_history_context_packet(record,
-        include_source_evidence_context=mode[0], compact_for_input_budget=mode[1],
-        omit_historical_embodiment_details=mode[2],
-        task_family_id=scoped_task_family_id,
-        target_model_identity=target_model_identity,
-        unsettled_outcome_groups=unsettled_task_family_outcome_groups)
-        for record in records) for mode in packet_modes}
+    packets_by_mode = {}
+    for mode in packet_modes:
+        mode_packets = []
+        for record in records:
+            packet_options: dict[str, Any] = {
+                "include_source_evidence_context": mode[0],
+                "compact_for_input_budget": mode[1],
+                "omit_historical_embodiment_details": mode[2],
+                "task_family_id": scoped_task_family_id,
+                "target_model_identity": target_model_identity,
+            }
+            if unsettled_task_family_outcome_groups:
+                packet_options["unsettled_outcome_groups"] = (
+                    unsettled_task_family_outcome_groups)
+            mode_packets.append(_history_context_packet(record, **packet_options))
+        packets_by_mode[mode] = tuple(mode_packets)
     self_model_variants: list[tuple[dict[str, Any] | None, dict[str, Any] | None]] = []
     raw_self_model = context.get("prior_self_model")
     if isinstance(raw_self_model, Mapping):
