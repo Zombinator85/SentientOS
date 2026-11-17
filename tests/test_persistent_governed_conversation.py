@@ -102,10 +102,10 @@ def test_resident_context_selects_older_relevant_exchange_when_recent_fits() -> 
         turn("old-amber-assistant", "assistant",
             "Schedule an optical inspection before launch."),
     ]
-    # Keep one unrelated exchange for continuity while leaving the cited turn
-    # in the bounded context; the neutral query tests citation priority rather
-    # than lexical matching.
-    for index in range(1):
+    # Keep both the cited exchange and recent turns inside the bounded window;
+    # the neutral follow-up then tests state-citation priority rather than query
+    # keyword matching.
+    for index in range(6):
         turns.extend((
             turn(f"recent-user-{index}", "user",
                 f"We reviewed agenda item {index} today."),
@@ -1374,7 +1374,10 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     restarted_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=restarted_bridge)
     last_intervening_user = None
-    for index in range(10):
+    # Keep one unrelated exchange for continuity while leaving the cited turn
+    # in the bounded context; the neutral query tests citation priority rather
+    # than lexical matching.
+    for index in range(1):
         last_intervening_user = restarted_app.sessions.append_turn(session_id,
             role="user", text=(f"We reviewed unrelated north display topic {index}."))
         restarted_app.sessions.append_turn(session_id, role="assistant",
