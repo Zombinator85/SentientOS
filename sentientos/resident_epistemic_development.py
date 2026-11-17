@@ -333,7 +333,11 @@ class ResidentEpistemicDevelopmentRuntime:
             return None
         payload = fact.payload if isinstance(fact.payload, Mapping) else {}
         target = payload.get("correction_target")
-        if (payload.get("schema_version") != "sentientos.local_operator_feedback:v5"
+        if (fact.subject.subject_kind != "operator_reported_companion_feedback"
+                or fact.stage != "observation" or fact.disposition != "reported"
+                or fact.evidence_strength != "operator_assertion_unverified"
+                or fact.effect_claimed is not False or fact.effect_proven is not False
+                or payload.get("schema_version") != "sentientos.local_operator_feedback:v5"
                 or not isinstance(target, Mapping)):
             return frozenset()
         state_ids = target.get("epistemic_state_citation_ids")
@@ -1356,19 +1360,40 @@ class ResidentEpistemicDevelopmentRuntime:
         if (not isinstance(excluded_fact_ids, frozenset)
                 or any(not isinstance(item, str) or not item for item in excluded_fact_ids)):
             raise EpistemicDevelopmentError("excluded_world_state_fact_selection_invalid")
-        matches = []
-        correction_targets: dict[str, frozenset[str] | None] = {}
+        matches: list[tuple[EpistemicDevelopmentRule, WorldStateFact]] = []
         for fact in snapshot.facts:
             if fact.fact_id in excluded_fact_ids:
                 continue
-            correction_targets[fact.fact_id] = self._operator_correction_propositions(fact)
-            for rule in self.config.rules:
-                if not self._matches(rule, fact):
+            targeted = self._operator_correction_propositions(fact)
+            configured_matches = [rule for rule in self.config.rules
+                if self._matches(rule, fact)
+                and (targeted is None or rule.proposition_id in targeted)]
+            matches.extend((rule, fact) for rule in configured_matches)
+            if targeted is None:
+                continue
+            # A verified state identity already supplies an exact proposition
+            # join. Do not require a duplicate static operator_input selector
+            # to retain the report as context. The synthesized rule can only
+            # contextualize this unverified source; _adapt enforces that
+            # posture, while all receipts still flow through ordinary
+            # mutation admissions below.
+            matched_propositions = {rule.proposition_id for rule in configured_matches}
+            for proposition_id in sorted(targeted - matched_propositions):
+                proposition = self.owner.proposition(proposition_id)
+                if proposition.namespace not in self.config.allowed_namespaces:
                     continue
-                targeted = correction_targets[fact.fact_id]
-                if (targeted is not None and rule.proposition_id not in targeted):
-                    continue
-                matches.append((rule, fact))
+                rule_identity = hashlib.sha256(
+                    f"{fact.fact_id}:{proposition_id}".encode("utf-8")).hexdigest()[:24]
+                matches.append((EpistemicDevelopmentRule(
+                    rule_id=f"operator-correction-citation:{rule_identity}",
+                    proposition_id=proposition_id,
+                    proposition_digest=proposition.proposition_digest,
+                    selector={"source_kind": "operator_input",
+                        "source_id": fact.source.source_id},
+                    evidence_relation="supports",
+                    dependency_kind="unknown_dependency",
+                    reliability_posture="operator_assertion_unverified_context_only"),
+                    fact))
         matches.sort(key=lambda pair: (pair[0].rule_id, pair[1].fact_id))
         recovery = self.controller.verify_receipts()
         if recovery.get("status") == "incomplete":
@@ -1382,13 +1407,12 @@ class ResidentEpistemicDevelopmentRuntime:
         # Resolve durable identities before applying the per-tick admission
         # bound. Otherwise already admitted, lexically early observations can
         # occupy every slot on every snapshot and starve later evidence.
-        existing_by_proposition = {
-            rule.proposition_id: {
+        existing_by_proposition = {}
+        for proposition_id in {rule.proposition_id for rule, _fact in matches}:
+            existing_by_proposition[proposition_id] = {
                 item.binding_id: item
-                for item in self.owner.bindings(rule.proposition_id)
+                for item in self.owner.bindings(proposition_id)
             }
-            for rule in self.config.rules
-        }
         touched: set[str] = {rule.proposition_id for rule, _fact in matches}
         candidates: dict[str, tuple[EpistemicDevelopmentRule, WorldStateFact,
                                    Any, EvidenceBinding]] = {}

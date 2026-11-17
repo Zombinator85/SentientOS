@@ -379,16 +379,17 @@ projection. This is deterministic substitute behavior; real-model interpretation
 and outcome-driven revision remain unproven.
 
 The resident epistemic runtime resolves state citations carried by v5 operator
-corrections against its persistent state owner before applying an operator-input
-selector. A cited correction can add `contextualizes` evidence only to the
-proposition lineage identified by a retained state; an absent, malformed, or
-unknown v5 citation matches no proposition. Its assertion remains unverified
-and cannot change stance. A separate configured observation still passes
-through normal evidence and state admissions, and a later cognitive projection
-resolves the old cited state ID to the newest admitted generation. The CPU
-integration regression exercises this sequence across owner reconstruction.
-It demonstrates the governed software path with deterministic evidence;
-real-model interpretation and improved decisions remain unproven.
+corrections against its persistent state owner. A retained, allowlisted state ID
+provides the exact proposition join directly; no duplicate static
+`operator_input` selector is required. The correction can add `contextualizes`
+evidence only to that proposition lineage; absent, malformed, or unknown v5
+citations match no proposition. Its assertion remains unverified and cannot
+change stance. A separate configured observation still passes through normal
+evidence and state admissions, and a later cognitive projection resolves the
+old cited state ID to the newest admitted generation. The CPU integration
+regression exercises this sequence across owner reconstruction. It demonstrates
+the governed software path with deterministic evidence; real-model
+interpretation and improved decisions remain unproven.
 
 Epistemic calibration records were previously durable but absent from later
 Meaning-bearing projections now expose up to 16 chronologically latest
