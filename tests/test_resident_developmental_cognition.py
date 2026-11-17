@@ -5756,6 +5756,85 @@ def test_companion_current_evidence_selection_tracks_question_under_fact_cap(
     assert battery.current_truth is False and moon.current_truth is False
 
 
+def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
+        tmp_path: Path) -> None:
+    class FactOnlyInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            if request.structured_output_schema and "disposition" in (
+                    request.structured_output_schema.get("required", ())):
+                prompt = json.loads(request.prompt)
+                current = prompt.get("current_evidence", {})
+                facts = current.get("facts", ())
+                text = json.dumps(facts, sort_keys=True).casefold()
+                has_safe = "safe for entry" in text
+                has_unsafe = "unsafe for entry" in text
+                if has_safe and not has_unsafe:
+                    decision = {"disposition": "answer",
+                        "response": "The selected observation says entry is safe.",
+                        "evidence_ids": ["__CURRENT_FACT__"],
+                        "history_record_ids": []}
+                else:
+                    decision = {"disposition": "ask",
+                        "response": "The available current evidence is insufficient.",
+                        "evidence_ids": [], "history_record_ids": []}
+                self.companion_output_override = decision
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    current = WorldStateBoardBuilder().build([
+        {"source_id": "entry-permit", "source_kind": "capability_registry",
+            "subject_id": "east-entry", "stage": "observation",
+            "disposition": "allow", "observed_at": "2026-01-01T00:00:00+00:00",
+            "payload": {"description": "The east entry is safe for entry."}},
+        {"source_id": "entry-denial", "source_kind": "capability_registry",
+            "subject_id": "east-entry", "stage": "observation",
+            "disposition": "deny", "observed_at": "2026-01-01T00:01:00+00:00",
+            "payload": {"description": "The east entry is unsafe for entry."}},
+    ])
+    assert len(current.conflicts) == 1
+    conflict_fact_ids = set(current.conflicts[0].fact_ids)
+
+    bounded, bounded_invoker = owner(tmp_path / "bounded",
+        invoker=FactOnlyInvoker(), max_selected_facts=1)
+    bounded_projection = bounded._current_projection(current,
+        question="Is the east entry safe for entry?")
+    assert bounded_projection.fact_ids == ()
+    bounded_result = bounded.run_companion_interaction(snapshot=current,
+        request_id="conflicting-entry-bounded", question="Is the east entry safe for entry?")
+    assert bounded_result.disposition == "ask"
+    assert bounded_result.evidence_ids == ()
+    assert bounded_invoker.requests[-1].upstream_evidence["current_fact_ids"] == []
+
+    complete, complete_invoker = owner(tmp_path / "complete",
+        invoker=FactOnlyInvoker(), max_selected_facts=2)
+    complete_projection = complete._current_projection(current,
+        question="Is the east entry safe for entry?")
+    assert set(complete_projection.fact_ids) == conflict_fact_ids
+    complete_result = complete.run_companion_interaction(snapshot=current,
+        request_id="conflicting-entry-complete", question="Is the east entry safe for entry?")
+    assert complete_result.disposition == "ask"
+    assert set(complete_result.evidence_ids).isdisjoint(conflict_fact_ids)
+    assert (set(complete_invoker.requests[-1].upstream_evidence["current_fact_ids"])
+        == conflict_fact_ids)
+
+    partially_eligible = WorldStateBoardBuilder().build([
+        {"source_id": "eligible-entry-permit", "source_kind": "capability_registry",
+            "subject_id": "west-entry", "stage": "observation",
+            "disposition": "allow", "observed_at": "2026-01-01T00:00:00+00:00",
+            "payload": {"description": "The west entry is safe for entry."}},
+        {"source_id": "reported-entry-denial", "source_kind": "operator_input",
+            "subject_id": "west-entry", "stage": "observation",
+            "disposition": "deny", "observed_at": "2026-01-01T00:01:00+00:00",
+            "payload": {"description": "The west entry is unsafe for entry."}},
+    ])
+    policy_bounded, _ = owner(tmp_path / "policy-bounded",
+        allowed_source_kinds=("capability_registry",), max_selected_facts=1)
+    assert policy_bounded._current_projection(partially_eligible,
+        question="Is the west entry safe for entry?").fact_ids == ()
+
+
 @pytest.mark.skipif(os.name == "nt",
     reason="temporary test fixtures cannot satisfy the resident owner's Windows custody paths")
 def test_companion_distinguishes_assistant_recommendation_from_user_decision(

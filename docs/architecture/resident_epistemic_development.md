@@ -158,6 +158,18 @@ uncertainty; earlier claims are not evidence of current state. The focused
 checks that this rule survives production context assembly. This strengthens
 the prompt contract; real-model adherence remains unverified.
 
+Question-aware current-evidence selection now treats World-State conflict
+groups as indivisible under the configured fact bound. When every conflicting
+fact is eligible and the group fits, the projection keeps the full group. If
+any member is outside the source policy or the group cannot fit, the projection
+withholds its eligible members together instead of presenting one side as
+uncontested. The selection policy is versioned as
+`question_relevance_then_existing_priority_conflict_closed:v2`. A bounded
+counterfactual verifies that a one-fact limit no longer delivers only the
+matching side to a controlled responder, while a two-fact limit delivers both
+and leaves the answer unresolved. This is deterministic selection behavior;
+real-model conflict handling remains unverified.
+
 The persistent epistemic owner also accepts the current companion question when
 building its bounded prior-state projection. It ranks only propositions that
 have an eligible prior state, splits underscore-delimited identifiers such as
