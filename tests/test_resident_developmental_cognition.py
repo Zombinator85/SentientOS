@@ -5695,6 +5695,67 @@ def test_companion_interaction_uses_existing_history_without_learning_from_curre
     assert result.response not in durable
 
 
+def test_companion_current_evidence_selection_tracks_question_under_fact_cap(
+        tmp_path: Path) -> None:
+    class FactSensitiveInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                current = prompt.get("current_evidence", {})
+                selected_facts = current.get("facts", ())
+                selected_text = json.dumps(selected_facts, sort_keys=True).casefold()
+                if "battery" in selected_text and "voltage" in selected_text:
+                    response = "The battery sensor reports 9 volts."
+                elif "moon" in selected_text and "phase" in selected_text:
+                    response = "The moon phase sensor reports waxing."
+                else:
+                    response = "The selected evidence does not answer this question."
+                self.companion_output_override = {
+                    "disposition": "answer", "response": response,
+                    "evidence_ids": list(request.upstream_evidence.get(
+                        "current_fact_ids", ())), "history_record_ids": [],
+                }
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    current = WorldStateBoardBuilder().build([
+        {"source_id": "source-a-moon", "source_kind": "capability_registry",
+            "subject_id": "moon-phase-sensor", "stage": "observation",
+            "disposition": "recorded", "observed_at": "2026-01-01T00:00:00+00:00",
+            "payload": {"description": "The moon phase sensor observed waxing."}},
+        {"source_id": "source-z-battery", "source_kind": "capability_registry",
+            "subject_id": "battery-voltage-sensor", "stage": "observation",
+            "disposition": "recorded", "observed_at": "2026-01-01T00:00:00+00:00",
+            "payload": {"description": "The battery sensor measured voltage at 9 volts."}},
+    ])
+    battery_fact = next(fact for fact in current.facts
+        if fact.subject.subject_id == "battery-voltage-sensor")
+    moon_fact = next(fact for fact in current.facts
+        if fact.subject.subject_id == "moon-phase-sensor")
+    cognition, _fake = owner(tmp_path, invoker=FactSensitiveInvoker(),
+        allowed_source_kinds=("capability_registry",), max_selected_facts=1)
+
+    background = cognition._current_projection(current)
+    assert background.fact_ids == (moon_fact.fact_id,)
+    battery_projection = cognition._current_projection(current, question="battery voltage")
+    assert battery_projection.fact_ids == (battery_fact.fact_id,)
+
+    battery = cognition.run_companion_interaction(snapshot=current,
+        request_id="question-current-battery-001", question="battery voltage")
+    moon = cognition.run_companion_interaction(snapshot=current,
+        request_id="question-current-moon-001", question="moon phase")
+
+    assert battery.evidence_ids == (battery_fact.fact_id,)
+    assert battery.response == "The battery sensor reports 9 volts."
+    assert moon.evidence_ids == (moon_fact.fact_id,)
+    assert moon.response == "The moon phase sensor reports waxing."
+    assert battery.authority is False and moon.authority is False
+    assert battery.current_truth is False and moon.current_truth is False
+
+
 @pytest.mark.skipif(os.name == "nt",
     reason="temporary test fixtures cannot satisfy the resident owner's Windows custody paths")
 def test_companion_distinguishes_assistant_recommendation_from_user_decision(
@@ -8368,7 +8429,7 @@ def test_companion_interaction_validates_and_forwards_session_context(
     owner._state = lambda: object()
     owner._prior_projection = lambda _state, _tick, **_kwargs: SimpleNamespace(
         requested_record_ids=(), records=())
-    owner._current_projection = lambda _snapshot: object()
+    owner._current_projection = lambda _snapshot, **_kwargs: object()
 
     def cognize(**kwargs):
         captured.update(kwargs)
