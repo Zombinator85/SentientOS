@@ -525,6 +525,15 @@ hosted source-validation suite verifies this together with the exchange-pair,
 rare-anchor, and anaphoric-follow-up cases. Real-model selection and use of
 historical decisions remain unverified.
 
+Repeated older mentions could still fill the bounded context with high-scoring
+exchanges and omit the newest exchange that also matches the question. The
+selector now reserves that newest relevant exchange alongside the strongest
+ranked history before filling remaining capacity. A focused counterfactual
+keeps both the strongest older decision and the newest correction under the
+existing turn and character bounds. This is deterministic selector evidence;
+real-model interpretation of competing old and new information remains
+unverified.
+
 The integration exposed a linkage defect: the bridge adds resolved epistemic
 priorities to the conversation context and recomputes its selection digest, but
 the response linkage previously kept the pre-bridge digest. The cognition

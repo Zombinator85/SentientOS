@@ -123,6 +123,40 @@ def test_resident_context_selects_older_relevant_exchange_when_recent_fits() -> 
         chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
 
 
+def test_resident_context_keeps_newest_relevant_exchange_after_repeated_mentions() -> None:
+    def turn(turn_id: str, role: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": role, "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}),
+            "linkage": {}}
+
+    turns = []
+    for index in range(10):
+        turns.extend((
+            turn(f"old-user-{index}", "user",
+                f"The amber relay warning was active in diagnostic episode {index}."),
+            turn(f"old-assistant-{index}", "assistant",
+                f"We decided episode {index} required a stop because the amber relay warning signaled a fault."),
+        ))
+    turns.extend((
+        turn("latest-correction-user", "user",
+            "Correction: the amber warning has cleared."),
+        turn("latest-correction-assistant", "assistant",
+            "Proceed with the routine launch checklist."),
+    ))
+
+    selected = _select_resident_conversation_context_turns(
+        tuple(turns), question="What did we decide about the amber relay warning?")
+
+    selected_ids = [item["turn_id"] for item in selected]
+    assert "old-user-9" in selected_ids
+    assert "old-assistant-9" in selected_ids
+    assert "latest-correction-user" in selected_ids
+    assert "latest-correction-assistant" in selected_ids
+    assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(str(item["text"])) for item in selected) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+
 def test_resident_context_ranks_rare_query_anchor_above_common_recent_term() -> None:
     def turn(turn_id: str, text: str) -> dict[str, object]:
         return {"turn_id": turn_id, "role": "user", "text": text,

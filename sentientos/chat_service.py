@@ -160,6 +160,17 @@ def _select_resident_conversation_context_turns(
                 selected_exchanges.add(exchange_index)
                 used_turns += len(exchange)
                 used_chars += cost
+    if ranked:
+        newest_relevant_exchange = max(exchange_index
+            for _, exchange_index in ranked)
+        if newest_relevant_exchange not in selected_exchanges:
+            exchange = exchanges[newest_relevant_exchange]
+            cost = exchange_cost(exchange)
+            if (used_turns + len(exchange) <= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+                    and cost <= MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS - used_chars):
+                selected_exchanges.add(newest_relevant_exchange)
+                used_turns += len(exchange)
+                used_chars += cost
     for exchange_index in selection_order:
         if used_turns >= MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS:
             break
