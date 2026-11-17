@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
