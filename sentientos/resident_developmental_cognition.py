@@ -8402,7 +8402,7 @@ class ResidentDevelopmentalCognitionOwner:
                 for term in query_terms & terms:
                     term_document_frequency[term] = term_document_frequency.get(term, 0) + 1
 
-        def selection_key(fact: WorldStateFact) -> tuple[Any, ...]:
+        def selection_key(fact: Any) -> tuple[Any, ...]:
             existing_priority = self._fact_selection_key(
                 fact, source_kinds[fact.source.source_id])
             matched_terms = query_terms & fact_terms.get(fact.fact_id, set())
