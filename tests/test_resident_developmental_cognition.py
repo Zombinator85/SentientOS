@@ -6300,6 +6300,8 @@ def test_boilerplate_history_query_falls_back_to_recent_records() -> None:
         "overheat", "sing", "morning", "nothing", "charge"}
     assert cognition_query_terms("overheating charged batteries") == {
         "overheat", "charge", "battery"}
+    assert cognition_query_terms("approved saved moved") == {
+        "approve", "save", "move"}
     projection = ResidentDevelopmentalCognitionOwner._prior_projection(
         fake_owner, state, "later-tick", relevance_query="What did we do with it?")
 

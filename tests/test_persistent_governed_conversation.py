@@ -2048,23 +2048,24 @@ def test_bounded_context_can_select_a_relevant_older_turn(tmp_path: Path) -> Non
 
 def test_transcript_recall_normalizes_shared_inflections() -> None:
     assert transcript_recall_terms("overheating") == frozenset({"overheat"})
+    assert transcript_recall_terms("approved") == frozenset({"approve"})
 
 
 def test_bounded_exchange_retrieval_preserves_decision_polarity(
-        tmp_path: Path) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     store = ConversationSessionStore(tmp_path / "sessions")
     session = store.create(model_identity={})
     session_id = session["session_id"]
+    approved = store.append_turn(session_id, role="user",
+        text="I approved the west sensor inspection.")
+    approved_reply = store.append_turn(session_id, role="assistant",
+        text="I approved the west sensor inspection.",
+        linkage={"source_user_turn_id": approved["turn_id"]})
     rejected = store.append_turn(session_id, role="user",
         text="I do not approve the west sensor installation.")
     rejected_reply = store.append_turn(session_id, role="assistant",
         text="I do not approve the west sensor installation.",
         linkage={"source_user_turn_id": rejected["turn_id"]})
-    approved = store.append_turn(session_id, role="user",
-        text="I approve the west sensor inspection.")
-    approved_reply = store.append_turn(session_id, role="assistant",
-        text="I approve the west sensor inspection.",
-        linkage={"source_user_turn_id": approved["turn_id"]})
 
     negative_query = "What didn't I approve about the west sensor?"
     positive_query = "What did I approve about the west sensor?"
@@ -2085,6 +2086,17 @@ def test_bounded_exchange_retrieval_preserves_decision_polarity(
     assert [turn["turn_id"] for turn in positive.turns] == [
         approved["turn_id"], approved_reply["turn_id"]]
     assert positive.turns[1]["linkage"]["source_user_turn_id"] == approved["turn_id"]
+
+    monkeypatch.setattr(chat_service, "MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS", 2)
+    saved_turns = store.load(session_id)["turns"]
+    resident_negative = _select_resident_conversation_context_turns(
+        saved_turns, question=negative_query)
+    resident_positive = _select_resident_conversation_context_turns(
+        saved_turns, question=positive_query)
+    assert [turn["turn_id"] for turn in resident_negative] == [
+        rejected["turn_id"], rejected_reply["turn_id"]]
+    assert [turn["turn_id"] for turn in resident_positive] == [
+        approved["turn_id"], approved_reply["turn_id"]]
 
 
 def test_transcript_recall_selects_accented_term_across_canonical_spellings(

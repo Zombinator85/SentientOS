@@ -708,8 +708,11 @@ decisions remain unproven.
 
 Same-session transcript retrieval now preserves explicit `no`, `not`, and `nor`
 markers and normalizes common negative contractions to `not` alongside topical
-terms. This lets bounded exchange selection distinguish otherwise similar
-positive and negative user decisions. A deterministic paired query fixture
-checks that a two-turn limit selects the matching negative or positive exchange.
-This validates retrieval ranking and source-turn linkage; it does not establish
-that a real model will interpret selected context correctly.
+terms. Shared inflection normalization now maps common `-ved` past-tense forms
+back to their final-`e` stems, so “approved” matches “approve.” For decision
+predicates, retrieval ranks matching query polarity ahead of recency when topic
+coverage ties. A deterministic paired query fixture places the opposite-polarity
+exchange most recently and checks that a two-turn limit still selects the
+matching negative or positive exchange. This validates retrieval ranking and
+source-turn linkage; it does not establish that a real model will interpret
+selected context correctly.
