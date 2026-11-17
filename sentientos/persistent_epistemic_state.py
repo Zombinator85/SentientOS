@@ -41,12 +41,15 @@ COGNITIVE_PROJECTION_SCHEMA_V2 = "sentientos.epistemic_cognitive_projection:v2"
 COGNITIVE_PROJECTION_SCHEMA_V3 = "sentientos.epistemic_cognitive_projection:v3"
 COGNITIVE_PROJECTION_SCHEMA_V4 = "sentientos.epistemic_cognitive_projection:v4"
 COGNITIVE_PROJECTION_SCHEMA_V5 = "sentientos.epistemic_cognitive_projection:v5"
+COGNITIVE_PROJECTION_SCHEMA_V6 = "sentientos.epistemic_cognitive_projection:v6"
 COGNITIVE_PACKET_SCHEMA = "sentientos.epistemic_cognitive_packet:v1"
 COGNITIVE_PACKET_SCHEMA_V2 = "sentientos.epistemic_cognitive_packet:v2"
+COGNITIVE_PACKET_SCHEMA_V3 = "sentientos.epistemic_cognitive_packet:v3"
 MAX_COGNITIVE_PROJECTION_STATES = 128
 MAX_COGNITIVE_PROJECTION_OMISSIONS = 16_384
 MAX_COGNITIVE_PROJECTION_PRIORITIES = 512
 MAX_COGNITIVE_PROJECTION_CALIBRATIONS_PER_STATE = 16
+MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE = 16
 PROPOSITION_CLASSES = frozenset({"descriptive", "predictive", "causal_hypothesis", "capability", "environmental", "relational", "system_hypothesis"})
 RELATIONS = frozenset({"refines", "narrows", "broadens", "supersedes", "contradicts", "related_to"})
 EVIDENCE_RELATIONS = frozenset({"supports", "contradicts", "undercuts", "contextualizes", "resolves", "predictive_outcome", "reliability_evidence"})
@@ -292,6 +295,7 @@ class MeaningBearingEpistemicCognitiveProjection(EpistemicCognitiveProjection):
     update_events: tuple[tuple[Mapping[str, Any], ...], ...] = ()
     omission_manifest: Mapping[str, Any] | None = None
     calibration_histories: tuple[Mapping[str, Any], ...] = ()
+    unverified_context_evidence: tuple[Mapping[str, Any], ...] = ()
 
 
 def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: int, current_tick: int,
@@ -301,6 +305,7 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
                               update_events: Sequence[Sequence[Mapping[str, Any]]] | None = None,
                               omission_manifest: Mapping[str, Any] | None = None,
                               calibration_histories: Sequence[Mapping[str, Any]] | None = None,
+                              unverified_context_evidence: Sequence[Mapping[str, Any]] | None = None,
                               ) -> EpistemicCognitiveProjection:
     if source_tick >= current_tick: raise EpistemicStateError("same_tick_epistemic_state_forbidden")
     ordered=tuple(sorted(states,key=lambda x:x.proposition_id)); payload={"source_tick":source_tick,
@@ -316,7 +321,8 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
     evidence_set_digests = tuple(x.evidence_set_digest for x in ordered)
     state_rows: tuple[Mapping[str, Any], ...] = tuple(asdict(x) for x in ordered)
     if all(value is None for value in (propositions, active_evidence_bindings,
-            removed_evidence_bindings, update_events, calibration_histories)):
+            removed_evidence_bindings, update_events, calibration_histories,
+            unverified_context_evidence)):
         return EpistemicCognitiveProjection(projection_id=pid, projection_digest=pdg,
             source_tick=source_tick, proposition_ids=proposition_ids,
             state_ids=state_ids, state_digests=state_digests,
@@ -336,9 +342,19 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
         raise EpistemicStateError("epistemic_semantic_projection_pairing_invalid")
     calibration_rows = (tuple(dict(item) for item in calibration_histories)
         if calibration_histories is not None else ())
+    context_rows = (tuple(dict(item) for item in unverified_context_evidence)
+        if unverified_context_evidence is not None else ())
     if calibration_histories is not None and len(calibration_rows) != len(ordered):
         raise EpistemicStateError("epistemic_semantic_projection_pairing_invalid")
-    if calibration_histories is not None:
+    if unverified_context_evidence is not None and len(context_rows) != len(ordered):
+        raise EpistemicStateError("epistemic_semantic_projection_pairing_invalid")
+    if unverified_context_evidence is not None:
+        schema = COGNITIVE_PROJECTION_SCHEMA_V6
+        if calibration_histories is None:
+            calibration_rows = tuple({"events": (), "evidence_bindings": (),
+                "omitted_count": 0, "omitted_identity_digest": digest([])}
+                for _ in ordered)
+    elif calibration_histories is not None:
         schema = COGNITIVE_PROJECTION_SCHEMA_V5
     elif omission_manifest is None:
         schema = COGNITIVE_PROJECTION_SCHEMA_V2
@@ -353,8 +369,11 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
         "removed_evidence_bindings": removed_rows, "update_events": event_rows}
     if omission_manifest is not None:
         semantic_payload["omission_manifest"] = dict(omission_manifest)
-    if schema == COGNITIVE_PROJECTION_SCHEMA_V5:
+    if schema in {COGNITIVE_PROJECTION_SCHEMA_V5,
+            COGNITIVE_PROJECTION_SCHEMA_V6}:
         semantic_payload["calibration_histories"] = calibration_rows
+    if schema == COGNITIVE_PROJECTION_SCHEMA_V6:
+        semantic_payload["unverified_context_evidence"] = context_rows
     if len(canonical_bytes(semantic_payload)) > MAX_EPISTEMIC_COGNITIVE_PROJECTION_BYTES:
         raise EpistemicStateError("epistemic_projection_size_limit_exceeded")
     semantic_id, semantic_digest = _identity("epistemic-projection", semantic_payload)
@@ -367,7 +386,8 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
         active_evidence_bindings=active_rows, removed_evidence_bindings=removed_rows,
         update_events=event_rows, schema_version=schema,
         omission_manifest=(dict(omission_manifest) if omission_manifest is not None else None),
-        calibration_histories=calibration_rows)
+        calibration_histories=calibration_rows,
+        unverified_context_evidence=context_rows)
     validate_cognitive_projection(projection, require_meaning=True)
     return projection
 
@@ -480,7 +500,7 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
         return
     if schema not in {COGNITIVE_PROJECTION_SCHEMA_V2,
             COGNITIVE_PROJECTION_SCHEMA_V3, COGNITIVE_PROJECTION_SCHEMA_V4,
-            COGNITIVE_PROJECTION_SCHEMA_V5}:
+            COGNITIVE_PROJECTION_SCHEMA_V5, COGNITIVE_PROJECTION_SCHEMA_V6}:
         raise EpistemicStateError("epistemic_projection_schema_unsupported")
     omission_manifest = raw.get("omission_manifest")
     if schema == COGNITIVE_PROJECTION_SCHEMA_V2 and omission_manifest is not None:
@@ -491,6 +511,7 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
     removed_raw = raw.get("removed_evidence_bindings")
     events_raw = raw.get("update_events")
     calibration_histories_raw = raw.get("calibration_histories", ())
+    unverified_context_raw = raw.get("unverified_context_evidence", ())
     if (not all(isinstance(value, (list, tuple)) for value in
                 (states_raw, props_raw, active_raw, removed_raw, events_raw))):
         raise EpistemicStateError("epistemic_semantic_projection_shape_invalid")
@@ -505,12 +526,21 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
             or any(len(value) != len(states_raw) for value in
                 (props_raw, active_raw, removed_raw, events_raw))):
         raise EpistemicStateError("epistemic_semantic_projection_shape_invalid")
-    if schema == COGNITIVE_PROJECTION_SCHEMA_V5:
+    if schema in {COGNITIVE_PROJECTION_SCHEMA_V5,
+            COGNITIVE_PROJECTION_SCHEMA_V6}:
         if (not isinstance(calibration_histories_raw, (list, tuple))
                 or len(calibration_histories_raw) != len(states_raw)):
             raise EpistemicStateError("epistemic_semantic_calibration_projection_invalid")
     elif calibration_histories_raw not in ((), [], None):
         raise EpistemicStateError("epistemic_semantic_calibration_projection_invalid")
+    if schema == COGNITIVE_PROJECTION_SCHEMA_V6:
+        if (not isinstance(unverified_context_raw, (list, tuple))
+                or len(unverified_context_raw) != len(states_raw)):
+            raise EpistemicStateError(
+                "epistemic_semantic_unverified_context_projection_invalid")
+    elif unverified_context_raw not in ((), [], None):
+        raise EpistemicStateError(
+            "epistemic_semantic_unverified_context_projection_invalid")
     if (any(not isinstance(row, (list, tuple)) or not row for row in events_raw)
             or sum(len(row) for row in events_raw) > MAX_EPISTEMIC_RECORDS_PER_COLLECTION):
         raise EpistemicStateError("epistemic_semantic_event_history_bound_invalid")
@@ -520,10 +550,12 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
     if len({item.proposition_id for item in normalized_states}) != len(normalized_states):
         raise EpistemicStateError("epistemic_projection_pairing_ambiguous")
     if (schema in {COGNITIVE_PROJECTION_SCHEMA_V3, COGNITIVE_PROJECTION_SCHEMA_V4}
-            or (schema == COGNITIVE_PROJECTION_SCHEMA_V5
+            or (schema in {COGNITIVE_PROJECTION_SCHEMA_V5,
+                    COGNITIVE_PROJECTION_SCHEMA_V6}
                 and omission_manifest is not None)):
         legacy_manifest = (schema == COGNITIVE_PROJECTION_SCHEMA_V3
-            or (schema == COGNITIVE_PROJECTION_SCHEMA_V5
+            or (schema in {COGNITIVE_PROJECTION_SCHEMA_V5,
+                    COGNITIVE_PROJECTION_SCHEMA_V6}
                 and isinstance(omission_manifest, Mapping)
                 and omission_manifest.get("schema_version") ==
                     "sentientos.epistemic_projection_omission_manifest:v1"))
@@ -710,7 +742,8 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
             raise EpistemicStateError("epistemic_semantic_evidence_posture_mismatch")
         PersistentEpistemicStateOwner.validate_update_timestamp(
             tick=event.tick, recorded_at=state.updated_at)
-        if schema == COGNITIVE_PROJECTION_SCHEMA_V5:
+        if schema in {COGNITIVE_PROJECTION_SCHEMA_V5,
+                COGNITIVE_PROJECTION_SCHEMA_V6}:
             calibration_history = calibration_histories_raw[i]
             if (not isinstance(calibration_history, Mapping)
                     or set(calibration_history) != {
@@ -802,9 +835,62 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                         != len(calibration_events)):
                 raise EpistemicStateError(
                     "epistemic_semantic_calibration_order_invalid")
+        if schema == COGNITIVE_PROJECTION_SCHEMA_V6:
+            context_history = unverified_context_raw[i]
+            if (not isinstance(context_history, Mapping)
+                    or set(context_history) != {"bindings", "omitted_count",
+                        "omitted_identity_digest"}):
+                raise EpistemicStateError(
+                    "epistemic_semantic_unverified_context_projection_invalid")
+            context_binding_rows = context_history.get("bindings")
+            omitted_count = context_history.get("omitted_count")
+            omitted_digest = context_history.get("omitted_identity_digest")
+            if (not isinstance(context_binding_rows, (list, tuple))
+                    or len(context_binding_rows)
+                        > MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE
+                    or type(omitted_count) is not int or omitted_count < 0
+                    or omitted_count > MAX_EPISTEMIC_RECORDS_PER_COLLECTION
+                    or not isinstance(omitted_digest, str)
+                    or not re.fullmatch(r"sha256:[0-9a-f]{64}", omitted_digest)
+                    or (omitted_count == 0 and omitted_digest != digest([]))):
+                raise EpistemicStateError(
+                    "epistemic_semantic_unverified_context_projection_invalid")
+            context_bindings: list[EvidenceBinding] = []
+            for context_binding_raw in context_binding_rows:
+                if not isinstance(context_binding_raw, Mapping):
+                    raise EpistemicStateError(
+                        "epistemic_semantic_unverified_context_projection_invalid")
+                context_binding = _normalize_binding_record(context_binding_raw)
+                expected_context_binding = make_evidence_binding(**{
+                    key: value for key, value in asdict(context_binding).items()
+                    if key not in {"binding_id", "binding_digest", "schema_version"}})
+                if (context_binding != expected_context_binding
+                        or context_binding.proposition_id != state.proposition_id
+                        or context_binding.binding_id in all_binding_rows
+                        or context_binding.source_class != "operator_input"
+                        or context_binding.source_schema
+                            != "sentientos.local_operator_feedback:v5"
+                        or context_binding.evidence_relation != "contextualizes"
+                        or context_binding.dependency_kind != "unknown_dependency"
+                        or context_binding.reliability_posture
+                            != "operator_assertion_unverified_context_only"
+                        or context_binding.withdrawn
+                        or context_binding.superseded_by is not None
+                        or dict(context_binding.authority) != FALSE_AUTHORITY):
+                    raise EpistemicStateError(
+                        "epistemic_semantic_unverified_context_join_invalid")
+                context_bindings.append(context_binding)
+            context_chronology = [(_aware_instant(item.observation_time).astimezone(
+                timezone.utc), item.binding_id) for item in context_bindings]
+            if (context_chronology != sorted(context_chronology)
+                    or len({item.binding_id for item in context_bindings})
+                        != len(context_bindings)):
+                raise EpistemicStateError(
+                    "epistemic_semantic_unverified_context_order_invalid")
     source_ticks = list(event_ticks)
     if (schema in {COGNITIVE_PROJECTION_SCHEMA_V3, COGNITIVE_PROJECTION_SCHEMA_V4}
-            or (schema == COGNITIVE_PROJECTION_SCHEMA_V5
+            or (schema in {COGNITIVE_PROJECTION_SCHEMA_V5,
+                    COGNITIVE_PROJECTION_SCHEMA_V6}
                 and omission_manifest is not None)):
         if not isinstance(omission_manifest, Mapping):
             raise EpistemicStateError("epistemic_projection_omission_manifest_invalid")
@@ -825,10 +911,14 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
         "removed_evidence_bindings": removed_raw, "update_events": events_raw,
         "evidence_only": False, "prior_position_only": True, "current_truth": False,
         "authority": False, "policy": False, "goal": False})
-    if schema == COGNITIVE_PROJECTION_SCHEMA_V5:
+    if schema in {COGNITIVE_PROJECTION_SCHEMA_V5,
+            COGNITIVE_PROJECTION_SCHEMA_V6}:
         payload["calibration_histories"] = calibration_histories_raw
+    if schema == COGNITIVE_PROJECTION_SCHEMA_V6:
+        payload["unverified_context_evidence"] = unverified_context_raw
     if (schema in {COGNITIVE_PROJECTION_SCHEMA_V3, COGNITIVE_PROJECTION_SCHEMA_V4}
-            or (schema == COGNITIVE_PROJECTION_SCHEMA_V5
+            or (schema in {COGNITIVE_PROJECTION_SCHEMA_V5,
+                    COGNITIVE_PROJECTION_SCHEMA_V6}
                 and omission_manifest is not None)):
         if not isinstance(omission_manifest, Mapping):
             raise EpistemicStateError("epistemic_projection_omission_manifest_invalid")
@@ -844,19 +934,28 @@ def semantic_packets_for_projection(projection: EpistemicCognitiveProjection) ->
     assert isinstance(projection, MeaningBearingEpistemicCognitiveProjection)
     packets = []
     calibration_histories = (projection.calibration_histories
-        if projection.schema_version == COGNITIVE_PROJECTION_SCHEMA_V5 else tuple(
+        if projection.schema_version in {COGNITIVE_PROJECTION_SCHEMA_V5,
+                COGNITIVE_PROJECTION_SCHEMA_V6} else tuple(
             {"events": (), "evidence_bindings": (), "omitted_count": 0,
                 "omitted_identity_digest": digest([])}
             for _ in projection.states))
-    for proposition, state, bindings, removed, event_history, calibration_history in zip(projection.propositions,
+    context_histories = (projection.unverified_context_evidence
+        if projection.schema_version == COGNITIVE_PROJECTION_SCHEMA_V6 else tuple(
+            {"bindings": (), "omitted_count": 0,
+                "omitted_identity_digest": digest([])}
+            for _ in projection.states))
+    for proposition, state, bindings, removed, event_history, calibration_history, context_history in zip(projection.propositions,
             projection.states, projection.active_evidence_bindings,
             projection.removed_evidence_bindings, projection.update_events,
-            calibration_histories):
+            calibration_histories, context_histories):
         support_ids = set(state["support_binding_ids"])
         contradiction_ids = set(state["contradiction_binding_ids"])
-        packet = {"schema_version": (COGNITIVE_PACKET_SCHEMA_V2
-                if projection.schema_version == COGNITIVE_PROJECTION_SCHEMA_V5
-                else COGNITIVE_PACKET_SCHEMA),
+        packet_schema = (COGNITIVE_PACKET_SCHEMA_V3
+            if projection.schema_version == COGNITIVE_PROJECTION_SCHEMA_V6 else
+            COGNITIVE_PACKET_SCHEMA_V2
+            if projection.schema_version == COGNITIVE_PROJECTION_SCHEMA_V5 else
+            COGNITIVE_PACKET_SCHEMA)
+        packet = {"schema_version": packet_schema,
             "proposition": dict(proposition), "state": dict(state),
             "statement_posture": "display_wording_not_proposition_identity",
             "active_evidence_bindings": [dict(item) for item in bindings],
@@ -875,7 +974,8 @@ def semantic_packets_for_projection(projection: EpistemicCognitiveProjection) ->
                 "current_tick_cutoff": projection.current_tick},
             "interpretation_posture": "canonical_prior_position_not_current_truth",
             "authority": False, "policy": False, "goal": False}
-        if projection.schema_version == COGNITIVE_PROJECTION_SCHEMA_V5:
+        if projection.schema_version in {COGNITIVE_PROJECTION_SCHEMA_V5,
+                COGNITIVE_PROJECTION_SCHEMA_V6}:
             calibration_evidence = {
                 item["binding_id"]: _normalize_binding_record(item)
                 for item in (*bindings, *removed,
@@ -895,6 +995,17 @@ def semantic_packets_for_projection(projection: EpistemicCognitiveProjection) ->
                     calibration_history["omitted_identity_digest"]),
                 "calibration_posture": (
                     "historical_outcome_comparisons_not_current_truth")})
+        if projection.schema_version == COGNITIVE_PROJECTION_SCHEMA_V6:
+            packet.update({
+                "unverified_context_evidence_bindings": [dict(item)
+                    for item in context_history["bindings"]],
+                "omitted_unverified_context_evidence_count": (
+                    context_history["omitted_count"]),
+                "omitted_unverified_context_identity_digest": (
+                    context_history["omitted_identity_digest"]),
+                "unverified_context_interpretation": (
+                    "operator_context_only_not_state_evidence_or_truth"),
+            })
         packet_identity = _identity("epistemic-packet", packet)
         packets.append({**packet, "packet_id": packet_identity[0],
             "packet_digest": packet_identity[1]})
@@ -1763,6 +1874,8 @@ class PersistentEpistemicStateOwner:
         active_records: list[tuple[Mapping[str, Any], ...]] = []
         removed_records: list[tuple[Mapping[str, Any], ...]] = []
         event_histories: list[tuple[Mapping[str, Any], ...]] = []
+        context_histories: list[Mapping[str, Any]] = []
+        has_unverified_context = False
         for state in selected:
             active_ids = tuple(sorted(active_by_proposition.get(state.proposition_id, set())))
             history = event_histories_by_state[state.proposition_id]
@@ -1781,6 +1894,32 @@ class PersistentEpistemicStateOwner:
             removed_records.append(tuple(asdict(binding_by_id[binding_id])
                 for binding_id in removed_ids))
             event_histories.append(tuple(asdict(item) for item in history))
+            integrated_ids = set(active_ids) | set(removed_ids)
+            pending_context = [binding for binding in bindings
+                if binding.proposition_id == state.proposition_id
+                and binding.binding_id not in integrated_ids
+                and binding.source_class == "operator_input"
+                and binding.source_schema == "sentientos.local_operator_feedback:v5"
+                and binding.evidence_relation == "contextualizes"
+                and binding.dependency_kind == "unknown_dependency"
+                and binding.reliability_posture
+                    == "operator_assertion_unverified_context_only"
+                and not binding.withdrawn and binding.superseded_by is None]
+            pending_context.sort(key=lambda item: (
+                _aware_instant(item.observation_time).astimezone(timezone.utc),
+                item.binding_id))
+            omitted_context = pending_context[
+                :max(0, len(pending_context)
+                    - MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE)]
+            retained_context = pending_context[
+                -MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE:]
+            omitted_context_identities = [{"binding_id": item.binding_id,
+                "binding_digest": item.binding_digest} for item in omitted_context]
+            context_histories.append({
+                "bindings": tuple(asdict(item) for item in retained_context),
+                "omitted_count": len(omitted_context),
+                "omitted_identity_digest": digest(omitted_context_identities)})
+            has_unverified_context = has_unverified_context or bool(pending_context)
         return make_cognitive_projection(selected, source_tick=source_tick,
             current_tick=projection_tick,
             propositions=tuple(asdict(proposition_by_id[state.proposition_id]) for state in selected),
@@ -1789,7 +1928,9 @@ class PersistentEpistemicStateOwner:
             update_events=tuple(event_histories),
             omission_manifest=omission_manifest,
             calibration_histories=(tuple(calibration_histories)
-                if has_calibration_history else None))
+                if has_calibration_history else None),
+            unverified_context_evidence=(tuple(context_histories)
+                if has_unverified_context else None))
 
     @staticmethod
     def validate_update_timestamp(*, tick: int, recorded_at: str) -> None:

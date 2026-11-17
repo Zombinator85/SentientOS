@@ -276,6 +276,9 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
     assert seeded.status == "state_advanced"
     [original_state] = [owner.current_state(proposition.proposition_id)]
     assert original_state is not None
+    baseline_projection = owner.cognitive_projection(max_states=1,
+        current_tick=22, prioritized_state_ids=(original_state.state_id,))
+    assert baseline_projection is not None
     configured_evidence_rule = runtime.config.rules[0]
 
     # No static operator-input selector exists. A verified v5 state ID itself
@@ -307,6 +310,66 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
     assert binding.reliability_posture == "operator_assertion_unverified_context_only"
     assert owner.current_state(proposition.proposition_id) == original_state
 
+    # Before any independent evidence advances the state, restart the owner
+    # and confirm the admitted correction reaches a separate, non-evidentiary
+    # cognitive packet. It must not enter active evidence or the model's
+    # allowed evidence-citation set.
+    pending_owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("operator",))
+    pending_controller = ResidentEpistemicStateMutationController(
+        owner=pending_owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions={RESIDENT_EPISTEMIC_STATE_MUTATION:
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION},
+            ledger=runtime.ledger),
+        current_sequence=runtime.controller.current_sequence,
+        receipt_root=tmp_path / "receipts")
+    assert pending_controller.recovery_status["status"] == "verified"
+    pending_projection = pending_owner.cognitive_projection(max_states=1,
+        current_tick=22, prioritized_state_ids=(original_state.state_id,))
+    assert pending_projection is not None
+    assert pending_projection.state_ids == (original_state.state_id,)
+    assert pending_projection.states[0]["stance"] == original_state.stance
+    assert pending_projection.generations == (original_state.generation,)
+    assert pending_projection.current_truth is False
+    assert pending_projection.authority is False
+    assert binding.binding_id not in {
+        item["binding_id"] for item in
+        pending_projection.active_evidence_bindings[0]}
+    [context_history] = pending_projection.unverified_context_evidence
+    [projected_binding] = context_history["bindings"]
+    assert projected_binding["binding_id"] == binding.binding_id
+    [pending_packet] = semantic_packets_for_projection(pending_projection)
+    assert pending_packet["schema_version"] == (
+        "sentientos.epistemic_cognitive_packet:v3")
+    assert pending_packet["unverified_context_evidence_bindings"] == [
+        projected_binding]
+    assert pending_packet["unverified_context_interpretation"] == (
+        "operator_context_only_not_state_evidence_or_truth")
+
+    from sentientos.resident_developmental_cognition import (
+        EXPERIMENT_CONTEXT_INSTRUCTION, _bind_epistemic_context)
+    probe_context = {"instruction": EXPERIMENT_CONTEXT_INSTRUCTION,
+        "epistemic_revision_probe": {
+            "response_contract": "sentientos.epistemic_revision_answer:v2"}}
+    baseline_value, _, baseline_prompt = _bind_epistemic_context(
+        context=probe_context, projection=baseline_projection)
+    pending_value, _, pending_prompt = _bind_epistemic_context(
+        context=probe_context, projection=pending_projection)
+    [baseline_packet] = baseline_value["prior_epistemic_state"]["semantic_packets"]
+    [prompt_packet] = pending_value["prior_epistemic_state"]["semantic_packets"]
+    assert baseline_packet["state"] == prompt_packet["state"]
+    assert "unverified_context_evidence_bindings" not in baseline_packet
+    assert prompt_packet["unverified_context_evidence_bindings"][0][
+        "binding_id"] == binding.binding_id
+    assert binding.binding_id not in pending_value["epistemic_revision_probe"][
+        "allowed_evidence_binding_ids"]
+    assert "Do not count them as support, contradiction, independent evidence, or truth" \
+        in pending_prompt
+    assert "Do not count them as support, contradiction, independent evidence, or truth" \
+        not in baseline_prompt
+    assert baseline_prompt != pending_prompt
+
     unknown_feedback = make_operator_feedback_record(
         "This citation is not in durable epistemic custody.",
         request_id="feedback-request-unknown-v5",
@@ -324,6 +387,12 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
     assert unknown.matched_fact_count == 0
     assert unknown.new_binding_count == 0
     assert len(owner.bindings(proposition.proposition_id)) == 2
+    after_unknown = pending_owner.cognitive_projection(max_states=1,
+        current_tick=22, prioritized_state_ids=(original_state.state_id,))
+    assert after_unknown is not None
+    [after_unknown_history] = after_unknown.unverified_context_evidence
+    assert [item["binding_id"] for item in after_unknown_history["bindings"]] == [
+        binding.binding_id]
 
     # A separate configured observation still uses the ordinary evidence and
     # state admissions to revise the same proposition after the correction.
@@ -360,6 +429,9 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
     assert projection is not None
     assert projection.state_ids == (successor.state_id,)
     assert projection.proposition_ids == (proposition.proposition_id,)
+    assert binding.binding_id in {
+        item["binding_id"] for item in projection.active_evidence_bindings[0]}
+    assert projection.unverified_context_evidence == ()
 
 
 def test_freshness_revision_replaces_active_binding_and_withdrawal_stays_withdrawn(tmp_path):
