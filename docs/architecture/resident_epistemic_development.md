@@ -391,6 +391,22 @@ regression exercises this sequence across owner reconstruction. It demonstrates
 the governed software path with deterministic evidence; real-model
 interpretation and improved decisions remain unproven.
 
+A cited v5 operator correction can now survive owner reconstruction into a
+separate pending-context sidecar on the semantic epistemic projection. The
+projection includes only the exact v5 `contextualizes` bindings whose posture
+is `operator_assertion_unverified_context_only`, whose authority is false, and
+which are not already in active or removed state history. The v6 projection
+and v3 cognitive packet bind the selected source records and any bounded
+omissions. The resident prompt labels them as unresolved operator context;
+they are excluded from state-update history and the epistemic probe's allowed
+evidence citations. A deterministic restart counterfactual confirms the
+correction changes the later prompt while leaving stance, generation, truth
+posture, and authority unchanged; an unknown citation adds no context, and a
+separate independently admitted observation later advances state and moves the
+correction into ordinary evidence history. This demonstrates the governed
+software path only. The exact correction text is not carried by the
+projection, real-model interpretation remains unverified, and this does not
+show that later decisions improve.
 Epistemic calibration records were previously durable but absent from later
 Meaning-bearing projections now expose up to 16 chronologically latest
 calibration outcomes per selected proposition only after an exact

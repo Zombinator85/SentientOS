@@ -512,6 +512,13 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "never infer per-invocation CPU, GPU, energy, or token measurements from shared host use, call counts, output size, "
     "or latency."
 )
+UNVERIFIED_CONTEXT_EVIDENCE_INSTRUCTION = (
+    " If a semantic packet includes unverified_context_evidence_bindings, treat them as source-bound "
+    "operator reports attached to the proposition but excluded from its state-update history. Do not count them as "
+    "support, contradiction, independent evidence, or truth; do not cite them as evidence or revise stance from them. "
+    "If the exact report text is separately supplied, preserve it as unresolved correction context and compare it "
+    "with current evidence. Without that text, do not infer what the operator claimed."
+)
 HISTORY_DECISION_CONTRAST_INSTRUCTION = (
     " A history_decision_contrast is a digest-bound comparison of prior proposed "
     "decisions under history-present, history-withheld, and history-restored "
@@ -4812,6 +4819,11 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
             candidate["epistemic_revision_probe"] = {
                 **dict(probe),
                 "allowed_evidence_binding_ids": sorted(visible_binding_ids)}
+        if (any(packet.get("unverified_context_evidence_bindings")
+                for packet in consumed)
+                and isinstance(candidate.get("instruction"), str)
+                and "unverified_context_evidence_bindings" not in candidate["instruction"]):
+            candidate["instruction"] += UNVERIFIED_CONTEXT_EVIDENCE_INSTRUCTION
         candidate_prompt = json.dumps(candidate, sort_keys=True, separators=(",", ":"))
         largest_candidate_chars = max(largest_candidate_chars, len(candidate_prompt))
         if len(candidate_prompt) <= max_input_chars:
