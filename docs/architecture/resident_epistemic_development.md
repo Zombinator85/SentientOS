@@ -545,6 +545,16 @@ Linux durable-custody paths and is skipped on Windows; the hosted source
 validation suite exercises it. Real-model interpretation and application
 remain unverified.
 
+Bounded history selection now also retains a pronoun-only user correction when
+it immediately follows an exchange relevant to the question. This preserves
+the correction's nearby antecedent under transcript pressure without admitting
+an unrelated correction after an irrelevant exchange. A deterministic selector
+counterfactual and the composed resident-owner fixture use "No, that was
+outdated. It cleared several minutes later." to show the correction survives
+selection and changes the qualified response relative to an older-history-only
+control. Hosted source validation is required to exercise the owner fixture;
+real-model interpretation remains unverified.
+
 The same speaker and evidence rule applies when recalling decisions: an
 assistant recommendation is not a user-confirmed decision. The resident prompt
 now requires explicit user acceptance before describing a plan as user-decided,

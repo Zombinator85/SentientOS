@@ -157,6 +157,47 @@ def test_resident_context_keeps_newest_relevant_exchange_after_repeated_mentions
         chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
 
 
+def test_resident_context_keeps_adjacent_elliptical_correction_under_pressure() -> None:
+    def turn(turn_id: str, role: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": role, "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}),
+            "linkage": {}}
+
+    turns = []
+    for index in range(10):
+        turns.extend((
+            turn(f"old-user-{index}", "user",
+                f"The amber relay warning was active in diagnostic episode {index}."),
+            turn(f"old-assistant-{index}", "assistant",
+                f"We decided episode {index} required a stop because the amber relay warning signaled a fault."),
+        ))
+    turns.extend((
+        turn("latest-correction-user", "user",
+            "No, that was outdated. It cleared several minutes later."),
+        turn("latest-correction-assistant", "assistant",
+            "Understood. I should revise my earlier recommendation."),
+        turn("unrelated-user", "user", "The office meeting moved to Tuesday."),
+        turn("unrelated-assistant", "assistant", "I updated the meeting note."),
+        turn("unrelated-correction-user", "user",
+            "Correction: that was outdated; the office meeting moved to Wednesday."),
+        turn("unrelated-correction-assistant", "assistant",
+            "Understood. Wednesday is the updated meeting date."),
+    ))
+
+    selected = _select_resident_conversation_context_turns(
+        tuple(turns), question="What did we decide about the amber relay warning?")
+
+    selected_ids = [item["turn_id"] for item in selected]
+    assert "old-user-9" in selected_ids and "old-assistant-9" in selected_ids
+    assert "latest-correction-user" in selected_ids
+    assert "latest-correction-assistant" in selected_ids
+    assert "unrelated-correction-user" not in selected_ids
+    assert "unrelated-correction-assistant" not in selected_ids
+    assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(str(item["text"])) for item in selected) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+
 def test_resident_context_ranks_rare_query_anchor_above_common_recent_term() -> None:
     def turn(turn_id: str, text: str) -> dict[str, object]:
         return {"turn_id": turn_id, "role": "user", "text": text,
@@ -900,7 +941,8 @@ def test_newest_relevant_correction_changes_bounded_resident_response(
                 context = prompt.get("session_conversation_context", {})
                 turns = context.get("turns", ()) if isinstance(context, Mapping) else ()
                 correction = next((row for row in turns
-                    if "Correction: the amber warning has cleared" in row.get("text", "")), None)
+                    if "No, that was outdated. It cleared several minutes later."
+                        in row.get("text", "")), None)
                 if correction is not None:
                     response = ("The latest user correction reports that the warning had cleared. "
                         "That is the newest dialogue report, not current verification; the "
@@ -939,7 +981,7 @@ def test_newest_relevant_correction_changes_bounded_resident_response(
     latest_correction_turn_id = f"turn-{len(repeated_history):024x}"
     correction_exchange = [
         turn(latest_correction_turn_id, "user",
-            "Correction: the amber warning has cleared."),
+            "No, that was outdated. It cleared several minutes later."),
         turn(f"turn-{len(repeated_history) + 1:024x}", "assistant",
             "Proceed with the routine launch checklist."),
     ]
