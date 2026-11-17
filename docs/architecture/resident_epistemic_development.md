@@ -499,6 +499,14 @@ session. This is deterministic citation-lineage evidence only: a controlled
 invoker supplies the citation, and it does not show that a real model will
 select all and only the historical turns that materially influenced its answer.
 
+The restart counterfactual now inserts 20 unrelated turns between the cited
+answer and an anchored follow-up. The bounded selector still retrieves both
+turns of the older exchange, carries its verified epistemic-state citation into
+the prompt, and preserves the correction-conditioned response difference from
+the no-history control. This demonstrates the composed retrieval and citation
+path under transcript pressure with deterministic inference; real-model
+selection and interpretation remain unverified.
+
 When resident transcript context exceeds its budget, selection now ranks
 adjacent user/assistant exchanges as units. A query matching the user's earlier
 question therefore keeps the assistant's differently worded decision with it,
