@@ -87,7 +87,7 @@ class RootlessExperimentalOllamaEpistemicSession(
             raise RootlessExperimentalError("ollama_experimental_model_binding_invalid")
         options = {"api_base": "http://127.0.0.1:11434", "model": model_name,
             "manifest_sha256": manifest_digest, "num_gpu": 99, "keep_alive": "15m",
-            "think": False, "timeout_seconds": 120,
+            "think": False, "timeout_seconds": MAX_CALL_TIMEOUT_SECONDS,
             "seed": ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED}
         self.config = ModelConfig(
             [ModelCandidate(path, "ollama", model_name, options)],

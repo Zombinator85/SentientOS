@@ -37,7 +37,7 @@ def _session(*, developmental):
         if developmental else MAX_PROMPT_CHARS)
     session._max_output_chars = 4000 if developmental else MAX_OUTPUT_CHARS
     session._max_new_tokens = 512 if developmental else MAX_NEW_TOKENS
-    session._max_timeout_seconds = 120
+    session._max_timeout_seconds = 120 if developmental else 180
     session._max_calls = ROOTLESS_DEVELOPMENTAL_MAX_CALLS if developmental else 4
     session.session_binding = {"purpose": "test"}
     session.invoker = _Invoker()
@@ -198,7 +198,8 @@ def test_existing_companion_invoker_is_bound_to_rootless_receipt_custody(
 def test_ollama_epistemic_profile_accepts_only_epistemic_authority():
     session = _session(developmental=False)
     request = session.build_request(**_kwargs(
-        ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE, "epistemic-call"))
+        ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE, "epistemic-call",
+        timeout=180))
     assert request.purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
     assert request.linkage["rootless_experimental_session"] == session.session_binding
     result = session.invoke(request)
@@ -214,6 +215,11 @@ def test_ollama_epistemic_profile_accepts_only_epistemic_authority():
         session.build_request(**_kwargs(
             ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES[0],
             "wrong-profile"))
+    with pytest.raises(RootlessExperimentalError,
+            match="ollama_experimental_session_request_out_of_scope"):
+        session.build_request(**_kwargs(
+            ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE, "epistemic-timeout-over",
+            timeout=181))
 
 
 def test_ollama_developmental_profile_retains_developmental_authority():
