@@ -2966,6 +2966,10 @@ def _history_decision_contrast_context(payload: Mapping[str, Any], *,
         evidence_ids = decision.get("evidence_ids")
         retrieved_ids, history_ids = (condition.get("retrieved_record_ids"),
             decision.get("history_record_ids"))
+        if (not isinstance(retrieved_ids, (list, tuple))
+                or not isinstance(history_ids, (list, tuple))):
+            raise ResidentDevelopmentalCognitionError(
+                "history_decision_contrast_citation_invalid")
         for values in (evidence_ids, retrieved_ids, history_ids):
             if (not isinstance(values, (list, tuple)) or len(values) > 64
                     or any(not isinstance(value, str) or not value for value in values)
