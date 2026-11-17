@@ -325,10 +325,13 @@ forecast state, and active outcome bindings, obtains a calibration-review
 admission to construct a proposal, then requires the existing separate
 state-update admission and CAS. Its candidate definition is not registered in
 the canonical authority catalog pending operator approval; production review
-therefore fails closed. The focused restart integration is still required in
-hosted Linux before this composition is established. This is
-evidence-consistency checking, not independent verification of the underlying
-outcome; model interpretation and real-world calibration remain unproven.
+therefore fails closed. The hosted Required Quality Gate passes the
+restart-backed composition and a deterministic responder
+counterfactual: a consistent admitted calibration changes the later response,
+while a mismatched comparison label remains withheld and leaves that response
+unchanged. This validates software integration with controlled substitutes;
+it does not independently verify the underlying outcome, and real-model
+interpretation and real-world calibration remain unproven.
 
 ## Explicitly retained user context in resident serving
 
