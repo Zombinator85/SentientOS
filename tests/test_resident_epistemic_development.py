@@ -295,6 +295,15 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
         conversation_session_id="session-v5-test",
         correction_target_turn_id="turn-" + "a" * 24,
         correction_target_epistemic_state_ids=(original_state.state_id,))
+    tampered_feedback = {**feedback, "payload": {
+        **feedback["payload"], "assertion_text": "altered after signing"}}
+    tampered_snapshot = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW)).build([tampered_feedback])
+    tampered = runtime.process_snapshot(tampered_snapshot, tick=21,
+        recorded_at=NOW)
+    assert tampered.matched_fact_count == 0
+    assert tampered.new_binding_count == 0
+
     feedback_snapshot = WorldStateBoardBuilder(
         clock=lambda: datetime.fromisoformat(NOW)).build([feedback])
 
@@ -308,6 +317,7 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
     assert binding.evidence_relation == "contextualizes"
     assert binding.dependency_kind == "unknown_dependency"
     assert binding.reliability_posture == "operator_assertion_unverified_context_only"
+    assert binding.unverified_context_text == feedback["payload"]["assertion_text"]
     assert owner.current_state(proposition.proposition_id) == original_state
 
     # Before any independent evidence advances the state, restart the owner
@@ -339,9 +349,10 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
     [context_history] = pending_projection.unverified_context_evidence
     [projected_binding] = context_history["bindings"]
     assert projected_binding["binding_id"] == binding.binding_id
+    assert projected_binding["unverified_context_text"] == feedback["payload"]["assertion_text"]
     [pending_packet] = semantic_packets_for_projection(pending_projection)
     assert pending_packet["schema_version"] == (
-        "sentientos.epistemic_cognitive_packet:v3")
+        "sentientos.epistemic_cognitive_packet:v4")
     assert pending_packet["unverified_context_evidence_bindings"] == [
         projected_binding]
     assert pending_packet["unverified_context_interpretation"] == (
@@ -362,6 +373,8 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
     assert "unverified_context_evidence_bindings" not in baseline_packet
     assert prompt_packet["unverified_context_evidence_bindings"][0][
         "binding_id"] == binding.binding_id
+    assert prompt_packet["unverified_context_evidence_bindings"][0][
+        "unverified_context_text"] == feedback["payload"]["assertion_text"]
     assert binding.binding_id not in pending_value["epistemic_revision_probe"][
         "allowed_evidence_binding_ids"]
     assert "Do not count them as support, contradiction, independent evidence, or truth" \
@@ -432,6 +445,18 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
     assert binding.binding_id in {
         item["binding_id"] for item in projection.active_evidence_bindings[0]}
     assert projection.unverified_context_evidence == ()
+    [integrated_packet] = semantic_packets_for_projection(projection)
+    assert binding.binding_id in {
+        row["binding_id"] for row in integrated_packet["active_evidence_bindings"]}
+    assert next(row for row in integrated_packet["active_evidence_bindings"]
+        if row["binding_id"] == binding.binding_id)["unverified_context_text"] == (
+            feedback["payload"]["assertion_text"])
+    integrated_value, _, integrated_prompt = _bind_epistemic_context(
+        context=probe_context, projection=projection)
+    assert binding.binding_id not in integrated_value["epistemic_revision_probe"][
+        "allowed_evidence_binding_ids"]
+    assert "Do not count them as support, contradiction, independent evidence, or truth" \
+        in integrated_prompt
 
 
 def test_freshness_revision_replaces_active_binding_and_withdrawal_stays_withdrawn(tmp_path):
