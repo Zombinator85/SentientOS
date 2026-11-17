@@ -5808,7 +5808,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9"
+        "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10"
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
 
@@ -5838,7 +5838,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     followup_prompt = json.loads(fake.requests[-1].prompt)
     assert followup_prompt["companion_question"] == "What about that?"
     assert followup_prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9"
+        "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10"
 
     # A specific new topic takes precedence over the prior user turn, which
     # should not drag its unrelated battery lesson into the bounded selection.
@@ -5941,7 +5941,7 @@ def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_te
     from sentientos import resident_developmental_cognition as cognition_module
     _, metadata, _, _, _ = cognition_module._bind_history_and_epistemic_context(
         context={"developmental_history_retrieval_policy_id":
-            "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9"},
+            "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10"},
         records=(), projection=None, history_present=False)
     cognition_module._validate_developmental_history_selection({
         "developmental_history_selection": metadata["developmental_history_selection"]})
@@ -9137,8 +9137,8 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     contrast_retrieval_prompt = json.loads(
         contrast_retrieval_fake.requests[-1].prompt)
     assert contrast_retrieval_prompt["developmental_history_retrieval_policy_id"] == (
-        "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_"
-        "and_elliptical_session_context_then_recency_fill:v9")
+        "query_overlap_with_identity_bound_correction_groups_decision_contrasts_"
+        "embodied_reports_and_elliptical_session_context_then_recency_fill:v10")
 
     other_identity_owner, other_identity_fake = owner(
         tmp_path / "cognition", invoker=FakeInvoker(),
@@ -9792,6 +9792,86 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
         screen_observation=screen)
     assert control_later.disposition == "abstain"
     assert control_later.response == "I do not have a relevant retained report."
+
+
+def test_companion_history_keeps_same_target_corrections_together_under_cap(
+        tmp_path: Path) -> None:
+    from sentientos.developmental_companion_bridge import make_operator_feedback_record
+
+    cognition, fake = owner(tmp_path / "correction-group",
+        allowed_source_kinds=("operator_input", "capability_registry"),
+        max_selected_facts=4, max_retrieved_records=4)
+    session_id = "session-" + "c" * 24
+    target_turn_id = "turn-" + "a" * 24
+    target_digest = "b" * 64
+
+    def feedback_record(label: str, assertion: str, *,
+            target_session_id: str = session_id,
+            target_text_digest: str = target_digest) -> str:
+        feedback = make_operator_feedback_record(assertion,
+            request_id=f"correction-group-{label}",
+            assistant_turn_id="turn-" + f"{int(label, 16):024x}",
+            assistant_response_digest="d" * 64,
+            source_capture_digest="e" * 64,
+            followup_capture_digest="f" * 64,
+            observed_at="2026-11-16T12:00:00Z",
+            conversation_citation_ids=(target_turn_id,),
+            conversation_citation_digests=(target_text_digest,),
+            conversation_session_id=target_session_id,
+            correction_target_turn_id=target_turn_id)
+        result = cognition.run_tick(
+            snapshot=WorldStateBoardBuilder().build([feedback]),
+            tick_id=f"correction-group-{label}")
+        assert result.written_record_id
+        return result.written_record_id
+
+    matching_assertion = "The west sensor was stable."
+    nonmatching_assertion = "That account was wrong; it drifted after warmup."
+    matching_record_id = feedback_record("01", matching_assertion)
+    nonmatching_record_id = feedback_record("02", nonmatching_assertion)
+    other_session_record_id = feedback_record("03",
+        "A separate session studied an amber nebula.",
+        target_session_id="session-" + "d" * 24)
+    other_turn_version_record_id = feedback_record("04",
+        "This cited text discusses a blue constellation.",
+        target_text_digest="c" * 64)
+
+    unrelated_record_ids = []
+    for index in range(4):
+        fake.history_interpretation = (
+            f"An unrelated astronomy note about distant star clusters {index}.")
+        result = cognition.run_tick(snapshot=snapshot(index + 10),
+            tick_id=f"correction-group-unrelated-{index}")
+        assert result.written_record_id
+        unrelated_record_ids.append(result.written_record_id)
+
+    question = "What did the operator report about the west sensor being stable?"
+    fake.companion_output_override = {
+        "disposition": "answer", "response": "The reports remain unresolved.",
+        "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
+    }
+    interaction = cognition.run_companion_interaction(
+        snapshot=snapshot(99), request_id="retrieve-targeted-correction-group",
+        question=question)
+
+    assert len(interaction.prior_record_ids) == 4
+    assert matching_record_id in interaction.prior_record_ids
+    assert nonmatching_record_id in interaction.prior_record_ids
+    assert other_session_record_id not in interaction.prior_record_ids
+    assert other_turn_version_record_id not in interaction.prior_record_ids
+    assert unrelated_record_ids[0] not in interaction.prior_record_ids
+    prompt = json.loads(fake.requests[-1].prompt)
+    assert prompt["developmental_history_retrieval_policy_id"] == (
+        "query_overlap_with_identity_bound_correction_groups_decision_"
+        "contrasts_embodied_reports_and_elliptical_session_context_then_"
+        "recency_fill:v10")
+    reports = [report for packet in prompt["developmental_history"]
+        for report in packet.get("operator_feedback_context", ())]
+    assert {report["assertion_text"] for report in reports} == {
+        matching_assertion, nonmatching_assertion}
+    assert all(report["evidence_posture"] == "operator_assertion_unverified"
+        and report["current_truth"] is False and report["authority"] is False
+        for report in reports)
 
 
 def test_targeted_operator_citations_deduplicate_before_budget(

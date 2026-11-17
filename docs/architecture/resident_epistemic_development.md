@@ -117,9 +117,17 @@ session context contributes topic terms only when the current question has
 fewer than two distinctive terms, supporting elliptical follow-ups without
 letting stale topics dilute a specific question. Conversation terms affect
 ranking only and are not evidence or durable memory.
+Validated v4 operator-feedback reports that target the same exact conversation
+session, turn ID, and turn-text digest are selected as one bounded retrieval
+unit. A query that matches one report therefore retains the other reports about
+that cited turn when the complete group fits the history cap. This preserves
+their shared provenance for later comparison; it does not classify them as
+contradictory, count repeated reports as corroboration, or establish either
+assertion as true. Groups that do not fit are withheld whole rather than
+partially represented.
 Unmatched slots are filled from the recent checkpoint sequence. The selected
 record identities and retrieval policy
-(`query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9`)
+(`query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10`)
 remain in normal history selection lineage. History packets remain explicitly historical,
 non-authoritative, and not current truth. This remains deterministic lexical
 matching that normalizes common plural endings and weights terms that occur in
