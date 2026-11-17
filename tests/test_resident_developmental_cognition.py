@@ -5848,15 +5848,18 @@ def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_o
                 source = selected.get("source", {})
                 freshness = source.get("staleness")
                 fact_id = selected.get("fact_id")
+                question = str(prompt.get("companion_question", "")).casefold()
                 if freshness == "fresh":
                     decision = {"disposition": "answer",
                         "response": "The fresh observation reports 18 C.",
                         "evidence_ids": [fact_id], "history_record_ids": []}
+                elif "previous report" in question:
+                    decision = {"disposition": "answer",
+                        "response": "The previous report recorded 18 C.",
+                        "evidence_ids": [fact_id], "history_record_ids": []}
                 else:
-                    decision = {"disposition": "ask",
-                        "response": (
-                            "The last observation is expired, so I cannot confirm "
-                            "the current temperature. Can you provide a fresh reading?"),
+                    decision = {"disposition": "answer",
+                        "response": "The room temperature is 18 C now.",
                         "evidence_ids": [fact_id], "history_record_ids": []}
                 self.companion_output_override = decision
             return super().invoke(request, persist=persist,
@@ -5888,8 +5891,10 @@ def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_o
         stale_prompt["instruction"])
     assert "Stale, expired, undated, unknown, and not-applicable are historical only" in (
         stale_prompt["instruction"])
+    assert stale_invoker.companion_output_override["disposition"] == "answer"
     assert stale_result.disposition == "ask"
-    assert "cannot confirm the current temperature" in stale_result.response
+    assert "fresh, cited observation" in stale_result.response
+    assert "current condition" in stale_result.response
 
     fresh_snapshot = temperature_snapshot(now - timedelta(minutes=5))
     fresh_owner, fresh_invoker = owner(tmp_path / "fresh",
@@ -5901,6 +5906,27 @@ def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_o
     assert fresh_source["staleness"] == "fresh"
     assert fresh_result.disposition == "answer"
     assert fresh_result.response == "The fresh observation reports 18 C."
+
+    aging_snapshot = temperature_snapshot(now - timedelta(hours=2))
+    aging_owner, aging_invoker = owner(tmp_path / "aging",
+        invoker=FreshnessAwareInvoker(), allowed_source_kinds=("capability_registry",))
+    aging_result = aging_owner.run_companion_interaction(snapshot=aging_snapshot,
+        request_id="aging-temperature-current-question", question=question)
+    aging_prompt = json.loads(aging_invoker.requests[-1].prompt)
+    aging_source = aging_prompt["current_evidence"]["facts"][0]["source"]
+    assert aging_source["staleness"] == "aging"
+    assert aging_result.disposition == "answer"
+    assert aging_result.response.startswith(
+        "The available observation is aging and may be out of date:")
+
+    historical_owner, historical_invoker = owner(tmp_path / "historical",
+        invoker=FreshnessAwareInvoker(), allowed_source_kinds=("capability_registry",))
+    historical_result = historical_owner.run_companion_interaction(
+        snapshot=stale_snapshot, request_id="stale-temperature-historical-question",
+        question="What did the previous report say about the current room temperature?")
+    assert historical_invoker.companion_output_override["disposition"] == "answer"
+    assert historical_result.disposition == "answer"
+    assert historical_result.response == "The previous report recorded 18 C."
 
 
 @pytest.mark.skipif(os.name == "nt",

@@ -5162,6 +5162,61 @@ class CurrentWorldStateCognitiveProjection:
         value = asdict(self); value.pop("projection_id"); value.pop("projection_digest"); return value
 
 
+_EXPLICIT_CURRENT_QUESTION_MARKER = re.compile(
+    r"\b(?:current|currently|now|today|still)\b|\bright\s+now\b|\bat\s+present\b",
+    re.IGNORECASE)
+_HISTORICAL_QUESTION_MARKER = re.compile(
+    r"\b(?:what did|what was|previously?|last time|last week|yesterday|historical|at the time)\b",
+    re.IGNORECASE)
+
+
+def _normalize_present_answer_for_source_freshness(
+        decision: Mapping[str, Any], *, question: str,
+        current: CurrentWorldStateCognitiveProjection) -> dict[str, Any]:
+    """Require cited current evidence before answering explicitly present questions."""
+    normalized = dict(decision)
+    if (normalized.get("disposition") != "answer"
+            or _HISTORICAL_QUESTION_MARKER.search(question) is not None
+            or _EXPLICIT_CURRENT_QUESTION_MARKER.search(question) is None):
+        return normalized
+
+    facts_by_id = {str(fact.get("fact_id")): fact for fact in current.facts
+        if isinstance(fact, Mapping) and isinstance(fact.get("fact_id"), str)}
+    cited_fact_ids = set(normalized.get("evidence_ids", ()))
+    cited_current_facts = [facts_by_id[fact_id] for fact_id in cited_fact_ids
+        if fact_id in facts_by_id]
+    nonfresh_citations = []
+    for fact in cited_current_facts:
+        source = fact.get("source")
+        source = source if isinstance(source, Mapping) else {}
+        staleness = str(source.get("staleness", "unknown")).strip().lower()
+        staleness = staleness.replace("-", "_")
+        finding = str(source.get("finding", "unknown")).strip().lower()
+        if staleness not in {"fresh", "aging"} or finding != "ok":
+            nonfresh_citations.append(str(fact.get("fact_id")))
+
+    if not cited_current_facts or nonfresh_citations:
+        normalized.update({
+            "model_disposition": "answer",
+            "disposition": "ask",
+            "disposition_normalization": (
+                "present_condition_requires_fresh_cited_current_evidence"),
+            "response": (
+                "I do not have a fresh, cited observation that establishes the current "
+                "condition. Could you provide a fresh observation?"),
+        })
+    elif any(str((fact.get("source") or {}).get("staleness", "")).lower() == "aging"
+            for fact in cited_current_facts
+            if isinstance(fact.get("source"), Mapping)):
+        normalized["model_disposition"] = "answer"
+        normalized["disposition_normalization"] = (
+            "present_condition_answer_qualified_for_aging_evidence")
+        normalized["response"] = (
+            "The available observation is aging and may be out of date: "
+            + str(normalized.get("response", "")))
+    return normalized
+
+
 def _current_evidence_prompt_payload(
         current: CurrentWorldStateCognitiveProjection) -> dict[str, Any]:
     """Project known embodiment facts without repeating their custody envelopes.
@@ -9246,6 +9301,8 @@ class ResidentDevelopmentalCognitionOwner:
                         "self_model_claim_ids": [],
                         "conversation_turn_ids": [],
                     }
+                decision = _normalize_present_answer_for_source_freshness(
+                    decision, question=interaction_question, current=current)
             except (TypeError, ValueError, json.JSONDecodeError) as exc:
                 raise ResidentDevelopmentalCognitionError(
                     "companion_interaction_decision_invalid") from exc
