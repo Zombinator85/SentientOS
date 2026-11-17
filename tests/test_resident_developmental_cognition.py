@@ -4040,7 +4040,7 @@ def test_unsettled_score_bound_outcomes_change_later_strategy_use_after_restart(
         acquisition_request_digest=str(acquisition_request["request_digest"]),
         request_id="conflict-decision-replacement-adverse-repeat",
         request_digest=str(replacement_adverse_request["request_digest"]),
-        active_model_identity=replacement_identity, publish_session=True,
+        active_model_identity=replacement_identity,
         prior_request_refs=(
             ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
             ("conflict-decision-settled", str(stable_request["request_digest"])),
@@ -4070,7 +4070,7 @@ def test_unsettled_score_bound_outcomes_change_later_strategy_use_after_restart(
         acquisition_request_digest=str(acquisition_request["request_digest"]),
         request_id="conflict-decision-replacement-after-conflict",
         request_digest=str(replacement_later_request["request_digest"]),
-        active_model_identity=replacement_identity, publish_session=True,
+        active_model_identity=replacement_identity,
         prior_request_refs=(
             ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
             ("conflict-decision-settled", str(stable_request["request_digest"])),
