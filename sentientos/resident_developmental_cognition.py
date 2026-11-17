@@ -8433,8 +8433,11 @@ class ResidentDevelopmentalCognitionOwner:
                     context["instruction"] += (
                         " If a packet includes calibration_outcomes, treat each as a prior "
                         "comparison between that forecast state and its bound outcome evidence. "
-                        "Use a contradiction to qualify confidence or applicability, while "
-                        "keeping the outcome historical and distinct from current evidence or authority.")
+                        "Use a comparison to qualify confidence or applicability only when its "
+                        "evidence_consistency is consistent_with_bound_current_evidence. Treat "
+                        "unresolved_against_bound_evidence and missing consistency fields as "
+                        "unresolved claims; do not let their labels change your decision. Keep "
+                        "all outcomes historical and distinct from current evidence, truth, or authority.")
             context["canonical_user_memory_citation_allowlist"] = (
                 [row.get("memory_id") for row in canonical_memory_context.get("records", ())]
                 if canonical_memory_context is not None else [])

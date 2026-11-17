@@ -8600,8 +8600,13 @@ def test_epistemic_only_prior_context_causes_real_owner_cognition(tmp_path: Path
 
 @pytest.mark.skipif(os.name == "nt",
     reason="epistemic-owner fixtures require hosted Linux durable-custody paths")
+@pytest.mark.parametrize(("outcome_relation", "expected_posture"), [
+    ("contradicts", "consistent_with_bound_current_evidence"),
+    ("supports", "unresolved_against_bound_evidence"),
+])
 def test_calibrated_epistemic_outcome_changes_later_resident_decision(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        outcome_relation: str, expected_posture: str) -> None:
     from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
     from sentientos.persistent_epistemic_state import make_evidence_binding
 
@@ -8619,6 +8624,8 @@ def test_calibrated_epistemic_outcome_changes_later_resident_decision(
                 response = ("The earlier forecast was contradicted by its bound "
                     "outcome; I should not repeat that position as reliable without "
                     "fresh support." if any(item.get("comparison_result") == "contradicted"
+                        and item.get("evidence_consistency") ==
+                            "consistent_with_bound_current_evidence"
                         for item in outcomes) else
                     "The earlier position has no calibrated outcome yet, so its "
                     "reliability remains unresolved.")
@@ -8668,7 +8675,7 @@ def test_calibrated_epistemic_outcome_changes_later_resident_decision(
         source_schema="sentientos.test_outcome:v1",
         source_class="independent_fixture",
         observation_time="2026-01-01T00:01:00Z",
-        evidence_relation="contradicts",
+        evidence_relation=outcome_relation,
         dependency_kind="independently_sourced_observation",
         dependency_group="outcome-source", upstream_binding_ids=(),
         freshness="current", reliability_posture="contradicts")
@@ -8717,12 +8724,17 @@ def test_calibrated_epistemic_outcome_changes_later_resident_decision(
         "prior_epistemic_state"]["semantic_packets"][0]
     assert calibrated_packet["calibration_outcomes"][0][
         "observed_outcome_id"] == "observed-outcome-1"
-    assert "bound outcome" in calibrated.response
-    assert "reliability remains unresolved" in control.response
-    assert calibrated.response != control.response
+    assert calibrated_packet["calibration_outcomes"][0][
+        "evidence_consistency"] == expected_posture
+    if outcome_relation == "contradicts":
+        assert "bound outcome" in calibrated.response
+        assert calibrated.response != control.response
+    else:
+        assert "reliability remains unresolved" in calibrated.response
+        assert calibrated.response == control.response
     assert calibrated_request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
     assert control_request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
-    assert "Use a contradiction to qualify confidence or applicability" in (
+    assert "evidence_consistency is consistent_with_bound_current_evidence" in (
         calibrated_prompt["instruction"])
     assert calibrated.authority is control.authority is False
     assert epistemic.current_state(proposition.proposition_id).state_id == state.state_id
