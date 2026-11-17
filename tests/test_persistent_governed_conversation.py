@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 import re
 import shutil
@@ -295,6 +296,71 @@ def test_chat_preserves_older_relevant_exchange_for_resident_context_selection(
     assert all_turns[-2]["turn_id"] in selected_ids
     assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
     assert sum(len(turn["text"]) for turn in selected) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+
+def test_query_coverage_keeps_multi_term_exchange_across_both_history_bounds() -> None:
+    question = "What happened with the west sensor? Compare tags " + " ".join(
+        f"anchor{index:03d}" for index in range(32))
+    groups: list[tuple[str, str, str]] = [(
+        "source", "The west sensor showed unstable readings.",
+        "Its output dropped during calibration.")]
+    groups.extend((f"west-{index}", "The west topic was recorded.",
+        "That west item is filed.") for index in range(15))
+    groups.extend((f"sensor-{index}", "The sensor topic was recorded.",
+        "That sensor item is filed.") for index in range(15))
+    groups.extend((f"anchor-{index}", f"Anchor{index:03d} appears in inventory.",
+        "The inventory note is unrelated.") for index in range(32))
+
+    turns: list[dict[str, object]] = []
+    group_terms: list[frozenset[str]] = []
+    source_ids: tuple[str, str] | None = None
+    for label, user_text, assistant_text in groups:
+        user_id = f"turn-{len(turns) + 1:024x}"
+        assistant_id = f"turn-{len(turns) + 2:024x}"
+        user_turn = {"turn_id": user_id, "sequence": len(turns) + 1,
+            "role": "user", "text": user_text,
+            "text_digest": chat_service.digest_payload({"text": user_text}),
+            "linkage": {}}
+        assistant_turn = {"turn_id": assistant_id, "sequence": len(turns) + 2,
+            "role": "assistant", "text": assistant_text,
+            "text_digest": chat_service.digest_payload({"text": assistant_text}),
+            "linkage": {"source_user_turn_id": user_id}}
+        turns.extend((user_turn, assistant_turn))
+        group_terms.append(transcript_recall_terms(user_text + " " + assistant_text))
+        if label == "source":
+            source_ids = (user_id, assistant_id)
+
+    query_terms = transcript_recall_terms(question)
+    document_frequency = {term: sum(term in terms for terms in group_terms)
+        for term in query_terms}
+    legacy_scores = [sum(math.log((len(group_terms) + 1)
+        / (document_frequency[term] + 0.5)) + 1
+        for term in query_terms & terms) for terms in group_terms]
+    legacy_order = sorted(range(len(group_terms)),
+        key=lambda index: (legacy_scores[index], index), reverse=True)
+    assert legacy_order[0] == 62  # unique anchor distractor
+    assert legacy_order[32] == 0  # useful source ranked 33rd
+
+    sessions = object.__new__(ConversationSessionStore)
+    sessions.load = lambda _session_id: {"turns": turns}  # type: ignore[method-assign]
+    history = sessions.reconstruct("session-query-coverage", budget_chars=4000,
+        max_turns=chat_service.MAX_RESIDENT_CONVERSATION_CANDIDATE_TURNS,
+        relevance_query=question, relevance_exchange_groups=True)
+    candidate_ids = {turn["turn_id"] for turn in history.turns}
+    assert source_ids is not None and set(source_ids) <= candidate_ids
+    assert len(history.turns) <= chat_service.MAX_RESIDENT_CONVERSATION_CANDIDATE_TURNS
+    assert sum(len(str(turn["text"])) for turn in history.turns) <= 4000
+    source_assistant = next(turn for turn in history.turns
+        if turn["turn_id"] == source_ids[1])
+    assert source_assistant["linkage"]["source_user_turn_id"] == source_ids[0]
+
+    selected = _select_resident_conversation_context_turns(
+        history.turns, question=question)
+    selected_ids = {turn["turn_id"] for turn in selected}
+    assert set(source_ids) <= selected_ids
+    assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(str(turn["text"])) for turn in selected) <= (
         chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
 
 

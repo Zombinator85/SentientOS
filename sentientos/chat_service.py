@@ -57,7 +57,8 @@ from .developmental_companion_bridge import (
 )
 from .conversation_session import (
     ContextSnapshot, ConversationChatLockTimeout, ConversationSessionStore, assemble_local_chat_context,
-    compact_runtime_generation_attribution, transcript_recall_terms,
+    compact_runtime_generation_attribution, rank_transcript_exchange_terms,
+    transcript_recall_terms,
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
     ExplicitRetentionAdmissionGate, MAX_MEMORY_CORRECTION_TARGETS, retention_request_id,
@@ -132,19 +133,10 @@ def _select_resident_conversation_context_turns(
     exchange_terms = [frozenset(term for turn_index in exchange
         for term in transcript_recall_terms(str(all_turns[turn_index]["text"])))
         for exchange in exchanges]
-    ranked: list[tuple[float, int]] = []
-    if query_terms:
-        document_frequency = {term: sum(term in terms for terms in exchange_terms)
-            for term in query_terms}
-        term_weights = {term: math.log((len(exchanges) + 1)
-            / (frequency + 0.5)) + 1
-            for term, frequency in document_frequency.items()}
-        ranked = [(sum(term_weights[term] for term in query_terms & terms), index)
-            for index, terms in enumerate(exchange_terms)]
-        ranked = [item for item in ranked if item[0] > 0]
+    ranked = rank_transcript_exchange_terms(query_terms, exchange_terms)
     if ranked:
-        ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
-        selection_order = [exchange_index for _, exchange_index in ranked]
+        selection_order = [exchange_index
+            for _, _, exchange_index in ranked]
     else:
         selection_order = list(reversed(range(len(exchanges))))
 
@@ -166,7 +158,7 @@ def _select_resident_conversation_context_turns(
                 used_chars += cost
     if ranked:
         newest_relevant_exchange = max(exchange_index
-            for _, exchange_index in ranked)
+            for _, _, exchange_index in ranked)
         if newest_relevant_exchange not in selected_exchanges:
             exchange = exchanges[newest_relevant_exchange]
             cost = exchange_cost(exchange)
@@ -179,7 +171,8 @@ def _select_resident_conversation_context_turns(
         # relevant exchange ("No, that was outdated. It cleared later."). Keep
         # that user report with its antecedent without treating every recent
         # correction as relevant history.
-        ranked_exchange_indexes = {exchange_index for _, exchange_index in ranked}
+        ranked_exchange_indexes = {exchange_index
+            for _, _, exchange_index in ranked}
         correction_markers = re.compile(
             r"\b(?:correction|actually|outdated|incorrect|wrong|mistaken|"
             r"misspoke|misremembered|not true)\b|"
