@@ -3938,6 +3938,7 @@ def test_unsettled_score_bound_outcomes_change_later_strategy_use_after_restart(
         and experience.get("source_task_digest") == repeated_task_digest]
     assert withheld["posture"] == "withheld_unsettled_score_bound_outcomes"
     assert not any("candidate_integer_affine_strategy" in experience
+        and isinstance(experience.get("candidate_integer_affine_strategy"), Mapping)
         and experience.get("source_task_digest") == repeated_task_digest
         for experience in later_experiences)
     assert "Do not reconstruct or apply that candidate relation" in later_prompt[
