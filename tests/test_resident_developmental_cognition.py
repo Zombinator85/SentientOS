@@ -10112,6 +10112,17 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
             screen_observation=screen)
         assert filler.written_record_id is not None
         filler_ids.append(filler.written_record_id)
+
+    # The subsequent answer must use durable writeback/retrieval after the
+    # resident cognition owner and its bridge have both been reconstructed.
+    prior_cognition = cognition
+    prior_fake = fake
+    fake = FeedbackConditionedInvoker()
+    cognition, fake = owner(tmp_path / "operator-cycle", invoker=fake,
+        allowed_source_kinds=("embodiment", "operator_input"), max_selected_facts=2)
+    assert cognition is not prior_cognition
+    assert fake is not prior_fake
+    bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
     later = bridge.respond(request_id="later-cognition-cycle",
         question="What did the earlier operator report say about the candles?",
         screen_observation=screen)
