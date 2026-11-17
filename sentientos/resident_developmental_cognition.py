@@ -3895,6 +3895,27 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                     prompt_packets.append(prompt_packet)
                 prompt_packets = _withhold_conflicting_task_family_examples(prompt_packets)
                 candidate_context = dict(context)
+                has_unsettled_candidate_strategy = any(
+                    isinstance(experience, Mapping)
+                    and isinstance(experience.get(
+                        "candidate_integer_affine_strategy_withheld"), Mapping)
+                    and experience["candidate_integer_affine_strategy_withheld"].get(
+                        "posture") == "withheld_unsettled_score_bound_outcomes"
+                    for packet in prompt_packets
+                    for experience in packet.get("task_relevant_experience", ()))
+                if has_unsettled_candidate_strategy:
+                    instruction = candidate_context.get("instruction")
+                    if not isinstance(instruction, str):
+                        raise ResidentDevelopmentalCognitionError(
+                            "developmental_history_instruction_invalid")
+                    candidate_context["instruction"] = instruction + (
+                        " A candidate_integer_affine_strategy_withheld entry with "
+                        "posture withheld_unsettled_score_bound_outcomes means its "
+                        "task and source-model outcomes conflict or remain unstable. "
+                        "Do not reconstruct or apply that candidate relation from the "
+                        "retained examples while the outcomes are unsettled. Preserve "
+                        "the examples as historical evidence, keep the conflict "
+                        "uncertain, and wait for new comparable evidence or abstain.")
                 corroboration = _task_family_corroboration_for_selected_packets(
                     context.get("developmental_history_outcome_corroboration"),
                     prompt_packets)

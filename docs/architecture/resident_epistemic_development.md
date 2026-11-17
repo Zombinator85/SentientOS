@@ -403,6 +403,23 @@ distinguish omission from missing source evidence. This is still a deterministic
 software-path capability: it does not prove that a real model correctly
 interprets unresolved evidence or improves later decisions.
 
+The follow-on goal is to make that withholding operational in model-facing
+context: when a selected history packet marks a candidate relation as
+unsettled, the prompt must tell the model not to reconstruct or apply that
+relation from the retained examples, and to preserve uncertainty until new
+comparable evidence resolves the conflict or abstain. Settled history must not
+receive this caution. The deterministic acceptance check compares both prompts
+while retaining the same source examples and provenance.
+
+The binder now appends this instruction only when a selected history packet
+contains the withheld-candidate posture. The controlled counterfactual
+`tests/test_resident_developmental_cognition.py::test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context`
+checks that the stable prompt keeps its provisional strategy without the
+warning, while the unsettled prompt omits the relation, retains the same
+examples, and explicitly directs the model not to reconstruct or apply it.
+This verifies prompt assembly with deterministic evidence; real-model
+interpretation and later task outcomes remain untested.
+
 ## Cross-session correction integration
 
 A verified assistant answer can now carry its bounded screen-capture provenance
