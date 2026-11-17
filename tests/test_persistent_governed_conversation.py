@@ -910,7 +910,11 @@ def test_newest_relevant_correction_changes_bounded_resident_response(
                     response = ("The repeated earlier exchanges record a stop recommendation "
                         "because the warning was active. That is historical dialogue, not "
                         "current verification.")
-                    citations = []
+                    prior_decision = next((row for row in reversed(turns)
+                        if row.get("role") == "assistant"
+                        and "required a stop" in row.get("text", "")), None)
+                    citations = ([prior_decision["turn_id"]]
+                        if prior_decision is not None else [])
                 self.companion_output_override = {
                     "disposition": "answer", "response": response,
                     "evidence_ids": [], "history_record_ids": [],
@@ -984,7 +988,7 @@ def test_newest_relevant_correction_changes_bounded_resident_response(
         chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
     assert "reports that the warning had cleared" in corrected.response
     assert "not current verification" in corrected.response
-    assert "latest user correction reports" in corrected_prompt["instruction"]
+    assert "When a later user turn explicitly corrects or updates" in corrected_prompt["instruction"]
     assert "Recency does not make the newer statement externally true or authoritative" in (
         corrected_prompt["instruction"])
     assert "stop" in control.response
