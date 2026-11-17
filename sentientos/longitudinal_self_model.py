@@ -311,6 +311,7 @@ def _rank_self_model_projection_claims(claims: Sequence[SelfModelClaim], *,
     field_weights = (("predicate", 3), ("value", 2), ("temporal_scope", 2),
         ("subject_id", 2), ("subject_kind", 1), ("claim_category", 1),
         ("lifecycle_stage", 1), ("interpretation", 1))
+    lexical_scores: dict[str, int] = {}
     scored: list[tuple[int, int, SelfModelClaim]] = []
     for claim in claims:
         term_weights: dict[str, int] = {}
@@ -327,7 +328,42 @@ def _rank_self_model_projection_claims(claims: Sequence[SelfModelClaim], *,
         elif temporal_intent == "historical":
             temporal_relevance = (2 if claim.status in {"historical", "withdrawn"}
                 or claim.freshness in {"superseded", "stale", "expired"} else 0)
-        scored.append((sum(term_weights.values()), temporal_relevance, claim))
+        lexical_score = sum(term_weights.values())
+        lexical_scores[claim.claim_id] = lexical_score
+        scored.append((lexical_score, temporal_relevance, claim))
+    if temporal_intent == "current":
+        # A current-state query should not select a superseded revision over
+        # its exact current successor just because the old value contains more
+        # query words. Equalize lexical relevance within each explicit
+        # supersession lineage that contains a current revision; unrelated
+        # historical claims keep their own score.
+        by_id = {claim.claim_id: claim for claim in claims}
+        supersession_neighbors: dict[str, set[str]] = {
+            claim.claim_id: set() for claim in claims}
+        for claim in claims:
+            for related_id in (*claim.supersedes, *claim.superseded_by):
+                related = by_id.get(related_id)
+                if related is not None and related.claim_key == claim.claim_key:
+                    supersession_neighbors[claim.claim_id].add(related_id)
+                    supersession_neighbors[related_id].add(claim.claim_id)
+        unvisited = set(by_id)
+        while unvisited:
+            first = min(unvisited)
+            unvisited.remove(first)
+            lineage = {first}
+            pending = [first]
+            while pending:
+                current = pending.pop()
+                for neighbor in supersession_neighbors[current] & unvisited:
+                    unvisited.remove(neighbor)
+                    lineage.add(neighbor)
+                    pending.append(neighbor)
+            if any(by_id[claim_id].status == "current" for claim_id in lineage):
+                shared_score = max(lexical_scores[claim_id] for claim_id in lineage)
+                for claim_id in lineage:
+                    lexical_scores[claim_id] = shared_score
+        scored = [(lexical_scores[claim.claim_id], temporal_relevance, claim)
+            for _score, temporal_relevance, claim in scored]
     ranked = tuple(claim for _, _, claim in sorted(scored,
         key=lambda row: (-row[0], -row[1], row[2].predicate, row[2].claim_id)))
     if ranked[:max_claims] == baseline[:max_claims]:

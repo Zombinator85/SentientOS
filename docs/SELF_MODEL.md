@@ -96,6 +96,15 @@ current external evidence; the longitudinal self-model is evidence-bound factual
 history; developmental history is prior interpretation; self-assessment is the
 current stochastic reasoning over them. None equals authority.
 
+Question-aware projections rank by lexical relevance before applying the
+projection bound. For a query with explicit current-time intent, a superseded
+claim lineage and its current revision share the strongest lexical score in
+that explicitly linked lineage, so stale wording cannot outrank the current
+revision merely because it matches more query terms. Historical-time queries
+continue to select the historical revision. Claims without an explicit
+supersession link keep their independent relevance scores; query wording does
+not establish freshness or truth.
+
 Cognition for tick N runs before reconciliation of World-State N and can receive
 only a projection whose source tick differs from N. Receipts bind its exact
 reconciliation, generation, claims, current projection, history, model, and

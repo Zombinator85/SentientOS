@@ -79,12 +79,18 @@ def test_self_model_projection_query_prioritizes_matching_claim_before_bound(
     assert effective_query_digest is None
 
     old_generation = replace(unrelated, claim_id="claim-a",
-        predicate="cognitive_model_identity", value="model-a", status="historical",
-        freshness="superseded", superseded_by=("claim-z",), supersedes=())
-    current_generation = replace(old_generation, claim_id="claim-z", value="model-b",
-        status="current", freshness="fresh", superseded_by=(),
+        predicate="cognitive_model_identity",
+        value="the currently active cognitive model identity is legacy model-a",
+        status="historical",
+        freshness="superseded", superseded_by=("claim-b",), supersedes=())
+    intermediate_generation = replace(old_generation, claim_id="claim-b",
+        value="model-a successor", superseded_by=("claim-z",),
         supersedes=("claim-a",))
-    temporal_source = replace(source, claims=(old_generation, current_generation))
+    current_generation = replace(intermediate_generation, claim_id="claim-z",
+        value="model-b", status="current", freshness="fresh", superseded_by=(),
+        supersedes=("claim-b",))
+    temporal_source = replace(source, claims=(old_generation,
+        intermediate_generation, current_generation))
     monkeypatch.setattr(owner, "_load", lambda: (temporal_source,))
     current_projection = owner.cognitive_projection(before_tick="tick-later",
         max_claims=1, allowed_predicates=("cognitive_model_identity",),
