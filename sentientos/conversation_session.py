@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Any, Iterator, Mapping, Sequence
 
-from .cognition_retrieval import normalize_cognition_term
+from .cognition_retrieval import cognition_tokens
 from .platform_fcntl import fcntl, require_flock
 from .perception.screen_text_delta import validate_ocr_text_line_delta
 from .windows_handle_custody import read_explicit_file, verify_explicit_directory
@@ -51,10 +51,10 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
     if not isinstance(text, str):
         raise ValueError("conversation_recall_query_invalid")
     terms: set[str] = set()
-    for token in re.findall(r"[a-z0-9]+", text.casefold()):
+    for token in cognition_tokens(text):
         if len(token) <= 2 or token in _TRANSCRIPT_RECALL_STOP_WORDS:
             continue
-        normalized = normalize_cognition_term(token)
+        normalized = token
         if (len(normalized) > 2
                 and normalized not in _TRANSCRIPT_RECALL_STOP_WORDS):
             terms.add(normalized)

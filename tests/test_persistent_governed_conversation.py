@@ -1905,6 +1905,22 @@ def test_transcript_recall_normalizes_shared_inflections() -> None:
     assert transcript_recall_terms("overheating") == frozenset({"overheat"})
 
 
+def test_transcript_recall_selects_accented_term_across_canonical_spellings(
+        tmp_path: Path) -> None:
+    assert transcript_recall_terms("café cafe\u0301") == frozenset({"café"})
+    store = ConversationSessionStore(tmp_path / "sessions")
+    session = store.create(model_identity={})
+    target = store.append_turn(session["session_id"], role="user",
+        text="The crème was served after dinner.")
+    store.append_turn(session["session_id"], role="user",
+        text="The weather report remains clear.")
+
+    snapshot = store.reconstruct(session["session_id"], budget_chars=1000,
+        include_roles=("user",), max_turns=1, relevance_query="crème")
+
+    assert snapshot.turns == (target,)
+
+
 def test_transcript_recall_normalizes_irregular_ves_plural_for_selection(
         tmp_path: Path) -> None:
     assert transcript_recall_terms("wolves knives shelves") == frozenset(
@@ -2784,6 +2800,21 @@ def test_canonical_memory_retrieval_shares_inflection_normalization(
     assert [row["id"] for row in result["memories"]] == ["memory-overheat"]
     assert result["retrieval_posture"] == "complete"
     assert unrelated_query["memories"] == []
+
+
+def test_canonical_memory_retrieval_preserves_unicode_accents(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    retained = {"id": "memory-creme", "text": "The crème was served after dinner.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    unrelated = {"id": "memory-weather", "text": "The weather report remains clear.",
+        "timestamp": "2026-01-02T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: ([retained, unrelated], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    result = store.retrieve("cr\u00e8me")
+
+    assert [row["id"] for row in result["memories"]] == ["memory-creme"]
 
 
 def test_memory_retrieval_applies_only_explicit_style_preferences_to_new_writing(
