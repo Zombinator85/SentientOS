@@ -5884,9 +5884,9 @@ def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_o
     stale_prompt = json.loads(stale_invoker.requests[-1].prompt)
     stale_source = stale_prompt["current_evidence"]["facts"][0]["source"]
     assert stale_source["staleness"] == "expired"
-    assert "Only fresh observations can support an unqualified current claim" in (
+    assert "Only fresh supports an unqualified current claim" in (
         stale_prompt["instruction"])
-    assert "historical reports and cannot establish the present condition" in (
+    assert "Stale, expired, undated, unknown, and not-applicable are historical only" in (
         stale_prompt["instruction"])
     assert stale_result.disposition == "ask"
     assert "cannot confirm the current temperature" in stale_result.response
