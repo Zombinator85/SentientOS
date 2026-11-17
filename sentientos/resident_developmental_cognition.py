@@ -464,11 +464,7 @@ COMPANION_HISTORY_INTERVENTION_INSTRUCTION = (
     "or truth. Never infer "
     "turn content from an ID or digest. If the cited dialogue conflicts with an operator report, "
     "state the disagreement and keep both source claims qualified; do not automatically accept "
-    "the correction or repeat the earlier answer as settled. A v5 correction_target may also "
-    "carry epistemic_state_citation_ids from the exact verified assistant turn. Treat those IDs "
-    "as a durable link to the earlier evidence-bound position, not as evidence of its content or "
-    "truth. Compare or cite a state only when its exact packet is supplied; never revise it from "
-    "the operator report alone."
+    "the correction or repeat the earlier answer as settled."
     " If a packet contains a lesson_statement, treat it as a provisional historical candidate, "
     "not verified fact. Apply its scope and applicability as limits on transfer, preserve its "
     "uncertainty rationale, and do not reuse it when the current evidence or situation falls "
@@ -476,6 +472,12 @@ COMPANION_HISTORY_INTERVENTION_INSTRUCTION = (
     "recorded unresolved possible conflicts whose details may be omitted from compact context; "
     "do not treat their IDs or count as current evidence, and retain the lesson's uncertainty. "
     "Cite only the containing developmental record."
+)
+COMPANION_V5_CORRECTION_STATE_INSTRUCTION = (
+    " A v5 correction_target may carry epistemic_state_citation_ids from the exact verified "
+    "assistant turn. Treat those IDs as a durable link to the earlier evidence-bound position, "
+    "not as evidence of its content or truth. Compare or cite a state only when its exact packet "
+    "is supplied; never revise it from the operator report alone."
 )
 EXPERIMENT_CONTEXT_INSTRUCTION = (
     "Reason over four separately typed, non-authoritative substrates. Current World-State is a current snapshot, but "
@@ -4143,6 +4145,19 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                     prompt_packets.append(prompt_packet)
                 prompt_packets = _withhold_conflicting_task_family_examples(prompt_packets)
                 candidate_context = dict(context)
+                has_v5_correction_state_link = any(
+                    isinstance(report, Mapping)
+                    and report.get("source_schema_version")
+                        == "sentientos.local_operator_feedback:v5"
+                    for packet in prompt_packets
+                    for report in packet.get("operator_feedback_context", ()))
+                if has_v5_correction_state_link:
+                    instruction = candidate_context.get("instruction")
+                    if not isinstance(instruction, str):
+                        raise ResidentDevelopmentalCognitionError(
+                            "developmental_history_instruction_invalid")
+                    candidate_context["instruction"] = instruction + (
+                        COMPANION_V5_CORRECTION_STATE_INSTRUCTION)
                 has_history_decision_contrast = any(
                     isinstance(report, Mapping)
                     and isinstance(report.get("reported_values"), Mapping)

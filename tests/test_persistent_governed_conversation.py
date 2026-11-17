@@ -1480,6 +1480,8 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
             f"{corrected_assistant_turn['linkage']['source_user_turn_id']}"))
     corrected_prompt = json.loads(corrected_request.prompt)
     assert "cite its exact state ID" in corrected_prompt["instruction"]
+    assert "A v5 correction_target may carry epistemic_state_citation_ids" in (
+        corrected_prompt["instruction"])
     historical_context = corrected_prompt["historical_cited_conversation_context"]
     target_rows = [row for row in historical_context["turns"]
         if row["turn_id"] == source_assistant["turn_id"]]
