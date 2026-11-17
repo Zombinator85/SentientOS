@@ -433,6 +433,13 @@ interpretation and improvement remain unproven. The Windows checkout cannot run
 the durable custody portion because that storage contract currently rejects
 this platform.
 
+Unsettled outcome withholding is scoped to the exact source-model identity.
+When another model receives an oracle-verified same-family candidate from a
+source group that remains unsettled, projection retains the candidate with a
+digest-bound source-conflict marker and tells the target model that source-model
+outcomes do not establish its performance. The existing exact-family and
+evaluator-example checks still apply; this does not claim cross-model transfer.
+
 ## Cross-session correction integration
 
 A verified assistant answer can now carry its bounded screen-capture provenance
