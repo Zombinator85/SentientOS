@@ -217,7 +217,8 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         observed_at: str, conversation_citation_ids: Sequence[str] = (),
         conversation_citation_digests: Sequence[str] = (),
         conversation_session_id: str | None = None,
-        correction_target_turn_id: str | None = None) -> dict[str, Any]:
+        correction_target_turn_id: str | None = None,
+        correction_target_epistemic_state_ids: Sequence[str] = ()) -> dict[str, Any]:
     """Represent explicit local operator feedback as an unverified report."""
     citation_pattern = re.compile(r"^turn-[0-9a-f]{24}$")
     if (not isinstance(feedback, str) or not feedback.strip()
@@ -238,6 +239,15 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
             or any(not isinstance(turn_id, str) or citation_pattern.fullmatch(turn_id) is None
                 for turn_id in conversation_citation_ids)
             or len(set(conversation_citation_ids)) != len(conversation_citation_ids)
+            or not isinstance(correction_target_epistemic_state_ids, (tuple, list))
+            or len(correction_target_epistemic_state_ids) > 16
+            or any(not isinstance(state_id, str)
+                or re.fullmatch(r"epistemic-state:[0-9a-f]{24}", state_id) is None
+                for state_id in correction_target_epistemic_state_ids)
+            or len(set(correction_target_epistemic_state_ids))
+                != len(correction_target_epistemic_state_ids)
+            or (correction_target_epistemic_state_ids
+                and correction_target_turn_id is None)
             or any(not isinstance(digest, str)
                 or re.fullmatch(r"[0-9a-f]{64}", digest) is None
                 for digest in conversation_citation_digests)
@@ -253,12 +263,15 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         raise DevelopmentalCompanionBridgeError(
             "operator_feedback_contract_invalid")
     normalized = feedback.strip()
-    schema_version = ("sentientos.local_operator_feedback:v4"
+    schema_version = ("sentientos.local_operator_feedback:v5"
+        if correction_target_turn_id is not None
+            and correction_target_epistemic_state_ids else
+        "sentientos.local_operator_feedback:v4"
         if correction_target_turn_id is not None else
         "sentientos.local_operator_feedback:v3"
         if conversation_session_id is not None else
         "sentientos.local_operator_feedback:v2")
-    semantic = {
+    semantic: dict[str, Any] = {
         "schema_version": schema_version,
         "request_id": request_id,
         "assistant_turn_id": assistant_turn_id,
@@ -283,6 +296,9 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
             "turn_id": correction_target_turn_id,
             "text_digest": conversation_citation_digests[target_index],
         }
+        if correction_target_epistemic_state_ids:
+            semantic["correction_target"]["epistemic_state_citation_ids"] = list(
+                correction_target_epistemic_state_ids)
     identity = hashlib.sha256(json.dumps(semantic, sort_keys=True,
         separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
     return {

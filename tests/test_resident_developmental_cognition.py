@@ -9836,6 +9836,86 @@ def test_companion_bridge_runs_existing_matched_history_intervention_on_fresh_sc
     assert result.canonical_explicit_user_retention_mutated is False
 
 
+def test_operator_feedback_v5_binds_verified_target_state_ids() -> None:
+    from sentientos.developmental_companion_bridge import (
+        DevelopmentalCompanionBridgeError, make_operator_feedback_record,
+    )
+    from sentientos.resident_developmental_cognition import (
+        _historical_operator_feedback_context,
+    )
+
+    feedback = make_operator_feedback_record(
+        "The cited measurement was incorrect.",
+        request_id="state-bound-feedback",
+        assistant_turn_id="turn-" + "b" * 24,
+        assistant_response_digest="f" * 64,
+        source_capture_digest="b" * 64,
+        followup_capture_digest="d" * 64,
+        observed_at=datetime.now(timezone.utc).isoformat(),
+        conversation_citation_ids=("turn-" + "a" * 24,),
+        conversation_citation_digests=("c" * 64,),
+        conversation_session_id="session-" + "c" * 24,
+        correction_target_turn_id="turn-" + "a" * 24,
+        correction_target_epistemic_state_ids=("epistemic-state:" + "9" * 24,))
+    assert feedback["payload"]["schema_version"] == (
+        "sentientos.local_operator_feedback:v5")
+    assert feedback["payload"]["correction_target"] == {
+        "turn_id": "turn-" + "a" * 24,
+        "text_digest": "c" * 64,
+        "epistemic_state_citation_ids": ["epistemic-state:" + "9" * 24],
+    }
+    assert feedback["payload"]["evidence_posture"] == "operator_assertion_unverified"
+    assert all(value is False for value in feedback["payload"]["authority"].values())
+    fact_id = "devfact-" + "e" * 24
+    candidate = {
+        "selected_fact_ids": [fact_id],
+        "selected_facts": [{
+            "fact_id": fact_id,
+            "source": {
+                "kind": feedback["source_kind"],
+                "source_id": feedback["source_id"],
+                "schema_version": feedback["schema_version"],
+                "digest": "a" * 64,
+            },
+            "subject": {
+                "subject_id": feedback["subject_id"],
+                "subject_kind": feedback["subject_kind"],
+            },
+            "stage": feedback["stage"],
+            "disposition": feedback["disposition"],
+            "evidence_strength": feedback["evidence_strength"],
+            "effect_claimed": feedback["effect_claimed"],
+            "effect_proven": feedback["effect_proven"],
+            "payload": feedback["payload"],
+            "observed_at": feedback["observed_at"],
+        }],
+    }
+    projected = _historical_operator_feedback_context(candidate)
+    assert len(projected) == 1
+    assert projected[0]["correction_target"][
+        "epistemic_state_citation_ids"] == ["epistemic-state:" + "9" * 24]
+    tampered_candidate = copy.deepcopy(candidate)
+    tampered_candidate["selected_facts"][0]["payload"]["correction_target"][
+        "epistemic_state_citation_ids"] = ["unverified-state-id"]
+    assert _historical_operator_feedback_context(tampered_candidate) == []
+
+    with pytest.raises(DevelopmentalCompanionBridgeError,
+            match="operator_feedback_contract_invalid"):
+        make_operator_feedback_record(
+            "The cited measurement was incorrect.",
+            request_id="invalid-state-bound-feedback",
+            assistant_turn_id="turn-" + "b" * 24,
+            assistant_response_digest="f" * 64,
+            source_capture_digest="b" * 64,
+            followup_capture_digest="d" * 64,
+            observed_at=datetime.now(timezone.utc).isoformat(),
+            conversation_citation_ids=("turn-" + "a" * 24,),
+            conversation_citation_digests=("c" * 64,),
+            conversation_session_id="session-" + "c" * 24,
+            correction_target_turn_id="turn-" + "a" * 24,
+            correction_target_epistemic_state_ids=("unverified-state-id",))
+
+
 def test_operator_feedback_provenance_survives_writeback_and_changes_later_response(
         tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)
@@ -9959,6 +10039,26 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
         {"turn_id": cited_turn_id, "text_digest": cited_turn_digest}]
     assert feedback["payload"]["correction_target"] == {
         "turn_id": cited_turn_id, "text_digest": cited_turn_digest}
+    challenged_state_id = "epistemic-state:" + "9" * 24
+    state_bound_feedback = make_operator_feedback_record(
+        feedback_text, request_id="cycle-feedback-state-bound",
+        assistant_turn_id="turn-" + "b" * 24,
+        assistant_response_digest="f" * 64,
+        source_capture_digest="b" * 64,
+        followup_capture_digest=screen["capture_digest"],
+        observed_at=now.isoformat(),
+        conversation_citation_ids=(cited_turn_id,),
+        conversation_citation_digests=(cited_turn_digest,),
+        conversation_session_id="session-" + "c" * 24,
+        correction_target_turn_id=cited_turn_id,
+        correction_target_epistemic_state_ids=(challenged_state_id,))
+    assert state_bound_feedback["payload"]["schema_version"] == (
+        "sentientos.local_operator_feedback:v5")
+    assert state_bound_feedback["payload"]["correction_target"] == {
+        "turn_id": cited_turn_id,
+        "text_digest": cited_turn_digest,
+        "epistemic_state_citation_ids": [challenged_state_id],
+    }
     with pytest.raises(DevelopmentalCompanionBridgeError,
             match="operator_feedback_contract_invalid"):
         make_operator_feedback_record(
@@ -9972,6 +10072,20 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
             conversation_citation_digests=(cited_turn_digest,),
             conversation_session_id="session-" + "c" * 24,
             correction_target_turn_id="turn-" + "e" * 24)
+    with pytest.raises(DevelopmentalCompanionBridgeError,
+            match="operator_feedback_contract_invalid"):
+        make_operator_feedback_record(
+            feedback_text, request_id="cycle-feedback-invalid-state-id",
+            assistant_turn_id="turn-" + "b" * 24,
+            assistant_response_digest="f" * 64,
+            source_capture_digest="b" * 64,
+            followup_capture_digest=screen["capture_digest"],
+            observed_at=now.isoformat(),
+            conversation_citation_ids=(cited_turn_id,),
+            conversation_citation_digests=(cited_turn_digest,),
+            conversation_session_id="session-" + "c" * 24,
+            correction_target_turn_id=cited_turn_id,
+            correction_target_epistemic_state_ids=("unverified-state-id",))
 
     cycle = bridge.run_developmental_cycle(
         tick_id="operator-confirmed-cycle-1", screen_observation=screen,

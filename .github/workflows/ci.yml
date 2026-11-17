@@ -89,6 +89,7 @@ jobs:
             tests/test_resident_developmental_cognition_generation_scope.py \
             tests/test_developmental_history_intervention_experiment.py \
             tests/test_resident_developmental_cognition.py \
+            tests/test_persistent_governed_conversation.py::test_verified_epistemic_citation_survives_restart_and_changes_followup_projection \
             tests/test_developmental_model_replacement_experiment.py \
             tests/test_local_model_production_serving.py \
             tests/test_host_resource_runtime.py::test_windows_nvidia_smi_evidence_defers_optional_gpu_inference_for_game \

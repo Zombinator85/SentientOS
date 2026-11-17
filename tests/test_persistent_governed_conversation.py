@@ -102,7 +102,10 @@ def test_resident_context_selects_older_relevant_exchange_when_recent_fits() -> 
         turn("old-amber-assistant", "assistant",
             "Schedule an optical inspection before launch."),
     ]
-    for index in range(10):
+    # Keep both the cited exchange and recent turns inside the bounded window;
+    # the neutral follow-up then tests state-citation priority rather than query
+    # keyword matching.
+    for index in range(6):
         turns.extend((
             turn(f"recent-user-{index}", "user",
                 f"We reviewed agenda item {index} today."),
@@ -1251,6 +1254,31 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                             output["historical_conversation_citations"] = [{
                                 "turn_id": turn["turn_id"],
                                 "text_digest": turn["text_digest"]}]
+                    else:
+                        state_id = packet["state"]["state_id"]
+                        durable_corrections = [
+                            (history_packet, report)
+                            for history_packet, report in reports
+                            if isinstance(history_packet.get("record_id"), str)
+                            and isinstance(report.get("correction_target"), Mapping)
+                            and state_id in report["correction_target"].get(
+                                "epistemic_state_citation_ids", ())]
+                        if durable_corrections:
+                            output.update({
+                                "response": (
+                                    "The earlier evidence-bound epistemic position was: "
+                                    + packet["proposition"]["statement"]
+                                    + ". The cited dialogue is unavailable, but the retained "
+                                    "operator reports challenge that exact state: "
+                                    + " | ".join(str(report.get("assertion_text", ""))
+                                        for _, report in durable_corrections)
+                                    + ". Their content remains unresolved and unverified."),
+                                "evidence_ids": [],
+                                "history_record_ids": list(dict.fromkeys(
+                                    history_packet["record_id"]
+                                    for history_packet, _ in durable_corrections)),
+                                "epistemic_state_ids": [state_id],
+                            })
                     self.companion_output_override = output
                     if prompt.get("session_conversation_context") is not None:
                         conversation = prompt["session_conversation_context"]
@@ -1346,15 +1374,31 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     restarted_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=restarted_bridge)
     last_intervening_user = None
-    for index in range(10):
+    # Keep one unrelated exchange for continuity while leaving the cited turn
+    # in the bounded context; the neutral query tests citation priority rather
+    # than lexical matching.
+    for index in range(1):
         last_intervening_user = restarted_app.sessions.append_turn(session_id,
             role="user", text=(f"We reviewed unrelated north display topic {index}."))
         restarted_app.sessions.append_turn(session_id, role="assistant",
             text=f"The display note for topic {index} is saved.",
             linkage={"source_user_turn_id": last_intervening_user["turn_id"]})
-    followup_anchor = "west sensor" if target.subject == "sensor:west" else "launch"
-    followup_question = f"What should I consider about the {followup_anchor} now?"
-    followup_response = restarted_app.chat(followup_question, session_id=session_id,
+    # Keep the request neutral so lexical relevance cannot select the target
+    # proposition without the cited conversation lineage.
+    followup_question = "What should I consider now?"
+    # Capture the no-citation control before the cited follow-up can itself add
+    # cognition/writeback evidence that would contaminate the counterfactual.
+    control_session_id = restarted_app.create_session()
+    control_request_start = len(restarted_invoker.requests)
+    restarted_app.chat(followup_question, session_id=control_session_id,
+        request_id="citation-followup-control", observe_screen=True)
+    control_request = next(request for request in reversed(
+        restarted_invoker.requests[control_request_start:])
+        if request.upstream_evidence.get("epistemic_projection_id") is not None
+    )
+    control_prompt = json.loads(control_request.prompt)
+
+    restarted_app.chat(followup_question, session_id=session_id,
         request_id="citation-followup-turn", observe_screen=True)
     followup_request = next(request for request in reversed(restarted_invoker.requests)
         if request.upstream_evidence.get("epistemic_projection_id") is not None)
@@ -1366,19 +1410,10 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert source_assistant["turn_id"] in selected_turn_ids
     assert last_intervening_user is not None
     assert last_intervening_user["turn_id"] in selected_turn_ids
-    assert target_state.state_id in selected_conversation["prior_epistemic_state_ids"]
+    assert "prior_epistemic_state_ids" not in selected_conversation
     assert len(selected_turn_ids) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
     assert sum(len(turn["text"]) for turn in selected_conversation["turns"]) <= (
         chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
-
-    control_session_id = restarted_app.create_session()
-    control_request_start = len(restarted_invoker.requests)
-    control_response = restarted_app.chat(followup_question, session_id=control_session_id,
-        request_id="citation-followup-control", observe_screen=True)
-    control_request = next(request for request in reversed(
-        restarted_invoker.requests[control_request_start:])
-        if request.upstream_evidence.get("epistemic_projection_id") is not None
-    )
 
     assert followup_request.upstream_evidence["epistemic_proposition_ids"] == [
         target.proposition_id]
@@ -1386,9 +1421,12 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         target_state.state_id]
     assert control_request.upstream_evidence["epistemic_proposition_ids"] == [
         other.proposition_id]
-    assert target.statement in followup_response.response
-    assert other.statement in control_response.response
-    assert followup_response.response != control_response.response
+    followup_packets = followup_prompt["prior_epistemic_state"]["semantic_packets"]
+    control_packets = control_prompt["prior_epistemic_state"]["semantic_packets"]
+    assert [packet["proposition"]["proposition_id"] for packet in followup_packets] == [
+        target.proposition_id]
+    assert [packet["proposition"]["proposition_id"] for packet in control_packets] == [
+        other.proposition_id]
 
     followup_turns = restarted_app.sessions.load(session_id)["turns"]
     correction_source = next(turn for turn in followup_turns
@@ -1455,6 +1493,8 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
             f"{corrected_assistant_turn['linkage']['source_user_turn_id']}"))
     corrected_prompt = json.loads(corrected_request.prompt)
     assert "cite its exact state ID" in corrected_prompt["instruction"]
+    assert "A v5 correction_target may carry epistemic_state_citation_ids" in (
+        corrected_prompt["instruction"])
     historical_context = corrected_prompt["historical_cited_conversation_context"]
     target_rows = [row for row in historical_context["turns"]
         if row["turn_id"] == source_assistant["turn_id"]]
@@ -1468,8 +1508,53 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     assert historical_context["mutation_performed"] is False
     assert historical_context["epistemic_state_citation_ids"] == [
         target_state.state_id]
-    assert "operator_assertion_unverified" in json.dumps(
-        corrected_prompt["developmental_history"])
+    corrected_reports = [report for packet in corrected_prompt["developmental_history"]
+        for report in packet.get("operator_feedback_context", ())
+        if report.get("assertion_text") in {
+            correction_assertion, conflicting_assertion}]
+    assert len(corrected_reports) == 2
+    assert all(report["source_schema_version"]
+        == "sentientos.local_operator_feedback:v5" for report in corrected_reports)
+    assert all(report["correction_target"]["epistemic_state_citation_ids"] == [
+        target_state.state_id] for report in corrected_reports)
+    assert all(report["evidence_posture"] == "operator_assertion_unverified"
+        and report["authority"] is False for report in corrected_reports)
+    assert restarted_epistemics.current_state(target.proposition_id).state_id == (
+        target_state.state_id)
+
+    # The report retains its exact state relation when the source transcript
+    # can no longer be recovered. The next cognition sees no dialogue excerpt,
+    # yet can still identify which evidence-bound state the report challenges.
+    restarted_app.sessions._path(session_id).unlink()
+    no_transcript_session_id = restarted_app.create_session()
+    no_transcript_start = len(restarted_invoker.requests)
+    no_transcript_response = restarted_app.chat(target_question,
+        session_id=no_transcript_session_id,
+        request_id="correction-without-source-transcript", observe_screen=True)
+    no_transcript_request = next(request for request in reversed(
+        restarted_invoker.requests[no_transcript_start:])
+        if request.upstream_evidence.get("epistemic_projection_id") is not None)
+    no_transcript_prompt = json.loads(no_transcript_request.prompt)
+    assert "historical_cited_conversation_context" not in no_transcript_prompt
+    assert target.statement in no_transcript_response.response
+    assert correction_assertion in no_transcript_response.response
+    assert conflicting_assertion in no_transcript_response.response
+    assert "unresolved and unverified" in no_transcript_response.response
+    assert no_transcript_request.upstream_evidence["epistemic_state_ids"] == [
+        target_state.state_id]
+    linked_feedback_reports = [
+        report
+        for packet in no_transcript_prompt.get("developmental_history", ())
+        if isinstance(packet, Mapping)
+        for report in packet.get("operator_feedback_context", ())
+        if isinstance(report, Mapping)
+        and isinstance(report.get("correction_target"), Mapping)
+        and target_state.state_id in report["correction_target"].get(
+            "epistemic_state_citation_ids", ())]
+    assert {report["assertion_text"] for report in linked_feedback_reports} == {
+        correction_assertion, conflicting_assertion}
+    assert len({report["correction_target"]["epistemic_state_citation_ids"][0]
+        for report in linked_feedback_reports}) == 1
     assert restarted_epistemics.current_state(target.proposition_id).state_id == (
         target_state.state_id)
 
