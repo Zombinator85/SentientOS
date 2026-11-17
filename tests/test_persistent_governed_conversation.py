@@ -102,7 +102,10 @@ def test_resident_context_selects_older_relevant_exchange_when_recent_fits() -> 
         turn("old-amber-assistant", "assistant",
             "Schedule an optical inspection before launch."),
     ]
-    for index in range(10):
+    # Keep both the cited exchange and recent turns inside the bounded window;
+    # the neutral follow-up then tests state-citation priority rather than query
+    # keyword matching.
+    for index in range(6):
         turns.extend((
             turn(f"recent-user-{index}", "user",
                 f"We reviewed agenda item {index} today."),
