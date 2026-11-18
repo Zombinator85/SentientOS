@@ -43,7 +43,7 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
     propositions = [make_proposition(namespace="embodiment", subject="sensor:g9",
         predicate="reports_temperature", object_value=value, polarity="positive",
         qualifiers={}, temporal_scope={"window": "prior"}, context_scope={},
-        proposition_class="environmental") for value in (18, 28)]
+        proposition_class="environmental") for value in (18, 28, 23)]
     for proposition in propositions:
         epistemic.register_proposition(proposition)
         epistemic.commit_update(proposition_id=proposition.proposition_id,
@@ -51,18 +51,29 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
             active_binding_ids=(), correlation_id=f"initialize:{proposition.proposition_id}",
             tick=1, recorded_at="2026-01-01T00:00:00Z")
     unlinked_projection = epistemic.cognitive_projection(max_states=2,
-        current_tick=4)
+        current_tick=4,
+        prioritized_proposition_ids=(propositions[0].proposition_id,))
     assert unlinked_projection is not None
+    unlinked_peer = min(propositions[1:], key=lambda item: item.proposition_id)
+    linked_peer = max(propositions[1:], key=lambda item: item.proposition_id)
+    assert set(unlinked_projection.proposition_ids) == {
+        propositions[0].proposition_id, unlinked_peer.proposition_id}
     epistemic.add_relation(PropositionRelation(
         source_proposition_id=propositions[0].proposition_id,
-        target_proposition_id=propositions[1].proposition_id,
+        target_proposition_id=linked_peer.proposition_id,
         relation="contradicts", recorded_at="2026-01-02T00:00:00Z"))
 
-    projection = epistemic.cognitive_projection(max_states=2, current_tick=4)
+    projection = epistemic.cognitive_projection(max_states=2, current_tick=4,
+        prioritized_proposition_ids=(propositions[0].proposition_id,))
     assert projection is not None
     assert projection.schema_version == "sentientos.epistemic_cognitive_projection:v8"
     packets = semantic_packets_for_projection(projection)
     assert len(packets) == 2
+    assert set(projection.proposition_ids) == {
+        propositions[0].proposition_id, linked_peer.proposition_id}
+    assert projection.omission_manifest is not None
+    assert projection.omission_manifest["selection_policy"] == (
+        "relation_bundle_then_existing_priority_order")
     for packet in packets:
         [relation] = packet["proposition_relations"]
         assert relation["relation"] == "contradicts"
@@ -116,11 +127,11 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
     assert len(capped_projection.states) == 1
     assert capped_relation["relation"] == "contradicts"
     peer_meaning = capped_relation["omitted_endpoint_proposition"]
-    assert peer_meaning["proposition_id"] == propositions[1].proposition_id
-    assert peer_meaning["object_value"] == 28
+    assert peer_meaning["proposition_id"] == linked_peer.proposition_id
+    assert peer_meaning["object_value"] == linked_peer.object_value
     omitted_peer_state = next(row for row in
         capped_projection.omission_manifest["omitted_state_identities"]
-        if row["proposition_id"] == propositions[1].proposition_id)
+        if row["proposition_id"] == linked_peer.proposition_id)
     assert omitted_peer_state["stance"] == "supported"
     assert capped_projection.authority is False
     forged_peer = {**peer_meaning, "object_value": 29}

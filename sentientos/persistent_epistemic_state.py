@@ -345,7 +345,9 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
                               proposition_relations: Sequence[Mapping[str, Any]] | None = None,
                               ) -> EpistemicCognitiveProjection:
     if source_tick >= current_tick: raise EpistemicStateError("same_tick_epistemic_state_forbidden")
-    ordered=tuple(sorted(states,key=lambda x:x.proposition_id)); payload={"source_tick":source_tick,
+    state_order = tuple(sorted(range(len(states)),
+        key=lambda index: states[index].proposition_id))
+    ordered=tuple(states[index] for index in state_order); payload={"source_tick":source_tick,
         "proposition_ids":tuple(x.proposition_id for x in ordered),"state_ids":tuple(x.state_id for x in ordered),
         "state_digests":tuple(x.state_digest for x in ordered),"generations":tuple(x.generation for x in ordered),
         "evidence_set_digests":tuple(x.evidence_set_digest for x in ordered),"states":tuple(asdict(x) for x in ordered),
@@ -368,23 +370,26 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
     if any(value is None for value in (propositions, active_evidence_bindings,
             removed_evidence_bindings, update_events)):
         raise EpistemicStateError("epistemic_semantic_projection_incomplete")
-    semantic_rows = tuple(dict(item) for item in propositions or ())
-    active_rows = tuple(tuple(dict(item) for item in rows)
-        for rows in active_evidence_bindings or ())
-    removed_rows = tuple(tuple(dict(item) for item in rows)
-        for rows in removed_evidence_bindings or ())
-    event_rows = tuple(tuple(dict(item) for item in rows) for rows in update_events or ())
-    if any(len(rows) != len(ordered) for rows in
-            (semantic_rows, active_rows, removed_rows, event_rows)):
+    paired_collections = (propositions, active_evidence_bindings,
+        removed_evidence_bindings, update_events)
+    if any(len(rows) != len(states) for rows in paired_collections):
         raise EpistemicStateError("epistemic_semantic_projection_pairing_invalid")
-    calibration_rows = (tuple(dict(item) for item in calibration_histories)
-        if calibration_histories is not None else ())
-    context_rows = (tuple(dict(item) for item in unverified_context_evidence)
-        if unverified_context_evidence is not None else ())
-    if calibration_histories is not None and len(calibration_rows) != len(ordered):
+    if ((calibration_histories is not None
+                and len(calibration_histories) != len(states))
+            or (unverified_context_evidence is not None
+                and len(unverified_context_evidence) != len(states))):
         raise EpistemicStateError("epistemic_semantic_projection_pairing_invalid")
-    if unverified_context_evidence is not None and len(context_rows) != len(ordered):
-        raise EpistemicStateError("epistemic_semantic_projection_pairing_invalid")
+    semantic_rows = tuple(dict(propositions[index]) for index in state_order)
+    active_rows = tuple(tuple(dict(item) for item in
+        active_evidence_bindings[index]) for index in state_order)
+    removed_rows = tuple(tuple(dict(item) for item in
+        removed_evidence_bindings[index]) for index in state_order)
+    event_rows = tuple(tuple(dict(item) for item in update_events[index])
+        for index in state_order)
+    calibration_rows = (() if calibration_histories is None else tuple(
+            dict(calibration_histories[index]) for index in state_order))
+    context_rows = (() if unverified_context_evidence is None else tuple(
+            dict(unverified_context_evidence[index]) for index in state_order))
     relation_rows = tuple(dict(item) for item in proposition_relations or ())
     if proposition_relations is not None:
         schema = COGNITIVE_PROJECTION_SCHEMA_V8
@@ -642,6 +647,7 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                 and omission_manifest.get("schema_version") ==
                     "sentientos.epistemic_projection_omission_manifest:v2"
                 and omission_manifest.get("selection_policy") in {
+                    "relation_bundle_then_existing_priority_order",
                     "goal_tagged_prior_state_then_proposition_id_ascending",
                     "question_relevance_then_proposition_id_ascending",
                     "explicit_priority_then_question_relevance_then_proposition_id_ascending",
@@ -1903,8 +1909,38 @@ class PersistentEpistemicStateOwner:
         active_citation_priorities = tuple(item for item in state_priorities
             if item in active_priorities and item not in active_explicit_priorities
             and item not in active_query_priorities)
-        ranked_ids = active_priorities + tuple(sorted(
+        base_ranked_ids = active_priorities + tuple(sorted(
             set(available_by_id) - set(active_priorities)))
+        relation_neighbors: dict[str, set[str]] = {}
+        for relation in relations:
+            if (relation.relation not in {"contradicts", "supersedes"}
+                    or relation.source_proposition_id not in available_by_id
+                    or relation.target_proposition_id not in available_by_id):
+                continue
+            relation_neighbors.setdefault(
+                relation.source_proposition_id, set()).add(
+                    relation.target_proposition_id)
+            relation_neighbors.setdefault(
+                relation.target_proposition_id, set()).add(
+                    relation.source_proposition_id)
+        if max_states > 1 and relation_neighbors and len(active_priorities) < max_states:
+            base_rank = {proposition_id: index for index, proposition_id in
+                enumerate(base_ranked_ids)}
+            relation_peers: list[str] = []
+            for proposition_id in active_priorities:
+                peers = sorted(relation_neighbors.get(proposition_id, ()),
+                    key=lambda item: (base_rank[item], item))
+                peer = next((item for item in peers
+                    if item not in active_priorities and item not in relation_peers), None)
+                if peer is not None:
+                    relation_peers.append(peer)
+            ranked_ids = tuple(active_priorities + tuple(relation_peers) + tuple(
+                proposition_id for proposition_id in base_ranked_ids
+                if proposition_id not in active_priorities
+                and proposition_id not in relation_peers))
+        else:
+            ranked_ids = base_ranked_ids
+        relation_bundle_order_changed = ranked_ids != base_ranked_ids
         ranked_latest = tuple(available_by_id[item] for item in ranked_ids)
         selected = ranked_latest[:max_states]
         if not selected:
@@ -1938,9 +1974,11 @@ class PersistentEpistemicStateOwner:
             omission_manifest = {
                 "schema_version": (
                     "sentientos.epistemic_projection_omission_manifest:v2"
-                    if active_priorities else
+                    if active_priorities or relation_bundle_order_changed else
                     "sentientos.epistemic_projection_omission_manifest:v1"),
                 "selection_policy": (
+                    "relation_bundle_then_existing_priority_order"
+                    if relation_bundle_order_changed else
                     "explicit_priority_then_question_relevance_then_cited_proposition_then_proposition_id_ascending"
                     if active_explicit_priorities and active_query_priorities
                         and active_citation_priorities else
@@ -1964,8 +2002,10 @@ class PersistentEpistemicStateOwner:
                 "omitted_identity_digest": digest(omitted_rows),
                 "omitted_state_identities": tuple(omitted_rows),
             }
-            if active_priorities:
-                omission_manifest["prioritized_proposition_ids"] = active_priorities
+            if active_priorities or relation_bundle_order_changed:
+                omission_manifest["prioritized_proposition_ids"] = (
+                    tuple(ranked_ids[:max_states]) if relation_bundle_order_changed
+                    else active_priorities)
         event_histories_by_state = {state.proposition_id: tuple(sorted((item for item in
             events_by_proposition.get(state.proposition_id, ()) if item.generation <= state.generation),
             key=lambda item: item.generation)) for state in selected}
