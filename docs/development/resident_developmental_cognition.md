@@ -127,19 +127,23 @@ record digest, the digest of the text projection supplied to the embedder, the
 embedder identity, the tick when it was first indexed, and the vector digest; it
 stores no history text. A later tick may rank all matching cached vectors, up to
 the 4,096-record history bound, while current-tick additions remain unavailable
-to same-tick ranking. The v17 retrieval policy identity binds the embedder and
-the exact cached/current vector inputs used for selection. A semantic score
-below 0.25 cannot displace lexical matches or the recency fallback; the policy
-version binds this fixed cosine floor. Cache custody or validation failure does
-not discard the current bounded semantic batch, and an unavailable or malformed
-embedder still selects under the explicit lexical fallback policy. The floor is
-a conservative software default, not a claim that every embedder has equivalent
+to same-tick ranking. The v18 retrieval policy identity binds the embedder and
+the exact cached/current vector inputs used for selection. Decision polarity
+ranks first, then lexical relevance, then semantic similarity. Thus an
+above-floor semantic-only record can still outrank the recency fallback when
+no lexical match exists, while it cannot displace a lexically relevant record.
+A semantic score below 0.25 is excluded; the policy version binds both this
+fixed cosine floor and the ranking order. Cache custody or validation failure
+does not discard the current bounded semantic batch, and an unavailable or
+malformed embedder still selects under the explicit lexical fallback policy.
+The floor is a software default, not a claim that every embedder has equivalent
 similarity calibration.
 
 `tests/test_resident_developmental_cognition.py::test_weak_semantic_matches_do_not_displace_lexical_or_recent_history`
-checks that a weak cosine near-match cannot displace the recent fallback and
-that exact lexical relevance still wins. Strong lexically disjoint retrieval is
-covered by `test_semantic_history_retrieval_recovers_lexically_disjoint_experience`.
+checks that a sub-floor match falls back to recency and that an above-floor
+near-match cannot displace exact lexical relevance. Strong lexically disjoint
+retrieval is covered by
+`test_semantic_history_retrieval_recovers_lexically_disjoint_experience`.
 `tests/test_resident_developmental_cognition.py::test_indexed_semantic_history_changes_later_fake_decision_across_restart`
 uses deterministic vectors to place a lexically disjoint old record in one
 tick's bounded sample, then demonstrates that a fresh owner can retrieve and

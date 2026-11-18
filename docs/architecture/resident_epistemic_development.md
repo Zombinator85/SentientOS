@@ -308,9 +308,10 @@ scoped lesson survives the four-record retrieval bound, showing that context
 selection can use the learned applicability metadata when the interpretation
 wording differs. Optional pinned CPU semantic retrieval now also selects
 lexically disjoint history through bounded embedding batches and a restart-safe
-vector index. Policy v17 rejects matches below a 0.25 cosine floor so weak
-similarity cannot displace lexical relevance or recency. Deterministic tests
-cover both weak-match fallback and strong lexically disjoint retrieval. The
+vector index. Policy v18 rejects matches below a 0.25 cosine floor and ranks
+lexical relevance ahead of semantic similarity, while allowing above-floor
+lexically disjoint matches to outrank recency. Deterministic tests cover
+near-threshold lexical priority and strong lexically disjoint retrieval. The
 remaining open work is to calibrate the floor against real embedding behavior
 and measure whether relevant experience improves appropriate later responses;
 no real-model benefit is established.

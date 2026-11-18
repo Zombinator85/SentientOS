@@ -5304,7 +5304,7 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID}
             and not (isinstance(selection.get("retrieval_policy_id"), str)
                 and re.fullmatch(
-                    r"query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v(?:12|13|14|15):[0-9a-f]{64}|query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v(?:16|17):[0-9a-f]{64}:[0-9a-f]{64}",
+                    r"query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v(?:12|13|14|15):[0-9a-f]{64}|query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v(?:16|17):[0-9a-f]{64}:[0-9a-f]{64}|query_decision_polarity_then_overlap_then_semantic_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v18:[0-9a-f]{64}:[0-9a-f]{64}",
                     selection["retrieval_policy_id"]))
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
@@ -8631,10 +8631,10 @@ class ResidentDevelopmentalCognitionOwner:
                         SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID)
             if semantic_identity_digest is not None:
                 retrieval_policy_id = (
-                    "query_decision_polarity_then_semantic_then_overlap_with_"
+                    "query_decision_polarity_then_overlap_then_semantic_with_"
                     "identity_bound_correction_groups_decision_contrasts_"
                     "embodied_reports_and_elliptical_session_context_then_"
-                    f"recency_fill:v17:{semantic_identity_digest}:"
+                    f"recency_fill:v18:{semantic_identity_digest}:"
                     f"{semantic_selection_digest or hashlib.sha256(b'').hexdigest()}")
             ranked: list[tuple[int, float, float, int, str]] = []
             document_count = max(1, len(document_term_weights))
@@ -8655,8 +8655,8 @@ class ResidentDevelopmentalCognitionOwner:
                             and not query_is_negative_decision)
                         or query_is_negative_decision
                             == exchange_is_negative_decision)
-                    ranked.append((polarity_match,
-                        semantic_scores.get(record_id, 0.0), relevance_score,
+                    ranked.append((polarity_match, relevance_score,
+                        semantic_scores.get(record_id, 0.0),
                         order, record_id))
             ranked.sort(reverse=True)
 
@@ -8695,9 +8695,9 @@ class ResidentDevelopmentalCognitionOwner:
             for record_id in ids:
                 unit_members.setdefault(find_group(record_id), []).append(record_id)
             ranked_score_by_id = {record_id: score
-                for _polarity, _semantic, score, _order, record_id in ranked}
+                for _polarity, score, _semantic, _order, record_id in ranked}
             ranked_semantic_by_id = {record_id: score
-                for _polarity, score, _overlap, _order, record_id in ranked}
+                for _polarity, _overlap, score, _order, record_id in ranked}
             ranked_polarity_by_id = {record_id: polarity
                 for polarity, _semantic, _score, _order, record_id in ranked}
             unit_ranking = []
@@ -8712,12 +8712,12 @@ class ResidentDevelopmentalCognitionOwner:
                     for record_id in members)
                 if score > 0 or any(record_id in semantic_scores
                         for record_id in members):
-                    unit_ranking.append((polarity_match, semantic_score,
-                        score, newest_order, members))
+                    unit_ranking.append((polarity_match, score, semantic_score,
+                        newest_order, members))
             unit_ranking.sort(key=lambda item: item[:4], reverse=True)
             selected_record_ids: list[str] = []
             selected_general_set: set[str] = set()
-            for _polarity_match, _semantic_score, _score, _newest_order, members in unit_ranking:
+            for _polarity_match, _score, _semantic_score, _newest_order, members in unit_ranking:
                 if (len(selected_record_ids) + len(members)
                         > self.config.max_retrieved_records):
                     continue
@@ -8739,12 +8739,12 @@ class ResidentDevelopmentalCognitionOwner:
             # History budgeting keeps a complete suffix. Put strongest query
             # matches last so ranking survives a smaller input budget.
             polarity_by_id = {item[4]: item[0] for item in ranked}
-            semantic_by_id = {item[4]: item[1] for item in ranked}
-            overlap_by_id = {item[4]: item[2] for item in ranked}
+            overlap_by_id = {item[4]: item[1] for item in ranked}
+            semantic_by_id = {item[4]: item[2] for item in ranked}
             ids = sorted(selected_record_ids, key=lambda record_id: (
                 polarity_by_id.get(record_id, 0),
-                semantic_by_id.get(record_id, 0),
-                overlap_by_id.get(record_id, 0), checkpoint_order[record_id]))
+                overlap_by_id.get(record_id, 0),
+                semantic_by_id.get(record_id, 0), checkpoint_order[record_id]))
         ids = ids[-self.config.max_retrieved_records:]
         projection = self.writeback.retrieve(ids,
             limit=self.config.max_retrieved_records)
