@@ -99,6 +99,14 @@ shows the goal selected without the relation and deferred after the relation
 is recorded. The review scope retains the relation digest; no relation creates
 execution authority or establishes truth.
 
+Canonical plan-only daemon feedback now includes a bounded summary for deferred
+epistemic positions: proposition ID, posture, state digest when available, and
+relation digests. Position and relation-digest listings are capped at eight;
+omitted counts make truncation explicit. The allocation artifact path and
+digest remain the complete evidence source. This summary cannot authorize
+execution or invoke a model. The bounded feedback behavior is covered by
+`sentientos/tests/test_orchestrator_plan_only.py::test_daemon_goal_feedback_reports_bounded_listing_omissions`.
+
 Same-model, same-task-family history now also carries a compact controlled
 effect summary when all three score-bound conditions are comparable. It records
 whether history-present correctness was adverse, favorable, or unchanged against

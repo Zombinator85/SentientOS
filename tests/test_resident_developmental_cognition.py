@@ -2298,10 +2298,15 @@ print(json.dumps({"stance": state.stance if state else None,
     assert planning_feedback["work_plan_id"] is None
     assert planning_feedback["work_plan_path"] is None
     assert planning_feedback["deferred_goal_count"] == 1
-    assert planning_feedback["deferred_goals"] == [{
-        "goal_id": "integer-affine-followup",
-        "reason": "epistemic_applicability_unresolved",
-    }]
+    [deferred_feedback] = planning_feedback["deferred_goals"]
+    assert deferred_feedback["goal_id"] == "integer-affine-followup"
+    assert deferred_feedback["reason"] == "epistemic_applicability_unresolved"
+    [position_feedback] = deferred_feedback["epistemic_positions"]
+    planning_state = recovered_epistemics.current_state(proposition.proposition_id)
+    assert planning_state is not None
+    assert position_feedback["proposition_id"] == proposition.proposition_id
+    assert position_feedback["state_digest"] == planning_state.state_digest
+    assert deferred_feedback["omitted_epistemic_position_count"] == 0
     expected_planner_projection = recovered_epistemics.cognitive_projection(
         max_states=1, current_tick=updated_projection.current_tick,
         prioritized_proposition_ids=(proposition.proposition_id,))
@@ -15017,12 +15022,15 @@ def test_daemon_tick_routes_recovery_evidence_through_next_tick_cognition_and_pl
     assert first_plan["authority"] is False
     assert first_plan["execution_performed"] is False
     assert first_plan["prior_epistemic_projection_digest"] is not None
-    assert first_plan["deferred_goals"] == [{
-        "goal_id": "recovery-followup",
-        "reason": "epistemic_review_required",
-    }]
+    [deferred_feedback] = first_plan["deferred_goals"]
+    assert deferred_feedback["goal_id"] == "recovery-followup"
+    assert deferred_feedback["reason"] == "epistemic_review_required"
     state = epistemics.current_state(proposition.proposition_id)
     assert state is not None
+    [position_feedback] = deferred_feedback["epistemic_positions"]
+    assert position_feedback["proposition_id"] == proposition.proposition_id
+    assert position_feedback["state_digest"] == state.state_digest
+    assert position_feedback["posture"] == "review_required"
     assert state.stance == "provisionally_supported"
     assert not any(state.authority.values())
     cognition_requests = [request for request in fake.requests

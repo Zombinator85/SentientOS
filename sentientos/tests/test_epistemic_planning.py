@@ -39,7 +39,10 @@ def test_task_family_review_requires_exact_model_applicability() -> None:
     ("contradicts", 0), ("supersedes", 1),
 ])
 def test_projected_relations_change_tagged_goal_review_decision(
-        tmp_path: Path, relation_kind: str, tagged_index: int) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        relation_kind: str, tagged_index: int) -> None:
+    from types import SimpleNamespace
+
     from sentientos.goal_graph import Goal, GoalGraph
     from sentientos.persistent_epistemic_state import (
         PersistentEpistemicStateOwner, PropositionRelation,
@@ -47,6 +50,8 @@ def test_projected_relations_change_tagged_goal_review_decision(
     )
     from sentientos.risk_budget import RiskBudget
     from sentientos.work_allocator import allocate_goals
+    from sentientos.work_plan import WorkPlan
+    from sentientosd import RuntimeMaintenanceSurfaces
 
     owner = PersistentEpistemicStateOwner(
         tmp_path / "epistemic", allowed_namespaces=("embodiment",))
@@ -115,6 +120,36 @@ def test_projected_relations_change_tagged_goal_review_decision(
         "review_required")
     assert len(review_scopes[tagged.proposition_id][
         "relation_review_digests"]) == 1
+
+    # Carry the actual relation-driven deferral through the daemon feedback
+    # serializer, which is what later maintenance consumers observe.
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path / "daemon")
+    plan = WorkPlan(1, "relation-review-plan", "2026-10-16T08:04:00Z",
+        "relation-review-fixture", (), ())
+    result = SimpleNamespace(
+        allocation=reviewed,
+        allocation_artifact_path="glow/allocations/relation.json",
+        allocation_artifact_digest="sha256:" + "c" * 64,
+        work_plan=plan,
+        work_plan_path="glow/forge/work_plans/relation.json",
+        work_plan_evidence_path="glow/forge/work_plan_evidence/relation.json",
+        work_plan_evidence_digest="sha256:" + "d" * 64,
+        target_active_model_identity_digest=None,
+        target_identity_observed_at=None,
+    )
+    monkeypatch.setattr(surfaces, "plan_canonical_goals",
+        lambda *, tick_id: result)
+    feedback = surfaces.run_canonical_goal_planning(
+        tick_id="2026-10-16T08:04:00+00:00")
+    [deferred_feedback] = feedback["deferred_goals"]
+    assert deferred_feedback["goal_id"] == goal.goal_id
+    [position_feedback] = deferred_feedback["epistemic_positions"]
+    assert position_feedback["proposition_id"] == tagged.proposition_id
+    assert position_feedback["relation_review_digests"] == (
+        position["relation_review_digests"])
+    assert feedback["execution_performed"] is False
+    assert feedback["model_invoked"] is False
+    assert feedback["authority"] is False
 
 
 def test_supported_model_bound_position_requires_exact_identity_and_reaches_plan_evidence(
