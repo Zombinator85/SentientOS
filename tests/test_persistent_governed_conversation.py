@@ -1877,6 +1877,50 @@ def test_conflicting_retained_preferences_reach_resident_and_prompt_clarificatio
     assert observation["companion_memory_citation_ids"] == cited_ids
 
 
+def test_correction_guidance_keeps_competing_updates_unresolved() -> None:
+    from sentientos.resident_developmental_cognition import (
+        _canonical_memory_correction_guidance)
+
+    single = _canonical_memory_correction_guidance({
+        "records": [{"memory_id": "memory-new", "text": "I prefer concise answers."}],
+        "correction_relations": [{"correcting_memory_id": "memory-new",
+            "corrected_memory_id": "memory-old"}],
+    })
+    assert "use the linked later statement as the user's updated preference" in single
+    assert "Competing explicit corrections are present" not in single
+
+    competing = _canonical_memory_correction_guidance({
+        "records": [
+            {"memory_id": "memory-concise", "text": "I prefer concise answers."},
+            {"memory_id": "memory-medium", "text": "I prefer medium length answers."},
+        ],
+        "correction_relations": [
+            {"correcting_memory_id": "memory-concise",
+                "corrected_memory_id": "memory-old"},
+            {"correcting_memory_id": "memory-medium",
+                "corrected_memory_id": "memory-old"},
+        ],
+    })
+    assert "Competing explicit corrections are present" in competing
+    assert "Do not select one by timestamp, ordering" in competing
+    assert "ask which preference the user wants applied" in competing
+    assert "Do not apply any competing statement" in competing
+
+    duplicate_text = _canonical_memory_correction_guidance({
+        "records": [
+            {"memory_id": "memory-one", "text": "I prefer concise answers."},
+            {"memory_id": "memory-two", "text": " I prefer CONCISE answers. "},
+        ],
+        "correction_relations": [
+            {"correcting_memory_id": "memory-one", "corrected_memory_id": "memory-old"},
+            {"correcting_memory_id": "memory-two", "corrected_memory_id": "memory-old"},
+        ],
+    })
+    assert "Competing explicit corrections are present" not in duplicate_text
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="durable conversation publication is POSIX-only")
 def test_retained_memory_correction_changes_resident_personalization_after_restart(
         tmp_path: Path) -> None:
     from tests.test_resident_developmental_cognition import (
@@ -1914,6 +1958,25 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
                         "evidence_ids": [], "history_record_ids": [],
                         "memory_record_ids": [correcting_id],
                     }
+                elif len(relations) > 1:
+                    targets = {relation["corrected_memory_id"]
+                        for relation in relations}
+                    correcting_ids = {relation["correcting_memory_id"]
+                        for relation in relations}
+                    assert len(targets) == 1
+                    assert len(correcting_ids) == 2
+                    assert len(records) == 2
+                    instruction = prompt["instruction"]
+                    assert "Competing explicit corrections are present" in instruction
+                    assert "Do not select one by timestamp, ordering" in instruction
+                    self.companion_output_override = {
+                        "disposition": "ask",
+                        "response": (
+                            "I have two later corrections to your answer preference: "
+                            "concise answers and medium length answers. Which should I use?"),
+                        "evidence_ids": [], "history_record_ids": [],
+                        "memory_record_ids": sorted(correcting_ids),
+                    }
                 else:
                     assert relations == []
                     assert len(records) == 2
@@ -1934,7 +1997,9 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
         "captured_at": now.isoformat(), "raw_frame_retained": False,
         "text_change_kind": "initial", "previous_text_digest": None}
 
-    def run_case(root: Path, *, bind_correction: bool):
+    def run_case(root: Path, *, bind_correction: bool,
+            competing_corrections: bool = False):
+        cognition_root = root / "cognition"
         source_app = service(root, FakeInvoker())
         source_session_id = source_app.create_session()
         source_app.chat("I prefer detailed answers.", session_id=source_session_id,
@@ -1949,9 +2014,14 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
         source_app.chat("I prefer concise answers.", session_id=source_session_id,
             request_id="retained-concise-preference", retain=True,
             corrects_memory_ids=(old_memory_id,) if bind_correction else ())
+        if competing_corrections:
+            source_app.chat("I prefer medium length answers.",
+                session_id=source_session_id,
+                request_id="retained-medium-preference", retain=True,
+                corrects_memory_ids=(old_memory_id,))
 
         cognition_invoker = CorrectionAwareInvoker()
-        cognition, _ = cognition_owner(root / "cognition", invoker=cognition_invoker)
+        cognition, _ = cognition_owner(cognition_root, invoker=cognition_invoker)
         restarted_app = service(root, FakeInvoker(), screen_observer=lambda: screen,
             cognition_bridge=ResidentDevelopmentalCompanionBridge(
                 cognition, clock=lambda: now))
@@ -1967,12 +2037,17 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
 
     corrected = run_case(tmp_path / "corrected", bind_correction=True)
     control = run_case(tmp_path / "unlinked", bind_correction=False)
+    competing = run_case(tmp_path / "competing", bind_correction=True,
+        competing_corrections=True)
     (corrected_app, corrected_cognition, corrected_invoker, corrected_response,
         corrected_prompt, corrected_context, source_session_id, query_session_id,
         old_memory_id) = corrected
     (_control_app, _control_cognition, control_invoker, control_response,
         control_prompt, control_context, _control_source_session,
         _control_query_session, _control_old_memory_id) = control
+    (competing_app, competing_cognition, competing_invoker, competing_response,
+        competing_prompt, competing_context, _competing_source_session,
+        competing_query_session, competing_old_memory_id) = competing
 
     assert corrected_response.response == (
         "Your later retained statement says you prefer concise answers. I can use "
@@ -2004,6 +2079,17 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
     assert control_context["correction_relations"] == []
     assert len(control_context["records"]) == 2
     assert "correction_relations" not in control_prompt["instruction"]
+    assert competing_context["selection_posture"] == "all_matching_records_selected"
+    assert len(competing_context["correction_relations"]) == 2
+    assert {row["corrected_memory_id"] for row in
+        competing_context["correction_relations"]} == {competing_old_memory_id}
+    assert {row["text"] for row in competing_context["records"]} == {
+        "I prefer concise answers.", "I prefer medium length answers."}
+    assert "Competing explicit corrections are present" in (
+        competing_prompt["instruction"])
+    assert competing_response.response == (
+        "I have two later corrections to your answer preference: concise answers "
+        "and medium length answers. Which should I use?")
 
     corrected_linkage = corrected_app.sessions.load(query_session_id)["turns"][-1]["linkage"]
     assert corrected_linkage["cognition_memory_citation_ids"] == [correcting_memory_id]
@@ -2014,8 +2100,20 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
     assert observation["companion_memory_citation_ids"] == [correcting_memory_id]
     control_linkage = control[0].sessions.load(control[7])["turns"][-1]["linkage"]
     assert len(control_linkage["cognition_memory_citation_ids"]) == 2
+    competing_linkage = competing_app.sessions.load(
+        competing_query_session)["turns"][-1]["linkage"]
+    competing_cited_ids = competing_linkage["cognition_memory_citation_ids"]
+    assert set(competing_cited_ids) == {
+        row["memory_id"] for row in competing_context["records"]}
+    competing_observation = competing_cognition.verified_cognition_observation(
+        competing_linkage["cognition_observation_id"],
+        competing_linkage["cognition_observation_digest"])
+    assert set(competing_observation["canonical_user_memory_record_ids"]) == set(
+        competing_cited_ids)
+    assert competing_observation["companion_memory_citation_ids"] == competing_cited_ids
     assert len(corrected_invoker.observed_contexts) == 1
     assert len(control_invoker.observed_contexts) == 1
+    assert len(competing_invoker.observed_contexts) == 1
 
 
 def test_companion_uses_ordinary_chat_without_current_cognition_evidence(
