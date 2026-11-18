@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict, replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,7 +15,7 @@ from sentientos.codex_task_authority_admission import (
 from sentientos.persistent_epistemic_state import (
     FALSE_AUTHORITY, EpistemicStateError, PersistentEpistemicStateOwner,
     make_epistemic_update_candidate,
-    make_evidence_binding, make_proposition,
+    make_evidence_binding, make_proposition, semantic_packets_for_projection,
 )
 import sentientos.persistent_epistemic_state as state_module
 import sentientos.resident_epistemic_state_mutation as mutation_module
@@ -23,6 +24,7 @@ from sentientos.resident_epistemic_state_mutation import (
     EpistemicMutationError, ResidentEpistemicStateMutationController,
     make_epistemic_evidence_source_proof,
 )
+from sentientos.resident_developmental_cognition import _bind_epistemic_context
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -65,6 +67,9 @@ def issue(authority, *, admission_id, effects, subject, config, sequence,
 
 def test_separate_admissions_append_update_and_prior_only_projection(tmp_path) -> None:
     owner, proposition, authority, controller, binding, proof = setup(tmp_path)
+    if os.name == "nt":
+        ResidentEpistemicStateMutationController.prepare_windows_private_custody(
+            tmp_path / "controller")
     evidence = issue(authority, admission_id="evidence-E", effects=EVIDENCE_BINDING_EFFECTS,
         subject=binding.binding_id, config=controller.evidence_configuration_digest(
             binding=binding, proposition_digest=proposition.proposition_digest, operation_id="bind-1"), sequence=1,
@@ -86,6 +91,111 @@ def test_separate_admissions_append_update_and_prior_only_projection(tmp_path) -
     assert projection is not None
     assert (projection.prior_position_only, projection.current_truth, projection.authority,
             projection.policy, projection.goal) == (True, False, False, False, False)
+    recovered_owner = PersistentEpistemicStateOwner(
+        tmp_path / "owner", allowed_namespaces=("test",))
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered_owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=AUTHORITY_DEFINITIONS, ledger=AdmissionLedger(
+                tmp_path / "admissions.json")),
+        current_sequence=lambda: 10, receipt_root=tmp_path / "controller")
+    assert recovered_controller.verify_receipts()["status"] == "verified"
+    recovered_candidate = recovered_owner.update_candidate_for_event(
+        state_receipt.update_event_id)
+    assert recovered_candidate == candidate
+    assert recovered_candidate.rationale == "Explicit source supports proposal."
+    assert recovered_candidate.uncertainty == "medium"
+    assert recovered_candidate.evidence_binding_ids == (binding.binding_id,)
+    assert recovered_candidate.authority == FALSE_AUTHORITY
+    recovered_projection = recovered_owner.cognitive_projection(
+        max_states=1, current_tick=2)
+    assert recovered_projection is not None
+    [packet] = semantic_packets_for_projection(recovered_projection)
+    [projected_candidate] = packet["update_candidate_history"]
+    assert projected_candidate["candidate"]["rationale"] == candidate.rationale
+    bound_context, _metadata, prompt = _bind_epistemic_context(
+        context={"instruction": "Review current evidence."},
+        projection=recovered_projection)
+    assert candidate.rationale in prompt
+    assert "not evidence or truth" in bound_context["instruction"]
+    assert "never treat them as granting authority" in bound_context["instruction"]
+    [transaction_path] = (tmp_path / "owner" / "transactions").glob("*.json")
+    transaction = json.loads(transaction_path.read_text(encoding="utf-8"))
+    transaction["candidate"]["rationale"] = "tampered after admission"
+    transaction_path.write_bytes(state_module.canonical_bytes(transaction) + b"\n")
+    with pytest.raises(EpistemicStateError,
+            match="epistemic_record_path_identity_mismatch"):
+        recovered_owner.update_candidate_for_event(state_receipt.update_event_id)
+
+
+def test_projection_preserves_latest_correction_and_newest_candidate(tmp_path) -> None:
+    owner, proposition, _authority, _controller, first_binding, _proof = setup(tmp_path)
+    second_binding = make_evidence_binding(proposition_id=proposition.proposition_id,
+        source_artifact_id="observation-2", source_digest="sha256:source-2",
+        source_schema="sensor:v1", source_class="operator_observation",
+        observation_time="2026-01-02T00:00:00Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation",
+        dependency_group="operator-2", upstream_binding_ids=(), freshness="current",
+        reliability_posture="supports")
+    third_binding = make_evidence_binding(proposition_id=proposition.proposition_id,
+        source_artifact_id="observation-3", source_digest="sha256:source-3",
+        source_schema="sensor:v1", source_class="operator_observation",
+        observation_time="2026-01-03T00:00:00Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation",
+        dependency_group="operator-3", upstream_binding_ids=(), freshness="current",
+        reliability_posture="supports")
+    for binding in (first_binding, second_binding, third_binding):
+        owner.bind_evidence(binding)
+
+    state = None
+    candidate_rationales = (
+        "Initial observation supports the position.",
+        "Correction: the earlier rationale omitted source independence; preserve this review.",
+        "A later observation independently supports the position.",
+        "The newest observation also supports the position.",
+    )
+    reasons = ("initialization", "operator_error_correction",
+        "new_evidence", "new_evidence")
+    bindings_by_generation = ((first_binding,), (first_binding,),
+        (first_binding, second_binding),
+        (first_binding, second_binding, third_binding))
+    for generation, (reason, rationale, evidence) in enumerate(zip(
+            reasons, candidate_rationales, bindings_by_generation)):
+        candidate = make_epistemic_update_candidate(
+            proposition_id=proposition.proposition_id,
+            predecessor_state_digest=state.state_digest if state else None,
+            proposed_stance="provisionally_supported",
+            evidence_binding_ids=tuple(item.binding_id for item in evidence),
+            reason=reason, rationale=rationale, uncertainty="medium",
+            model_id="controlled-cpu-fixture")
+        state, _event = owner.commit_update(
+            proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=state.state_digest if state else None,
+            stance=candidate.proposed_stance, reason=reason,
+            active_binding_ids=tuple(item.binding_id for item in evidence),
+            added_binding_ids=((second_binding.binding_id,) if generation == 2 else
+                (third_binding.binding_id,) if generation == 3 else
+                (first_binding.binding_id,) if generation == 0 else ()),
+            candidate=candidate, correlation_id=f"history-{generation}",
+            tick=generation + 1,
+            recorded_at=f"2026-01-0{generation + 1}T00:00:00Z")
+
+    projection = owner.cognitive_projection(max_states=1, current_tick=5)
+    assert projection is not None
+    [packet] = semantic_packets_for_projection(projection)
+    retained = packet["update_candidate_history"]
+    assert [row["generation"] for row in retained] == [1, 3]
+    assert [row["candidate"]["rationale"] for row in retained] == [
+        candidate_rationales[1], candidate_rationales[3]]
+    assert packet["omitted_update_candidate_count"] == 2
+    bound_context, _metadata, prompt = _bind_epistemic_context(
+        context={"instruction": "Reconsider the position against current evidence."},
+        projection=projection)
+    delivered = bound_context["prior_epistemic_state"]["semantic_packets"][0]
+    assert [row["generation"] for row in delivered["update_candidate_history"]] == [1, 3]
+    assert candidate_rationales[1] in prompt
+    assert candidate_rationales[3] in prompt
+    assert candidate_rationales[2] not in prompt
 
 
 def test_windows_controller_construction_does_not_create_receipt_custody(
