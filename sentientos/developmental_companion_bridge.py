@@ -817,8 +817,6 @@ class ResidentDevelopmentalCompanionBridge:
                         "developmental_cycle_capture_not_fresh")
                 capture_age_seconds = int(max(0.0, capture_age.total_seconds()))
         tick_time, projection_tick = self._projection_boundary()
-        prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
-            tick_id=tick_time, projection_tick=projection_tick)
         consequence_records: Sequence[Mapping[str, Any]] = ()
         if self._consequence_records_provider is not None:
             try:
@@ -844,6 +842,11 @@ class ResidentDevelopmentalCompanionBridge:
                 and len(snapshot.facts) > self._owner.config.max_selected_facts):
             raise DevelopmentalCompanionBridgeError(
                 "developmental_cycle_fact_selection_capacity_insufficient")
+        current_context = self._owner.selected_current_relevance_context(
+            snapshot, maximum_chars=2800)
+        prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
+            tick_id=tick_time, projection_tick=projection_tick,
+            relevance_query=current_context or None)
         gate = (self._cognition_inference_gate()
             if self._cognition_inference_gate is not None else nullcontext())
         with gate:

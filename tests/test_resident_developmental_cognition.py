@@ -9491,7 +9491,6 @@ def test_companion_bridge_uses_selected_current_facts_for_elliptical_epistemic_r
     by_id = {item.proposition_id: item for item in (overheating, telescope)}
     relevant = next(item for item in (overheating, telescope)
         if item.proposition_id != baseline.proposition_ids[0])
-    unrelated = by_id[baseline.proposition_ids[0]]
 
     class CapturingEpistemicOwner:
         def __init__(self):
@@ -9536,6 +9535,95 @@ def test_companion_bridge_uses_selected_current_facts_for_elliptical_epistemic_r
     assert json.loads(fake.requests[1].prompt)["companion_question"] == (
         "What was observed about overheating?" if unrelated is overheating
         else "What did the telescope capture?")
+
+
+def test_confirmed_developmental_cycle_uses_current_observation_to_retrieve_prior_epistemic_state(
+        tmp_path: Path) -> None:
+    now = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "cognition")
+        ensure_private_child_directory(tmp_path / "cognition", "state")
+        ensure_private_child_directory(tmp_path / "cognition", "history")
+        ensure_private_child_directory(tmp_path, "epistemic")
+    cognition, fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("embodiment",), max_selected_facts=1)
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    overheating = make_proposition(namespace="embodiment",
+        subject="mechanism:west", predicate="has_status", object_value="active",
+        polarity="positive", qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive", statement="The west mechanism is overheating.")
+    telescope = make_proposition(namespace="embodiment",
+        subject="telescope:orbital", predicate="captured_image",
+        object_value="Saturn", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The orbital telescope captured Saturn.")
+    for index, proposition in enumerate((overheating, telescope), start=1):
+        epistemic.register_proposition(proposition)
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(),
+            correlation_id=f"cycle-retrieval-{index}", tick=index,
+            recorded_at=f"2026-11-18T11:00:0{index}Z")
+    baseline = epistemic.cognitive_projection(max_states=1,
+        current_tick=int(now.timestamp()), relevance_query=None)
+    assert baseline is not None
+    prior_states = epistemic.cognitive_projection(max_states=2,
+        current_tick=int(now.timestamp()))
+    assert prior_states is not None
+    by_id = {item.proposition_id: item for item in (overheating, telescope)}
+    relevant = next(item for item in (overheating, telescope)
+        if item.proposition_id != baseline.proposition_ids[0])
+    unrelated = by_id[baseline.proposition_ids[0]]
+
+    class CapturingEpistemicOwner:
+        def __init__(self):
+            self.calls = []
+
+        def cognitive_projection(self, **kwargs):
+            projection = epistemic.cognitive_projection(**kwargs)
+            self.calls.append((kwargs, projection))
+            return projection
+
+    capture = CapturingEpistemicOwner()
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        epistemic_state_owner=capture,
+        epistemic_state_config={"cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 1}, clock=lambda: now)
+    screen = {"modality": "screen", "text": relevant.statement,
+        "capture_digest": "d" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+
+    cycle = bridge.run_developmental_cycle(
+        tick_id="current-observation-epistemic-retrieval",
+        screen_observation=screen)
+
+    query, projection = capture.calls[0]
+    assert cycle.status == "completed"
+    assert cycle.written_record_id is not None
+    assert query["relevance_query"]
+    assert relevant.statement in query["relevance_query"]
+    assert projection is not None
+    assert projection.proposition_ids == (relevant.proposition_id,)
+    assert projection.current_truth is False and projection.authority is False
+    assert projection.source_tick < int(now.timestamp())
+    cognition_request = next(item for item in fake.requests
+        if item.purpose == "resident_developmental_retrieval_cognition")
+    prompt = json.loads(cognition_request.prompt)
+    prior = prompt["prior_epistemic_state"]
+    assert prior["semantic_packets"][0]["proposition"]["statement"] == (
+        relevant.statement)
+    assert cognition_request.upstream_evidence["epistemic_projection_digest"] == (
+        projection.projection_digest)
+    assert cognition_request.upstream_evidence["current_fact_ids"] == list(
+        cycle.selected_fact_ids)
+    assert relevant.statement in json.dumps(prompt["current_evidence"])
+    after_cycle = epistemic.cognitive_projection(max_states=2,
+        current_tick=int(now.timestamp()))
+    assert after_cycle is not None
+    assert after_cycle.state_digests == prior_states.state_digests
 
 
 def test_companion_bridge_binds_verified_citation_lineage_into_packet_context():

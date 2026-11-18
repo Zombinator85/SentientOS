@@ -155,7 +155,11 @@ adherence, generalized learning, or improved decisions.
 
 An explicitly operator-confirmed companion developmental cycle can also use a
 configured longitudinal self-model owner. The bridge captures the eligible
-prior self-model projection before cognition, runs the existing governed
+prior self-model and epistemic projections after constructing the cycle's
+validated World-State snapshot and before cognition. Bounded selected snapshot
+facts provide relevance terms for those prior projections; the facts remain in
+their separate current-evidence channel and do not alter prior posture. The
+bridge then runs the existing governed
 interpretation/writeback owner, then reconciles the same bounded World-State
 snapshot through that existing self-model owner. The reconciliation uses the
 snapshot's timestamp boundary rather than the request's opaque cycle ID. As in
@@ -164,6 +168,12 @@ that preceded it; only a later cognitive tick can select it. The cycle response
 reports reconciliation status and identity separately from developmental
 writeback, including a degraded status if reconciliation fails after writeback.
 This does not roll back or misreport an already committed writeback.
+The deterministic integration test
+`tests/test_resident_developmental_cognition.py::test_confirmed_developmental_cycle_uses_current_observation_to_retrieve_prior_epistemic_state`
+demonstrates a current observation selecting the matching prior position in the
+production cycle path. This proves selection and prompt delivery under a fake
+invoker; it does not establish that a real model applies the position
+appropriately.
 
 On Windows, longitudinal self-model reconciliations now use the existing
 handle-bound immutable publisher when the configured custody root already
