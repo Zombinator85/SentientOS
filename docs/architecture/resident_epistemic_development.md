@@ -306,9 +306,14 @@ places an older lesson whose scope matches battery calibration behind four
 newer astronomy lessons whose interpretations contain no query match. The
 scoped lesson survives the four-record retrieval bound, showing that context
 selection can use the learned applicability metadata when the interpretation
-wording differs. The remaining open work is to measure whether relevant
-experience changes resident responses appropriately across controlled tasks,
-and to evaluate semantic retrieval beyond lexical overlap.
+wording differs. Optional pinned CPU semantic retrieval now also selects
+lexically disjoint history through bounded embedding batches and a restart-safe
+vector index. Policy v17 rejects matches below a 0.25 cosine floor so weak
+similarity cannot displace lexical relevance or recency. Deterministic tests
+cover both weak-match fallback and strong lexically disjoint retrieval. The
+remaining open work is to calibrate the floor against real embedding behavior
+and measure whether relevant experience improves appropriate later responses;
+no real-model benefit is established.
 
 ## Experience application under controlled conditions
 

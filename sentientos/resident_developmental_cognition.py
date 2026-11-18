@@ -366,6 +366,12 @@ SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID = (
     "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_"
     "decision_contrasts_embodied_reports_and_elliptical_session_context_then_"
     "recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1")
+# A positive cosine is not by itself evidence that a history record is relevant.
+# Require a modest absolute signal before semantic similarity can displace the
+# established lexical and recency selectors. The model identity and candidate
+# vectors remain bound in the selection digest; real-model calibration is still
+# required for any configured embedder.
+SEMANTIC_HISTORY_MIN_COSINE_SIMILARITY = 0.25
 COGNITION_OBSERVATION_SCHEMA_V2 = "sentientos.resident_cognition_observation:v2"
 COGNITION_OBSERVATION_SCHEMA_V3 = "sentientos.resident_cognition_observation:v3"
 COGNITION_OBSERVATION_SCHEMA_V4 = "sentientos.resident_cognition_observation:v4"
@@ -5298,7 +5304,7 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID}
             and not (isinstance(selection.get("retrieval_policy_id"), str)
                 and re.fullmatch(
-                    r"query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v(?:12|13|14|15):[0-9a-f]{64}|query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v16:[0-9a-f]{64}:[0-9a-f]{64}",
+                    r"query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v(?:12|13|14|15):[0-9a-f]{64}|query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v(?:16|17):[0-9a-f]{64}:[0-9a-f]{64}",
                     selection["retrieval_policy_id"]))
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
@@ -8604,6 +8610,9 @@ class ResidentDevelopmentalCognitionOwner:
                                         # A derived cache failure cannot invalidate
                                         # the current bounded semantic ranking.
                                         continue
+                        semantic_scores = {record_id: score for record_id, score
+                            in semantic_scores.items()
+                            if score >= SEMANTIC_HISTORY_MIN_COSINE_SIMILARITY}
                         semantic_selection_digest = hashlib.sha256(json.dumps({
                             "schema_version": "sentientos.semantic_history_selection_inputs:v1",
                             "embedder_identity_digest": semantic_identity_digest,
@@ -8625,7 +8634,7 @@ class ResidentDevelopmentalCognitionOwner:
                     "query_decision_polarity_then_semantic_then_overlap_with_"
                     "identity_bound_correction_groups_decision_contrasts_"
                     "embodied_reports_and_elliptical_session_context_then_"
-                    f"recency_fill:v16:{semantic_identity_digest}:"
+                    f"recency_fill:v17:{semantic_identity_digest}:"
                     f"{semantic_selection_digest or hashlib.sha256(b'').hexdigest()}")
             ranked: list[tuple[int, float, float, int, str]] = []
             document_count = max(1, len(document_term_weights))

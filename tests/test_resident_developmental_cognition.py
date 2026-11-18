@@ -6470,11 +6470,71 @@ def test_semantic_history_retrieval_recovers_lexically_disjoint_experience(
     assert observed["model"] == ("test/local-embedder", "a" * 40)
     policy_prefix, embedder_digest, selection_digest = (
         selected.retrieval_policy_id.rsplit(":", 2))
-    assert policy_prefix.endswith(":v16")
+    assert policy_prefix.endswith(":v17")
     assert embedder_digest == "d" * 64
     assert len(selection_digest) == 64
     assert all(character in "0123456789abcdef" for character in selection_digest)
     assert "Where should we shelter" in observed["texts"][0]
+
+
+def test_weak_semantic_matches_do_not_displace_lexical_or_recent_history(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    candidates = {
+        "weak-semantic": {"selected_facts": [], "interpretation":
+            "A stone courtyard was mentioned in earlier rainfall."},
+        "recent-unrelated": {"selected_facts": [], "interpretation":
+            "The orbital telescope captured Saturn."},
+        "lexical-match": {"selected_facts": [], "interpretation":
+            "Protected place guidance when rivers rise recommends raised land."},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            return DevelopmentalHistoryProjection(records=(),
+                requested_record_ids=tuple(record_ids))
+
+    def fake_encode(texts, *, model_id, revision):
+        vectors = [(1.0, 0.0)]
+        vectors.extend((0.1, 0.994987437) if "stone courtyard" in text
+            else (0.0, 1.0) for text in texts[1:])
+        return SimpleNamespace(identity_digest="f" * 64,
+            vectors=tuple(vectors))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    fake_owner = SimpleNamespace(writeback=Writeback(),
+        config=SimpleNamespace(max_retrieved_records=1,
+            semantic_history_model_id="test/local-embedder",
+            semantic_history_model_revision="a" * 40), objective_task=None)
+    query = "Where can people find a protected place after high water?"
+
+    recent_fallback = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, {"completed_ticks": [
+            {"tick_id": "tick-0", "record_id": "weak-semantic"},
+            {"tick_id": "tick-1", "record_id": "recent-unrelated"}]},
+        "weak-semantic-query", relevance_query=query)
+    assert recent_fallback.requested_record_ids == ("recent-unrelated",)
+
+    lexical_priority = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, {"completed_ticks": [
+            {"tick_id": "tick-0", "record_id": "weak-semantic"},
+            {"tick_id": "tick-1", "record_id": "lexical-match"},
+            {"tick_id": "tick-2", "record_id": "recent-unrelated"}]},
+        "weak-semantic-lexical-query", relevance_query=query)
+    assert lexical_priority.requested_record_ids == ("lexical-match",)
+    assert lexical_priority.retrieval_policy_id is not None
+    assert ":v17:" in lexical_priority.retrieval_policy_id
 
 
 def test_semantic_history_samples_older_lexically_disjoint_experience(
@@ -6546,7 +6606,7 @@ def test_semantic_history_samples_older_lexically_disjoint_experience(
     assert selected.retrieval_policy_id.startswith(
         "query_decision_polarity_then_semantic_then_overlap_with_"
         "identity_bound_correction_groups_decision_contrasts_embodied_"
-        "reports_and_elliptical_session_context_then_recency_fill:v16:"
+        "reports_and_elliptical_session_context_then_recency_fill:v17:"
         + "d" * 64 + ":")
 
     selection = {"schema_version": "sentientos.developmental_history_selection:v1",
