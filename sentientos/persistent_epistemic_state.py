@@ -975,8 +975,14 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                 "relation", "recorded_at", "relation_digest"}
             if not isinstance(relation_row, Mapping):
                 raise EpistemicStateError("epistemic_semantic_relation_projection_invalid")
-            endpoint_ids = {relation_row.get("source_proposition_id"),
-                relation_row.get("target_proposition_id")}
+            source_proposition_id = relation_row.get("source_proposition_id")
+            target_proposition_id = relation_row.get("target_proposition_id")
+            if (not _valid_identity(source_proposition_id, "proposition")
+                    or not _valid_identity(target_proposition_id, "proposition")
+                    or source_proposition_id == target_proposition_id):
+                raise EpistemicStateError(
+                    "epistemic_semantic_relation_projection_invalid")
+            endpoint_ids = {source_proposition_id, target_proposition_id}
             omitted_endpoint_ids = endpoint_ids - selected_ids
             expected_fields = (base_fields | {"omitted_endpoint_proposition"}
                 if omitted_endpoint_ids else base_fields)

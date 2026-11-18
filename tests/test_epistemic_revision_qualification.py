@@ -130,6 +130,12 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
             match="epistemic_semantic_relation_peer_proposition_invalid"):
         validate_cognitive_projection(replace(capped_projection,
             proposition_relations=(forged_relation,)))
+    malformed_relation = {**capped_relation,
+        "source_proposition_id": ["not", "an", "identity"]}
+    with pytest.raises(EpistemicStateError,
+            match="epistemic_semantic_relation_projection_invalid"):
+        validate_cognitive_projection(replace(capped_projection,
+            proposition_relations=(malformed_relation,)))
 
     class RelationAwareFixtureInvoker(FakeInvoker):
         def __init__(self):
