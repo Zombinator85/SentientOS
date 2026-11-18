@@ -971,9 +971,16 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
         seen_relation_digests: set[str] = set()
         ordered_relation_keys = []
         for relation_row in relation_rows_raw:
-            fields = {"source_proposition_id", "target_proposition_id",
+            base_fields = {"source_proposition_id", "target_proposition_id",
                 "relation", "recorded_at", "relation_digest"}
-            if (not isinstance(relation_row, Mapping) or set(relation_row) != fields
+            if not isinstance(relation_row, Mapping):
+                raise EpistemicStateError("epistemic_semantic_relation_projection_invalid")
+            endpoint_ids = {relation_row.get("source_proposition_id"),
+                relation_row.get("target_proposition_id")}
+            omitted_endpoint_ids = endpoint_ids - selected_ids
+            expected_fields = (base_fields | {"omitted_endpoint_proposition"}
+                if omitted_endpoint_ids else base_fields)
+            if (set(relation_row) != expected_fields
                     or not _valid_identity(relation_row.get("source_proposition_id"), "proposition")
                     or not _valid_identity(relation_row.get("target_proposition_id"), "proposition")
                     or relation_row.get("source_proposition_id") == relation_row.get("target_proposition_id")
@@ -984,13 +991,30 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                     or not selected_ids.intersection((relation_row["source_proposition_id"],
                         relation_row["target_proposition_id"]))):
                 raise EpistemicStateError("epistemic_semantic_relation_projection_invalid")
+            if omitted_endpoint_ids:
+                if len(omitted_endpoint_ids) != 1:
+                    raise EpistemicStateError("epistemic_semantic_relation_projection_invalid")
+                try:
+                    peer_raw = relation_row["omitted_endpoint_proposition"]
+                    peer = EpistemicProposition(**dict(peer_raw))
+                    expected_peer = make_proposition(**{key: value for key, value in
+                        asdict(peer).items() if key not in {
+                            "proposition_id", "proposition_digest", "schema_version"}})
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise EpistemicStateError(
+                        "epistemic_semantic_relation_peer_proposition_invalid") from exc
+                if (peer != expected_peer
+                        or peer.proposition_id != next(iter(omitted_endpoint_ids))):
+                    raise EpistemicStateError(
+                        "epistemic_semantic_relation_peer_proposition_invalid")
             try:
                 relation_tick = int(_aware_instant(relation_row["recorded_at"]).timestamp())
             except (ValueError, OverflowError, OSError) as exc:
                 raise EpistemicStateError("epistemic_semantic_relation_projection_invalid") from exc
             if relation_tick < 0:
                 raise EpistemicStateError("epistemic_semantic_relation_chronology_invalid")
-            relation_base = {key: relation_row[key] for key in fields - {"relation_digest"}}
+            relation_base = {key: relation_row[key] for key in base_fields
+                - {"relation_digest"}}
             expected_relation_digest = digest(relation_base)
             if (relation_row["relation_digest"] != expected_relation_digest
                     or expected_relation_digest in seen_relation_digests):
@@ -2021,8 +2045,16 @@ class PersistentEpistemicStateOwner:
             if relation_tick < 0:
                 continue
             relation_row = asdict(relation)
-            relation_projection_rows.append({**relation_row,
-                "relation_digest": digest(relation_row)})
+            relation_projection = {**relation_row,
+                "relation_digest": digest(relation_row)}
+            if ((relation.source_proposition_id in selected_ids)
+                    != (relation.target_proposition_id in selected_ids)):
+                omitted_endpoint_id = (relation.target_proposition_id
+                    if relation.source_proposition_id in selected_ids
+                    else relation.source_proposition_id)
+                relation_projection["omitted_endpoint_proposition"] = asdict(
+                    proposition_by_id[omitted_endpoint_id])
+            relation_projection_rows.append(relation_projection)
         relation_projection_rows.sort(key=lambda item: (item["source_proposition_id"],
             item["target_proposition_id"], item["relation"], item["relation_digest"]))
         source_tick = max([event.tick for history in event_histories_by_state.values()

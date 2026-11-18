@@ -26,9 +26,9 @@ from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionError
 from sentientos.rootless_experimental_epistemic_session import MAX_PROMPT_CHARS
 from sentientos.persistent_epistemic_state import (
-    FALSE_AUTHORITY, PersistentEpistemicStateOwner, PropositionRelation,
-    make_evidence_binding, make_proposition,
-    semantic_packets_for_projection,
+    FALSE_AUTHORITY, EpistemicStateError, PersistentEpistemicStateOwner,
+    PropositionRelation, make_evidence_binding, make_proposition,
+    semantic_packets_for_projection, validate_cognitive_projection,
 )
 from sentientos.resident_developmental_cognition import _bind_epistemic_context
 
@@ -107,6 +107,29 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
         "relation": "contradicts",
         "relation_digest": projection.proposition_relations[0]["relation_digest"],
     }]
+    capped_projection = epistemic.cognitive_projection(max_states=1,
+        current_tick=4, prioritized_proposition_ids=(propositions[0].proposition_id,))
+    assert capped_projection is not None
+    assert capped_projection.omission_manifest is not None
+    [capped_packet] = semantic_packets_for_projection(capped_projection)
+    [capped_relation] = capped_packet["proposition_relations"]
+    assert len(capped_projection.states) == 1
+    assert capped_relation["relation"] == "contradicts"
+    peer_meaning = capped_relation["omitted_endpoint_proposition"]
+    assert peer_meaning["proposition_id"] == propositions[1].proposition_id
+    assert peer_meaning["object_value"] == 28
+    omitted_peer_state = next(row for row in
+        capped_projection.omission_manifest["omitted_state_identities"]
+        if row["proposition_id"] == propositions[1].proposition_id)
+    assert omitted_peer_state["stance"] == "supported"
+    assert capped_projection.authority is False
+    forged_peer = {**peer_meaning, "object_value": 29}
+    forged_relation = {**capped_relation,
+        "omitted_endpoint_proposition": forged_peer}
+    with pytest.raises(EpistemicStateError,
+            match="epistemic_semantic_relation_peer_proposition_invalid"):
+        validate_cognitive_projection(replace(capped_projection,
+            proposition_relations=(forged_relation,)))
 
     class RelationAwareFixtureInvoker(FakeInvoker):
         def __init__(self):
@@ -134,7 +157,7 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
 
     outcomes = []
     for label, prior_projection in (("unlinked", unlinked_projection),
-            ("contradiction-linked", projection)):
+            ("contradiction-linked", capped_projection)):
         invoker = RelationAwareFixtureInvoker()
         _context, _metadata, prompt = _bind_epistemic_context(context={
             "instruction": "Assess the prior temperature readings.",

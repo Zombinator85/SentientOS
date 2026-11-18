@@ -63,12 +63,14 @@ relations when both endpoints have eligible prior positions and at least one
 endpoint is selected. The relation is repeated in each selected endpoint's
 packet and remains a recorded historical link, not truth or authority. Context
 assembly keeps `contradicts` and `supersedes` endpoint packets together when
-both are in the projection; when the input budget cannot carry the pair, it
-omits the pair and records the relation digest. Prompt instructions explicitly
-forbid treating an omitted relation or endpoint as absent or resolved. Older
-projection versions retain their existing identity formats. Deterministic
-fixtures establish projection and budget behavior; real-model use remains
-unverified.
+both are in the projection. If the state cap omits one endpoint, its canonical
+proposition meaning accompanies the relation and its state remains summarized
+as omitted; the projection validator rechecks that proposition identity. If
+the input budget cannot carry a projected pair, it omits the pair and records
+the relation digest. Prompt instructions explicitly forbid treating an omitted
+relation or endpoint as absent or resolved. Older projection versions retain
+their existing identity formats. Deterministic fixtures establish projection
+and budget behavior; real-model use remains unverified.
 
 Ordinary companion responses now return `epistemic_state_ids` for stored
 positions whose complete semantic packets reached the prompt and materially
