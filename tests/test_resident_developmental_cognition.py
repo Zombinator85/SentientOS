@@ -9437,7 +9437,7 @@ def test_companion_interaction_validates_and_forwards_session_context(
     owner._state = lambda: object()
     owner._prior_projection = lambda _state, _tick, **_kwargs: SimpleNamespace(
         requested_record_ids=(), records=())
-    owner._current_projection = lambda _snapshot, **_kwargs: object()
+    owner._current_projection = lambda _snapshot, **_kwargs: SimpleNamespace(facts=())
 
     def cognize(**kwargs):
         captured.update(kwargs)
