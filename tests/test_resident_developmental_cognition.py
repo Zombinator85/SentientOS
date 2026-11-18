@@ -10171,7 +10171,7 @@ def test_semantically_retrieved_experience_changes_later_response_with_restorati
     for index in range(191):
         acquisition_fake.history_interpretation = (
             f"A newer retained observation about an unrelated cloud chamber {index}.")
-        intervening = acquisition_owner.run_tick(snapshot(index + 3),
+        intervening = acquisition_owner.run_tick(snapshot=snapshot(index + 3),
             tick_id=f"semantic-history-intervening-{index:03d}")
         assert intervening.written_record_id
 
