@@ -9491,6 +9491,7 @@ def test_companion_bridge_uses_selected_current_facts_for_elliptical_epistemic_r
     by_id = {item.proposition_id: item for item in (overheating, telescope)}
     relevant = next(item for item in (overheating, telescope)
         if item.proposition_id != baseline.proposition_ids[0])
+    unrelated = by_id[baseline.proposition_ids[0]]
 
     class CapturingEpistemicOwner:
         def __init__(self):
