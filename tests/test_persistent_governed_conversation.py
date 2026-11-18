@@ -3199,6 +3199,44 @@ def test_canonical_memory_retrieval_shares_inflection_normalization(
     assert unrelated_query["memories"] == []
 
 
+def test_competing_memory_corrections_are_selected_or_omitted_as_a_group(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    original = {"id": "memory-" + "1" * 24,
+        "text": "I prefer detailed answers.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    target = {"memory_id": original["id"],
+        "memory_record_digest": digest(original)}
+    concise = {"id": "memory-" + "2" * 24,
+        "text": "I prefer concise answers.",
+        "timestamp": "2026-01-02T00:00:00+00:00",
+        "meta": {"correction_schema": "sentientos.canonical_memory_correction:v1",
+            "correction_targets": [target]}}
+    medium = {"id": "memory-" + "3" * 24,
+        "text": "I prefer medium length answers.",
+        "timestamp": "2026-01-03T00:00:00+00:00",
+        "meta": {"correction_schema": "sentientos.canonical_memory_correction:v1",
+            "correction_targets": [target]}}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: ([original, concise, medium], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    omitted_by_limit = store.retrieve("concise", limit=1)
+    omitted_by_budget = store.retrieve("concise", limit=2,
+        budget_chars=len(concise["text"]) + len(medium["text"]) - 1)
+    selected_together = store.retrieve("concise", limit=2)
+
+    assert omitted_by_limit["memories"] == []
+    assert omitted_by_limit["omitted_memory_count"] == 2
+    assert omitted_by_limit["selection_posture"] == "matching_records_omitted"
+    assert omitted_by_budget["memories"] == []
+    assert omitted_by_budget["omitted_memory_count"] == 2
+    assert omitted_by_budget["selection_posture"] == "matching_records_omitted"
+    assert {row["id"] for row in selected_together["memories"]} == {
+        concise["id"], medium["id"]}
+    assert len(selected_together["correction_relations"]) == 2
+    assert selected_together["selection_posture"] == "all_matching_records_selected"
+
+
 def test_canonical_memory_retrieval_preserves_unicode_accents(
         monkeypatch: pytest.MonkeyPatch) -> None:
     retained = {"id": "memory-creme", "text": "The crème was served after dinner.",
