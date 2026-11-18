@@ -552,6 +552,7 @@ EPISTEMIC_REVISION_PROBE_INSTRUCTION = (
     "the recorded stance rather than inventing a conflict from limited corroboration alone. "
     "If update_event_history_compaction is present, older events remain in owner custody but "
     "are omitted from this view; do not claim to have reviewed them or infer their details. "
+    "Each update_event_history row is an array ordered by update_event_history_columns. "
     "When both remain unresolved, represent the conclusion as contested: active supporting "
     "and contradicting bindings must remain together; cite every relevant binding from both "
     "sides. Insufficient "
@@ -4792,8 +4793,13 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
 EPISTEMIC_REVISION_PROBE_CONTEXT_SCHEMA = (
     "sentientos.epistemic_revision_probe_context:v1")
 EPISTEMIC_REVISION_PROBE_PACKET_VIEW_SCHEMA = (
-    "sentientos.epistemic_revision_probe_packet_view:v2")
-MAX_EPISTEMIC_PROBE_UPDATE_EVENTS = 8
+    "sentientos.epistemic_revision_probe_packet_view:v3")
+MAX_EPISTEMIC_PROBE_UPDATE_EVENTS = 64
+EPISTEMIC_PROBE_UPDATE_EVENT_COLUMNS = (
+    "event_id", "tick", "generation", "reason", "added_binding_ids",
+    "removed_binding_ids", "dependency_changes", "reliability_changes",
+    "update_rule_revision", "candidate_id",
+)
 EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACT = (
     "sentientos.epistemic_revision_answer:v2")
 _EPISTEMIC_REVISION_PROBE_UNRELATED_CONTEXT_FIELDS = (
@@ -4818,11 +4824,16 @@ def _epistemic_revision_probe_packet_view(
             and isinstance(last_event, Mapping)
             and dict(last_event) == event_history[-1]):
         view.pop("last_update_event", None)
+    if isinstance(event_history, (list, tuple)):
+        view["update_event_history_columns"] = list(
+            EPISTEMIC_PROBE_UPDATE_EVENT_COLUMNS)
+        retained = list(event_history[-MAX_EPISTEMIC_PROBE_UPDATE_EVENTS:])
+        view["update_event_history"] = [
+            [event.get(column) for column in EPISTEMIC_PROBE_UPDATE_EVENT_COLUMNS]
+            for event in retained]
     if (isinstance(event_history, (list, tuple))
             and len(event_history) > MAX_EPISTEMIC_PROBE_UPDATE_EVENTS):
         omitted = list(event_history[:-MAX_EPISTEMIC_PROBE_UPDATE_EVENTS])
-        view["update_event_history"] = list(
-            event_history[-MAX_EPISTEMIC_PROBE_UPDATE_EVENTS:])
         first_omitted, last_omitted = omitted[0], omitted[-1]
         view["update_event_history_compaction"] = {
             "schema_version": "sentientos.epistemic_update_history_compaction:v1",

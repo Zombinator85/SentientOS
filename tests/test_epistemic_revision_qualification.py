@@ -665,13 +665,20 @@ def test_epistemic_revision_probe_prompt_is_compact_and_evidence_complete(
     assert not any(seed.written_record_id in json.dumps(value)
         for key, value in context.items() if key.startswith("developmental_history"))
     assert packet["schema_version"] == (
-        "sentientos.epistemic_revision_probe_packet_view:v2")
+        "sentientos.epistemic_revision_probe_packet_view:v3")
     assert packet["source_packet_schema_version"] == source_packet["schema_version"]
     assert packet["source_packet_id"] == source_packet["packet_id"]
     assert packet["source_packet_digest"] == source_packet["packet_digest"]
     assert packet["state"] == source_packet["state"]
     assert packet["proposition"] == source_packet["proposition"]
-    assert packet["update_event_history"] == source_packet["update_event_history"]
+    event_columns = [
+        "event_id", "tick", "generation", "reason", "added_binding_ids",
+        "removed_binding_ids", "dependency_changes", "reliability_changes",
+        "update_rule_revision", "candidate_id"]
+    assert packet["update_event_history_columns"] == event_columns
+    assert packet["update_event_history"] == [
+        [event.get(column) for column in event_columns]
+        for event in source_packet["update_event_history"]]
     assert "last_update_event" not in packet
     assert packet["active_evidence_bindings"] == (
         source_packet["active_evidence_bindings"])
@@ -722,14 +729,15 @@ def test_epistemic_revision_probe_prompt_is_compact_and_evidence_complete(
         for context in ordinary_contexts)
 
 
+@pytest.mark.parametrize("additional_updates", [44, 79])
 def test_epistemic_probe_bounds_growing_update_history_without_omitting_state(
-        tmp_path: Path) -> None:
+        tmp_path: Path, additional_updates: int) -> None:
     epistemic_root = tmp_path / "epistemic"
     _initial_projection, proposition, state = epistemic_projection(epistemic_root,
         with_evidence=True)
     epistemic = PersistentEpistemicStateOwner(epistemic_root,
         allowed_namespaces=["embodiment"])
-    for index in range(1, 45):
+    for index in range(1, additional_updates + 1):
         state, _event = epistemic.commit_update(
             proposition_id=proposition.proposition_id,
             expected_predecessor_digest=state.state_digest,
@@ -738,12 +746,13 @@ def test_epistemic_probe_bounds_growing_update_history_without_omitting_state(
             correlation_id=f"history-growth:{index}", tick=index + 1,
             recorded_at=(datetime(2026, 2, 1, tzinfo=timezone.utc)
                 + timedelta(minutes=index)).isoformat().replace("+00:00", "Z"))
-    projection = epistemic.cognitive_projection(max_states=1, current_tick=46,
+    projection = epistemic.cognitive_projection(max_states=1,
+        current_tick=additional_updates + 2,
         prioritized_proposition_ids=(proposition.proposition_id,))
     assert projection is not None
     [source_packet] = semantic_packets_for_projection(projection)
     source_events = source_packet["update_event_history"]
-    assert len(source_events) == 45
+    assert len(source_events) == additional_updates + 1
 
     context, _metadata, prompt = _bind_epistemic_context(context={
         "instruction": "Review the prior epistemic state.",
@@ -759,13 +768,23 @@ def test_epistemic_probe_bounds_growing_update_history_without_omitting_state(
     assert packet["active_evidence_bindings"] == source_packet["active_evidence_bindings"]
     assert packet["source_packet_id"] == source_packet["packet_id"]
     assert packet["source_packet_digest"] == source_packet["packet_digest"]
-    assert packet["update_event_history"] == source_events[-8:]
-    compaction = packet["update_event_history_compaction"]
-    assert compaction["total_event_count"] == 45
-    assert compaction["omitted_event_count"] == 37
-    assert compaction["omitted_event_history_digest"] == _digest(source_events[:-8])
-    assert compaction["omitted_generation_range"] == [0, 36]
-    assert packet["update_event_history"][-1] == source_events[-1]
+    columns = packet["update_event_history_columns"]
+    assert packet["update_event_history"] == [
+        [event.get(column) for column in columns]
+        for event in source_events[-64:]]
+    omitted_count = max(0, len(source_events) - 64)
+    if omitted_count:
+        compaction = packet["update_event_history_compaction"]
+        assert compaction["total_event_count"] == len(source_events)
+        assert compaction["omitted_event_count"] == omitted_count
+        assert compaction["omitted_event_history_digest"] == _digest(
+            source_events[:-64])
+        assert compaction["omitted_generation_range"] == [0, omitted_count - 1]
+    else:
+        assert "update_event_history_compaction" not in packet
+        assert len(packet["update_event_history"]) == len(source_events)
+    assert packet["update_event_history"][-1] == [
+        source_events[-1].get(column) for column in columns]
 
 
 def test_verified_captures_feed_the_existing_pair_scorer(tmp_path: Path) -> None:
@@ -786,7 +805,7 @@ def test_verified_captures_feed_the_existing_pair_scorer(tmp_path: Path) -> None
     projection, proposition, state = epistemic_projection(epistemic_root)
     epistemic = PersistentEpistemicStateOwner(epistemic_root,
         allowed_namespaces=["embodiment"])
-    for index in range(1, 10):
+    for index in range(1, 70):
         state, _event = epistemic.commit_update(
             proposition_id=proposition.proposition_id,
             expected_predecessor_digest=state.state_digest,
@@ -795,7 +814,7 @@ def test_verified_captures_feed_the_existing_pair_scorer(tmp_path: Path) -> None
             correlation_id=f"scorer-history:{index}", tick=index + 1,
             recorded_at=(datetime(2026, 2, 1, tzinfo=timezone.utc)
                 + timedelta(minutes=index)).isoformat().replace("+00:00", "Z"))
-    projection = epistemic.cognitive_projection(max_states=1, current_tick=11,
+    projection = epistemic.cognitive_projection(max_states=1, current_tick=71,
         prioritized_proposition_ids=(proposition.proposition_id,))
     assert projection is not None
     before_owner, _ = owner(_cognition_root(tmp_path, "before"),
@@ -812,7 +831,7 @@ def test_verified_captures_feed_the_existing_pair_scorer(tmp_path: Path) -> None
     after_capture = after_owner.verified_epistemic_revision_probe_capture(after_id)
     before_packet = json.loads(before_capture.prompt)[
         "prior_epistemic_state"]["semantic_packets"][0]
-    assert before_packet["update_event_history_compaction"]["omitted_event_count"] == 2
+    assert before_packet["update_event_history_compaction"]["omitted_event_count"] == 6
     # This fixture test exercises only capture-to-scorer wiring; fixture prompt
     # generation after capture does not establish experimental preregistration.
     key = IndependentAnswerKey("unknown", "unknown", "retain_uncertainty", ())
