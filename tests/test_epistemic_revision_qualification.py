@@ -50,6 +50,9 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
             expected_predecessor_digest=None, stance="supported", reason="initialization",
             active_binding_ids=(), correlation_id=f"initialize:{proposition.proposition_id}",
             tick=1, recorded_at="2026-01-01T00:00:00Z")
+    unlinked_projection = epistemic.cognitive_projection(max_states=2,
+        current_tick=4)
+    assert unlinked_projection is not None
     epistemic.add_relation(PropositionRelation(
         source_proposition_id=propositions[0].proposition_id,
         target_proposition_id=propositions[1].proposition_id,
@@ -104,6 +107,52 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
         "relation": "contradicts",
         "relation_digest": projection.proposition_relations[0]["relation_digest"],
     }]
+
+    class RelationAwareFixtureInvoker(FakeInvoker):
+        def __init__(self):
+            super().__init__()
+            self.outputs = {}
+
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            if request.purpose == "resident_developmental_retrieval_cognition":
+                prior = json.loads(request.prompt)["prior_epistemic_state"]
+                has_contradiction_link = any(
+                    relation.get("relation") == "contradicts"
+                    for packet in prior.get("semantic_packets", ())
+                    for relation in packet.get("proposition_relations", ()))
+                self.lesson_statement = ("The prior positions are linked by a recorded conflict; "
+                    "reconcile their evidence before choosing a direction."
+                    if has_contradiction_link else
+                    "The prior positions have no recorded relation in this projection.")
+                self.lesson_uncertainty = "high" if has_contradiction_link else "medium"
+            receipt = super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+            self.outputs[request.request_id] = receipt.output_text
+            return receipt
+
+    outcomes = []
+    for label, prior_projection in (("unlinked", unlinked_projection),
+            ("contradiction-linked", projection)):
+        invoker = RelationAwareFixtureInvoker()
+        _context, _metadata, prompt = _bind_epistemic_context(context={
+            "instruction": "Assess the prior temperature readings.",
+            "companion_question": "How should the prior readings guide this decision?"},
+            projection=prior_projection, max_input_chars=16_000)
+        inference_request = invoker.build_request(
+            purpose="resident_developmental_retrieval_cognition", prompt=prompt,
+            caller="relation_counterfactual_fixture", correlation_id=f"relation:{label}",
+            expected_output_format="text", structured_output_schema=None,
+            upstream_evidence={}, linkage={})
+        receipt = invoker.invoke(inference_request, persist=False,
+            include_output_in_receipt=True)
+        assert receipt.output_text is not None
+        outcome = json.loads(invoker.outputs[inference_request.request_id])
+        outcomes.append(outcome)
+    assert outcomes[0]["uncertainty"] == "medium"
+    assert outcomes[1]["uncertainty"] == "high"
+    assert outcomes[0]["recommendation"] != outcomes[1]["recommendation"]
 
 
 def test_pair_context_comparison_ignores_treatments_and_detects_unlisted_fields() -> None:
