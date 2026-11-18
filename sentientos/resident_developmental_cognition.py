@@ -8224,7 +8224,7 @@ class ResidentDevelopmentalCognitionOwner:
                 query_terms & _HISTORY_DECISION_PREDICATE_TERMS)
             query_is_negative_decision = bool(
                 query_terms & _HISTORY_DECISION_NEGATION_TERMS)
-            ranked: list[tuple[float, int, int, str]] = []
+            ranked: list[tuple[int, float, int, str]] = []
             document_count = max(1, len(document_term_weights))
             for order, record_id in enumerate(ids):
                 weights = document_term_weights[record_id]
