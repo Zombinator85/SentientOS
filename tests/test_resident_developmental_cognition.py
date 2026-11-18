@@ -9985,6 +9985,7 @@ def test_retrieved_experience_changes_later_companion_recommendation_with_restor
     # Reconstruct the owner to ensure the later recommendation consumes durable
     # experience rather than an in-memory object from the acquisition call.
     application_fake = HistoryApplyingFakeInvoker()
+    # A one-record budget makes semantic reranking compete against recency.
     application_owner, _ = owner(tmp_path / "cognition", comparison=True,
         invoker=application_fake)
     result = application_owner.run_companion_history_intervention(
@@ -10062,6 +10063,7 @@ def test_semantically_retrieved_experience_changes_later_response_with_restorati
     application_fake = HistoryApplyingFakeInvoker()
     application_owner, _ = owner(tmp_path / "cognition", comparison=True,
         invoker=application_fake,
+        max_retrieved_records=1,
         semantic_history_model_id="test/local-embedder",
         semantic_history_model_revision="b" * 40)
     result = application_owner.run_companion_history_intervention(
