@@ -140,6 +140,19 @@ def runner(monkeypatch, tmp_path):
     return module
 
 
+def test_runner_creates_private_history_and_state_roots(runner, tmp_path):
+    run_root = tmp_path / "isolated-run"
+    run_root.mkdir(mode=0o700)
+
+    history_root, state_root = runner._prepare_resident_cognition_roots(run_root)
+
+    assert history_root.is_dir()
+    assert state_root.is_dir()
+    if os.name != "nt":
+        assert history_root.stat().st_mode & 0o077 == 0
+        assert state_root.stat().st_mode & 0o077 == 0
+
+
 def test_runner_uses_explicit_manifest_path_only_inside_experiment_custody(
         runner, monkeypatch, tmp_path):
     experiment_root = tmp_path / "rootless-experimental"

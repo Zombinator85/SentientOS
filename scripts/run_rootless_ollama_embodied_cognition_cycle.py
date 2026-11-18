@@ -1519,6 +1519,23 @@ def _require_experiment_runtime_dependencies() -> None:
                 f"experimental_runtime_dependency_missing:{module_name}")
 
 
+def _prepare_resident_cognition_roots(run_root: Path) -> tuple[Path, Path]:
+    """Create isolated history and state roots with the run's private custody."""
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        cognition_root = ensure_private_child_directory(
+            run_root, "resident-cognition")
+        history_root = ensure_private_child_directory(cognition_root, "history")
+        state_root = ensure_private_child_directory(cognition_root, "state")
+        return history_root, state_root
+    cognition_root = run_root / "resident-cognition"
+    cognition_root.mkdir(mode=0o700, exist_ok=False)
+    history_root, state_root = cognition_root / "history", cognition_root / "state"
+    history_root.mkdir(mode=0o700, exist_ok=False)
+    state_root.mkdir(mode=0o700, exist_ok=False)
+    return history_root, state_root
+
+
 def run() -> dict[str, Any]:
     global RUN_STAGE, PRE_ACTION_DECISION_EVIDENCE, RUN_PREREGISTRATION_DIGEST
     PRE_ACTION_DECISION_EVIDENCE = None
@@ -1596,8 +1613,7 @@ def run() -> dict[str, Any]:
             {"identity": session.active_model_identity})
     try:
         RUN_STAGE = "synthetic_pre_action_cognition"
-        cognition_root = RUN_ROOT / "resident-cognition"
-        history_root, state_root = cognition_root / "history", cognition_root / "state"
+        history_root, state_root = _prepare_resident_cognition_roots(RUN_ROOT)
         ledger = AdmissionLedger(state_root / "runtime_admissions.json")
 
         def current_sequence() -> int:
