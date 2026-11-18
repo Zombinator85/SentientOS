@@ -10386,6 +10386,9 @@ class ResidentDevelopmentalCognitionOwner:
                     or any(row.get("tick_id") == tick_id for row in state["incomplete_ticks"])):
                 raise ResidentDevelopmentalCognitionError("tick_already_completed")
             prior = self._prior_projection(state, tick_id,
+                relevance_query=(question if history_record_allowlist is None else None),
+                target_model_identity=(
+                    _observed_current_cognition_model_identity(self.invoker)),
                 record_allowlist=history_record_allowlist)
             if (not prior.requested_record_ids
                     or (history_record_allowlist is not None
@@ -10400,7 +10403,7 @@ class ResidentDevelopmentalCognitionOwner:
             objective_request_digest=None,
             companion_intervention_question=question,
             companion_intervention_captures=captures,
-            companion_intervention_record_allowlist=history_record_allowlist,
+            companion_intervention_record_allowlist=prior.requested_record_ids,
             companion_intervention_condition_order=effective_condition_order,
             companion_intervention_trial_index=trial_index)
         if (cycle.status != "companion_history_intervention_completed"

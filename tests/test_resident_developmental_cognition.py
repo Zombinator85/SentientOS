@@ -7384,7 +7384,9 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
           max_selected_facts: int = 1, objective_task=None,
           resource_context_owner=None, max_inference_timeout_seconds: int = 30,
           max_retrieved_records: int = 4,
-          max_inference_input_chars: int | None = None):
+          max_inference_input_chars: int | None = None,
+          semantic_history_model_id: str | None = None,
+          semantic_history_model_revision: str | None = None):
     ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
     def current():
@@ -7399,7 +7401,9 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
         root / "history", root / "state", allowed_source_kinds, max_selected_facts,
         max_retrieved_records,
         comparison, max_inference_timeout_seconds=max_inference_timeout_seconds,
-        max_inference_input_chars=max_inference_input_chars), writeback=ctrl,
+        max_inference_input_chars=max_inference_input_chars,
+        semantic_history_model_id=semantic_history_model_id,
+        semantic_history_model_revision=semantic_history_model_revision), writeback=ctrl,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
         invoker=fake, current_sequence=next_sequence, objective_task=objective_task,
         resource_context_owner=resource_context_owner)
@@ -10000,6 +10004,81 @@ def test_retrieved_experience_changes_later_companion_recommendation_with_restor
     assert withheld["retrieved_record_ids"] == []
     assert result.response_text_classification == (
         "history_presence_associated_stable_response_text_difference")
+    assert result.restored_prompt_matches is True
+    assert result.authority is False and result.action_authority is False
+    assert result.canonical_explicit_user_retention_mutated is False
+
+
+def test_semantically_retrieved_experience_changes_later_response_with_restoration(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    relevant_text = (
+        "After torrential rainfall the elevated stone refuge stayed dry while "
+        "lowland camps flooded.")
+    decoy_text = "A high-altitude cloud chamber mapped crystalline dust spectra."
+    acquisition_fake = FakeInvoker()
+    acquisition_owner, _ = owner(tmp_path / "cognition", invoker=acquisition_fake)
+    acquisition_fake.history_interpretation = relevant_text
+    relevant = acquisition_owner.run_tick(snapshot=snapshot(),
+        tick_id="semantic-history-relevant-experience")
+    acquisition_fake.history_interpretation = decoy_text
+    decoy = acquisition_owner.run_tick(snapshot=snapshot(2),
+        tick_id="semantic-history-newer-decoy")
+    assert relevant.written_record_id and decoy.written_record_id
+
+    def fake_encode(texts, *, model_id, revision):
+        vectors = [(1.0, 0.0)]
+        vectors.extend([(0.99, 0.01) if "elevated stone refuge" in text
+            else (0.0, 1.0) for text in texts[1:]])
+        return SimpleNamespace(identity_digest="a" * 64,
+            vectors=tuple(vectors))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+
+    class HistoryApplyingFakeInvoker(FakeInvoker):
+        def invoke(self, request, **kwargs):
+            condition = request.linkage.get("condition_id")
+            if (request.purpose == "resident_developmental_history_intervention_experiment"
+                    and condition in {"history_present", "history_withheld",
+                        "history_restored"}):
+                prompt = json.loads(request.prompt)
+                history = prompt.get("developmental_history", [])
+                interpretations = " ".join(str(row.get("interpretation", ""))
+                    for row in history if isinstance(row, Mapping))
+                if "elevated stone refuge" in interpretations:
+                    decision = {"disposition": "answer",
+                        "response": "Use the elevated refuge during a flood.",
+                        "evidence_ids": [],
+                        "history_record_ids": ["__CURRENT_HISTORY__"]}
+                else:
+                    decision = {"disposition": "abstain",
+                        "response": "No applicable retained experience is available.",
+                        "evidence_ids": [], "history_record_ids": []}
+                self.companion_output_by_condition[condition] = decision
+            return super().invoke(request, **kwargs)
+
+    application_fake = HistoryApplyingFakeInvoker()
+    application_owner, _ = owner(tmp_path / "cognition", comparison=True,
+        invoker=application_fake,
+        semantic_history_model_id="test/local-embedder",
+        semantic_history_model_revision="b" * 40)
+    result = application_owner.run_companion_history_intervention(
+        snapshot=snapshot(3), tick_id="semantic-history-application",
+        question="Where was the safe place during the water emergency?")
+
+    assert result.response_text_classification == (
+        "history_presence_associated_stable_response_text_difference")
+    present, withheld, restored = result.conditions
+    assert present["response"] == restored["response"] == (
+        "Use the elevated refuge during a flood.")
+    assert withheld["response"] == (
+        "No applicable retained experience is available.")
+    assert present["retrieved_record_ids"] == restored["retrieved_record_ids"] == [
+        relevant.written_record_id]
+    assert withheld["retrieved_record_ids"] == []
+    assert decoy.written_record_id not in present["retrieved_record_ids"]
     assert result.restored_prompt_matches is True
     assert result.authority is False and result.action_authority is False
     assert result.canonical_explicit_user_retention_mutated is False
