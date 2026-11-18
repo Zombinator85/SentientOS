@@ -10,8 +10,8 @@ FIDES and SentientOS overlap in deterministic pre-effect enforcement, exact bind
 
 * SentientOS evidence is the checked-out implementation and tests at `013a0eb282715e17e19da2d2d1826ce7b07b0190`; the atlas and custody report were indexes, never substitutes for source inspection.
 * The audit searched modern governed custody and legacy memory/perception paths before classifying gaps.
-* Public FIDES evidence was checked against the Microsoft Agent Framework `main` branch on 2026-11-17: the [Developer Guide](https://github.com/microsoft/agent-framework/blob/main/python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md), [implementation summary](https://github.com/microsoft/agent-framework/blob/main/docs/features/FIDES_IMPLEMENTATION_SUMMARY.md), and [ADR 0024](https://github.com/microsoft/agent-framework/blob/main/docs/decisions/0024-prompt-injection-defense.md). The [paper](https://arxiv.org/abs/2505.23643) anchors the research lineage.
-* The available search service returned an authorization error and the guessed Learn route returned 404. Therefore a distinct current Microsoft Learn article was **not independently verified**; no behavior beyond the supplied facts and pinned Microsoft sources is inferred.
+* The audit's recorded FIDES source snapshot is Microsoft Agent Framework commit `53e98134c91127d040daf034e889e633af4218bc`, with source identifiers `python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md`, `docs/features/FIDES_IMPLEMENTATION_SUMMARY.md`, and `docs/decisions/0024-prompt-injection-defense.md`. The research lineage is identified by [the paper](https://arxiv.org/abs/2505.23643). The repository URLs for the three source files currently return 404, so this checkout does not claim that those source contents were independently revalidated.
+* A distinct current Microsoft Learn article was **not independently verified**; no behavior beyond the audit's recorded snapshot is inferred.
 * Comparative classifications are architectural judgments, not test-proven facts or product-maturity scores.
 
 ## FIDES mechanism summary
