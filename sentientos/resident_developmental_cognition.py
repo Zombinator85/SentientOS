@@ -5237,7 +5237,9 @@ def _validate_epistemic_observation_binding(value: Mapping[str, Any]) -> None:
                 "sentientos.epistemic_cognitive_projection:v4",
                 "sentientos.epistemic_cognitive_projection:v5",
                 "sentientos.epistemic_cognitive_projection:v6",
-                "sentientos.epistemic_cognitive_projection:v7"}:
+                "sentientos.epistemic_cognitive_projection:v7",
+                "sentientos.epistemic_cognitive_projection:v8",
+                "sentientos.epistemic_cognitive_projection:v9"}:
         if (status not in {"all_meanings_delivered",
                 "complete_packets_selected_with_budget_omissions"}
                 or (status == "all_meanings_delivered" and omitted)
