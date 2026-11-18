@@ -6521,11 +6521,18 @@ def test_semantic_history_samples_older_lexically_disjoint_experience(
         {"tick_id": f"tick-{index}", "record_id": record_id}
         for index, record_id in enumerate(record_ids)]}
 
-    selected = ResidentDevelopmentalCognitionOwner._prior_projection(
-        fake_owner, state, "later-monsoon-query",
-        relevance_query="Where is the refuge during the monsoon?")
+    selected = None
+    embedded_texts = ()
+    for variant in range(64):
+        selected = ResidentDevelopmentalCognitionOwner._prior_projection(
+            fake_owner, state, f"later-monsoon-query-{variant}",
+            relevance_query=("Where is the refuge during the monsoon? "
+                f"paraphrase {variant}."))
+        embedded_texts = observed["texts"][1:]
+        if any("basalt outpost" in text for text in embedded_texts):
+            break
 
-    embedded_texts = observed["texts"][1:]
+    assert selected is not None
     assert len(embedded_texts) == 256
     assert any("basalt outpost" in text for text in embedded_texts)
     assert any("stone refuge" in text for text in embedded_texts)
@@ -6533,7 +6540,7 @@ def test_semantic_history_samples_older_lexically_disjoint_experience(
     assert selected.retrieval_policy_id == (
         "query_decision_polarity_then_semantic_then_overlap_with_"
         "identity_bound_correction_groups_decision_contrasts_embodied_"
-        "reports_and_elliptical_session_context_then_recency_fill:v13:"
+        "reports_and_elliptical_session_context_then_recency_fill:v14:"
         + "d" * 64)
 
     selection = {"schema_version": "sentientos.developmental_history_selection:v1",
@@ -6547,6 +6554,83 @@ def test_semantic_history_samples_older_lexically_disjoint_experience(
     cognition_module._validate_developmental_history_selection({
         "developmental_history_selection": selection,
         "retrieved_record_ids": [], "retrieved_record_digests": []})
+
+
+def test_semantic_history_query_phases_reach_complementary_older_records(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    record_ids = [f"history-{index:04d}" for index in range(400)]
+    candidates = {record_id: {"selected_facts": [], "interpretation":
+        f"{record_id} :: unrelated orbital instrument calibration."}
+        for record_id in record_ids}
+    encoded_ids: set[str] = set()
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, selected_ids, *, limit):
+            return DevelopmentalHistoryProjection(records=(),
+                requested_record_ids=tuple(selected_ids))
+
+    def fake_encode(texts, *, model_id, revision):
+        encoded_ids.clear()
+        encoded_ids.update(text.split(" :: ", 1)[0]
+            for text in texts[1:] if text.startswith("history-")
+            and " :: " in text)
+        target_vectors = [(1.0, 0.0) if "obsidian outpost" in text
+            else (0.0, 1.0) for text in texts[1:]]
+        return SimpleNamespace(identity_digest="d" * 64,
+            vectors=((1.0, 0.0), *target_vectors))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    fake_owner = SimpleNamespace(writeback=Writeback(),
+        config=SimpleNamespace(max_retrieved_records=1,
+            semantic_history_model_id="test/local-embedder",
+            semantic_history_model_revision="a" * 40), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": f"tick-{index}", "record_id": record_id}
+        for index, record_id in enumerate(record_ids)]}
+    base_query = "Which location is a safe refuge when floodwater arrives?"
+
+    ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-question-1", relevance_query=base_query)
+    first_phase_ids = set(encoded_ids)
+    omitted_target_id = next(record_id for record_id in record_ids[:208]
+        if record_id not in first_phase_ids)
+    candidates[omitted_target_id]["interpretation"] = (
+        f"{omitted_target_id} :: The obsidian outpost remained dry through "
+        "cyclonic inundation.")
+
+    omitted = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-question-2", relevance_query=base_query)
+    repeated_phase_ids = set(encoded_ids)
+    assert repeated_phase_ids == first_phase_ids
+    assert omitted_target_id not in repeated_phase_ids
+    assert omitted_target_id not in omitted.requested_record_ids
+
+    recovered = None
+    for variant in range(1, 65):
+        query = f"{base_query} Rephrase {variant}."
+        projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+            fake_owner, state, f"later-question-variant-{variant}",
+            relevance_query=query)
+        assert len(encoded_ids) == 256
+        if omitted_target_id in encoded_ids:
+            recovered = projection
+            break
+
+    assert recovered is not None
+    assert recovered.requested_record_ids == (omitted_target_id,)
+    assert recovered.retrieval_policy_id is not None
 
 
 def test_semantic_embedding_api_is_cpu_pinned_and_never_falls_back(
