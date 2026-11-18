@@ -179,8 +179,8 @@ class SemanticHistoryIndex:
                 if exc.code != "semantic_history_index_identity_collision":
                     raise SemanticHistoryIndexError(
                         "semantic_history_index_publication_failed") from exc
-        existing = self._read_one(path.name)
-        if existing != data:
+        existing_bytes = self._read_one(path.name)
+        if existing_bytes != data:
             raise SemanticHistoryIndexError("semantic_history_index_identity_collision")
         self._remember_published(payload)
 
