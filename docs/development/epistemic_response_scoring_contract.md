@@ -53,11 +53,17 @@ production probe path still excludes those records. It retains
 the full projection ID/digest, source packet ID/digest and schema, proposition,
 state, all active and removed evidence bindings with their qualifiers, and up
 to 64 compact update-event rows retaining event identity, chronology, reason,
-and evidence/dependency/reliability deltas. Longer histories include a digest,
-count, generation range, and tick range for omitted earlier events; the
-persistent owner retains the complete history, and the probe instruction
-forbids claims about omitted events. The qualification scorer reconstructs
-this exact bounded view from the
+and evidence/dependency/reliability deltas. For histories longer than 64 rows,
+the view retains the latest 48 events and up to 16 older evidence-withdrawal,
+contradiction, calibration, refinement, or correction events. If fewer than 16
+such earlier events exist, the remaining slots go to the most recent older
+events. The retained rows stay in original order. A digest, count, generation
+range, and tick range describe omitted events; the persistent owner retains the
+complete history, and the probe instruction forbids claims about omitted
+events. A deterministic history-growth counterfactual verifies that an older
+operator correction survives beyond the 64-event window while the exact omitted
+event digest remains bound. The qualification scorer reconstructs this exact
+bounded view from the
 owner projection before counting the packet as delivered, so omitted or altered
 context cannot pass the delivery check. A paired prompt-builder counterfactual with two
 evidence bindings and one withdrawal reduced the prompt from 11,608 to 10,067
