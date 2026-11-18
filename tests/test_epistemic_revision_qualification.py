@@ -695,6 +695,14 @@ def test_epistemic_revision_probe_prompt_is_compact_and_evidence_complete(
     production_context = json.loads(request.prompt)
     assert "developmental_history" not in production_context
     assert "historical_embodiment_reports" not in production_context
+    ordinary = cognition.run_tick(snapshot=snapshot(2),
+        tick_id="ordinary-history-resumes")
+    assert ordinary.written_record_id is not None
+    ordinary_contexts = [json.loads(row.prompt)
+        for row in cognition.invoker.requests]
+    assert any(seed.written_record_id in {
+        packet["record_id"] for packet in context.get("developmental_history", ())}
+        for context in ordinary_contexts)
 
 
 def test_verified_captures_feed_the_existing_pair_scorer(tmp_path: Path) -> None:
