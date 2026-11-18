@@ -643,9 +643,12 @@ retrieved projections remain historical and non-authoritative. A deterministic
 daemon-path counterfactual shows a battery-overheating observation selecting
 the matching prior epistemic position over a newer unrelated telescope
 position, with the selected packet digest reaching the production cognition
-prompt and the epistemic owner state unchanged. This verifies selection and
-delivery with a CPU fake invoker, not real-model application or improved
-outcomes.
+prompt and the epistemic owner state unchanged. A paired old-ordering control
+uses the same current evidence but selects the unrelated telescope position;
+the CPU fake invoker then gives a different recommendation and higher
+uncertainty. This demonstrates current-context retrieval changing a later
+daemon cognition result while preserving the evidence boundary. It does not
+establish real-model application or improved outcomes.
 
 Elliptical companion history selection also uses bounded text from the selected,
 source-turn-verified canonical user memories. When a selected memory correction

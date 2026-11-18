@@ -9627,7 +9627,7 @@ def test_confirmed_developmental_cycle_uses_current_observation_to_retrieve_prio
     assert after_cycle.state_digests == prior_states.state_digests
 
 
-def test_daemon_cognition_uses_current_observation_to_rank_prior_epistemic_state(
+def test_daemon_cognition_current_observation_changes_later_epistemic_decision(
         tmp_path: Path) -> None:
     now = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
     if os.name == "nt":
@@ -9636,20 +9636,18 @@ def test_daemon_cognition_uses_current_observation_to_rank_prior_epistemic_state
         ensure_private_child_directory(tmp_path / "cognition", "state")
         ensure_private_child_directory(tmp_path / "cognition", "history")
         ensure_private_child_directory(tmp_path, "epistemic")
-    cognition, fake = owner(tmp_path / "cognition",
-        allowed_source_kinds=("capability_registry",), max_selected_facts=1)
     epistemic = PersistentEpistemicStateOwner(
         tmp_path / "epistemic", allowed_namespaces=("embodiment",))
     overheating = make_proposition(namespace="embodiment",
-        subject="sensor:battery_thermal", predicate="has_status",
-        object_value="overheating", polarity="positive", qualifiers={},
+        subject="lesson:battery_overheat_isolation", predicate="prior_observed_outcome",
+        object_value="reduced_after_isolation", polarity="positive", qualifiers={},
         temporal_scope={}, context_scope={}, proposition_class="descriptive",
-        statement="Battery thermal sensor reports overheating.")
+        statement="Battery overheating was reduced after isolation.")
     telescope = make_proposition(namespace="embodiment",
-        subject="telescope:orbital", predicate="captured_image",
+        subject="telescope:orbital:1", predicate="captured_image",
         object_value="Saturn", polarity="positive", qualifiers={},
         temporal_scope={}, context_scope={}, proposition_class="descriptive",
-        statement="The orbital telescope captured Saturn.")
+        statement="The orbital telescope captured Saturn 1.")
     for index, proposition in enumerate((overheating, telescope), start=1):
         epistemic.register_proposition(proposition)
         epistemic.commit_update(proposition_id=proposition.proposition_id,
@@ -9670,20 +9668,17 @@ def test_daemon_cognition_uses_current_observation_to_rank_prior_epistemic_state
     capture_calls = []
 
     class CapturingEpistemicOwner:
+        def __init__(self, *, use_relevance_query: bool) -> None:
+            self.use_relevance_query = use_relevance_query
+
         def cognitive_projection(self, **kwargs):
+            if not self.use_relevance_query:
+                kwargs.pop("relevance_query", None)
             projection = epistemic.cognitive_projection(**kwargs)
             capture_calls.append((kwargs, projection))
             return projection
 
-    surfaces = RuntimeMaintenanceSurfaces(tmp_path,
-        runtime_state_root=tmp_path / "runtime-daemon-current-retrieval",
-        resident_developmental_owner=cognition,
-        epistemic_state_owner=CapturingEpistemicOwner(),
-        epistemic_state_config={"status": "configured",
-            "max_cognitive_projection_count": 1,
-            "cognitive_consumption_enabled": True})  # type: ignore[arg-type]
     tick = now.isoformat()
-    surfaces.build_world_state_board(tick_id=tick)
     current_snapshot = WorldStateBoardBuilder().build([{
         "source_id": "daemon-current-observation",
         "source_kind": "capability_registry",
@@ -9692,22 +9687,88 @@ def test_daemon_cognition_uses_current_observation_to_rank_prior_epistemic_state
         "observed_at": tick,
         "payload": {"status": "overheating", "component": "battery"},
     }])
-    surfaces._world_state_snapshot = current_snapshot
 
-    feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+    class ProjectionConditionedInvoker(FakeInvoker):
+        def __init__(self) -> None:
+            super().__init__()
+            self.receipts = []
+
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            if request.purpose == "resident_developmental_retrieval_cognition":
+                body = json.loads(request.prompt)
+                packets = (body.get("prior_epistemic_state") or {}).get(
+                    "semantic_packets", ())
+                selected_ids = {packet.get("proposition", {}).get("proposition_id")
+                    for packet in packets if isinstance(packet, Mapping)}
+                if overheating.proposition_id in selected_ids:
+                    self.lesson_statement = (
+                        "Consider the prior battery isolation outcome, but verify "
+                        "that its scope matches the current overheating evidence.")
+                    self.lesson_uncertainty = "medium"
+                    self.lesson_uncertainty_rationale = (
+                        "The matching prior position is historical and its scope "
+                        "must still be checked.")
+                else:
+                    self.lesson_statement = (
+                        "The prior telescope position does not resolve the current "
+                        "battery overheating observation.")
+                    self.lesson_uncertainty = "high"
+                    self.lesson_uncertainty_rationale = (
+                        "No relevant prior battery outcome was selected.")
+            receipt = super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+            self.receipts.append(receipt)
+            return receipt
+
+    def run_daemon_cycle(label: str, *, use_relevance_query: bool):
+        cognition_root = tmp_path / f"{label}-cognition"
+        if os.name == "nt":
+            from sentientos.windows_handle_custody import ensure_private_child_directory
+            ensure_private_child_directory(tmp_path, f"{label}-cognition")
+            ensure_private_child_directory(cognition_root, "state")
+            ensure_private_child_directory(cognition_root, "history")
+        invoker = ProjectionConditionedInvoker()
+        cognition, _ = owner(cognition_root,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=invoker)
+        surfaces = RuntimeMaintenanceSurfaces(tmp_path,
+            runtime_state_root=tmp_path / f"runtime-{label}",
+            resident_developmental_owner=cognition,
+            epistemic_state_owner=CapturingEpistemicOwner(
+                use_relevance_query=use_relevance_query),
+            epistemic_state_config={"status": "configured",
+                "max_cognitive_projection_count": 1,
+                "cognitive_consumption_enabled": True})  # type: ignore[arg-type]
+        surfaces.build_world_state_board(tick_id=tick)
+        surfaces._world_state_snapshot = current_snapshot
+        feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+        request = next(item for item in invoker.requests
+            if item.purpose == "resident_developmental_retrieval_cognition")
+        receipt = next(item for item in invoker.receipts
+            if item.purpose == "resident_developmental_retrieval_cognition")
+        return feedback, request, receipt
+
+    feedback, cognition_request, cognition_receipt = run_daemon_cycle(
+        "ranked", use_relevance_query=True)
+    baseline_feedback, baseline_request, baseline_receipt = run_daemon_cycle(
+        "baseline", use_relevance_query=False)
 
     query, projection = capture_calls[0]
     assert feedback["status"] == "completed"
+    assert baseline_feedback["status"] == "completed"
     assert query["relevance_query"]
     assert "battery" in query["relevance_query"]
     assert "overheating" in query["relevance_query"]
     assert projection is not None
     assert projection.proposition_ids == (relevant.proposition_id,)
     assert projection.proposition_ids != (unrelated.proposition_id,)
+    _, baseline_projection = capture_calls[1]
+    assert baseline_projection is not None
+    assert baseline_projection.proposition_ids == (unrelated.proposition_id,)
     assert projection.current_truth is False and projection.authority is False
     assert projection.source_tick < int(now.timestamp())
-    cognition_request = next(item for item in fake.requests
-        if item.purpose == "resident_developmental_retrieval_cognition")
     prompt = json.loads(cognition_request.prompt)
     prior = prompt["prior_epistemic_state"]
     assert prior["semantic_packets"][0]["proposition"]["proposition_id"] == (
@@ -9715,6 +9776,20 @@ def test_daemon_cognition_uses_current_observation_to_rank_prior_epistemic_state
     assert cognition_request.upstream_evidence["epistemic_projection_digest"] == (
         projection.projection_digest)
     assert "overheating" in json.dumps(prompt["current_evidence"])
+    baseline_prompt = json.loads(baseline_request.prompt)
+    assert baseline_prompt["current_evidence"] == prompt["current_evidence"]
+    assert baseline_request.upstream_evidence["current_fact_ids"] == (
+        cognition_request.upstream_evidence["current_fact_ids"])
+    ranked_decision = json.loads(cognition_receipt.output_text)
+    baseline_decision = json.loads(baseline_receipt.output_text)
+    assert ranked_decision["recommendation"] == (
+        "Consider the prior battery isolation outcome, but verify that its scope "
+        "matches the current overheating evidence.")
+    assert baseline_decision["recommendation"] == (
+        "The prior telescope position does not resolve the current battery "
+        "overheating observation.")
+    assert ranked_decision["uncertainty"] == "medium"
+    assert baseline_decision["uncertainty"] == "high"
     after_cycle = epistemic.cognitive_projection(max_states=2,
         current_tick=int(now.timestamp()))
     assert after_cycle is not None
