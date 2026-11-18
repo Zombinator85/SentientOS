@@ -6506,6 +6506,70 @@ def test_semantic_embedding_api_is_cpu_pinned_and_never_falls_back(
         model_id="test/broken", revision="c" * 40) is None
 
 
+def test_configured_semantic_failure_is_recorded_as_lexical_fallback(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import resident_developmental_cognition as cognition_module
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    candidates = {
+        "older-relevant": {"selected_facts": [], "interpretation":
+            "The elevated refuge stayed dry when the low valley flooded."},
+        "newer-unrelated": {"selected_facts": [], "interpretation":
+            "The telescope captured a clear image of Saturn."},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            return DevelopmentalHistoryProjection(records=(),
+                requested_record_ids=tuple(record_ids))
+
+    import semantic_embeddings
+    calls = []
+
+    def unavailable(texts, *, model_id, revision):
+        calls.append((tuple(texts), model_id, revision))
+        return None
+
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", unavailable)
+    fake_owner = SimpleNamespace(writeback=Writeback(),
+        config=SimpleNamespace(max_retrieved_records=1,
+            semantic_history_model_id="test/local-embedder",
+            semantic_history_model_revision="a" * 40), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": "tick-0", "record_id": "older-relevant"},
+        {"tick_id": "tick-1", "record_id": "newer-unrelated"}]}
+
+    projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-question",
+        relevance_query="Where should we shelter during a flood?")
+
+    assert projection.requested_record_ids == ("older-relevant",)
+    assert projection.retrieval_policy_id == (
+        cognition_module.SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID)
+    assert calls and calls[0][1:] == ("test/local-embedder", "a" * 40)
+
+    selection = {"schema_version": "sentientos.developmental_history_selection:v1",
+        "policy": "most_recent_complete_record_suffix:v1",
+        "retrieval_policy_id": projection.retrieval_policy_id,
+        "task_family_id": None, "treatment": "present",
+        "available_records": [], "selected_records": [], "omitted_records": [],
+        "omitted_records_digest": cognition_module._digest([]),
+        "omission_reason": None}
+    selection["selection_digest"] = cognition_module._digest(selection)
+    cognition_module._validate_developmental_history_selection({
+        "developmental_history_selection": selection,
+        "retrieved_record_ids": [], "retrieved_record_digests": []})
+
+
 def test_semantic_retrieval_identity_is_accepted_by_history_lineage_validator() -> None:
     from sentientos import resident_developmental_cognition as cognition_module
 
